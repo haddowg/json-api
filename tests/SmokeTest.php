@@ -17,6 +17,9 @@ final class SmokeTest extends TestCase
     #[Test]
     public function toolchainIsWired(): void
     {
-        self::assertTrue(true);
+        self::assertTrue(
+            version_compare(PHP_VERSION, '8.3.0', '>='),
+            'The package requires PHP 8.3 or newer.',
+        );
     }
 }
