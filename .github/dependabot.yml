@@ -7,6 +7,9 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -16,3 +19,6 @@ updates:
     labels:
       - dependencies
       - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
