@@ -35,7 +35,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Top-level `links` member wiring into a document | ⬜ todo | Container types exist; binding them onto a document lands with the document classes. |
 | `data` / `errors` / `meta` mutual exclusivity & required members | ⬜ todo | Lands with the document hierarchy. |
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ⬜ todo | Lands with `Schema\Resource\*`. |
-| Resource identifier objects (`type`, `id`, `meta`) | ⬜ todo | Lands with `ResourceIdentifier`. |
+| Resource identifier objects (`type`, `id`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates required `type`/`id` and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `meta` omitted from `transform()` when empty. `ResourceIdentifierTest`. |
 | Compound documents / `included` | ⬜ todo | Lands with the serialization engine port. |
 
 ## Errors (`spec:errors`)
