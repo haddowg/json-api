@@ -3,9 +3,10 @@ MIT License
 Copyright (c) 2026 Gregory Haddow
 Copyright (c) Woohoo Labs and contributors (https://github.com/woohoolabs/yin)
 
-This package is a fork of woohoolabs/yin (also MIT licensed). Substantial
-portions of the codebase derive from that project, and the original authors'
-copyright is preserved above alongside the copyright of this fork.
+This package is a derivative work based on woohoolabs/yin (also MIT
+licensed). Substantial portions of the codebase derive from that project,
+and the original authors' copyright is preserved above alongside the
+copyright of this derivative work.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

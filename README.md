@@ -12,8 +12,8 @@ A modern, server-side [JSON:API 1.1](https://jsonapi.org/format/1.1/) library fo
 
 ## About
 
-`haddowg/json-api` is a fork and modernisation of the (now effectively
-abandoned) [woohoolabs/yin](https://github.com/woohoolabs/yin). It targets
+`haddowg/json-api` is a modernised, server-side JSON:API library derived from
+the (now effectively abandoned) [woohoolabs/yin](https://github.com/woohoolabs/yin). It targets
 PHP 8.3+ and embraces modern language features (readonly classes, enums, typed
 properties, constructor promotion, first-class callable syntax), a typed
 exception hierarchy, PSR-7 v2 and PSR-15, first-class JSON:API profile support,
@@ -63,13 +63,13 @@ releases via [release-please](https://github.com/googleapis/release-please).
 
 ## Acknowledgements
 
-This package is a fork of [woohoolabs/yin](https://github.com/woohoolabs/yin)
-and substantial portions of the codebase derive from that work. Sincere thanks
+This package is a derivative work based on [woohoolabs/yin](https://github.com/woohoolabs/yin),
+and substantial portions of the codebase derive from it. Sincere thanks
 to **Woohoo Labs and the yin contributors** for the original library, which made
 this project possible.
 
 ## Licence
 
 Released under the [MIT Licence](LICENSE), with dual copyright held by Gregory
-Haddow (this fork) and Woohoo Labs and contributors (the original
+Haddow (this derivative work) and Woohoo Labs and contributors (the original
 woohoolabs/yin authors).

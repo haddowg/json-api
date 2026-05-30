@@ -75,6 +75,14 @@ feat!: rename Pagination to Paginator
 
 ## Pull requests
 
+PRs are **squash-merged**, and the squash commit uses the **PR title** as its
+subject. Therefore:
+
+- The **PR title must be a valid Conventional Commit** (e.g.
+  `feat: add cursor-based pagination`). It feeds release-please, so a
+  non-conforming title breaks versioning.
+- The **PR description** briefly states what the change does and why — focused on
+  intent, not implementation detail.
 - Keep PRs focused; one logical change per PR where practical.
 - Ensure `composer test`, `composer phpstan`, and `composer cs-check` all pass.
 - Reference any related issue in the PR description.

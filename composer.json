@@ -20,7 +20,7 @@
         {
             "name": "Woohoo Labs and contributors",
             "homepage": "https://github.com/woohoolabs/yin",
-            "role": "Original authors of woohoolabs/yin, from which this package is forked"
+            "role": "Original authors of woohoolabs/yin, from which this package derives substantial portions"
         }
     ],
     "require": {
