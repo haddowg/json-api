@@ -95,3 +95,71 @@ composer cs-check   # PHP-CS-Fixer, PER-CS 2.0
 
 Tests asserting a spec requirement are tagged `#[Group('spec:<section>')]` — see
 [`tests/README.md`](tests/README.md).
+
+## Porting workflow (yin reference)
+
+A read-only checkout of yin lives at `/tmp/yin` (re-clone with
+`git clone --depth 1 https://github.com/woohoolabs/yin.git /tmp/yin` if absent).
+Map yin paths to ours by dropping the `JsonApi` path segment — it is already in
+our namespace prefix:
+
+- `WoohooLabs\Yin\JsonApi\Schema\Link\Link` (`src/JsonApi/Schema/Link/Link.php`)
+  → `haddowg\JsonApi\Schema\Link\Link` (`src/Schema/Link/Link.php`)
+- test `…\Tests\JsonApi\Schema\…` (`tests/JsonApi/Schema/…`)
+  → `haddowg\JsonApi\Tests\Schema\…` (`tests/Schema/…`)
+
+Port source **and its test together**; the source is not "done" until its test
+is green under the new API. Rewrite (don't skip) tests whose yin behaviour the
+modernised API replaces, and note the rewrite in the phase decision log.
+
+## Type system principles
+
+Default to PHPStan generics (`@template`) on **consumer-visible** types that
+carry a parametric payload — `Page<T>`, `DataResponse<T>`, `Field<T>`,
+`OperationHandler<TOperation>`, registry lookups (`class-string<T>` → narrowed
+return). Skip generics on internal types, on PSR-* boundary types, and where
+`instanceof`/`match` already narrows just as well. Apply at port time, not as a
+retroactive sweep. Full rationale in `docs/PLAN.md`.
+
+```php
+// Generic — consumer sees T flow through:
+/** @template T of object */
+final readonly class DataResponse { /** @param T $data */ public function __construct(public object $data) {} }
+
+// Non-generic — internal, instanceof narrows fine:
+final readonly class JsonApiObject { /* no template */ }
+```
+
+## Modernisation patterns
+
+Each entry is a paragraph + minimal sketch. Add an entry the first time a
+component kind is ported; replace it (with a one-line decision-log note) if a
+later port reveals a better pattern.
+
+### Value objects / data classes
+
+Leaf data types (`JsonApiObject`, `ErrorSource`, `Link`, …): `final readonly
+class` with **public promoted constructor properties and no getters** — the
+readonly property *is* the accessor. Use **named constructors** (static factory
+methods returning `self`) for alternate construction forms instead of multi-form
+constructors or optional-arg soup. Leaf VOs are **construct-only**: drop yin's
+mutating setters (`setMeta`, `setLink`, …); the fluent `with…` surface belongs on
+the response value objects, not here. `meta` stays a plain `array<string, mixed>`
+(`[]` = omit); other absent structured members are nullable (`null` = omit). A VO
+that appears in JSON output carries an `@internal transform(): array<…>` method
+(properly typed for level 9) which the serialization engine calls. Make the class
+`final` unless yin subclasses it (e.g. `Link` is extended by `LinkObject`, so it
+is not `final` and its `transform()` return type is the union `string|array` that
+subclasses covariantly narrow).
+
+```php
+final readonly class ErrorSource
+{
+    public function __construct(public string $pointer, public string $parameter) {}
+
+    public static function fromPointer(string $pointer): self { return new self($pointer, ''); }
+
+    /** @internal @return array<string, string> */
+    public function transform(): array { /* omit empty members */ }
+}
+```
