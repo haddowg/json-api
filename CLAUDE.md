@@ -261,3 +261,21 @@ properties, no simple getters (`$rel->resourceIdentifier(s)` is the accessor) �
 only the *computed* helpers (`isEmpty()`, `getResourceIdentifierTypes()/Ids()`).
 `null`/`[]` data means "clear the relationship" (`isEmpty() === true`). The full
 Hydrator pattern entry lands with the Hydrator round.
+
+### Paginators (request-side)
+
+The request-side pagination parsers (`Request\Pagination\{Page,Offset,Cursor,
+FixedPage,FixedCursor}BasedPagination`) are leaf VOs: `final readonly`, public
+promoted properties, no getters (`$pagination->page`/`->size`/`->offset`/`->limit`/
+`->cursor` is the accessor). Each has a named constructor `fromPaginationQueryParams(
+array $params, …defaults): self` that reads the raw `page[…]` map (from
+`JsonApiRequestInterface::getPagination()`). Integer extraction **silently falls back to
+the default** when the param is absent or non-numeric (`isset && \is_numeric ? (int) … :
+$default`) — this matches yin's `Utils::getIntegerFromQueryParam`, which never threw, so
+no exception is raised here (yin injected an `ExceptionFactory` into the factory but
+never used it — dropped). The link-building statics `getPaginationQueryParams()` /
+`getPaginationQueryString()` are retained (the Schema-side link-provider traits consume
+them). `PaginationFactory` is a `final readonly` wrapper over the request exposing
+`create*Pagination(...defaults)`. **Phase-2 note:** these fold into a unified `Page`
+value object — each class carries a `// TODO(phase-2)` and the link-emission/profile
+side of the paginator pattern is finalised then.

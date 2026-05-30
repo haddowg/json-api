@@ -77,7 +77,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `page[…]` query parameter parsing | 🟡 code | Raw `page[…]` access implemented + tested (`JsonApiRequest::getPagination()`, `JsonApiRequestTest`). The typed pagination parsers (`Request/Pagination/*`) are a later Phase 1 round; `Page` value objects are Phase 2. |
+| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the typed parsers `Request\Pagination\{Page,Offset,Cursor,FixedPage,FixedCursor}BasedPagination` + `PaginationFactory` (absent/non-numeric params fall back to defaults, per yin). `JsonApiRequestTest`, `tests/Request/Pagination/*`. Unify into a `Page` VO in Phase 2. |
 | Pagination links (`first`/`prev`/`next`/`last`) | ⬜ todo | Link-provider port (Phase 1); refactored to `Page` in Phase 2. |
 
 ## Filtering (`spec:filtering`)
