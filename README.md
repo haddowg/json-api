@@ -5,8 +5,7 @@ A modern, server-side [JSON:API 1.1](https://jsonapi.org/format/1.1/) library fo
 [![CI](https://github.com/haddowg/json-api/actions/workflows/ci.yml/badge.svg)](https://github.com/haddowg/json-api/actions/workflows/ci.yml)
 
 > [!WARNING]
-> **Pre-1.0 — under active development.** This package is being built in phases
-> (see [`docs/PLAN.md`](docs/PLAN.md)). The public API is not yet stable and
+> **Pre-1.0 — under active development.** The public API is not yet stable and
 > **breaking changes may occur between `0.x` minor versions**. Each such change
 > is recorded in the changelog. Wait for `1.0.0` if you need a stable surface.
 
@@ -48,9 +47,7 @@ composer require haddowg/json-api
 
 ## Quick example
 
-_Coming in Phase 1 — a worked GET/POST example using the response value objects
-and operation handlers. Until then, see [`docs/PLAN.md`](docs/PLAN.md) for the
-intended public API shape._
+_A worked end-to-end example will be added here as the public API stabilises._
 
 ## Documentation
 
