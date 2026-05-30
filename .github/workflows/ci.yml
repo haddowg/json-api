@@ -5,8 +5,8 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: read
+# No workflow-level permissions; each job requests only what it needs.
+permissions: {}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +16,9 @@ jobs:
   tests:
     name: "Tests (PHP ${{ matrix.php }}, ${{ matrix.dependencies }})"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -23,17 +26,19 @@ jobs:
         dependencies: [lowest, highest]
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           dependency-versions: ${{ matrix.dependencies }}
 
@@ -48,19 +53,24 @@ jobs:
   phpstan:
     name: Static analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
         with:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
 
       - name: Run PHPStan
         run: composer phpstan
@@ -68,19 +78,24 @@ jobs:
   coding-standards:
     name: Coding standards
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
         with:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
 
       - name: Check coding standards
         run: composer cs-check
