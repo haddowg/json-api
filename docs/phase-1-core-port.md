@@ -159,9 +159,18 @@ This shape is forward-compatible with the post-1.0 Atomic Operations extension: 
 ### Resource
 
 - [ ] Port `JsonApi/Schema/Resource/AbstractResource` (yin's per-resource-type serializer) and `ResourceInterface`, and any supporting traits used by current `AbstractResource` (not by the deprecated `AbstractResourceTransformer`).
-- [ ] Do **not** port `JsonApi/Transformer/AbstractResourceTransformer` or `Transformer/ResourceTransformerInterface` — those are deprecated in yin in favour of the `Schema\Resource\*` classes ported above. Confirm during the kick-off yin walk that the deprecation is still in place; record a one-line note in the decision log either way.
+- [ ] ~~Do **not** port `JsonApi/Transformer/AbstractResourceTransformer` or `Transformer/ResourceTransformerInterface`.~~ **Kick-off finding (recorded in decision log):** those deprecated classes are already gone from yin master. Today's `Transformer/` is the live internal serialization engine — see the new "Serialization engine (internal types)" group below.
 - [ ] Port included-relationship/sparse-fieldset logic from `AbstractResource`.
 - [ ] Keep class-based API as primary entry point (attribute layer is a post-1.0 candidate).
+
+### Serialization engine (internal types)
+
+Added at kick-off after the yin walk revealed `Transformer/` is yin's live internal serialization engine, not dead deprecated code (see decision log). These types are **`@internal`**: they back the documents and `AbstractResource` but are never part of the consumer surface. Modernise syntax; preserve the spec-sensitive behaviour (compound-document inclusion, sparse fieldsets, included-resource dedup) verbatim, guarded by the ported tests.
+
+- [ ] Port `JsonApi/Schema/Data/*` (`DataInterface`, `AbstractData`, `SingleResourceData`, `CollectionData`) — the accumulator for primary + included resources during serialization. Mark `@internal`.
+- [ ] Port `JsonApi/Transformer/*` (`AbstractDocumentTransformation`, `DocumentTransformer`, `ResourceTransformer`, `ResourceTransformation`, `ResourceDocumentTransformation`, `ErrorDocumentTransformation`) and the root-level `TransformerTrait` and `Utils` helpers. Mark `@internal`. Fold `TransformerTrait`/`Utils` into a sensible internal namespace (`Schema\Serialization\*` or similar — decide at port time, record in decision log) rather than carrying root-level `src/` files.
+- [ ] Replace `Serializer/Deserializer` indirection: drop `SerializerInterface`/`DeserializerInterface`/`JsonSerializer`/`JsonDeserializer`; inline `json_encode`/`json_decode` with `JSON_THROW_ON_ERROR` at the engine boundary.
+- [ ] Port included-relationship/sparse-fieldset/dedup logic with the engine; its tests are the spec-compliance backbone for `spec:inclusion-of-related-resources` and `spec:sparse-fieldsets`.
 
 ### Hydrator
 
@@ -177,7 +186,8 @@ This shape is forward-compatible with the post-1.0 Atomic Operations extension: 
 
 ### Pagination
 
-- [ ] Port `JsonApi/Schema/Pagination/*` paginator implementations (PageBased, OffsetBased, CursorBased, FixedPageBased and their link providers)
+- [ ] Port the request-side pagination parsers `JsonApi/Request/Pagination/*` (`PageBasedPagination`, `OffsetBasedPagination`, `CursorBasedPagination`, `FixedPageBasedPagination`, `FixedCursorBasedPagination`, `PaginationFactory`) — these read the `page[...]` query params.
+- [ ] Port the link-provider side `JsonApi/Schema/Pagination/*` (the `*PaginationLinkProviderTrait` family + `PaginationLinkProviderInterface`). Modernise the traits to instance-method traits per the established pattern. **Coordinate `PaginationLinkProviderInterface` deletion with the Phase 2 paginator refactor** (it is replaced by `Page` value objects); for Phase 1 port it as-is to keep the collection-document path working, leaving a TODO referencing Phase 2.
 - [ ] Modernise internals only; profile association deferred to Phase 2 (leave a TODO comment referencing Phase 2 where appropriate)
 
 ### Tests
@@ -217,10 +227,16 @@ _(Appended to during execution.)_
 | 2026-05-30 | Port yin's helper traits as instance-method traits (drop `static`, `self::`/`static::` → `$this->`) | Keeps code-sharing ergonomics without static-state/`static::` footguns; mockable; contract stays composition-implementable (no-inheritance fixture proves it). | this phase |
 | 2026-05-30 | `JsonApiException` exposes `getErrors(): list<Error>` + `getStatusCode(): int`; no `toErrorDocument()` | Exceptions carry error *data*, not built (internal) documents. `ErrorResponse`/error-handler middleware own document construction and handle caught exceptions and direct `Error[]` via one path. | this phase, Phase 3, Phase 4 |
 | 2026-05-30 | Do not port yin's `JsonApi` orchestrator class | Its state lives on `Server`; VOs render against `Server` directly. A `respond()` facade would be a redundant shadow of `Server`. VOs + `Server` are the single public surface. | this phase, Phase 5 |
+| 2026-05-30 (kick-off) | **Server placeholder = a minimal `ServerInterface`** shipped this phase under `haddowg\JsonApi\Server`, exposing only what the response value objects read to render (base URI, JSON:API version, default `jsonapi.meta`, default encode options). Render signature is `toPsrResponse(ServerInterface $server, ServerRequestInterface $request)`. | Option (a) from Open questions. Phase 4.5's concrete `Server` implements (a superset of) this interface, so response render signatures never change across phases. | this phase, Phase 4.5 |
+| 2026-05-30 (kick-off) | **Internal document classes stay under `haddowg\JsonApi\Schema\Document\*`** (not moved to an `Internal\` subnamespace), marked `@internal` in PHPDoc only. | Closest to yin's layout; the Phase 4.5 `Schema`-namespace rename will relocate `Schema\Document\*` → `Document\*` mechanically anyway, so a separate `Internal\` move now would be churn. The `@internal` tag is the API-boundary signal. | this phase, Phase 4.5 |
+| 2026-05-30 (kick-off) | **Standardise absent document/value-object members on nullable-everywhere**: `?Meta`, `?Links`/`?DocumentLinks`, `?JsonApiObject`, with `null` meaning "omit the member." `Meta` becomes a typed value object, not a bare `array`. | yin mixes conventions (`getMeta(): array` returning `[]` vs `getLinks(): ?DocumentLinks`). Uniform nullability is more explicit, composes with `readonly` value objects, and narrows cleanly under PHPStan level 9. | this phase |
+| 2026-05-30 (kick-off) | **Port yin's internal serialization engine** (`Transformer/*`, `Schema/Data/*`, root `TransformerTrait`, `Utils`) as modernised `@internal` machinery behind the documents/resources, rather than rewriting serialization inline. | Kick-off yin walk found the plan's mental model was stale: the deprecated `AbstractResourceTransformer`/`ResourceTransformerInterface` are **already removed** from yin master, and `Transformer/` is now the **live** internal engine that `AbstractResource` and the documents delegate to for compound-document inclusion, sparse fieldsets, and included-resource dedup. The plan had no tasks for it. Porting it as internal machinery keeps the spec-sensitive logic battle-tested while we modernise syntax; collapsing the indirection is revisited in Phase 4.5 once the ported test suite covers it. | this phase, Phase 4.5 |
 
 ## Open questions
 
-- Response value objects need a `Server` to render against (for base URI, version, default `jsonapi.meta`, etc.). Phase 4.5 introduces the full `Server`. Phase 1 needs **a placeholder shape** so the response classes have a stable rendering signature. Options: (a) a minimal `Server` interface shipped in Phase 1 with the fields the response objects use, expanded by Phase 4.5; (b) a temporary "rendering context" record that Phase 4.5 replaces with `Server`. Lean: (a). Confirm at kick-off and design accordingly.
+_All kick-off open questions resolved 2026-05-30 — see decision log (Server placeholder, document namespace, absent-member convention, serialization-engine drift). New questions surfacing mid-phase are appended here and resolved interactively with the maintainer before phase close._
+
+- ~~Response value object `Server` placeholder shape.~~ **Resolved: minimal `ServerInterface` (option a).**
 
 ## Acceptance criteria
 
