@@ -23,7 +23,7 @@ jobs:
         dependencies: [lowest, highest]
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v5.0.0
 
       - name: Set up PHP
         uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v5.0.0
 
       - name: Set up PHP
         uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v5.0.0
 
       - name: Set up PHP
         uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
