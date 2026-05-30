@@ -163,3 +163,20 @@ final readonly class ErrorSource
     public function transform(): array { /* omit empty members */ }
 }
 ```
+
+#### Links containers (variant)
+
+Keyed link maps (`AbstractLinks` and its subclasses `ErrorLinks`,
+`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`) follow the value-object
+pattern with two adjustments. (1) The base is `abstract readonly class`; every
+subclass is `final readonly` — a readonly class may only be extended by another
+readonly class, and PHPStan's `class.nonReadOnly` rule enforces it (even
+anonymous test subclasses must be `new readonly class … extends AbstractLinks`).
+(2) They are **construct-only**: links arrive through the constructor (drop yin's
+`setLink`/`addType`/`setBaseUri` mutators), `null` entries are filtered out so an
+absent relation is simply not in the map, and named constructors
+(`ErrorLinks::withBaseUri(...)`) cover yin's alternate `create*` forms. Arbitrary
+relation keys are allowed (the spec permits custom link relations). In
+`transform()`, build any nested list separately and assign it once rather than
+appending into the `mixed` result of `parent::transform()` (avoids
+`offsetAccess.nonOffsetAccessible` at level 9).

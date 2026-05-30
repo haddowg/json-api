@@ -42,7 +42,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | Error `source` object (`pointer`, `parameter`, `header`) | 🟡 code | `Schema\Error\ErrorSource` covers `pointer` + `parameter` (✅ test); `header` member not yet modelled. `ErrorSourceTest`. |
-| Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ⬜ todo | Lands with `Schema\Error\Error`. |
+| Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
+| Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ⬜ todo | Lands with `ErrorDocument` / `ErrorResponse`. |
 | Typed exception → HTTP status mapping | ⬜ todo | Lands with the exception hierarchy. |
 
