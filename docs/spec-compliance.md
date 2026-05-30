@@ -32,11 +32,11 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Profile link object with keyword `aliases` | ✅ test | `Schema\Link\ProfileLinkObject`. `ProfileLinkObjectTest`. Full profile association is Phase 2. |
 | Top-level `meta` member | ⬜ todo | Lands with the document classes / `MetaResponse`. |
 | Links containers (`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`, `ErrorLinks`) | ✅ test | Construct-only `final readonly` extending `AbstractLinks`; custom relation keys allowed; pagination links accepted as plain `?Link` (Page-based emission is Phase 2). `DocumentLinksTest`, `ResourceLinksTest`, `RelationshipLinksTest`. |
-| Top-level `links` member wiring into a document | ⬜ todo | Container types exist; binding them onto a document lands with the document classes. |
-| `data` / `errors` / `meta` mutual exclusivity & required members | ⬜ todo | Lands with the document hierarchy. |
-| Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ⬜ todo | Lands with `Schema\Resource\*`. |
+| Top-level `links` member wiring into a document | 🟡 code | The `@internal` `Schema\Document\*` classes carry top-level links; the consumer-facing wiring (response value objects choosing the links) lands with the response layer. |
+| `data` / `errors` / `meta` mutual exclusivity & required members | 🟡 code | Modelled by the document hierarchy (`AbstractResourceDocument`/`AbstractCollectionDocument`/`AbstractErrorDocument`) + `DocumentTransformer`; the request-side guard is enforced + tested (`JsonApiRequest::validateTopLevelMembers`). End-to-end response-shape assertions land with the response value objects. |
+| Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ✅ test | `Schema\Resource\AbstractResource`/`ResourceInterface` (consumer extension point) + `Transformer\ResourceTransformer`. `AbstractResourceTest`, `ResourceTransformerTest`. |
 | Resource identifier objects (`type`, `id`/`lid`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates `type` + at-least-one-of(`id`,`lid`) and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `transform()` emits whichever of `id`/`lid`/`meta` are present. `ResourceIdentifierTest`. |
-| Compound documents / `included` | ⬜ todo | Lands with the serialization engine port. |
+| Compound documents / `included` | ✅ test | `Transformer\ResourceTransformer` + `DocumentTransformer` build the `included` array with resource dedup (primary takes precedence) via the `Schema\Data` accumulator. `ResourceTransformerTest`, `DocumentTransformerTest`. |
 
 ## Errors (`spec:errors`)
 
@@ -45,7 +45,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Error `source` object (`pointer`, `parameter`, `header`) | 🟡 code | `Schema\Error\ErrorSource` covers `pointer` + `parameter` (✅ test); `header` member not yet modelled. `ErrorSourceTest`. |
 | Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
-| Error document (top-level `errors` array) | ⬜ todo | Lands with `ErrorDocument` / `ErrorResponse`. |
+| Error document (top-level `errors` array) | 🟡 code | `Schema\Document\ErrorDocument` + `Transformer\ErrorDocumentTransformation` build the top-level `errors` array (`AbstractErrorDocumentTest`). Consumer-facing `ErrorResponse` wiring lands with the response layer. |
 | Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail preserved from yin. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
 
 ## Fetching data (`spec:fetching-resources`, `spec:fetching-relationships`, `spec:fetching-data`)
@@ -59,13 +59,13 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `include` query parameter; compound-document `included` | 🟡 code | Request-side `include` parsing implemented + tested (`JsonApiRequest::getIncludedRelationships()`/`isIncludedRelationship()`, `JsonApiRequestTest`). Compound-document `included` emission lands with the serialization engine. |
+| `include` query parameter; compound-document `included` | ✅ test | Request-side `include` parsing (`JsonApiRequest`) **and** engine-side application: `Transformer\ResourceTransformer` honours `include`/default-included relationships and emits the deduped `included` array. `JsonApiRequestTest`, `ResourceTransformerTest`, `DocumentTransformerTest`. (Default-included detection unified across both transform paths — see decision log.) |
 
 ## Sparse fieldsets (`spec:sparse-fieldsets`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `fields[TYPE]` query parameter | 🟡 code | Request-side `fields[TYPE]` parsing implemented + tested (`JsonApiRequest::getIncludedFields()`/`isIncludedField()`, `JsonApiRequestTest`). Applying the fieldset to serialized output lands with the serialization engine. |
+| `fields[TYPE]` query parameter | ✅ test | Request-side parsing **and** engine-side application: `Transformer\ResourceTransformer` filters attributes/relationships by `isIncludedField()`. `JsonApiRequestTest`, `ResourceTransformerTest`. |
 
 ## Sorting (`spec:sorting`)
 

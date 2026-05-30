@@ -329,3 +329,40 @@ the typed exception), and bridge a JSON object to `array<string, mixed>` with an
 > the request exposes it via `getResourceLid()`. **Not** implemented: cross-document `lid`
 > *resolution* (mapping a `lid` to a freshly-created resource within one request) — that
 > belongs with the post-1.0 Atomic Operations extension.
+
+### Resources (serializer extension point)
+
+`Schema\Resource\ResourceInterface` is the primary **consumer** extension point: it maps a
+domain value to a JSON:API resource (`getType`/`getId`/`getMeta`/`getLinks`/`getAttributes`/
+`getRelationships`/`getDefaultIncludedRelationships`). It is **not** generic — the serialized
+value is `mixed` (a resource may describe an object, an array, or any representation; yin's
+own tests pass arrays), so no `@template` is imposed. `getAttributes()`/`getRelationships()`
+return maps of `callable(mixed, JsonApiRequestInterface, string): mixed|AbstractRelationship`.
+The two lifecycle methods `initializeTransformation()`/`clearTransformation()` are
+`@internal` (driven by the transformer, not consumers) even though the interface is public.
+`AbstractResource` is the convenience base; the contract is implementable by composition.
+
+### Relationships (serialization-side)
+
+`Schema\Relationship\{AbstractRelationship, ToOneRelationship, ToManyRelationship}` are the
+**output** relationships a resource emits (distinct from the construct-only
+`Hydrator\Relationship\*` input VOs). They are consumer-facing and **mutable** (fluent
+`setData()`/`setLinks()`/`setMeta()`/`omitDataWhenNotIncluded()`), because a resource builds
+them up per request. `transform()` is `@internal` (the engine calls it) and carries the
+inclusion/dedup decision tree verbatim from yin.
+
+### Serialization engine & internal documents (`@internal`)
+
+`Transformer\*` (`DocumentTransformer`, `ResourceTransformer`, the `*Transformation` pass-state
+objects, and the folded `TransformerTrait`) plus `Schema\Document\*` (the `Abstract*Document`
+hierarchy + `ErrorDocument` + their interfaces) are **`@internal`, mutable, per-pass/per-request**
+machinery — never the consumer surface (consumers use resources + the forthcoming response value
+objects). They mirror the `Schema\Data` accumulator decision: not `readonly`. The engine is
+**serializer-free** — transformations return PHP **arrays**; JSON encoding lives in the response
+layer, so no `json_encode`/`SerializerInterface` appears here. The spec-sensitive logic
+(compound-document `included`, sparse fieldsets, included-resource dedup) is ported verbatim and
+guarded by the ported `ResourceTransformerTest`/`DocumentTransformerTest`. `TransformerTrait`/
+`Utils` were root-level in yin; `TransformerTrait` is folded into `Transformer\`, and `Utils` was
+**not** ported (its only remaining consumer, `Utils::getUri`, is the Phase-2 pagination
+link-providers; `getIntegerFromQueryParam` is already inlined in the pagination parsers).
+`AbstractSimpleResourceDocument` is intentionally **not** ported (recorded footgun).
