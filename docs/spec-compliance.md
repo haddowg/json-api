@@ -96,4 +96,4 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `Content-Type` / `Accept` handling; reject unknown media-type params (only `ext`/`profile` significant) | 🟡 code | Request-side validation implemented + tested (`JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` throw `MediaTypeUnsupported`/`MediaTypeUnacceptable`; `JsonApiRequestTest`, `#[Group('spec:content-negotiation')]`). The `Negotiation\RequestValidator`/`ResponseValidator` wrappers land with the negotiation port. |
+| `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). **Note:** media-type params are **profile-only** (yin-faithful); `ext` parameter negotiation is not yet handled. JSON-schema body validation is deferred (later phase). |

@@ -279,3 +279,22 @@ them). `PaginationFactory` is a `final readonly` wrapper over the request exposi
 `create*Pagination(...defaults)`. **Phase-2 note:** these fold into a unified `Page`
 value object — each class carries a `// TODO(phase-2)` and the link-emission/profile
 side of the paginator pattern is finalised then.
+
+### Negotiation (validators)
+
+`Negotiation\RequestValidator` / `ResponseValidator` are thin, **stateless** `final
+class`es (no-arg constructors — yin's `SerializerInterface`/`ExceptionFactoryInterface`/
+`$includeOriginalMessageInResponse` are all gone). They orchestrate validation but own
+almost no logic: `RequestValidator` delegates straight to the request
+(`negotiate()` → `validateContentTypeHeader()`+`validateAcceptHeader()`,
+`validateQueryParams()`, `validateTopLevelMembers()`, and `validateJsonBody()` simply
+calls `getParsedBody()` to surface `RequestBodyInvalidJson`). `ResponseValidator`
+validates the response `Content-Type` (profile-only media-type params, mirroring the
+request rule) and lints the body with inline `\json_decode(...JSON_THROW_ON_ERROR)` →
+`ResponseBodyInvalidJson` (empty body = OK). **Phase-1 trim:** all JSON-schema body
+validation (yin's `validateJsonApiBody`, `RequestBodyInvalidJsonApi`/`Response…`, the
+bundled `json-api-schema.json` + `justinrainbow/json-schema`) is **deferred** — header
+negotiation + JSON well-formedness only. yin's `AbstractMessageValidator` was **not
+ported as a class**: once schema validation is removed nothing is genuinely shared
+between request and response linting, so its remnants were folded into the two
+validators rather than leaving an empty base.
