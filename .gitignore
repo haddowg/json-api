@@ -24,6 +24,9 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
+# Agent tooling (transient worktrees / session state)
+/.claude/
+
 # Local overrides
 /.env
 /.env.local
