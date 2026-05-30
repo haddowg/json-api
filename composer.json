@@ -1,0 +1,68 @@
+{
+    "name": "haddowg/json-api",
+    "description": "A modern, server-side JSON:API 1.1 library for PHP 8.3+.",
+    "type": "library",
+    "keywords": [
+        "json-api",
+        "jsonapi",
+        "psr-7",
+        "psr-15",
+        "api",
+        "rest"
+    ],
+    "homepage": "https://github.com/haddowg/json-api",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gregory Haddow",
+            "homepage": "https://github.com/haddowg"
+        },
+        {
+            "name": "Woohoo Labs and contributors",
+            "homepage": "https://github.com/woohoolabs/yin",
+            "role": "Original authors of woohoolabs/yin, from which this package is forked"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.0",
+        "phpstan/phpstan": "^2.0",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "haddowg\\JsonApi\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "haddowg\\JsonApi\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "preferred-install": "dist"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-clover coverage.xml",
+        "phpstan": "phpstan analyse",
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix"
+    },
+    "scripts-descriptions": {
+        "test": "Run the PHPUnit test suite",
+        "test-coverage": "Run the test suite and emit a Clover coverage report",
+        "phpstan": "Run PHPStan static analysis",
+        "cs-check": "Check code style without modifying files",
+        "cs-fix": "Apply code style fixes"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
