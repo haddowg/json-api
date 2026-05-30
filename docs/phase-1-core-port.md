@@ -48,13 +48,14 @@ Tasks are grouped by yin subsystem. Within each group, work through file-by-file
 
 As types are ported, capture the canonical modernisation pattern for each kind of component in a `CLAUDE.md` at the repository root. This file is read by future Claude Code sessions (including after context compaction or session restart) and ensures consistency across the port. It is not consumer-facing documentation — it is an executor-facing playbook.
 
-- [ ] Create `CLAUDE.md` at repository root with the following sections:
+- [x] Create `CLAUDE.md` at repository root with the following sections:
   - **Project orientation** — one paragraph: what the package is, what it forks, where the spec lives.
   - **Operational rules** — the batching/worktree/convergence rules from the master plan's "Required operational rules in `CLAUDE.md`" section. Copy them in verbatim so executors don't need to chase across files.
   - **Type system principles** — short standing guidance on when to use PHPStan generics and when not. Default to generics on consumer-visible parametric types (`Page<T>`, `DataResponse<T>`, `Field<T>`, `Each<T>`, `In<T>`, `OperationHandler<TOperation>`, registry lookup methods with `class-string<T>` → narrowed return type, etc.). Skip generics on internal types, on PSR-* boundary types, and where `instanceof` / `match` already narrows just as well as a template parameter would. Apply at port time alongside each type, not as a retroactive sweep. The full rationale lives in `PLAN.md`'s high-level decisions; this section is the executor-facing shorthand. Include a couple of small code sketches showing the generic and non-generic shapes side by side.
   - **Modernisation patterns** — organised by component kind (see list below); each entry is a paragraph plus minimal code sketch.
 - [ ] Component kinds to cover under Modernisation patterns. Add an entry the first time a representative is ported; refine it if a later port reveals a better pattern:
-  - **Value objects / data classes** (e.g. `Link`, `ErrorSource`, `JsonApiObject`) — whole-class `readonly class` by default (downgrade to per-property only on a concrete need such as memoization, recorded in the decision log), promoted constructor properties, factory methods over multi-form constructors
+  <!-- PROGRESS: "Value objects / data classes" entry written (JsonApiObject, ErrorSource, Link/LinkObject/ProfileLinkObject ported + tested). Remaining kinds below not yet started. -->
+  - **Value objects / data classes** (e.g. `Link`, `ErrorSource`, `JsonApiObject`) — whole-class `readonly class` by default (downgrade to per-property only on a concrete need such as memoization, recorded in the decision log), promoted constructor properties, factory methods over multi-form constructors ✅ *(pattern entry written; first instances ported)*
   - **Internal document classes** (`AbstractDocument` and subclasses) — abstract method contracts, lifecycle, immutability boundary. **Marked `@internal`**; users never subclass these. Pattern entry covers how the response value objects construct and render them.
   - **Response value objects** (`DataResponse`, `MetaResponse`, etc.) — immutable, fluent `with…` methods returning new instances, rendering contract against a `Server`. This is the public response surface; the pattern entry is the canonical reference for adding new response types post-1.0.
   - **Operations** (the per-verb `JsonApiOperation` family — `FetchResourceOperation`, `CreateResourceOperation`, etc.) — readonly value objects, one class per verb, common `JsonApiOperation` interface, `Target` + `QueryParameters` + `OperationContext` shared shape. Pattern entry covers what an operation carries, when to add a new verb (post-1.0 atomic-ops adds three), and how the `OperationHandler` dispatches via `match` on operation type.
@@ -194,17 +195,17 @@ Added at kick-off after the yin walk revealed `Transformer/` is yin's live inter
 
 Tests are ported file-by-file alongside their implementations (per the master plan's operational rules), not in a deferred bulk pass at end of phase. The items below are cross-cutting concerns that apply across all ported test files.
 
-- [ ] Establish the `tests/` directory layout to mirror `src/` so the file-by-file pairing is mechanical
-- [ ] Convention: for every source file ported, port the corresponding yin test file in the same commit (or an adjacent commit on the same branch); the implementation is not considered ported until its tests are green under the new API
-- [ ] Convert PHPUnit docblock annotations (`@test`, `@dataProvider`) to PHPUnit attributes (`#[Test]`, `#[DataProvider]`) as each test is ported
-- [ ] Add `#[Group('spec:<section>')]` to each test that asserts a spec behaviour, as each test is ported. Use spec anchor names (e.g. `spec:document-structure`, `spec:fetching-data`, `spec:fetching-resources`, `spec:fetching-relationships`, `spec:inclusion-of-related-resources`, `spec:sparse-fieldsets`, `spec:sorting`, `spec:pagination`, `spec:filtering`, `spec:crud`, `spec:errors`, `spec:content-negotiation`).
-- [ ] Record yin's published coverage figure in the decision log before porting begins; that figure is the floor for this phase
+- [x] Establish the `tests/` directory layout to mirror `src/` so the file-by-file pairing is mechanical <!-- tests/Schema/... mirrors src/Schema/... -->
+- [ ] Convention: for every source file ported, port the corresponding yin test file in the same commit (or an adjacent commit on the same branch); the implementation is not considered ported until its tests are green under the new API <!-- ongoing convention, followed for VOs so far -->
+- [ ] Convert PHPUnit docblock annotations (`@test`, `@dataProvider`) to PHPUnit attributes (`#[Test]`, `#[DataProvider]`) as each test is ported <!-- ongoing; done for VOs -->
+- [ ] Add `#[Group('spec:<section>')]` to each test that asserts a spec behaviour, as each test is ported. Use spec anchor names (e.g. `spec:document-structure`, `spec:fetching-data`, `spec:fetching-resources`, `spec:fetching-relationships`, `spec:inclusion-of-related-resources`, `spec:sparse-fieldsets`, `spec:sorting`, `spec:pagination`, `spec:filtering`, `spec:crud`, `spec:errors`, `spec:content-negotiation`). <!-- ongoing; done for VOs (spec:document-structure, spec:errors) -->
+- [x] Record yin's published coverage figure in the decision log before porting begins; that figure is the floor for this phase <!-- ~100%, recorded in decision log -->
 - [ ] Ensure all ported tests pass on PHP 8.3 and 8.4 against `lowest` and `highest` dependency strategies (verified by the standing CI matrix, not a one-shot check at phase close)
 - [ ] If a yin test asserts behaviour that the new typed-exception or otherwise-modernised API no longer surfaces, rewrite the test to assert the new equivalent rather than skipping it; record the rewrite in the decision log so spec coverage isn't silently lost
 
 ### Spec compliance verification (progressive)
 
-- [ ] Maintain `docs/spec-compliance.md` (created during this phase) — a living checklist of JSON:API 1.1 normative requirements (MUST/SHOULD) with status: covered-by-test, covered-by-code-only, not-covered, intentionally-unsupported. Include a short preamble noting that this document tracks **JSON:API spec compliance only**; OpenAPI spec generation (a post-1.0 candidate) is a separate concern and should not be conflated with it.
+- [x] Maintain `docs/spec-compliance.md` (created during this phase) <!-- created; seeded with document-structure + errors coverage. Keep filling as subsystems land. --> — a living checklist of JSON:API 1.1 normative requirements (MUST/SHOULD) with status: covered-by-test, covered-by-code-only, not-covered, intentionally-unsupported. Include a short preamble noting that this document tracks **JSON:API spec compliance only**; OpenAPI spec generation (a post-1.0 candidate) is a separate concern and should not be conflated with it.
 - [ ] As each subsystem is ported, fill in the relevant rows
 - [ ] At end of phase, the document is the truth-of-record for the spec compliance gap
 
