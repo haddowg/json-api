@@ -23,17 +23,17 @@ jobs:
         dependencies: [lowest, highest]
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # 2.35.5
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@a18c1f3aa75e2adf76e0cae9c6c2e87aef587e3e # 3.1.1
+        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
         with:
           dependency-versions: ${{ matrix.dependencies }}
 
@@ -50,17 +50,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # 2.35.5
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
         with:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@a18c1f3aa75e2adf76e0cae9c6c2e87aef587e3e # 3.1.1
+        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
 
       - name: Run PHPStan
         run: composer phpstan
@@ -70,17 +70,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v5.0.0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # 2.35.5
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fb0f294c5e605969 # v2.35.5
         with:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
-        uses: ramsey/composer-install@a18c1f3aa75e2adf76e0cae9c6c2e87aef587e3e # 3.1.1
+        uses: ramsey/composer-install@90f7a52e5c06ee5a51d05a3a72f4a214d56fd111 # 3.1.0
 
       - name: Check coding standards
         run: composer cs-check
