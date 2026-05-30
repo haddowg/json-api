@@ -1,7 +1,7 @@
 # Tests
 
-The test suite mirrors `src/` so that, during the Phase 1 port, each source file
-can be paired one-to-one with its test file.
+The test suite mirrors `src/` so that each source file can be paired
+one-to-one with its test file.
 
 ## Spec-section group convention
 
@@ -11,8 +11,7 @@ name. This gives spec traceability without maintaining a separate test layer:
 you can run every test that covers, say, document structure with a single
 `--group` filter.
 
-Use the PHPUnit `#[Group]` attribute (annotations are not used — see the
-Phase 0 decision log, PHPUnit `^12`):
+Use the PHPUnit `#[Group]` attribute (attributes only — no annotations):
 
 ```php
 use PHPUnit\Framework\Attributes\Group;
@@ -44,5 +43,5 @@ vendor/bin/phpunit --group spec:document-structure
 `spec:crud`, `spec:errors`, `spec:content-negotiation`,
 `spec:extensions-and-profiles`.
 
-(The list grows as the port proceeds; the canonical compliance tracker is
-`docs/spec-compliance.md`, created in Phase 1.)
+(The list grows as the suite grows; the canonical compliance tracker is
+`docs/spec-compliance.md`.)
