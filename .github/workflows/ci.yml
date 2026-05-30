@@ -29,7 +29,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          coverage: ${{ matrix.php == '8.5' && matrix.dependencies == 'highest' && 'pcov' || 'none' }}
+          coverage: none
           tools: composer:v2
 
       - name: Install dependencies
@@ -38,21 +38,12 @@ jobs:
           dependency-versions: ${{ matrix.dependencies }}
 
       - name: Run tests
-        if: ${{ !(matrix.php == '8.5' && matrix.dependencies == 'highest') }}
         run: composer test
 
-      - name: Run tests with coverage
-        if: ${{ matrix.php == '8.5' && matrix.dependencies == 'highest' }}
-        run: composer test-coverage
-
-      - name: Upload coverage to Codecov
-        if: ${{ matrix.php == '8.5' && matrix.dependencies == 'highest' }}
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # Coverage + Codecov upload are enabled in Phase 1, once `src/` contains
+      # code to measure. While `src/` is empty, generating coverage produces a
+      # "source filter does not match any files" warning that fails the run under
+      # failOnWarning. The CODECOV_TOKEN secret is already configured and ready.
 
   phpstan:
     name: Static analysis
