@@ -54,11 +54,7 @@ intended public API shape._
 
 ## Documentation
 
-Project planning and phase documents live under [`docs/`](docs/):
-
-- [`docs/PLAN.md`](docs/PLAN.md) — the master plan, high-level decisions, and phase index
-
-Consumer-facing documentation is produced in Phase 5.
+Documentation will live under [`docs/`](docs/) as the public API stabilises.
 
 ## Contributing
 
