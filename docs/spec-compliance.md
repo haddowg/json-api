@@ -59,32 +59,32 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `include` query parameter; compound-document `included` | ⬜ todo | Lands with the serialization engine port (backbone). |
+| `include` query parameter; compound-document `included` | 🟡 code | Request-side `include` parsing implemented + tested (`JsonApiRequest::getIncludedRelationships()`/`isIncludedRelationship()`, `JsonApiRequestTest`). Compound-document `included` emission lands with the serialization engine. |
 
 ## Sparse fieldsets (`spec:sparse-fieldsets`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `fields[TYPE]` query parameter | ⬜ todo | Lands with the serialization engine port. |
+| `fields[TYPE]` query parameter | 🟡 code | Request-side `fields[TYPE]` parsing implemented + tested (`JsonApiRequest::getIncludedFields()`/`isIncludedField()`, `JsonApiRequestTest`). Applying the fieldset to serialized output lands with the serialization engine. |
 
 ## Sorting (`spec:sorting`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `sort` query parameter parsing | ⬜ todo | Lands with request/query-parameter parsing. |
+| `sort` query parameter parsing | ✅ test | `JsonApiRequest::getSorting()` parses the `sort` param (comma-separated, `-` prefix preserved) and throws `QueryParamMalformed` on a non-string value. `JsonApiRequestTest`. |
 
 ## Pagination (`spec:pagination`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `page[…]` query parameter parsing | ⬜ todo | Request-side pagination parsers (Phase 1); `Page` value objects (Phase 2). |
+| `page[…]` query parameter parsing | 🟡 code | Raw `page[…]` access implemented + tested (`JsonApiRequest::getPagination()`, `JsonApiRequestTest`). The typed pagination parsers (`Request/Pagination/*`) are a later Phase 1 round; `Page` value objects are Phase 2. |
 | Pagination links (`first`/`prev`/`next`/`last`) | ⬜ todo | Link-provider port (Phase 1); refactored to `Page` in Phase 2. |
 
 ## Filtering (`spec:filtering`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `filter` query parameter (format-agnostic) | ⬜ todo | Request-side parsing only in core; execution is adapter-provided. |
+| `filter` query parameter (format-agnostic) | ✅ test | Request-side parsing implemented + tested (`JsonApiRequest::getFiltering()`/`getFilteringParam()`, `JsonApiRequestTest`). Execution remains adapter-provided by design. |
 
 ## CRUD (`spec:crud`)
 
@@ -96,4 +96,4 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `Content-Type` / `Accept` handling; reject unknown media-type params (only `ext`/`profile` significant) | ⬜ todo | Lands with the negotiation port. |
+| `Content-Type` / `Accept` handling; reject unknown media-type params (only `ext`/`profile` significant) | 🟡 code | Request-side validation implemented + tested (`JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` throw `MediaTypeUnsupported`/`MediaTypeUnacceptable`; `JsonApiRequestTest`, `#[Group('spec:content-negotiation')]`). The `Negotiation\RequestValidator`/`ResponseValidator` wrappers land with the negotiation port. |

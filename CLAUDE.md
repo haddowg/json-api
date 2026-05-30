@@ -218,3 +218,46 @@ final class ResourceNotFound extends AbstractJsonApiException
     }
 }
 ```
+
+### Requests
+
+The request layer is the one place the readonly-everywhere default is **deliberately
+dropped**. `JsonApiRequestInterface extends \Psr\Http\Message\ServerRequestInterface`
+and adds the JSON:API parsing/validation surface; `AbstractRequest implements
+ServerRequestInterface` (the interface is declared on the abstract base, not only on
+the concrete class — required so the PSR-7 wither methods can covariantly return
+`static`) and **composes** a wrapped `ServerRequestInterface`, delegating every PSR-7
+method to it. Wither methods follow `$self = clone $this; $self->serverRequest =
+$this->serverRequest->with…(); return $self;` — the wrapped request is replaced on a
+clone, never mutated in place, so the value-object immutability contract holds at the
+use site even though the class is **not** `readonly` (clone-then-assign and the lazy
+per-group query-param caches both forbid `readonly` properties). `JsonApiRequest`
+lazily parses and memoizes each query-param group (`fields`/`include`/`sort`/`page`/
+`filter`/`profile`) and nulls the relevant cache when the corresponding header or
+query param is replaced. Two modernisations replace yin's collaborators: (1) the
+`ExceptionFactory` is gone — every `$exceptionFactory->create…()` becomes a direct
+`throw new TypedException(...)`; (2) the `Deserializer` is gone — `getParsedBody()`
+prefers the PSR-7 parsed body and otherwise decodes the raw body inline with
+`\json_decode($raw, true, 512, \JSON_THROW_ON_ERROR)`, wrapping `\JsonException` in
+`RequestBodyInvalidJson`. Tests build requests with `nyholm/psr7` (+ `withParsedBody()`
+for JSON:API bodies) rather than a serializer.
+
+```php
+interface JsonApiRequestInterface extends ServerRequestInterface { /* validate*, get* parsing */ }
+
+abstract class AbstractRequest implements ServerRequestInterface
+{
+    public function __construct(protected ServerRequestInterface $serverRequest) {}
+    public function withMethod(string $method): static { $self = clone $this; $self->serverRequest = $this->serverRequest->withMethod($method); return $self; }
+}
+```
+
+#### Hydrator relationship value objects (early port)
+
+`Hydrator\Relationship\ToOneRelationship` / `ToManyRelationship` were ported ahead of
+the Hydrator round because `JsonApiRequest::getTo{One,Many}Relationship()` returns
+them. They follow the leaf-VO convention — `final readonly`, public promoted
+properties, no simple getters (`$rel->resourceIdentifier(s)` is the accessor) — keeping
+only the *computed* helpers (`isEmpty()`, `getResourceIdentifierTypes()/Ids()`).
+`null`/`[]` data means "clear the relationship" (`isEmpty() === true`). The full
+Hydrator pattern entry lands with the Hydrator round.
