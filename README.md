@@ -12,12 +12,17 @@ A modern, server-side [JSON:API 1.1](https://jsonapi.org/format/1.1/) library fo
 
 ## About
 
-`haddowg/json-api` is a modernised, server-side JSON:API library derived from
-the (now effectively abandoned) [woohoolabs/yin](https://github.com/woohoolabs/yin). It targets
-PHP 8.3+ and embraces modern language features (readonly classes, enums, typed
-properties, constructor promotion, first-class callable syntax), a typed
-exception hierarchy, PSR-7 v2 and PSR-15, first-class JSON:API profile support,
-and a fluent schema layer as the recommended public surface.
+`haddowg/json-api` is a server-side library for building [JSON:API 1.1](https://jsonapi.org/format/1.1/)
+compliant APIs in modern PHP. It gives you a typed, framework-agnostic toolkit
+for serialising resources, parsing and validating requests, negotiating content,
+and shaping responses exactly as the specification requires — without tying you
+to any particular framework or data layer.
+
+The design leans on contemporary PHP: readonly value objects, enums, a typed
+exception hierarchy, PSR-7 v2 and PSR-15 throughout, and a fluent schema layer as
+the recommended way to declare a resource type's attributes, relationships,
+filters, sorts, and validation in one place. First-class support for JSON:API
+profiles is built in rather than bolted on.
 
 ### Goals
 
@@ -61,15 +66,15 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). This project uses
 [Conventional Commits](https://www.conventionalcommits.org/) and automated
 releases via [release-please](https://github.com/googleapis/release-please).
 
-## Acknowledgements
+## Credits
 
-This package is a derivative work based on [woohoolabs/yin](https://github.com/woohoolabs/yin),
-and substantial portions of the codebase derive from it. Sincere thanks
-to **Woohoo Labs and the yin contributors** for the original library, which made
-this project possible.
+This package began as a derivative work based on [woohoolabs/yin](https://github.com/woohoolabs/yin),
+and substantial portions of the codebase derive from it — sincere thanks to
+**Woohoo Labs and the yin contributors** for the original library. The fluent
+schema layer draws inspiration from [Laravel JSON:API](https://laraveljsonapi.io/),
+whose schema-first developer experience shaped this project's recommended API.
 
 ## Licence
 
 Released under the [MIT Licence](LICENSE), with dual copyright held by Gregory
-Haddow (this derivative work) and Woohoo Labs and contributors (the original
-woohoolabs/yin authors).
+Haddow and Woohoo Labs and contributors (the original woohoolabs/yin authors).
