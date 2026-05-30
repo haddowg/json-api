@@ -12,10 +12,17 @@ namespace haddowg\JsonApi\Schema;
 final readonly class JsonApiObject
 {
     /**
+     * The JSON:API specification version this library implements; the default
+     * value of the document's `jsonapi.version` member. Single source of truth —
+     * reference this rather than repeating the `'1.1'` literal.
+     */
+    public const string VERSION = '1.1';
+
+    /**
      * @param array<string, mixed> $meta
      */
     public function __construct(
-        public string $version = '1.1',
+        public string $version = self::VERSION,
         public array $meta = [],
     ) {}
 

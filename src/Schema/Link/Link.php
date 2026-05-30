@@ -23,8 +23,7 @@ readonly class Link
     public function __construct(
         public string $href,
         public array $meta = [],
-    ) {
-    }
+    ) {}
 
     /**
      * @internal
