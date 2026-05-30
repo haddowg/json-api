@@ -58,8 +58,8 @@ Phase plans are pre-drafted in `docs/` and intended to be revised at each phase'
 
 | # | Phase | Plan | Status |
 |---|---|---|---|
-| 0 | Repo bootstrap | [phase-0-bootstrap.md](./phase-0-bootstrap.md) | In progress |
-| 1 | Core port & modernise | [phase-1-core-port.md](./phase-1-core-port.md) | Not started |
+| 0 | Repo bootstrap | [phase-0-bootstrap.md](./phase-0-bootstrap.md) | Complete |
+| 1 | Core port & modernise | [phase-1-core-port.md](./phase-1-core-port.md) | Ready |
 | 2 | Profiles + pagination | [phase-2-profiles-pagination.md](./phase-2-profiles-pagination.md) | Not started |
 | 3 | PSR-15 middleware suite | [phase-3-middleware.md](./phase-3-middleware.md) | Not started |
 | 4 | Validation | [phase-4-validation.md](./phase-4-validation.md) | Not started |
