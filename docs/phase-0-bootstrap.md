@@ -102,7 +102,7 @@ This is the first phase, so there is no prior handover to review. Before startin
 - [ ] `.github/workflows/ci.yml`:
   - Triggers: push to `main`, pull requests
   - Jobs:
-    - `tests`: matrix on PHP `[8.3, 8.4]` × Composer dependency strategy `[lowest, highest]`. Runs PHPUnit with coverage on the `highest`/`8.4` cell only; uploads to Codecov.
+    - `tests`: matrix on PHP `[8.3, 8.4, 8.5]` × Composer dependency strategy `[lowest, highest]`. Runs PHPUnit with coverage on the `highest`/`8.5` cell only; uploads to Codecov.
     - `phpstan`: PHP 8.4, runs `composer phpstan`
     - `cs`: PHP 8.4, runs `composer cs-check`
   - Use `shivammathur/setup-php` with `pcov` extension on the coverage cell
@@ -139,13 +139,20 @@ _(Appended to during execution.)_
 
 | Date | Decision | Rationale |
 |---|---|---|
-| _yyyy-mm-dd_ | _(example: chose MIT licence)_ | _(rationale)_ |
+| 2026-05-30 | CI test matrix is PHP `[8.3, 8.4, 8.5]` × deps `[lowest, highest]`; coverage on `highest`/`8.5` | Plan was drafted pre-8.5; 8.5 is now stable. Floor stays 8.3 (bump only on majors); adding 8.5 gives forward coverage at small CI cost. |
+| 2026-05-30 | Pin `phpunit/phpunit: ^12` in `require-dev` | PHPUnit 12 supports PHP 8.3–8.5; native attributes only (annotations removed in 12). PHPUnit 13 drops 8.3, which is our floor. Mirrors the Phase 1 decision-log entry. |
+| 2026-05-30 | Do **not** commit `composer.lock` | Standard library convention; consumers resolve their own versions. CI exercises both `lowest` and `highest` strategies, so reproducibility is covered without a committed lock. |
+| 2026-05-30 | MIT `LICENSE` copyright line: `Copyright (c) 2026 Gregory Haddow`, alongside a preserved `Copyright (c) Woohoo Labs and contributors` line referencing woohoolabs/yin | Package is a fork of yin (MIT); dual attribution is a licence obligation and a deliberate acknowledgement. Personal-name attribution chosen over the `haddowg` org handle. |
 
 ## Open questions
 
-- Composer lock file: confirm convention (library = no commit).
-- README badges: add Packagist badge once first release is cut; defer until then.
-- PHPUnit major version: select the latest stable that supports PHP 8.3 and 8.4. Record the choice in the decision log so Phase 1's test-modernisation tasks can rely on the correct attribute/annotation syntax.
+_All resolved at kick-off (2026-05-30) — see decision log._
+
+- ~~Composer lock file: confirm convention (library = no commit).~~ **Resolved: no commit.**
+- ~~README badges: add Packagist badge once first release is cut; defer until then.~~ **Resolved: defer Packagist badge to first release; CI badge added now.**
+- ~~PHPUnit major version: select the latest stable that supports PHP 8.3 and 8.4.~~ **Resolved: `^12`.**
+- ~~CI PHP matrix (surfaced at kick-off): the plan predates PHP 8.5.~~ **Resolved: `[8.3, 8.4, 8.5]`.**
+- ~~LICENSE copyright holder (surfaced at kick-off).~~ **Resolved: `Gregory Haddow`.**
 
 ## Acceptance criteria
 
