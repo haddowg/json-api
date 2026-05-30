@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use Exception;
-
 /**
  * Base for the typed JSON:API exception hierarchy.
  *

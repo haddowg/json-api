@@ -31,7 +31,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Templated links (RFC 6570) | ✅ test | No dedicated `templated` member exists in JSON:API 1.1; a templated link is a plain string `href`, representable as-is. (Decision log, Link audit.) |
 | Profile link object with keyword `aliases` | ✅ test | `Schema\Link\ProfileLinkObject`. `ProfileLinkObjectTest`. Full profile association is Phase 2. |
 | Top-level `meta` member | ⬜ todo | Lands with the document classes / `MetaResponse`. |
-| Top-level `links` member (`self`, `related`, pagination, …) | ⬜ todo | Lands with `DocumentLinks` and the document classes. |
+| Links containers (`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`, `ErrorLinks`) | ✅ test | Construct-only `final readonly` extending `AbstractLinks`; custom relation keys allowed; pagination links accepted as plain `?Link` (Page-based emission is Phase 2). `DocumentLinksTest`, `ResourceLinksTest`, `RelationshipLinksTest`. |
+| Top-level `links` member wiring into a document | ⬜ todo | Container types exist; binding them onto a document lands with the document classes. |
 | `data` / `errors` / `meta` mutual exclusivity & required members | ⬜ todo | Lands with the document hierarchy. |
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ⬜ todo | Lands with `Schema\Resource\*`. |
 | Resource identifier objects (`type`, `id`, `meta`) | ⬜ todo | Lands with `ResourceIdentifier`. |
@@ -45,7 +46,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ⬜ todo | Lands with `ErrorDocument` / `ErrorResponse`. |
-| Typed exception → HTTP status mapping | ⬜ todo | Lands with the exception hierarchy. |
+| Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail preserved from yin. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
 
 ## Fetching data (`spec:fetching-resources`, `spec:fetching-relationships`, `spec:fetching-data`)
 

@@ -79,10 +79,10 @@ As types are ported, capture the canonical modernisation pattern for each kind o
 
 ### Exception hierarchy (replaces `ExceptionFactory`)
 
-- [ ] Define `haddowg\JsonApi\Exception\JsonApiException` interface (extending `\Throwable`) with `getErrors(): list<Error>` and `getStatusCode(): int`. The exception carries error *data*, not a built document; document construction is owned by the `ErrorResponse` value object / error-handler middleware, which consume `getErrors()`.
-- [ ] Port each exception yin's `DefaultExceptionFactory` produces as a concrete class implementing the interface (e.g. `ResourceNotFound`, `MediaTypeUnsupported`, `MediaTypeUnacceptable`, `ResourceTypeUnacceptable`, `RelationshipNotExists`, etc.). Maintain a checklist mapping each `DefaultExceptionFactory` method → new exception class to confirm full coverage.
-- [ ] Replace all internal `$exceptionFactory->create…()` calls with `throw new …()`
-- [ ] Delete `ExceptionFactoryInterface` and `DefaultExceptionFactory` (do not port)
+- [x] Define `haddowg\JsonApi\Exception\JsonApiException` interface (extending `\Throwable`) with `getErrors(): list<Error>` and `getStatusCode(): int`. The exception carries error *data*, not a built document; document construction is owned by the `ErrorResponse` value object / error-handler middleware, which consume `getErrors()`.
+- [x] Port each exception yin's `DefaultExceptionFactory` produces as a concrete class implementing the interface (e.g. `ResourceNotFound`, `MediaTypeUnsupported`, `MediaTypeUnacceptable`, `ResourceTypeUnacceptable`, `RelationshipNotExists`, etc.). Maintain a checklist mapping each `DefaultExceptionFactory` method → new exception class to confirm full coverage. <!-- all 33 ported; coverage checklist verified in fan-out -->
+- [x] Replace all internal `$exceptionFactory->create…()` calls with `throw new …()` <!-- no internal call sites ported yet; factory not ported, so nothing to replace at this point -->
+- [x] Delete `ExceptionFactoryInterface` and `DefaultExceptionFactory` (do not port) <!-- never ported -->
 - [ ] Document the exception → HTTP status mapping in a single source-of-truth location (will become docs/exceptions.md in the docs phase)
 
 ### Document & schema (internal types)
@@ -237,6 +237,9 @@ _(Appended to during execution.)_
 | 2026-05-30 | **Link audit — extended `LinkObject` with the full JSON:API 1.1 link-object string members** `rel`, `title`, `type`, `hreflang` (each `string`, omitted from `transform()` when empty) alongside `href`/`meta` | yin only modelled `href`+`meta`. Custom relation keys are unconstrained at the leaf level. | this phase |
 | 2026-05-30 | **Link audit — `describedby` member deferred** | It nests a `Link` and the Links container types are not yet ported; a `// TODO` is left in `LinkObject` to add it when those land. | this phase |
 | 2026-05-30 | **JSON:API spec version is a single-source-of-truth constant** `JsonApiObject::VERSION = '1.1'`, used as the `JsonApiObject` `$version` default; no repeated `'1.1'` literals. | Avoids drift; one place to bump when the targeted spec version changes. Later types (`ServerInterface` default, negotiation) reference the same constant. | this phase |
+| 2026-05-30 | **First parallel fan-out (two worktrees): exception hierarchy + Links containers, on the shared `Error`/`AbstractLinks` base.** Both batches built and self-verified green in isolated worktrees, then converged into the working branch sequentially. | The two batches sit on opposite sides of the `Error`↔exception dependency, so `Error`+`AbstractLinks`+`ErrorLinks` were ported single-threaded first as the shared base, satisfying the "one component kind per fan-out / convergence is sequential" rules. | this phase |
+| 2026-05-30 | **Commit signing only works from the primary worktree; linked worktrees fail signing.** Convergence method: agents produce + self-verify in their worktree; the orchestrator copies the verified files into the primary checkout and commits there. | Environment signing server returns HTTP 400 for commits originating in linked worktrees. Copy-and-commit-in-main is the reliable path; the agent's branch is left as a verification artefact. | this phase |
+| 2026-05-30 | **Consolidation review (post-fan-out): exception `detail` strings kept as literal yin text, NOT normalised to `$this->getMessage()`.** Removed one dead `use Exception;` import from `AbstractJsonApiException`. | Review found the literal-vs-`getMessage()` variation is legitimate yin fidelity, not drift: yin's error `detail` usually differs from the thrown message (e.g. appends "by the endpoint"). Only ~6 of 33 are identical. Forcing uniformity would corrupt spec-surface text. CLAUDE.md Exceptions entry updated to state the rule. | this phase |
 
 ## Open questions
 

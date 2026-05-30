@@ -180,3 +180,41 @@ relation keys are allowed (the spec permits custom link relations). In
 `transform()`, build any nested list separately and assign it once rather than
 appending into the `mixed` result of `parent::transform()` (avoids
 `offsetAccess.nonOffsetAccessible` at level 9).
+
+### Exceptions
+
+The typed exception hierarchy replaces yin's `ExceptionFactory` /
+`ErrorDocument`-building exceptions. The `JsonApiException` interface
+(`extends \Throwable`) is the contract: `getErrors(): list<Error>` exposes the
+error **data** and `getStatusCode(): int` the HTTP status — exceptions carry
+data, never a built document (the serialization layer assembles it).
+`AbstractJsonApiException extends \Exception implements JsonApiException` takes
+`(string $message, int $statusCode)`, forwards both to `parent::__construct()`
+(so `getCode()` mirrors the status), stores the status in a
+`private readonly int`, and surfaces it via `getStatusCode()`; it leaves
+`getErrors()` abstract. Each concrete exception is a `final class` whose
+constructor takes the same domain args as yin's factory method, promotes them as
+`public readonly` properties, builds the human message inline, and implements
+`getErrors()` returning freshly-built `Error` VOs via named args. yin's error
+`detail` often differs from the thrown message (e.g. "…is not supported!" vs
+"…is not supported by the endpoint!"), so spell out the literal `detail:` string
+to match yin; use `detail: $this->getMessage()` only where yin's detail is
+identical to the message. Preserve yin's status
+codes, `code`, `title`, `detail`, and `source`/`meta` verbatim — these are
+spec-compliance surface (including yin's existing typos, kept for fidelity).
+Decouple from the not-yet-built request layer: body-invalid exceptions accept
+the already-extracted data (raw/decoded body, validation-error list) rather than
+a PSR message. Global classes are referenced as `\Exception` inline (the CS
+config disables `global_namespace_import`), not imported.
+
+```php
+final class ResourceNotFound extends AbstractJsonApiException
+{
+    public function __construct() { parent::__construct('The requested resource is not found!', 404); }
+
+    public function getErrors(): array
+    {
+        return [new Error(status: '404', code: 'RESOURCE_NOT_FOUND', title: 'Resource not found', detail: $this->getMessage())];
+    }
+}
+```
