@@ -81,8 +81,9 @@ subject. Therefore:
 - The **PR title must be a valid Conventional Commit** (e.g.
   `feat: add cursor-based pagination`). It feeds release-please, so a
   non-conforming title breaks versioning.
-- The **PR description** briefly states what the change does and why — focused on
-  intent, not implementation detail.
+- The **PR description** reads as natural prose describing the change and its
+  motivation — write it the way you'd pitch the change to a maintainer, not as a
+  filled-in template. Keep it focused on intent rather than implementation detail.
 - Keep PRs focused; one logical change per PR where practical.
 - Ensure `composer test`, `composer phpstan`, and `composer cs-check` all pass.
 - Reference any related issue in the PR description.

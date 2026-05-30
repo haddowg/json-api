@@ -57,10 +57,13 @@ subject, so:
   `feat: add cursor-based pagination`, `chore: bootstrap repository tooling`).
   It becomes the single commit on `main` and feeds release-please — a
   non-conforming title breaks versioning.
-- The **PR description** briefly states the PR's purpose, focused on **what**
-  and **why**, not **how**. Keep it short; do not walk through implementation
-  specifics — the diff is the record of how. A few bullet points or a short
-  paragraph is usually enough.
+- The **PR description** reads as natural prose, as if pitched by an external
+  contributor proposing the change — not a templated form. Do **not** use literal
+  "What"/"Why" headings. Convey the purpose and motivation in a short paragraph
+  (optionally a few bullets for notable points), without walking through
+  implementation specifics — the diff is the record of how. Describe the change
+  on its own terms: do **not** reference internal phases, the master plan, or
+  this playbook; a reader of the public repo has no context for them.
 - Individual commits on the branch need not be individually meaningful (they are
   squashed away), but should still use Conventional Commit messages for a clean
   in-progress history.
