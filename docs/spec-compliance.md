@@ -35,7 +35,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Top-level `links` member wiring into a document | ⬜ todo | Container types exist; binding them onto a document lands with the document classes. |
 | `data` / `errors` / `meta` mutual exclusivity & required members | ⬜ todo | Lands with the document hierarchy. |
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ⬜ todo | Lands with `Schema\Resource\*`. |
-| Resource identifier objects (`type`, `id`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates required `type`/`id` and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `meta` omitted from `transform()` when empty. `ResourceIdentifierTest`. |
+| Resource identifier objects (`type`, `id`/`lid`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates `type` + at-least-one-of(`id`,`lid`) and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `transform()` emits whichever of `id`/`lid`/`meta` are present. `ResourceIdentifierTest`. |
 | Compound documents / `included` | ⬜ todo | Lands with the serialization engine port. |
 
 ## Errors (`spec:errors`)
@@ -92,7 +92,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 |---|---|---|
 | Create / update / delete resources & relationships | 🟡 code | Hydration (request body → domain object) implemented + tested: `Hydrator\AbstractHydrator` (+ create/update traits), client-generated-id handling, relationship hydration with cardinality checks. `AbstractHydratorTest`, `CreateHydratorTraitTest`, `UpdateHydratorTraitTest`. Full endpoint wiring lands with the operations layer. |
 | Client-generated IDs on create (`id`) | ✅ test | `CreateHydratorTrait::hydrateIdForCreate()` + `validateClientGeneratedId()` (throws `ClientGeneratedIdNotSupported`/`ResourceIdInvalid`); non-string `id` rejected. `CreateHydratorTraitTest`. |
-| Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ⬜ todo | **Not supported** — yin implements no `lid`, so the core port omits it. Per JSON:API 1.1 a resource being created MAY use `lid` for `id`, and a resource identifier MUST use `lid` to reference a not-yet-created resource (chiefly for the Atomic Operations extension). Deferred enhancement beyond the yin port; pairs with post-1.0 atomic ops. |
+| Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ✅ test | Added beyond yin. `ResourceIdentifier` carries `?id`/`?lid` (`fromArray()` requires `type` + at-least-one-of; `ResourceIdentifierTest`); a relationship referenced by `lid` hydrates through to the relationship hydrator (`CreateHydratorTraitTest`); the request exposes `getResourceLid()` (`JsonApiRequestTest`). **Scope:** accept/carry `lid` only — cross-document `lid`→resource *resolution* is deferred to the Atomic Operations extension (post-1.0). |
 
 ## Content negotiation (`spec:content-negotiation`)
 

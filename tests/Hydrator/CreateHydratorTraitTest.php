@@ -86,6 +86,31 @@ final class CreateHydratorTraitTest extends TestCase
     }
 
     #[Test]
+    public function hydratesToOneRelationshipReferencedByLid(): void
+    {
+        $body = [
+            'data' => [
+                'type' => 'user',
+                'id' => '1',
+                'relationships' => [
+                    'owner' => [
+                        'data' => ['type' => 'person', 'lid' => 'local-person-1'],
+                    ],
+                ],
+            ],
+        ];
+
+        $hydrator = $this->createHydrator(false, '1');
+        $hydrator->hydrateForCreate($this->createRequest($body), []);
+
+        self::assertNotNull($hydrator->capturedOwner);
+        self::assertNotNull($hydrator->capturedOwner->resourceIdentifier);
+        self::assertSame('local-person-1', $hydrator->capturedOwner->resourceIdentifier->lid);
+        self::assertNull($hydrator->capturedOwner->resourceIdentifier->id);
+        self::assertSame('person', $hydrator->capturedOwner->resourceIdentifier->type);
+    }
+
+    #[Test]
     public function validateRequest(): void
     {
         $type = 'user';

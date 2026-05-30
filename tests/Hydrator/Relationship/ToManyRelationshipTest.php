@@ -45,6 +45,18 @@ final class ToManyRelationshipTest extends TestCase
     }
 
     #[Test]
+    public function exposesResourceIdentifierLids(): void
+    {
+        $relationship = new ToManyRelationship([
+            new ResourceIdentifier('user', null, 'local-1'),
+            new ResourceIdentifier('user', '2'),
+        ]);
+
+        self::assertSame(['local-1', null], $relationship->getResourceIdentifierLids());
+        self::assertSame([null, '2'], $relationship->getResourceIdentifierIds());
+    }
+
+    #[Test]
     public function isEmptyIsFalseWhenIdentifiersPresent(): void
     {
         $relationship = new ToManyRelationship([new ResourceIdentifier('user', '1')]);

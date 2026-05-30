@@ -13,7 +13,7 @@ final class ResourceIdentifierIdMissing extends AbstractJsonApiException
      */
     public function __construct(public readonly array $resourceIdentifier)
     {
-        parent::__construct('An ID for the resource identifier must be included!', 400);
+        parent::__construct('An ID or local ID (lid) for the resource identifier must be included!', 400);
     }
 
     public function getErrors(): array
@@ -23,7 +23,7 @@ final class ResourceIdentifierIdMissing extends AbstractJsonApiException
                 status: '400',
                 code: 'RESOURCE_IDENTIFIER_ID_MISSING',
                 title: 'An ID for the resource identifier is missing',
-                detail: 'An ID for the resource identifier must be included!',
+                detail: 'An ID or local ID (lid) for the resource identifier must be included!',
             ),
         ];
     }

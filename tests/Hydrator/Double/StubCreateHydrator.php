@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\Hydrator\Double;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Hydrator\CreateHydratorTrait;
 use haddowg\JsonApi\Hydrator\HydratorTrait;
+use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -16,6 +17,9 @@ final class StubCreateHydrator
 {
     use HydratorTrait;
     use CreateHydratorTrait;
+
+    /** Captures the "owner" to-one relationship as hydrated, for assertions. */
+    public ?ToOneRelationship $capturedOwner = null;
 
     public function __construct(
         private readonly bool $isClientGeneratedIdException,
@@ -62,6 +66,12 @@ final class StubCreateHydrator
 
     protected function getRelationshipHydrator(mixed $domainObject): array
     {
-        return [];
+        return [
+            'owner' => function (mixed $domainObject, ToOneRelationship $owner): mixed {
+                $this->capturedOwner = $owner;
+
+                return $domainObject;
+            },
+        ];
     }
 }

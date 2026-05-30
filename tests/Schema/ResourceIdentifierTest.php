@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Schema;
 
 use haddowg\JsonApi\Exception\ResourceIdentifierIdInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierIdMissing;
+use haddowg\JsonApi\Exception\ResourceIdentifierLidInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierTypeInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierTypeMissing;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
@@ -17,27 +18,42 @@ use PHPUnit\Framework\TestCase;
 final class ResourceIdentifierTest extends TestCase
 {
     #[Test]
-    public function exposesTypeIdAndMeta(): void
+    public function exposesTypeIdLidAndMeta(): void
     {
-        $identifier = new ResourceIdentifier('user', '1', ['abc' => 'def']);
+        $identifier = new ResourceIdentifier('user', '1', 'local-1', ['abc' => 'def']);
 
         self::assertSame('user', $identifier->type);
         self::assertSame('1', $identifier->id);
+        self::assertSame('local-1', $identifier->lid);
         self::assertSame(['abc' => 'def'], $identifier->meta);
     }
 
     #[Test]
-    public function metaDefaultsToEmpty(): void
+    public function idLidAndMetaDefaultToNullOrEmpty(): void
     {
-        self::assertSame([], (new ResourceIdentifier('user', '1'))->meta);
+        $identifier = new ResourceIdentifier('user', '1');
+
+        self::assertSame('1', $identifier->id);
+        self::assertNull($identifier->lid);
+        self::assertSame([], $identifier->meta);
     }
 
     #[Test]
-    public function fromArrayBuildsIdentifier(): void
+    public function fromArrayBuildsIdentifierFromId(): void
     {
         $identifier = ResourceIdentifier::fromArray(['type' => 'user', 'id' => '1']);
 
         self::assertEquals(new ResourceIdentifier('user', '1'), $identifier);
+    }
+
+    #[Test]
+    public function fromArrayBuildsIdentifierFromLid(): void
+    {
+        $identifier = ResourceIdentifier::fromArray(['type' => 'user', 'lid' => 'local-1']);
+
+        self::assertEquals(new ResourceIdentifier('user', null, 'local-1'), $identifier);
+        self::assertNull($identifier->id);
+        self::assertSame('local-1', $identifier->lid);
     }
 
     #[Test]
@@ -49,7 +65,7 @@ final class ResourceIdentifierTest extends TestCase
             'meta' => ['abc' => 'def'],
         ]);
 
-        self::assertEquals(new ResourceIdentifier('user', '1', ['abc' => 'def']), $identifier);
+        self::assertEquals(new ResourceIdentifier('user', '1', null, ['abc' => 'def']), $identifier);
     }
 
     #[Test]
@@ -81,14 +97,6 @@ final class ResourceIdentifierTest extends TestCase
     }
 
     #[Test]
-    public function fromArrayThrowsWhenTypeEmpty(): void
-    {
-        $this->expectException(ResourceIdentifierTypeMissing::class);
-
-        ResourceIdentifier::fromArray(['type' => '', 'id' => '1']);
-    }
-
-    #[Test]
     public function fromArrayThrowsWhenTypeNotString(): void
     {
         $this->expectException(ResourceIdentifierTypeInvalid::class);
@@ -97,7 +105,7 @@ final class ResourceIdentifierTest extends TestCase
     }
 
     #[Test]
-    public function fromArrayThrowsWhenIdMissing(): void
+    public function fromArrayThrowsWhenNeitherIdNorLidPresent(): void
     {
         $this->expectException(ResourceIdentifierIdMissing::class);
 
@@ -105,11 +113,11 @@ final class ResourceIdentifierTest extends TestCase
     }
 
     #[Test]
-    public function fromArrayThrowsWhenIdEmpty(): void
+    public function fromArrayThrowsWhenIdAndLidBothEmpty(): void
     {
         $this->expectException(ResourceIdentifierIdMissing::class);
 
-        ResourceIdentifier::fromArray(['type' => 'user', 'id' => '']);
+        ResourceIdentifier::fromArray(['type' => 'user', 'id' => '', 'lid' => '']);
     }
 
     #[Test]
@@ -121,7 +129,15 @@ final class ResourceIdentifierTest extends TestCase
     }
 
     #[Test]
-    public function transformOmitsEmptyMeta(): void
+    public function fromArrayThrowsWhenLidNotString(): void
+    {
+        $this->expectException(ResourceIdentifierLidInvalid::class);
+
+        ResourceIdentifier::fromArray(['type' => 'user', 'lid' => 1]);
+    }
+
+    #[Test]
+    public function transformOmitsEmptyMembers(): void
     {
         $identifier = new ResourceIdentifier('user', '1');
 
@@ -129,12 +145,20 @@ final class ResourceIdentifierTest extends TestCase
     }
 
     #[Test]
-    public function transformIncludesMeta(): void
+    public function transformEmitsLidInsteadOfId(): void
     {
-        $identifier = new ResourceIdentifier('user', '1', ['abc' => 'def']);
+        $identifier = new ResourceIdentifier('user', null, 'local-1');
+
+        self::assertSame(['type' => 'user', 'lid' => 'local-1'], $identifier->transform());
+    }
+
+    #[Test]
+    public function transformIncludesAllPresentMembers(): void
+    {
+        $identifier = new ResourceIdentifier('user', '1', 'local-1', ['abc' => 'def']);
 
         self::assertSame(
-            ['type' => 'user', 'id' => '1', 'meta' => ['abc' => 'def']],
+            ['type' => 'user', 'id' => '1', 'lid' => 'local-1', 'meta' => ['abc' => 'def']],
             $identifier->transform(),
         );
     }

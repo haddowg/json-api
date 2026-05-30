@@ -1095,6 +1095,36 @@ final class JsonApiRequestTest extends TestCase
     }
 
     #[Test]
+    public function getResourceLidWhenEmpty(): void
+    {
+        $request = $this->createRequestWithJsonBody(
+            [
+                'data' => [
+                    'type' => 'user',
+                    'id' => '1',
+                ],
+            ],
+        );
+
+        self::assertNull($request->getResourceLid());
+    }
+
+    #[Test]
+    public function getResourceLid(): void
+    {
+        $request = $this->createRequestWithJsonBody(
+            [
+                'data' => [
+                    'type' => 'user',
+                    'lid' => 'local-1',
+                ],
+            ],
+        );
+
+        self::assertSame('local-1', $request->getResourceLid());
+    }
+
+    #[Test]
     public function getResourceAttributes(): void
     {
         $request = $this->createRequestWithJsonBody(

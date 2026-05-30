@@ -544,6 +544,18 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return $data['id'] ?? $default;
     }
 
+    public function getResourceLid(mixed $default = null): mixed
+    {
+        /** @var array<string, mixed>|mixed $data */
+        $data = $this->getResource();
+
+        if (\is_array($data) === false) {
+            return $default;
+        }
+
+        return $data['lid'] ?? $default;
+    }
+
     /**
      * Returns the "attributes" of the primary resource.
      *

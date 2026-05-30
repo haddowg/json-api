@@ -26,6 +26,7 @@ use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
 use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
 use haddowg\JsonApi\Exception\ResourceIdentifierIdInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierIdMissing;
+use haddowg\JsonApi\Exception\ResourceIdentifierLidInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierTypeInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierTypeMissing;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
@@ -77,6 +78,7 @@ final class JsonApiExceptionTest extends TestCase
         yield 'ResourceIdMissing' => [new ResourceIdMissing(), 400, '400', 'RESOURCE_ID_MISSING', 'Resource ID is missing'];
         yield 'ResourceIdentifierIdInvalid' => [new ResourceIdentifierIdInvalid('integer'), 400, '400', 'RESOURCE_IDENTIFIER_ID_INVALID', 'Resource identifier ID is invalid'];
         yield 'ResourceIdentifierIdMissing' => [new ResourceIdentifierIdMissing([]), 400, '400', 'RESOURCE_IDENTIFIER_ID_MISSING', 'An ID for the resource identifier is missing'];
+        yield 'ResourceIdentifierLidInvalid' => [new ResourceIdentifierLidInvalid('integer'), 400, '400', 'RESOURCE_IDENTIFIER_LID_INVALID', 'Resource identifier local ID is invalid'];
         yield 'ResourceIdentifierTypeInvalid' => [new ResourceIdentifierTypeInvalid('integer'), 400, '400', 'RESOURCE_IDENTIFIER_TYPE_INVALID', 'Resource identifier type is invalid'];
         yield 'ResourceIdentifierTypeMissing' => [new ResourceIdentifierTypeMissing([]), 400, '400', 'RESOURCE_IDENTIFIER_TYPE_MISSING', 'A type for the resource identifier is missing'];
         yield 'ResourceNotFound' => [new ResourceNotFound(), 404, '404', 'RESOURCE_NOT_FOUND', 'Resource not found'];

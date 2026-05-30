@@ -319,8 +319,13 @@ with `\is_string`/`\is_array` before use (a non-string `type`/`id` is malformed 
 the typed exception), and bridge a JSON object to `array<string, mixed>` with an inline
 `@var` only at the point it is handed to `ResourceIdentifier::fromArray()`.
 
-> **`lid` (JSON:API 1.1 local IDs) is NOT supported** — yin never implemented it, so the
-> port doesn't either. Creating a resource accepts a client `id` (`validateClientGeneratedId`)
-> or generates one (`generateId`); there is no `lid` path, and `ResourceIdentifier`
-> requires `id`. Tracked as a spec-compliance gap (see `docs/spec-compliance.md`); a real
-> `lid` implementation pairs naturally with the post-1.0 Atomic Operations work.
+> **`lid` (JSON:API 1.1 local IDs) is supported at the data-model level** (added beyond
+> yin, which has none). `ResourceIdentifier` carries `?id` + `?lid` and `fromArray()`
+> requires `type` + at-least-one-of(`id`,`lid`); a relationship referencing a not-yet-created
+> resource by `lid` therefore parses and reaches the relationship hydrator with
+> `->resourceIdentifier->lid` set and `->id` null (no hydrator logic change — it flows through
+> `createRelationship()`→`ResourceIdentifier::fromArray()`). A resource created with a `lid`
+> still receives a server-generated `id` (`lid` is a document-local handle, never the id);
+> the request exposes it via `getResourceLid()`. **Not** implemented: cross-document `lid`
+> *resolution* (mapping a `lid` to a freshly-created resource within one request) — that
+> belongs with the post-1.0 Atomic Operations extension.

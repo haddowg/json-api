@@ -165,6 +165,14 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function getResourceId(mixed $default = null): mixed;
 
     /**
+     * Returns the "lid" (local id) of the primary resource if it is present, or the $default value otherwise.
+     *
+     * Per JSON:API 1.1 a resource being created MAY carry a `lid` instead of an `id`; it is a
+     * document-local handle for a not-yet-created resource, not the resource's server-assigned id.
+     */
+    public function getResourceLid(mixed $default = null): mixed;
+
+    /**
      * Returns the "attributes" of the primary resource.
      *
      * @return array<string, mixed>

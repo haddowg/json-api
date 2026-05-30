@@ -31,11 +31,19 @@ final readonly class ToManyRelationship
     }
 
     /**
-     * @return list<string>
+     * @return list<?string>
      */
     public function getResourceIdentifierIds(): array
     {
-        return \array_map(static fn(ResourceIdentifier $ri): string => $ri->id, $this->resourceIdentifiers);
+        return \array_map(static fn(ResourceIdentifier $ri): ?string => $ri->id, $this->resourceIdentifiers);
+    }
+
+    /**
+     * @return list<?string>
+     */
+    public function getResourceIdentifierLids(): array
+    {
+        return \array_map(static fn(ResourceIdentifier $ri): ?string => $ri->lid, $this->resourceIdentifiers);
     }
 
     /**
