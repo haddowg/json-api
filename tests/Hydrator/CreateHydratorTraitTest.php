@@ -1,0 +1,133 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Tests\Hydrator;
+
+use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
+use haddowg\JsonApi\Exception\DataMemberMissing;
+use haddowg\JsonApi\Request\JsonApiRequest;
+use haddowg\JsonApi\Tests\Hydrator\Double\StubCreateHydrator;
+use Nyholm\Psr7\ServerRequest;
+use Nyholm\Psr7\Stream;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Tests for CreateHydratorTrait via StubCreateHydrator.
+ *
+ * Rewrites from yin:
+ * - ExceptionFactory removed from all call sites.
+ * - Request built with Nyholm PSR-7 (replaces Laminas/Diactoros).
+ * - PHPUnit 12 attributes only.
+ */
+final class CreateHydratorTraitTest extends TestCase
+{
+    #[Test]
+    public function hydrateWhenBodyEmpty(): void
+    {
+        $body = [];
+
+        $hydrator = $this->createHydrator(false, '1');
+
+        $this->expectException(DataMemberMissing::class);
+        $hydrator->hydrateForCreate($this->createRequest($body), []);
+    }
+
+    #[Test]
+    public function hydrateWhenGeneratingId(): void
+    {
+        $type = 'user';
+        $id = '1';
+        $body = [
+            'data' => [
+                'type' => $type,
+            ],
+        ];
+
+        $hydrator = $this->createHydrator(false, $id);
+        $domainObject = $hydrator->hydrateForCreate($this->createRequest($body), []);
+        self::assertEquals(['id' => $id], $domainObject);
+    }
+
+    #[Test]
+    public function hydrateWhenBodyDataIdNotSupported(): void
+    {
+        $type = 'user';
+        $id = '1';
+        $body = [
+            'data' => [
+                'type' => $type,
+                'id' => $id,
+            ],
+        ];
+
+        $hydrator = $this->createHydrator(true, $id);
+
+        $this->expectException(ClientGeneratedIdNotSupported::class);
+        $hydrator->hydrateForCreate($this->createRequest($body), []);
+    }
+
+    #[Test]
+    public function hydrateBodyDataId(): void
+    {
+        $type = 'user';
+        $id = '1';
+        $body = [
+            'data' => [
+                'type' => $type,
+                'id' => $id,
+            ],
+        ];
+
+        $hydrator = $this->createHydrator(false, $id);
+        $domainObject = $hydrator->hydrateForCreate($this->createRequest($body), []);
+        self::assertEquals(['id' => $id], $domainObject);
+    }
+
+    #[Test]
+    public function validateRequest(): void
+    {
+        $type = 'user';
+        $id = '1';
+
+        $body = [
+            'data' => [
+                'type' => $type,
+                'id' => $id,
+            ],
+        ];
+
+        $hydrator = $this->createHydrator(false, $id, true);
+
+        $this->expectException(\LogicException::class);
+        $hydrator->hydrateForCreate($this->createRequest($body), []);
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private function createRequest(array $body): JsonApiRequest
+    {
+        $json = \json_encode($body);
+        if ($json === false) {
+            $json = '';
+        }
+
+        $stream = Stream::create($json);
+
+        $psrRequest = (new ServerRequest('POST', '/'))
+            ->withParsedBody($body)
+            ->withBody($stream);
+
+        return new JsonApiRequest($psrRequest);
+    }
+
+    private function createHydrator(
+        bool $clientGeneratedIdException = false,
+        string $generatedId = '',
+        bool $logicException = false,
+    ): StubCreateHydrator {
+        return new StubCreateHydrator($clientGeneratedIdException, $generatedId, $logicException);
+    }
+}

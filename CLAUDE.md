@@ -298,3 +298,29 @@ negotiation + JSON well-formedness only. yin's `AbstractMessageValidator` was **
 ported as a class**: once schema validation is removed nothing is genuinely shared
 between request and response linting, so its remnants were folded into the two
 validators rather than leaving an empty base.
+
+### Hydrators
+
+`HydratorInterface::hydrate(JsonApiRequestInterface $request, mixed $domainObject):
+mixed` is the request→domain contract (yin's `ExceptionFactory` arg is gone — typed
+exceptions throw directly). `AbstractHydrator` composes the three **instance-method**
+traits (`HydratorTrait` core + `CreateHydratorTrait` + `UpdateHydratorTrait`; no
+`static`, call sites use `$this->`) and dispatches on the HTTP method (POST → create,
+PATCH → update), then runs a `validateDomainObject()` hook. Concrete hydrators implement
+the abstract hooks — `getAcceptedTypes()`, `getAttributeHydrator()`,
+`getRelationshipHydrator()`, `setId()`, `generateId()`, `validateClientGeneratedId()`,
+`validateRequest()` — so the contract stays **implementable by composition** (the traits
+are an inheritance convenience, not a requirement). Relationship cardinality is checked
+by reflecting the hydrator callable's 2nd-parameter type-hint and comparing it (`to-one`/
+`to-many`) against the parsed `ToOneRelationship`/`ToManyRelationship`; a mismatch throws
+`RelationshipTypeInappropriate`. **Decoded-JSON boundary:** request body members
+(`type`/`id`/`attributes`/`relationships`/relationship `data`) arrive as `mixed`; guard
+with `\is_string`/`\is_array` before use (a non-string `type`/`id` is malformed → throw
+the typed exception), and bridge a JSON object to `array<string, mixed>` with an inline
+`@var` only at the point it is handed to `ResourceIdentifier::fromArray()`.
+
+> **`lid` (JSON:API 1.1 local IDs) is NOT supported** — yin never implemented it, so the
+> port doesn't either. Creating a resource accepts a client `id` (`validateClientGeneratedId`)
+> or generates one (`generateId`); there is no `lid` path, and `ResourceIdentifier`
+> requires `id`. Tracked as a spec-compliance gap (see `docs/spec-compliance.md`); a real
+> `lid` implementation pairs naturally with the post-1.0 Atomic Operations work.

@@ -90,7 +90,9 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Create / update / delete resources & relationships | ⬜ todo | Lands with hydrators + operations. |
+| Create / update / delete resources & relationships | 🟡 code | Hydration (request body → domain object) implemented + tested: `Hydrator\AbstractHydrator` (+ create/update traits), client-generated-id handling, relationship hydration with cardinality checks. `AbstractHydratorTest`, `CreateHydratorTraitTest`, `UpdateHydratorTraitTest`. Full endpoint wiring lands with the operations layer. |
+| Client-generated IDs on create (`id`) | ✅ test | `CreateHydratorTrait::hydrateIdForCreate()` + `validateClientGeneratedId()` (throws `ClientGeneratedIdNotSupported`/`ResourceIdInvalid`); non-string `id` rejected. `CreateHydratorTraitTest`. |
+| Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ⬜ todo | **Not supported** — yin implements no `lid`, so the core port omits it. Per JSON:API 1.1 a resource being created MAY use `lid` for `id`, and a resource identifier MUST use `lid` to reference a not-yet-created resource (chiefly for the Atomic Operations extension). Deferred enhancement beyond the yin port; pairs with post-1.0 atomic ops. |
 
 ## Content negotiation (`spec:content-negotiation`)
 
