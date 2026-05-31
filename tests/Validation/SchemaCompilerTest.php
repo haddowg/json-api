@@ -111,20 +111,21 @@ final class SchemaCompilerTest extends TestCase
         self::assertSame('object', $this->at($schema, 'type'));
         self::assertSame('object', $this->at($schema, 'properties', 'data', 'type'));
 
-        $attr = ['properties', 'data', 'properties', 'attributes'];
-        self::assertContains('name', $this->at($schema, ...$attr, ...['required']));
-        self::assertContains('email', $this->at($schema, ...$attr, ...['required']));
-        self::assertContains('createOnly', $this->at($schema, ...$attr, ...['required']));
-        self::assertSame(50, $this->at($schema, ...$attr, ...['properties', 'name', 'maxLength']));
-        self::assertSame('email', $this->at($schema, ...$attr, ...['properties', 'email', 'format']));
-        self::assertSame(['active', 'inactive'], $this->at($schema, ...$attr, ...['properties', 'status', 'enum']));
-        self::assertSame(['integer', 'null'], $this->at($schema, ...$attr, ...['properties', 'age', 'type']));
+        $required = $this->listAt($schema, 'properties', 'data', 'properties', 'attributes', 'required');
+        self::assertContains('name', $required);
+        self::assertContains('email', $required);
+        self::assertContains('createOnly', $required);
 
-        $rel = ['properties', 'data', 'properties', 'relationships'];
-        self::assertContains('team', $this->at($schema, ...$rel, ...['required']));
+        self::assertSame(50, $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'name', 'maxLength'));
+        self::assertSame('email', $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'email', 'format'));
+        self::assertSame(['active', 'inactive'], $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'status', 'enum'));
+        self::assertSame(['integer', 'null'], $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'age', 'type'));
+
+        $relRequired = $this->listAt($schema, 'properties', 'data', 'properties', 'relationships', 'required');
+        self::assertContains('team', $relRequired);
         self::assertSame(
             ['teams'],
-            $this->at($schema, ...$rel, ...['properties', 'team', 'properties', 'data', 'properties', 'type', 'enum']),
+            $this->at($schema, 'properties', 'data', 'properties', 'relationships', 'properties', 'team', 'properties', 'data', 'properties', 'type', 'enum'),
         );
     }
 
