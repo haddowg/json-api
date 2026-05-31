@@ -10,7 +10,6 @@ use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
 use haddowg\JsonApi\Schema\Link\Link;
-use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 use haddowg\JsonApi\Schema\Resource\ResourceInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
@@ -135,23 +134,34 @@ final class DataResponse extends AbstractResponse
     }
 
     /**
-     * Adds the page's profile (if any) to the applied set, on top of the
-     * request-requested registered profiles.
+     * Adds the page's profile to the applied set, on top of the request-requested
+     * registered profiles — but only when the server **recognises** it. A page
+     * must not advertise a profile the server has not registered; an unrecognized
+     * page profile is silently dropped, mirroring the advisory treatment of
+     * request-requested profiles. The registered instance is used (not the page's
+     * own), so the server's configuration of that profile wins.
      */
     protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
     {
         $profiles = parent::appliedProfiles($server, $request);
 
         $pageProfile = $this->page?->profile();
-        if ($pageProfile instanceof ProfileInterface) {
-            foreach ($profiles as $profile) {
-                if ($profile->uri() === $pageProfile->uri()) {
-                    return $profiles;
-                }
-            }
-
-            \array_unshift($profiles, $pageProfile);
+        if ($pageProfile === null) {
+            return $profiles;
         }
+
+        $registered = $server->profiles()->get($pageProfile->uri());
+        if ($registered === null) {
+            return $profiles;
+        }
+
+        foreach ($profiles as $profile) {
+            if ($profile->uri() === $registered->uri()) {
+                return $profiles;
+            }
+        }
+
+        \array_unshift($profiles, $registered);
 
         return $profiles;
     }

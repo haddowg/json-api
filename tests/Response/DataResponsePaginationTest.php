@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubServer;
 use Nyholm\Psr7\ServerRequest;
@@ -46,14 +48,18 @@ final class DataResponsePaginationTest extends TestCase
 
     #[Test]
     #[Group('spec:extensions-and-profiles')]
-    public function cursorResponseOmitsLastAndAdvertisesTheCursorProfile(): void
+    public function cursorResponseOmitsLastAndAdvertisesTheCursorProfileWhenRegistered(): void
     {
         $resource = new StubResource('user', '1');
         $request = new JsonApiRequest(new ServerRequest('GET', 'https://api.test/users?page[size]=10'));
+        $server = new StubServer(
+            baseUri: 'https://api.test',
+            profiles: new ProfileRegistry(new CursorPaginationProfile()),
+        );
 
         $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
 
-        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
+        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse($server, $request);
         $body = $this->decode((string) $psr->getBody());
 
         $links = $body['links'];
@@ -70,6 +76,29 @@ final class DataResponsePaginationTest extends TestCase
             $psr->getHeaderLine('Content-Type'),
         );
         self::assertSame('Accept', $psr->getHeaderLine('Vary'));
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function cursorResponseDoesNotAdvertiseTheProfileWhenServerHasNotRegisteredIt(): void
+    {
+        // A page must not advertise a profile the server has not registered.
+        $resource = new StubResource('user', '1');
+        $request = new JsonApiRequest(new ServerRequest('GET', 'https://api.test/users?page[size]=10'));
+
+        $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
+
+        // Empty registry on the server: the page's profile is unrecognized → dropped.
+        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
+        $body = $this->decode((string) $psr->getBody());
+
+        $links = $body['links'];
+        self::assertIsArray($links);
+        self::assertArrayHasKey('next', $links, 'pagination links are still emitted');
+        self::assertArrayNotHasKey('profile', $links);
+
+        self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
+        self::assertSame('', $psr->getHeaderLine('Vary'));
     }
 
     /**

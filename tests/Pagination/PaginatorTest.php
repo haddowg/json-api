@@ -96,4 +96,46 @@ final class PaginatorTest extends TestCase
         self::assertFalse($page->hasPrevious);
         self::assertInstanceOf(CursorPaginationProfile::class, $page->profile());
     }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function cursorPageEmitsExactlyTheQueryParamsItsProfileReserves(): void
+    {
+        // Guards against drift between the cursor paginator's actual page[…] keys
+        // and the keywords its profile advertises: the set of page[…] params the
+        // page emits across its whole link set must equal the profile's reserved
+        // page[…] keywords. If the strategy starts emitting a new param (or renames
+        // one) without updating CursorPaginationProfile::keywords() — or vice versa —
+        // this fails.
+        $request = StubJsonApiRequest::create(['page' => ['size' => '10']]);
+        $page = CursorPaginator::make()->paginate($request, [], 'before-cur', 'after-cur', hasNext: true, hasPrevious: true);
+
+        $emitted = [];
+        foreach ($page->linkSet('https://api.test/users', '') as $link) {
+            if ($link === null) {
+                continue;
+            }
+
+            $href = $link->transform('');
+            self::assertIsString($href);
+
+            \parse_str((string) \parse_url($href, \PHP_URL_QUERY), $query);
+            $pageParams = $query['page'] ?? [];
+            self::assertIsArray($pageParams);
+            foreach (\array_keys($pageParams) as $key) {
+                $emitted['page[' . $key . ']'] = true;
+            }
+        }
+
+        $reservedPageParams = \array_values(\array_filter(
+            $page->profile()?->keywords() ?? [],
+            static fn(string $keyword): bool => \str_starts_with($keyword, 'page['),
+        ));
+
+        \sort($reservedPageParams);
+        $emittedParams = \array_keys($emitted);
+        \sort($emittedParams);
+
+        self::assertSame($reservedPageParams, $emittedParams);
+    }
 }

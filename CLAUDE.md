@@ -456,7 +456,9 @@ intersects the request's requested/required profile URIs with the server's regis
 (unrecognized ones dropped), `toPsrResponse()` then runs each applied profile's `finalizeDocument()`,
 records the URIs in top-level `links.profile`, echoes them in the `Content-Type` `profile` parameter,
 and sets `Vary: Accept`. A response subtype extends `appliedProfiles()` to add its own (e.g.
-`DataResponse` prepends a paginated `Page`'s profile). **`ext` negotiation** is parsed but not
+`DataResponse` prepends a paginated `Page`'s profile **only when the server has registered it** —
+a page never advertises an unregistered profile, and the registered instance is the one applied).
+**`ext` negotiation** is parsed but not
 dispatched: `Request\MediaType::isValid()` accepts **both** `ext` and `profile` as the only permitted
 media-type parameters (and `MediaType::split()` cuts a header into instances quote-aware so a comma
 inside a quoted value doesn't fragment it); the request exposes `getRequestedExtensions()`/
