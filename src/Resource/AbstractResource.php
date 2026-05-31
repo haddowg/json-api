@@ -11,6 +11,7 @@ use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\Field;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Relation;
@@ -63,8 +64,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * Injects the resolver relationships use to serialize related resources.
      * The {@see \haddowg\JsonApi\Server\Server} calls this when it hands out the
-     * resource; standalone use leaves it null (relationships still emit their
-     * shell, without nested linkage data resolution).
+     * resource; standalone use leaves it null (relationships are then omitted).
      */
     public function setSerializerResolver(SerializerResolver $resolver): void
     {
@@ -83,7 +83,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return '';
         }
 
-        $value = $idField->serialize($object, $this->request ?? throw new \LogicException('No active request.'), $idField->name());
+        $request = $this->request ?? throw new \LogicException('No active request; getId() called outside a transformation.');
+        $value = $idField->serialize($object, $request, $idField->name());
 
         return \is_scalar($value) ? (string) $value : '';
     }
@@ -102,8 +103,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     {
         $attributes = [];
         foreach ($this->attributeFields() as $field) {
-            $name = $field->name();
-            $attributes[$name] = static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
+            $attributes[$field->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
                 => $field->serialize($model, $request, $fieldName);
         }
 
@@ -220,7 +220,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     protected function hydrateForCreate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
         $data = $request->getResource();
-        if ($data === null) {
+        if (!\is_array($data)) {
             throw new DataMemberMissing();
         }
 
@@ -237,13 +237,14 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @param mixed $domainObject
      * @return mixed
      *
+     * @throws DataMemberMissing
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
      */
     protected function hydrateForUpdate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
         $data = $request->getResource();
-        if ($data === null) {
+        if (!\is_array($data)) {
             throw new DataMemberMissing();
         }
 
@@ -279,16 +280,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         if ($clientId !== '' && !$this->acceptsClientGeneratedId()) {
-            throw new ClientGeneratedIdNotSupported();
+            throw new ClientGeneratedIdNotSupported($clientId);
         }
 
-        $id = $clientId !== '' ? $clientId : $this->generateId();
         $column = $idField->column();
         if ($column === null) {
             return $domainObject;
         }
 
-        return Field\Accessor::set($domainObject, $column, $id);
+        $id = $clientId !== '' ? $clientId : $this->generateId();
+
+        return Accessor::set($domainObject, $column, $id);
     }
 
     /**
@@ -330,18 +332,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             }
 
             if ($relation->isToMany()) {
-                if (!$request->hasToManyRelationship($relation->name())) {
-                    continue;
+                if ($request->hasToManyRelationship($relation->name())) {
+                    $domainObject = $relation->hydrateRelationship($domainObject, $request->getToManyRelationship($relation->name()));
                 }
-                $domainObject = $relation->hydrateRelationship($domainObject, $request->getToManyRelationship($relation->name()));
 
                 continue;
             }
 
-            if (!$request->hasToOneRelationship($relation->name())) {
-                continue;
+            if ($request->hasToOneRelationship($relation->name())) {
+                $domainObject = $relation->hydrateRelationship($domainObject, $request->getToOneRelationship($relation->name()));
             }
-            $domainObject = $relation->hydrateRelationship($domainObject, $request->getToOneRelationship($relation->name()));
         }
 
         return $domainObject;
@@ -354,7 +354,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      */
     final protected function allFields(): array
     {
-        return $this->fieldCache ??= \array_values([...$this->fields()]);
+        return $this->fieldCache ??= \array_values($this->fields());
     }
 
     /**
@@ -377,10 +377,14 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      */
     protected function relationFields(): array
     {
-        return \array_values(\array_filter(
-            $this->allFields(),
-            static fn(Field $field): bool => $field instanceof Relation && !$field->isHidden(),
-        ));
+        $relations = [];
+        foreach ($this->allFields() as $field) {
+            if ($field instanceof Relation && !$field->isHidden()) {
+                $relations[] = $field;
+            }
+        }
+
+        return $relations;
     }
 
     protected function idField(): ?Id
