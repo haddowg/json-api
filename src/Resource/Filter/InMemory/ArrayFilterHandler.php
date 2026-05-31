@@ -49,8 +49,8 @@ final class ArrayFilterHandler implements \haddowg\JsonApi\Resource\Filter\Filte
             $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
             $filter instanceof WhereIdIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), false),
             $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
-            $filter instanceof WhereNull => static fn (mixed $row): bool => Accessor::get($row, $filter->column) === null,
-            $filter instanceof WhereNotNull => static fn (mixed $row): bool => Accessor::get($row, $filter->column) !== null,
+            $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
+            $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
             default => throw new UnsupportedFilter($filter),
         };
     }

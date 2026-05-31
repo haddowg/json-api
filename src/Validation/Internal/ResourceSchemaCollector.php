@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Validation\Internal;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Server\SchemaRegistry;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Server\ServerInterface;

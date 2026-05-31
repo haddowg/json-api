@@ -158,7 +158,7 @@ final class ServerTest extends TestCase
                 $order = $request->getAttribute('order');
                 $order = \is_array($order) ? $order : [];
                 $order[] = 'handler';
-                $parts = \array_map(static fn (mixed $v): string => \is_string($v) ? $v : '', $order);
+                $parts = \array_map(static fn(mixed $v): string => \is_string($v) ? $v : '', $order);
 
                 return $this->response->withHeader('X-Order', \implode(',', $parts));
             }
@@ -202,7 +202,7 @@ final class ServerTest extends TestCase
                 $order = $request->getAttribute('order');
                 $order = \is_array($order) ? $order : [];
                 $order[] = 'handler';
-                $parts = \array_map(static fn (mixed $v): string => \is_string($v) ? $v : '', $order);
+                $parts = \array_map(static fn(mixed $v): string => \is_string($v) ? $v : '', $order);
 
                 return $this->response->withHeader('X-Order', \implode(',', $parts));
             }

@@ -51,6 +51,6 @@ final readonly class Where implements Filter
      */
     public function asBoolean(): self
     {
-        return $this->deserializeUsing(static fn (mixed $value): bool => \filter_var($value, \FILTER_VALIDATE_BOOLEAN));
+        return $this->deserializeUsing(static fn(mixed $value): bool => \filter_var($value, \FILTER_VALIDATE_BOOLEAN));
     }
 }
