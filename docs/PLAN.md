@@ -64,8 +64,8 @@ Phase plans are pre-drafted in `docs/` and intended to be revised at each phase'
 | 3 | PSR-15 middleware suite | [phase-3-middleware.md](./phase-3-middleware.md) | Complete |
 | 4 | Validation | [phase-4-validation.md](./phase-4-validation.md) | Complete |
 | 4.5 | Fluent schema DSL | [phase-4-5-fluent-schema.md](./phase-4-5-fluent-schema.md) | Complete |
-| 5 | Docs port & update | [phase-5-docs.md](./phase-5-docs.md) | Ready |
-| 6 | 1.0 readiness review | [phase-6-readiness-review.md](./phase-6-readiness-review.md) | Not started |
+| 5 | Docs port & update | [phase-5-docs.md](./phase-5-docs.md) | Complete |
+| 6 | 1.0 readiness review | [phase-6-readiness-review.md](./phase-6-readiness-review.md) | Ready |
 
 ### Post-1.0 candidate phases
 
