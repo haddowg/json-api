@@ -103,7 +103,9 @@ final class ArrayFilterHandler implements \haddowg\JsonApi\Resource\Filter\Filte
         }
 
         if (\is_string($value)) {
-            return \array_values(\array_map('\trim', \explode($delimiter ?? ',', $value)));
+            $separator = $delimiter !== null && $delimiter !== '' ? $delimiter : ',';
+
+            return \array_values(\array_map('\trim', \explode($separator, $value)));
         }
 
         return [$value];

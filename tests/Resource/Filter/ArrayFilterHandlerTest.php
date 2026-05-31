@@ -81,7 +81,11 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereWithDeserializer(): void
     {
-        $filter = Where::make('views')->deserializeUsing(static fn(mixed $v): int => (int) $v);
+        $filter = Where::make('views')->deserializeUsing(static function (mixed $v): int {
+            self::assertIsString($v);
+
+            return (int) $v;
+        });
         $result = (new ArrayFilterHandler())->apply($filter, $this->data(), '50');
 
         self::assertSame(['2'], $this->ids($result));
