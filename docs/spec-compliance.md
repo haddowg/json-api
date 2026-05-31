@@ -52,8 +52,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Fetch individual / collection resources | ⬜ todo | Lands with resources + operations. |
-| Fetch relationships / related resources | ⬜ todo | Lands with relationship types + operations. |
+| Fetch individual / collection resources | 🟡 code | Response rendering done: `Response\DataResponse` (`fromResource`/`fromCollection`) → `data` document via the engine. `DataResponseTest`. Full HTTP fetch cycle lands with the operations layer. |
+| Fetch relationships / related resources | 🟡 code | `Response\RelatedResponse` (related resources at `…/author`) and `Response\IdentifierResponse` (linkage-only at `…/relationships/author`, identifiers via the relationship-document path). `RelatedResponseTest`, `IdentifierResponseTest`. Full HTTP fetch cycle lands with operations. **Known limitation (faithful to yin):** the relationship-document path emits `data`/`included` only — top-level `meta`/`links`/`jsonapi` are not rendered on relationship endpoints. |
 
 ## Inclusion of related resources (`spec:inclusion-of-related-resources`)
 
