@@ -71,8 +71,8 @@ final class SchemaCompilerTest extends TestCase
 
     /**
      * Walks a nested array by key path, narrowing at each step, and returns the
-     * value at the leaf (so callers can assert against it without tripping
-     * `offsetAccess`/`mixed` analysis).
+     * scalar/array value at the leaf (so callers can assert against it without
+     * tripping `offsetAccess`/`mixed` analysis).
      *
      * @param array<string, mixed> $schema
      */
@@ -86,6 +86,21 @@ final class SchemaCompilerTest extends TestCase
         }
 
         return $cursor;
+    }
+
+    /**
+     * Like {@see at()} but asserts (and types) the leaf as a list, for use as an
+     * `assertContains` haystack.
+     *
+     * @param array<string, mixed> $schema
+     * @return list<mixed>
+     */
+    private function listAt(array $schema, string ...$keys): array
+    {
+        $value = $this->at($schema, ...$keys);
+        self::assertIsArray($value);
+
+        return \array_values($value);
     }
 
     #[Test]
