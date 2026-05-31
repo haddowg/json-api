@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 #[Group('spec:content-negotiation')]
 final class ProfileApplicationTest extends TestCase
 {
-    private const string URI = 'https://example.com/profiles/timestamps';
+    public const string URI = 'https://example.com/profiles/timestamps';
 
     #[Test]
     public function appliesRegisteredRequestedProfileEndToEnd(): void
@@ -37,6 +37,7 @@ final class ProfileApplicationTest extends TestCase
         self::assertStringContainsString('profile="' . self::URI . '"', $psr->getHeaderLine('Content-Type'));
         self::assertSame('Accept', $psr->getHeaderLine('Vary'));
         // (b) links.profile carries it
+        self::assertIsArray($body['links']);
         self::assertSame([self::URI], $body['links']['profile']);
         // (d) finalizeDocument hook ran
         self::assertSame(['appliedBy' => 'timestamps'], $body['meta']);
@@ -69,7 +70,8 @@ final class ProfileApplicationTest extends TestCase
 
             public function finalizeDocument(array $document, JsonApiRequestInterface $request): array
             {
-                $document['meta'] = [...($document['meta'] ?? []), 'appliedBy' => 'timestamps'];
+                $meta = $document['meta'] ?? [];
+                $document['meta'] = [...(\is_array($meta) ? $meta : []), 'appliedBy' => 'timestamps'];
 
                 return $document;
             }

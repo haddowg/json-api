@@ -28,6 +28,9 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  */
 final class DataResponse extends AbstractResponse
 {
+    /**
+     * @param Page<mixed>|null $page
+     */
     private function __construct(
         private readonly mixed $data,
         private readonly ResourceInterface $resource,
@@ -58,6 +61,8 @@ final class DataResponse extends AbstractResponse
      * document gains the pagination `links.{first,prev,next,last}` and
      * `meta.page` the {@see Page} emits. A page that activates a profile (e.g.
      * cursor pagination) causes the response to advertise it.
+     *
+     * @param Page<mixed> $page
      */
     public static function fromPage(Page $page, ResourceInterface $resource): self
     {

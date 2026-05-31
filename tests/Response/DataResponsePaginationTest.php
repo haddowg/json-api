@@ -26,16 +26,19 @@ final class DataResponsePaginationTest extends TestCase
 
         $body = $this->render(DataResponse::fromPage($page, $resource), 'https://api.test/users?page[number]=2&page[size]=10');
 
-        self::assertArrayHasKey('links', $body);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=2&page%5Bsize%5D=10', $body['links']['self']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $body['links']['first']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $body['links']['prev']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=3&page%5Bsize%5D=10', $body['links']['next']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=5&page%5Bsize%5D=10', $body['links']['last']);
+        $links = $body['links'];
+        self::assertIsArray($links);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=2&page%5Bsize%5D=10', $links['self']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['first']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['prev']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=3&page%5Bsize%5D=10', $links['next']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=5&page%5Bsize%5D=10', $links['last']);
 
+        $meta = $body['meta'];
+        self::assertIsArray($meta);
         self::assertSame(
             ['currentPage' => 2, 'perPage' => 10, 'from' => 11, 'to' => 20, 'total' => 50, 'lastPage' => 5],
-            $body['meta']['page'],
+            $meta['page'],
         );
 
         self::assertSame([['type' => 'user', 'id' => '1']], $body['data']);
@@ -50,14 +53,16 @@ final class DataResponsePaginationTest extends TestCase
 
         $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
 
-        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(), $request);
+        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
         $body = $this->decode((string) $psr->getBody());
 
-        self::assertArrayHasKey('next', $body['links']);
-        self::assertArrayNotHasKey('last', $body['links'], 'cursor pagination must not emit a last link');
+        $links = $body['links'];
+        self::assertIsArray($links);
+        self::assertArrayHasKey('next', $links);
+        self::assertArrayNotHasKey('last', $links, 'cursor pagination must not emit a last link');
         self::assertSame(
             ['https://jsonapi.org/profiles/ethanresnick/cursor-pagination/'],
-            $body['links']['profile'],
+            $links['profile'],
         );
 
         self::assertStringContainsString(
@@ -74,7 +79,7 @@ final class DataResponsePaginationTest extends TestCase
     {
         $request = new JsonApiRequest(new ServerRequest('GET', $uri));
 
-        return $this->decode((string) $response->toPsrResponse(new StubServer(), $request)->getBody());
+        return $this->decode((string) $response->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request)->getBody());
     }
 
     /**

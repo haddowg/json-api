@@ -191,12 +191,15 @@ abstract class AbstractResponse
             $body = $profile->finalizeDocument($body, $request);
         }
 
-        $existing = $body['links']['profile'] ?? [];
+        $links = $body['links'] ?? [];
+        $links = \is_array($links) ? $links : [];
+
+        $existing = $links['profile'] ?? [];
+        $existing = \is_array($existing) ? \array_values(\array_filter($existing, '\is_string')) : [];
+
         $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
 
-        /** @var array<string, mixed> $links */
-        $links = $body['links'] ?? [];
-        $links['profile'] = \array_values(\array_unique([...(\is_array($existing) ? $existing : []), ...$uris]));
+        $links['profile'] = \array_values(\array_unique([...$existing, ...$uris]));
         $body['links'] = $links;
 
         return $body;
