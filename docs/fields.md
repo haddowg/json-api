@@ -69,8 +69,8 @@ matching context.
 ### Serialize / hydrate hooks
 
 When the accessor and per-type casting are not enough, override a single
-member's behaviour with a closure. These are escape hatches for one field; for a
-whole resource type, drop to a custom [serializer](serializers.md) or
+member's behaviour with a closure. These customise one field; for a whole
+resource type, drop to a custom [serializer](serializers.md) or
 [hydrator](hydrators.md) instead.
 
 | Method | Closure signature | Replaces |
@@ -288,7 +288,7 @@ Top-level constraints on a `Map` are limited to presence (`required()` /
 `nullable()`); structural constraints belong on the child fields.
 
 > `Map::on($relation)` — spreading across a **related** model rather than the
-> same one — is out of scope for core 1.0 and is provided by the Symfony bundle.
+> same one — is not currently supported.
 
 ## Relationships
 
@@ -337,8 +337,8 @@ HasMany::make('comments')->type('comments')->maxItems(100);
 
 A pivot-backed to-many relation. Same serialization and constraint surface as
 `HasMany`, plus a `fields()` method declaring the pivot (join-table) fields.
-Pivot fields are **declare-only** in 1.0 — carried as metadata, consumed by the
-Symfony bundle's Doctrine adapter, not validated by core.
+Pivot fields are **declare-only** — carried as metadata for data-layer adapters,
+not validated by core. Validation of pivot fields is not currently supported.
 
 ```php
 BelongsToMany::make('tags')->type('tags')->fields([
@@ -361,4 +361,4 @@ MorphTo::make('commentable')->types('articles', 'videos');
 - [Resources](resources.md) — declaring `fields()` and how they drive serialization/hydration.
 - [Validation](validation.md) — the constraint vocabulary and the create/update context model.
 - [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata (`sortable()` feeds `allSorts()`).
-- [Resources](serializers.md) / [Hydrators](hydrators.md) — the per-type escape hatches.
+- [Resources](serializers.md) / [Hydrators](hydrators.md) — the per-type customisation points.

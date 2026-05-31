@@ -14,7 +14,7 @@ hand.
 > `Resource\AbstractResource`, is the *Resource class*: it maps domain objects ↔
 > JSON:API resources, serving as a per-type serializer + hydrator. The lower-level
 > `Serializer\SerializerInterface` / `Hydrator\HydratorInterface` contracts a
-> Resource class satisfies are also usable directly as escape hatches. See
+> Resource class satisfies are also usable directly when you need full control. See
 > [Concepts](concepts.md#vocabulary).
 
 ## A minimal Resource class
@@ -134,14 +134,15 @@ public function fields(): array
 See [Fields](fields.md#relationships) for every relationship type
 (`BelongsTo`/`HasOne`/`HasMany`/`BelongsToMany`/`MorphTo`) and their options.
 
-## When a Resource class isn't enough
+## When you need more control
 
 The field DSL covers the common cases. When serialization needs request-aware or
 computed attributes, multiple representations of one model, or other logic the
-field walk can't express, drop to a custom [serializer](serializers.md). When a write
-needs to split a member across columns, derive related models, or run a
-multi-step/transactional write, drop to a custom [hydrator](hydrators.md). Register
-either as an override alongside the Resource class:
+field walk can't express, a custom [serializer](serializers.md) gives you full
+control of the read side. When a write needs to split a member across columns,
+derive related models, or run a multi-step/transactional write, a custom
+[hydrator](hydrators.md) gives you full control of the write side. Register either
+as an override alongside the Resource class:
 
 ```php
 $server->register(ArticleResource::class, serializer: ArticleSerializer::class);
@@ -167,5 +168,5 @@ context model.
 - [Validation](validation.md) — constraints, contexts, the JSON Schema compiler.
 - [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata.
 - [Pagination](pagination.md) — per-resource and server-default paginators.
-- [Serializers](serializers.md) / [Hydrators](hydrators.md) — the escape hatches.
+- [Serializers](serializers.md) / [Hydrators](hydrators.md) — the per-type customisation points.
 - [Server](server.md) — registration and the registry.

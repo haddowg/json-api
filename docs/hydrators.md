@@ -1,12 +1,13 @@
 # Custom hydrators
 
-A custom hydrator is the escape hatch for when the [Resource class](resources.md) field DSL
-can't express how a request body fills a domain object. You implement
-`Hydrator\HydratorInterface` (directly, or by extending `Hydrator\AbstractHydrator`)
-and register it as an override on the type, replacing the Resource class's hydration
-without touching its serialization. For the common case you never write one — a
-Resource class's `fields()` declaration hydrates for you — so reach for this only when a
-write needs logic a field walk can't model.
+A custom hydrator gives you full control over how a request body fills a domain
+object — for the cases a [Resource class](resources.md)'s field declaration can't
+express (splitting a member across columns, deriving related models, multi-step or
+transactional writes). You implement `Hydrator\HydratorInterface` (directly, or by
+extending `Hydrator\AbstractHydrator`) and register it as an override on the type,
+replacing the Resource class's hydration without touching its serialization. For the
+common case you never write one — a Resource class's `fields()` declaration hydrates
+for you — so reach for this only when a write needs logic a field walk can't model.
 
 ## When to write one
 
@@ -185,13 +186,12 @@ You can also register a bare hydrator with no Resource class at all (paired with
 > level: a relationship referencing a not-yet-created resource by `lid` parses and
 > reaches the relationship callable with `->resourceIdentifier->lid` set and
 > `->id` null; a resource created with a `lid` still gets a server-generated `id`,
-> exposed via `$request->getResourceLid()`. Cross-document `lid` *resolution*
-> (mapping a `lid` to a freshly-created resource within one request) is not in
-> 1.0 — it belongs with the post-1.0 Atomic Operations extension.
+> exposed via `$request->getResourceLid()`. Resolving a `lid` to a freshly-created
+> resource within one request is not supported.
 
 ## Related pages
 
-- [Resources](resources.md) — the field DSL this interface is the escape hatch from.
-- [Resources](serializers.md) — the matching read-side (serializer) escape hatch.
+- [Resources](resources.md) — the field DSL this interface gives you a way around.
+- [Resources](serializers.md) — the matching read-side (serializer) customisation point.
 - [Server](server.md) — the registry, overrides, and `hydratorFor()`.
 - [Exceptions](exceptions.md) — the typed exceptions a hydrator throws.

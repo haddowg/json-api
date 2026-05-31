@@ -15,9 +15,8 @@ reason about.
 
 ## Vocabulary
 
-The word "resource" is overloaded across the spec, yin (the original work this
-package derives from), and this library. Three distinct things wear the name, and
-the documentation keeps them apart:
+The word "resource" is overloaded across the spec and this library. Three
+distinct things wear the name, and the documentation keeps them apart:
 
 - **Resource object** — the spec structure `{type, id, attributes, relationships}`
   that appears inside a document's `data` (and inside `included`). This is "a
@@ -30,9 +29,8 @@ the documentation keeps them apart:
   domain object from a request. It is the recommended surface you write to describe
   a JSON:API resource type.
 - **Serializer / Hydrator** — the lower-level `Serializer\SerializerInterface` /
-  `Hydrator\HydratorInterface` contracts a Resource class satisfies. The serializer
-  is "a resource" in *yin's* sense (yin called the interface `ResourceInterface`).
-  Either is usable directly as an escape hatch when the field walk isn't enough; see
+  `Hydrator\HydratorInterface` contracts a Resource class satisfies. Either is
+  usable directly for full control when the field walk isn't enough; see
   [Custom serializers](serializers.md).
 
 So: a *Resource class* and a *serializer* both produce *resource objects*. The 95%
@@ -113,11 +111,9 @@ handle, never the resource's identity: a resource created with a `lid` still
 receives a server-generated `id`, and the request exposes the supplied `lid`
 separately.
 
-> Cross-document `lid` *resolution* — mapping a `lid` to a freshly-created
-> resource within a single request — is **not** implemented in 1.0; that belongs
-> with the post-1.0 Atomic Operations extension. A `lid` parses, validates, and
-> flows through to the hydrator, but the library does not wire it back to a
-> created resource for you.
+> Resolving a `lid` to a freshly-created resource within one request is not
+> supported. A `lid` parses, validates, and flows through to the hydrator, but
+> the library does not wire it back to a created resource for you.
 
 ## Relationships
 

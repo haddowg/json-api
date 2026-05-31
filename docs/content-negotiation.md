@@ -74,9 +74,9 @@ new ContentNegotiationMiddleware();
 new ContentNegotiationMiddleware('https://example.com/ext/version-history');
 ```
 
-**No extension ships in 1.0.** This is the negotiation hook the post-1.0 Atomic
-Operations extension is designed to plug into: register its `ext` URI here and the
-matching requests pass negotiation. The request already exposes
+No extensions are supported in this release, so any `ext` parameter is rejected
+(415 on `Content-Type`, 406 on `Accept`). To support an extension, register its
+`ext` URI here and the matching requests pass negotiation. The request exposes
 `getRequestedExtensions()` / `getAppliedExtensions()` for code that wants to
 inspect what was asked for.
 

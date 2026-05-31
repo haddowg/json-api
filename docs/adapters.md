@@ -164,8 +164,8 @@ into a per-resource schema for request validation. A framework adapter translate
 the **full** constraint set into its native validator rules (Symfony Validator,
 Laravel rules, …) for complete create/update validation.
 
-For rules the core does not model, `Resource\Constraint\Custom` is the escape
-hatch — an opaque constraint carrying an `$id` and an arbitrary `$payload`
+For rules the core does not model, `Resource\Constraint\Custom` is the extension
+point — an opaque constraint carrying an `$id` and an arbitrary `$payload`
 (`new Custom('coupon_redeemable', ['campaign' => 'spring'])`). It is **not
 round-tripped to JSON Schema**: the schema compiler skips it, leaving it for an
 adapter to interpret by matching on `$id`. An adapter's translator reads the
@@ -178,10 +178,10 @@ the compiler does cover.
 ## ORM-backed adapters
 
 Core ships only the in-memory reference handlers; production handlers for an ORM
-or query builder are a separate concern. A dedicated Symfony/Doctrine bundle —
-shipping `FilterHandler` / `SortHandler` implementations and a Symfony Validator
-constraint translator wired into the request lifecycle — is planned to live
-outside this package, so the core stays framework- and storage-agnostic.
+or query builder are a separate concern. A dedicated framework bundle — shipping
+`FilterHandler` / `SortHandler` implementations and a constraint translator wired
+into the request lifecycle — belongs outside this package, so the core stays
+framework- and storage-agnostic.
 
 ## Related pages
 

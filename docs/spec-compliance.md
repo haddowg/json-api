@@ -12,9 +12,8 @@ requirement is intentionally unsupported the row says so and gives the rationale
 > **Scope.** This document tracks **[JSON:API 1.1](https://jsonapi.org/format/1.1/)
 > specification compliance only** — the normative MUST/SHOULD requirements of the
 > format and how this package satisfies them. It is *not* an OpenAPI document and
-> must not be conflated with OpenAPI spec generation (a separate, post-1.0
-> candidate). It is a living checklist, filled in progressively as each subsystem
-> is ported; it is the truth-of-record for the remaining spec-compliance gap.
+> must not be conflated with OpenAPI spec generation (a separate concern, out of
+> scope here). It is the truth-of-record for the package's spec-compliance status.
 
 ## Status legend
 
@@ -38,9 +37,9 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Link object members `href`, `rel`, `title`, `type`, `hreflang`, `meta` | ✅ test | `LinkObject` models all; empty members omitted. `LinkObjectTest`. |
 | Link object `describedby` member | ✅ test | `LinkObject` carries an optional `?Link $describedby` emitted by `transform()`. `LinkObjectDescribedbyTest`. |
 | Templated links (RFC 6570) | ✅ test | No dedicated `templated` member exists in JSON:API 1.1; a templated link is a plain string `href`, representable as-is. (Decision log, Link audit.) |
-| Profile link object with keyword `aliases` | ✅ test | `Schema\Link\ProfileLinkObject`. `ProfileLinkObjectTest`. Full profile association is Phase 2. |
+| Profile link object with keyword `aliases` | ✅ test | `Schema\Link\ProfileLinkObject`. `ProfileLinkObjectTest`. |
 | Top-level `meta` member | ✅ test | `Response\MetaResponse` (meta-only document) and the `withMeta()` wither on every response render into top-level `meta`. `MetaResponseTest`, `DataResponseTest`. |
-| Links containers (`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`, `ErrorLinks`) | ✅ test | Construct-only `final readonly` extending `AbstractLinks`; custom relation keys allowed; pagination links accepted as plain `?Link` (Page-based emission is Phase 2). `DocumentLinksTest`, `ResourceLinksTest`, `RelationshipLinksTest`. |
+| Links containers (`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`, `ErrorLinks`) | ✅ test | Construct-only `final readonly` extending `AbstractLinks`; custom relation keys allowed; pagination links accepted as plain `?Link`. `DocumentLinksTest`, `ResourceLinksTest`, `RelationshipLinksTest`. |
 | Top-level `links` member wiring into a document | ✅ test | `withLinks(DocumentLinks)` on every response renders into top-level `links`. `DataResponseTest`. |
 | `data` / `errors` / `meta` mutual exclusivity & required members | ✅ test | Each response value object emits exactly one primary member by construction — `DataResponse`→`data`, `MetaResponse`→`meta`, `ErrorResponse`→`errors` (the type system makes coexistence unconstructable); the request-side guard is also enforced + tested (`JsonApiRequest::validateTopLevelMembers`). `DataResponseTest`, `MetaResponseTest`, `ErrorResponseTest`. |
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ✅ test | `Serializer\AbstractSerializer`/`SerializerInterface` (consumer extension point) + `Transformer\ResourceTransformer`. `AbstractSerializerTest`, `ResourceTransformerTest`. |
@@ -56,9 +55,9 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 > `DocumentValidator::validateResponse()` directly) in the test suite would
 > meaningfully tighten spec coverage by checking generated documents against the
 > schema rather than against bespoke assertions. A dedicated CI job that forces
-> response validation on across the suite is a worthwhile follow-up (see the
-> Phase 4 plan's stretch task); it is **not** wired by default so that the core
-> suite does not depend on `opis/json-schema` being installed.
+> response validation on across the suite is a worthwhile follow-up; it is **not**
+> wired by default so that the core suite does not depend on `opis/json-schema`
+> being installed.
 
 ## Errors (`spec:errors`)
 
@@ -68,14 +67,14 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ✅ test | `Response\ErrorResponse` (`fromErrors()`/`fromException()`) renders the top-level `errors` array via `ErrorDocument`; HTTP status derived from the errors. `ErrorResponseTest`, `AbstractErrorDocumentTest`. |
-| Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail preserved from yin. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
+| Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail are spec-compliance surface. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
 | Uncaught throwables → JSON:API error response | ✅ test | `Middleware\ErrorHandlerMiddleware` (outermost) catches `JsonApiException` (own status/errors) and any other `\Throwable` (→ generic 500). Debug-gated 500 mirrors `laravel-json-api/exceptions`: `detail`=message + per-error `meta.{exception,file,line,trace}` when `$debug` is on, redacted otherwise; optional PSR-3 logger. `ErrorHandlerMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
 
 ## Fetching data (`spec:fetching-resources`, `spec:fetching-relationships`, `spec:fetching-data`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Fetch individual / collection resources | ✅ test | `FetchResourceOperation` + `Psr7ToOperationHandlerAdapter` (GET → operation → handler → `DataResponse` → PSR-7) end-to-end; `DataResponse::fromResource`/`fromCollection`. `Psr7ToOperationHandlerAdapterTest`, `DataResponseTest`. (URL→`Target` routing is Phase 3.) |
+| Fetch individual / collection resources | ✅ test | `FetchResourceOperation` + `Psr7ToOperationHandlerAdapter` (GET → operation → handler → `DataResponse` → PSR-7) end-to-end; `DataResponse::fromResource`/`fromCollection`. `Psr7ToOperationHandlerAdapterTest`, `DataResponseTest`. |
 | Fetch relationships / related resources | ✅ test | `FetchRelatedOperation`/`FetchRelationshipOperation` (dispatched by target shape) + `Response\RelatedResponse`/`IdentifierResponse`. `Psr7ToOperationHandlerAdapterTest`, `RelatedResponseTest`, `IdentifierResponseTest`. Relationship-endpoint documents also carry top-level `jsonapi`/`meta`/`links` (merged over the relationship's own members). `RelationshipDocumentMetaTest`. |
 
 ## Inclusion of related resources (`spec:inclusion-of-related-resources`)
@@ -102,8 +101,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the strategy paginators `Pagination\{Page,Offset,FixedPage}Paginator` (implement `Paginator`) and the standalone `Pagination\CursorPaginator`, which read `page[…]` and produce `Page` value objects (absent/non-numeric params fall back to defaults, per yin's rule, via `@internal QueryParam::int`). `tests/Pagination/PaginatorTest.php`. |
-| Pagination links (`first`/`prev`/`next`/`last`) | ✅ test | The `Pagination\{PageBased,OffsetBased,FixedPage,CursorBased}Page` value objects emit `linkSet()` (built via `Transformer\Utils::getUri`, preserving unrelated query params) and `pageMeta()`; `DataResponse::fromPage()` renders them into top-level `links` + `meta.page`. **`CursorBasedPage` omits `last` by design** (no total count). `tests/Pagination/*PageTest.php`, `DataResponsePaginationTest`. Replaces yin's `PaginationLinkProviderInterface` + collection-side traits (deleted). |
+| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the strategy paginators `Pagination\{Page,Offset,FixedPage}Paginator` (implement `Paginator`) and the standalone `Pagination\CursorPaginator`, which read `page[…]` and produce `Page` value objects (absent/non-numeric params fall back to defaults, via `@internal QueryParam::int`). `tests/Pagination/PaginatorTest.php`. |
+| Pagination links (`first`/`prev`/`next`/`last`) | ✅ test | The `Pagination\{PageBased,OffsetBased,FixedPage,CursorBased}Page` value objects emit `linkSet()` (built via `Transformer\Utils::getUri`, preserving unrelated query params) and `pageMeta()`; `DataResponse::fromPage()` renders them into top-level `links` + `meta.page`. **`CursorBasedPage` omits `last` by design** (no total count). `tests/Pagination/*PageTest.php`, `DataResponsePaginationTest`. |
 
 ## Filtering (`spec:filtering`)
 
@@ -116,16 +115,16 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Create / update / delete resources & relationships | ✅ test | Hydration (`Hydrator\AbstractHydrator` + traits, client-gen-id, relationship cardinality) **and** the operation/adapter wiring for POST/PATCH/DELETE on resources + relationships (`Create`/`Update`/`Delete`/`AddToRelationship`/`UpdateRelationship`/`RemoveFromRelationship`Operation, dispatched by `Psr7ToOperationHandlerAdapter`). `*HydratorTraitTest`, `Psr7ToOperationHandlerAdapterTest`, per-operation tests. (Consumer supplies the handler logic; URL→`Target` routing is Phase 3.) |
+| Create / update / delete resources & relationships | ✅ test | Hydration (`Hydrator\AbstractHydrator` + traits, client-gen-id, relationship cardinality) **and** the operation/adapter wiring for POST/PATCH/DELETE on resources + relationships (`Create`/`Update`/`Delete`/`AddToRelationship`/`UpdateRelationship`/`RemoveFromRelationship`Operation, dispatched by `Psr7ToOperationHandlerAdapter`). `*HydratorTraitTest`, `Psr7ToOperationHandlerAdapterTest`, per-operation tests. (Consumer supplies the handler logic.) |
 | Client-generated IDs on create (`id`) | ✅ test | `CreateHydratorTrait::hydrateIdForCreate()` + `validateClientGeneratedId()` (throws `ClientGeneratedIdNotSupported`/`ResourceIdInvalid`); non-string `id` rejected. `CreateHydratorTraitTest`. |
-| Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ✅ test | Added beyond yin. `ResourceIdentifier` carries `?id`/`?lid` (`fromArray()` requires `type` + at-least-one-of; `ResourceIdentifierTest`); a relationship referenced by `lid` hydrates through to the relationship hydrator (`CreateHydratorTraitTest`); the request exposes `getResourceLid()` (`JsonApiRequestTest`). **Scope:** accept/carry `lid` only — cross-document `lid`→resource *resolution* is deferred to the Atomic Operations extension (post-1.0). |
+| Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ✅ test | `ResourceIdentifier` carries `?id`/`?lid` (`fromArray()` requires `type` + at-least-one-of; `ResourceIdentifierTest`); a relationship referenced by `lid` hydrates through to the relationship hydrator (`CreateHydratorTraitTest`); the request exposes `getResourceLid()` (`JsonApiRequestTest`). **Scope:** accept/carry `lid` only — cross-document `lid`→resource *resolution* is not supported. |
 
 ## Content negotiation (`spec:content-negotiation`)
 
 | Requirement | Status | Notes |
 |---|---|---|
 | `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. Only `ext` and `profile` are permitted media-type params (`Request\MediaType::isValid()`, quote-aware multi-instance split); any other param → 415/406. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). Optional JSON-schema body validation now ships separately — see `spec:document-structure` (`Validation\DocumentValidator`). |
-| `ext` parameter negotiation (415/406 on unsupported extensions) | ✅ test | `RequestValidator(string ...$supportedExtensions)` rejects an `ext` not in its supported set: 415 on `Content-Type`, 406 on `Accept`. Empty supported set by default (no extensions shipped — the hook a post-1.0 Atomic Operations `ext` plugs into). `RequestValidatorTest`, `ExtensionTest`. |
+| `ext` parameter negotiation (415/406 on unsupported extensions) | ✅ test | `RequestValidator(string ...$supportedExtensions)` rejects an `ext` not in its supported set: 415 on `Content-Type`, 406 on `Accept`. Empty supported set by default (no extensions shipped). `RequestValidatorTest`, `ExtensionTest`. |
 | Content negotiation as PSR-15 middleware | ✅ test | `Middleware\ContentNegotiationMiddleware(string ...$supportedExtensions)` runs header/ext negotiation + query-param validation on the request, wraps it in `JsonApiRequest`, and passes it down the chain; rejections render via the error handler. Profiles flow through (advisory). `ContentNegotiationMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
 | Request body parsing as PSR-15 middleware | ✅ test | `Middleware\RequestBodyParsingMiddleware` forces an early JSON decode when a body is present (malformed → `RequestBodyInvalidJson` → 400) and passes the wrapped request down; bodyless requests untouched. `RequestBodyParsingMiddlewareTest`. |
 

@@ -45,7 +45,7 @@ different thing.)
 
 ### Per-type serializer moved to `Serializer\*`
 
-The per-resource-type serializer contract — yin's `Schema\Resource\ResourceInterface`
+The per-resource-type serializer contract — the former `Schema\Resource\ResourceInterface`
 and its `AbstractResource` base — was renamed to top-level **`Serializer\SerializerInterface`**
 and **`Serializer\AbstractSerializer`**. This frees the `Resource\*` namespace for
 the [Resource class](resources.md) layer (`Resource\AbstractResource`, `Resource\Field\*`,
@@ -54,15 +54,15 @@ declare a resource type.
 
 - Migration: implement / extend `haddowg\JsonApi\Serializer\SerializerInterface` /
   `AbstractSerializer` where you previously used the `Schema\Resource\*` types. See
-  [Resources](serializers.md) for the hand-written serializer escape hatch.
+  [Serializers](serializers.md) for full control of serialization.
 - Note the naming split this introduces: the `Resource\AbstractResource` *Resource
   class* satisfies the `Serializer\*` contract. See
   [Concepts](concepts.md) for the vocabulary.
 
 ### Pagination rewritten as `Paginator` + `Page`
 
-yin's `PaginationLinkProviderInterface` and its collection-side trait pattern were
-**removed** and replaced by an explicit strategy/value-object split under
+The former `PaginationLinkProviderInterface` and its collection-side trait pattern were
+**replaced** by an explicit strategy/value-object split under
 `Pagination\*`: a `Paginator` strategy reads the `page[…]` query params and
 produces a `Page` value object that owns link (`first`/`prev`/`next`/`last`) and
 `meta.page` emission. Collections no longer carry any pagination concern.

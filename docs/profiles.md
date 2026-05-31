@@ -35,8 +35,8 @@ interface ProfileInterface
   negotiated `profile` media-type parameter, advertised in top-level
   `links.profile`, and echoed in the response `Content-Type` `profile` parameter.
 - `keywords()` lists the member, link-relation, and query-parameter names the
-  profile reserves. It is for documentation and introspection (and future schema
-  validation); it does **not** gate negotiation.
+  profile reserves. It is for documentation and introspection; it does **not**
+  gate negotiation.
 - `finalizeDocument()` is a finalisation hook run once for the profile, after the
   document body array has been assembled and before it is encoded. It receives the
   body and the active request and returns the (possibly augmented) body. Only

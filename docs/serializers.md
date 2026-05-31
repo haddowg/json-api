@@ -1,21 +1,23 @@
 # Serializers
 
-A custom serializer is the escape hatch for when the [Resource class](resources.md)
-field DSL can't express how a domain object becomes a JSON:API resource. You implement
-`Serializer\SerializerInterface` directly (or extend `Serializer\AbstractSerializer`)
-and register it as an override on the type, replacing the Resource class's serialization
-without touching its hydration. For the common case you never write one — a
-Resource class's `fields()` declaration serializes for you — so reach for this only when
-serialization needs logic a field walk can't model.
+A custom serializer gives you full control over how a domain object becomes a
+JSON:API resource — for the cases a [Resource class](resources.md)'s field
+declaration can't express (request-aware or computed attributes, multiple
+representations of one model). You implement `Serializer\SerializerInterface`
+directly (or extend `Serializer\AbstractSerializer`) and register it as an override
+on the type, replacing the Resource class's serialization without touching its
+hydration. For the common case you never write one — a Resource class's `fields()`
+declaration serializes for you — so reach for this only when serialization needs
+logic a field walk can't model.
 
 > **A note on names.** "Resource" is overloaded. The class documented here is a
-> *serializer* — `Serializer\SerializerInterface`, what woohoolabs/yin called a
-> `Resource`. It is **not** the JSON:API spec's *resource object* (the
+> *serializer* — `Serializer\SerializerInterface`, the lower-level serializer
+> contract. It is **not** the JSON:API spec's *resource object* (the
 > `{type, id, attributes, relationships}` structure inside `data`), which this
 > package emits as a plain array from the serialization engine rather than as a
 > class you write (there is no `ResourceObject` class). It is also not the
 > [Resource class](resources.md) (`Resource\AbstractResource`), the primary surface
-> a serializer is the escape hatch from. See [Concepts](concepts.md#vocabulary).
+> a custom serializer gives you a way around. See [Concepts](concepts.md#vocabulary).
 
 ## When to write one
 
@@ -173,16 +175,14 @@ $server = Server::make()
 ```
 
 You can also register a bare serializer with no Resource class at all (paired with a
-custom [hydrator](hydrators.md)) when a type has no field declaration — exactly
-the wiring the library shipped with before the Resource class existed.
+custom [hydrator](hydrators.md)) when a type has no field declaration.
 
-> Attribute-driven serializers (deriving the field map from PHP attributes on the
-> model) are a candidate for a post-1.0 release; in 1.0 the field DSL and this
-> interface are the two supported paths.
+> The field declaration and this interface are the supported ways to define
+> serialization.
 
 ## Related pages
 
-- [Resources](resources.md) — the field DSL this interface is the escape hatch from.
-- [Hydrators](hydrators.md) — the matching write-side escape hatch.
+- [Resources](resources.md) — the field DSL this interface gives you a way around.
+- [Hydrators](hydrators.md) — the matching write-side customisation point.
 - [Server](server.md) — the registry, overrides, and `serializerFor()`.
 - [Concepts](concepts.md) — the document model and the serializer/resource-object vocabulary.

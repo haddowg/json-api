@@ -10,8 +10,8 @@ middleware registry and no select-server middleware; choosing which server runs
 is the routing layer's job.
 
 This page covers the suite, how to order it, and the optional validation
-middleware. For the full ordering rationale — including the reserved
-atomic-operations slot — see [Middleware order](middleware-order.md).
+middleware. For the full ordering rationale, see
+[Middleware order](middleware-order.md).
 
 ## The suite
 
@@ -174,8 +174,7 @@ do the wiring.
 
 ## Related pages
 
-- [Middleware order](middleware-order.md) — the full ordering rationale and the
-  reserved atomic-operations slot.
+- [Middleware order](middleware-order.md) — the full ordering rationale.
 - [Server](server.md) — the per-server middleware list and how `handle()` runs it.
 - [Content negotiation](content-negotiation.md) — what the negotiation middleware checks.
 - [Validation](validation.md) — the optional JSON Schema middleware.

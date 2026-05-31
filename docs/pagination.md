@@ -8,12 +8,10 @@ slice of items for the requested page and the total count, and pass the resultin
 page to [`DataResponse::fromPage()`](responses.md). The response layer reads the
 page's links and meta and writes them into the document.
 
-> **No collection-trait pattern.** If you are coming from
-> [woohoolabs/yin](https://github.com/woohoolabs/yin), note that yin's
-> `PaginationLinkProviderInterface` and its collection-side trait **do not exist
-> here**. Pagination state lives on the `Page` value object, never mixed into a
-> collection or a domain object. A plain collection that isn't paginated uses
-> `DataResponse::fromCollection()` and carries no pagination concerns at all.
+> **No collection-trait pattern.** Pagination state lives on the `Page` value
+> object, never mixed into a collection or a domain object. A plain collection
+> that isn't paginated uses `DataResponse::fromCollection()` and carries no
+> pagination concerns at all.
 
 ## Strategies
 

@@ -3,10 +3,10 @@
 `haddowg/json-api` uses a **typed exception hierarchy** to signal everything that
 can go wrong in the request lifecycle. Each exception carries its own JSON:API
 error data and HTTP status, so throwing one is enough to produce a spec-compliant
-error document — the [error handler](errors.md) catches it and renders it. This
-replaces yin's `ExceptionFactory`: there is no factory to inject and no indirection.
-You throw the exception directly; the library catches it. This page documents the
-contract and lists every concrete exception.
+error document — the [error handler](errors.md) catches it and renders it. There
+is no factory to inject and no indirection: you throw the exception directly and
+the library catches it. This page documents the contract and lists every concrete
+exception.
 
 ## The contract
 

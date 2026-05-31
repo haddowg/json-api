@@ -1,12 +1,8 @@
 # Middleware order
 
-> **Status: stub.** This page records the PSR-15 middleware suite introduced in
-> Phase 3 and the recommended order so the documentation phase (Phase 5) has an
-> anchor. It is not yet full consumer documentation.
-
 `haddowg/json-api` ships a small PSR-15 middleware suite under
 `haddowg\JsonApi\Middleware\` that implements the JSON:API request lifecycle.
-Middleware are **per-server**: each `Server` (Phase 4.5) holds its own ordered
+Middleware are **per-server**: each `Server` holds its own ordered
 middleware list and runs it as a `RequestHandlerInterface`. Server selection is
 the routing layer's job — there is no select-server middleware in core, and no
 global middleware registry.
@@ -37,14 +33,7 @@ Outermost first (the outermost middleware wraps every middleware below it):
    optional `opis/json-schema` package; **per-server opt-in** (add it only where
    you want validation, e.g. a dev/CI server). See
    [`spec-compliance.md`](./spec-compliance.md) for the spec sections it asserts.
-5. _(**Atomic-operations dispatch** — reserved slot, post-1.0 candidate. When
-   implemented, this middleware reads the `atomic:operations` array from the
-   parsed body, constructs one `JsonApiOperation` per member, dispatches each
-   through the inner `OperationHandler`, and aggregates the results into an
-   `atomic:results` document. It sits **after** body parsing because it needs the
-   parsed body to enumerate operations, and **before** the handler because it
-   controls dispatch. No code ships for this slot in 1.0.)_
-6. **Handler** — innermost. The recommended handler is an
+5. **Handler** — innermost. The recommended handler is an
    `Operation\OperationHandler` wrapped in `Operation\Psr7ToOperationHandlerAdapter`,
    which turns the PSR-7 request into the matching `JsonApiOperation`, invokes the
    consumer handler, and renders the returned response value object
@@ -54,7 +43,7 @@ Outermost first (the outermost middleware wraps every middleware below it):
    not `ResponseInterface`, so a bare PSR-15 handler cannot return one — render
    via the adapter, or call `$response->toPsrResponse($server, $request)`
    yourself.)
-7. **`ResponseValidationMiddleware`** _(optional, dev/CI)_ — validates the
+6. **`ResponseValidationMiddleware`** _(optional, dev/CI)_ — validates the
    **outgoing** rendered document against the JSON:API response JSON Schema
    (augmented by in-scope profile fragments) as the response unwinds. A failing
    response is a server bug: by default it throws `ResponseBodyInvalidJsonApi`
@@ -69,7 +58,7 @@ Outermost first (the outermost middleware wraps every middleware below it):
 
 The order is a **recommendation, not a constraint** — a server can be built with
 any middleware list. The error handler being outermost is the only firm
-recommendation. The two validation middleware (4, 7) are optional and intended
+recommendation. The two validation middleware (4, 6) are optional and intended
 for dev/CI: enable them per-server (e.g. on a staging/v2 server but not in
 production), and only the package's `opis/json-schema` suggestion needs
 installing where they run.

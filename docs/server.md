@@ -80,8 +80,8 @@ accepted shapes:
   wraps it in `Psr7ToOperationHandlerAdapter` automatically — the adapter turns
   the request into an operation, calls your handler, and encodes the returned
   [response value object](responses.md) to PSR-7.
-- A **bare PSR-15 `RequestHandlerInterface`**, accepted as an escape hatch when
-  you want to own the request/response framing yourself.
+- A **bare PSR-15 `RequestHandlerInterface`**, also accepted directly (for full
+  control of the response) when you want to own the request/response framing yourself.
 
 Calling `handle()` with no handler configured throws a `\LogicException`.
 

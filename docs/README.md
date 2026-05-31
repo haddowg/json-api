@@ -24,8 +24,8 @@ the reference pages below as you need them.
 - [Sorts](sorts.md) — field-derived and computed sort declarations.
 - [Pagination](pagination.md) — the `Paginator` strategies and `Page` value objects.
 - [Profiles](profiles.md) — implementing and registering JSON:API 1.1 profiles.
-- [Serializers](serializers.md) — the hand-written serializer escape hatch.
-- [Hydrators](hydrators.md) — the hand-written hydrator escape hatch.
+- [Serializers](serializers.md) — full control of serialization when a Resource class's fields aren't enough.
+- [Hydrators](hydrators.md) — full control of hydration when a Resource class's fields aren't enough.
 
 ## Requests and responses
 

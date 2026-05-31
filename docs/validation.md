@@ -43,8 +43,9 @@ them; it exposes them. Two readers consume the metadata:
 resource-identifier `type` member(s) to an allowed set — for a polymorphic
 relationship, every permitted inverse type.
 
-`When` and `Custom` are the **opaque escape hatches**, and they deliberately do
-**not** round-trip to JSON Schema (see [below](#the-custom-escape-hatch)). `When`
+`When` and `Custom` are the **opaque extension points** for value-level rules,
+and they deliberately do **not** round-trip to JSON Schema (see
+[below](#custom-and-when)). `When`
 applies its wrapped constraints only when a closure returns true for the value
 under validation; `Custom` carries an `id` + arbitrary `payload` that a consumer
 or adapter package interprets. Both are evaluated only by an adapter that executes
@@ -185,7 +186,7 @@ production — add them only where you want them):
 See [Middleware](middleware.md#optional-validation-middleware-devci) for placement
 in the chain.
 
-## The `Custom` escape hatch
+## `Custom` and `When`
 
 `When` and `Custom` carry logic the JSON Schema vocabulary cannot express, so they
 **do not round-trip** to JSON Schema — the compiler skips them. They exist for
