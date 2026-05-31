@@ -62,7 +62,9 @@ final class DataResponse extends AbstractResponse
      * `meta.page` the {@see Page} emits. A page that activates a profile (e.g.
      * cursor pagination) causes the response to advertise it.
      *
-     * @param Page<mixed> $page
+     * @template T
+     *
+     * @param Page<T> $page
      */
     public static function fromPage(Page $page, ResourceInterface $resource): self
     {

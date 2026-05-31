@@ -60,7 +60,7 @@ final class PageBasedPageTest extends TestCase
         $links = $page->linkSet(self::URI . '?filter[active]=1', '');
 
         self::assertSame(
-            self::URI . '?filter%5Bactive%5D=1&page%5Bnumber%5D=1&page%5Bsize%5D=10',
+            self::URI . '?filter%5Bactive%5D=1&page%5Bnumber%5D=2&page%5Bsize%5D=10',
             $this->href($links['next']),
         );
     }
@@ -92,9 +92,6 @@ final class PageBasedPageTest extends TestCase
         self::assertNull($page->profile());
     }
 
-    /**
-     * @param Link|null $link
-     */
     private function href(mixed $link): string
     {
         self::assertInstanceOf(Link::class, $link);
