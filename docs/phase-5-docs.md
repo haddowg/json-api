@@ -161,3 +161,58 @@ Before declaring the phase complete, produce the following for Phase 6:
    - Append revisions to the plan as a single commit; the actual kick-off revision happens at the start of Phase 6, but corrections forced by Phase 5 decisions belong here.
 3. **Open questions resolved** — every entry in the Open questions section above has an answer recorded in the decision log. Resolve any remaining or newly-surfaced questions by asking the maintainer interactively using whatever ask-user-question tool the executor's environment provides. Open questions are not passed forward to Phase 6.
 4. **Decision log finalised** — phase-local decisions captured here; any cross-phase decisions promoted to `PLAN.md`.
+
+---
+
+## Phase 4.5 reconciliation (appended at Phase 4.5 close — authoritative as-built API)
+
+> **Note for the Phase 5 executor:** the body of this plan above has some
+> duplicated/garbled "kick-off addendum/requirement" headers (a pre-existing
+> editing artefact carried on `main`; flagged at Phase 4.5 close, not corrected
+> blindly). The substantive **Goal & scope**, **acceptance gate (schema-first)**,
+> and **kick-off checklist** at the top of the file are intact and remain the
+> plan of record. Treat the section below as the single source of truth for the
+> *as-built* names the docs must use; where the older sketches disagree, the
+> names here win.
+
+The Phase 4.5 schema layer shipped with these public surfaces (see
+`docs/phase-4-5-fluent-schema.md` decision log and the `CLAUDE.md` pattern
+entries for the full detail):
+
+- **Recommended primary surface — `Resource\AbstractResource`** (not `Schema`).
+  A consumer subclasses it and implements `fields()`; one declaration satisfies
+  **both** the serializer and hydrator contracts. The quick-start and every
+  worked example MUST lead with this. (The fluent type is named `Resource`, not
+  `Schema`; `Schema\*` remains the document-internals namespace.)
+- **Fields** — `Resource\Field\*`: `Id`, `Str` (+ dedicated `Email`/`Url`/`Uuid`/
+  `Slug`/`Ip`), `Integer`, `Decimal`, `Boolean`, `Date`/`DateTime`/`Time`,
+  `ArrayList`, `ArrayHash`, `Map`, and the relations `BelongsTo`/`HasOne`/
+  `HasMany`/`BelongsToMany`/`MorphTo`. `docs/schemas.md` documents these + the
+  field-type/constraint compatibility matrix and the `Map::on()` deferral.
+- **Constraints** — `Resource\Constraint\*` with the create/update `Context`
+  model and the `Required` semantics convention. `docs/validation.md` documents
+  the vocabulary, the context model, and the `Custom` escape hatch, and notes
+  that `When`/`Custom` do not round-trip to JSON Schema.
+- **Escape hatches** — `Serializer\SerializerInterface` (renamed from
+  `Schema\Resource\ResourceInterface`) and `Hydrator\HydratorInterface`, both
+  registrable as overrides alongside a resource. Document the "when to override"
+  guidance (it is in `CLAUDE.md`): request-aware/conditional/computed attributes
+  or multiple representations → custom serializer; split-column/derived/multi-step
+  writes → custom hydrator. A bare serializer+hydrator pair (no schema) still works.
+- **Server** — `Server\Server` (per-API-version config root; immutable fluent
+  value; PSR-15 `RequestHandlerInterface`; `dispatch()`), composing a
+  `SchemaRegistry` (+ overrides) and the profile registry.
+- **Filters/sorts** — `Resource\Filter\*` / `Resource\Sort\*` value-object
+  metadata + adapter `FilterHandler`/`SortHandler` (reference `InMemory\*`
+  handlers in core). Document the "metadata in core, handlers in adapters,
+  no generic `Query` interface" split.
+- **Validation** — `Validation\SchemaCompiler` compiles per-resource JSON Schema
+  from field constraints into the existing `DocumentValidator` composition; the
+  request-validation middleware uses it. Still opt-in (`opis/json-schema`).
+- **Testing utilities** — `Testing\*` (`JsonApiDocument`, `JsonApiErrors`,
+  `JsonApiRequestBuilder`, `JsonApiOperationBuilder`, `assertJsonApiSpecCompliant`).
+  Worth a short `docs/testing.md` page; they ship in the package autoload.
+
+`docs/spec-compliance.md` was updated at Phase 4.5 close for the schema-driven
+MUSTs/SHOULDs (sort allowed-fields, filter parameter shape, per-type sparse
+participation, per-resource body validation) and stays current.
