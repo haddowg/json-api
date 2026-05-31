@@ -397,3 +397,24 @@ path reads: `baseUri()`, `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`,
 `responseFactory()`/`streamFactory()` (the kickoff "minimal Server" + the two factories needed to
 actually emit PSR-7). The concrete `Server` (with a resource registry) is Phase 4.5; here a
 test `StubServer` (nyholm PSR-17) stands in.
+
+### Operations (public API)
+
+`Operation\JsonApiOperation` is the verb-agnostic contract (`target(): Target`,
+`queryParameters(): QueryParameters`, `context(): OperationContext`); there is **one
+`final readonly` class per verb** (`FetchResource`/`Create`/`Update`/`Delete`/`FetchRelationship`/
+`FetchRelated`/`UpdateRelationship`/`AddToRelationship`/`RemoveFromRelationship`Operation) so each
+carries exactly its fields — the five with a request body also expose `body(): JsonApiRequestInterface`.
+The three shared VOs are `final readonly`: `Target` (`type` + optional `id`/`relationship` +
+`isRelationshipEndpoint` flag distinguishing `…/relationships/x` from the related `…/x`),
+`QueryParameters` (parsed `fields`/`includes`/`sort`/`filter`/`pagination`, built via
+`fromRequest()`), and `OperationContext` (public `server`; **nullable** `httpRequest()` — `null`
+for programmatically-dispatched operations, so handlers must null-check). `OperationHandler`
+(`handle(JsonApiOperation): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse`)
+is the recommended consumer handler — PSR-7-free; reach the request via `context()->httpRequest()`
+only when genuinely needed. `Psr7ToOperationHandlerAdapter` (`final readonly`, PSR-15
+`RequestHandlerInterface`) reads the `Target` from the `Target::class` request attribute (routing
+supplies it in Phase 3; a missing Target renders a 500 `ErrorResponse`, not a throw), picks the
+operation by a fixed **HTTP-method × target-shape `match`** dispatch table, invokes the handler, and
+renders the response VO via `toPsrResponse()`. No generics — operations carry concrete fields and the
+handler returns a fixed union. (Adds `psr/http-server-handler` for PSR-15.)

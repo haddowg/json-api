@@ -52,8 +52,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Fetch individual / collection resources | 🟡 code | Response rendering done: `Response\DataResponse` (`fromResource`/`fromCollection`) → `data` document via the engine. `DataResponseTest`. Full HTTP fetch cycle lands with the operations layer. |
-| Fetch relationships / related resources | 🟡 code | `Response\RelatedResponse` (related resources at `…/author`) and `Response\IdentifierResponse` (linkage-only at `…/relationships/author`, identifiers via the relationship-document path). `RelatedResponseTest`, `IdentifierResponseTest`. Full HTTP fetch cycle lands with operations. **Known limitation (faithful to yin):** the relationship-document path emits `data`/`included` only — top-level `meta`/`links`/`jsonapi` are not rendered on relationship endpoints. |
+| Fetch individual / collection resources | ✅ test | `FetchResourceOperation` + `Psr7ToOperationHandlerAdapter` (GET → operation → handler → `DataResponse` → PSR-7) end-to-end; `DataResponse::fromResource`/`fromCollection`. `Psr7ToOperationHandlerAdapterTest`, `DataResponseTest`. (URL→`Target` routing is Phase 3.) |
+| Fetch relationships / related resources | ✅ test | `FetchRelatedOperation`/`FetchRelationshipOperation` (dispatched by target shape) + `Response\RelatedResponse`/`IdentifierResponse`. `Psr7ToOperationHandlerAdapterTest`, `RelatedResponseTest`, `IdentifierResponseTest`. **Known limitation (faithful to yin):** the relationship-document path emits `data`/`included` only — top-level `meta`/`links`/`jsonapi` are not rendered on relationship endpoints. |
 
 ## Inclusion of related resources (`spec:inclusion-of-related-resources`)
 
@@ -90,7 +90,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Create / update / delete resources & relationships | 🟡 code | Hydration (request body → domain object) implemented + tested: `Hydrator\AbstractHydrator` (+ create/update traits), client-generated-id handling, relationship hydration with cardinality checks. `AbstractHydratorTest`, `CreateHydratorTraitTest`, `UpdateHydratorTraitTest`. Full endpoint wiring lands with the operations layer. |
+| Create / update / delete resources & relationships | ✅ test | Hydration (`Hydrator\AbstractHydrator` + traits, client-gen-id, relationship cardinality) **and** the operation/adapter wiring for POST/PATCH/DELETE on resources + relationships (`Create`/`Update`/`Delete`/`AddToRelationship`/`UpdateRelationship`/`RemoveFromRelationship`Operation, dispatched by `Psr7ToOperationHandlerAdapter`). `*HydratorTraitTest`, `Psr7ToOperationHandlerAdapterTest`, per-operation tests. (Consumer supplies the handler logic; URL→`Target` routing is Phase 3.) |
 | Client-generated IDs on create (`id`) | ✅ test | `CreateHydratorTrait::hydrateIdForCreate()` + `validateClientGeneratedId()` (throws `ClientGeneratedIdNotSupported`/`ResourceIdInvalid`); non-string `id` rejected. `CreateHydratorTraitTest`. |
 | Local identifiers (`lid`) on resource objects / resource identifiers (creation) | ✅ test | Added beyond yin. `ResourceIdentifier` carries `?id`/`?lid` (`fromArray()` requires `type` + at-least-one-of; `ResourceIdentifierTest`); a relationship referenced by `lid` hydrates through to the relationship hydrator (`CreateHydratorTraitTest`); the request exposes `getResourceLid()` (`JsonApiRequestTest`). **Scope:** accept/carry `lid` only — cross-document `lid`→resource *resolution* is deferred to the Atomic Operations extension (post-1.0). |
 
