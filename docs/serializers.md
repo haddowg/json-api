@@ -81,7 +81,9 @@ the request.
 ## A worked example
 
 `AbstractSerializer` adds the `TransformerTrait` date/decimal formatting helpers
-and nothing else — there is no per-pass state to manage. This `ArticleSerializer`
+and nothing else — the serializer is stateless, so there is nothing per-pass to
+manage. Identity (`getType()` / `getId()`) depends only on the object, while the
+request-shaped members receive the request directly. This `ArticleSerializer`
 exposes a request-aware `body` (omitted unless the caller is the author) and a
 computed `wordCount`; the request arrives as a method parameter:
 
@@ -107,12 +109,12 @@ final class ArticleSerializer extends AbstractSerializer
     }
 
     /** @return array<string, mixed> */
-    public function getMeta(mixed $object): array
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
 
-    public function getLinks(mixed $object): ?ResourceLinks
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         \assert($object instanceof Article);
 
@@ -120,16 +122,16 @@ final class ArticleSerializer extends AbstractSerializer
     }
 
     /** @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed> */
-    public function getAttributes(mixed $object): array
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         $attributes = [
             'title' => static fn (Article $a): string => $a->title,
             'wordCount' => static fn (Article $a): int => \str_word_count($a->body),
         ];
 
-        // Request-aware: only the author sees the full body. The active request is
-        // available as $this->request for the duration of the pass.
-        $viewer = $this->request?->getHeaderLine('X-User-Id');
+        // Request-aware: only the author sees the full body. The active request
+        // arrives as a parameter — the serializer keeps no per-pass state.
+        $viewer = $request->getHeaderLine('X-User-Id');
         if ($object instanceof Article && $viewer === $object->authorId) {
             $attributes['body'] = static fn (Article $a): string => $a->body;
         }
@@ -144,7 +146,7 @@ final class ArticleSerializer extends AbstractSerializer
     }
 
     /** @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship> */
-    public function getRelationships(mixed $object): array
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }

@@ -349,8 +349,12 @@ domain value to a JSON:API resource (`getType`/`getId`/`getMeta`/`getLinks`/`get
 value is `mixed` (a resource may describe an object, an array, or any representation; yin's
 own tests pass arrays), so no `@template` is imposed. `getAttributes()`/`getRelationships()`
 return maps of `callable(mixed, JsonApiRequestInterface, string): mixed|AbstractRelationship`.
-The two lifecycle methods `initializeTransformation()`/`clearTransformation()` are
-`@internal` (driven by the transformer, not consumers) even though the interface is public.
+The contract is **stateless**: every method is a pure function of its arguments, so a single
+instance safely serializes many objects (collection items and recursively included resources
+alike). Identity (`getType()`/`getId()`) and the default includes depend only on the object;
+the request-shaped members (`getMeta()`/`getLinks()`/`getAttributes()`/`getRelationships()`)
+take the `JsonApiRequestInterface` directly — there is no per-pass lifecycle to drive (yin's
+`initializeTransformation()`/`clearTransformation()` are dropped).
 `AbstractSerializer` is the convenience base; the contract is implementable by composition.
 The fluent `Resource\AbstractResource` (Phase 4.5) implements this contract via its `fields()`,
 so a `Serializer` is only written directly as an escape hatch.

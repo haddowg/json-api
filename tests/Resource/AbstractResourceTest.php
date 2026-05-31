@@ -56,9 +56,8 @@ final class AbstractResourceTest extends TestCase
     {
         $resource = new PostResource();
         $request = new StubJsonApiRequest();
-        $resource->initializeTransformation($request, $this->post());
 
-        $attributes = $resource->getAttributes($this->post());
+        $attributes = $resource->getAttributes($this->post(), $request);
         self::assertArrayHasKey('title', $attributes);
         self::assertArrayHasKey('viewCount', $attributes);
         self::assertArrayNotHasKey('id', $attributes);
@@ -72,7 +71,7 @@ final class AbstractResourceTest extends TestCase
     public function hiddenFieldsAreNotSerialized(): void
     {
         $resource = new PostResource();
-        $attributes = $resource->getAttributes($this->post());
+        $attributes = $resource->getAttributes($this->post(), new StubJsonApiRequest());
 
         self::assertArrayNotHasKey('secret', $attributes);
     }
@@ -81,11 +80,12 @@ final class AbstractResourceTest extends TestCase
     public function relationshipsRequireAResolver(): void
     {
         $resource = new PostResource();
+        $request = new StubJsonApiRequest();
 
-        self::assertSame([], $resource->getRelationships($this->post()));
+        self::assertSame([], $resource->getRelationships($this->post(), $request));
 
         $resource->setSerializerResolver($this->resolver());
-        $relationships = $resource->getRelationships($this->post());
+        $relationships = $resource->getRelationships($this->post(), $request);
         self::assertArrayHasKey('author', $relationships);
         self::assertArrayHasKey('comments', $relationships);
     }
