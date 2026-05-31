@@ -43,10 +43,12 @@ final class DocumentValidator
     public function __construct(private readonly SchemaProvider $schemaProvider)
     {
         $validator = new Validator();
-        // Collect every violation rather than aborting on the first, so the error
-        // document lists all problems at once.
+        // Raise the error cap so an invalid document surfaces several violations at
+        // once rather than only the first (the formatter walks the sub-error tree
+        // for per-pointer messages). Kept to setMaxErrors(), which exists across all
+        // supported opis/json-schema 2.x; the later setStopAtFirstError() toggle is
+        // intentionally not used so behaviour is uniform on the lowest pinned version.
         $validator->setMaxErrors(20);
-        $validator->setStopAtFirstError(false);
 
         $resolver = $validator->resolver();
         if ($resolver === null) {

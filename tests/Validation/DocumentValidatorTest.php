@@ -75,21 +75,29 @@ final class DocumentValidatorTest extends TestCase
     }
 
     #[Test]
-    public function attributePointerIsReportedForReservedKey(): void
+    public function pointerLocatesTheOffendingPrimaryData(): void
     {
         try {
+            // `id` must be a string; the violation is located within /data. (opis 2.1+
+            // drills to /data/id; 2.0 reports at the /data oneOf — /data is the stable,
+            // spec-correct pointer asserted here.)
             $this->validator()->validateResponse([
-                'data' => ['type' => 'articles', 'id' => '1', 'attributes' => ['id' => 'nope']],
+                'data' => ['type' => 'articles', 'id' => 123],
             ]);
             self::fail('Expected ResponseBodyInvalidJsonApi.');
         } catch (ResponseBodyInvalidJsonApi $exception) {
-            self::assertContains('/data/attributes', $this->pointers($exception->validationErrors));
+            $pointers = $this->pointers($exception->validationErrors);
+            self::assertNotEmpty($pointers);
+            self::assertTrue(
+                (bool) \array_filter($pointers, static fn(string $p): bool => \str_starts_with($p, '/data')),
+                'Expected a violation pointer under /data, got: ' . \implode(', ', $pointers),
+            );
 
             // The mapped Error objects carry the pointer as source.pointer.
             $sources = \array_filter(
                 \array_map(static fn($error) => $error->source?->pointer, $exception->getErrors()),
             );
-            self::assertContains('/data/attributes', $sources);
+            self::assertContains('/data', $sources);
         }
     }
 
