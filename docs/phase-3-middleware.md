@@ -188,3 +188,37 @@ Before declaring the phase complete, produce the following for Phase 4:
    - Append revisions to the plan as a single commit; the actual kick-off revision happens at the start of Phase 4, but corrections forced by Phase 3 decisions belong here.
 3. **Open questions resolved** — every entry in the Open questions section above has an answer recorded in the decision log. Resolve any remaining or newly-surfaced questions by asking the maintainer interactively using whatever ask-user-question tool the executor's environment provides. Open questions are not passed forward to Phase 4.
 4. **Decision log finalised** — phase-local decisions captured here; any cross-phase decisions promoted to `PLAN.md`.
+
+## Phase 2 reconciliation notes (appended at Phase 2 close)
+
+These corrections are forced by Phase 2 decisions; fold them into the plan at the
+Phase 3 kick-off revision (see `docs/phase-2-profiles-pagination.md` decision log).
+
+- **Profiles are advisory — the content-negotiation middleware MUST NOT reject
+  unrecognized profiles.** A server ignores any profile it does not recognize.
+  The middleware's only negotiation *rejection* concerns the `ext` parameter:
+  wrap `Negotiation\RequestValidator(string ...$supportedExtensions)`, which
+  throws `MediaTypeUnsupported` (415) / `MediaTypeUnacceptable` (406) for an
+  unsupported extension. Profiles flow through untouched.
+- **Profile application is already done in the response layer**, not in
+  middleware. `Response\AbstractResponse::toPsrResponse()` applies the
+  server-registered requested profiles (echoing the `Content-Type` `profile`
+  parameter, writing `links.profile`, running each profile's
+  `finalizeDocument()` hook, and setting `Vary: Accept`). The error-handling
+  middleware, which renders response value objects, therefore gets profile
+  emission for free — it does not re-implement it. The middleware only needs to
+  ensure the active `Server` (carrying `profiles()`) is passed to
+  `toPsrResponse()`.
+- **`Server` exposes `profiles(): ProfileRegistry`.** The middleware suite reads
+  the profile registry from the `Server`, consistent with the Phase 2 decision
+  that the registry is per-server and injected (no global registry). This
+  supersedes any plan wording implying a free-standing profile registry passed
+  separately into middleware.
+- **`ext` parsing is wired but not dispatched.** No atomic-ops middleware ships;
+  the reserved slot remains reserved. The body-parsing / negotiation middleware
+  should leave `getRequestedExtensions()`/`getAppliedExtensions()` reachable on
+  the request it forwards, so the post-1.0 atomic-ops dispatcher can consume them
+  without re-parsing.
+- **Pagination needs no middleware.** `DataResponse::fromPage($page)` renders
+  pagination links/meta in the response layer; no middleware participates in
+  pagination. Disregard any earlier implication otherwise.
