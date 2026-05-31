@@ -27,7 +27,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | `jsonapi.meta` is a free-form meta object, omitted when empty | ✅ test | `JsonApiObject::transform()` omits empty `meta`. `JsonApiObjectTest`. |
 | Links: bare-string or link-object (`{href, …}`) forms | ✅ test | `Schema\Link\Link` / `LinkObject`. `LinkTest`, `LinkObjectTest`. |
 | Link object members `href`, `rel`, `title`, `type`, `hreflang`, `meta` | ✅ test | `LinkObject` models all; empty members omitted. `LinkObjectTest`. |
-| Link object `describedby` member | ⬜ todo | Deferred until the Links container types are ported (nests a `Link`). TODO marker in `LinkObject`. |
+| Link object `describedby` member | ✅ test | `LinkObject` carries an optional `?Link $describedby` emitted by `transform()`. `LinkObjectDescribedbyTest`. |
 | Templated links (RFC 6570) | ✅ test | No dedicated `templated` member exists in JSON:API 1.1; a templated link is a plain string `href`, representable as-is. (Decision log, Link audit.) |
 | Profile link object with keyword `aliases` | ✅ test | `Schema\Link\ProfileLinkObject`. `ProfileLinkObjectTest`. Full profile association is Phase 2. |
 | Top-level `meta` member | ✅ test | `Response\MetaResponse` (meta-only document) and the `withMeta()` wither on every response render into top-level `meta`. `MetaResponseTest`, `DataResponseTest`. |
@@ -42,7 +42,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Error `source` object (`pointer`, `parameter`, `header`) | 🟡 code | `Schema\Error\ErrorSource` covers `pointer` + `parameter` (✅ test); `header` member not yet modelled. `ErrorSourceTest`. |
+| Error `source` object (`pointer`, `parameter`, `header`) | ✅ test | `Schema\Error\ErrorSource` models `pointer`, `parameter` and `header` (with `fromPointer`/`fromParameter`/`fromHeader` named ctors), each omitted from `transform()` when empty. `ErrorSourceTest`, `ErrorSourceHeaderTest`. |
 | Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ✅ test | `Response\ErrorResponse` (`fromErrors()`/`fromException()`) renders the top-level `errors` array via `ErrorDocument`; HTTP status derived from the errors. `ErrorResponseTest`, `AbstractErrorDocumentTest`. |
@@ -53,7 +53,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | Fetch individual / collection resources | ✅ test | `FetchResourceOperation` + `Psr7ToOperationHandlerAdapter` (GET → operation → handler → `DataResponse` → PSR-7) end-to-end; `DataResponse::fromResource`/`fromCollection`. `Psr7ToOperationHandlerAdapterTest`, `DataResponseTest`. (URL→`Target` routing is Phase 3.) |
-| Fetch relationships / related resources | ✅ test | `FetchRelatedOperation`/`FetchRelationshipOperation` (dispatched by target shape) + `Response\RelatedResponse`/`IdentifierResponse`. `Psr7ToOperationHandlerAdapterTest`, `RelatedResponseTest`, `IdentifierResponseTest`. **Known limitation (faithful to yin):** the relationship-document path emits `data`/`included` only — top-level `meta`/`links`/`jsonapi` are not rendered on relationship endpoints. |
+| Fetch relationships / related resources | ✅ test | `FetchRelatedOperation`/`FetchRelationshipOperation` (dispatched by target shape) + `Response\RelatedResponse`/`IdentifierResponse`. `Psr7ToOperationHandlerAdapterTest`, `RelatedResponseTest`, `IdentifierResponseTest`. Relationship-endpoint documents also carry top-level `jsonapi`/`meta`/`links` (merged over the relationship's own members). `RelationshipDocumentMetaTest`. |
 
 ## Inclusion of related resources (`spec:inclusion-of-related-resources`)
 
