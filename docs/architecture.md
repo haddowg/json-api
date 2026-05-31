@@ -113,7 +113,7 @@ response value objects.
 ### 5. Encoding
 
 `AbstractResponse::toPsrResponse()` takes the body array the engine produced,
-applies any in-scope [profiles](profiles.md#profile-application), `json_encode`s it
+applies any in-scope [profiles](profiles.md#how-applied-profiles-are-surfaced), `json_encode`s it
 (with `JSON_THROW_ON_ERROR` and the server's encode options), and builds the PSR-7
 response via the server's PSR-17 factories with `Content-Type:
 application/vnd.api+json`. JSON encoding happens *only* here, at the very end —

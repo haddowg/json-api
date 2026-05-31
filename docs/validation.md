@@ -182,7 +182,7 @@ production — add them only where you want them):
   by default it throws `ResponseBodyInvalidJsonApi` (`500`); pass
   `$throwOnViolation = false` to log and pass through instead.
 
-See [Middleware](middleware.md#validation-middleware-optional-devci) for placement
+See [Middleware](middleware.md#optional-validation-middleware-devci) for placement
 in the chain.
 
 ## The `Custom` escape hatch

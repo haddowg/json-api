@@ -11,8 +11,9 @@ serialization needs logic a field walk can't model.
 > **A note on names.** "Resource" is overloaded. The class documented here is a
 > *serializer* — `Serializer\SerializerInterface`, what woohoolabs/yin called a
 > `Resource`. It is **not** the JSON:API spec's *resource object* (the
-> `{type, id, attributes, relationships}` structure inside `data`), which is
-> `Schema\ResourceObject` internally. See [Concepts](concepts.md#vocabulary).
+> `{type, id, attributes, relationships}` structure inside `data`), which this
+> package emits as a plain array from the serialization engine rather than as a
+> class you write. See [Concepts](concepts.md#vocabulary).
 
 ## When to write one
 
@@ -28,7 +29,7 @@ declared field off the model:
   more than one resource type, registered under different serializers.
 
 If you only need a one-off custom value for a single field, prefer a field-level
-[`serializeUsing()` / `extractUsing()` hook](fields.md#custom-serialize--hydrate-hooks)
+[`serializeUsing()` / `extractUsing()` hook](fields.md#serialize--hydrate-hooks)
 instead of replacing the whole serializer.
 
 ## The contract
@@ -84,17 +85,13 @@ computed `wordCount`:
 
 ```php
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
-use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 
 final class ArticleSerializer extends AbstractSerializer
 {
-    public function __construct(private readonly SerializerResolver $resolver) {}
-
     public function getType(mixed $object): string
     {
         return 'articles';
@@ -128,8 +125,10 @@ final class ArticleSerializer extends AbstractSerializer
             'wordCount' => static fn (Article $a): int => \str_word_count($a->body),
         ];
 
-        // Request-aware: only the author sees the full body.
-        if ($this->viewerIsAuthor($object)) {
+        // Request-aware: only the author sees the full body. The active request is
+        // available as $this->request for the duration of the pass.
+        $viewer = $this->request?->getHeaderLine('X-User-Id');
+        if ($object instanceof Article && $viewer === $object->authorId) {
             $attributes['body'] = static fn (Article $a): string => $a->body;
         }
 
@@ -145,25 +144,19 @@ final class ArticleSerializer extends AbstractSerializer
     /** @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship> */
     public function getRelationships(mixed $object): array
     {
-        return [
-            'author' => fn (Article $a): AbstractRelationship => ToOneRelationship::create()
-                ->setData($a->author, $this->resolver->serializerFor('authors')),
-        ];
-    }
-
-    private function viewerIsAuthor(mixed $object): bool
-    {
-        return $object instanceof Article
-            && $this->request?->getHeaderLine('X-User-Id') === $object->author->id;
+        return [];
     }
 }
 ```
 
-Relationship callables build a `Schema\Relationship\ToOneRelationship` /
-`ToManyRelationship` via `create()` and attach the related object with
-`setData($related, $serializer)`, resolving the related type's serializer through
-the injected resolver — the [server's registry](server.md) is the resolver, so
-inject it where you need to relate other types.
+> **Override serializers take no constructor arguments.** The registry
+> instantiates an override with `new ArticleSerializer()` and — unlike the schema —
+> does **not** inject the relationship `SerializerResolver`. A custom serializer is
+> therefore best suited to shaping `attributes` (request-aware, conditional,
+> computed). When a type needs both related-resource serialization *and* attribute
+> logic the field walk can't express, keep the [schema](schemas.md) and override
+> only the narrower concern, or relate types through the schema rather than a
+> hand-written serializer.
 
 ## Registering it as an override
 

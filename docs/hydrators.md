@@ -21,7 +21,7 @@ each declared field:
   of work, matters.
 
 If you only need a one-off custom write for a single field, prefer a field-level
-[`deserializeUsing()` / `fillUsing()` hook](fields.md#custom-serialize--hydrate-hooks)
+[`deserializeUsing()` / `fillUsing()` hook](fields.md#serialize--hydrate-hooks)
 instead of replacing the whole hydrator.
 
 ## The contract

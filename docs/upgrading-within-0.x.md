@@ -7,10 +7,10 @@ bump). This is deliberate: the surface is still being refined toward a stable
 trade long-term quality for short-term convenience. If you need an unchanging
 surface, pin to a release and wait for `1.0.0`.
 
-Every breaking change is recorded in two places: the project
-[`CHANGELOG`](../CHANGELOG.md) (generated from Conventional Commits) and this
-page, which collects the consumer-facing renames and moves with the search-and-
-replace you need to follow them. Changes here are almost always mechanical — a
+Every breaking change is recorded in two places: the project changelog
+(generated from Conventional Commits by [release-please](https://github.com/googleapis/release-please)
+once the first release is cut) and this page, which collects the consumer-facing
+renames and moves with the search-and-replace you need to follow them. Changes here are almost always mechanical — a
 type moved namespace, a method was renamed — and bounded precisely because the
 package is still `0.x`.
 

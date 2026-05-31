@@ -9,10 +9,11 @@ hand.
 
 > **A note on names.** "Resource" is overloaded. The JSON:API spec's *resource
 > object* — the `{type, id, attributes, relationships}` structure inside `data` —
-> is `Schema\ResourceObject` internally. The class you subclass here,
-> `Resource\AbstractResource`, is the *schema*: a per-type serializer + hydrator.
-> When this documentation says "resource object" it means the spec sense; "schema"
-> means the `AbstractResource` subclass. See [Concepts](concepts.md#vocabulary).
+> is emitted by the serialization engine as a plain array, not a class you write.
+> The class you subclass here, `Resource\AbstractResource`, is the *schema*: a
+> per-type serializer + hydrator. When this documentation says "resource object" it
+> means the spec sense; "schema" means the `AbstractResource` subclass. See
+> [Concepts](concepts.md#vocabulary).
 
 ## A minimal schema
 

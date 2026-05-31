@@ -118,7 +118,7 @@ foreach ($operation->queryParameters()->sort as $field) {
 }
 ```
 
-## Writing a handler for your data layer
+## Writing a custom handler
 
 An adapter for a real data layer implements the same interfaces, narrowing the
 query type to its own object:

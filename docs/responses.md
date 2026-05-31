@@ -182,7 +182,7 @@ $psrResponse = DataResponse::fromResource($article, $articles)
 ```
 
 `toPsrResponse()` runs the transformer to build the body array, applies any in-scope
-[profiles](profiles.md#profile-application), `json_encode`s the body (with
+[profiles](profiles.md#how-applied-profiles-are-surfaced), `json_encode`s the body (with
 `JSON_THROW_ON_ERROR` and the resolved encode options) using the server's PSR-17
 factories, and returns a PSR-7 response with `Content-Type:
 application/vnd.api+json`. If the originating request is a plain
