@@ -16,10 +16,10 @@ use haddowg\JsonApi\Testing\JsonApiRequestBuilder;
 use haddowg\JsonApi\Testing\SpecCompliance;
 use haddowg\JsonApi\Tests\Double\StubServer;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(JsonApiDocument::class)]
