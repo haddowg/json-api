@@ -28,6 +28,21 @@ is on record and to seed the format for future entries. Consumers starting on th
 first published `0.x` release are already on the post-change API and need take no
 action.
 
+### Resource registry renamed (`SchemaRegistry` → `ResourceRegistry`)
+
+The registry that holds the registered Resource classes was called "schema",
+which clashed with the class actually being named `Resource\AbstractResource`. The
+registry and its accessors were renamed so the vocabulary is consistent — the
+fluent class is a *Resource class*, never a "schema". (`Validation\SchemaCompiler`
+and `Validation\SchemaProvider` keep their names: those are *JSON Schema*, a
+different thing.)
+
+- `Server\SchemaRegistry` → `Server\ResourceRegistry`
+- `Server::schemas()` → `Server::resources()`
+- `ResourceRegistry::schemaFor()` → `ResourceRegistry::resourceFor()`
+- Migration: search-and-replace the three names above. The common path
+  (`->register(...)`, `->serializerFor()`, `->hydratorFor()`) is unchanged.
+
 ### Per-type serializer moved to `Serializer\*`
 
 The per-resource-type serializer contract — yin's `Schema\Resource\ResourceInterface`

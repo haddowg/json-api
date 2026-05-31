@@ -124,6 +124,31 @@ Read every fanned-out page against the source and the two exemplars. Findings an
 - **Dangling `CHANGELOG.md` link** in `upgrading-within-0.x.md` — the file does not exist pre-release (release-please generates it); replaced the link with prose.
 - **Docs index** — corrected the `adapters.md` one-line description (it is the metadata/handler split, not HTTP bridging).
 
+### Post-review terminology change (maintainer-requested, 2026-05-31)
+
+After the docs landed, the maintainer flagged that documenting the fluent
+`Resource\AbstractResource` as a "schema" is confusing — the class is literally
+named `Resource`. Resolved by dropping "schema" for this concept everywhere in
+favour of **"Resource class"**, and (maintainer-confirmed) renaming the source API
+to match for full code/docs consistency:
+
+- **Source (breaking, pre-1.0, `refactor!:`):** `Server\SchemaRegistry` →
+  `ResourceRegistry`; `Server::schemas()` → `resources()`;
+  `SchemaRegistry::schemaFor()` → `resourceFor()`. The JSON-Schema-related
+  `Validation\SchemaCompiler`/`SchemaProvider`/`VendoredSchemaProvider`/
+  `SchemaContributingProfile` keep their names (different meaning). `CLAUDE.md`'s
+  Server/registry pattern entry updated to match.
+- **Docs:** `docs/schemas.md` → `docs/resources.md` (the Resource-class page);
+  the old custom-serializer page `docs/resources.md` → `docs/serializers.md`. All
+  cross-links, anchors, and the index relabelled. The three-way vocabulary callout
+  rewritten: spec *resource object* (engine-emitted array) / *Resource class*
+  (`AbstractResource`) / *Serializer* + *Hydrator* contracts. "schema" now appears
+  in the docs only where it means *JSON Schema* / the `Schema\*` document namespace.
+- Verified: 696 tests + PHPStan L9 + CS green; the link/anchor checker reports 0
+  broken links/anchors across all pages. **Handover note for Phase 6:** `CLAUDE.md`
+  still uses "fluent schema DSL"/"schema layer" phrasing in its Phase-4.5 historical
+  entries — reconcile during the "walk CLAUDE.md against code" task.
+
 ### Fresh-eyes review
 
 Performed the equivalent of a fresh build-through: a runnable end-to-end endpoint was built from the public API alone (the getting-started fixture) and passes. A repo-local link/anchor checker confirms **0 broken file links and 0 broken anchors** across all 23 docs pages + root `README.md` (the only checker "hits" were a non-existent CHANGELOG, since fixed, and a whitespace-slug false-positive on a `/`-bearing heading that GitHub renders correctly). Full CI is green (`composer test` 696 tests, `phpstan` L9 clean, `cs-check` clean). API claims were spot-verified against source for the highest-code pages (responses, pagination, exceptions, resources, fields). No issues remain open or filed.
