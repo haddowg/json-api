@@ -26,7 +26,9 @@ final readonly class DocumentLinks extends AbstractLinks
         string $baseUri = '',
         ?Link $self = null,
         ?Link $related = null,
-        // TODO(phase-2): pagination links are emitted from Page value objects; see docs/phase-2-profiles-pagination.md
+        // The pagination relations are emitted automatically from the `Pagination\Page`
+        // value objects via `DataResponse::fromPage()`; these params remain as a manual
+        // escape hatch for setting them directly on a non-paginated document.
         ?Link $first = null,
         ?Link $prev = null,
         ?Link $next = null,
