@@ -53,39 +53,76 @@ final class SchemaCompilerTest extends TestCase
         };
     }
 
+    /**
+     * The compiled schema as a nested associative array (round-tripped through
+     * JSON so deep structure is assertable without dynamic-property access).
+     *
+     * @return array<string, mixed>
+     */
+    private function compileToArray(bool $creating): array
+    {
+        $json = \json_encode($this->compiler()->compile($this->resource(), $creating), \JSON_THROW_ON_ERROR);
+        $decoded = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
+
+    /**
+     * Walks a nested array by key path, narrowing at each step, and returns the
+     * value at the leaf (so callers can assert against it without tripping
+     * `offsetAccess`/`mixed` analysis).
+     *
+     * @param array<string, mixed> $schema
+     */
+    private function at(array $schema, string ...$keys): mixed
+    {
+        $cursor = $schema;
+        foreach ($keys as $key) {
+            self::assertIsArray($cursor);
+            self::assertArrayHasKey($key, $cursor);
+            $cursor = $cursor[$key];
+        }
+
+        return $cursor;
+    }
+
     #[Test]
     public function compiledCreateSchemaProducesTighteningStructure(): void
     {
-        $schema = $this->compiler()->compile($this->resource(), creating: true);
+        $schema = $this->compileToArray(creating: true);
 
-        // Top level: { type, properties: { data: { type, properties: {…} } } }
-        self::assertSame('object', $schema->type);
-        $data = $schema->properties->data;
-        self::assertSame('object', $data->type);
+        self::assertSame('object', $this->at($schema, 'type'));
+        self::assertSame('object', $this->at($schema, 'properties', 'data', 'type'));
 
-        $attributes = $data->properties->attributes;
-        self::assertContains('name', $attributes->required);
-        self::assertContains('email', $attributes->required);
-        self::assertContains('createOnly', $attributes->required);
-        self::assertSame(50, $attributes->properties->name->maxLength);
-        self::assertSame('email', $attributes->properties->email->format);
-        self::assertSame(['active', 'inactive'], $attributes->properties->status->enum);
-        self::assertSame(['integer', 'null'], $attributes->properties->age->type);
+        $attr = ['properties', 'data', 'properties', 'attributes'];
+        self::assertContains('name', $this->at($schema, ...$attr, ...['required']));
+        self::assertContains('email', $this->at($schema, ...$attr, ...['required']));
+        self::assertContains('createOnly', $this->at($schema, ...$attr, ...['required']));
+        self::assertSame(50, $this->at($schema, ...$attr, ...['properties', 'name', 'maxLength']));
+        self::assertSame('email', $this->at($schema, ...$attr, ...['properties', 'email', 'format']));
+        self::assertSame(['active', 'inactive'], $this->at($schema, ...$attr, ...['properties', 'status', 'enum']));
+        self::assertSame(['integer', 'null'], $this->at($schema, ...$attr, ...['properties', 'age', 'type']));
 
-        $relationships = $data->properties->relationships;
-        self::assertContains('team', $relationships->required);
-        self::assertSame(['teams'], $relationships->properties->team->properties->data->properties->type->enum);
+        $rel = ['properties', 'data', 'properties', 'relationships'];
+        self::assertContains('team', $this->at($schema, ...$rel, ...['required']));
+        self::assertSame(
+            ['teams'],
+            $this->at($schema, ...$rel, ...['properties', 'team', 'properties', 'data', 'properties', 'type', 'enum']),
+        );
     }
 
     #[Test]
     public function compiledUpdateSchemaOmitsRequiredArrays(): void
     {
-        $schema = $this->compiler()->compile($this->resource(), creating: false);
-        $attributes = $schema->properties->data->properties->attributes;
+        $schema = $this->compileToArray(creating: false);
+        $attributes = $this->at($schema, 'properties', 'data', 'properties', 'attributes');
+        self::assertIsArray($attributes);
 
-        self::assertObjectNotHasProperty('required', $attributes);
+        self::assertArrayNotHasKey('required', $attributes);
         // Value constraints still apply on update.
-        self::assertSame(50, $attributes->properties->name->maxLength);
+        self::assertSame(50, $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'name', 'maxLength'));
     }
 
     #[Test]

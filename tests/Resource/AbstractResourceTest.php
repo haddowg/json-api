@@ -280,7 +280,7 @@ final class PostResource extends AbstractResource
         ];
     }
 
-    public function pagination(): ?Paginator
+    public function pagination(): Paginator
     {
         return PagePaginator::make()->withDefaultPerPage(15);
     }

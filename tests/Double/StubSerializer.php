@@ -28,7 +28,11 @@ final class StubSerializer extends AbstractSerializer
 
     public function getId(mixed $object): string
     {
-        return \is_array($object) && isset($object['id']) ? (string) $object['id'] : '0';
+        if (\is_array($object) && isset($object['id']) && \is_scalar($object['id'])) {
+            return (string) $object['id'];
+        }
+
+        return '0';
     }
 
     public function getMeta(mixed $object): array
