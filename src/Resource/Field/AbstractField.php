@@ -1,0 +1,422 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Resource\Field;
+
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Constraint\Constraint;
+use haddowg\JsonApi\Resource\Constraint\Context;
+use haddowg\JsonApi\Resource\Constraint\In;
+use haddowg\JsonApi\Resource\Constraint\NotIn;
+use haddowg\JsonApi\Resource\Constraint\Nullable;
+use haddowg\JsonApi\Resource\Constraint\Required;
+
+/**
+ * Convenience base implementing the common {@see Field} fluent surface:
+ * read-only state, hidden/sparse flags, the serialize/hydrate hook closures
+ * (`serializeUsing`/`extractUsing`/`deserializeUsing`/`fillUsing`), the
+ * constraint-list machinery and the `onCreate()` / `onUpdate()` context
+ * builders.
+ *
+ * Fields are **mutable builders**: the fluent methods mutate and return
+ * `$this`, so a field is declared in one expression
+ * (`Str::make('title')->required()->maxLength(200)`). Type-specific constraint
+ * helpers (`minLength()`, `min()`, `before()`, …) live on the concrete field
+ * classes; the casting of raw values is done by overriding
+ * {@see serializeValue()} / {@see deserializeValue()}.
+ */
+abstract class AbstractField implements Field
+{
+    protected ?string $column;
+
+    protected bool $readOnlyOnCreate = false;
+
+    protected bool $readOnlyOnUpdate = false;
+
+    protected bool $hidden = false;
+
+    protected bool $sparseField = true;
+
+    protected bool $sortable = false;
+
+    /**
+     * @var list<Constraint>
+     */
+    protected array $constraints = [];
+
+    /**
+     * @var \Closure(mixed, JsonApiRequestInterface, string): mixed|null
+     */
+    protected ?\Closure $serializeUsing = null;
+
+    /**
+     * @var \Closure(mixed, JsonApiRequestInterface, string): mixed|null
+     */
+    protected ?\Closure $extractUsing = null;
+
+    /**
+     * @var \Closure(mixed, array<string, mixed>): mixed|null
+     */
+    protected ?\Closure $deserializeUsing = null;
+
+    /**
+     * @var \Closure(mixed, mixed, array<string, mixed>, string): mixed|null
+     */
+    protected ?\Closure $fillUsing = null;
+
+    /**
+     * The context applied to constraints appended while inside an
+     * `onCreate()` / `onUpdate()` builder; `null` means {@see Context::always()}.
+     */
+    private ?Context $contextOverride = null;
+
+    final public function __construct(
+        protected string $name,
+        ?string $column = null,
+    ) {
+        $this->column = $column ?? $name;
+    }
+
+    /**
+     * @return static
+     */
+    public static function make(string $name): static
+    {
+        return new static($name);
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    public function column(): ?string
+    {
+        return $this->column;
+    }
+
+    /**
+     * Stores the value in a different domain-object member than the JSON:API
+     * member name.
+     *
+     * @return static
+     */
+    public function storedAs(string $column): static
+    {
+        $this->column = $column;
+
+        return $this;
+    }
+
+    /**
+     * Marks the field as computed (no backing column). Pair with
+     * {@see extractUsing()} for the value.
+     *
+     * @return static
+     */
+    public function computed(): static
+    {
+        $this->column = null;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function readOnly(): static
+    {
+        $this->readOnlyOnCreate = true;
+        $this->readOnlyOnUpdate = true;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function readOnlyOnCreate(): static
+    {
+        $this->readOnlyOnCreate = true;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function readOnlyOnUpdate(): static
+    {
+        $this->readOnlyOnUpdate = true;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function hidden(): static
+    {
+        $this->hidden = true;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function notSparseField(): static
+    {
+        $this->sparseField = false;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function sortable(): static
+    {
+        $this->sortable = true;
+
+        return $this;
+    }
+
+    /**
+     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * @return static
+     */
+    public function serializeUsing(\Closure $callback): static
+    {
+        $this->serializeUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * @return static
+     */
+    public function extractUsing(\Closure $callback): static
+    {
+        $this->extractUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * @param \Closure(mixed, array<string, mixed>): mixed $callback
+     * @return static
+     */
+    public function deserializeUsing(\Closure $callback): static
+    {
+        $this->deserializeUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * @param \Closure(mixed, mixed, array<string, mixed>, string): mixed $callback
+     * @return static
+     */
+    public function fillUsing(\Closure $callback): static
+    {
+        $this->fillUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * @return static
+     */
+    public function required(): static
+    {
+        return $this->addConstraint(new Required($this->currentContext()));
+    }
+
+    /**
+     * Required on create (POST) only; absent on update (PATCH) means "no change".
+     *
+     * @return static
+     */
+    public function requiredOnCreate(): static
+    {
+        return $this->addConstraint(new Required(Context::onlyCreate()));
+    }
+
+    /**
+     * Required when supplied on update (PATCH) only.
+     *
+     * @return static
+     */
+    public function requiredOnUpdate(): static
+    {
+        return $this->addConstraint(new Required(Context::onlyUpdate()));
+    }
+
+    /**
+     * @return static
+     */
+    public function nullable(): static
+    {
+        return $this->addConstraint(new Nullable($this->currentContext()));
+    }
+
+    /**
+     * @param list<mixed> $values
+     * @return static
+     */
+    public function in(array $values): static
+    {
+        return $this->addConstraint(new In($values, $this->currentContext()));
+    }
+
+    /**
+     * @param list<mixed> $values
+     * @return static
+     */
+    public function notIn(array $values): static
+    {
+        return $this->addConstraint(new NotIn($values, $this->currentContext()));
+    }
+
+    /**
+     * Scopes every constraint appended inside `$builder` to create (POST)
+     * requests.
+     *
+     * @param \Closure(static): void $builder
+     * @return static
+     */
+    public function onCreate(\Closure $builder): static
+    {
+        return $this->withContext(Context::onlyCreate(), $builder);
+    }
+
+    /**
+     * Scopes every constraint appended inside `$builder` to update (PATCH)
+     * requests.
+     *
+     * @param \Closure(static): void $builder
+     * @return static
+     */
+    public function onUpdate(\Closure $builder): static
+    {
+        return $this->withContext(Context::onlyUpdate(), $builder);
+    }
+
+    public function isReadOnly(bool $creating): bool
+    {
+        return $creating ? $this->readOnlyOnCreate : $this->readOnlyOnUpdate;
+    }
+
+    public function isHidden(): bool
+    {
+        return $this->hidden;
+    }
+
+    public function isSparseField(): bool
+    {
+        return $this->sparseField;
+    }
+
+    public function isSortable(): bool
+    {
+        return $this->sortable;
+    }
+
+    public function constraints(): array
+    {
+        return $this->constraints;
+    }
+
+    public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
+    {
+        if ($this->serializeUsing !== null) {
+            return ($this->serializeUsing)($model, $request, $name);
+        }
+
+        if ($this->extractUsing !== null) {
+            return ($this->extractUsing)($model, $request, $name);
+        }
+
+        $raw = Accessor::get($model, $this->column ?? $name);
+
+        return $this->serializeValue($raw);
+    }
+
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
+    {
+        if ($this->fillUsing !== null) {
+            $result = ($this->fillUsing)($model, $value, $data, $this->name);
+
+            return $result ?? $model;
+        }
+
+        $column = $this->column;
+        if ($column === null) {
+            return $model;
+        }
+
+        $value = $this->deserializeUsing !== null
+            ? ($this->deserializeUsing)($value, $data)
+            : $this->deserializeValue($value);
+
+        return Accessor::set($model, $column, $value);
+    }
+
+    /**
+     * Casts a raw domain value to its serialized representation. Override in
+     * concrete field types (e.g. format a `DateTimeInterface`). Default: identity.
+     */
+    protected function serializeValue(mixed $raw): mixed
+    {
+        return $raw;
+    }
+
+    /**
+     * Casts an incoming JSON value to its domain representation. Override in
+     * concrete field types (e.g. parse a date string). Default: identity.
+     */
+    protected function deserializeValue(mixed $value): mixed
+    {
+        return $value;
+    }
+
+    /**
+     * @return static
+     */
+    protected function addConstraint(Constraint $constraint): static
+    {
+        $this->constraints[] = $constraint;
+
+        return $this;
+    }
+
+    /**
+     * The context to attach to a constraint appended now: the active
+     * `onCreate()`/`onUpdate()` override, or {@see Context::always()}.
+     */
+    protected function currentContext(): Context
+    {
+        return $this->contextOverride ?? Context::always();
+    }
+
+    /**
+     * @param \Closure(static): void $builder
+     * @return static
+     */
+    private function withContext(Context $context, \Closure $builder): static
+    {
+        $previous = $this->contextOverride;
+        $this->contextOverride = $context;
+
+        try {
+            $builder($this);
+        } finally {
+            $this->contextOverride = $previous;
+        }
+
+        return $this;
+    }
+}
