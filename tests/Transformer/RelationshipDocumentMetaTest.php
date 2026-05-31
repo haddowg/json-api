@@ -30,7 +30,7 @@ final class RelationshipDocumentMetaTest extends TestCase
     public function relationshipDocumentMergesDocumentLevelJsonApiAndMeta(): void
     {
         $document = new class implements ResourceDocumentInterface {
-            public function getJsonApi(): ?JsonApiObject
+            public function getJsonApi(): JsonApiObject
             {
                 return new JsonApiObject();
             }
@@ -56,13 +56,13 @@ final class RelationshipDocumentMetaTest extends TestCase
             }
 
             /**
-             * @return array<string, mixed>|null
+             * @return array<string, mixed>
              */
             public function getRelationshipData(
                 ResourceDocumentTransformation $transformation,
                 ResourceTransformer $transformer,
                 DataInterface $data,
-            ): ?array {
+            ): array {
                 return [
                     'data' => ['type' => 'people', 'id' => '9'],
                     'meta' => ['relMeta' => true],
