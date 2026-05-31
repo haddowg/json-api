@@ -62,6 +62,66 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     abstract public function fields(): array;
 
     /**
+     * The filters this resource exposes (metadata; execution lives in adapter
+     * handlers). Default: none.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\Filter>
+     */
+    public function filters(): array
+    {
+        return [];
+    }
+
+    /**
+     * Sorts that don't map directly to a single sortable field. The base
+     * already derives a {@see \haddowg\JsonApi\Resource\Sort\SortByField} for
+     * every field that declared `->sortable()`; override only to add computed or
+     * multi-column sorts.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\Sort>
+     */
+    public function sorts(): array
+    {
+        return [];
+    }
+
+    /**
+     * The pagination strategy for this resource's collections, or `null` for no
+     * pagination (the {@see \haddowg\JsonApi\Server\Server} default applies when
+     * this returns null).
+     */
+    public function pagination(): ?\haddowg\JsonApi\Pagination\Paginator
+    {
+        return null;
+    }
+
+    /**
+     * Every sort the resource accepts: the field-derived
+     * {@see \haddowg\JsonApi\Resource\Sort\SortByField}s plus any explicit
+     * {@see sorts()}. Keyed by sort key (later entries win), returned as a list.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\Sort>
+     */
+    public function allSorts(): array
+    {
+        $sorts = [];
+        foreach ($this->allFields() as $field) {
+            if ($field->isSortable()) {
+                $sorts[$field->name()] = \haddowg\JsonApi\Resource\Sort\SortByField::make(
+                    $field->name(),
+                    $field->column() ?? $field->name(),
+                );
+            }
+        }
+
+        foreach ($this->sorts() as $sort) {
+            $sorts[$sort->key()] = $sort;
+        }
+
+        return \array_values($sorts);
+    }
+
+    /**
      * Injects the resolver relationships use to serialize related resources.
      * The {@see \haddowg\JsonApi\Server\Server} calls this when it hands out the
      * resource; standalone use leaves it null (relationships are then omitted).

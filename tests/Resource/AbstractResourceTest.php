@@ -165,6 +165,28 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function allSortsDerivesFromSortableFieldsPlusExplicitSorts(): void
+    {
+        $resource = new PostResource();
+        $keys = \array_map(static fn (object $s): string => $s->key(), $resource->allSorts());
+
+        self::assertContains('title', $keys);
+        self::assertContains('publishedAt', $keys);
+        self::assertContains('relevance', $keys);
+        self::assertNotContains('viewCount', $keys);
+    }
+
+    #[Test]
+    public function filtersAndPaginationAreExposed(): void
+    {
+        $resource = new PostResource();
+
+        self::assertCount(1, $resource->filters());
+        self::assertSame('status', $resource->filters()[0]->key());
+        self::assertInstanceOf(\haddowg\JsonApi\Pagination\PagePaginator::class, $resource->pagination());
+    }
+
+    #[Test]
     public function hydratesToOneRelationship(): void
     {
         $resource = new PostResource();
@@ -229,7 +251,7 @@ final class PostResource extends AbstractResource
     {
         return [
             Id::make(),
-            Str::make('title')->required()->maxLength(200),
+            Str::make('title')->required()->maxLength(200)->sortable(),
             Integer::make('viewCount')->readOnly()->min(0),
             Boolean::make('published'),
             DateTime::make('publishedAt')->sortable(),
@@ -237,5 +259,24 @@ final class PostResource extends AbstractResource
             BelongsTo::make('author')->type('users'),
             HasMany::make('comments')->type('comments'),
         ];
+    }
+
+    public function filters(): array
+    {
+        return [
+            \haddowg\JsonApi\Resource\Filter\Where::make('status'),
+        ];
+    }
+
+    public function sorts(): array
+    {
+        return [
+            \haddowg\JsonApi\Resource\Sort\SortByField::make('relevance', 'score'),
+        ];
+    }
+
+    public function pagination(): ?\haddowg\JsonApi\Pagination\Paginator
+    {
+        return \haddowg\JsonApi\Pagination\PagePaginator::make()->withDefaultPerPage(15);
     }
 }
