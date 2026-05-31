@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jsonapi.org/schemas/spec/v1.1/request",
+  "title": "JSON:API Request Schema v1.1",
+  "description": "Validates the body of a JSON:API request. Unlike the response schema, a primary-data resource MAY omit its `id` (a client-generated resource to be created on the server) and MAY carry a `lid` (local id). It reuses the request-oriented definitions already present in the base schema via cross-document `$ref`.",
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "description": "A request's primary data: a single resource (object), a collection of resources (array), or null (to clear a to-one relationship).",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/resourceForRequest"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceForRequest"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "meta": {
+      "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/meta"
+    },
+    "jsonapi": {
+      "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/jsonapi"
+    },
+    "links": {
+      "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/topLevelLinks"
+    },
+    "included": {
+      "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/included"
+    }
+  },
+  "$defs": {
+    "resourceForRequest": {
+      "description": "A resource object as it appears in a request: `type` is required, `id` is optional (omitted for a client-created resource), and `lid` is permitted.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/resourceIdentificationNew"
+        }
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lid": {
+          "type": "string"
+        },
+        "attributes": {
+          "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/attributes"
+        },
+        "relationships": {
+          "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/relationshipsFromRequest"
+        },
+        "links": {
+          "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/resourceLinks"
+        },
+        "meta": {
+          "$ref": "https://jsonapi.org/schemas/spec/v1.1/draft#/definitions/meta"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}
