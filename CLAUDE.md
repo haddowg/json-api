@@ -278,7 +278,13 @@ never used it — dropped). The link-building statics `getPaginationQueryParams(
 them). `PaginationFactory` is a `final readonly` wrapper over the request exposing
 `create*Pagination(...defaults)`. **Phase-2 note:** these fold into a unified `Page`
 value object — each class carries a `// TODO(phase-2)` and the link-emission/profile
-side of the paginator pattern is finalised then.
+side of the paginator pattern is finalised then. The **link-emission side**
+(`Schema\Pagination\{Page,Offset,Cursor,FixedPage,FixedCursor}BasedPaginationLinkProviderTrait`
++ `PaginationLinkProviderInterface`) is ported as **instance-method traits** (abstract
+`getTotalItems()`/`getPage()`/… hooks) that build first/prev/next/last/self links via the
+`@internal Transformer\Utils::getUri` helper (the one method of yin's root `Utils` that is
+actually needed; the rest stays unported). These traits + the interface are also Phase-2
+`// TODO`-marked: they fold into `Page` and the interface is slated for deletion then.
 
 ### Negotiation (validators)
 
