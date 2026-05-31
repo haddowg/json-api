@@ -1,186 +1,169 @@
-# Custom serializers
+# Schemas
 
-A custom serializer is the escape hatch for when the [schema](schemas.md) field
-DSL can't express how a domain object becomes a JSON:API resource. You implement
-`Serializer\SerializerInterface` directly (or extend `Serializer\AbstractSerializer`)
-and register it as an override on the type, replacing the schema's serialization
-without touching its hydration. For the common case you never write one — a
-schema's `fields()` declaration serializes for you — so reach for this only when
-serialization needs logic a field walk can't model.
+A schema is the recommended way to describe a JSON:API resource type. You
+subclass `Resource\AbstractResource`, set its `$type`, and implement `fields()`;
+that one declaration satisfies **both** the serializer contract (turning a domain
+object into a resource object) and the hydrator contract (filling a domain object
+from a request body). For the 95% case you never write a serializer or hydrator by
+hand.
 
-> **A note on names.** "Resource" is overloaded. The class documented here is a
-> *serializer* — `Serializer\SerializerInterface`, what woohoolabs/yin called a
-> `Resource`. It is **not** the JSON:API spec's *resource object* (the
-> `{type, id, attributes, relationships}` structure inside `data`), which this
-> package emits as a plain array from the serialization engine rather than as a
-> class you write. See [Concepts](concepts.md#vocabulary).
+> **A note on names.** "Resource" is overloaded. The JSON:API spec's *resource
+> object* — the `{type, id, attributes, relationships}` structure inside `data` —
+> is emitted by the serialization engine as a plain array, not a class you write.
+> The class you subclass here, `Resource\AbstractResource`, is the *schema*: a
+> per-type serializer + hydrator. When this documentation says "resource object" it
+> means the spec sense; "schema" means the `AbstractResource` subclass. See
+> [Concepts](concepts.md#vocabulary).
 
-## When to write one
-
-Drop to a custom serializer when serialization needs more than reading each
-declared field off the model:
-
-- **Request-aware or conditional attributes** — a member that appears, changes
-  shape, or is computed differently depending on the current request (the
-  serializer receives the `JsonApiRequestInterface` for every attribute).
-- **Computed or derived values** that draw on several model members at once, or
-  on data outside the model.
-- **Multiple representations of one model** — the same domain object exposed as
-  more than one resource type, registered under different serializers.
-
-If you only need a one-off custom value for a single field, prefer a field-level
-[`serializeUsing()` / `extractUsing()` hook](fields.md#serialize--hydrate-hooks)
-instead of replacing the whole serializer.
-
-## The contract
-
-`SerializerInterface` maps a domain value (`mixed` — an object, an array, or any
-representation) to the parts of a JSON:API resource object:
+## A minimal schema
 
 ```php
-interface SerializerInterface
+use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Str;
+
+final class ArticleResource extends AbstractResource
 {
-    public function getType(mixed $object): string;
-    public function getId(mixed $object): string;
+    public static string $type = 'articles';
 
-    /** @return array<string, mixed> */
-    public function getMeta(mixed $object): array;
-
-    public function getLinks(mixed $object): ?ResourceLinks;
-
-    /** @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed> */
-    public function getAttributes(mixed $object): array;
-
-    /** @return list<string> */
-    public function getDefaultIncludedRelationships(mixed $object): array;
-
-    /** @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship> */
-    public function getRelationships(mixed $object): array;
-
-    /** @internal */
-    public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void;
-    /** @internal */
-    public function clearTransformation(): void;
-}
-```
-
-`getAttributes()` and `getRelationships()` return **maps of callables**, not
-values: each callable receives the domain object, the active request, and the
-member name, and returns the value (or, for a relationship, an
-`AbstractRelationship`). Returning callables is what lets a member be
-request-aware and lets the engine call only the members it actually needs.
-
-The two `initializeTransformation()` / `clearTransformation()` methods are
-`@internal` — the serialization engine calls them around a pass to hand you the
-request and object; you do not call them. Extending `AbstractSerializer` (below)
-implements them for you.
-
-## A worked example
-
-`AbstractSerializer` stores the active request and object for the pass (reachable
-as `$this->request` / `$this->object`) and implements the two `@internal`
-lifecycle methods, so you implement only the mapping methods. This `ArticleSerializer`
-exposes a request-aware `body` (omitted unless the caller is the author) and a
-computed `wordCount`:
-
-```php
-use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Schema\Link\Link;
-use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
-use haddowg\JsonApi\Serializer\AbstractSerializer;
-
-final class ArticleSerializer extends AbstractSerializer
-{
-    public function getType(mixed $object): string
+    public function fields(): array
     {
-        return 'articles';
-    }
-
-    public function getId(mixed $object): string
-    {
-        \assert($object instanceof Article);
-
-        return $object->id;
-    }
-
-    /** @return array<string, mixed> */
-    public function getMeta(mixed $object): array
-    {
-        return [];
-    }
-
-    public function getLinks(mixed $object): ?ResourceLinks
-    {
-        \assert($object instanceof Article);
-
-        return ResourceLinks::withoutBaseUri(new Link('/articles/' . $object->id));
-    }
-
-    /** @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed> */
-    public function getAttributes(mixed $object): array
-    {
-        $attributes = [
-            'title' => static fn (Article $a): string => $a->title,
-            'wordCount' => static fn (Article $a): int => \str_word_count($a->body),
+        return [
+            Id::make(),
+            Str::make('title')->required()->maxLength(255)->sortable(),
+            Str::make('body')->required(),
         ];
-
-        // Request-aware: only the author sees the full body. The active request is
-        // available as $this->request for the duration of the pass.
-        $viewer = $this->request?->getHeaderLine('X-User-Id');
-        if ($object instanceof Article && $viewer === $object->authorId) {
-            $attributes['body'] = static fn (Article $a): string => $a->body;
-        }
-
-        return $attributes;
-    }
-
-    /** @return list<string> */
-    public function getDefaultIncludedRelationships(mixed $object): array
-    {
-        return [];
-    }
-
-    /** @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship> */
-    public function getRelationships(mixed $object): array
-    {
-        return [];
     }
 }
 ```
 
-> **Override serializers take no constructor arguments.** The registry
-> instantiates an override with `new ArticleSerializer()` and — unlike the schema —
-> does **not** inject the relationship `SerializerResolver`. A custom serializer is
-> therefore best suited to shaping `attributes` (request-aware, conditional,
-> computed). When a type needs both related-resource serialization *and* attribute
-> logic the field walk can't express, keep the [schema](schemas.md) and override
-> only the narrower concern, or relate types through the schema rather than a
-> hand-written serializer.
+`$type` is the JSON:API type member and the key the schema registers under. Every
+entry in `fields()` is a [`Field`](fields.md): an `Id`, an attribute, or a
+relationship. The order is preserved in output.
 
-## Registering it as an override
+## What a schema declares
 
-Register the serializer alongside the schema with the `serializer:` argument. The
-registry resolves the override ahead of the schema for serialization and falls
-back to the schema for hydration, so you keep the schema's field-driven writes:
+`AbstractResource` exposes a small set of overridable methods. Only `fields()` is
+required.
+
+| Method | Returns | Purpose |
+|---|---|---|
+| `fields()` | `list<Field>` | The attribute + relationship inventory (required). |
+| `filters()` | `list<Filter>` | The [filters](filters.md) this type accepts (default: none). |
+| `sorts()` | `list<Sort>` | Computed/multi-column [sorts](sorts.md) beyond the field-derived ones. |
+| `pagination()` | `?Paginator` | The default [pagination](pagination.md) strategy for collections (default: the server's). |
+
+`allSorts()` is derived for you: every field marked `->sortable()` yields a
+`SortByField`, merged with anything `sorts()` adds — so you rarely override
+`sorts()`.
+
+## How fields drive serialization
+
+When the engine serializes a model, it walks the non-hidden fields:
+
+- The `Id` field produces the resource object's top-level `id`.
+- Attribute fields produce `attributes`, each read from the model via a
+  framework-agnostic accessor (a public property, a `getXxx()` getter, or an array
+  key) — or via the field's own `serializeUsing()` / `extractUsing()` hook.
+- Relationship fields produce `relationships`, serializing the related type
+  through the [server's registry](server.md).
+
+Sparse fieldsets (`?fields[articles]=title`) and inclusion (`?include=author`) are
+applied by the engine reading the request — the schema emits every eligible field
+and lets the engine narrow. Mark a field `->hidden()` to drop it from output
+entirely, or `->notSparseField()` to exempt it from sparse-fieldset filtering.
+
+## How fields drive hydration
+
+For a `POST` (create) or `PATCH` (update), the same fields fill the domain object:
+
+- `Id` resolves the resource id. By default a client-supplied `id` is rejected
+  (`ClientGeneratedIdNotSupported`); override `acceptsClientGeneratedId()` to
+  allow it, and `generateId()` to control server-side id generation (the default
+  is a v4 UUID).
+- Attribute fields write to the model via the accessor (or the field's
+  `deserializeUsing()` / `fillUsing()` hook), unless the field is read-only in
+  that context (`->readOnly()`, `->readOnlyOnCreate()`, `->readOnlyOnUpdate()`).
+- Relationship fields are filled from the request's parsed linkage, not from a raw
+  attribute value.
+
+Hydration respects JSON:API update semantics: an attribute absent from a `PATCH`
+body is left unchanged.
+
+## Registering a schema
+
+A schema becomes active when registered on a [`Server`](server.md):
 
 ```php
+use haddowg\JsonApi\Server\Server;
+
 $server = Server::make()
     ->withPsr17($psr17, $psr17)
-    ->register(ArticleResource::class, serializer: ArticleSerializer::class);
+    ->register(ArticleResource::class)
+    ->register(AuthorResource::class);
 ```
 
-You can also register a bare serializer with no schema at all (paired with a
-custom [hydrator](hydrators.md)) when a type has no field declaration — exactly
-the wiring the library shipped with before the fluent schema existed.
+`register()` takes class-strings and instantiates lazily; the schema's static
+`$type` keys the registry. Registering two schemas for the same type is a wiring
+error (a `\LogicException`). The registry is also the resolver relationships use to
+serialize related types, so registering all participating types is what lets
+`include` and relationship linkage work.
 
-> Attribute-driven serializers (deriving the field map from PHP attributes on the
-> model) are a candidate for a post-1.0 release; in 1.0 the field DSL and this
-> interface are the two supported paths.
+## Relationships
+
+A relationship is a field too. Declare the related type with `->type()`; the
+related resource serializes through the registry:
+
+```php
+use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\HasMany;
+
+public function fields(): array
+{
+    return [
+        Id::make(),
+        Str::make('title')->required(),
+        BelongsTo::make('author')->type('authors')->required(),
+        HasMany::make('comments')->type('comments'),
+    ];
+}
+```
+
+See [Fields](fields.md#relationships) for every relationship type
+(`BelongsTo`/`HasOne`/`HasMany`/`BelongsToMany`/`MorphTo`) and their options.
+
+## When a schema isn't enough
+
+The field DSL covers the common cases. When serialization needs request-aware or
+computed attributes, multiple representations of one model, or other logic the
+field walk can't express, drop to a custom [serializer](resources.md). When a write
+needs to split a member across columns, derive related models, or run a
+multi-step/transactional write, drop to a custom [hydrator](hydrators.md). Register
+either as an override alongside the schema:
+
+```php
+$server->register(ArticleResource::class, serializer: ArticleSerializer::class);
+$server->register(ArticleResource::class, hydrator: ArticleHydrator::class);
+```
+
+The registry resolves an override ahead of the schema and falls back to the schema
+for the concern you didn't override. You can also register a bare
+serializer + hydrator pair with no schema at all.
+
+## Validation
+
+Field [constraints](validation.md) (`->required()`, `->maxLength()`, …) are
+**metadata**. The core never executes them against data; they are consumed by the
+optional [JSON Schema compiler](validation.md#per-resource-schemas) for structural
+request validation, and are available to framework adapters for full validation.
+See [Validation](validation.md) for the constraint vocabulary and the create/update
+context model.
 
 ## Related pages
 
-- [Schemas](schemas.md) — the field DSL this interface is the escape hatch from.
-- [Hydrators](hydrators.md) — the matching write-side escape hatch.
-- [Server](server.md) — the registry, overrides, and `serializerFor()`.
-- [Concepts](concepts.md) — the document model and the serializer/resource-object vocabulary.
+- [Fields](fields.md) — every field type and fluent option.
+- [Validation](validation.md) — constraints, contexts, the schema compiler.
+- [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata.
+- [Pagination](pagination.md) — per-resource and server-default paginators.
+- [Resources](resources.md) / [Hydrators](hydrators.md) — the escape hatches.
+- [Server](server.md) — registration and the registry.

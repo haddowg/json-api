@@ -12,9 +12,9 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * The per-server registry mapping a JSON:API resource type to its
- * {@see AbstractResource} (the schema, default serializer + hydrator) and any
- * optional serializer / hydrator overrides. Lookups resolve an override first
- * and fall back to the schema.
+ * {@see AbstractResource} (the Resource class, default serializer + hydrator) and
+ * any optional serializer / hydrator overrides. Lookups resolve an override first
+ * and fall back to the Resource class.
  *
  * The registry is itself the {@see SerializerResolver} relationships use: when
  * it hands out an {@see AbstractResource} serializer it injects itself, so a
@@ -24,7 +24,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * `static $type` keys the entry. Registering two resources with the same type is
  * a configuration error.
  */
-final class SchemaRegistry implements SerializerResolver
+final class ResourceRegistry implements SerializerResolver
 {
     /**
      * @var array<string, Entry>
@@ -81,11 +81,11 @@ final class SchemaRegistry implements SerializerResolver
     }
 
     /**
-     * The schema (fluent resource) for `$type`.
+     * The Resource class for `$type`.
      *
      * @throws NoResourceRegistered
      */
-    public function schemaFor(string $type): AbstractResource
+    public function resourceFor(string $type): AbstractResource
     {
         if (!isset($this->entries[$type])) {
             throw new NoResourceRegistered($type);
@@ -98,7 +98,7 @@ final class SchemaRegistry implements SerializerResolver
     }
 
     /**
-     * The serializer for `$type`: the registered override, else the schema.
+     * The serializer for `$type`: the registered override, else the Resource class.
      *
      * @throws NoResourceRegistered
      */
@@ -110,11 +110,11 @@ final class SchemaRegistry implements SerializerResolver
             return $this->serializerInstances[$type] ??= new ($entry->serializer)();
         }
 
-        return $this->schemaFor($type);
+        return $this->resourceFor($type);
     }
 
     /**
-     * The hydrator for `$type`: the registered override, else the schema.
+     * The hydrator for `$type`: the registered override, else the Resource class.
      *
      * @throws NoResourceRegistered
      */
@@ -126,7 +126,7 @@ final class SchemaRegistry implements SerializerResolver
             return $this->hydratorInstances[$type] ??= new ($entry->hydrator)();
         }
 
-        return $this->schemaFor($type);
+        return $this->resourceFor($type);
     }
 
     /**

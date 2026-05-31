@@ -659,15 +659,15 @@ An unrecognised VO at a handler throws the typed `UnsupportedFilter`/`Unsupporte
 ships reference `InMemory\ArrayFilterHandler`/`ArraySortHandler` for its own tests and
 as worked examples — **not** a production query layer.
 
-### Server & schema registry (`Server\*`, public API)
+### Server & resource registry (`Server\*`, public API)
 
 `Server\Server` is the per-API-version configuration root and an **immutable value**
 (`make()` + `with…()`/`register()` each return a new instance via clone-then-assign;
-the cloned `SchemaRegistry`/`ProfileRegistry` are cloned too so registration never
+the cloned `ResourceRegistry`/`ProfileRegistry` are cloned too so registration never
 leaks). It keeps the Phase-1 `ServerInterface` render contract **unchanged** and
-adds: the schema registry (+ overrides), `withBaseUri`/`withVersion`/`withDefaultMeta`/
+adds: the resource registry (+ overrides), `withBaseUri`/`withVersion`/`withDefaultMeta`/
 `withEncodeOptions`/`withDefaultPaginator`/`withPsr17`/`withProfile`/`withMiddleware`/
-`withHandler`, and accessors `schemas()`/`serializerFor()`/`hydratorFor()`. It also
+`withHandler`, and accessors `resources()`/`serializerFor()`/`hydratorFor()`. It also
 implements PSR-15 `RequestHandlerInterface` — `handle()` folds the ordered middleware
 list over the inner handler (an `OperationHandler` is auto-wrapped in
 `Psr7ToOperationHandlerAdapter`; a bare PSR-15 handler is accepted) via the
@@ -676,10 +676,11 @@ list over the inner handler (an `OperationHandler` is auto-wrapped in
 (no PSR-15 chain). Multiple `Server`s = multiple API versions; routing outside core
 picks one.
 
-`SchemaRegistry` maps a type → `[Resource, ?serializer-override, ?hydrator-override]`
+`ResourceRegistry` maps a type → `[Resource, ?serializer-override, ?hydrator-override]`
 (class-strings, instantiated lazily, keyed by the resource's `static $type`). It
 **is** the `SerializerResolver` injected into resources. Lookups resolve an override
-ahead of the schema fallback; a missing type throws the typed `NoResourceRegistered`
+ahead of the Resource-class fallback (`resourceFor()` returns the registered
+`AbstractResource`); a missing type throws the typed `NoResourceRegistered`
 (500); a duplicate type at registration is a `\LogicException` (wiring bug, not an
 error document).
 
@@ -723,9 +724,9 @@ when serialization needs more than field walking — request-aware or conditiona
 attributes, computed/derived values across fields, or multiple representations of one
 model. Drop to a hand-written `Hydrator\HydratorInterface` when a write needs more than
 field filling — splitting one member across columns, deriving related models, or
-multi-step/transactional writes. Register either alongside the schema
+multi-step/transactional writes. Register either alongside the Resource class
 (`->register(PostResource::class, serializer: X::class, hydrator: Y::class)`); the
-registry resolves the override first and falls back to the schema for the other
-concern. Both contracts remain implementable by composition (no base class required),
-and skipping the schema entirely — registering a bare serializer + hydrator pair —
-still works exactly as Phase 1 shipped.
+registry resolves the override first and falls back to the Resource class for the
+other concern. Both contracts remain implementable by composition (no base class
+required), and skipping the Resource class entirely — registering a bare serializer +
+hydrator pair — still works exactly as Phase 1 shipped.

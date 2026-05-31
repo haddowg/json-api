@@ -28,7 +28,7 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 #[CoversClass(Server::class)]
-#[CoversClass(\haddowg\JsonApi\Server\SchemaRegistry::class)]
+#[CoversClass(\haddowg\JsonApi\Server\ResourceRegistry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Entry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Internal\MiddlewareDecorator::class)]
 #[CoversClass(NoResourceRegistered::class)]
@@ -65,44 +65,44 @@ final class ServerTest extends TestCase
     public function registerIsImmutableAndDoesNotLeak(): void
     {
         $base = Server::make();
-        $withPost = $base->register(PostSchema::class);
+        $withPost = $base->register(PostResource::class);
 
-        self::assertFalse($base->schemas()->has('posts'));
-        self::assertTrue($withPost->schemas()->has('posts'));
+        self::assertFalse($base->resources()->has('posts'));
+        self::assertTrue($withPost->resources()->has('posts'));
     }
 
     #[Test]
     public function schemaSatisfiesBothContractsByDefault(): void
     {
-        $server = Server::make()->register(PostSchema::class);
+        $server = Server::make()->register(PostResource::class);
 
-        self::assertInstanceOf(PostSchema::class, $server->serializerFor('posts'));
-        self::assertInstanceOf(PostSchema::class, $server->hydratorFor('posts'));
+        self::assertInstanceOf(PostResource::class, $server->serializerFor('posts'));
+        self::assertInstanceOf(PostResource::class, $server->hydratorFor('posts'));
     }
 
     #[Test]
     public function serializerOverrideTakesPrecedence(): void
     {
-        $server = Server::make()->register(PostSchema::class, serializer: CustomPostSerializer::class);
+        $server = Server::make()->register(PostResource::class, serializer: CustomPostSerializer::class);
 
         self::assertInstanceOf(CustomPostSerializer::class, $server->serializerFor('posts'));
         // Hydration still falls back to the schema.
-        self::assertInstanceOf(PostSchema::class, $server->hydratorFor('posts'));
+        self::assertInstanceOf(PostResource::class, $server->hydratorFor('posts'));
     }
 
     #[Test]
     public function hydratorOverrideTakesPrecedence(): void
     {
-        $server = Server::make()->register(PostSchema::class, hydrator: CustomPostHydrator::class);
+        $server = Server::make()->register(PostResource::class, hydrator: CustomPostHydrator::class);
 
         self::assertInstanceOf(CustomPostHydrator::class, $server->hydratorFor('posts'));
-        self::assertInstanceOf(PostSchema::class, $server->serializerFor('posts'));
+        self::assertInstanceOf(PostResource::class, $server->serializerFor('posts'));
     }
 
     #[Test]
     public function unknownTypeThrowsNoResourceRegistered(): void
     {
-        $server = Server::make()->register(PostSchema::class);
+        $server = Server::make()->register(PostResource::class);
 
         try {
             $server->serializerFor('widgets');
@@ -119,8 +119,8 @@ final class ServerTest extends TestCase
         $this->expectException(\LogicException::class);
 
         Server::make()
-            ->register(PostSchema::class)
-            ->register(PostSchema::class);
+            ->register(PostResource::class)
+            ->register(PostResource::class);
     }
 
     #[Test]
@@ -250,7 +250,7 @@ final readonly class TaggingMiddleware implements MiddlewareInterface
     }
 }
 
-final class PostSchema extends AbstractResource
+final class PostResource extends AbstractResource
 {
     public static string $type = 'posts';
 

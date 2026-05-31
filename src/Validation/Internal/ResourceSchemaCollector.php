@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Validation\Internal;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Server\SchemaRegistry;
+use haddowg\JsonApi\Server\ResourceRegistry;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Validation\SchemaCompiler;
@@ -16,7 +16,7 @@ use haddowg\JsonApi\Validation\SchemaCompiler;
  * `$additionalSchemas` composition list.
  *
  * Reachable only when the server is the concrete {@see Server} (it owns the
- * {@see SchemaRegistry}); the bare {@see ServerInterface} render contract has no
+ * {@see ResourceRegistry}); the bare {@see ServerInterface} render contract has no
  * registry, so this returns no schema in that case (validation falls back to the
  * base + profile fragments). The body's `data.type` selects the resource; an
  * unregistered or absent type contributes nothing. Compiled schemas are memoized
@@ -41,15 +41,15 @@ final class ResourceSchemaCollector
         }
 
         $type = $request->getResourceType();
-        if (!\is_string($type) || $type === '' || !$server->schemas()->has($type)) {
+        if (!\is_string($type) || $type === '' || !$server->resources()->has($type)) {
             return [];
         }
 
-        $schema = $server->schemas()->schemaFor($type);
+        $resource = $server->resources()->resourceFor($type);
 
         $creating = \strtoupper($request->getMethod()) === 'POST';
         $key = $type . ($creating ? ':create' : ':update');
 
-        return [self::$cache[$key] ??= (new SchemaCompiler())->compile($schema, $creating)];
+        return [self::$cache[$key] ??= (new SchemaCompiler())->compile($resource, $creating)];
     }
 }

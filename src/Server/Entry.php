@@ -9,7 +9,7 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
- * A single {@see SchemaRegistry} entry: the resource (schema) class plus any
+ * A single {@see ResourceRegistry} entry: the Resource class plus any
  * serializer / hydrator override class-strings.
  *
  * @internal
