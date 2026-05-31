@@ -1,0 +1,90 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Tests\Response;
+
+use haddowg\JsonApi\Pagination\CursorPaginator;
+use haddowg\JsonApi\Pagination\PageBasedPage;
+use haddowg\JsonApi\Request\JsonApiRequest;
+use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Tests\Double\StubResource;
+use haddowg\JsonApi\Tests\Double\StubServer;
+use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+#[Group('spec:pagination')]
+final class DataResponsePaginationTest extends TestCase
+{
+    #[Test]
+    public function pageBasedResponseEmitsPaginationLinksAndMeta(): void
+    {
+        $resource = new StubResource('user', '1');
+        $page = new PageBasedPage([new \stdClass()], totalItems: 50, page: 2, size: 10);
+
+        $body = $this->render(DataResponse::fromPage($page, $resource), 'https://api.test/users?page[number]=2&page[size]=10');
+
+        self::assertArrayHasKey('links', $body);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=2&page%5Bsize%5D=10', $body['links']['self']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $body['links']['first']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $body['links']['prev']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=3&page%5Bsize%5D=10', $body['links']['next']);
+        self::assertSame('https://api.test/users?page%5Bnumber%5D=5&page%5Bsize%5D=10', $body['links']['last']);
+
+        self::assertSame(
+            ['currentPage' => 2, 'perPage' => 10, 'from' => 11, 'to' => 20, 'total' => 50, 'lastPage' => 5],
+            $body['meta']['page'],
+        );
+
+        self::assertSame([['type' => 'user', 'id' => '1']], $body['data']);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function cursorResponseOmitsLastAndAdvertisesTheCursorProfile(): void
+    {
+        $resource = new StubResource('user', '1');
+        $request = new JsonApiRequest(new ServerRequest('GET', 'https://api.test/users?page[size]=10'));
+
+        $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
+
+        $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(), $request);
+        $body = $this->decode((string) $psr->getBody());
+
+        self::assertArrayHasKey('next', $body['links']);
+        self::assertArrayNotHasKey('last', $body['links'], 'cursor pagination must not emit a last link');
+        self::assertSame(
+            ['https://jsonapi.org/profiles/ethanresnick/cursor-pagination/'],
+            $body['links']['profile'],
+        );
+
+        self::assertStringContainsString(
+            'profile="https://jsonapi.org/profiles/ethanresnick/cursor-pagination/"',
+            $psr->getHeaderLine('Content-Type'),
+        );
+        self::assertSame('Accept', $psr->getHeaderLine('Vary'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function render(DataResponse $response, string $uri): array
+    {
+        $request = new JsonApiRequest(new ServerRequest('GET', $uri));
+
+        return $this->decode((string) $response->toPsrResponse(new StubServer(), $request)->getBody());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decode(string $json): array
+    {
+        /** @var array<string, mixed> $decoded */
+        $decoded = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+
+        return $decoded;
+    }
+}

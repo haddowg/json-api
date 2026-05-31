@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Double;
 
 use haddowg\JsonApi\Schema\JsonApiObject;
+use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
 use haddowg\JsonApi\Server\ServerInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -18,6 +19,8 @@ final class StubServer implements ServerInterface
 {
     private readonly Psr17Factory $psr17Factory;
 
+    private readonly ProfileRegistry $profiles;
+
     /**
      * @param array<string, mixed> $defaultMeta
      */
@@ -26,8 +29,10 @@ final class StubServer implements ServerInterface
         private readonly string $jsonApiVersion = JsonApiObject::VERSION,
         private readonly array $defaultMeta = [],
         private readonly int $encodeOptions = 0,
+        ?ProfileRegistry $profiles = null,
     ) {
         $this->psr17Factory = new Psr17Factory();
+        $this->profiles = $profiles ?? new ProfileRegistry();
     }
 
     public function baseUri(): string
@@ -48,6 +53,11 @@ final class StubServer implements ServerInterface
     public function encodeOptions(): int
     {
         return $this->encodeOptions;
+    }
+
+    public function profiles(): ProfileRegistry
+    {
+        return $this->profiles;
     }
 
     public function responseFactory(): ResponseFactoryInterface

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Response;
 
+use haddowg\JsonApi\Pagination\Page;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
+use haddowg\JsonApi\Schema\Link\Link;
+use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 use haddowg\JsonApi\Schema\Resource\ResourceInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
@@ -29,6 +32,7 @@ final class DataResponse extends AbstractResponse
         private readonly mixed $data,
         private readonly ResourceInterface $resource,
         private readonly bool $isCollection,
+        private readonly ?Page $page = null,
     ) {}
 
     /**
@@ -49,6 +53,17 @@ final class DataResponse extends AbstractResponse
         return new self($objects, $resource, true);
     }
 
+    /**
+     * A paginated collection response: the `data` is the page's items, and the
+     * document gains the pagination `links.{first,prev,next,last}` and
+     * `meta.page` the {@see Page} emits. A page that activates a profile (e.g.
+     * cursor pagination) causes the response to advertise it.
+     */
+    public static function fromPage(Page $page, ResourceInterface $resource): self
+    {
+        return new self($page, $resource, true, $page);
+    }
+
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
     {
         $document = $this->isCollection
@@ -66,6 +81,71 @@ final class DataResponse extends AbstractResponse
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;
 
+        if ($this->page !== null) {
+            $result = $this->applyPagination($result, $server, $request, $this->page);
+        }
+
         return new RenderedDocument($result, 200);
+    }
+
+    /**
+     * Merges the page's pagination links and `meta.page` into the rendered body.
+     * Links are absolute (built from the request's self URI + query string), so
+     * they are injected post-transform rather than through the base-URI-prefixing
+     * `DocumentLinks` path.
+     *
+     * @param array<string, mixed> $result
+     * @param Page<mixed>          $page
+     *
+     * @return array<string, mixed>
+     */
+    private function applyPagination(array $result, ServerInterface $server, JsonApiRequestInterface $request, Page $page): array
+    {
+        $uri = $server->baseUri() . $request->getUri()->getPath();
+        $queryString = $request->getUri()->getQuery();
+
+        /** @var array<string, mixed> $links */
+        $links = $result['links'] ?? [];
+        foreach ($page->linkSet($uri, $queryString) as $rel => $link) {
+            if ($link instanceof Link) {
+                $links[$rel] = $link->transform('');
+            }
+        }
+        if ($links !== []) {
+            $result['links'] = $links;
+        }
+
+        $pageMeta = $page->pageMeta();
+        if ($pageMeta !== []) {
+            /** @var array<string, mixed> $meta */
+            $meta = $result['meta'] ?? [];
+            $existingPage = $meta['page'] ?? [];
+            $meta['page'] = [...(\is_array($existingPage) ? $existingPage : []), ...$pageMeta];
+            $result['meta'] = $meta;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Adds the page's profile (if any) to the applied set, on top of the
+     * request-requested registered profiles.
+     */
+    protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        $profiles = parent::appliedProfiles($server, $request);
+
+        $pageProfile = $this->page?->profile();
+        if ($pageProfile instanceof ProfileInterface) {
+            foreach ($profiles as $profile) {
+                if ($profile->uri() === $pageProfile->uri()) {
+                    return $profiles;
+                }
+            }
+
+            \array_unshift($profiles, $pageProfile);
+        }
+
+        return $profiles;
     }
 }

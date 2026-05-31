@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Server;
 
+use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
@@ -40,6 +41,13 @@ interface ServerInterface
      * The default flags passed to {@see \json_encode()} when rendering the body.
      */
     public function encodeOptions(): int;
+
+    /**
+     * The profiles this server recognizes. The response layer applies the
+     * registered profiles a request asks for (echoing them on the `Content-Type`
+     * and in `links.profile`) and ignores any it does not recognize.
+     */
+    public function profiles(): ProfileRegistry;
 
     /**
      * The PSR-17 factory used to create the response message.

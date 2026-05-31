@@ -9,6 +9,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
+use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -115,23 +116,107 @@ abstract class AbstractResponse
 
         $rendered = $this->render($server, $jsonApiRequest);
 
+        $profiles = $this->appliedProfiles($server, $jsonApiRequest);
+        $body = $this->applyProfiles($rendered->body, $profiles, $jsonApiRequest);
+
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
         // json_encode()'s return to string; an unencodable document throws \JsonException.
         $json = \json_encode(
-            $rendered->body,
+            $body,
             \JSON_THROW_ON_ERROR | ($this->encodeOptions ?? $server->encodeOptions()),
         );
 
         $response = $server->responseFactory()
             ->createResponse($rendered->status)
-            ->withHeader('Content-Type', 'application/vnd.api+json')
+            ->withHeader('Content-Type', $this->contentType($profiles))
             ->withBody($server->streamFactory()->createStream($json));
+
+        if ($profiles !== []) {
+            // Servers supporting the profile media-type parameter SHOULD vary on Accept.
+            $response = $response->withHeader('Vary', 'Accept');
+        }
 
         foreach ($this->headers as $name => $value) {
             $response = $response->withHeader($name, $value);
         }
 
         return $response;
+    }
+
+    /**
+     * The profiles applied to this response: the server-registered profiles the
+     * request asked for (via the `Accept` `profile` parameter or the `profile`
+     * query parameter). Unrecognized profiles are ignored, never rejected.
+     * Subclasses extend this (e.g. {@see DataResponse} adds a paginator's
+     * profile).
+     *
+     * @return list<ProfileInterface>
+     */
+    protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        $profiles = [];
+        $seen = [];
+
+        foreach ([...$request->getRequestedProfiles(), ...$request->getRequiredProfiles()] as $uri) {
+            if (isset($seen[$uri])) {
+                continue;
+            }
+
+            $profile = $server->profiles()->get($uri);
+            if ($profile !== null) {
+                $profiles[] = $profile;
+                $seen[$uri] = true;
+            }
+        }
+
+        return $profiles;
+    }
+
+    /**
+     * Runs each applied profile's finalisation hook over the body and records the
+     * applied profile URIs in the top-level `links.profile` member.
+     *
+     * @param array<string, mixed>   $body
+     * @param list<ProfileInterface> $profiles
+     *
+     * @return array<string, mixed>
+     */
+    private function applyProfiles(array $body, array $profiles, JsonApiRequestInterface $request): array
+    {
+        if ($profiles === []) {
+            return $body;
+        }
+
+        foreach ($profiles as $profile) {
+            $body = $profile->finalizeDocument($body, $request);
+        }
+
+        $existing = $body['links']['profile'] ?? [];
+        $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
+
+        /** @var array<string, mixed> $links */
+        $links = $body['links'] ?? [];
+        $links['profile'] = \array_values(\array_unique([...(\is_array($existing) ? $existing : []), ...$uris]));
+        $body['links'] = $links;
+
+        return $body;
+    }
+
+    /**
+     * The response `Content-Type`, echoing the applied profile URIs in the
+     * `profile` media-type parameter when any profiles are applied.
+     *
+     * @param list<ProfileInterface> $profiles
+     */
+    private function contentType(array $profiles): string
+    {
+        if ($profiles === []) {
+            return 'application/vnd.api+json';
+        }
+
+        $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
+
+        return 'application/vnd.api+json; profile="' . \implode(' ', $uris) . '"';
     }
 
     /**
