@@ -76,6 +76,14 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
      */
     protected array $profiles = [];
 
+    /**
+     * Parsed extension lists: keyed by header name ("content-type", "accept").
+     * Each entry is a map of extension-URL → extension-URL (for O(1) membership test).
+     *
+     * @var array<string, array<string, string>|null>
+     */
+    protected array $extensions = [];
+
     public function __construct(ServerRequestInterface $request)
     {
         parent::__construct($request);
@@ -162,17 +170,44 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
     protected function parseHeaderProfiles(string $headerName): void
     {
-        $header = $this->getHeaderLine($headerName);
-        $matches = [];
-        \preg_match('/^.*application\/vnd\.api\+json\s*;\s*profile\s*=\s*[\"]*([^\";,]*).*$/i', $header, $matches);
+        $this->profiles[$headerName] = $this->parseHeaderMediaTypeParameterList($headerName, 'profile');
+    }
 
-        if (isset($matches[1]) === false) {
-            return;
+    protected function parseHeaderExtensions(string $headerName): void
+    {
+        $this->extensions[$headerName] = $this->parseHeaderMediaTypeParameterList($headerName, 'ext');
+    }
+
+    /**
+     * Extracts the space-separated URI list of a JSON:API media-type parameter
+     * (`profile` or `ext`) from the given header — across every JSON:API
+     * media-type instance and regardless of parameter order — as a URL → URL map
+     * for O(1) membership testing.
+     *
+     * @return array<string, string>
+     */
+    private function parseHeaderMediaTypeParameterList(string $headerName, string $parameter): array
+    {
+        $list = [];
+
+        foreach (MediaType::split($this->getHeaderLine($headerName)) as $mediaType) {
+            if (\stripos($mediaType, 'application/vnd.api+json') === false) {
+                continue;
+            }
+
+            $matches = [];
+            if (\preg_match('/;\s*' . $parameter . '\s*=\s*"?([^";]*)"?/i', $mediaType, $matches) !== 1) {
+                continue;
+            }
+
+            foreach (\explode(' ', \trim($matches[1])) as $uri) {
+                if ($uri !== '') {
+                    $list[$uri] = $uri;
+                }
+            }
         }
 
-        $profileList = \array_flip(\explode(' ', $matches[1]));
-        /** @var array<string, string> $profileList */
-        $this->profiles[$headerName] = $profileList;
+        return $list;
     }
 
     protected function parseQueryParamProfiles(string $queryParamName): void
@@ -256,6 +291,37 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         }
 
         return isset($this->profiles['content-type'][$profile]);
+    }
+
+    /**
+     * The extension URIs the client requested via the `Accept` header's `ext`
+     * media-type parameter. Parsed and exposed but not wired downstream — the
+     * hook a future Atomic Operations implementation plugs into.
+     *
+     * @return list<string>
+     */
+    public function getRequestedExtensions(): array
+    {
+        if (isset($this->extensions['accept']) === false) {
+            $this->parseHeaderExtensions('accept');
+        }
+
+        return \array_keys($this->extensions['accept'] ?? []);
+    }
+
+    /**
+     * The extension URIs asserted on the request body via the `Content-Type`
+     * header's `ext` media-type parameter.
+     *
+     * @return list<string>
+     */
+    public function getAppliedExtensions(): array
+    {
+        if (isset($this->extensions['content-type']) === false) {
+            $this->parseHeaderExtensions('content-type');
+        }
+
+        return \array_keys($this->extensions['content-type'] ?? []);
     }
 
     /**

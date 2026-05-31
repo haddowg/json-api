@@ -59,7 +59,7 @@ final class ProfileRegistryTest extends TestCase
 
     private function profile(string $uri): ProfileInterface
     {
-        return new class($uri) extends AbstractProfile {
+        return new class ($uri) extends AbstractProfile {
             public function __construct(private readonly string $uri) {}
 
             public function uri(): string

@@ -117,6 +117,7 @@ final class ResponseValidatorTest extends TestCase
             'plain json:api'          => ['application/vnd.api+json'],
             'with profile param'      => ['application/vnd.api+json;profile="https://example.com/profiles/last-modified"'],
             'profile uppercase param' => ['application/vnd.api+json; PROFILE="https://example.com/profiles/last-modified"'],
+            'with ext param'          => ['application/vnd.api+json; ext="https://example.com/ext/a"'],
         ];
     }
 
@@ -125,7 +126,6 @@ final class ResponseValidatorTest extends TestCase
     {
         return [
             'charset param' => ['application/vnd.api+json; charset=utf-8'],
-            'ext param'     => ['application/vnd.api+json; ext="ext1,ext2"'],
         ];
     }
 }

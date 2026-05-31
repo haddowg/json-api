@@ -148,6 +148,20 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function isProfileRequested(string $profile): bool;
 
     /**
+     * The extension URIs requested via the `Accept` header's `ext` parameter.
+     *
+     * @return list<string>
+     */
+    public function getRequestedExtensions(): array;
+
+    /**
+     * The extension URIs asserted via the `Content-Type` header's `ext` parameter.
+     *
+     * @return list<string>
+     */
+    public function getAppliedExtensions(): array;
+
+    /**
      * Returns the primary resource if it is present in the request body, or the $default value otherwise.
      *
      * @return array<string, mixed>|mixed

@@ -30,8 +30,29 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 final class RequestValidator
 {
     /**
+     * @var list<string>
+     */
+    private readonly array $supportedExtensions;
+
+    /**
+     * @param string ...$supportedExtensions the extension URIs this server supports;
+     *                                        none (the default) means any `ext`
+     *                                        parameter is rejected
+     */
+    public function __construct(string ...$supportedExtensions)
+    {
+        $this->supportedExtensions = \array_values($supportedExtensions);
+    }
+
+    /**
      * Validates the Content-Type and Accept headers of the request against the
-     * JSON:API media type rules.
+     * JSON:API media type rules: parameter well-formedness (only `ext`/`profile`
+     * allowed) and extension support.
+     *
+     * Profiles are advisory and never rejected here — a server MUST ignore any
+     * profile it does not recognize. Only unsupported **extensions** fail
+     * negotiation: an unsupported `ext` on `Content-Type` yields `415`, and an
+     * unsupported `ext` on `Accept` yields `406`.
      *
      * @throws MediaTypeUnsupported
      * @throws MediaTypeUnacceptable
@@ -40,6 +61,30 @@ final class RequestValidator
     {
         $request->validateContentTypeHeader();
         $request->validateAcceptHeader();
+        $this->negotiateExtensions($request);
+    }
+
+    /**
+     * Rejects unsupported extensions. With no supported extensions (this phase),
+     * any `ext` parameter present is unsupported — ready for a future Atomic
+     * Operations implementation to register an `ext` and have this pass.
+     *
+     * @throws MediaTypeUnsupported  when the Content-Type asserts an unsupported extension
+     * @throws MediaTypeUnacceptable when the Accept header requests an unsupported extension
+     */
+    private function negotiateExtensions(JsonApiRequestInterface $request): void
+    {
+        foreach ($request->getAppliedExtensions() as $extension) {
+            if (\in_array($extension, $this->supportedExtensions, true) === false) {
+                throw new MediaTypeUnsupported($request->getHeaderLine('content-type'));
+            }
+        }
+
+        foreach ($request->getRequestedExtensions() as $extension) {
+            if (\in_array($extension, $this->supportedExtensions, true) === false) {
+                throw new MediaTypeUnacceptable($request->getHeaderLine('accept'));
+            }
+        }
     }
 
     /**

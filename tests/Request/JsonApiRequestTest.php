@@ -99,20 +99,24 @@ final class JsonApiRequestTest extends TestCase
 
     #[Test]
     #[Group('spec:content-negotiation')]
-    public function validateInvalidContentTypeHeaderWithExtMediaType(): void
+    #[Group('spec:extensions-and-profiles')]
+    public function validateContentTypeHeaderWithExtMediaTypeIsWellFormed(): void
     {
-        $request = $this->createRequestWithHeader('content-type', 'application/vnd.api+json; ext="ext1,ext2"');
-
-        $this->expectException(MediaTypeUnsupported::class);
+        // `ext` is a permitted media-type parameter, so the header is well-formed.
+        // Whether the extension is *supported* is negotiated separately (415 lives
+        // in RequestValidator, not here) — see RequestValidatorTest.
+        $request = $this->createRequestWithHeader('content-type', 'application/vnd.api+json; ext="https://example.com/ext/a"');
 
         $request->validateContentTypeHeader();
+
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
     #[Group('spec:content-negotiation')]
     public function validateInvalidContentTypeHeaderWithWhitespaceBeforeParameter(): void
     {
-        $request = $this->createRequestWithHeader('content-type', 'application/vnd.api+json ; ext="ext1,ext2"');
+        $request = $this->createRequestWithHeader('content-type', 'application/vnd.api+json ; charset=utf-8');
 
         $this->expectException(MediaTypeUnsupported::class);
 

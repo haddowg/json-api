@@ -47,8 +47,7 @@ final class AbstractProfileTest extends TestCase
             public function finalizeDocument(array $document, JsonApiRequestInterface $request): array
             {
                 $meta = $document['meta'] ?? [];
-                $meta['version'] = 3;
-                $document['meta'] = $meta;
+                $document['meta'] = [...(\is_array($meta) ? $meta : []), 'version' => 3];
 
                 return $document;
             }
