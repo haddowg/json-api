@@ -345,6 +345,22 @@ abstract class AbstractField implements Field
         return $this->serializeValue($raw);
     }
 
+    /**
+     * Serializes the field's value from the domain object alone, without a
+     * request. Used for request-independent members such as the resource `id`:
+     * an identity must not vary by request, so only the backing column and the
+     * value cast are consulted — the request-aware {@see serializeUsing()} /
+     * {@see extractUsing()} hooks are not.
+     *
+     * @internal
+     */
+    public function serializeWithoutRequest(mixed $model): mixed
+    {
+        $raw = Accessor::get($model, $this->column ?? $this->name);
+
+        return $this->serializeValue($raw);
+    }
+
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
     {
         if ($this->fillUsing !== null) {

@@ -143,8 +143,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return '';
         }
 
-        $request = $this->request ?? throw new \LogicException('No active request; getId() called outside a transformation.');
-        $value = $idField->serialize($object, $request, $idField->name());
+        $value = $idField->serializeWithoutRequest($object);
 
         return \is_scalar($value) ? (string) $value : '';
     }

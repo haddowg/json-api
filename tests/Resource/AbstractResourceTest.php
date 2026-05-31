@@ -44,8 +44,9 @@ final class AbstractResourceTest extends TestCase
     public function serializerSideReportsTypeAndId(): void
     {
         $resource = new PostResource();
-        $resource->initializeTransformation(new StubJsonApiRequest(), $this->post());
 
+        // getType() and getId() are request-independent: a resource's identity must
+        // not vary by request, so neither needs initializeTransformation() first.
         self::assertSame('posts', $resource->getType($this->post()));
         self::assertSame('7', $resource->getId($this->post()));
     }
