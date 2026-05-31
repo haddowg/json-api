@@ -366,3 +366,28 @@ guarded by the ported `ResourceTransformerTest`/`DocumentTransformerTest`. `Tran
 **not** ported (its only remaining consumer, `Utils::getUri`, is the Phase-2 pagination
 link-providers; `getIntegerFromQueryParam` is already inlined in the pagination parsers).
 `AbstractSimpleResourceDocument` is intentionally **not** ported (recorded footgun).
+
+### Response value objects (public API) & `ServerInterface`
+
+`Response\{DataResponse, MetaResponse, ErrorResponse, RelatedResponse, IdentifierResponse}`
+are the **public** "return a JSON:API response" surface (consumers never touch documents).
+They extend `Response\AbstractResponse` and follow the **clone-then-assign** immutability
+pattern (NOT `readonly`, like `AbstractRequest`): `protected` document-level members (`meta`,
+`links`, `jsonApi`, `headers`, `encodeOptions`) with fluent `with…()` withers returning
+`static`; the response-specific payload (data+resource, error list) is `private readonly` and
+**not** withable. Construction is via **named constructors** (`DataResponse::fromResource()`/
+`fromCollection()` — single vs collection is explicit, never inferred from `is_iterable`;
+`ErrorResponse::fromErrors()`/`fromException()`). Rendering: `render()` (abstract) builds the
+body array + status via the engine and returns an `@internal Response\Internal\RenderedDocument`;
+the `final toPsrResponse(ServerInterface, ServerRequestInterface)` wraps a non-JSON:API request
+in `JsonApiRequest`, `\json_encode`s the body with `\JSON_THROW_ON_ERROR` passed **inline**
+(so PHPStan narrows to `string` — never a `(string)` cast), and builds the PSR-7 response via
+the server's PSR-17 factories with `Content-Type: application/vnd.api+json`. Each response builds
+a **concrete `@internal` document** the response-VO layer adds on top of yin's abstract ones:
+`SingleResourceDocument`/`CollectionDocument`/`MetaDocument` (carry jsonapi/meta/links via ctor);
+`ErrorResponse` reuses the existing concrete `ErrorDocument` and takes its HTTP status from
+`getStatusCode()`. `ServerInterface` (`Server\`) is the minimal Phase-1 placeholder the render
+path reads: `baseUri()`, `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`, plus PSR-17
+`responseFactory()`/`streamFactory()` (the kickoff "minimal Server" + the two factories needed to
+actually emit PSR-7). The concrete `Server` (with a resource registry) is Phase 4.5; here a
+test `StubServer` (nyholm PSR-17) stands in.
