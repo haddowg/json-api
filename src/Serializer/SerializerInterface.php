@@ -9,83 +9,72 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
- * Per-resource-type serializer: maps a domain object to its JSON:API resource
- * representation (type, id, meta, links, attributes, relationships).
+ * Maps a domain value to a JSON:API resource: its `type`, `id`, `meta`, `links`,
+ * attributes and relationships. The recommended way to implement this is the
+ * fluent {@see \haddowg\JsonApi\Resource\AbstractResource}; implement it directly
+ * (or extend {@see AbstractSerializer}) only when you need full control of how a
+ * domain object becomes a resource.
  *
- * This is a consumer extension point — the primary way to describe how a domain
- * value becomes a JSON:API resource. Implement directly or extend
- * {@see AbstractSerializer}. The serialized value is `mixed`: a resource may
- * describe an object, an array, or any domain representation, so no generic
- * type parameter is imposed.
+ * Every method is a pure function of its arguments — the serializer holds no
+ * per-pass state, so a single instance safely serializes many objects (including
+ * recursively included ones). A resource's identity (`type`/`id`) and its default
+ * includes depend only on the object; the request-shaped members (`meta`,
+ * `links`, attributes, relationships) receive the request directly.
  *
- * @see https://jsonapi.org/format/1.1/#document-resource-objects
+ * `getAttributes()` / `getRelationships()` return **maps of callables** so the
+ * engine can invoke only the members that survive sparse-fieldset filtering, each
+ * callable receiving the domain object, the request and the member name.
+ *
+ * @see https://www.jsonapi.org/ — JSON:API specification
  */
 interface SerializerInterface
 {
     /**
-     * Provides the "type" member of the resource.
+     * The resource `type` member for the given domain object.
      */
     public function getType(mixed $object): string;
 
     /**
-     * Provides the "id" member of the resource.
+     * The resource `id` member for the given domain object. A resource's identity
+     * must not vary by request, so this receives only the object.
      */
     public function getId(mixed $object): string;
 
     /**
-     * Provides the "meta" member of the resource.
-     *
-     * Returns an array of non-standard meta information about the resource. An
-     * empty array omits the member from the response.
+     * The resource `meta` member, or an empty array to omit it.
      *
      * @return array<string, mixed>
      */
-    public function getMeta(mixed $object): array;
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array;
 
     /**
-     * Provides the "links" member of the resource.
-     *
-     * Returns a {@see ResourceLinks} object to provide linkage about the
-     * resource, or null to omit the member.
+     * The resource-level `links` member, or null to omit it.
      */
-    public function getLinks(mixed $object): ?ResourceLinks;
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks;
 
     /**
-     * Provides the "attributes" member of the resource.
-     *
-     * Returns a map keyed by attribute name; each value is a callable receiving
-     * the domain object (plus the active request and attribute name) and
-     * returning the attribute value.
+     * The attribute callables keyed by member name. Each callable is invoked with
+     * the domain object, the request and the member name only if the attribute
+     * survives sparse-fieldset filtering. The request is also passed to this
+     * method so the set of attributes may itself be request-dependent.
      *
      * @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed>
      */
-    public function getAttributes(mixed $object): array;
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array;
 
     /**
-     * Returns the relationship names included in the response by default.
+     * The default relationship names to include when the request does not specify
+     * an `include` query parameter.
      *
      * @return list<string>
      */
     public function getDefaultIncludedRelationships(mixed $object): array;
 
     /**
-     * Provides the "relationships" member of the resource.
-     *
-     * Returns a map keyed by relationship name; each value is a callable
-     * receiving the domain object (plus the active request and relationship
-     * name) and returning a to-one or to-many relationship instance.
+     * The relationship callables keyed by member name. The request is also passed
+     * to this method so the set of relationships may itself be request-dependent.
      *
      * @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship>
      */
-    public function getRelationships(mixed $object): array;
-
-    /**
-     * @internal
-     */
-    public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void;
-
-    /**
-     * @internal
-     */
-    public function clearTransformation(): void;
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array;
 }

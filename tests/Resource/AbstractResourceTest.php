@@ -46,7 +46,7 @@ final class AbstractResourceTest extends TestCase
         $resource = new PostResource();
 
         // getType() and getId() are request-independent: a resource's identity must
-        // not vary by request, so neither needs initializeTransformation() first.
+        // not vary by request, so neither receives the request.
         self::assertSame('posts', $resource->getType($this->post()));
         self::assertSame('7', $resource->getId($this->post()));
     }

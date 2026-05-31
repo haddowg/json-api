@@ -31,18 +31,10 @@ final class ResourceTransformer
             return null;
         }
 
-        $transformation->resource->initializeTransformation(
-            $transformation->request,
-            $transformation->object,
-        );
-
         $this->transformResourceIdentifier($transformation);
         $this->transformLinksObject($transformation);
         $this->transformAttributesObject($transformation);
         $this->transformRelationshipsObject($transformation, $data);
-
-        \assert($transformation->resource !== null);
-        $transformation->resource->clearTransformation();
 
         return $transformation->result;
     }
@@ -58,15 +50,7 @@ final class ResourceTransformer
             return null;
         }
 
-        $transformation->resource->initializeTransformation(
-            $transformation->request,
-            $transformation->object,
-        );
-
         $this->transformResourceIdentifier($transformation);
-
-        \assert($transformation->resource !== null);
-        $transformation->resource->clearTransformation();
 
         return $transformation->result;
     }
@@ -82,7 +66,7 @@ final class ResourceTransformer
             return null;
         }
 
-        $relationships = $transformation->resource->getRelationships($transformation->object);
+        $relationships = $transformation->resource->getRelationships($transformation->object, $transformation->request);
         if (isset($relationships[$transformation->requestedRelationshipName]) === false) {
             throw new RelationshipNotExists($transformation->requestedRelationshipName);
         }
@@ -114,7 +98,7 @@ final class ResourceTransformer
             'id' => $id,
         ];
 
-        $meta = $transformation->resource->getMeta($transformation->object);
+        $meta = $transformation->resource->getMeta($transformation->object, $transformation->request);
         if ($meta !== []) {
             $transformation->result['meta'] = $meta;
         }
@@ -126,7 +110,7 @@ final class ResourceTransformer
             return;
         }
 
-        $links = $transformation->resource->getLinks($transformation->object);
+        $links = $transformation->resource->getLinks($transformation->object, $transformation->request);
 
         if ($links !== null) {
             $transformation->result['links'] = $links->transform();
@@ -139,7 +123,7 @@ final class ResourceTransformer
             return;
         }
 
-        $attributes = $transformation->resource->getAttributes($transformation->object);
+        $attributes = $transformation->resource->getAttributes($transformation->object, $transformation->request);
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
@@ -159,7 +143,7 @@ final class ResourceTransformer
             return;
         }
 
-        $relationships = $transformation->resource->getRelationships($transformation->object);
+        $relationships = $transformation->resource->getRelationships($transformation->object, $transformation->request);
         $defaultRelationships = \array_flip($transformation->resource->getDefaultIncludedRelationships($transformation->object));
 
         $this->validateRelationships($transformation, $relationships);

@@ -275,17 +275,17 @@ final class CustomPostSerializer extends AbstractSerializer
         return '1';
     }
 
-    public function getMeta(mixed $object): array
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
 
-    public function getLinks(mixed $object): ?ResourceLinks
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;
     }
 
-    public function getAttributes(mixed $object): array
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
@@ -295,7 +295,7 @@ final class CustomPostSerializer extends AbstractSerializer
         return [];
     }
 
-    public function getRelationships(mixed $object): array
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }

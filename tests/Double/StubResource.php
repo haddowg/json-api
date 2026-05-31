@@ -39,17 +39,17 @@ final class StubResource extends AbstractSerializer
         return $this->id;
     }
 
-    public function getMeta(mixed $object): array
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->meta;
     }
 
-    public function getLinks(mixed $object): ?ResourceLinks
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return $this->links;
     }
 
-    public function getAttributes(mixed $object): array
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->attributes;
     }
@@ -59,18 +59,8 @@ final class StubResource extends AbstractSerializer
         return $this->defaultRelationships;
     }
 
-    public function getRelationships(mixed $object): array
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->relationships;
-    }
-
-    public function getRequest(): ?JsonApiRequestInterface
-    {
-        return $this->request;
-    }
-
-    public function getObject(): mixed
-    {
-        return $this->object;
     }
 }

@@ -23,10 +23,6 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
 
     public function getResource(): SerializerInterface
     {
-        if ($this->request !== null) {
-            $this->resource->initializeTransformation($this->request, $this->object);
-        }
-
         return $this->resource;
     }
 

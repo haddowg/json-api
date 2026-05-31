@@ -20,11 +20,8 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * from AbstractSerializer or AbstractHydrator. Proves both contracts are
  * implementable purely by composition.
  *
- * SerializerInterface passes the domain object and request as explicit parameters
- * to every method, so no per-pass state storage is required. The two @internal
- * lifecycle methods ({@see initializeTransformation}/{@see clearTransformation})
- * are therefore no-ops here — a valid implementation when the resource does not
- * need to cache cross-method state.
+ * SerializerInterface is stateless: it passes the domain object and request as
+ * explicit parameters to every method, so no per-pass state storage is required.
  */
 final class ArticleResourceHydrator implements SerializerInterface, HydratorInterface
 {
@@ -49,12 +46,12 @@ final class ArticleResourceHydrator implements SerializerInterface, HydratorInte
     /**
      * @return array<string, mixed>
      */
-    public function getMeta(mixed $object): array
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
 
-    public function getLinks(mixed $object): ?ResourceLinks
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;
     }
@@ -68,7 +65,7 @@ final class ArticleResourceHydrator implements SerializerInterface, HydratorInte
      *
      * @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed>
      */
-    public function getAttributes(mixed $object): array
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         return [
             'title' => static function (mixed $obj): mixed {
@@ -98,21 +95,10 @@ final class ArticleResourceHydrator implements SerializerInterface, HydratorInte
      *
      * @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship>
      */
-    public function getRelationships(mixed $object): array
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
-
-    /**
-     * @internal No cross-method state needed: every SerializerInterface method receives
-     * the domain object and request as explicit parameters.
-     */
-    public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void {}
-
-    /**
-     * @internal No cross-method state to clear.
-     */
-    public function clearTransformation(): void {}
 
     // -------------------------------------------------------------------------
     // HydratorInterface — request→domain side

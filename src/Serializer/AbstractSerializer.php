@@ -4,38 +4,14 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Serializer;
 
-use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Transformer\TransformerTrait;
 
 /**
- * Convenience base for {@see SerializerInterface} implementations. Holds the
- * active request and domain object for the duration of a single serialization
- * pass and exposes the attribute-value {@see TransformerTrait} helpers.
- *
+ * Convenience base for {@see SerializerInterface} implementations. Adds the
+ * attribute-value {@see TransformerTrait} helpers (date/decimal formatting); the
+ * contract is otherwise stateless, so there is nothing per-pass to manage.
  */
 abstract class AbstractSerializer implements SerializerInterface
 {
     use TransformerTrait;
-
-    protected ?JsonApiRequestInterface $request = null;
-
-    protected mixed $object = null;
-
-    /**
-     * @internal
-     */
-    public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void
-    {
-        $this->request = $request;
-        $this->object = $object;
-    }
-
-    /**
-     * @internal
-     */
-    public function clearTransformation(): void
-    {
-        $this->request = null;
-        $this->object = null;
-    }
 }

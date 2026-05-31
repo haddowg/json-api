@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
@@ -70,18 +71,18 @@ final class RelatedResponseTest extends TestCase
             }
 
             /** @return array<string, mixed> */
-            public function getMeta(mixed $object): array
+            public function getMeta(mixed $object, JsonApiRequestInterface $request): array
             {
                 return [];
             }
 
-            public function getLinks(mixed $object): ?ResourceLinks
+            public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
             {
                 return null;
             }
 
             /** @return array<string, callable> */
-            public function getAttributes(mixed $object): array
+            public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
             {
                 return [];
             }
@@ -93,7 +94,7 @@ final class RelatedResponseTest extends TestCase
             }
 
             /** @return array<string, callable> */
-            public function getRelationships(mixed $object): array
+            public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
             {
                 return [];
             }

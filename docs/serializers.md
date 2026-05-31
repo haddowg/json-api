@@ -48,44 +48,42 @@ interface SerializerInterface
     public function getId(mixed $object): string;
 
     /** @return array<string, mixed> */
-    public function getMeta(mixed $object): array;
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array;
 
-    public function getLinks(mixed $object): ?ResourceLinks;
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks;
 
     /** @return array<string, callable(mixed, JsonApiRequestInterface, string): mixed> */
-    public function getAttributes(mixed $object): array;
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array;
 
     /** @return list<string> */
     public function getDefaultIncludedRelationships(mixed $object): array;
 
     /** @return array<string, callable(mixed, JsonApiRequestInterface, string): AbstractRelationship> */
-    public function getRelationships(mixed $object): array;
-
-    /** @internal */
-    public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void;
-    /** @internal */
-    public function clearTransformation(): void;
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array;
 }
 ```
 
-`getAttributes()` and `getRelationships()` return **maps of callables**, not
-values: each callable receives the domain object, the active request, and the
-member name, and returns the value (or, for a relationship, an
-`AbstractRelationship`). Returning callables is what lets a member be
-request-aware and lets the engine call only the members it actually needs.
+The serializer is **stateless**: every method is a pure function of its
+arguments, so a single instance safely serializes many objects — collection
+items and recursively included resources alike. A resource's identity
+(`getType()` / `getId()`) and its default includes depend only on the object; the
+request-shaped members (`getMeta()` / `getLinks()` / `getAttributes()` /
+`getRelationships()`) receive the request directly.
 
-The two `initializeTransformation()` / `clearTransformation()` methods are
-`@internal` — the serialization engine calls them around a pass to hand you the
-request and object; you do not call them. Extending `AbstractSerializer` (below)
-implements them for you.
+`getAttributes()` and `getRelationships()` return **maps of callables**, not
+values: each callable receives the domain object, the request, and the member
+name, and returns the value (or, for a relationship, an `AbstractRelationship`).
+The engine invokes only the callables for members that survive sparse-fieldset
+filtering. The request is passed to `getAttributes()` / `getRelationships()`
+themselves as well, so the *set* of members — not just each value — can depend on
+the request.
 
 ## A worked example
 
-`AbstractSerializer` stores the active request and object for the pass (reachable
-as `$this->request` / `$this->object`) and implements the two `@internal`
-lifecycle methods, so you implement only the mapping methods. This `ArticleSerializer`
+`AbstractSerializer` adds the `TransformerTrait` date/decimal formatting helpers
+and nothing else — there is no per-pass state to manage. This `ArticleSerializer`
 exposes a request-aware `body` (omitted unless the caller is the author) and a
-computed `wordCount`:
+computed `wordCount`; the request arrives as a method parameter:
 
 ```php
 use haddowg\JsonApi\Request\JsonApiRequestInterface;

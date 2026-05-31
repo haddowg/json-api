@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Double;
 
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 
@@ -35,17 +36,17 @@ final class StubSerializer extends AbstractSerializer
         return '0';
     }
 
-    public function getMeta(mixed $object): array
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
 
-    public function getLinks(mixed $object): ?ResourceLinks
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;
     }
 
-    public function getAttributes(mixed $object): array
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
@@ -55,7 +56,7 @@ final class StubSerializer extends AbstractSerializer
         return [];
     }
 
-    public function getRelationships(mixed $object): array
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
     }
