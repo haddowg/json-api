@@ -6,12 +6,12 @@ namespace haddowg\JsonApi\Tests\Double;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Resource\AbstractResource;
+use haddowg\JsonApi\Serializer\AbstractSerializer;
 
 /**
- * Configurable {@see AbstractResource} test double.
+ * Configurable {@see AbstractSerializer} test double.
  */
-final class StubResource extends AbstractResource
+final class StubResource extends AbstractSerializer
 {
     /**
      * @param array<string, mixed>    $meta

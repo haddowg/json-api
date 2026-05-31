@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace haddowg\JsonApi\Tests\Schema\Resource;
+namespace haddowg\JsonApi\Tests\Serializer;
 
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-final class AbstractResourceTest extends TestCase
+final class AbstractSerializerTest extends TestCase
 {
     #[Test]
     public function initializeTransformation(): void
@@ -49,7 +49,7 @@ final class AbstractResourceTest extends TestCase
         return new StubResource();
     }
 
-    private function createTransformation(ResourceInterface $resource): ResourceTransformation
+    private function createTransformation(SerializerInterface $resource): ResourceTransformation
     {
         return new ResourceTransformation(
             $resource,

@@ -9,7 +9,7 @@ use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
@@ -365,7 +365,7 @@ final class ResourceTransformerTest extends TestCase
      * @return array<string, mixed>|null
      */
     private function toResourceIdentifier(
-        ResourceInterface $resource,
+        SerializerInterface $resource,
         mixed $object,
         ?JsonApiRequestInterface $request = null,
     ): ?array {
@@ -388,7 +388,7 @@ final class ResourceTransformerTest extends TestCase
      * @return array<string, mixed>|null
      */
     private function toResourceObject(
-        ResourceInterface $resource,
+        SerializerInterface $resource,
         mixed $object,
         ?JsonApiRequestInterface $request = null,
     ): ?array {
@@ -411,7 +411,7 @@ final class ResourceTransformerTest extends TestCase
      * @return array<string, mixed>|null
      */
     private function toRelationshipObject(
-        ResourceInterface $resource,
+        SerializerInterface $resource,
         mixed $object,
         ?JsonApiRequestInterface $request = null,
         string $requestedRelationshipName = '',

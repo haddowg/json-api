@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\Tests\Response;
 
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Resource\AbstractResource;
+use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubServer;
@@ -58,7 +58,7 @@ final class RelatedResponseTest extends TestCase
 
         // A resource whose getId delegates to the domain object's id property so
         // the two items produce distinct identifiers.
-        $relatedResource = new class extends AbstractResource {
+        $relatedResource = new class extends AbstractSerializer {
             public function getType(mixed $object): string
             {
                 return 'comment';

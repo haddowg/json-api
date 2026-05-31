@@ -10,26 +10,26 @@ use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Composition-contract proof fixture.
  *
- * Implements both {@see ResourceInterface} (serializer) and
+ * Implements both {@see SerializerInterface} (serializer) and
  * {@see HydratorInterface} (request→domain) **directly**, with NO inheritance
- * from AbstractResource or AbstractHydrator. Proves both contracts are
+ * from AbstractSerializer or AbstractHydrator. Proves both contracts are
  * implementable purely by composition.
  *
- * ResourceInterface passes the domain object and request as explicit parameters
+ * SerializerInterface passes the domain object and request as explicit parameters
  * to every method, so no per-pass state storage is required. The two @internal
  * lifecycle methods ({@see initializeTransformation}/{@see clearTransformation})
  * are therefore no-ops here — a valid implementation when the resource does not
  * need to cache cross-method state.
  */
-final class ArticleResourceHydrator implements ResourceInterface, HydratorInterface
+final class ArticleResourceHydrator implements SerializerInterface, HydratorInterface
 {
     // -------------------------------------------------------------------------
-    // ResourceInterface — serializer side
+    // SerializerInterface — serializer side
     // -------------------------------------------------------------------------
 
     public function getType(mixed $object): string
@@ -104,7 +104,7 @@ final class ArticleResourceHydrator implements ResourceInterface, HydratorInterf
     }
 
     /**
-     * @internal No cross-method state needed: every ResourceInterface method receives
+     * @internal No cross-method state needed: every SerializerInterface method receives
      * the domain object and request as explicit parameters.
      */
     public function initializeTransformation(JsonApiRequestInterface $request, mixed $object): void {}

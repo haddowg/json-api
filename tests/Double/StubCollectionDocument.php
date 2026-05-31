@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Tests\Double;
 use haddowg\JsonApi\Schema\Document\AbstractCollectionDocument;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Configurable {@see AbstractCollectionDocument} test double.
@@ -22,7 +22,7 @@ final class StubCollectionDocument extends AbstractCollectionDocument
         private readonly ?JsonApiObject $jsonApi = null,
         private readonly array $meta = [],
         private readonly ?DocumentLinks $links = null,
-        ?ResourceInterface $resource = null,
+        ?SerializerInterface $resource = null,
         iterable $object = [],
     ) {
         parent::__construct($resource ?? new StubResource());

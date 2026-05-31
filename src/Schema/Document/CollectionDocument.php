@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\Schema\Document;
 
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Concrete collection document constructed by the response value objects.
@@ -21,7 +21,7 @@ final class CollectionDocument extends AbstractCollectionDocument
      * @param array<string, mixed> $meta
      */
     public function __construct(
-        ResourceInterface $resource,
+        SerializerInterface $resource,
         private readonly ?JsonApiObject $jsonApi,
         private readonly array $meta,
         private readonly ?DocumentLinks $links,

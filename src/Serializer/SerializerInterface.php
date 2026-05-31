@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace haddowg\JsonApi\Schema\Resource;
+namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
@@ -14,14 +14,14 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  *
  * This is a consumer extension point — the primary way to describe how a domain
  * value becomes a JSON:API resource. Implement directly or extend
- * {@see AbstractResource}. The serialized value is `mixed`: a resource may
+ * {@see AbstractSerializer}. The serialized value is `mixed`: a resource may
  * describe an object, an array, or any domain representation, so no generic
  * type parameter is imposed.
  *
  * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-objects
  */
-interface ResourceInterface
+interface SerializerInterface
 {
     /**
      * Provides the "type" member of the resource.

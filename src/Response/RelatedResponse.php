@@ -8,7 +8,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
@@ -16,7 +16,7 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 /**
  * Response for a related-resources endpoint (`GET /articles/1/author`,
  * `GET /articles/1/comments`): the primary `data` is the related resource or
- * collection, serialized through the related resource's {@see ResourceInterface}.
+ * collection, serialized through the related resource's {@see SerializerInterface}.
  *
  * The parent domain object and the relationship name are stored for context
  * (e.g. future self-link generation) but do not affect the Phase-1 body.
@@ -32,7 +32,7 @@ final class RelatedResponse extends AbstractResponse
         public readonly mixed $parent,
         public readonly string $relationshipName,
         private readonly mixed $related,
-        private readonly ResourceInterface $relatedResource,
+        private readonly SerializerInterface $relatedResource,
         private readonly bool $isCollection,
     ) {}
 
@@ -43,7 +43,7 @@ final class RelatedResponse extends AbstractResponse
         mixed $parent,
         string $relationshipName,
         mixed $related,
-        ResourceInterface $relatedResource,
+        SerializerInterface $relatedResource,
     ): self {
         return new self($parent, $relationshipName, $related, $relatedResource, false);
     }
@@ -57,7 +57,7 @@ final class RelatedResponse extends AbstractResponse
         mixed $parent,
         string $relationshipName,
         iterable $related,
-        ResourceInterface $relatedResource,
+        SerializerInterface $relatedResource,
     ): self {
         return new self($parent, $relationshipName, $related, $relatedResource, true);
     }

@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\Tests\Schema\Relationship;
 
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
@@ -95,7 +95,7 @@ final class ToManyRelationshipTest extends TestCase
         array $meta = [],
         ?RelationshipLinks $links = null,
         array $data = [],
-        ?ResourceInterface $resource = null,
+        ?SerializerInterface $resource = null,
     ): ToManyRelationship {
         return new ToManyRelationship($meta, $links, $data, $resource);
     }

@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\Schema\Document;
 
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Data\SingleResourceData;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
@@ -20,9 +20,9 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  */
 abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
 {
-    public function __construct(protected ResourceInterface $resource) {}
+    public function __construct(protected SerializerInterface $resource) {}
 
-    public function getResource(): ResourceInterface
+    public function getResource(): SerializerInterface
     {
         if ($this->request !== null) {
             $this->resource->initializeTransformation($this->request, $this->object);

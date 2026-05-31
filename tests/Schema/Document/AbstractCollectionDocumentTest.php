@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Schema\Document;
 
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubCollectionDocument;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,7 +41,7 @@ final class AbstractCollectionDocumentTest extends TestCase
     /**
      * @param iterable<mixed> $object
      */
-    private function createCollectionDocument(?ResourceInterface $resource = null, iterable $object = []): StubCollectionDocument
+    private function createCollectionDocument(?SerializerInterface $resource = null, iterable $object = []): StubCollectionDocument
     {
         return new StubCollectionDocument(null, [], null, $resource, $object);
     }

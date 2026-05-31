@@ -6,13 +6,13 @@ namespace haddowg\JsonApi\Schema\Relationship;
 
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 
 /**
  * Base for the serialization-side relationships ({@see ToOneRelationship},
- * {@see ToManyRelationship}) returned from a {@see ResourceInterface}'s
+ * {@see ToManyRelationship}) returned from a {@see SerializerInterface}'s
  * relationship callables. Holds the related data, its serializer, optional
  * links and meta, and transforms itself into a JSON:API relationship object,
  * contributing any included resources to the compound-document accumulator.
@@ -39,7 +39,7 @@ abstract class AbstractRelationship
 
     protected bool $omitDataWhenNotIncluded;
 
-    protected ?ResourceInterface $resource;
+    protected ?SerializerInterface $resource;
 
     /**
      * @internal
@@ -62,7 +62,7 @@ abstract class AbstractRelationship
         array $meta = [],
         ?RelationshipLinks $links = null,
         mixed $data = null,
-        ?ResourceInterface $resource = null,
+        ?SerializerInterface $resource = null,
     ) {
         $this->meta = $meta;
         $this->links = $links;
@@ -103,7 +103,7 @@ abstract class AbstractRelationship
      *
      * @return static
      */
-    public static function createWithData(array $data, ResourceInterface $resource): static
+    public static function createWithData(array $data, SerializerInterface $resource): static
     {
         return new static([], null, $data, $resource);
     }
@@ -146,7 +146,7 @@ abstract class AbstractRelationship
     /**
      * @return $this
      */
-    public function setData(mixed $data, ResourceInterface $resource): static
+    public function setData(mixed $data, SerializerInterface $resource): static
     {
         $this->data = $data;
         $this->isCallableData = false;
@@ -158,7 +158,7 @@ abstract class AbstractRelationship
     /**
      * @return $this
      */
-    public function setDataAsCallable(callable $callableData, ResourceInterface $resource): static
+    public function setDataAsCallable(callable $callableData, SerializerInterface $resource): static
     {
         $this->data = $callableData;
         $this->isCallableData = true;

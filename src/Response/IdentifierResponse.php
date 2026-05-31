@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Response;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
@@ -16,7 +16,7 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * Response for a relationship endpoint (`GET /articles/1/relationships/comments`):
  * emits resource-identifier linkage only — `type` + `id` objects with no
  * `attributes` or `relationships` — driven by the named relationship on the
- * parent resource's {@see ResourceInterface}.
+ * parent resource's {@see SerializerInterface}.
  *
  * The parent domain object is transformed through `$parentResource` with the
  * `$relationshipName` as the `requestedRelationshipName`, which routes the
@@ -27,7 +27,7 @@ final class IdentifierResponse extends AbstractResponse
 {
     private function __construct(
         private readonly mixed $parent,
-        private readonly ResourceInterface $parentResource,
+        private readonly SerializerInterface $parentResource,
         private readonly string $relationshipName,
     ) {}
 
@@ -36,7 +36,7 @@ final class IdentifierResponse extends AbstractResponse
      */
     public static function forRelationship(
         mixed $parent,
-        ResourceInterface $parentResource,
+        SerializerInterface $parentResource,
         string $relationshipName,
     ): self {
         return new self($parent, $parentResource, $relationshipName);

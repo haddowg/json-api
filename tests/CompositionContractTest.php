@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Tests;
 use haddowg\JsonApi\Hydrator\AbstractHydrator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Response\DataResponse;
-use haddowg\JsonApi\Schema\Resource\AbstractResource;
+use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Tests\Double\Article;
 use haddowg\JsonApi\Tests\Double\ArticleResourceHydrator;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -19,9 +19,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Composition-contract proof: Phase-1 acceptance criterion.
  *
- * Verifies that both {@see \haddowg\JsonApi\Schema\Resource\ResourceInterface} and
+ * Verifies that both {@see \haddowg\JsonApi\Serializer\SerializerInterface} and
  * {@see \haddowg\JsonApi\Hydrator\HydratorInterface} are implementable **purely by
- * direct implementation — no inheritance from AbstractResource or AbstractHydrator**.
+ * direct implementation — no inheritance from AbstractSerializer or AbstractHydrator**.
  *
  * A single fixture class ({@see ArticleResourceHydrator}) implements both interfaces
  * without extending any base class. These tests exercise its full hydrate→serialize
@@ -46,10 +46,10 @@ final class CompositionContractTest extends TestCase
         /** @var array<string, class-string> $ancestors */
         $ancestors = \class_parents(ArticleResourceHydrator::class) ?: [];
         self::assertArrayNotHasKey(
-            AbstractResource::class,
+            AbstractSerializer::class,
             $ancestors,
-            'ArticleResourceHydrator must NOT extend AbstractResource — ' .
-            'the ResourceInterface contract must be implementable by composition alone.',
+            'ArticleResourceHydrator must NOT extend AbstractSerializer — ' .
+            'the SerializerInterface contract must be implementable by composition alone.',
         );
     }
 
@@ -118,7 +118,7 @@ final class CompositionContractTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // ResourceInterface contract (end-to-end via DataResponse)
+    // SerializerInterface contract (end-to-end via DataResponse)
     // -------------------------------------------------------------------------
 
     #[Test]

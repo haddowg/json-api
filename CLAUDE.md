@@ -340,9 +340,10 @@ the typed exception), and bridge a JSON object to `array<string, mixed>` with an
 > *resolution* (mapping a `lid` to a freshly-created resource within one request) — that
 > belongs with the post-1.0 Atomic Operations extension.
 
-### Resources (serializer extension point)
+### Serializers (serialization extension point)
 
-`Schema\Resource\ResourceInterface` is the primary **consumer** extension point: it maps a
+`Serializer\SerializerInterface` (formerly `Schema\Resource\ResourceInterface`; renamed in
+Phase 4.5 to free `Resource` for the fluent DSL) is a **consumer** extension point: it maps a
 domain value to a JSON:API resource (`getType`/`getId`/`getMeta`/`getLinks`/`getAttributes`/
 `getRelationships`/`getDefaultIncludedRelationships`). It is **not** generic — the serialized
 value is `mixed` (a resource may describe an object, an array, or any representation; yin's
@@ -350,7 +351,9 @@ own tests pass arrays), so no `@template` is imposed. `getAttributes()`/`getRela
 return maps of `callable(mixed, JsonApiRequestInterface, string): mixed|AbstractRelationship`.
 The two lifecycle methods `initializeTransformation()`/`clearTransformation()` are
 `@internal` (driven by the transformer, not consumers) even though the interface is public.
-`AbstractResource` is the convenience base; the contract is implementable by composition.
+`AbstractSerializer` is the convenience base; the contract is implementable by composition.
+The fluent `Resource\AbstractResource` (Phase 4.5) implements this contract via its `fields()`,
+so a `Serializer` is only written directly as an escape hatch.
 
 ### Relationships (serialization-side)
 

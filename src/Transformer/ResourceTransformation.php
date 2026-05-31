@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Transformer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Mutable per-resource state threaded through the {@see ResourceTransformer}
@@ -27,7 +27,7 @@ class ResourceTransformation
     public ?array $result = null;
 
     public function __construct(
-        public ?ResourceInterface $resource,
+        public ?SerializerInterface $resource,
         public mixed $object,
         public string $resourceType,
         public JsonApiRequestInterface $request,

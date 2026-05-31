@@ -10,14 +10,14 @@ use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
 use haddowg\JsonApi\Schema\Link\Link;
-use haddowg\JsonApi\Schema\Resource\ResourceInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 
 /**
  * The common-case response: a document whose primary `data` is a resource or a
- * collection of resources, rendered through a {@see ResourceInterface}.
+ * collection of resources, rendered through a {@see SerializerInterface}.
  *
  * Single vs collection is fixed at construction by the named constructor used
  * ({@see fromResource()} / {@see fromCollection()}) rather than inferred from the
@@ -32,7 +32,7 @@ final class DataResponse extends AbstractResponse
      */
     private function __construct(
         private readonly mixed $data,
-        private readonly ResourceInterface $resource,
+        private readonly SerializerInterface $resource,
         private readonly bool $isCollection,
         private readonly ?Page $page = null,
     ) {}
@@ -40,7 +40,7 @@ final class DataResponse extends AbstractResponse
     /**
      * A single-resource response whose `data` is the resource object.
      */
-    public static function fromResource(mixed $object, ResourceInterface $resource): self
+    public static function fromResource(mixed $object, SerializerInterface $resource): self
     {
         return new self($object, $resource, false);
     }
@@ -50,7 +50,7 @@ final class DataResponse extends AbstractResponse
      *
      * @param iterable<mixed> $objects
      */
-    public static function fromCollection(iterable $objects, ResourceInterface $resource): self
+    public static function fromCollection(iterable $objects, SerializerInterface $resource): self
     {
         return new self($objects, $resource, true);
     }
@@ -65,7 +65,7 @@ final class DataResponse extends AbstractResponse
      *
      * @param Page<T> $page
      */
-    public static function fromPage(Page $page, ResourceInterface $resource): self
+    public static function fromPage(Page $page, SerializerInterface $resource): self
     {
         return new self($page, $resource, true, $page);
     }
