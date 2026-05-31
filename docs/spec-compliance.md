@@ -47,6 +47,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ✅ test | `Response\ErrorResponse` (`fromErrors()`/`fromException()`) renders the top-level `errors` array via `ErrorDocument`; HTTP status derived from the errors. `ErrorResponseTest`, `AbstractErrorDocumentTest`. |
 | Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail preserved from yin. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
+| Uncaught throwables → JSON:API error response | ✅ test | `Middleware\ErrorHandlerMiddleware` (outermost) catches `JsonApiException` (own status/errors) and any other `\Throwable` (→ generic 500). Debug-gated 500 mirrors `laravel-json-api/exceptions`: `detail`=message + per-error `meta.{exception,file,line,trace}` when `$debug` is on, redacted otherwise; optional PSR-3 logger. `ErrorHandlerMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
 
 ## Fetching data (`spec:fetching-resources`, `spec:fetching-relationships`, `spec:fetching-data`)
 
@@ -100,6 +101,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 |---|---|---|
 | `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. Only `ext` and `profile` are permitted media-type params (`Request\MediaType::isValid()`, quote-aware multi-instance split); any other param → 415/406. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). JSON-schema body validation is deferred (later phase). |
 | `ext` parameter negotiation (415/406 on unsupported extensions) | ✅ test | `RequestValidator(string ...$supportedExtensions)` rejects an `ext` not in its supported set: 415 on `Content-Type`, 406 on `Accept`. Empty supported set by default (no extensions shipped — the hook a post-1.0 Atomic Operations `ext` plugs into). `RequestValidatorTest`, `ExtensionTest`. |
+| Content negotiation as PSR-15 middleware | ✅ test | `Middleware\ContentNegotiationMiddleware(string ...$supportedExtensions)` runs header/ext negotiation + query-param validation on the request, wraps it in `JsonApiRequest`, and passes it down the chain; rejections render via the error handler. Profiles flow through (advisory). `ContentNegotiationMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
+| Request body parsing as PSR-15 middleware | ✅ test | `Middleware\RequestBodyParsingMiddleware` forces an early JSON decode when a body is present (malformed → `RequestBodyInvalidJson` → 400) and passes the wrapped request down; bodyless requests untouched. `RequestBodyParsingMiddlewareTest`. |
 
 ## Extensions and profiles (`spec:extensions-and-profiles`)
 

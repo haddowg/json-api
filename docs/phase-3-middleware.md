@@ -6,12 +6,12 @@ Ship a suite of PSR-15 middleware classes that implement the JSON:API request li
 
 **In scope:**
 
-- Content negotiation middleware (validates request `Content-Type` / `Accept`, applies negotiated profiles/ext to the request)
-- Request body parsing middleware (parses JSON body once, attaches a structured `JsonApiRequest` representation to the PSR-7 request as an attribute)
-- Error handling middleware (catches `JsonApiException` and any other configured throwables; **also detects response value objects returned from the inner handler and renders them to PSR-7 responses**; sits at the outermost position)
+- Content negotiation middleware (validates request `Content-Type` / `Accept` and `ext`; profiles flow through as advisory)
+- Request body parsing middleware (forces a single JSON decode when a body is present and swaps the parsed `JsonApiRequest` down the chain — see kick-off decision; no request attribute)
+- Error handling middleware (catches `JsonApiException` and any other throwable, renders the resulting `ErrorResponse`; passes a successful PSR-7 response through unchanged; sits at the outermost position. It does **not** render VOs returned from the inner handler — PSR-15 forbids a handler returning a non-`ResponseInterface`; the adapter renders consumer VOs. See kick-off decision.)
 - A reserved slot in the recommended middleware order for atomic-ops dispatch (atomic ops is a post-1.0 candidate, but the order doc should acknowledge the slot)
-- **Per-server middleware ownership.** Middleware take a `Server` (or a Phase 1 `Server`-placeholder shape) in their constructors, not as a request attribute. No `SingleServerMiddleware`; no select-server middleware in core. Server selection is framework routing's job.
-- Tests for each middleware in isolation plus integration tests of a full chain assembled inside a `Server`
+- **Per-server middleware ownership.** `ErrorHandlerMiddleware` takes a `Server` (or Phase 1 placeholder); `ContentNegotiationMiddleware` takes its supported-`ext` config (revised at kick-off). No middleware reads server state from a request attribute. No `SingleServerMiddleware`; no select-server middleware in core. Server selection is framework routing's job.
+- Tests for each middleware in isolation plus an integration test of a full chain (assembled by hand over a `StubServer` + inline dispatcher; the concrete `Server` is Phase 4.5)
 
 **Out of scope:**
 
@@ -44,88 +44,88 @@ Before writing any implementation code:
 
 - [x] Add PSR-15 interfaces as runtime dependencies: `psr/http-server-middleware: ^1.0`, `psr/http-server-handler: ^1.0` (+ `psr/log: ^3.0` for the optional error-handler logger)
 - [x] Middleware base namespace = `haddowg\JsonApi\Middleware\`
-- [ ] Error responses are built via the existing `Response\ErrorResponse` (`fromException()` / `fromErrors()`) rendered through `toPsrResponse($server, $request)` — no new helper/trait; the typed-exception → error-document mapping already lives on the exceptions + `ErrorResponse`
+- [x] Error responses are built via the existing `Response\ErrorResponse` (`fromException()` / `fromErrors()`) rendered through `toPsrResponse($server, $request)` — no new helper/trait; the typed-exception → error-document mapping already lives on the exceptions + `ErrorResponse`
 - [x] Middleware acquire dependencies by **constructor injection only** — no service location, no global state
 - [x] **No request-attribute key for the parsed request** — the parsed `JsonApiRequest` is swapped into the chain (passed as the request to `$handler->handle()`); downstream `instanceof JsonApiRequestInterface` picks it up. The `Target::class` routing attribute is unchanged.
 
 ### Content negotiation middleware
 
-- [ ] `haddowg\JsonApi\Middleware\ContentNegotiationMiddleware`
-- [ ] **Constructor: `__construct(string ...$supportedExtensions)`** (no `Server` — see kick-off decision revising criterion 4). Wraps `Negotiation\RequestValidator(...$supportedExtensions)`. Wraps the incoming request in `JsonApiRequest` (idempotent) and passes it down the chain. No request-attribute lookup. Request-side only — profiles are advisory and flow through untouched (application happens in the response layer).
-- [ ] Behaviour:
+- [x] `haddowg\JsonApi\Middleware\ContentNegotiationMiddleware`
+- [x] **Constructor: `__construct(string ...$supportedExtensions)`** (no `Server` — see kick-off decision revising criterion 4). Wraps `Negotiation\RequestValidator(...$supportedExtensions)`. Wraps the incoming request in `JsonApiRequest` (idempotent) and passes it down the chain. No request-attribute lookup. Request-side only — profiles are advisory and flow through untouched (application happens in the response layer).
+- [x] Behaviour:
   - On request: validate `Content-Type` and `Accept` media-type parameters (only `ext`/`profile` permitted); negotiate `ext` against the supported set; validate query params. Profiles are **advisory** — never rejected.
   - Throws typed exceptions on unsupported media type (415), unacceptable Accept (406), unsupported `ext` (415 on Content-Type / 406 on Accept), and unrecognized query params
   - No response-side (post-handler) step — Content-Type/profile/`Vary` echoing is owned by the response layer (`toPsrResponse()`), which the error handler drives
-- [ ] Configurable: the supported `ext` URIs (constructor variadic; default none → any `ext` rejected)
-- [ ] Tests: each rejection path; each success path; profile echoing on response; ext echoing on response (even though no ext is yet applied — atomic operations is a post-1.0 candidate)
+- [x] Configurable: the supported `ext` URIs (constructor variadic; default none → any `ext` rejected)
+- [x] Tests: each rejection path; each success path; profile echoing on response; ext echoing on response (even though no ext is yet applied — atomic operations is a post-1.0 candidate)
 
 ### Request body parsing middleware
 
-- [ ] `haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware`
-- [ ] **Constructor takes nothing** — body parsing never builds a response (it throws typed exceptions the error handler renders) and propagates the request via the swap-down-chain decision, not an attribute, so no PSR-17 factories are needed.
-- [ ] Behaviour:
+- [x] `haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware`
+- [x] **Constructor takes nothing** — body parsing never builds a response (it throws typed exceptions the error handler renders) and propagates the request via the swap-down-chain decision, not an attribute, so no PSR-17 factories are needed.
+- [x] Behaviour:
   - Wraps the incoming request in `JsonApiRequest` (idempotent — no-op if content negotiation already wrapped it)
   - **Only when a body is present** (skip GET / empty body), forces `getParsedBody()`, which decodes the raw body with `JSON_THROW_ON_ERROR` and surfaces `RequestBodyInvalidJson` (→ 400) early
   - The decode preserves the raw body stream (the wrapper reads `(string) getBody()` without consuming the parsed-body slot), so downstream can still read it
   - Passes the wrapped request down the chain
-- [ ] No max-body-size limit in core (delegated to upstream infrastructure; documented)
-- [ ] Tests: well-formed body parsed and reachable downstream; malformed JSON rejected (400); empty body handled per spec; request with no body (GET) passes through untouched
+- [x] No max-body-size limit in core (delegated to upstream infrastructure; documented)
+- [x] Tests: well-formed body parsed and reachable downstream; malformed JSON rejected (400); empty body handled per spec; request with no body (GET) passes through untouched
 
 ### Error handler / response renderer middleware
 
 This middleware does two jobs that share a wraps-everything-and-converts-to-PSR-7 shape. Merging them avoids a fifth middleware.
 
-- [ ] `haddowg\JsonApi\Middleware\ErrorHandlerMiddleware`
-- [ ] **Constructor: `__construct(ServerInterface $server, bool $debug = false, ?LoggerInterface $logger = null)`.** The server provides base URI, version, default `jsonapi.meta`, the PSR-17 factories (`responseFactory()`/`streamFactory()`), and the profile registry — all reached through `ServerInterface`, so no separate factory injection.
-- [ ] Behaviour:
+- [x] `haddowg\JsonApi\Middleware\ErrorHandlerMiddleware`
+- [x] **Constructor: `__construct(ServerInterface $server, bool $debug = false, ?LoggerInterface $logger = null)`.** The server provides base URI, version, default `jsonapi.meta`, the PSR-17 factories (`responseFactory()`/`streamFactory()`), and the profile registry — all reached through `ServerInterface`, so no separate factory injection.
+- [x] Behaviour:
   - Wraps `$handler->handle($request)` in a `try`/`catch` and returns the PSR-7 response unchanged on success
   - **Does not inspect the return value for response VOs.** PSR-15 `RequestHandlerInterface::handle()` is typed `: ResponseInterface` and the response VOs deliberately do not implement it, so a conforming handler can only ever return a PSR-7 response — consumer VOs are rendered by `Psr7ToOperationHandlerAdapter` (the recommended innermost handler), which returns PSR-7. The only VO the error handler itself renders is the `ErrorResponse` it builds for a caught throwable. (See kick-off decision.)
   - Catches `JsonApiException` and renders it via `ErrorResponse::fromException($e)->toPsrResponse($server, $request)` (reads `getErrors()` / `getStatusCode()`).
   - Catches `\Throwable` and renders a generic 500 error document. Mapping mirrors `laravel-json-api/exceptions`: `title='Internal Server Error'`, `status='500'`, `code=(string)getCode()` when non-zero; when the `$debug` flag is on, `detail=`the throwable message and the error object's `meta` carries `{exception: class, file, line, trace}`. With `$debug` off, `detail` is a generic non-leaking string and no `meta` debug payload is emitted.
   - The `application/vnd.api+json` Content-Type (and any profile echoing) is applied by the response layer's `toPsrResponse()`.
-- [ ] Configurable: constructor `bool $debug = false`; optional `?\Psr\Log\LoggerInterface` — log non-`JsonApiException` throwables before rendering
-- [ ] Tests: typed exception → correct status + body; generic throwable → 500 with redacted body in production mode and verbose body (`detail` + `meta.exception`) in dev mode; logger receives the throwable when configured; a successful PSR-7 response from the handler passes through unchanged.
+- [x] Configurable: constructor `bool $debug = false`; optional `?\Psr\Log\LoggerInterface` — log non-`JsonApiException` throwables before rendering
+- [x] Tests: typed exception → correct status + body; generic throwable → 500 with redacted body in production mode and verbose body (`detail` + `meta.exception`) in dev mode; logger receives the throwable when configured; a successful PSR-7 response from the handler passes through unchanged.
 
 ### Aggregate middleware
 
-- [ ] `haddowg\JsonApi\Middleware\JsonApiMiddleware` — a convenience `MiddlewareInterface` that composes `ErrorHandlerMiddleware` → `ContentNegotiationMiddleware` → `RequestBodyParsingMiddleware` in the recommended order behind one middleware, for consumers who don't want to manage ordering.
-- [ ] Constructor takes the inputs the three need — `ServerInterface $server` (error handler), `bool $debug`, `?LoggerInterface $logger`, and `string ...$supportedExtensions` (negotiation) — and wires the three internally. The building blocks remain independently constructable.
-- [ ] `process()` runs the composed chain by delegating to the outer error handler, which wraps the rest. Tests: an aggregate run reproduces the same outcomes as the hand-wired three-middleware chain for a happy path and each rejection path.
+- [x] `haddowg\JsonApi\Middleware\JsonApiMiddleware` — a convenience `MiddlewareInterface` that composes `ErrorHandlerMiddleware` → `ContentNegotiationMiddleware` → `RequestBodyParsingMiddleware` in the recommended order behind one middleware, for consumers who don't want to manage ordering.
+- [x] Constructor takes the inputs the three need — `ServerInterface $server` (error handler), `bool $debug`, `?LoggerInterface $logger`, and `string ...$supportedExtensions` (negotiation) — and wires the three internally. The building blocks remain independently constructable.
+- [x] `process()` runs the composed chain by delegating to the outer error handler, which wraps the rest. Tests: an aggregate run reproduces the same outcomes as the hand-wired three-middleware chain for a happy path and each rejection path.
 
 ### Atomic-ops middleware placeholder
 
-- [ ] Reserve a documented slot in the recommended middleware order for atomic-ops dispatch (between request body parsing and the handler). Atomic Operations is a post-1.0 candidate; this is purely a documentation note so the order is stable for future work.
-- [ ] No code shipped this phase; just docs and a TODO comment in the recommended-order doc
+- [x] Reserve a documented slot in the recommended middleware order for atomic-ops dispatch (between request body parsing and the handler). Atomic Operations is a post-1.0 candidate; this is purely a documentation note so the order is stable for future work.
+- [x] No code shipped this phase; just docs and a TODO comment in the recommended-order doc
 
 ### Recommended order documentation
 
-- [ ] Document the recommended middleware order in `docs/middleware-order.md` (or a similar stub for the docs phase to expand). The order is **per-server** — each `Server` instance holds its own middleware list, typically following this order:
+- [x] Document the recommended middleware order in `docs/middleware-order.md` (or a similar stub for the docs phase to expand). The order is **per-server** — each `Server` instance holds its own middleware list, typically following this order:
   1. Error handler / response renderer (outermost — catches everything downstream and renders response value objects from the handler)
   2. Content negotiation
   3. Request body parsing
   4. _(Atomic ops dispatch — post-1.0 candidate. Reserved slot. When implemented, this middleware reads the atomic operations array from the request body, constructs multiple `JsonApiOperation` instances, dispatches each through the inner `OperationHandler`, and aggregates the results into an `atomic:results` response. No nested PSR-7 requests involved.)_
   5. Handler — the innermost element. Recommended path: an `OperationHandler` (Phase 1) wrapped in `Psr7ToOperationHandlerAdapter`, which translates the PSR-7 request into a `JsonApiOperation`, invokes the consumer's handler, and renders the returned response value object. Consumers who prefer PSR-15 directly can supply a `RequestHandlerInterface` instead — the error handler renders whatever response value object it returns, or passes through a PSR-7 response unchanged.
-- [ ] Explain why each precedes/follows another (e.g. content negotiation must run before body parsing so body parsing can reject for content-type mismatch; error handler must be outermost so it catches everything and renders return values regardless of where they came from; the atomic-ops slot sits *after* body parsing because it needs the parsed body to enumerate operations, and *before* the operation handler because it controls dispatch).
-- [ ] Note that the order is a recommendation, not a constraint: a server can be constructed with any middleware list it wants. The error handler being outermost is the only firm recommendation.
+- [x] Explain why each precedes/follows another (e.g. content negotiation must run before body parsing so body parsing can reject for content-type mismatch; error handler must be outermost so it catches everything and renders return values regardless of where they came from; the atomic-ops slot sits *after* body parsing because it needs the parsed body to enumerate operations, and *before* the operation handler because it controls dispatch).
+- [x] Note that the order is a recommendation, not a constraint: a server can be constructed with any middleware list it wants. The error handler being outermost is the only firm recommendation.
 
 ### Integration tests
 
 > **Note (kick-off):** the concrete `Server` with `handle()`/`dispatch()` is Phase 4.5; only the `ServerInterface` placeholder (+ test `StubServer`) exists. The integration test therefore assembles the chain with a tiny inline PSR-15 dispatcher (a `RequestHandlerInterface` that pops middleware off a list and finally calls the innermost handler) rather than `Server::handle()`. This is the same shape the Phase 4.5 `Server` will adopt internally.
 
-- [ ] Build a small end-to-end test that wires the standard middleware chain over a `StubServer` and a tiny inline PSR-15 dispatcher, and exercises:
+- [x] Build a small end-to-end test that wires the standard middleware chain over a `StubServer` and a tiny inline PSR-15 dispatcher, and exercises:
   - Happy path (GET with valid Accept; **inner handler is an `OperationHandler` wrapped in `Psr7ToOperationHandlerAdapter`**; the operation handler returns a `DataResponse`; the adapter renders it to PSR-7)
   - Happy path with the handler being a bare PSR-15 `RequestHandlerInterface` returning a fully-rendered PSR-7 response (passes through unchanged)
   - 415 for wrong Content-Type
   - 406 for unsupported Accept `ext` (profiles are advisory — never rejected; the rejection path is an unsupported extension)
   - 400 for malformed JSON body
   - 500 with redacted body when the handler throws unexpectedly (and verbose body when `$debug` is on)
-- [ ] **Multi-chain ownership test.** Construct two distinct middleware lists (e.g. one with negotiation, one without) over two `StubServer`s and confirm each chain runs independently and that selecting between them is the test's routing logic, not a middleware concern — verifying the per-server-middleware ownership pattern ahead of the Phase 4.5 `Server`.
-- [ ] **Programmatic dispatch sanity test.** Already covered by `tests/Operation/ProgrammaticDispatchTest.php` (an `OperationHandler` invoked directly, returning a response VO, bypassing the PSR-15 chain). Confirm it still holds; extend only if a gap is found.
-- [ ] Use `nyholm/psr7` and a minimal inline PSR-15 request handler / dispatcher
+- [x] **Multi-chain ownership test.** Construct two distinct middleware lists (e.g. one with negotiation, one without) over two `StubServer`s and confirm each chain runs independently and that selecting between them is the test's routing logic, not a middleware concern — verifying the per-server-middleware ownership pattern ahead of the Phase 4.5 `Server`.
+- [x] **Programmatic dispatch sanity test.** Already covered by `tests/Operation/ProgrammaticDispatchTest.php` (an `OperationHandler` invoked directly, returning a response VO, bypassing the PSR-15 chain). Confirm it still holds; extend only if a gap is found.
+- [x] Use `nyholm/psr7` and a minimal inline PSR-15 request handler / dispatcher
 
 ### Spec compliance update
 
-- [ ] Update `docs/spec-compliance.md` rows for content negotiation, error responses, and any other spec sections this phase touches
+- [x] Update `docs/spec-compliance.md` rows for content negotiation, error responses, and any other spec sections this phase touches
 
 ## Decision log
 

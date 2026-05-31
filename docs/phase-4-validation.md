@@ -75,7 +75,7 @@ Before writing any implementation code:
 - [ ] `haddowg\JsonApi\Middleware\RequestValidationMiddleware`
 - [ ] **Constructor takes a `Server`** (or Phase 1 placeholder) — provides the profile registry for fragment merging and (post-Phase-4.5) the per-resource schemas. Same per-server-ownership pattern as the other Phase 3 middleware.
 - [ ] Behaviour:
-  - Runs after `RequestBodyParsingMiddleware` (so the parsed body is already on the request attribute)
+  - Runs after `RequestBodyParsingMiddleware` (so the request reaching it is already the parsed `JsonApiRequest` swapped down the chain — Phase 3 uses no request attribute; read the body via `getParsedBody()`)
   - Skips if there's no JSON body (GET, DELETE without body)
   - Validates the parsed body against the (profile-augmented) JSON:API request schema
   - On failure, throws the validator's typed exception → caught by `ErrorHandlerMiddleware` from Phase 3
@@ -208,3 +208,37 @@ Before declaring the phase complete, produce the following for Phase 4.5:
 The schema-fragment hook introduced in this phase was originally designed with a future Atomic Operations consumer in mind. Atomic Operations is now a post-1.0 candidate, so the hook does **not** need to be generalised for `ext` use during this phase — keep it profile-specific. When Atomic Operations work begins, the hook can be generalised or extended at that time.
 
 Per-resource schema compilation from field constraints is deferred to Phase 4.5. The validator architecture in this phase accepts an optional per-resource schema as a third input alongside the base schema and profile fragments; the compiler that produces those per-resource schemas ships in Phase 4.5.
+
+## Phase 3 reconciliation notes (appended at Phase 3 close)
+
+These corrections are forced by Phase 3 decisions; fold them into the plan at the
+Phase 4 kick-off revision (see `docs/phase-3-middleware.md` decision log).
+
+- **The parsed request flows by being swapped down the chain, not via a request
+  attribute.** `RequestBodyParsingMiddleware` wraps the PSR-7 request in a
+  `Request\JsonApiRequest` (which *is* a `ServerRequestInterface`) and passes that
+  instance to `$handler->handle()`. The validation middleware therefore receives
+  the already-parsed `JsonApiRequest` directly and reads the body via
+  `getParsedBody()` / the `getResource*` accessors — there is no request-attribute
+  key to read. The only routing attribute in play is `Operation\Target::class`.
+- **Validation failures need no new rendering path.** `ErrorHandlerMiddleware`
+  (Phase 3, outermost) already catches any `JsonApiException` and renders it via
+  `ErrorResponse::fromException()`. `DocumentValidationFailed` must implement
+  `JsonApiException` (`getErrors()` → one `Error` per violation with
+  `source.pointer`; `getStatusCode()` → `400`) and it renders for free.
+- **Per-server middleware ownership is established** (`docs/middleware-order.md`).
+  `RequestValidationMiddleware`/`ResponseValidationMiddleware` slot in after body
+  parsing / as the response unwinds, exactly as the order doc reserves. They take a
+  `Server` (for the profile registry, and post-4.5 the per-resource schemas) —
+  consistent with `ErrorHandlerMiddleware`. (Note: `ContentNegotiationMiddleware`
+  ended up *not* taking a `Server` because negotiation needs no server state; the
+  validators genuinely do, so they keep the `Server` constructor.)
+- **The recommended-order doc already exists** at `docs/middleware-order.md` (not a
+  stub to create). Phase 4 *updates* it to insert the two validators rather than
+  authoring it from scratch.
+- **`ResponseValidationMiddleware` runs as the response unwinds**, but note the
+  error handler is outermost and the operation adapter renders consumer VOs to
+  PSR-7 *below* it — so by the time the response bubbles up to a response-validation
+  middleware placed just inside the error handler, it is already a rendered PSR-7
+  document the validator can decode. Place response validation inside the error
+  handler (so a validation throw is caught) but outside negotiation/body-parsing.

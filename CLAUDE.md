@@ -490,3 +490,47 @@ plain collections stay `fromCollection()` and never carry pagination concerns.
 $page = PagePaginator::make()->withDefaultPerPage(20)->paginate($request, $items, $total);
 return DataResponse::fromPage($page, $resource); // emits links.{first,prev,next,last} + meta.page
 ```
+
+### Middleware (PSR-15)
+
+`Middleware\*` are the PSR-15 `MiddlewareInterface` implementations of the JSON:API request
+lifecycle: `ContentNegotiationMiddleware`, `RequestBodyParsingMiddleware`, `ErrorHandlerMiddleware`,
+and a `JsonApiMiddleware` aggregate. They acquire all dependencies by **constructor injection only**
+(no service location, no request-attribute server state, no select-server middleware). **The parsed
+request flows by swapping it down the chain, not via an attribute:** the first middleware to need it
+does `$r = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);`
+(idempotent — `JsonApiRequest` *is* a `ServerRequestInterface`) and passes `$r` to
+`$handler->handle()`, so downstream middleware, the handler, and `Psr7ToOperationHandlerAdapter`
+share one memoized parse. The only request **attribute** read anywhere is the routing-supplied
+`Operation\Target::class`. Negotiation is **request-side only** (no post-handler step — the response
+layer's `toPsrResponse()` owns Content-Type/`profile`/`Vary` emission) and takes `string
+...$supportedExtensions` (no `Server`, since profiles are advisory and applied in the response layer).
+`RequestBodyParsingMiddleware` takes **no constructor args** — it builds no responses (it throws
+typed exceptions the error handler renders) and only forces `getParsedBody()` **when a body is
+present** (skip GET/empty). `ErrorHandlerMiddleware(ServerInterface $server, bool $debug = false,
+?LoggerInterface $logger = null)` is **outermost**: it `try`/`catch`es `JsonApiException` (→
+`ErrorResponse::fromException`) and any other `\Throwable` (→ generic 500), renders that
+`ErrorResponse` via `toPsrResponse()`, and **passes a successful PSR-7 response through unchanged**.
+It does **not** inspect the return value for response VOs — PSR-15 `handle(): ResponseInterface` and
+the VOs aren't `ResponseInterface`, so consumer VOs are rendered by the adapter, not here. The
+debug-gated 500 mirrors `laravel-json-api/exceptions`: `title='Internal Server Error'`, `status='500'`,
+`code=(string)getCode()`, and — only when `$debug` — `detail`=message + the **error object's** `meta`
+`{exception, file, line, trace}` (the spec-faithful home; `source` is for request locations, there is
+no standard trace member). Compose chains with the `@internal Middleware\Internal\MiddlewareHandler`
+(wraps one middleware + next handler into a `RequestHandlerInterface`); the aggregate folds
+ErrorHandler → ContentNegotiation → BodyParsing → handler with it.
+
+```php
+final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
+{
+    private RequestValidator $validator;
+    public function __construct(string ...$supportedExtensions) { $this->validator = new RequestValidator(...$supportedExtensions); }
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $r = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);
+        $this->validator->negotiate($r);
+        $this->validator->validateQueryParams($r);
+        return $handler->handle($r);
+    }
+}
+```
