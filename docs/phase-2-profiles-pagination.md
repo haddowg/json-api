@@ -41,36 +41,41 @@ Before writing any implementation code:
 
 ### Profile abstraction
 
-- [ ] Define `haddowg\JsonApi\Schema\Profile\ProfileInterface` with at minimum:
-  - `getUri(): string` — the profile's canonical URI
-  - A mechanism to declare any reserved keywords the profile contributes (e.g. attribute names, link relations, query parameters) — exact shape decided during kick-off
-  - Optional lifecycle hook(s) for document-finalisation if needed (decide whether profiles can mutate the outgoing document; spec allows them to define semantics but not arbitrarily mutate, so this hook may be unnecessary)
-- [ ] Define base/abstract class if useful to reduce boilerplate for profile authors
-- [ ] Add value object(s) for parsed profile media-type parameters
+- [ ] Define `haddowg\JsonApi\Schema\Profile\ProfileInterface` with:
+  - `uri(): string` — the profile's canonical URI (the value matched against the negotiated `profile` parameter).
+  - A mechanism to declare any reserved keywords the profile contributes (e.g. attribute names, link relations, query parameters). **Decided at kick-off:** a `keywords(): array<string>` declaration (the reserved member/link/query-param names), used for documentation/introspection and future schema validation; it does not gate negotiation.
+  - **A document-finalisation lifecycle hook** (kick-off decision: *allow* a hook). Working signature: `finalizeDocument(array $document, JsonApiRequestInterface $request): array` — given the assembled document body array and the active request, return the (possibly augmented) body. Default no-op in the base class. Invoked by the response render path once per applied profile, after the document body is built and before JSON encoding. Profiles stay advisory: the hook only runs for profiles the server has applied.
+- [ ] Define `AbstractProfile` base class to reduce boilerplate for profile authors (default `keywords()` → `[]`, default `finalizeDocument()` → identity).
+- [ ] Add value object(s) for parsed profile media-type parameters (see Content-negotiation integration — the `MediaTypeParameters`/`ext`+`profile` parse result).
 
 ### Profile registry
 
-- [ ] `haddowg\JsonApi\Schema\Profile\ProfileRegistry` — register, look up by URI, list all
-- [ ] Decide registry scope: per-`JsonApi` instance (i.e. wired at orchestrator construction) vs. global static. Recommendation: per-instance, injected; avoids global state.
-- [ ] Decide eager vs. lazy resolution; profiles are cheap objects so eager is likely fine
+- [ ] `haddowg\JsonApi\Schema\Profile\ProfileRegistry` — register, look up by URI, list all. **Decided at kick-off:** a simple map keyed by profile URI (no content-type-style quality-factor negotiation — the spec does not require negotiation across profiles). Eager resolution (profiles are cheap value objects). Registering the same URI twice throws a typed `ProfileAlreadyRegistered` (configuration error, surfaced at wiring time, not request time).
+- [ ] **Decided at kick-off:** registry scope is **per-instance, injected** (no global static), avoiding global state and matching the per-`Server` configuration-root direction.
+- [ ] Lookup `has(string $uri): bool` / `get(string $uri): ?ProfileInterface` / `all(): list<ProfileInterface>`.
 - [ ] **Forward-compatibility note.** Phase 4.5 introduces a broader resource-type `Registry` that holds schemas, profiles, and optional resource/hydrator overrides. The profile registry shipped here is likely to fold into that broader registry. Design the public API of this registry with that future merge in mind: avoid naming choices or signatures that would force a breaking rename later. Record the chosen naming in the decision log.
 - [ ] Unit tests for registration, conflict handling (same URI registered twice), and lookup
 
 ### Content-negotiation integration
 
-- [ ] Extend negotiation parsing to read the `profile` parameter on `Content-Type` and `Accept` headers per JSON:API 1.1 rules:
-  - `profile` is a space-separated list of URIs
-  - Client requests profiles via `Accept` header `profile` parameter
-  - Server applies profiles via `Content-Type` response header `profile` parameter
-- [ ] Generalise the negotiation parser to also handle `ext` (so that a future Atomic Operations implementation can drop in without re-working negotiation); structure the parsing so adding `ext` is trivial later
-- [ ] Reject requests that demand unsupported profiles per spec (`406 Not Acceptable`) using a typed exception
-- [ ] Apply (echo back) profiles on response `Content-Type` when the request advertised them and the server supports them
-- [ ] Tests covering: requesting supported profile, requesting unsupported profile, no profile, multiple profiles, malformed `profile` parameter
+> **Spec-grounding correction (kick-off).** The pre-drafted plan said unsupported *profiles* must be rejected with `406`. That is wrong: JSON:API 1.1 states **"A server MUST ignore any profiles that it does not recognize"** — profiles are advisory. The `406`/`415` rejection rules apply to **extensions (`ext`)**, not profiles. The tasks below are corrected accordingly (maintainer-confirmed; see decision log).
+
+- [ ] Profile parsing on the request already exists from Phase 1 (`JsonApiRequest::getRequestedProfiles()` ← `Accept`, `getRequiredProfiles()` ← `profile` query param, `getAppliedProfiles()` ← `Content-Type`). Confirm it conforms to the JSON:API 1.1 rules (space-separated URI list) and reconcile with the registry; extend only where gaps exist.
+- [ ] **Generalise the media-type parser to also read `ext`** (space-separated URI list, same shape as `profile`). Add `getRequestedExtensions()` / `getAppliedExtensions()` request accessors mirroring the profile ones. `ext` is parsed and exposed but not wired downstream — it is the hook a future Atomic Operations implementation plugs into.
+- [ ] **`MediaType::isValid()` must accept both `ext` and `profile` parameters** (currently profile-only). Update the single-source-of-truth rule so a media type carrying `ext` is no longer treated as invalid.
+- [ ] **Extension negotiation (typed exceptions), profiles advisory:**
+  - `Content-Type` carrying an **unsupported `ext`** URI → `415` (extend/throw via the existing `MediaTypeUnsupported`, or a dedicated typed exception if the message/detail differs).
+  - `Accept` where every JSON:API media-type instance is unusable or carries an **unsupported `ext`** → `406` (`MediaTypeUnacceptable`).
+  - Unrecognized **profiles are ignored**, never rejected. No 406/415 for profiles.
+  - Note: with **no extensions supported by the server in this phase**, any `ext` present is "unsupported" — so the rules above are wired and tested against the empty supported-ext set, ready for atomic-ops to register an `ext` later.
+- [ ] Apply (echo back) **applied profiles** on the response `Content-Type` `profile` parameter when the server has applied them, and emit the `Vary: Accept` header (spec SHOULD for servers supporting `ext`/`profile`). The set of applied profiles is the intersection of the request's requested/required profiles with the server's registered profiles, plus any profiles a paginator/response activates.
+- [ ] Tests covering: requesting a supported profile (applied + echoed), requesting an **unrecognized profile (ignored, no error)**, no profile, multiple profiles, malformed `profile` parameter, an `ext` present with no server support (→ 415 on Content-Type / 406 on Accept), and the `Vary` header.
 
 ### Document-level integration
 
-- [ ] When a profile is applied to a response, the document's top-level `links.profile` member should reflect the profile URI(s) per the spec. Add the wiring so a document picks this up from the response context without each document class needing to know.
-- [ ] Tests asserting `links.profile` emission
+- [ ] When a profile is applied to a response, the document's top-level `links.profile` member should reflect the profile URI(s) per the spec. `DocumentLinks` already carries a `profiles` list and emits `links.profile` (Phase 1); add the wiring so the response render path populates it from the applied-profile set + any `ProfileLinkObject` aliases, without each document class needing to know.
+- [ ] Run each applied profile's `finalizeDocument()` hook over the assembled body during render (after the body array is built, before encoding), in registration order.
+- [ ] Tests asserting `links.profile` emission and that the `finalizeDocument()` hook runs and can augment the body.
 
 ### Pagination refactor — `Paginator` + `Page` split
 
@@ -78,13 +83,12 @@ This is a structural rewrite of yin's pagination, not a modernisation. The inten
 
 - [ ] Yin's `PaginationLinkProviderInterface`, `PageBasedPaginationLinkProviderTrait`, `OffsetBasedPaginationLinkProviderTrait`, `CursorBasedPaginationLinkProviderTrait`, and `FixedPageBasedPaginationLinkProviderTrait` are **not ported**. The collection-side trait pattern is replaced wholesale. Record this in the decision log with a one-line rationale.
 - [ ] `DocumentLinks::setPagination($uri, $linkProvider)` is **not ported** in its current form. Pagination link generation moves to the `Page` value objects below.
-- [ ] **`Paginator` (renamed from yin's `Pagination`)**. Strategy classes that read `page[...]` query params and hold defaults. One per pagination strategy: `PagePaginator`, `OffsetPaginator`, `CursorPaginator`, `FixedPagePaginator`. Fluent: `make()` static factory plus `withPageKey('number')`, `withPerPageKey('size')`, `withDefaultPerPage(15)`, etc. (vocabulary borrowed from Laravel JSON:API; finalise during implementation).
-- [ ] **Naming check**: yin uses "Pagination" for both the strategy and the parser. Renaming to `Paginator` matches the noun-for-the-thing pattern used elsewhere (`Schema`, `Field`, `Filter`). Lock in or revert at kick-off; document the choice.
+- [ ] **`Paginator` (renamed from yin's `Pagination`) — naming locked in at kick-off (maintainer-confirmed).** Strategy classes that read `page[...]` query params and hold defaults. One per pagination strategy: `PagePaginator`, `OffsetPaginator`, `CursorPaginator`, `FixedPagePaginator`. Fluent: `make()` static factory plus `withPageKey('number')`, `withPerPageKey('size')`, `withDefaultPerPage(15)`, etc. (vocabulary borrowed from Laravel JSON:API; finalise during implementation). Live under `haddowg\JsonApi\Pagination\*` (decide exact namespace at port time; record in decision log).
 - [ ] **`Page` value objects.** Strategy-specific, immutable, carry the paginated items + the metadata the strategy needs to emit links and meta:
-  - `PageBasedPage` — totalItems, currentPage, size; emits `first`/`prev`/`next`/`last` based on `ceil(totalItems / size)`.
-  - `OffsetBasedPage` — totalItems, offset, limit; emits `first`/`prev`/`next`/`last`.
-  - `CursorBasedPage` — limit, cursorBefore, cursorAfter, hasMore (no totalItems by design); emits `first`/`prev`/`next` only — **`last` is intentionally omitted** because computing it would defeat the cursor's purpose. Document this explicitly.
-  - `FixedPagePage` — currentPage, totalItems (or hasMore for simple pagination); same emission shape.
+  - `PageBasedPage` — totalItems, currentPage, size; emits `first`/`prev`/`next`/`last` based on `ceil(totalItems / size)`. No profile (none published).
+  - `OffsetBasedPage` — totalItems, offset, limit; emits `first`/`prev`/`next`/`last`. No profile (none published).
+  - `CursorBasedPage` — limit, cursorBefore, cursorAfter, hasMore (no totalItems by design); emits `first`/`prev`/`next` only — **`last` is intentionally omitted** because computing it would defeat the cursor's purpose. Document this explicitly. **Associated with the published cursor-pagination profile** (see below).
+  - `FixedPagePage` — currentPage, totalItems (or hasMore for simple pagination); same emission shape. No profile.
 - [ ] `Page` is iterable (implements `IteratorAggregate`) so the response-side iteration over the paginated items "just works" without unwrapping.
 - [ ] `Page` exposes a link-emission method (working signature: `linkSet(string $baseUri, array $queryParams): array<string, Link|null>` returning the `first`/`prev`/`next`/`last` map) and a meta-emission method (`pageMeta(): array` returning the contents of `meta.page.{...}`). Both invoked by `DataResponse` rendering (the rendering signatures stabilise during implementation).
 - [ ] `Paginator::paginate($queryResult, ...): Page` produces the right `Page` subtype from a query result plus the request's pagination params. The contract is small; consumers/adapters can implement custom paginators by implementing `Paginator` and returning whatever `Page` subtype is appropriate.
@@ -92,12 +96,11 @@ This is a structural rewrite of yin's pagination, not a modernisation. The inten
 
 ### Pagination profile association
 
-- [ ] Audit each `Paginator` for an associated published profile URI:
-  - Cursor pagination has a community-recognised profile — confirm during kick-off survey
-  - Page-based and offset-based may not have published profiles; if not, declare no profile association and document that decision
-- [ ] Where a profile URI exists, the paginator should:
-  - Declare its profile via a method on the paginator or by implementing a `ProfileAwarePaginator` sub-interface (decide during implementation)
-  - Cause the response to advertise the profile via the negotiation layer when used. The `Page` value object carries the profile URI through to rendering.
+> **Kick-off survey result (maintainer-confirmed):** the only published pagination profile is **`http://jsonapi.org/profiles/ethanresnick/cursor-pagination/`** (defines `page[size]`, `page[after]`, `page[before]`; `prev`/`next` required, `first`/`last` recommended-when-cheap; meta members under `page`: `cursor`, `total`, `estimatedTotal.bestGuess`, `rangeTruncated`). Page-based and offset-based have **no** published profile → no association.
+
+- [ ] **Align the cursor paginator to the published profile (maintainer-confirmed).** `CursorPaginator` reads `page[after]` / `page[before]` / `page[size]` (a deliberate pre-1.0 break from yin's single `page[cursor]`), and `CursorBasedPage` carries `cursorBefore` / `cursorAfter` / `limit` / `hasMore`. `CursorBasedPage` is associated with the cursor-pagination profile URI and advertises it on the response.
+- [ ] **Profile-defined query parameters.** The cursor profile reserves `page[after]`/`page[before]`/`page[size]`; these are surfaced to consumers through the `CursorPaginator`/`CursorBasedPage` accessors (not a generic profile-query-param API). The general design space (a profile contributing arbitrary query params consumable by user code) is flagged in the decision log as out of scope until a non-pagination profile needs it.
+- [ ] **Profile-association mechanism.** A `Page` exposes `profile(): ?ProfileInterface` (method-on-base, default `null`); only `CursorBasedPage` returns the cursor profile. Avoids a separate `ProfileAwarePaginator` sub-interface and its `instanceof` at the render site. The `Page` carries the profile through to rendering, which adds it to the applied-profile set (→ echoed `Content-Type` + `links.profile`).
 - [ ] Update existing paginator tests to assert profile behaviour where applicable; add new tests for the profile-aware path; add tests for the fluent builders; add tests for each `Page` subtype's link emission against fixtures (including cursor's omission of `last`).
 
 ### Public API & ergonomics review
@@ -112,25 +115,36 @@ _(Appended to during execution.)_
 
 | Date | Decision | Rationale | Affects |
 |---|---|---|---|
-| _yyyy-mm-dd_ | _(example: profile registry is per-`JsonApi` instance, not global)_ | _(rationale)_ | _(this phase / future phases)_ |
+| 2026-05-31 (kick-off) | **Spec-grounding correction: unrecognized profiles are IGNORED, never `406`.** The pre-drafted plan's "reject unsupported profiles with 406" task, acceptance criterion 4, and manual-verification step were rewritten. `406`/`415` are reserved for the **`ext`** parameter (415 = unsupported `ext` on Content-Type; 406 = every Accept instance unusable or carrying an unsupported `ext`). | JSON:API 1.1: *"A server MUST ignore any profiles that it does not recognize."* Profiles are advisory; only extensions demand strict client/server agreement. Maintainer confirmed "fix plan to match spec". | this phase, Phase 3, post-1.0 atomic ops |
+| 2026-05-31 (kick-off) | **`ProfileInterface` gets a document-finalisation hook** (`finalizeDocument(array $body, JsonApiRequestInterface): array`), default no-op in `AbstractProfile`. Runs once per applied profile during render, after the body array is built, before encoding. | Maintainer chose "allow a finalisation hook" over strict-declarative. The spec permits a profile to define document members; a hook lets a profile inject/transform them at a single well-defined point while staying advisory (only applied profiles run). | this phase, Phase 4.5 |
+| 2026-05-31 (kick-off) | **Cursor paginator aligns to the published `ethanresnick/cursor-pagination` profile**: `page[after]`/`page[before]`/`page[size]` (pre-1.0 break from yin's `page[cursor]`); `CursorBasedPage` carries `cursorBefore`/`cursorAfter`/`limit`/`hasMore`, omits `last`, and advertises `http://jsonapi.org/profiles/ethanresnick/cursor-pagination/`. Page-based/offset-based/fixed get **no** profile (none published). | Maintainer chose "align to published profile". Makes the cursor paginator the end-to-end profile consumer the phase needs, and ships a spec-faithful cursor strategy rather than yin's ad-hoc single cursor. | this phase |
+| 2026-05-31 (kick-off) | **`Paginator` naming locked in**: `PagePaginator`/`OffsetPaginator`/`CursorPaginator`/`FixedPagePaginator` (strategies) + `*Page` value objects, replacing yin's `Pagination`. | Maintainer confirmed; matches the noun-for-the-thing pattern (`Schema`, `Field`, `Filter`). | this phase |
+| 2026-05-31 (kick-off) | **Profile registry = per-instance, injected, simple map keyed by URI**; eager; duplicate-URI registration throws `ProfileAlreadyRegistered`. No quality-factor negotiation. | Recommendations in the plan were unambiguous and low-stakes; forward-compatible with the Phase 4.5 `Server`-owned registry merge. Spec requires no cross-profile negotiation. | this phase, Phase 4.5 |
+| 2026-05-31 (kick-off) | **`Page` exposes `profile(): ?ProfileInterface` (method-on-base)**, not a `ProfileAwarePaginator` sub-interface. | Avoids an `instanceof` at the render site; only `CursorBasedPage` overrides to return the profile. | this phase |
+| 2026-05-31 (kick-off) | **Profile-defined query parameters are surfaced through the owning paginator's accessors**, not a generic profile-query-param API. A general "profile contributes consumable query params" mechanism is **out of scope** until a non-pagination profile needs it. | Only the cursor profile defines query params this phase, and they are naturally the cursor paginator's own inputs. Avoids speculative generality. | this phase, post-1.0 |
+| 2026-05-31 (kick-off) | **`ext` parsing implemented this phase (parse + negotiate 415/406 against the empty supported-ext set); no dispatch.** `MediaType::isValid()` updated to accept both `ext` and `profile`. Request gains `getRequestedExtensions()`/`getAppliedExtensions()`. | Lets the post-1.0 Atomic Operations effort register an `ext` and have negotiation already correct. | this phase, post-1.0 atomic ops |
+| 2026-05-31 (kick-off) | **Published-profile inventory:** only `http://jsonapi.org/profiles/ethanresnick/cursor-pagination/` is relevant (cursor pagination). No published page/offset profile. | Ecosystem survey during kick-off (jsonapi.org profile registry + cursor-pagination profile doc). | this phase |
 
 ## Open questions
 
-- Should profiles be allowed to mutate outgoing documents (e.g. add top-level members) or strictly declarative metadata? The spec leaves room either way; lean strict-declarative to keep the contract small, with explicit hooks added only when a future profile needs them.
-- Should the registry be a simple map, or support content-type-style negotiation (e.g. quality factors)? Spec doesn't require negotiation across profiles; simple map is likely sufficient.
-- Sub-interface (`ProfileAwarePaginator`) vs. method-on-base (`getProfile(): ?ProfileInterface`)? Sub-interface is purer but adds an `instanceof` check at the negotiation site. Decide during implementation.
-- How are profile-defined query parameters surfaced to user code? Out of scope for this phase if no built-in profile defines one, but flag the design space in the decision log.
-- Should `ext` parsing be implemented in this phase (just the parsing layer, not the dispatch) so a future Atomic Operations effort can drop in cleanly? Recommendation: yes, parse both `profile` and `ext`, even though only `profile` is wired through.
+_All kick-off open questions resolved 2026-05-31 with the maintainer — see the decision log rows above. New questions surfacing mid-phase are appended here and resolved interactively before phase close._
+
+- ~~Profiles mutate documents vs strict-declarative.~~ **Resolved: finalisation hook allowed.**
+- ~~Registry simple map vs quality-factor negotiation.~~ **Resolved: simple map, per-instance, eager.**
+- ~~`ProfileAwarePaginator` sub-interface vs method-on-base.~~ **Resolved: `Page::profile()` method-on-base.**
+- ~~How are profile-defined query params surfaced.~~ **Resolved: via the owning paginator's accessors; generic mechanism deferred.**
+- ~~Implement `ext` parsing this phase.~~ **Resolved: yes (parse + 415/406 negotiation; no dispatch).**
+- ~~Unsupported-profile → 406.~~ **Resolved (spec correction): ignore unrecognized profiles; 406/415 are for `ext` only.**
 
 ## Acceptance criteria
 
 The phase is done when all of the following hold:
 
 1. All task-list items are checked off.
-2. The profile abstraction exists with at least one consumer (a paginator) that registers and applies a profile end-to-end.
+2. The profile abstraction exists (with the document-finalisation hook) and has at least one consumer (the cursor paginator) that registers and applies a profile end-to-end.
 3. The negotiation layer parses both `profile` and `ext` media-type parameters (even if `ext` is not yet wired anywhere downstream).
-4. Unsupported-profile requests produce the spec-mandated `406` response via a typed exception.
-5. Supported-profile responses carry the profile URI(s) in their `Content-Type` and in `links.profile`.
+4. **Unrecognized profiles are ignored, never rejected** (spec: "a server MUST ignore any profiles that it does not recognize"). An unsupported **`ext`** on `Content-Type` produces `415` and an unusable/unsupported-`ext` `Accept` produces `406`, both via typed exceptions.
+5. Applied-profile responses carry the profile URI(s) in their `Content-Type` `profile` parameter and in `links.profile`, and set `Vary: Accept`.
 6. PHPStan level 9 passes; CI matrix green; spec-tagged tests pass.
 7. `docs/spec-compliance.md` updated for extensions/profiles and content negotiation rows.
 8. `CLAUDE.md` updated with pattern entries for the new component kinds introduced this phase (profile interface implementations, profile-aware paginators, `Page` value objects) and any refinements to existing patterns.
@@ -156,8 +170,8 @@ composer test
 
 Manual review:
 
-- Write a throwaway custom profile in a sandbox, register it, hit a request demanding it, confirm: (a) the response advertises it, (b) `links.profile` carries it, (c) demanding a profile not registered returns `406`.
-- Confirm the `ext` parameter is parsed and exposed on the negotiated request representation, even though no `ext` is yet supported — this is the hook a future Atomic Operations implementation will plug into.
+- Write a throwaway custom profile in a sandbox, register it, hit a request requesting it, confirm: (a) the response advertises it on `Content-Type`, (b) `links.profile` carries it, (c) the `finalizeDocument()` hook ran, (d) requesting a profile **not** registered is **silently ignored** (no error, response simply does not advertise it).
+- Confirm the `ext` parameter is parsed and exposed on the negotiated request representation; confirm an `ext` with no server support yields `415` (Content-Type) / `406` (Accept) — this is the hook a future Atomic Operations implementation will plug into.
 
 ## Handover output
 
