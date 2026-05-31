@@ -41,4 +41,3 @@ the reference pages below as you need them.
 - [Middleware order](middleware-order.md) — the recommended ordering and its rationale.
 - [Adapters](adapters.md) — the metadata-in-core, handlers-in-adapters split for filters, sorts, and constraints.
 - [Testing](testing.md) — assertion wrappers, request/operation builders, and the spec-compliance check.
-- [Upgrading within 0.x](upgrading-within-0.x.md) — pre-1.0 breaking-change policy and the migration log.
