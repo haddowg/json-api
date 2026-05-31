@@ -35,7 +35,7 @@ return DataResponse::fromResource($article, $server->serializerFor('articles'));
 return DataResponse::fromCollection($articles, $server->serializerFor('articles'));
 ```
 
-Both take the domain value(s) plus the [serializer](resources.md) that renders
+Both take the domain value(s) plus the [serializer](serializers.md) that renders
 them (resolve it from the [server](server.md) with `serializerFor($type)`). The
 third constructor, `fromPage()`, renders a [paginated](pagination.md) collection —
 the page supplies the `data`, and the document gains the pagination

@@ -1,6 +1,6 @@
 # Validation
 
-A [schema](schemas.md)'s fields carry validation **metadata** — `->required()`,
+A [Resource class](resources.md)'s fields carry validation **metadata** — `->required()`,
 `->maxLength()`, `->in([...])`, and so on. The core library never executes these
 constraints against data; they are declarative facts about a field that two
 consumers read. The optional JSON Schema compiler turns the structural subset into
@@ -198,7 +198,7 @@ free.
 
 ## Related pages
 
-- [Schemas](schemas.md) — where fields and their constraints are declared.
+- [Resource classes](resources.md) — where fields and their constraints are declared.
 - [Fields](fields.md) — the fluent builders that add constraints.
 - [Middleware](middleware.md) — the optional request/response validation middleware.
 - [Adapters](adapters.md) — translating the full constraint vocabulary to a native validator.

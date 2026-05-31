@@ -1,7 +1,7 @@
 # Server
 
 The `Server\Server` is the configuration root for one API version. It holds the
-schema registry, the profile registry, the PSR-17 factories, the document-level
+Resource registry, the profile registry, the PSR-17 factories, the document-level
 defaults (base URI, JSON:API version, `jsonapi.meta`, `json_encode` flags, the
 default paginator), the ordered middleware list, and the inner handler. It is an
 immutable value — `Server::make()` returns an empty server and every `with…()` /
@@ -25,7 +25,7 @@ $server = Server::make()
 ```
 
 `Server` implements the minimal `Server\ServerInterface` (the contract the
-[response value objects](responses.md) read to render), plus the schema registry
+[response value objects](responses.md) read to render), plus the Resource registry
 and the PSR-15 entry point. The response layer only ever sees `ServerInterface`;
 your handler narrows to the concrete `Server` when it needs `serializerFor()` /
 `hydratorFor()`.
@@ -44,24 +44,24 @@ single setting.
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `JSON_PRETTY_PRINT`). |
 | `withDefaultPaginator(?Paginator)` | The fallback [paginator](pagination.md) for collections. |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
-| `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [schema](schemas.md) (class-string) for its declared `$type`, with optional serializer/hydrator [overrides](resources.md). |
+| `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) (class-string) for its declared `$type`, with optional serializer/hydrator [overrides](serializers.md). |
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
 | `withMiddleware(list<MiddlewareInterface>)` | Replaces the ordered [middleware](middleware.md) list. |
 | `withHandler(OperationHandler\|RequestHandlerInterface)` | Sets the inner handler. |
 
 The matching accessors read the configuration back: `baseUri()`,
 `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`, `defaultPaginator()`,
-`profiles()`, `schemas()`, plus the registry shortcuts `serializerFor(string)` /
+`profiles()`, `resources()`, plus the registry shortcuts `serializerFor(string)` /
 `hydratorFor(string)` / `hasSerializerFor(string)` (each resolving an override
-ahead of the schema). `responseFactory()` / `streamFactory()` throw a
+ahead of the Resource class). `responseFactory()` / `streamFactory()` throw a
 `\LogicException` if `withPsr17()` was never called — emitting a response needs
 both factories.
 
 > `register()` and `withProfile()` clone the underlying registries before
 > mutating them, so registering on a derived server never leaks back into the
-> parent. Registering two schemas for the same `$type`, or two profiles with the
-> same URI, is a wiring error (a `\LogicException`), never a JSON:API error
-> document.
+> parent. Registering two Resource classes for the same `$type`, or two profiles
+> with the same URI, is a wiring error (a `\LogicException`), never a JSON:API
+> error document.
 
 ## Handling a request
 
@@ -273,7 +273,7 @@ affects `v1`.
 ## Related pages
 
 - [Getting started](getting-started.md) — the full server wiring in context.
-- [Schemas](schemas.md) — what `register()` takes and how the registry resolves.
+- [Resources](resources.md) — what `register()` takes and how the registry resolves.
 - [Middleware](middleware.md) — the PSR-15 suite and recommended order.
 - [Responses](responses.md) — the value objects a handler returns.
 - [Testing](testing.md) — `JsonApiOperationBuilder` for `dispatch()` tests.

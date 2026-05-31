@@ -12,7 +12,7 @@ sort itself. This keeps core decoupled from any data layer: there is no generic
 ## Marking a field sortable
 
 The common case needs no explicit sort declaration. Calling `->sortable()` on a
-[field](fields.md) tells the schema to derive a sort for it automatically:
+[field](fields.md) tells the Resource class to derive a sort for it automatically:
 
 ```php
 use haddowg\JsonApi\Resource\AbstractResource;
@@ -99,9 +99,9 @@ match each requested key against the type's `allSorts()` and apply it in order:
 use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
 
 $handler = new ArraySortHandler();
-$schema = $server->schemas()->schemaFor('articles'); // the AbstractResource
+$resource = $server->resources()->resourceFor('articles'); // the AbstractResource
 $allowed = [];
-foreach ($schema->allSorts() as $sort) {
+foreach ($resource->allSorts() as $sort) {
     $allowed[$sort->key()] = $sort;
 }
 
@@ -158,7 +158,7 @@ final readonly class SortByDistance implements Sort
 }
 ```
 
-List it in a schema's `sorts()` like any built-in. For it to do anything, a
+List it in a Resource class's `sorts()` like any built-in. For it to do anything, a
 handler must recognise it — a `SortHandler` that receives a `Sort` it does not
 know throws `UnsupportedSort` — so a custom sort and a handler that understands it
 are written together. The handler side, including extending the reference handler,
@@ -169,4 +169,4 @@ is covered in [Adapters](adapters.md).
 - [Fields](fields.md) — `->sortable()` and the field DSL.
 - [Adapters](adapters.md) — the handler side: ordering your data layer.
 - [Filters](filters.md) — the same metadata/handler split for the `filter` parameter.
-- [Schemas](schemas.md) — `sorts()`, `allSorts()`, and the derivation rule.
+- [Resource classes](resources.md) — `sorts()`, `allSorts()`, and the derivation rule.

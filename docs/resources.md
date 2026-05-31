@@ -1,6 +1,6 @@
-# Schemas
+# Resources
 
-A schema is the recommended way to describe a JSON:API resource type. You
+A Resource class is the recommended way to describe a JSON:API resource type. You
 subclass `Resource\AbstractResource`, set its `$type`, and implement `fields()`;
 that one declaration satisfies **both** the serializer contract (turning a domain
 object into a resource object) and the hydrator contract (filling a domain object
@@ -9,13 +9,15 @@ hand.
 
 > **A note on names.** "Resource" is overloaded. The JSON:API spec's *resource
 > object* — the `{type, id, attributes, relationships}` structure inside `data` —
-> is emitted by the serialization engine as a plain array, not a class you write.
-> The class you subclass here, `Resource\AbstractResource`, is the *schema*: a
-> per-type serializer + hydrator. When this documentation says "resource object" it
-> means the spec sense; "schema" means the `AbstractResource` subclass. See
+> is emitted by the serialization engine as a plain array, not a class you write
+> (there is no `ResourceObject` class). The class you subclass here,
+> `Resource\AbstractResource`, is the *Resource class*: it maps domain objects ↔
+> JSON:API resources, serving as a per-type serializer + hydrator. The lower-level
+> `Serializer\SerializerInterface` / `Hydrator\HydratorInterface` contracts a
+> Resource class satisfies are also usable directly as escape hatches. See
 > [Concepts](concepts.md#vocabulary).
 
-## A minimal schema
+## A minimal Resource class
 
 ```php
 use haddowg\JsonApi\Resource\AbstractResource;
@@ -37,11 +39,11 @@ final class ArticleResource extends AbstractResource
 }
 ```
 
-`$type` is the JSON:API type member and the key the schema registers under. Every
-entry in `fields()` is a [`Field`](fields.md): an `Id`, an attribute, or a
-relationship. The order is preserved in output.
+`$type` is the JSON:API type member and the key the Resource class registers
+under. Every entry in `fields()` is a [`Field`](fields.md): an `Id`, an attribute,
+or a relationship. The order is preserved in output.
 
-## What a schema declares
+## What a Resource class declares
 
 `AbstractResource` exposes a small set of overridable methods. Only `fields()` is
 required.
@@ -69,8 +71,8 @@ When the engine serializes a model, it walks the non-hidden fields:
   through the [server's registry](server.md).
 
 Sparse fieldsets (`?fields[articles]=title`) and inclusion (`?include=author`) are
-applied by the engine reading the request — the schema emits every eligible field
-and lets the engine narrow. Mark a field `->hidden()` to drop it from output
+applied by the engine reading the request — the Resource class emits every
+eligible field and lets the engine narrow. Mark a field `->hidden()` to drop it from output
 entirely, or `->notSparseField()` to exempt it from sparse-fieldset filtering.
 
 ## How fields drive hydration
@@ -90,9 +92,9 @@ For a `POST` (create) or `PATCH` (update), the same fields fill the domain objec
 Hydration respects JSON:API update semantics: an attribute absent from a `PATCH`
 body is left unchanged.
 
-## Registering a schema
+## Registering a Resource class
 
-A schema becomes active when registered on a [`Server`](server.md):
+A Resource class becomes active when registered on a [`Server`](server.md):
 
 ```php
 use haddowg\JsonApi\Server\Server;
@@ -103,9 +105,9 @@ $server = Server::make()
     ->register(AuthorResource::class);
 ```
 
-`register()` takes class-strings and instantiates lazily; the schema's static
-`$type` keys the registry. Registering two schemas for the same type is a wiring
-error (a `\LogicException`). The registry is also the resolver relationships use to
+`register()` takes class-strings and instantiates lazily; the Resource class's
+static `$type` keys the registry. Registering two Resource classes for the same
+type is a wiring error (a `\LogicException`). The registry is also the resolver relationships use to
 serialize related types, so registering all participating types is what lets
 `include` and relationship linkage work.
 
@@ -132,23 +134,23 @@ public function fields(): array
 See [Fields](fields.md#relationships) for every relationship type
 (`BelongsTo`/`HasOne`/`HasMany`/`BelongsToMany`/`MorphTo`) and their options.
 
-## When a schema isn't enough
+## When a Resource class isn't enough
 
 The field DSL covers the common cases. When serialization needs request-aware or
 computed attributes, multiple representations of one model, or other logic the
-field walk can't express, drop to a custom [serializer](resources.md). When a write
+field walk can't express, drop to a custom [serializer](serializers.md). When a write
 needs to split a member across columns, derive related models, or run a
 multi-step/transactional write, drop to a custom [hydrator](hydrators.md). Register
-either as an override alongside the schema:
+either as an override alongside the Resource class:
 
 ```php
 $server->register(ArticleResource::class, serializer: ArticleSerializer::class);
 $server->register(ArticleResource::class, hydrator: ArticleHydrator::class);
 ```
 
-The registry resolves an override ahead of the schema and falls back to the schema
-for the concern you didn't override. You can also register a bare
-serializer + hydrator pair with no schema at all.
+The registry resolves an override ahead of the Resource class and falls back to
+the Resource class for the concern you didn't override. You can also register a
+bare serializer + hydrator pair with no Resource class at all.
 
 ## Validation
 
@@ -162,8 +164,8 @@ context model.
 ## Related pages
 
 - [Fields](fields.md) — every field type and fluent option.
-- [Validation](validation.md) — constraints, contexts, the schema compiler.
+- [Validation](validation.md) — constraints, contexts, the JSON Schema compiler.
 - [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata.
 - [Pagination](pagination.md) — per-resource and server-default paginators.
-- [Resources](resources.md) / [Hydrators](hydrators.md) — the escape hatches.
+- [Serializers](serializers.md) / [Hydrators](hydrators.md) — the escape hatches.
 - [Server](server.md) — registration and the registry.

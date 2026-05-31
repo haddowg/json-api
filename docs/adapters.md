@@ -32,7 +32,7 @@ public function key(): string;        // the filter[<key>] this responds to
 public function key(): string;        // the sort key (no leading '-')
 ```
 
-A schema declares which it accepts: field [constraints](validation.md) inline on
+A Resource class declares which it accepts: field [constraints](validation.md) inline on
 each field, `filters()` for the filter list, and field `->sortable()` /
 [`sorts()`](sorts.md) for the sort list. None of those declarations execute on
 their own.
@@ -95,18 +95,18 @@ use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
 $filters = new ArrayFilterHandler();
 $sorts = new ArraySortHandler();
 
-$schema = $server->schemas()->schemaFor('articles'); // the AbstractResource
+$resource = $server->resources()->resourceFor('articles'); // the AbstractResource
 $rows = $repository->all();
 
 $requestedFilters = $operation->queryParameters()->filter;
-foreach ($schema->filters() as $filter) {
+foreach ($resource->filters() as $filter) {
     if (\array_key_exists($filter->key(), $requestedFilters)) {
         $rows = $filters->apply($filter, $rows, $requestedFilters[$filter->key()]);
     }
 }
 
 $allowedSorts = [];
-foreach ($schema->allSorts() as $sort) {
+foreach ($resource->allSorts() as $sort) {
     $allowedSorts[$sort->key()] = $sort;
 }
 foreach ($operation->queryParameters()->sort as $field) {
@@ -150,7 +150,7 @@ final class DoctrineFilterHandler implements FilterHandler
 Extending the vocabulary is the same move on both sides: define a custom
 [`Filter`](filters.md#writing-a-custom-filter) /
 [`Sort`](sorts.md#writing-a-custom-sort) value object carrying whatever fields the
-handler needs, list it in the schema's `filters()` / `sorts()`, and add a branch
+handler needs, list it in the Resource class's `filters()` / `sorts()`, and add a branch
 for it in your handler. A custom value object and the handler that understands it
 are always written together — a handler that meets an unrecognised one throws
 `Unsupported…`.
@@ -188,4 +188,4 @@ outside this package, so the core stays framework- and storage-agnostic.
 - [Filters](filters.md) — the filter value objects and their fields.
 - [Sorts](sorts.md) — the sort value objects and `->sortable()` derivation.
 - [Validation](validation.md) — the constraint vocabulary and the JSON Schema compiler.
-- [Schemas](schemas.md) — declaring filters, sorts, and constraints on a type.
+- [Resource classes](resources.md) — declaring filters, sorts, and constraints on a type.

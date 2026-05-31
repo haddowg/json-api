@@ -14,7 +14,7 @@ configuration surface see [Server](server.md); for the middleware suite see
 A [`Server`](server.md) is the configuration root for one API version. It is an
 immutable value (every `with…()` / `register()` returns a new instance) that holds:
 
-- the **schema registry** — type → schema (plus optional serializer/hydrator
+- the **resource registry** — type → Resource class (plus optional serializer/hydrator
   overrides); it is also the resolver relationships use to serialize related types;
 - the **profile registry** — registered [profiles](profiles.md) keyed by URI;
 - the **PSR-17 factories** — used to build the PSR-7 response and its body stream;
@@ -49,7 +49,7 @@ flowchart TD
     engine --> encode[json_encode + PSR-17 response]
     encode --> out([PSR-7 Response])
 
-    config[(Server config:<br/>schema registry,<br/>profile registry,<br/>PSR-17 factories,<br/>default paginator)]
+    config[(Server config:<br/>resource registry,<br/>profile registry,<br/>PSR-17 factories,<br/>default paginator)]
     config -.provides.-> handler
     config -.provides.-> engine
     config -.provides.-> encode
@@ -95,7 +95,7 @@ the adapter renders a 500 error response rather than throwing.
 Your [`OperationHandler`](server.md#operations) receives the parsed
 `JsonApiOperation` and returns one of the [response value objects](responses.md).
 It is PSR-7-free: dispatch on the concrete operation type with `match (true)`, do
-your application work (reaching schemas through `$operation->context()->server`),
+your application work (reaching Resource classes through `$operation->context()->server`),
 and return a response. See [Getting started](getting-started.md#the-operation-handler)
 for a worked handler.
 
@@ -107,7 +107,7 @@ document and runs it through the **transformer engine** (`Transformer\*` —
 state objects). The engine is **serializer-free**: every transformation returns a
 plain PHP **array**, not JSON. It is where the spec-sensitive logic lives —
 compound-document `included`, sparse fieldsets, included-resource deduplication —
-and it is entirely `@internal`; consumers interact with it only through schemas and
+and it is entirely `@internal`; consumers interact with it only through Resource classes and
 response value objects.
 
 ### 5. Encoding

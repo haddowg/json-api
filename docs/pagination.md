@@ -125,7 +125,7 @@ them directly; let the strategy do it.
 
 ## Per-resource and server defaults
 
-A [schema](schemas.md) can declare its own default strategy by overriding
+A [Resource class](resources.md) can declare its own default strategy by overriding
 `pagination(): ?Paginator`; returning `null` (the default) defers to the
 [server's](server.md) default paginator, set with
 `Server::withDefaultPaginator()`. Either way, applying the strategy — deciding
@@ -138,5 +138,5 @@ The strategy turns the request and your numbers into a `Page`; you return it via
 
 - [Responses](responses.md) — `DataResponse::fromPage()` / `fromCollection()`.
 - [Profiles](profiles.md) — the cursor-pagination profile and how profiles are advertised.
-- [Schemas](schemas.md) — declaring a per-type default `pagination()`.
+- [Resource classes](resources.md) — declaring a per-type default `pagination()`.
 - [Server](server.md) — the server-wide default paginator.

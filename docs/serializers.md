@@ -1,11 +1,11 @@
-# Custom serializers
+# Serializers
 
-A custom serializer is the escape hatch for when the [schema](schemas.md) field
-DSL can't express how a domain object becomes a JSON:API resource. You implement
+A custom serializer is the escape hatch for when the [Resource class](resources.md)
+field DSL can't express how a domain object becomes a JSON:API resource. You implement
 `Serializer\SerializerInterface` directly (or extend `Serializer\AbstractSerializer`)
-and register it as an override on the type, replacing the schema's serialization
+and register it as an override on the type, replacing the Resource class's serialization
 without touching its hydration. For the common case you never write one — a
-schema's `fields()` declaration serializes for you — so reach for this only when
+Resource class's `fields()` declaration serializes for you — so reach for this only when
 serialization needs logic a field walk can't model.
 
 > **A note on names.** "Resource" is overloaded. The class documented here is a
@@ -13,7 +13,9 @@ serialization needs logic a field walk can't model.
 > `Resource`. It is **not** the JSON:API spec's *resource object* (the
 > `{type, id, attributes, relationships}` structure inside `data`), which this
 > package emits as a plain array from the serialization engine rather than as a
-> class you write. See [Concepts](concepts.md#vocabulary).
+> class you write (there is no `ResourceObject` class). It is also not the
+> [Resource class](resources.md) (`Resource\AbstractResource`), the primary surface
+> a serializer is the escape hatch from. See [Concepts](concepts.md#vocabulary).
 
 ## When to write one
 
@@ -150,19 +152,19 @@ final class ArticleSerializer extends AbstractSerializer
 ```
 
 > **Override serializers take no constructor arguments.** The registry
-> instantiates an override with `new ArticleSerializer()` and — unlike the schema —
-> does **not** inject the relationship `SerializerResolver`. A custom serializer is
+> instantiates an override with `new ArticleSerializer()` and — unlike the Resource
+> class — does **not** inject the relationship `SerializerResolver`. A custom serializer is
 > therefore best suited to shaping `attributes` (request-aware, conditional,
 > computed). When a type needs both related-resource serialization *and* attribute
-> logic the field walk can't express, keep the [schema](schemas.md) and override
-> only the narrower concern, or relate types through the schema rather than a
+> logic the field walk can't express, keep the [Resource class](resources.md) and override
+> only the narrower concern, or relate types through the Resource class rather than a
 > hand-written serializer.
 
 ## Registering it as an override
 
-Register the serializer alongside the schema with the `serializer:` argument. The
-registry resolves the override ahead of the schema for serialization and falls
-back to the schema for hydration, so you keep the schema's field-driven writes:
+Register the serializer alongside the Resource class with the `serializer:` argument. The
+registry resolves the override ahead of the Resource class for serialization and falls
+back to the Resource class for hydration, so you keep the Resource class's field-driven writes:
 
 ```php
 $server = Server::make()
@@ -170,9 +172,9 @@ $server = Server::make()
     ->register(ArticleResource::class, serializer: ArticleSerializer::class);
 ```
 
-You can also register a bare serializer with no schema at all (paired with a
+You can also register a bare serializer with no Resource class at all (paired with a
 custom [hydrator](hydrators.md)) when a type has no field declaration — exactly
-the wiring the library shipped with before the fluent schema existed.
+the wiring the library shipped with before the Resource class existed.
 
 > Attribute-driven serializers (deriving the field map from PHP attributes on the
 > model) are a candidate for a post-1.0 release; in 1.0 the field DSL and this
@@ -180,7 +182,7 @@ the wiring the library shipped with before the fluent schema existed.
 
 ## Related pages
 
-- [Schemas](schemas.md) — the field DSL this interface is the escape hatch from.
+- [Resources](resources.md) — the field DSL this interface is the escape hatch from.
 - [Hydrators](hydrators.md) — the matching write-side escape hatch.
 - [Server](server.md) — the registry, overrides, and `serializerFor()`.
 - [Concepts](concepts.md) — the document model and the serializer/resource-object vocabulary.

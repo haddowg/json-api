@@ -33,15 +33,15 @@ action.
 The per-resource-type serializer contract — yin's `Schema\Resource\ResourceInterface`
 and its `AbstractResource` base — was renamed to top-level **`Serializer\SerializerInterface`**
 and **`Serializer\AbstractSerializer`**. This frees the `Resource\*` namespace for
-the [fluent schema](schemas.md) layer (`Resource\AbstractResource`, `Resource\Field\*`,
+the [Resource class](resources.md) layer (`Resource\AbstractResource`, `Resource\Field\*`,
 and the constraint/filter/sort vocabularies), which is now the recommended way to
 declare a resource type.
 
 - Migration: implement / extend `haddowg\JsonApi\Serializer\SerializerInterface` /
   `AbstractSerializer` where you previously used the `Schema\Resource\*` types. See
-  [Resources](resources.md) for the hand-written serializer escape hatch.
-- Note the naming split this introduces: a *schema* is a `Resource\AbstractResource`
-  subclass; a *serializer* is the `Serializer\*` contract it satisfies. See
+  [Resources](serializers.md) for the hand-written serializer escape hatch.
+- Note the naming split this introduces: the `Resource\AbstractResource` *Resource
+  class* satisfies the `Serializer\*` contract. See
   [Concepts](concepts.md) for the vocabulary.
 
 ### Pagination rewritten as `Paginator` + `Page`

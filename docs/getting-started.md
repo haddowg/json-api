@@ -32,8 +32,8 @@ The library is framework- and storage-agnostic. To serve a resource type you
 supply:
 
 1. **A domain model** — any object or array; the library never dictates its shape.
-2. **A schema** — an [`AbstractResource`](schemas.md) subclass declaring the
-   type's fields. One declaration drives both serialization (model → JSON:API)
+2. **A Resource class** — an [`AbstractResource`](resources.md) subclass declaring
+   the type's fields. One declaration drives both serialization (model → JSON:API)
    and hydration (request → model).
 3. **An operation handler** — your application logic, expressed as a function from
    a parsed [operation](server.md#operations) to a [response value object](responses.md).
@@ -94,11 +94,11 @@ final class ArticleRepository
 }
 ```
 
-## The schema
+## The Resource class
 
-A schema declares the resource type's fields. This one list is the single source
+A Resource class declares the resource type's fields. This one list is the single source
 of truth for both directions: it tells the serializer how to render an `Article`
-and the hydrator how to fill one from a request body. See [Schemas](schemas.md)
+and the hydrator how to fill one from a request body. See [Resources](resources.md)
 and [Fields](fields.md) for the full surface.
 
 ```php
@@ -180,7 +180,7 @@ final class ArticleHandler implements OperationHandler
 }
 ```
 
-The handler reaches the registered schema through `$operation->context()->server`.
+The handler reaches the registered Resource class through `$operation->context()->server`.
 That property is typed as the minimal `ServerInterface`; narrow it to the concrete
 `Server` (with `assert` / `instanceof`) to reach `serializerFor()` /
 `hydratorFor()`.
@@ -222,7 +222,7 @@ final class ArticleRouter implements MiddlewareInterface
 ## Wiring the server
 
 The [`Server`](server.md) is the configuration root for one API version. It holds
-the schema registry, the PSR-17 factories, the ordered middleware list, and the
+the Resource registry, the PSR-17 factories, the ordered middleware list, and the
 handler. It is an immutable value (every `with…()` returns a new instance) and is
 itself a PSR-15 `RequestHandlerInterface`:
 
@@ -281,7 +281,7 @@ produces:
 ```
 
 A `POST https://example.test/articles` with a JSON:API body creates a resource.
-The schema hydrates the new `Article`, the handler saves it, and the response
+The Resource class hydrates the new `Article`, the handler saves it, and the response
 echoes the created resource (with the server-generated `id`):
 
 ```json
@@ -299,7 +299,7 @@ and the error handler middleware encodes it.
 
 ## Where to go next
 
-- [Schemas](schemas.md) — the recommended way to declare a resource type.
+- [Resources](resources.md) — the recommended way to declare a resource type.
 - [Fields](fields.md) — every field type and its fluent options.
 - [Responses](responses.md) — the five response value objects and their `with…` chaining.
 - [Server](server.md) — configuration, routing, operations, multi-version APIs.

@@ -1,11 +1,11 @@
 # Custom hydrators
 
-A custom hydrator is the escape hatch for when the [schema](schemas.md) field DSL
+A custom hydrator is the escape hatch for when the [Resource class](resources.md) field DSL
 can't express how a request body fills a domain object. You implement
 `Hydrator\HydratorInterface` (directly, or by extending `Hydrator\AbstractHydrator`)
-and register it as an override on the type, replacing the schema's hydration
+and register it as an override on the type, replacing the Resource class's hydration
 without touching its serialization. For the common case you never write one — a
-schema's `fields()` declaration hydrates for you — so reach for this only when a
+Resource class's `fields()` declaration hydrates for you — so reach for this only when a
 write needs logic a field walk can't model.
 
 ## When to write one
@@ -168,9 +168,9 @@ one method.
 
 ## Registering it as an override
 
-Register the hydrator alongside the schema with the `hydrator:` argument. The
-registry resolves the override ahead of the schema for hydration and falls back
-to the schema for serialization, so you keep the schema's field-driven output:
+Register the hydrator alongside the Resource class with the `hydrator:` argument. The
+registry resolves the override ahead of the Resource class for hydration and falls back
+to the Resource class for serialization, so you keep the Resource class's field-driven output:
 
 ```php
 $server = Server::make()
@@ -178,8 +178,8 @@ $server = Server::make()
     ->register(ArticleResource::class, hydrator: ArticleHydrator::class);
 ```
 
-You can also register a bare hydrator with no schema at all (paired with a custom
-[serializer](resources.md)) when a type has no field declaration.
+You can also register a bare hydrator with no Resource class at all (paired with a custom
+[serializer](serializers.md)) when a type has no field declaration.
 
 > **Local IDs (`lid`).** JSON:API 1.1 local ids are supported at the data-model
 > level: a relationship referencing a not-yet-created resource by `lid` parses and
@@ -191,7 +191,7 @@ You can also register a bare hydrator with no schema at all (paired with a custo
 
 ## Related pages
 
-- [Schemas](schemas.md) — the field DSL this interface is the escape hatch from.
-- [Resources](resources.md) — the matching read-side (serializer) escape hatch.
+- [Resources](resources.md) — the field DSL this interface is the escape hatch from.
+- [Resources](serializers.md) — the matching read-side (serializer) escape hatch.
 - [Server](server.md) — the registry, overrides, and `hydratorFor()`.
 - [Exceptions](exceptions.md) — the typed exceptions a hydrator throws.

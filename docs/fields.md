@@ -1,6 +1,6 @@
 # Fields
 
-A field is one entry in a [schema](schemas.md)'s `fields()` list. Each field
+A field is one entry in a [Resource class](resources.md)'s `fields()` list. Each field
 describes one member of a resource type — the `id`, an attribute, or a
 relationship — and that single declaration drives both directions: how the
 member is serialized out of a domain object and how it is hydrated back into one.
@@ -53,7 +53,7 @@ order. You never wire it up explicitly.
 |---|---|
 | `hidden()` | Drops the field from output entirely. |
 | `notSparseField()` | Exempts the field from sparse-fieldset (`?fields[type]=…`) filtering, so it is always emitted. |
-| `sortable()` | Marks the field as sortable; the schema's `allSorts()` derives a [`SortByField`](sorts.md) for it. |
+| `sortable()` | Marks the field as sortable; the Resource class's `allSorts()` derives a [`SortByField`](sorts.md) for it. |
 
 ### Read-only contexts
 
@@ -70,7 +70,7 @@ matching context.
 
 When the accessor and per-type casting are not enough, override a single
 member's behaviour with a closure. These are escape hatches for one field; for a
-whole resource type, drop to a custom [serializer](resources.md) or
+whole resource type, drop to a custom [serializer](serializers.md) or
 [hydrator](hydrators.md) instead.
 
 | Method | Closure signature | Replaces |
@@ -133,7 +133,7 @@ Id::make()->uuid(4);   // constrains a client-generated id to UUID v4
 ```
 
 > A client-supplied `id` is rejected by default. See
-> [Schemas](schemas.md#how-fields-drive-hydration) for opting in and controlling
+> [Resources](resources.md#how-fields-drive-hydration) for opting in and controlling
 > server-side id generation.
 
 ### `Str`
@@ -358,7 +358,7 @@ MorphTo::make('commentable')->types('articles', 'videos');
 
 ## Related pages
 
-- [Schemas](schemas.md) — declaring `fields()` and how they drive serialization/hydration.
+- [Resources](resources.md) — declaring `fields()` and how they drive serialization/hydration.
 - [Validation](validation.md) — the constraint vocabulary and the create/update context model.
 - [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata (`sortable()` feeds `allSorts()`).
-- [Resources](resources.md) / [Hydrators](hydrators.md) — the per-type escape hatches.
+- [Resources](serializers.md) / [Hydrators](hydrators.md) — the per-type escape hatches.

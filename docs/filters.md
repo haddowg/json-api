@@ -14,7 +14,7 @@ typed metadata, adapters ship the translators that execute it. See
 
 ## Declaring the filters a type accepts
 
-A schema lists the filters it exposes by overriding `filters()`. Each entry is a
+A Resource class lists the filters it exposes by overriding `filters()`. Each entry is a
 filter value object built with its `make()` named constructor:
 
 ```php
@@ -158,7 +158,7 @@ final readonly class FullTextSearch implements Filter
 }
 ```
 
-List it in a schema's `filters()` like any built-in. For it to do anything, a
+List it in a Resource class's `filters()` like any built-in. For it to do anything, a
 handler must recognise it: a `FilterHandler` that receives a `Filter` it does not
 know throws [`UnsupportedFilter`](#unsupported-filters), so a custom filter and a
 handler that understands it are written together. The handler side — including a
@@ -180,5 +180,5 @@ document automatically. It exposes the offending filter via its public
 
 - [Adapters](adapters.md) — the handler side: applying filters against your data layer.
 - [Sorts](sorts.md) — the same metadata/handler split for the `sort` parameter.
-- [Schemas](schemas.md) — declaring `filters()` on a resource type.
+- [Resource classes](resources.md) — declaring `filters()` on a resource type.
 - [Validation](validation.md) — the constraint metadata this pattern mirrors.

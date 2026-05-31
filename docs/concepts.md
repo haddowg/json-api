@@ -4,13 +4,13 @@ This page explains the JSON:API document model as `haddowg/json-api` represents
 it, and pins down the vocabulary the rest of the documentation relies on. It is
 conceptual: it describes the structures the spec defines and where each lives in
 the codebase, but it is not a how-to. For building responses see
-[Responses](responses.md); for declaring a resource type see [Schemas](schemas.md).
+[Responses](responses.md); for declaring a resource type see [Resources](resources.md).
 
 The [JSON:API 1.1 specification](https://jsonapi.org/format/1.1/) defines the
 shape of every message exchanged with the API. The library models those shapes as
 a layered set of value objects. Most are `@internal` — the serialization engine
 builds them for you and you never construct one — but understanding the model
-makes the consumer-facing surface (schemas, response value objects) much easier to
+makes the consumer-facing surface (Resource classes, response value objects) much easier to
 reason about.
 
 ## Vocabulary
@@ -21,20 +21,22 @@ the documentation keeps them apart:
 
 - **Resource object** — the spec structure `{type, id, attributes, relationships}`
   that appears inside a document's `data` (and inside `included`). This is "a
-  resource" in the spec sense. The engine produces it from your schema; it is not
-  a class you instantiate.
-- **Schema** — a [`Resource\AbstractResource`](schemas.md) subclass. This is a
-  *per-type serializer + hydrator*: one `fields()` declaration that tells the
+  resource" in the spec sense. The engine produces it as a plain array from your
+  Resource class; it is not a class you instantiate (there is no `ResourceObject`
+  class).
+- **Resource class** — a [`Resource\AbstractResource`](resources.md) subclass. This
+  is a *per-type serializer + hydrator*: one `fields()` declaration that tells the
   engine how to turn a domain object into a resource object and how to fill a
-  domain object from a request. When this documentation says "schema" it means an
-  `AbstractResource` subclass.
-- **Serializer** — a hand-written `Serializer\SerializerInterface` implementation.
-  This is "a resource" in *yin's* sense (yin called the interface
-  `ResourceInterface`). It is the escape hatch you reach for when the field walk
-  isn't enough; see [Custom serializers](resources.md).
+  domain object from a request. It is the recommended surface you write to describe
+  a JSON:API resource type.
+- **Serializer / Hydrator** — the lower-level `Serializer\SerializerInterface` /
+  `Hydrator\HydratorInterface` contracts a Resource class satisfies. The serializer
+  is "a resource" in *yin's* sense (yin called the interface `ResourceInterface`).
+  Either is usable directly as an escape hatch when the field walk isn't enough; see
+  [Custom serializers](serializers.md).
 
-So: a *schema* and a *serializer* both produce *resource objects*. The 95% path is
-to write a schema and never touch the other two terms.
+So: a *Resource class* and a *serializer* both produce *resource objects*. The 95%
+path is to write a Resource class and never touch the other two terms.
 
 ## Documents
 
@@ -60,9 +62,9 @@ Every document shares three optional top-level members, captured by
 ## Resource objects
 
 A resource object is the `{type, id, attributes, relationships}` structure inside
-`data`. The library builds it field-by-field from your [schema](schemas.md): the
+`data`. The library builds it field-by-field from your [Resource class](resources.md): the
 `Id` field becomes the top-level `id`, attribute fields become `attributes`, and
-relationship fields become `relationships`. The `type` member is the schema's
+relationship fields become `relationships`. The `type` member is the Resource class's
 static `$type`.
 
 ```json
@@ -77,9 +79,9 @@ static `$type`.
 ```
 
 Sparse fieldsets (`?fields[articles]=title`) and inclusion (`?include=author`) are
-applied by the engine as it walks the schema — the schema emits every eligible
-field and the engine narrows the output to match the request. See
-[Schemas](schemas.md#how-fields-drive-serialization).
+applied by the engine as it walks the Resource class — the Resource class emits every
+eligible field and the engine narrows the output to match the request. See
+[Resources](resources.md#how-fields-drive-serialization).
 
 ## Resource identifiers
 
@@ -135,7 +137,7 @@ needs:
   parsed linkage from a request body; an empty linkage (`null`/`[]`) means "clear
   the relationship".
 
-When you use a [schema](schemas.md#relationships) you declare relationships as
+When you use a [Resource class](resources.md#relationships) you declare relationships as
 fields (`BelongsTo`, `HasMany`, …) and never touch either family directly — the
 field bridges to both.
 
@@ -213,7 +215,7 @@ returning an [`ErrorResponse::fromErrors()`](responses.md).
 ## Related pages
 
 - [Responses](responses.md) — the response value objects that produce documents.
-- [Schemas](schemas.md) — declaring a resource type's fields.
+- [Resources](resources.md) — declaring a resource type's fields.
 - [Errors](errors.md) — how errors propagate and render.
 - [Exceptions](exceptions.md) — the typed exception hierarchy.
 - [Architecture](architecture.md) — how a request flows through the library.
