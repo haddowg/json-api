@@ -54,6 +54,9 @@ final class DocumentTransformer
 
         $transformation->document->initializeTransformation($transformation);
         $this->transformRelationshipDataMembers($transformation);
+        // A relationship document MAY also carry top-level jsonapi/meta/links; merge
+        // them on top of the relationship's own data/links/meta (yin omitted these).
+        $this->transformMetaMembers($transformation);
         $transformation->document->clearTransformation();
 
         return $transformation;
@@ -81,13 +84,24 @@ final class DocumentTransformer
             $meta[$metaKey] = $metaValue;
         }
 
+        // Merge document-level meta *under* anything already present (the relationship
+        // document path sets the relationship's own meta first), so document meta is
+        // additive and the more specific members win on key conflict.
+        $existingMeta = $transformation->result['meta'] ?? [];
+        if (\is_array($existingMeta)) {
+            $meta = \array_merge($meta, $existingMeta);
+        }
+
         if ($meta !== []) {
             $transformation->result['meta'] = $meta;
         }
 
         $links = $transformation->document->getLinks();
         if ($links !== null) {
-            $transformation->result['links'] = $links->transform();
+            $existingLinks = $transformation->result['links'] ?? [];
+            $transformation->result['links'] = \is_array($existingLinks)
+                ? \array_merge($links->transform(), $existingLinks)
+                : $links->transform();
         }
     }
 

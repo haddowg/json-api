@@ -14,6 +14,7 @@ final readonly class ErrorSource
     public function __construct(
         public string $pointer,
         public string $parameter,
+        public string $header = '',
     ) {}
 
     /**
@@ -33,6 +34,14 @@ final readonly class ErrorSource
     }
 
     /**
+     * The name of the request header that caused the error.
+     */
+    public static function fromHeader(string $header): self
+    {
+        return new self('', '', $header);
+    }
+
+    /**
      * @internal Serializes the object to its JSON:API representation.
      *
      * @return array<string, string>
@@ -47,6 +56,10 @@ final readonly class ErrorSource
 
         if ($this->parameter !== '') {
             $content['parameter'] = $this->parameter;
+        }
+
+        if ($this->header !== '') {
+            $content['header'] = $this->header;
         }
 
         return $content;

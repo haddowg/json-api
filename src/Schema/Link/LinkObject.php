@@ -26,9 +26,8 @@ readonly class LinkObject extends Link
         public string $type = '',
         public string $hreflang = '',
         array $meta = [],
+        public ?Link $describedby = null,
     ) {
-        // TODO: `describedby` (a nested Link) is deferred until the Links
-        //       containers are ported in a later batch.
         parent::__construct($href, $meta);
     }
 
@@ -61,6 +60,10 @@ readonly class LinkObject extends Link
 
         if ($this->meta !== []) {
             $link['meta'] = $this->meta;
+        }
+
+        if ($this->describedby !== null) {
+            $link['describedby'] = $this->describedby->transform($baseUri);
         }
 
         return $link;
