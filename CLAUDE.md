@@ -303,7 +303,11 @@ bundled `json-api-schema.json` + `justinrainbow/json-schema`) is **deferred** â€
 negotiation + JSON well-formedness only. yin's `AbstractMessageValidator` was **not
 ported as a class**: once schema validation is removed nothing is genuinely shared
 between request and response linting, so its remnants were folded into the two
-validators rather than leaving an empty base.
+validators rather than leaving an empty base. The JSON:API media-type-parameter rule
+(`application/vnd.api+json` may only carry a `profile` parameter â€” yin-faithful, `ext`
+not yet handled) lives in one place, `@internal Request\MediaType::isValid()`, consumed by
+both `JsonApiRequest`'s Content-Type/Accept validation and `ResponseValidator`'s
+Content-Type validation.
 
 ### Hydrators
 

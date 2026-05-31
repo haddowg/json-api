@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Negotiation;
 
 use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\ResponseBodyInvalidJson;
+use haddowg\JsonApi\Request\MediaType;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -37,14 +38,7 @@ final class ResponseValidator
     {
         $header = $response->getHeaderLine('content-type');
 
-        if ($header === '') {
-            return;
-        }
-
-        $matches = [];
-        $isMatching = \preg_match('/^.*application\/vnd\.api\+json\s*;\s*([A-Za-z0-9]+)\s*=.*$/i', $header, $matches);
-
-        if ($isMatching === 1 && (!isset($matches[1]) || \strtolower($matches[1]) !== 'profile')) {
+        if (MediaType::isValid($header) === false) {
             throw new MediaTypeUnsupported($header);
         }
     }

@@ -157,13 +157,7 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
     protected function isValidMediaTypeHeader(string $headerName): bool
     {
-        $header = $this->getHeaderLine($headerName);
-
-        // The media type is modified by media type parameters — only "profile" is allowed
-        $matches = [];
-        $isMatching = \preg_match('/^.*application\/vnd\.api\+json\s*;\s*([A-Za-z0-9]+)\s*=.*$/i', $header, $matches);
-
-        return $isMatching === 0 || (isset($matches[1]) && \strtolower($matches[1]) === 'profile');
+        return MediaType::isValid($this->getHeaderLine($headerName));
     }
 
     protected function parseHeaderProfiles(string $headerName): void
