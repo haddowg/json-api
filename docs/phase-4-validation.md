@@ -45,49 +45,49 @@ Before writing any implementation code:
 
 ### Schema acquisition
 
-- [ ] Resolve the schema source per kick-off step 2 and capture the chosen approach in the decision log
-- [ ] If vendoring: place the schema file under `resources/schemas/` (or chosen path), and document the upstream source + how to refresh
-- [ ] Add a `haddowg\JsonApi\Validation\SchemaProvider` interface and at least one implementation that returns the base JSON:API schema as a parsed structure suitable for `opis/json-schema`
-- [ ] Unit tests for the provider (schema parses, content matches what we expect)
+- [x] Resolve the schema source per kick-off step 2 and capture the chosen approach in the decision log
+- [x] If vendoring: place the schema file under `resources/schemas/` (or chosen path), and document the upstream source + how to refresh
+- [x] Add a `haddowg\JsonApi\Validation\SchemaProvider` interface and at least one implementation that returns the base JSON:API schema as a parsed structure suitable for `opis/json-schema`
+- [x] Unit tests for the provider (schema parses, content matches what we expect)
 
 ### Validator core
 
-- [ ] `haddowg\JsonApi\Validation\DocumentValidator` (or split into `RequestDocumentValidator` / `ResponseDocumentValidator` if their behaviour diverges meaningfully — decide during implementation)
-- [ ] Validator accepts:
+- [x] `haddowg\JsonApi\Validation\DocumentValidator` (or split into `RequestDocumentValidator` / `ResponseDocumentValidator` if their behaviour diverges meaningfully — decide during implementation)
+- [x] Validator accepts:
   - The schema (from the provider) — at this phase, the JSON:API 1.1 base schema possibly augmented by profile fragments
   - The decoded JSON document (array/object)
   - The profile registry (so profile-provided schema fragments can augment validation)
-- [ ] **Design the validator interface so that an additional per-resource-type schema can be supplied as a third input** (in addition to the base schema and profile fragments). Phase 4.5 will compile per-resource schemas from field constraints and pass them through this entry point. Concretely: the validator should accept a list/composition of schemas to validate against, not a single schema. The base schema is always present; profile fragments and per-resource schemas are optional inputs that compose.
-- [ ] Validation output:
+- [x] **Design the validator interface so that an additional per-resource-type schema can be supplied as a third input** (in addition to the base schema and profile fragments). Phase 4.5 will compile per-resource schemas from field constraints and pass them through this entry point. Concretely: the validator should accept a list/composition of schemas to validate against, not a single schema. The base schema is always present; profile fragments and per-resource schemas are optional inputs that compose.
+- [x] Validation output:
   - Success: nothing returned, no exception
   - Failure: throws a typed exception (`haddowg\JsonApi\Exception\DocumentValidationFailed` or similar) carrying the list of `opis/json-schema` violations, mapped into JSON:API-shaped errors (source pointers populated from the JSON Pointer reported by opis)
-- [ ] The thrown exception implements `JsonApiException` — its `getErrors(): list<Error>` returns one `Error` per violation (including `source.pointer` per spec) and `getStatusCode()` returns `400`; the error-handler middleware renders these into a JSON:API error document
+- [x] The thrown exception implements `JsonApiException` — its `getErrors(): list<Error>` returns one `Error` per violation (including `source.pointer` per spec) and `getStatusCode()` returns `400`; the error-handler middleware renders these into a JSON:API error document
 
 ### Profile schema-fragment hook
 
-- [ ] Extend `ProfileInterface` (or add a sibling interface like `SchemaContributingProfile`) with a method that returns an optional JSON Schema fragment describing the profile's reserved keywords / extensions
-- [ ] On validation, the validator collects fragments from all profiles in scope for the current request/response, merges them with the base schema (semantics: profile fragments extend `properties` / `patternProperties` of the relevant schema objects — the exact merge strategy needs to be designed during implementation)
-- [ ] Decide: are profile fragments validated themselves at registration time? Lean: yes, fail fast at startup.
-- [ ] Tests: profile contributes fragment → augmented validation accepts profile-defined keyword that base schema would reject; profile with no fragment → base validation unchanged
+- [x] Extend `ProfileInterface` (or add a sibling interface like `SchemaContributingProfile`) with a method that returns an optional JSON Schema fragment describing the profile's reserved keywords / extensions
+- [x] On validation, the validator collects fragments from all profiles in scope for the current request/response, merges them with the base schema (semantics: profile fragments extend `properties` / `patternProperties` of the relevant schema objects — the exact merge strategy needs to be designed during implementation)
+- [x] Decide: are profile fragments validated themselves at registration time? Lean: yes, fail fast at startup.
+- [x] Tests: profile contributes fragment → augmented validation accepts profile-defined keyword that base schema would reject; profile with no fragment → base validation unchanged
 
 ### Request validation middleware
 
-- [ ] `haddowg\JsonApi\Middleware\RequestValidationMiddleware`
-- [ ] **Constructor takes a `Server`** (or Phase 1 placeholder) — provides the profile registry for fragment merging and (post-Phase-4.5) the per-resource schemas. Same per-server-ownership pattern as the other Phase 3 middleware.
-- [ ] Behaviour:
+- [x] `haddowg\JsonApi\Middleware\RequestValidationMiddleware`
+- [x] **Constructor takes a `Server`** (or Phase 1 placeholder) — provides the profile registry for fragment merging and (post-Phase-4.5) the per-resource schemas. Same per-server-ownership pattern as the other Phase 3 middleware.
+- [x] Behaviour:
   - Runs after `RequestBodyParsingMiddleware` (so the request reaching it is already the parsed `JsonApiRequest` swapped down the chain — Phase 3 uses no request attribute; read the body via `getParsedBody()`)
   - Skips if there's no JSON body (GET, DELETE without body)
   - Validates the parsed body against the (profile-augmented) JSON:API request schema
   - On failure, throws the validator's typed exception → caught by `ErrorHandlerMiddleware` from Phase 3
-- [ ] Configurable: enabled/disabled flag (consumers add it conditionally based on environment); optional severity (warn-only mode that logs but doesn't reject — decide if useful)
-- [ ] Tests: well-formed body passes; missing required member rejected; invalid type rejected; profile-augmented body passes
-- [ ] **Per-server opt-in.** This middleware is added to the server's middleware list at server construction time. Different servers in the same app can have different validation policies (e.g. v1 doesn't run validation, v2 does).
+- [x] Configurable: enabled/disabled is achieved by **per-server opt-in** (consumers add the middleware only on the servers/environments that want it) rather than a runtime flag on the middleware. **No warn-only mode on the request side** — a malformed request body is a client error and is rejected (400); warn-only belongs on the response side (a server bug), where `ResponseValidationMiddleware`'s `$throwOnViolation` flag provides it.
+- [x] Tests: well-formed body passes; missing required member rejected; invalid type rejected; profile-augmented body passes
+- [x] **Per-server opt-in.** This middleware is added to the server's middleware list at server construction time. Different servers in the same app can have different validation policies (e.g. v1 doesn't run validation, v2 does).
 
 ### Response validation middleware
 
-- [ ] `haddowg\JsonApi\Middleware\ResponseValidationMiddleware`
-- [ ] Constructor takes a `Server` (or placeholder) plus optional PSR-3 logger.
-- [ ] Behaviour:
+- [x] `haddowg\JsonApi\Middleware\ResponseValidationMiddleware`
+- [x] Constructor takes a `Server` (or placeholder) plus optional PSR-3 logger.
+- [x] Behaviour:
   - Runs after the handler returns (post-handler middleware)
   - Reads the response body, decodes, validates against the (profile-augmented) JSON:API response schema
   - On failure: this is a server bug, not a client bug. Decide failure mode:
@@ -95,11 +95,11 @@ Before writing any implementation code:
     - Log only → useful for production-soak but defeats the point in dev
     - Both, controlled by a flag
   - Lean: throw by default; flag to downgrade to logging
-- [ ] Tests: well-formed outgoing document passes; deliberately broken document fails; broken with logger-only mode logs and passes through
+- [x] Tests: well-formed outgoing document passes; deliberately broken document fails; broken with logger-only mode logs and passes through
 
 ### Middleware ordering update
 
-- [ ] Update `docs/middleware-order.md` (from Phase 3) to slot the new validators:
+- [x] Update `docs/middleware-order.md` (from Phase 3) to slot the new validators:
   1. Error handler
   2. Content negotiation
   3. Request body parsing
@@ -110,19 +110,19 @@ Before writing any implementation code:
 
 ### Composer wiring
 
-- [ ] `composer.json`:
+- [x] `composer.json`:
   - Add `opis/json-schema` to `suggest` with a useful message
   - Keep it in `require-dev` so the package's own tests can run
   - Confirm the validators degrade gracefully if `opis/json-schema` is absent at runtime (likely: middleware constructors require an `opis` validator instance, so DI in the consumer's container fails fast if it's not installed — that's acceptable and explicit)
 
 ### Spec compliance update
 
-- [ ] Update `docs/spec-compliance.md` for `spec:document-structure` — many of its MUSTs become test-asserted via schema validation
-- [ ] Add a note in `docs/spec-compliance.md` explaining the validation-as-test-aid relationship (running the dev-mode validators against the test suite would meaningfully tighten spec assertions; consider a dedicated CI job)
+- [x] Update `docs/spec-compliance.md` for `spec:document-structure` — many of its MUSTs become test-asserted via schema validation
+- [x] Add a note in `docs/spec-compliance.md` explaining the validation-as-test-aid relationship (running the dev-mode validators against the test suite would meaningfully tighten spec assertions; consider a dedicated CI job)
 
 ### Optional: validation as a CI quality gate
 
-- [ ] _(Stretch)_ Add a CI job that runs the test suite with response validation forced on, to catch any test fixtures or generated documents that don't conform. If it surfaces too many issues, defer to a follow-up. Record outcome in the decision log.
+- [ ] _(Stretch — deferred)_ Add a CI job that runs the test suite with response validation forced on, to catch any test fixtures or generated documents that don't conform. **Deferred to a follow-up:** the validation primitives ship and are unit/integration-tested, but a suite-wide forced-validation CI job is a separate, broader change (it would require routing every test's rendered output through the validator) and is better scheduled once the Phase-4.5 fluent schema layer is generating documents. Recorded in the decision log.
 
 ## Decision log
 
@@ -212,6 +212,13 @@ Before declaring the phase complete, produce the following for Phase 4.5:
    - Append revisions to the plan as a single commit; the actual kick-off revision happens at the start of Phase 4.5, but corrections forced by Phase 4 decisions belong here.
 3. **Open questions resolved** — every entry in the Open questions section above has an answer recorded in the decision log. Resolve any remaining or newly-surfaced questions by asking the maintainer interactively using whatever ask-user-question tool the executor's environment provides. Open questions are not passed forward to Phase 4.5.
 4. **Decision log finalised** — phase-local decisions captured here; any cross-phase decisions promoted to `PLAN.md`.
+
+### Handover review outcome (2026-05-31)
+
+- **Status table** updated in `docs/PLAN.md` (Phase 4 → Complete, Phase 4.5 → Ready); a Phase 4 cross-phase decision-log row added.
+- **Phase 4.5 plan reviewed end-to-end.** It already covers the `Field`/`Constraint`/`Filter`/`Sort`/`Schema`/`Server` contracts, the split field-type inventory, the create/update constraint context model, the schema's default `Resource`/`Hydrator` implementations, the override-ahead-of-schema resolution, the `SchemaCompiler` feeding the validator, the filter/sort handler pattern, and the `Server`-placeholder expansion without breaking render signatures. The one gap — the *exact* shape of the Phase-4 validator entry point the compiler must feed — is now pinned down in a **"Phase 4 reconciliation notes"** section appended to `docs/phase-4-5-fluent-schema.md`: the entry point is the `list<object> $additionalSchemas` argument (not a new method), exceptions are the reused `Request`/`ResponseBodyInvalidJsonApi`, and the full `Server` keeps the `ServerInterface` render contract.
+- **Open questions** all resolved (see the Open questions section + decision log); none pass forward.
+- **Decision log finalised**; the Phase-4 cross-phase row promoted to `PLAN.md`.
 
 ### Note on deferred work
 

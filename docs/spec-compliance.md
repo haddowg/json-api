@@ -37,6 +37,18 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ✅ test | `Schema\Resource\AbstractResource`/`ResourceInterface` (consumer extension point) + `Transformer\ResourceTransformer`. `AbstractResourceTest`, `ResourceTransformerTest`. |
 | Resource identifier objects (`type`, `id`/`lid`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates `type` + at-least-one-of(`id`,`lid`) and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `transform()` emits whichever of `id`/`lid`/`meta` are present. `ResourceIdentifierTest`. |
 | Compound documents / `included` | ✅ test | `Transformer\ResourceTransformer` + `DocumentTransformer` build the `included` array with resource dedup (primary takes precedence) via the `Schema\Data` accumulator. `ResourceTransformerTest`, `DocumentTransformerTest`. |
+| Whole-document structural conformance (top-level member rules, resource/identifier/relationship/error shapes, member-name patterns, `data` XOR `errors`, `id`-optional-on-create) | ✅ test (opt-in) | `Validation\DocumentValidator` validates a decoded document against the vendored JSON:API 1.1 JSON Schema (draft 2020-12, `opis/json-schema`), with separate request/response roots. Violations carry the offending JSON pointer as `source.pointer`. Exercised by `DocumentValidatorTest`, `VendoredSchemaProviderTest`, `Request`/`ResponseValidationMiddlewareTest` (`#[Group('spec:document-structure')]`). **Opt-in** (dev/CI), via the two validation middleware; requires the suggested `opis/json-schema`. |
+
+> **Validation as a test aid.** The dev/CI validators turn many of the
+> `spec:document-structure` MUSTs above from "asserted by a hand-written unit
+> test" into "asserted by the JSON:API JSON Schema itself." Running the package's
+> own response renders through `ResponseValidationMiddleware` (or
+> `DocumentValidator::validateResponse()` directly) in the test suite would
+> meaningfully tighten spec coverage by checking generated documents against the
+> schema rather than against bespoke assertions. A dedicated CI job that forces
+> response validation on across the suite is a worthwhile follow-up (see the
+> Phase 4 plan's stretch task); it is **not** wired by default so that the core
+> suite does not depend on `opis/json-schema` being installed.
 
 ## Errors (`spec:errors`)
 
@@ -99,7 +111,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. Only `ext` and `profile` are permitted media-type params (`Request\MediaType::isValid()`, quote-aware multi-instance split); any other param → 415/406. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). JSON-schema body validation is deferred (later phase). |
+| `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. Only `ext` and `profile` are permitted media-type params (`Request\MediaType::isValid()`, quote-aware multi-instance split); any other param → 415/406. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). Optional JSON-schema body validation now ships separately — see `spec:document-structure` (`Validation\DocumentValidator`). |
 | `ext` parameter negotiation (415/406 on unsupported extensions) | ✅ test | `RequestValidator(string ...$supportedExtensions)` rejects an `ext` not in its supported set: 415 on `Content-Type`, 406 on `Accept`. Empty supported set by default (no extensions shipped — the hook a post-1.0 Atomic Operations `ext` plugs into). `RequestValidatorTest`, `ExtensionTest`. |
 | Content negotiation as PSR-15 middleware | ✅ test | `Middleware\ContentNegotiationMiddleware(string ...$supportedExtensions)` runs header/ext negotiation + query-param validation on the request, wraps it in `JsonApiRequest`, and passes it down the chain; rejections render via the error handler. Profiles flow through (advisory). `ContentNegotiationMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
 | Request body parsing as PSR-15 middleware | ✅ test | `Middleware\RequestBodyParsingMiddleware` forces an early JSON decode when a body is present (malformed → `RequestBodyInvalidJson` → 400) and passes the wrapped request down; bodyless requests untouched. `RequestBodyParsingMiddlewareTest`. |

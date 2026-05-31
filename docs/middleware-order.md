@@ -29,14 +29,22 @@ Outermost first (the outermost middleware wraps every middleware below it):
 3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode of the
    request body (when a body is present) so malformed JSON surfaces as a `400`
    here rather than inside the handler. A bodyless request passes through.
-4. _(**Atomic-operations dispatch** — reserved slot, post-1.0 candidate. When
+4. **`RequestValidationMiddleware`** _(optional, dev/CI)_ — validates the parsed
+   request body against the JSON:API request JSON Schema (augmented by in-scope
+   profile fragments). A violation throws `RequestBodyInvalidJsonApi` (`400`),
+   rendered by the outermost error handler. Bodyless requests pass through. Runs
+   after body parsing so it receives the already-parsed request. Requires the
+   optional `opis/json-schema` package; **per-server opt-in** (add it only where
+   you want validation, e.g. a dev/CI server). See
+   [`spec-compliance.md`](./spec-compliance.md) for the spec sections it asserts.
+5. _(**Atomic-operations dispatch** — reserved slot, post-1.0 candidate. When
    implemented, this middleware reads the `atomic:operations` array from the
    parsed body, constructs one `JsonApiOperation` per member, dispatches each
    through the inner `OperationHandler`, and aggregates the results into an
    `atomic:results` document. It sits **after** body parsing because it needs the
    parsed body to enumerate operations, and **before** the handler because it
    controls dispatch. No code ships for this slot in 1.0.)_
-5. **Handler** — innermost. The recommended handler is an
+6. **Handler** — innermost. The recommended handler is an
    `Operation\OperationHandler` wrapped in `Operation\Psr7ToOperationHandlerAdapter`,
    which turns the PSR-7 request into the matching `JsonApiOperation`, invokes the
    consumer handler, and renders the returned response value object
@@ -46,10 +54,25 @@ Outermost first (the outermost middleware wraps every middleware below it):
    not `ResponseInterface`, so a bare PSR-15 handler cannot return one — render
    via the adapter, or call `$response->toPsrResponse($server, $request)`
    yourself.)
+7. **`ResponseValidationMiddleware`** _(optional, dev/CI)_ — validates the
+   **outgoing** rendered document against the JSON:API response JSON Schema
+   (augmented by in-scope profile fragments) as the response unwinds. A failing
+   response is a server bug: by default it throws `ResponseBodyInvalidJsonApi`
+   (`500`); a flag downgrades that to logging the violations and passing the
+   response through. Only `application/vnd.api+json` responses with a body are
+   checked. **Placement:** this middleware is added **just inside the error
+   handler** and outside negotiation/body-parsing — that way its check runs last
+   on the unwind (it sees the fully rendered PSR-7 response the adapter produced)
+   and a thrown `ResponseBodyInvalidJsonApi` bubbles up to the outermost error
+   handler, which renders the `500`. Requires `opis/json-schema`; **per-server
+   opt-in**.
 
 The order is a **recommendation, not a constraint** — a server can be built with
 any middleware list. The error handler being outermost is the only firm
-recommendation.
+recommendation. The two validation middleware (4, 7) are optional and intended
+for dev/CI: enable them per-server (e.g. on a staging/v2 server but not in
+production), and only the package's `opis/json-schema` suggestion needs
+installing where they run.
 
 ## How the parsed request flows
 

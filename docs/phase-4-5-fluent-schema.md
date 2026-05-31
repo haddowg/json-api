@@ -520,3 +520,60 @@ Before declaring the phase complete, produce the following for Phase 5:
 - **Doctrine `FilterHandler` and `SortHandler`, Symfony bundle integration, generators, eager-load planning, authorization, validation execution** all live in the Symfony bundle. The contracts established here are the integration surface.
 - **OpenAPI spec generation** will consume the same `Field` and `Constraint` metadata that the JSON Schema compiler does, plus the per-verb operation classes for path enumeration. No additional metadata or hooks are needed in this phase; the post-1.0 generator can be designed against the 1.0 schema layer as-is.
 - **`HtmlString` / `RichText` field**, **richer `ArrayHash` key-case helpers**, **full pivot-field validation**, **`Map::on()` semantics** — deferred to post-1.0 minors, scheduled when concrete consumers appear.
+
+## Phase 4 reconciliation notes (appended at Phase 4 close)
+
+These corrections are forced by Phase 4 decisions; fold them into the plan at the
+Phase 4.5 kick-off revision (see `docs/phase-4-validation.md` decision log).
+
+- **The validator entry point for per-resource schemas already exists and is a
+  list, not a third positional argument.** `Validation\DocumentValidator` exposes
+  `validateRequest(mixed $document, list<object> $additionalSchemas = [])` and
+  `validateResponse(...)` with the same shape. Both the profile fragments (Phase 4)
+  and this phase's **compiled per-resource schema** are passed as entries of
+  `$additionalSchemas`; the validator composes them with the base/request root via
+  `allOf`. **No new validator method or signature change is needed** — the
+  `SchemaCompiler` simply produces a decoded JSON Schema object (`stdClass`) and the
+  request-validation path adds it to that list. (The plan's "third input" is
+  realised as "one more entry in the composition list.")
+- **`SchemaCompiler` output shape.** Produce a decoded JSON Schema (draft 2020-12)
+  `stdClass` — the same form `SchemaContributingProfile::schemaFragment()` returns —
+  so it drops straight into `$additionalSchemas`. A per-resource schema *tightens*
+  (`allOf`), typically via `{"properties":{"data":{"properties":{"attributes":{…},
+  "relationships":{…}}}}}`; it does not need to relax `unevaluatedProperties` (only
+  top-level profile members do, and that relocation is already handled by
+  `VendoredSchemaProvider`/the composite). Compile create vs update contexts to two
+  schemas (the `Required`/`requiredOnCreate`/`requiredOnUpdate` split maps to
+  `required` arrays per context).
+- **Wiring the per-resource schema into `RequestValidationMiddleware`.** The
+  Phase 4 middleware is `RequestValidationMiddleware(ServerInterface $server,
+  DocumentValidator $validator)` and currently gathers only profile fragments (via
+  `@internal Validation\Internal\ProfileSchemaCollector`). This phase extends the
+  request path to also look up the compiled schema for the request's resource type
+  from the `Server`'s schema registry (the `Server` is already injected) and append
+  it to the `$additionalSchemas` passed to `validateRequest()`. Decide whether the
+  lookup lives in the middleware or a small collaborator beside
+  `ProfileSchemaCollector`; either way the validator API is unchanged.
+- **Exceptions are reused, not new.** Validation failures throw the existing
+  `Exception\RequestBodyInvalidJsonApi` (400) and `Exception\ResponseBodyInvalidJsonApi`
+  (500) — there is **no** `DocumentValidationFailed` class. The compiler/middleware
+  tests (task "JSON Schema compiler tests … correct `source.pointer`") should assert
+  against those types and their `validationErrors` (`list<array{message, property?}>`,
+  where `property` is the JSON pointer that becomes `Error::$source->pointer`).
+- **`assertJsonApiSpecCompliant(mixed $document)`** (testing-utilities task) wraps
+  `DocumentValidator::validateResponse($document)` and converts a thrown
+  `ResponseBodyInvalidJsonApi` into a PHPUnit failure (surfacing each violation's
+  pointer + message). It needs a `SchemaProvider` — default it to
+  `new VendoredSchemaProvider()`.
+- **`Server` placeholder → full `Server` keeps the render contract.** The full
+  `Server` must continue to implement `Server\ServerInterface` exactly as today
+  (`baseUri()`, `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`,
+  `profiles()`, `responseFactory()`, `streamFactory()`) so the response value
+  objects' `toPsrResponse()` and the validation middleware (which type-hint
+  `ServerInterface`) drop in unchanged. Add the schema/override registry as new
+  surface on top; do not alter the existing methods' signatures.
+- **`opis/json-schema` stays optional.** It is `require-dev` + `suggest` only. The
+  `SchemaCompiler` is core (it emits JSON Schema *data*, no opis dependency), but
+  anything that *runs* a validator (the middleware, `assertJsonApiSpecCompliant`)
+  requires opis at the call site — keep that boundary so production installs that
+  don't validate still don't pull opis.

@@ -534,3 +534,49 @@ final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
     }
 }
 ```
+
+### Validation (JSON Schema, optional/dev)
+
+The `Validation\*` layer adds opt-in, dev/CI JSON Schema validation of JSON:API documents, backed by
+the **optional** `opis/json-schema` (`require-dev` + `suggest`, never `require`). `SchemaProvider`
+supplies two decoded draft-2020-12 roots — `responseSchema()` (resources require `type`+`id`) and
+`requestSchema()` (client-generated resources may omit `id`, may carry `lid`) — each with a stable
+`$id`; `VendoredSchemaProvider` loads them from `resources/schemas/` (`jsonapi-1.1.json` is a
+byte-faithful copy of the upstream VGirol JSON:API 1.1 schema; `jsonapi-1.1-request.json` is authored
+and cross-`$ref`s the base's request definitions). The provider strips the base schema's document-**root**
+`unevaluatedProperties` at load time so the validator can re-apply it on its composite (see below).
+`DocumentValidator(SchemaProvider)` builds **one reusable** opis `Validator` (schemas registered in its
+resolver; `maxErrors` raised + `stopAtFirstError` off so all violations surface) and validates against a
+synthetic composite root `{ "allOf": [ {"$ref": <root id>}, …$additionalSchemas ], "unevaluatedProperties": false }`
+(content-hashed `$id` so opis caches it). `allOf` composition is the single extension point: **profile
+fragments** now and **per-resource compiled schemas** in Phase 4.5 are both just entries in
+`$additionalSchemas` (`validateRequest/Response(mixed $document, list<object> $additionalSchemas = [])`).
+Relocating the root `unevaluatedProperties` onto the composite is what lets a fragment **extend** the
+allowed top-level members (the composite's `unevaluatedProperties` sees both the base's and the
+fragments' `properties` annotations); nested `unevaluatedProperties` stay in the base. Violations are
+mapped from opis leaf errors via `ErrorFormatter::formatKeyed` (keyed by the data JSON pointer) to the
+`list<array{message, property?}>` shape the **existing** Phase-1 exceptions take — `RequestBodyInvalidJsonApi`
+(400) / `ResponseBodyInvalidJsonApi` (500) — so the typed-exception + error-handler render path is reused
+(no new `DocumentValidationFailed`). Profiles opt into contributing a fragment via the sibling interface
+`Validation\SchemaContributingProfile extends ProfileInterface` (`schemaFragment(): ?object`); the
+`@internal Validation\Internal\ProfileSchemaCollector` gathers fragments from the **in-scope** profiles
+(server-registered ∩ request-requested/required, mirroring `AbstractResponse::appliedProfiles()`).
+
+```php
+final class DocumentValidator
+{
+    public function __construct(private readonly SchemaProvider $schemaProvider) { /* register both roots in one opis Validator */ }
+    /** @param list<object> $additionalSchemas */
+    public function validateRequest(mixed $document, array $additionalSchemas = []): void { /* throw RequestBodyInvalidJsonApi on violations */ }
+}
+```
+
+The two PSR-15 middleware are **per-server opt-in** (consumers add them only on dev/CI servers; the
+injected `DocumentValidator` makes DI fail fast if opis is absent). `RequestValidationMiddleware(Server,
+DocumentValidator)` runs after body-parsing, validates the parsed body when present (skips bodyless),
+throws `RequestBodyInvalidJsonApi` (400). `ResponseValidationMiddleware(Server, DocumentValidator,
+bool $throwOnViolation = true, ?LoggerInterface)` sits just **inside** the error handler, validates the
+rendered `application/vnd.api+json` body as the response unwinds, and **throws by default** (→ 500 via the
+error handler) with the flag downgrading to log-and-pass-through. The `JsonApiMiddleware` aggregate is left
+unchanged (validation stays out of the zero-config chain). Tests tag the structural cases
+`#[Group('spec:document-structure')]`.
