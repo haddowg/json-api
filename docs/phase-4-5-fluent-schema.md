@@ -438,9 +438,24 @@ _(Appended to during execution.)_
 
 | Date | Decision | Rationale | Affects |
 |---|---|---|---|
-| _yyyy-mm-dd_ | _(example: renamed `haddowg\JsonApi\Schema\*` to `haddowg\JsonApi\Document\*` to free the `Schema` name for the fluent type)_ | _(rationale)_ | _(this phase / future phases)_ |
+| 2026-05-31 | **`Resource`, not `Schema`, is the fluent type; serializer renamed to `Serializer\*`.** Maintainer's call at kick-off: rather than the planned `Schema\*`→`Document\*` rename (which collides as `Document\Document`), rename only `Schema\Resource\*` → `Serializer\*` (`SerializerInterface`/`AbstractSerializer`) and put the fluent DSL at top-level `Resource\*`. A `Resource` thus *encapsulates* serialization + hydration, with optional explicit `Serializer`/`Hydrator` overrides. | Frees `Resource` (the more intuitive consumer name) without a `Document\Document` clash or churning the document-part namespaces; "a resource encapsulates serialisation and hydration" reads naturally. | this phase, Phase 5 docs |
+| 2026-05-31 | **Server = composed registries** (`SchemaRegistry` + `ProfileRegistry` inside `Server`), `fields()/filters()/sorts()` return **`array`**, handler `apply()` takes a **templated `mixed`** query, constraints default **`Context::always()` + per-field `onCreate()/onUpdate()` builders**, pivot fields **declare-only**, computed attributes via **`extractUsing(Closure)` + `computed()`** (null column). | Maintainer's answers to the kick-off open questions. | this phase |
+| 2026-05-31 | **Fields are mutable builders** (methods mutate + return `$this`), deliberately *not* the readonly-VO default — a field declares in one fluent expression and accumulates constraints. Casting via `serializeValue()`/`deserializeValue()` hooks; a framework-agnostic `@internal Accessor` handles array/object read-write. | The leaf-VO pattern fights a fluent accumulating builder; mutability is the right tradeoff here and is documented as a recognised exception to the readonly default. | this phase |
+| 2026-05-31 | **`SchemaCompiler` emits arrays → `stdClass` at the boundary**, composing into the **existing** `DocumentValidator::validateRequest($doc, $additionalSchemas)` list (no new validator method); wired via `@internal ResourceSchemaCollector` (concrete-`Server`-only, memoized per `[type, context]`). `When`/`Custom` skipped; fixed date bounds → `formatMin/Maximum`, closures don't round-trip. | Realises the Phase-4 reconciliation note (entry point is the list, not a new arg); array-then-convert keeps it PHPStan-L9-clean. | this phase |
+| 2026-05-31 | **`UnsupportedFilter`/`UnsupportedSort`/`NoResourceRegistered` are 500 `AbstractJsonApiException`s**; duplicate-type registration is a `\LogicException`. | Handler-not-found / unregistered-type are server-config faults (render as 500 error docs); duplicate registration is a wiring bug, never an error document. | this phase |
+| 2026-05-31 | **`Testing\*` ships in the package autoload** (not dev-only): `JsonApiDocument`/`JsonApiErrors`/`JsonApiRequestBuilder`/`JsonApiOperationBuilder`/`SpecCompliance` (+ `AssertsSpecCompliance` trait). **Out of scope (recorded):** PHPUnit `Constraint` wrappers, factories/fixtures, DB test traits, HTTP test clients. | Assertions are useful in consumer suites so they ship in `autoload`, not `autoload-dev`; the exclusions head off scope creep. | this phase, Phase 5 |
 
 ## Open questions
+
+_All resolved 2026-05-31 with the maintainer at kick-off (see decision log); none pass forward to Phase 5._
+
+- ~~`Server` shape?~~ **Composed registries** (`SchemaRegistry` + `ProfileRegistry` inside `Server`).
+- ~~`FilterHandler`/`SortHandler` query type?~~ **Templated `mixed`** (`@template TQuery`); adapters narrow.
+- ~~`filters()`/`sorts()` array or iterable?~~ **`array`** (consistency with `fields()`).
+- ~~Pivot-field metadata on `BelongsToMany`?~~ **Declare-only in 1.0** (`fields()` carries metadata; no pivot validation).
+- ~~Constraint context default?~~ **`Context::always()` + per-field `onCreate()`/`onUpdate()` builders**.
+- ~~Computed/derived attribute shape?~~ **`Str::make('x')->computed()->extractUsing(Closure)`** (null column).
+- ~~Namespace rename?~~ **Renamed `Schema\Resource\*` → `Serializer\*`** and put the fluent DSL at `Resource\*` (the planned `Schema\*`→`Document\*` was dropped — see decision log).
 
 - `Server` shape: single value object with internal sub-structures, or compose of `SchemaRegistry` + `ProfileRegistry` + `Server` wrapper? Lean: single value, sub-structures accessible via accessors. Confirm at kick-off (resolved here, in the kick-off step).
 - `FilterHandler::apply()` and `SortHandler::apply()` signature: take an adapter-native query as `mixed`, or as a generic `object`, or as a templated parameter (PHPStan generics)? `mixed` is simplest; generics give better tooling but PHPStan-only. Lean: `mixed` with `@template` hints in PHPDoc; adapters narrow in their own implementations.

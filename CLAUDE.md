@@ -583,3 +583,149 @@ rendered `application/vnd.api+json` body as the response unwinds, and **throws b
 error handler) with the flag downgrading to log-and-pass-through. The `JsonApiMiddleware` aggregate is left
 unchanged (validation stays out of the zero-config chain). Tests tag the structural cases
 `#[Group('spec:document-structure')]`.
+
+### Fluent schema — fields & constraints (`Resource\*`, public API)
+
+The recommended consumer surface. A `Resource\AbstractResource` subclass declares
+a resource type's `fields()` and satisfies **both** `Serializer\SerializerInterface`
+and `Hydrator\HydratorInterface` from that one list (serialization: type/id/
+attributes/relationships; hydration: create/update with per-context read-only
+enforcement, type validation, id resolution, relationship linkage). Optional
+`filters()`/`sorts()`/`pagination()` declarations and `allSorts()` (auto-derives a
+`SortByField` from each `->sortable()` field). A `SerializerResolver` (the Server's
+registry) is injected so relationships serialize related types.
+
+`Field` is the member contract; `AbstractField` carries the mutable-builder fluent
+surface (`make()`, read-only/visibility toggles, the serialize/hydrate hook closures
+`serializeUsing`/`extractUsing`/`deserializeUsing`/`fillUsing`, the constraint-list
+machinery, and `onCreate()`/`onUpdate()` context builders). Fields are **mutable
+builders** (methods mutate and return `$this`) — deliberately *not* the readonly-VO
+pattern, so a field reads as one fluent expression. Concrete types: the split string
+family (`Str` + dedicated `Email`/`Url`/`Uuid`/`Slug`/`Ip`, where the shortcut and the
+dedicated type produce identical constraint metadata), `Id`, `Integer`, `Decimal`,
+`Boolean`, `Date`/`DateTime`/`Time`, `ArrayList`, `ArrayHash`, `Map` (same-model
+column spread; `Map::on()` deferred to the bundle). Casting is per-type via the
+`serializeValue()`/`deserializeValue()` hooks; a framework-agnostic `@internal Accessor`
+reads/writes arrays and plain objects.
+
+`Constraint` is **metadata only** — the core never executes it. Each is a `final
+readonly` VO carrying a `Context` (create/update); constraints default to
+`Context::always()` and are scoped via the per-field `onCreate()`/`onUpdate()`
+builders or `requiredOnCreate()`/`requiredOnUpdate()`. The vocabulary: presence
+(`Required`, `Nullable`), bounds/lengths (`Min`/`Max`, `ExclusiveMin`/`Max`,
+`MultipleOf`, `Min`/`MaxLength`, `Min`/`MaxItems`, `Min`/`MaxProperties`,
+`UniqueItems`), patterns/enums (`Pattern`, `In`, `NotIn`), string formats
+(`EmailFormat`/`UrlFormat`/`UuidFormat`/`IpFormat`/`SlugFormat`), date bounds
+(`Before`/`After`/`Between`/`Timezone`), composition (`Each`/`When`/`Custom`), and
+`RelationshipType`. `When`/`Custom` are opaque to the JSON Schema compiler.
+
+```php
+final class PostResource extends AbstractResource
+{
+    public static string $type = 'posts';
+    public function fields(): array
+    {
+        return [Id::make()->uuid(), Str::make('title')->required()->maxLength(200)->sortable(),
+                BelongsTo::make('author')->type('users')->required()];
+    }
+}
+```
+
+### Relations (fluent, `Resource\Field\*`)
+
+`Relation extends Field`; `AbstractRelation` adds the relationship surface
+(`type(...)`, `inverseType()`, `cannotEagerLoad()`, `withUriFieldName()`,
+`retainFieldName()`) and auto-appends a `RelationshipType` constraint from the
+declared types. It serializes via the related type's serializer (resolved through
+the injected `SerializerResolver`) and hydrates from the request's parsed
+`Hydrator\Relationship\*` linkage VOs (not a raw attribute value). Concrete:
+`BelongsTo`/`HasOne` (to-one), `HasMany` (to-many + `min`/`maxItems`),
+`BelongsToMany` (pivot fields **declare-only** in 1.0 via `fields()`), `MorphTo`
+(polymorphic to-one via `types(...)`, serializer picked by the related object's
+`getType()`).
+
+### Filters & sorts (metadata + adapter handlers, `Resource\Filter\*` / `Resource\Sort\*`)
+
+Filters/sorts are **value-object metadata** (`Filter`/`Sort` interfaces — just
+`key()` + parameter accessors, **no `apply()`**); execution lives in adapter-provided
+`FilterHandler`/`SortHandler` implementations (`apply(Filter|Sort, mixed $query, …):
+mixed` — query is a templated `mixed` so no data layer is coupled in core). Mirrors
+the `Constraint` + translator split; there is **no generic `Query` interface**.
+Filters: `Where`, `WhereIn`/`NotIn`, `WhereIdIn`/`IdNotIn`, `WhereNull`/`NotNull`,
+`WhereHas`/`DoesntHave` (each `final readonly` + `make()` + immutable `with`-style
+helpers like `singular()`/`deserializeUsing()`/`delimiter()`). Sorts: `SortByField`.
+An unrecognised VO at a handler throws the typed `UnsupportedFilter`/`UnsupportedSort`
+(a **server-config error → 500**, `AbstractJsonApiException` like the rest). Core
+ships reference `InMemory\ArrayFilterHandler`/`ArraySortHandler` for its own tests and
+as worked examples — **not** a production query layer.
+
+### Server & schema registry (`Server\*`, public API)
+
+`Server\Server` is the per-API-version configuration root and an **immutable value**
+(`make()` + `with…()`/`register()` each return a new instance via clone-then-assign;
+the cloned `SchemaRegistry`/`ProfileRegistry` are cloned too so registration never
+leaks). It keeps the Phase-1 `ServerInterface` render contract **unchanged** and
+adds: the schema registry (+ overrides), `withBaseUri`/`withVersion`/`withDefaultMeta`/
+`withEncodeOptions`/`withDefaultPaginator`/`withPsr17`/`withProfile`/`withMiddleware`/
+`withHandler`, and accessors `schemas()`/`serializerFor()`/`hydratorFor()`. It also
+implements PSR-15 `RequestHandlerInterface` — `handle()` folds the ordered middleware
+list over the inner handler (an `OperationHandler` is auto-wrapped in
+`Psr7ToOperationHandlerAdapter`; a bare PSR-15 handler is accepted) via the
+`@internal Server\Internal\MiddlewareDecorator` — and `SerializerResolver`.
+`dispatch(JsonApiOperation)` invokes the configured `OperationHandler` directly
+(no PSR-15 chain). Multiple `Server`s = multiple API versions; routing outside core
+picks one.
+
+`SchemaRegistry` maps a type → `[Resource, ?serializer-override, ?hydrator-override]`
+(class-strings, instantiated lazily, keyed by the resource's `static $type`). It
+**is** the `SerializerResolver` injected into resources. Lookups resolve an override
+ahead of the schema fallback; a missing type throws the typed `NoResourceRegistered`
+(500); a duplicate type at registration is a `\LogicException` (wiring bug, not an
+error document).
+
+### Per-resource JSON Schema compiler (`Validation\SchemaCompiler`)
+
+`SchemaCompiler::compile(AbstractResource, bool $creating): object` turns a resource's
+field+constraint metadata into a decoded draft-2020-12 JSON Schema (`stdClass`) that
+**tightens** the base schema for one type/context. It drops straight into the existing
+`DocumentValidator::validateRequest($doc, $additionalSchemas)` composition list (no
+validator API change) — `Required`/`requiredOnCreate` → per-context `required` arrays;
+bounds/lengths/patterns/enums/formats → the matching keywords; `Nullable` widens the
+`type` union; `When`/`Custom` are **skipped** (don't round-trip). The builder assembles
+nested arrays and converts to the `stdClass` tree once at the boundary (no dynamic
+`stdClass` props → analysable at L9). `RequestValidationMiddleware` now also appends the
+compiled schema for the request's resource type via the `@internal
+Validation\Internal\ResourceSchemaCollector` (reads the concrete `Server`'s registry;
+memoizes per `[type, context]`; a bare `ServerInterface` or unregistered type
+contributes nothing → base validation only).
+
+### Testing utilities (`Testing\*`, public API)
+
+Shipped in the package autoload (not dev-only — useful in consumer suites). Small by
+design: assertions + builders, **no** factories/fixtures/DB traits/HTTP clients.
+`JsonApiDocument`/`JsonApiErrors` are fluent assertion wrappers (each accepts a PSR-7
+response, raw JSON string, parsed array, or a response VO + a `ServerInterface` to
+render it; assertions delegate to PHPUnit `Assert` and return `$this`; raw accessors
+`data()`/`included()`/`meta()`/`links()`/`errors()` for ad-hoc checks).
+`JsonApiRequestBuilder` builds a PSR-7 `ServerRequestInterface` (PSR-17 factories
+injected so no concrete impl is coupled); `JsonApiOperationBuilder` builds
+`JsonApiOperation` VOs for `Server::dispatch()` tests. `SpecCompliance::assert()` (and
+the `AssertsSpecCompliance` trait's `assertJsonApiSpecCompliant()`) wrap
+`DocumentValidator::validateResponse()` into a PHPUnit failure listing each violation's
+pointer+message (defaults to `VendoredSchemaProvider`; opis required at the call site).
+`@internal Testing\Internal\Decode`/`RequestStub` normalise inputs / supply a bare
+PSR-7 request.
+
+### When to use a custom Serializer / Hydrator (escape hatches)
+
+The fluent `Resource` is the 95% case. Drop to a hand-written `Serializer\SerializerInterface`
+when serialization needs more than field walking — request-aware or conditional
+attributes, computed/derived values across fields, or multiple representations of one
+model. Drop to a hand-written `Hydrator\HydratorInterface` when a write needs more than
+field filling — splitting one member across columns, deriving related models, or
+multi-step/transactional writes. Register either alongside the schema
+(`->register(PostResource::class, serializer: X::class, hydrator: Y::class)`); the
+registry resolves the override first and falls back to the schema for the other
+concern. Both contracts remain implementable by composition (no base class required),
+and skipping the schema entirely — registering a bare serializer + hydrator pair —
+still works exactly as Phase 1 shipped.

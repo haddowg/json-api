@@ -38,6 +38,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Resource identifier objects (`type`, `id`/`lid`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates `type` + at-least-one-of(`id`,`lid`) and throws the typed `ResourceIdentifier*` exceptions directly (no `ExceptionFactory`); `transform()` emits whichever of `id`/`lid`/`meta` are present. `ResourceIdentifierTest`. |
 | Compound documents / `included` | ✅ test | `Transformer\ResourceTransformer` + `DocumentTransformer` build the `included` array with resource dedup (primary takes precedence) via the `Schema\Data` accumulator. `ResourceTransformerTest`, `DocumentTransformerTest`. |
 | Whole-document structural conformance (top-level member rules, resource/identifier/relationship/error shapes, member-name patterns, `data` XOR `errors`, `id`-optional-on-create) | ✅ test (opt-in) | `Validation\DocumentValidator` validates a decoded document against the vendored JSON:API 1.1 JSON Schema (draft 2020-12, `opis/json-schema`), with separate request/response roots. Violations carry the offending JSON pointer as `source.pointer`. Exercised by `DocumentValidatorTest`, `VendoredSchemaProviderTest`, `Request`/`ResponseValidationMiddlewareTest` (`#[Group('spec:document-structure')]`). **Opt-in** (dev/CI), via the two validation middleware; requires the suggested `opis/json-schema`. |
+| Per-resource request body validation (schema-driven) | ✅ test | `Validation\SchemaCompiler` compiles a resource's field+constraint metadata into a per-type create/update JSON Schema, composed into `DocumentValidator`'s `$additionalSchemas`; `RequestValidationMiddleware` validates the body against it (opt-in, with correct `source.pointer`s). `SchemaCompilerTest`, `PerResourceValidationTest`. |
 
 > **Validation as a test aid.** The dev/CI validators turn many of the
 > `spec:document-structure` MUSTs above from "asserted by a hand-written unit
@@ -79,12 +80,14 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | `fields[TYPE]` query parameter | ✅ test | Request-side parsing **and** engine-side application: `Transformer\ResourceTransformer` filters attributes/relationships by `isIncludedField()`. `JsonApiRequestTest`, `ResourceTransformerTest`. |
+| Per-type sparse-fieldset participation | ✅ test | Each `Field` declares `isSparseField()` (opt out via `notSparseField()`); the transformer narrows attributes/relationships per `fields[type]`. `FieldTest`, `ResourceTransformerTest`. |
 
 ## Sorting (`spec:sorting`)
 
 | Requirement | Status | Notes |
 |---|---|---|
 | `sort` query parameter parsing | ✅ test | `JsonApiRequest::getSorting()` parses the `sort` param (comma-separated, `-` prefix preserved) and throws `QueryParamMalformed` on a non-string value. `JsonApiRequestTest`. |
+| `sort` allowed-fields enforcement | ✅ test | A schema declares sortable fields (`->sortable()`); `Resource\AbstractResource::allSorts()` derives the allowed `SortByField` set, and `Sort` handlers reject unknown keys via the typed `UnsupportedSort` (500). `ArraySortHandlerTest`, `AbstractResourceTest`. |
 
 ## Pagination (`spec:pagination`)
 
@@ -98,6 +101,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | `filter` query parameter (format-agnostic) | ✅ test | Request-side parsing implemented + tested (`JsonApiRequest::getFiltering()`/`getFilteringParam()`, `JsonApiRequestTest`). Execution remains adapter-provided by design. |
+| `filter` parameter shape / handling | ✅ test | A schema declares `filters()` as typed `Filter` value objects; adapter `FilterHandler`s translate them and reject unregistered filters via the typed `UnsupportedFilter` (500). Core ships reference `InMemory\ArrayFilterHandler`. `ArrayFilterHandlerTest`. |
 
 ## CRUD (`spec:crud`)
 

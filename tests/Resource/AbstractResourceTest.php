@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource;
 
 use haddowg\JsonApi\Hydrator\HydratorInterface as HydratorContract;
+use haddowg\JsonApi\Pagination\PagePaginator;
+use haddowg\JsonApi\Pagination\Paginator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
@@ -14,7 +16,10 @@ use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\SerializerResolver;
+use haddowg\JsonApi\Resource\Sort\Sort;
+use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
@@ -82,6 +87,28 @@ final class AbstractResourceTest extends TestCase
         $relationships = $resource->getRelationships($this->post());
         self::assertArrayHasKey('author', $relationships);
         self::assertArrayHasKey('comments', $relationships);
+    }
+
+    #[Test]
+    public function allSortsDerivesFromSortableFieldsPlusExplicitSorts(): void
+    {
+        $resource = new PostResource();
+        $keys = \array_map(static fn(Sort $sort): string => $sort->key(), $resource->allSorts());
+
+        self::assertContains('title', $keys);
+        self::assertContains('publishedAt', $keys);
+        self::assertContains('relevance', $keys);
+        self::assertNotContains('viewCount', $keys);
+    }
+
+    #[Test]
+    public function filtersAndPaginationAreExposed(): void
+    {
+        $resource = new PostResource();
+
+        self::assertCount(1, $resource->filters());
+        self::assertSame('status', $resource->filters()[0]->key());
+        self::assertInstanceOf(PagePaginator::class, $resource->pagination());
     }
 
     #[Test]
@@ -165,28 +192,6 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
-    public function allSortsDerivesFromSortableFieldsPlusExplicitSorts(): void
-    {
-        $resource = new PostResource();
-        $keys = \array_map(static fn (object $s): string => $s->key(), $resource->allSorts());
-
-        self::assertContains('title', $keys);
-        self::assertContains('publishedAt', $keys);
-        self::assertContains('relevance', $keys);
-        self::assertNotContains('viewCount', $keys);
-    }
-
-    #[Test]
-    public function filtersAndPaginationAreExposed(): void
-    {
-        $resource = new PostResource();
-
-        self::assertCount(1, $resource->filters());
-        self::assertSame('status', $resource->filters()[0]->key());
-        self::assertInstanceOf(\haddowg\JsonApi\Pagination\PagePaginator::class, $resource->pagination());
-    }
-
-    #[Test]
     public function hydratesToOneRelationship(): void
     {
         $resource = new PostResource();
@@ -264,19 +269,19 @@ final class PostResource extends AbstractResource
     public function filters(): array
     {
         return [
-            \haddowg\JsonApi\Resource\Filter\Where::make('status'),
+            Where::make('status'),
         ];
     }
 
     public function sorts(): array
     {
         return [
-            \haddowg\JsonApi\Resource\Sort\SortByField::make('relevance', 'score'),
+            SortByField::make('relevance', 'score'),
         ];
     }
 
-    public function pagination(): ?\haddowg\JsonApi\Pagination\Paginator
+    public function pagination(): ?Paginator
     {
-        return \haddowg\JsonApi\Pagination\PagePaginator::make()->withDefaultPerPage(15);
+        return PagePaginator::make()->withDefaultPerPage(15);
     }
 }
