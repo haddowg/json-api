@@ -242,8 +242,10 @@ final class FieldTest extends TestCase
         $field = Str::make('preview')->computed()->extractUsing(
             static function (mixed $model): string {
                 self::assertIsArray($model);
+                $body = $model['body'];
+                self::assertIsString($body);
 
-                return \substr((string) $model['body'], 0, 3);
+                return \substr($body, 0, 3);
             },
         );
 
@@ -417,7 +419,8 @@ final class FieldTest extends TestCase
         $field = Str::make('name')->fillUsing(
             static function (mixed $model, mixed $value): array {
                 self::assertIsArray($model);
-                $model['name'] = \strtoupper((string) $value);
+                self::assertIsString($value);
+                $model['name'] = \strtoupper($value);
 
                 return $model;
             },
