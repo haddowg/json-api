@@ -1,0 +1,59 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Resource\Field;
+
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\SerializerResolver;
+use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+
+/**
+ * A relationship member of a resource's field inventory. Distinct from an
+ * attribute {@see Field}: it serializes to a JSON:API relationship object
+ * (linkage + links + meta) via the related type's serializer, and hydrates from
+ * the request's parsed relationship value object rather than a raw attribute
+ * value.
+ *
+ * The schema base routes relations through {@see buildRelationship()} and
+ * {@see hydrateRelationship()} instead of the attribute serialize/hydrate path.
+ */
+interface Relation extends Field
+{
+    /**
+     * The allowed related resource type(s). A single-element list for a
+     * monomorphic relation; multiple for a polymorphic ({@see MorphTo}) one.
+     *
+     * @return list<string>
+     */
+    public function relatedTypes(): array;
+
+    /**
+     * Whether this is a to-many relationship.
+     */
+    public function isToMany(): bool;
+
+    /**
+     * Whether the relationship should be eager-loaded by data-layer adapters.
+     * Core ships metadata only; the flag is advisory.
+     */
+    public function canEagerLoad(): bool;
+
+    /**
+     * Builds the output relationship value object the serializer emits for
+     * `$model`, resolving the related type's serializer through `$resolver`.
+     */
+    public function buildRelationship(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        SerializerResolver $resolver,
+    ): AbstractRelationship;
+
+    /**
+     * Hydrates the relationship from the request's parsed linkage into `$model`,
+     * returning the (possibly replaced) domain object.
+     *
+     * @param \haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship|\haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship $relationship
+     */
+    public function hydrateRelationship(mixed $model, object $relationship): mixed;
+}

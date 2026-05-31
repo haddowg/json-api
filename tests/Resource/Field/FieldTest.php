@@ -434,7 +434,11 @@ final class FieldTest extends TestCase
     #[Test]
     public function hydrateUsesDeserializeUsing(): void
     {
-        $field = Str::make('name')->deserializeUsing(static fn(mixed $v): string => \trim((string) $v));
+        $field = Str::make('name')->deserializeUsing(static function (mixed $v): string {
+            self::assertIsString($v);
+
+            return \trim($v);
+        });
 
         $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request());
         self::assertIsArray($model);
