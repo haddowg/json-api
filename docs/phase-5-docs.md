@@ -103,15 +103,52 @@ _(Appended to during execution.)_
 
 | Date | Decision | Rationale | Affects |
 |---|---|---|---|
-| _yyyy-mm-dd_ | _(example: drop yin's `events` documentation page — no equivalent feature in the package)_ | _(rationale)_ | _(this phase / future phases)_ |
+| 2026-05-31 | **Page style: clean prose**, first paragraph carries the summary; no boxed "TL;DR" callouts. | Maintainer-confirmed (the plan's lean). Keeps pages readable and portable to a future docs site. | this phase |
+| 2026-05-31 | **Code samples use `nyholm/psr7` / `nyholm/psr7-server`** consistently for PSR-7/PSR-17. | Maintainer-confirmed. Already the dev dep; concrete samples are copy-pasteable and consumers substitute mentally. | this phase |
+| 2026-05-31 | **No framework-specific guidance** (no Symfony/Laravel sections); examples use raw PSR-15 + a hand-rolled path-prefix router. | Maintainer-confirmed. The package is framework-agnostic; a "using with $framework" page is a post-1.0 candidate. | this phase / post-1.0 |
+| 2026-05-31 | **Include mermaid diagrams** (architecture page + middleware-chain sketch). | Maintainer-confirmed. GitHub and common viewers render mermaid natively; the diagram earns its place on the architecture page. | this phase |
+| 2026-05-31 | **One `docs/concepts.md`** (sectioned) rather than per-concept files. | The consumer-facing concept set is small and tightly interrelated (documents, resource objects, relationships, links, the `jsonapi` object); errors get their own `exceptions.md`/`errors.md`. A single page reads better than five stubs. | this phase |
+| 2026-05-31 | **Link-checker tool: none external; cross-links verified with a small repo-local grep/script** (no network dependency in the remote env). | `lychee`/`markdown-link-check` are not installed and the env's network policy may block their fetches; a relative-link existence check covers the docs set (all links are intra-repo). | this phase |
+| 2026-05-31 | **yin → new mapping recorded** (see table below). yin has no `doc/` directory; its documentation is the long guide embedded in `README.md`, so the mapping is README-section → new page. | Satisfies kick-off step 3 with the actual source material. | this phase |
+
+### yin documentation → new docs mapping
+
+yin's docs live as sections of its `README.md` (there is no `doc/` directory). Each yin section maps to:
+
+| yin README section | Action | New home |
+|---|---|---|
+| Introduction / Features / Why Yin? | **Drop** (yin-specific framing) / partially **New** | repo `README.md` "About" (already written) |
+| Install | **Port-and-update** | `docs/getting-started.md` (Composer + PSR-7 install) |
+| Documents (successful + error) | **Rewrite** — documents are now `@internal`; the public surface is response value objects | `docs/responses.md`, `docs/concepts.md` |
+| Resources | **Rewrite + split** — the fluent schema is the new primary surface; yin's `Resource` becomes the custom-serializer escape hatch | `docs/schemas.md` (primary), `docs/resources.md` (escape hatch) |
+| Hydrators | **Port-and-update** — now an escape hatch; schema hydrates by default | `docs/hydrators.md` |
+| Exceptions | **Rewrite** — typed hierarchy replaces `ExceptionFactory` | `docs/exceptions.md`, `docs/errors.md` |
+| JsonApi class | **Rewrite** | `docs/concepts.md` (the `jsonapi` object), `docs/responses.md` (`withJsonApi`) |
+| JsonApiRequest class | **Port-and-update** | `docs/concepts.md`, `docs/content-negotiation.md` |
+| Pagination | **Rewrite** — `PaginationLinkProviderInterface` + collection trait deleted; `Paginator`/`Page` replace them | `docs/pagination.md` |
+| Loading relationship data efficiently | **Port-and-update** | `docs/schemas.md` / `docs/fields.md` (relations, `cannotEagerLoad`) |
+| Injecting metadata into documents | **Rewrite** | `docs/responses.md` (`withMeta`) |
+| Content negotiation | **Port-and-update** | `docs/content-negotiation.md` |
+| Request/response validation | **Rewrite** — opis/json-schema, opt-in middleware, constraint-compiled schemas | `docs/validation.md` |
+| Custom serialization | **Port-and-update** | `docs/resources.md` |
+| Custom deserialization | **Port-and-update** | `docs/hydrators.md` |
+| Middleware | **Rewrite** — PSR-15 suite, per-server ownership | `docs/middleware.md` |
+| Examples (fetch/create/update) | **Port-and-update** | `docs/getting-started.md` + worked handler snippets across subsystem pages |
+| Integrations (yin-middleware, framework bridges) | **Drop** — out of scope; framework-agnostic | — |
+| Versioning | **Rewrite** — multi-`Server` model | `docs/server.md` |
+| Testing | **Rewrite** — `Testing\*` utilities | `docs/testing.md` |
+| Contributing / Support / Credits / License | **Keep** in repo root files (`CONTRIBUTING.md`, `README.md`, `LICENSE`) | — |
+| _(no yin equivalent)_ | **New** | `docs/architecture.md`, `docs/profiles.md`, `docs/filters.md`, `docs/sorts.md`, `docs/adapters.md`, `docs/server.md`, `docs/upgrading-within-0.x.md`, `docs/README.md` (index) |
 
 ## Open questions
 
-- Should each page have an "at a glance" or "TL;DR" callout, or just clean prose? Lean: clean prose, with the first paragraph carrying the summary.
-- Should examples use a specific PSR-7 implementation (`nyholm/psr7`) in their code samples, or keep them implementation-agnostic with placeholder factory calls? Lean: use `nyholm/psr7` consistently — it's the dev dep already and consumers can substitute mentally.
-- Should the documentation include any framework-specific guidance (Symfony HttpKernel adapter, Laravel routing notes)? Lean: no — the package is framework-agnostic, examples use raw PSR-15. A "using with $framework" section is a post-1.0 candidate.
-- Per-concept file structure vs. one big `concepts.md`? Decide during inventory; lean toward per-concept once concept count is known.
-- Mermaid diagrams: include or skip? Adds value for the architecture page but introduces a rendering dependency for any future docs site. Lean: include — markdown viewers and GitHub render mermaid natively.
+_All resolved at kick-off (2026-05-31) — see decision log above._
+
+- ~~"at a glance" / TL;DR callout vs clean prose~~ → **clean prose** (maintainer-confirmed).
+- ~~PSR-7 implementation in samples~~ → **`nyholm/psr7`** (maintainer-confirmed).
+- ~~Framework-specific guidance~~ → **none; raw PSR-15** (maintainer-confirmed).
+- ~~Per-concept files vs one `concepts.md`~~ → **one `concepts.md`** (decided during inventory).
+- ~~Mermaid diagrams~~ → **include** (maintainer-confirmed).
 
 ## Acceptance criteria
 
