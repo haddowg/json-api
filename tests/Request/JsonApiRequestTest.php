@@ -20,14 +20,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for JsonApiRequest's JSON:API-specific parsing and validation.
  *
- * Rewrites from yin:
- * - Factory helpers no longer pass DefaultExceptionFactory or JsonDeserializer (both removed).
- *   JsonApiRequest now takes only a PSR-7 request.
- * - createRequestWithJsonBody uses withParsedBody() (PSR-7) instead of a custom serialiser.
- * - Laminas\Diactoros replaced with Nyholm\Psr7.
- * - All assertions use self::assert* (PHPUnit 12 + attributes only, no docblock annotations).
- * - ExceptionFactory-based exception throwing replaced with direct typed-exception throwing;
- *   the test expectations (expectException class) are unchanged.
+ * JsonApiRequest takes only a PSR-7 request; requests are built with Nyholm\Psr7,
+ * and createRequestWithJsonBody uses withParsedBody() (PSR-7) to supply a JSON:API
+ * body. Validation surfaces failures by throwing typed exceptions directly.
  */
 final class JsonApiRequestTest extends TestCase
 {
@@ -248,7 +243,7 @@ final class JsonApiRequestTest extends TestCase
             [],
         );
 
-        // FIXME https://github.com/woohoolabs/yin/issues/101
+        // FIXME: known edge case in top-level member validation
         // self::expectException(RequiredTopLevelMembersMissing::class);
 
         $request->validateTopLevelMembers();

@@ -14,7 +14,6 @@ use haddowg\JsonApi\Schema\Link\DocumentLinks;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 class ErrorDocument extends AbstractErrorDocument
 {

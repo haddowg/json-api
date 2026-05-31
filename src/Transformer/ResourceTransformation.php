@@ -15,7 +15,6 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 class ResourceTransformation
 {

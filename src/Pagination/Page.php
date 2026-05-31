@@ -12,8 +12,7 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  * strategy-specific metadata needed to emit `links.{first,prev,next,last}` and
  * `meta.page.{…}`.
  *
- * Replaces yin's `PaginationLinkProviderInterface` + collection-side trait
- * pattern: pagination state lives on the page value object, never on the
+ * Pagination state lives on the page value object, never on the
  * collection. A page is iterable, so `DataResponse::fromPage($page)` can iterate
  * the items without unwrapping. Strategy-specific subtypes
  * ({@see PageBasedPage}, {@see OffsetBasedPage}, {@see CursorBasedPage},

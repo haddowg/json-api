@@ -12,7 +12,6 @@ use haddowg\JsonApi\Schema\ResourceIdentifier;
  * When the request carries `"data": null`, the relationship is "clearing"
  * ({@see isEmpty()} === true). When a resource identifier is present it wraps it.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 final readonly class ToOneRelationship

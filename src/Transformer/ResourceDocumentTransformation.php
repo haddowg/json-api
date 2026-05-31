@@ -16,7 +16,6 @@ use haddowg\JsonApi\Schema\Document\ResourceDocumentInterface;
  *
  * @extends AbstractDocumentTransformation<ResourceDocumentInterface>
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 class ResourceDocumentTransformation extends AbstractDocumentTransformation
 {

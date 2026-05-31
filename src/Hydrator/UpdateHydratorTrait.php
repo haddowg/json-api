@@ -17,7 +17,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Provides `hydrateForUpdate()` and `hydrateForRelationshipUpdate()` along with
  * their supporting hooks.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 trait UpdateHydratorTrait
 {

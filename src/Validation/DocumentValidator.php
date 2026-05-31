@@ -12,8 +12,8 @@ use Opis\JsonSchema\Validator;
 
 /**
  * Validates a decoded JSON:API document against the JSON:API JSON Schema,
- * optionally augmented by additional schemas (profile fragments now;
- * per-resource compiled schemas in Phase 4.5).
+ * optionally augmented by additional schemas (profile fragments and
+ * per-resource compiled schemas).
  *
  * Backed by `opis/json-schema` (an optional dependency — constructing this class
  * fails fast if the package is absent). The schemas from the {@see SchemaProvider}

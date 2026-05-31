@@ -11,9 +11,7 @@ namespace haddowg\JsonApi\Operation;
  *
  * Each HTTP verb has its own concrete operation carrying exactly the data it
  * needs; the five mutating verbs additionally expose a request body. Dispatching
- * on the operation type (rather than a verb enum) keeps handlers type-safe and is
- * forward-compatible with the post-1.0 Atomic Operations extension, where each
- * atomic op maps to one of these operation types.
+ * on the operation type (rather than a verb enum) keeps handlers type-safe.
  */
 interface JsonApiOperation
 {

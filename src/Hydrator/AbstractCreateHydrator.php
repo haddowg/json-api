@@ -11,7 +11,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * Base hydrator for resources that support only the create (POST) operation.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractCreateHydrator implements HydratorInterface
 {

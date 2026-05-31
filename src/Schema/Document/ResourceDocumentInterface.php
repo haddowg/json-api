@@ -13,7 +13,6 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 interface ResourceDocumentInterface extends DocumentInterface
 {

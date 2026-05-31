@@ -19,7 +19,6 @@ use haddowg\JsonApi\Schema\Document\DocumentInterface;
  *
  * @template TDocument of DocumentInterface
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractDocumentTransformation
 {

@@ -41,8 +41,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  * bypassing the chain (for integration tests and programmatic calls).
  *
  * Multiple servers = multiple API versions; routing outside core dispatches to
- * the right one. The {@see ServerInterface} render contract is unchanged from
- * the Phase-1 placeholder, so the response value objects drop in as-is.
+ * the right one. It implements the {@see ServerInterface} render contract, so
+ * the response value objects drop in as-is.
  */
 final class Server implements ServerInterface, RequestHandlerInterface, SerializerResolver
 {
@@ -179,7 +179,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
     /**
      * Sets the inner handler the middleware chain wraps. An {@see OperationHandler}
      * is wrapped in {@see Psr7ToOperationHandlerAdapter} automatically; a bare
-     * PSR-15 handler is accepted as an escape hatch.
+     * PSR-15 handler is also accepted directly.
      */
     public function withHandler(OperationHandler|RequestHandlerInterface $handler): self
     {

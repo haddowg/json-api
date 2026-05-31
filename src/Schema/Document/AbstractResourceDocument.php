@@ -13,7 +13,6 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractResourceDocument implements ResourceDocumentInterface
 {

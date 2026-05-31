@@ -29,8 +29,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * End-to-end exercise of the standard middleware chain (error handler → content
  * negotiation → body parsing → handler) assembled by hand over a {@see StubServer}
- * and a tiny inline PSR-15 dispatcher — the shape the Phase 4.5 `Server` will use
- * internally.
+ * and a tiny inline PSR-15 dispatcher — the shape the `Server` uses internally.
  */
 final class MiddlewareChainIntegrationTest extends TestCase
 {

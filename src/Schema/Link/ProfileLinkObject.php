@@ -8,11 +8,9 @@ namespace haddowg\JsonApi\Schema\Link;
  * Represents a JSON:API profile link object.
  *
  * A profile link carries an `aliases` map alongside the standard link object
- * members, allowing a document to rename a profile's keywords. The actual
- * association of profiles with a document is fleshed out in Phase 2; this VO
+ * members, allowing a document to rename a profile's keywords. This VO
  * only models the link itself.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#profiles
  */
 final readonly class ProfileLinkObject extends LinkObject

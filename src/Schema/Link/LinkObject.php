@@ -11,7 +11,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * `rel`, `describedby`, `title`, `type`, `hreflang` and `meta` members. All of
  * the string members are optional and omitted from {@see transform()} when empty.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-links-link-object
  */
 readonly class LinkObject extends Link

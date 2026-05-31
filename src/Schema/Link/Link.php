@@ -12,7 +12,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * {@see ProfileLinkObject}; it is readonly but not final so those subclasses
  * (themselves readonly) may extend it.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-links
  */
 readonly class Link

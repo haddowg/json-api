@@ -18,7 +18,6 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  * describe an object, an array, or any domain representation, so no generic
  * type parameter is imposed.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-objects
  */
 interface SerializerInterface

@@ -8,11 +8,10 @@ namespace haddowg\JsonApi\Transformer;
  * Internal URL-building helper used by the {@see \haddowg\JsonApi\Pagination\Page}
  * value objects to build pagination links.
  *
- * Only `getUri` is ported from yin's `WoohooLabs\Yin\Utils`; the rest was
- * either inlined elsewhere (`getIntegerFromQueryParam`) or not used at all.
+ * Only `getUri` lives here; other query-param helpers are inlined at their use
+ * sites.
  *
  * @internal
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 final class Utils
 {

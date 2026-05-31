@@ -17,7 +17,6 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 final class ResourceTransformer
 {

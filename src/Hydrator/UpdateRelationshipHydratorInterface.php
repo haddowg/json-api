@@ -9,7 +9,6 @@ use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 interface UpdateRelationshipHydratorInterface
 {

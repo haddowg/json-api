@@ -13,7 +13,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *
  * @internal
  *
- * @see SingleResourceDocument for why concrete documents exist beyond yin.
+ * @see SingleResourceDocument for why concrete documents are provided.
  */
 final class CollectionDocument extends AbstractCollectionDocument
 {

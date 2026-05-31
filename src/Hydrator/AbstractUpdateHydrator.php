@@ -13,7 +13,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Base hydrator for resources that support only the update (PATCH) operation,
  * as well as relationship updates.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractUpdateHydrator implements HydratorInterface, UpdateRelationshipHydratorInterface
 {

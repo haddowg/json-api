@@ -16,10 +16,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for CreateHydratorTrait via StubCreateHydrator.
  *
- * Rewrites from yin:
- * - ExceptionFactory removed from all call sites.
- * - Request built with Nyholm PSR-7 (replaces Laminas/Diactoros).
- * - PHPUnit 12 attributes only.
+ * Hydrators throw typed exceptions directly; requests are built with Nyholm PSR-7.
  */
 final class CreateHydratorTraitTest extends TestCase
 {

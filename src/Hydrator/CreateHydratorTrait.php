@@ -15,7 +15,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * Provides the `hydrateForCreate()` method and its supporting hooks.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 trait CreateHydratorTrait
 {

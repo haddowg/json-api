@@ -21,7 +21,6 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  * describe a resource's relationships. Mutable fluent setters mirror the
  * relationship's role as a builder, not a leaf value object.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 abstract class AbstractRelationship

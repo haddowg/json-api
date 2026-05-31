@@ -10,7 +10,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * or more profile links. Construct-only; profile links are de-duplicated by
  * href and emitted as a `profile` array.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-top-level
  */
 final readonly class DocumentLinks extends AbstractLinks
@@ -27,8 +26,8 @@ final readonly class DocumentLinks extends AbstractLinks
         ?Link $self = null,
         ?Link $related = null,
         // The pagination relations are emitted automatically from the `Pagination\Page`
-        // value objects via `DataResponse::fromPage()`; these params remain as a manual
-        // escape hatch for setting them directly on a non-paginated document.
+        // value objects via `DataResponse::fromPage()`; these params remain as a
+        // direct way to set them on a non-paginated document.
         ?Link $first = null,
         ?Link $prev = null,
         ?Link $next = null,

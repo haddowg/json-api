@@ -28,7 +28,6 @@ use Psr\Http\Message\ServerRequestInterface;
  * NOT `readonly`: PSR-7 wither methods require `clone $this` followed by property
  * mutation on the clone, and the lazy caches require nulling on invalidation.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/
  */
 class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
@@ -295,8 +294,8 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
     /**
      * The extension URIs the client requested via the `Accept` header's `ext`
-     * media-type parameter. Parsed and exposed but not wired downstream — the
-     * hook a future Atomic Operations implementation plugs into.
+     * media-type parameter. Parsed and exposed but not wired downstream — a
+     * hook an extension implementation can plug into.
      *
      * @return list<string>
      */

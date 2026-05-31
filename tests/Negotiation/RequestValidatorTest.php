@@ -21,17 +21,11 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for RequestValidator's content-negotiation and query-param validation.
  *
- * Rewrites from yin:
- * - DefaultExceptionFactory and JsonDeserializer constructor args removed; RequestValidator
- *   is constructed with no arguments.
- * - JsonApiRequest is constructed from only a PSR-7 ServerRequest (no ExceptionFactory).
- * - Laminas\Diactoros replaced with Nyholm\Psr7.
- * - MockObject-based request doubles replaced with real JsonApiRequest instances
- *   built with Nyholm\Psr7; mock-based negotiate() test rewritten to use real objects.
- * - validateJsonBody() is now a delegating trigger; tests verify it passes for empty/valid
- *   bodies and throws RequestBodyInvalidJson for malformed JSON via the raw-body path.
- * - createRequestWithParsedBody helper removed (unused after rewrite).
- * - All tests use PHPUnit 12 attributes (#[Test], #[DataProvider], #[Group]) — no docblocks.
+ * RequestValidator is constructed with no arguments and JsonApiRequest from only
+ * a PSR-7 ServerRequest. Requests are built as real JsonApiRequest instances with
+ * Nyholm\Psr7. validateJsonBody() is a delegating trigger; tests verify it passes
+ * for empty/valid bodies and throws RequestBodyInvalidJson for malformed JSON via
+ * the raw-body path.
  */
 final class RequestValidatorTest extends TestCase
 {

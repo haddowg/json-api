@@ -13,7 +13,7 @@ use Psr\Http\Message\StreamFactoryInterface;
  *
  * The response layer is serializer-free: it builds a PHP array via the
  * transformer, then encodes it here using the server's PSR-17 factories and
- * encode options. A concrete {@see Server} (Phase 4.5) implements a superset of
+ * encode options. The concrete {@see Server} implements a superset of
  * this contract.
  *
  * @see https://jsonapi.org/format/1.1/

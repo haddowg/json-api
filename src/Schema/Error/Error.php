@@ -15,7 +15,6 @@ use haddowg\JsonApi\Schema\Link\ErrorLinks;
  * {@see transform()} accordingly. Use named arguments for readable construction:
  * `new Error(status: '404', code: 'NOT_FOUND', title: 'Resource not found')`.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#error-objects
  */
 final readonly class Error

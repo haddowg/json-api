@@ -19,7 +19,7 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * collection, serialized through the related resource's {@see SerializerInterface}.
  *
  * The parent domain object and the relationship name are stored for context
- * (e.g. future self-link generation) but do not affect the Phase-1 body.
+ * but do not affect the rendered body.
  *
  * Single vs collection is fixed at construction by the named constructor used
  * ({@see fromResource()} / {@see fromCollection()}). The domain data and its

@@ -21,7 +21,6 @@ use Psr\Http\Message\UriInterface;
  * the wither methods (PHP requires the interface to be declared on the same class that introduces the
  * method for covariance to be recognised).
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractRequest implements ServerRequestInterface
 {

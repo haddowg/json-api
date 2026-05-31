@@ -50,7 +50,7 @@ final class JsonApiExceptionTest extends TestCase
 {
     /**
      * Every concrete exception: HTTP status code, and the first error's
-     * status/code/title, asserted against yin's preserved payloads.
+     * status/code/title, asserted against their expected payloads.
      *
      * @return iterable<string, array{AbstractJsonApiException, int, string, string, string}>
      */

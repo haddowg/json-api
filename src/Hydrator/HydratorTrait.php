@@ -19,7 +19,6 @@ use haddowg\JsonApi\Schema\ResourceIdentifier;
  * `$this->`. The abstract methods declare the contracts that concrete hydrators
  * must implement.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 trait HydratorTrait
 {

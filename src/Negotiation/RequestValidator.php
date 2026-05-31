@@ -12,20 +12,14 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * Validates JSON:API content-negotiation constraints on an incoming request.
  *
- * Phase-1 trimmed port: only Content-Type/Accept negotiation, query-param
- * validation, and top-level-member validation are performed. JSON-schema body
- * linting (validateJsonApiBody) is deferred to a later phase. JSON well-
- * formedness (validateJsonBody) is intentionally delegated: calling
- * getParsedBody() on a JsonApiRequest already throws RequestBodyInvalidJson
- * when the raw body is not valid JSON, so this method is a thin trigger that
- * surfaces that exception to callers who call it explicitly.
+ * Only Content-Type/Accept negotiation, query-param validation, and
+ * top-level-member validation are performed. JSON-schema body linting is not
+ * performed here. JSON well-formedness (validateJsonBody) is intentionally
+ * delegated: calling getParsedBody() on a JsonApiRequest already throws
+ * RequestBodyInvalidJson when the raw body is not valid JSON, so this method is
+ * a thin trigger that surfaces that exception to callers who call it explicitly.
  *
- * Constructor shape change from yin: SerializerInterface and
- * ExceptionFactoryInterface have been removed; exceptions are thrown directly
- * as typed instances. The $includeOriginalMessageInResponse parameter has been
- * dropped because it only affected exception construction, which is now inline.
- *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
+ * Exceptions are thrown directly as typed instances.
  */
 final class RequestValidator
 {
@@ -65,9 +59,9 @@ final class RequestValidator
     }
 
     /**
-     * Rejects unsupported extensions. With no supported extensions (this phase),
-     * any `ext` parameter present is unsupported — ready for a future Atomic
-     * Operations implementation to register an `ext` and have this pass.
+     * Rejects unsupported extensions. With no supported extensions configured,
+     * any `ext` parameter present is unsupported; registering a supported `ext`
+     * lets a matching request pass.
      *
      * @throws MediaTypeUnsupported  when the Content-Type asserts an unsupported extension
      * @throws MediaTypeUnacceptable when the Accept header requests an unsupported extension
@@ -103,7 +97,7 @@ final class RequestValidator
      * The underlying JsonApiRequest::getParsedBody() decodes the raw body and
      * throws RequestBodyInvalidJson when the body is malformed JSON. This method
      * exists so callers have an explicit validation entry-point; it does not
-     * perform any additional JSON-schema linting (deferred to Phase 2).
+     * perform any additional JSON-schema linting.
      *
      * @throws \haddowg\JsonApi\Exception\RequestBodyInvalidJson
      */

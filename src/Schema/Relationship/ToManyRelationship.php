@@ -12,7 +12,6 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  * A to-many relationship: its data member is a list of resource identifiers,
  * or an empty list when the relationship has no members.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 class ToManyRelationship extends AbstractRelationship

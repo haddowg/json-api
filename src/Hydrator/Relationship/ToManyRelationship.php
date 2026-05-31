@@ -12,7 +12,6 @@ use haddowg\JsonApi\Schema\ResourceIdentifier;
  * When the request carries `"data": []`, the relationship is "clearing"
  * ({@see isEmpty()} === true). Otherwise wraps the list of resource identifiers.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 final readonly class ToManyRelationship

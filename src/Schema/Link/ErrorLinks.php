@@ -8,7 +8,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * The `links` member of an error object: an optional `about` link plus zero or
  * more `type` links. Construct-only; `type` links are de-duplicated by href.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#error-objects
  */
 final readonly class ErrorLinks extends AbstractLinks

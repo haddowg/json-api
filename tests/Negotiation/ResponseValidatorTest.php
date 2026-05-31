@@ -16,14 +16,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for ResponseValidator's Content-Type and body well-formedness checks.
  *
- * Rewrites from yin:
- * - DefaultExceptionFactory, JsonSerializer, SerializerInterface constructor args removed;
- *   ResponseValidator is constructed with no arguments.
- * - Laminas\Diactoros\Response replaced with Nyholm\Psr7\Response.
- * - validateJsonApiBody() tests removed entirely — that method is dropped in the Phase-1
- *   trim; JSON-schema body linting is deferred to a later phase.
- * - validateContentTypeHeader() tests added (new behaviour not present in yin's validator).
- * - All tests use PHPUnit 12 attributes (#[Test], #[DataProvider], #[Group]) — no docblocks.
+ * ResponseValidator is constructed with no arguments and responses are built with
+ * Nyholm\Psr7\Response. Only Content-Type validation and JSON well-formedness are
+ * covered; JSON-schema body linting is not performed by this validator.
  */
 final class ResponseValidatorTest extends TestCase
 {

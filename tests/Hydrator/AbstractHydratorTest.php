@@ -21,12 +21,9 @@ use PHPUnit\Framework\TestCase;
  * Tests for the core hydration logic in HydratorTrait as exercised through
  * AbstractHydrator (which composes both create and update traits).
  *
- * Rewrites from yin:
- * - ExceptionFactory removed from all call sites (no factory arg).
- * - `$owner->getResourceIdentifier()` → `$owner->resourceIdentifier` (public property).
- * - `$children->getResourceIdentifiers()` → `$children->resourceIdentifiers` (public property).
- * - Request built with Nyholm PSR-7 (replaces Laminas/Diactoros).
- * - PHPUnit 12 attributes only, no docblock annotations.
+ * Hydrators throw typed exceptions directly (no factory). Relationship linkage
+ * is read via public properties (`$owner->resourceIdentifier`,
+ * `$children->resourceIdentifiers`). Requests are built with Nyholm PSR-7.
  */
 final class AbstractHydratorTest extends TestCase
 {

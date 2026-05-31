@@ -24,7 +24,6 @@ use haddowg\JsonApi\Exception\ResourceIdentifierTypeMissing;
  * fragment and throws the typed `ResourceIdentifier*` exceptions directly — there
  * is no exception-factory indirection.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-identifier-objects
  */
 final readonly class ResourceIdentifier

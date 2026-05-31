@@ -13,7 +13,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * not present in the map. A relation key may be any string — the spec permits
  * arbitrary link relations alongside the reserved ones.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-links
  */
 abstract readonly class AbstractLinks

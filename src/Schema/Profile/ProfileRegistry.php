@@ -10,9 +10,8 @@ namespace haddowg\JsonApi\Schema\Profile;
  * A simple eager map: the spec requires no negotiation across profiles (no
  * quality factors), so lookup is an O(1) URI match. Registering the same URI
  * twice is a configuration error ({@see ProfileAlreadyRegistered}). This
- * registry is injected, never global; in Phase 4.5 it folds into the broader
- * `Server`-owned registry, so the public API here ({@see register()} /
- * {@see has()} / {@see get()} / {@see all()}) is chosen to survive that merge.
+ * registry is injected, never global, and is owned by the `Server`. Its public
+ * API is {@see register()} / {@see has()} / {@see get()} / {@see all()}.
  *
  * @see https://jsonapi.org/format/1.1/#profiles
  */

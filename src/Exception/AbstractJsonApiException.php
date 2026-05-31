@@ -12,7 +12,6 @@ namespace haddowg\JsonApi\Exception;
  * {@see getStatusCode()}. Each concrete exception implements {@see getErrors()}
  * to expose its JSON:API error data.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractJsonApiException extends \Exception implements JsonApiException
 {

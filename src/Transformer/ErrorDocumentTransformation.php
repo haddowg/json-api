@@ -13,6 +13,5 @@ use haddowg\JsonApi\Schema\Document\ErrorDocumentInterface;
  *
  * @extends AbstractDocumentTransformation<ErrorDocumentInterface>
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 class ErrorDocumentTransformation extends AbstractDocumentTransformation {}

@@ -8,7 +8,6 @@ namespace haddowg\JsonApi\Schema\Link;
  * The `links` member of a relationship object: optional `self` and `related`
  * links plus any arbitrary custom relations the spec permits. Construct-only.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 final readonly class RelationshipLinks extends AbstractLinks

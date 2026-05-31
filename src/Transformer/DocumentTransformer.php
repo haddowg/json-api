@@ -14,7 +14,6 @@ use haddowg\JsonApi\Schema\Data\SingleResourceData;
  *
  * @internal
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 final class DocumentTransformer
 {
@@ -55,7 +54,7 @@ final class DocumentTransformer
         $transformation->document->initializeTransformation($transformation);
         $this->transformRelationshipDataMembers($transformation);
         // A relationship document MAY also carry top-level jsonapi/meta/links; merge
-        // them on top of the relationship's own data/links/meta (yin omitted these).
+        // them on top of the relationship's own data/links/meta.
         $this->transformMetaMembers($transformation);
         $transformation->document->clearTransformation();
 

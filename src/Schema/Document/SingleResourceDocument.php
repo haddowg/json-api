@@ -11,9 +11,9 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 /**
  * Concrete single-resource document constructed by the response value objects.
  *
- * yin's document hierarchy stops at the abstract bases (consumers subclass
- * them); this library drives serialization from response value objects instead,
- * so it provides concrete documents carrying the top-level members directly.
+ * Serialization is driven from response value objects, so this library provides
+ * concrete documents carrying the top-level members directly rather than
+ * stopping at the abstract bases.
  *
  * @internal
  */

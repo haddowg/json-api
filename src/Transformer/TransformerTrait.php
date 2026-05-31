@@ -7,13 +7,10 @@ namespace haddowg\JsonApi\Transformer;
 /**
  * Attribute-value transformation helpers shared by resource serializers.
  *
- * Ported from woohoolabs/yin's root-level `TransformerTrait` and folded into the
- * `Transformer` namespace. Modernised to an instance-method trait per the
- * project convention (no `static`; call sites use `$this->`).
+ * An instance-method trait per the project convention (no `static`; call sites
+ * use `$this->`).
  *
  * @internal
- *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 trait TransformerTrait
 {

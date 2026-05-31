@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Composition-contract proof: Phase-1 acceptance criterion.
+ * Composition-contract proof.
  *
  * Verifies that both {@see \haddowg\JsonApi\Serializer\SerializerInterface} and
  * {@see \haddowg\JsonApi\Hydrator\HydratorInterface} are implementable **purely by

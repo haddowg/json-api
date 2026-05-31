@@ -20,7 +20,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * a PSR-7 response.
  *
  * Routing supplies the {@see Target} as a request attribute keyed by
- * {@see Target::class} (wired in a later phase). The operation is then chosen by
+ * {@see Target::class}. The operation is then chosen by
  * the HTTP method crossed with the shape of the target (whether it names a
  * relationship, and if so whether it is the relationship-linkage endpoint).
  */

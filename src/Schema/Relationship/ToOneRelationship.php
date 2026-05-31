@@ -12,7 +12,6 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  * A to-one relationship: its data member is a single resource identifier, or
  * `null` when the relationship is empty.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
 class ToOneRelationship extends AbstractRelationship

@@ -17,10 +17,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * Tests the PSR-7 delegation layer in AbstractRequest.
  *
  * All wither methods must return a new instance (immutable pattern) while
- * the original is unmodified.
- *
- * Rewrites from yin: factory helpers no longer pass a DefaultExceptionFactory or
- * JsonDeserializer (both removed); JsonApiRequest now takes only a PSR-7 request.
+ * the original is unmodified. JsonApiRequest is constructed from only a PSR-7
+ * request.
  */
 final class AbstractRequestTest extends TestCase
 {

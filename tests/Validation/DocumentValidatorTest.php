@@ -197,8 +197,8 @@ final class DocumentValidatorTest extends TestCase
     #[Test]
     public function additionalSchemaCanTightenValidation(): void
     {
-        // A per-resource-style schema (Phase 4.5 entry point) composing extra
-        // constraints: require the article title to be a string.
+        // A per-resource-style schema composing extra constraints: require the
+        // article title to be a string.
         $schema = $this->decodedFragment(
             '{"properties":{"data":{"properties":{"attributes":{"required":["title"],"properties":{"title":{"type":"string"}}}}}}}',
         );

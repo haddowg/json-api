@@ -16,7 +16,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Dispatches to {@see CreateHydratorTrait::hydrateForCreate()} or
  * {@see UpdateHydratorTrait::hydrateForUpdate()} based on the HTTP method.
  *
- * @see https://github.com/woohoolabs/yin — original work (MIT), from which this derives.
  */
 abstract class AbstractHydrator implements HydratorInterface, UpdateRelationshipHydratorInterface
 {
