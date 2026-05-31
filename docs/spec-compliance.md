@@ -1,5 +1,14 @@
 # JSON:API 1.1 spec compliance
 
+This page is the canonical compliance reference for the package: it tracks every
+normative MUST/SHOULD requirement of [JSON:API 1.1](https://jsonapi.org/format/1.1/)
+and records how — and whether — this library satisfies it. Each row carries a
+status (see the legend below) and names the implementing class and the test
+covering it. Tests asserting a spec requirement are tagged
+`#[Group('spec:<section>')]`, so the table's section anchors map directly to
+runnable groups; read a row as "this requirement, this code, this proof". When a
+requirement is intentionally unsupported the row says so and gives the rationale.
+
 > **Scope.** This document tracks **[JSON:API 1.1](https://jsonapi.org/format/1.1/)
 > specification compliance only** — the normative MUST/SHOULD requirements of the
 > format and how this package satisfies them. It is *not* an OpenAPI document and

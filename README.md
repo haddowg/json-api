@@ -47,11 +47,49 @@ composer require haddowg/json-api
 
 ## Quick example
 
-_A worked end-to-end example will be added here as the public API stabilises._
+Declare a resource type once — the same field list drives serialisation and
+hydration — register it on a `Server`, and hand the server a PSR-7 request:
+
+```php
+use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Server\Server;
+use Nyholm\Psr7\Factory\Psr17Factory;
+
+final class ArticleResource extends AbstractResource
+{
+    public static string $type = 'articles';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title')->required()->maxLength(255)->sortable(),
+            Str::make('body')->required(),
+        ];
+    }
+}
+
+$psr17 = new Psr17Factory();
+
+$server = Server::make()
+    ->withBaseUri('https://example.test')
+    ->withPsr17($psr17, $psr17)
+    ->register(ArticleResource::class)
+    ->withHandler($articleHandler); // your OperationHandler
+
+$response = $server->handle($request); // a spec-compliant PSR-7 response
+```
+
+See [Getting started](docs/getting-started.md) for the handler, routing, and
+middleware that complete this example.
 
 ## Documentation
 
-Documentation will live under [`docs/`](docs/) as the public API stabilises.
+Full documentation lives under [`docs/`](docs/README.md). Start with
+[Getting started](docs/getting-started.md) for an end-to-end walkthrough, or
+browse the [documentation index](docs/README.md) for the reference pages.
 
 ## Contributing
 

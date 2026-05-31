@@ -1,0 +1,191 @@
+# Adapters
+
+The library draws a deliberate line between **metadata** and **execution**. The
+core ships typed value objects describing intent — [constraints](validation.md)
+(`->required()`, `->maxLength()`), [filters](filters.md) (`Where`, `WhereIn`),
+[sorts](sorts.md) (`SortByField`) — but it never runs any of them against your
+data. Execution lives in **handlers** and **translators** that an adapter
+provides: a filter handler turns a `Filter` into a query predicate, a sort handler
+turns a `Sort` into an ordering, a constraint translator turns a `Constraint` into
+your validator's native rule. This page explains the pattern and how to extend the
+vocabulary for your own data layer.
+
+The reason for the split is decoupling: core knows nothing about your storage.
+There is deliberately **no generic `Query` interface** — a handler's query
+parameter is `mixed`, so a Doctrine handler narrows it to a `QueryBuilder`, an
+in-memory handler to an array, a search adapter to its own request object, with
+core coupling to none of them.
+
+## Metadata contracts
+
+Each metadata kind is a one-method (or near-empty) interface; the concrete value
+objects add public readonly fields a handler reads.
+
+```php
+// Resource\Constraint\Constraint
+public function context(): Context;   // create / update / both
+
+// Resource\Filter\Filter
+public function key(): string;        // the filter[<key>] this responds to
+
+// Resource\Sort\Sort
+public function key(): string;        // the sort key (no leading '-')
+```
+
+A schema declares which it accepts: field [constraints](validation.md) inline on
+each field, `filters()` for the filter list, and field `->sortable()` /
+[`sorts()`](sorts.md) for the sort list. None of those declarations execute on
+their own.
+
+## Handler contracts
+
+Filters and sorts are executed by handlers, both templated on the query type so no
+data layer leaks into core:
+
+```php
+/** @template TQuery */
+interface FilterHandler
+{
+    /** @param TQuery $query @return TQuery */
+    public function apply(Filter $filter, mixed $query, mixed $value): mixed;
+}
+
+/** @template TQuery */
+interface SortHandler
+{
+    /** @param TQuery $query @return TQuery */
+    public function apply(Sort $sort, mixed $query, bool $descending): mixed;
+}
+```
+
+A handler matches on the concrete metadata type and produces the native query
+operation. When it meets a value object it does not recognise it throws —
+`Resource\Filter\UnsupportedFilter` or `Resource\Sort\UnsupportedSort`. Both are
+**server-configuration errors**, not client errors, so they render as a `500`: a
+filter or sort was declared (or routed through) with no handler wired to execute
+it. They are `AbstractJsonApiException`s, so the [error-handler
+middleware](middleware.md) renders them as JSON:API error documents automatically;
+each exposes the offending VO (`$filter` / `$sort`).
+
+## A worked handler
+
+Core ships `Resource\Filter\InMemory\ArrayFilterHandler` and
+`Resource\Sort\InMemory\ArraySortHandler` — worked handlers that operate on a PHP
+`list<array|object>`. They power the package's own integration tests and serve as
+the canonical example for adapter authors. They are **not** a production query
+layer: they filter and sort in memory with no indexing. A real adapter pushes the
+predicate and the ordering down to its data store.
+
+`ArrayFilterHandler` reads each value object's fields — `Where`'s `operator` and
+`deserialize` closure, `WhereIn`'s `delimiter`, and so on — and builds an
+`array_filter` predicate, reading model values through a framework-agnostic
+accessor (a public property, a getter, or an array key). `ArraySortHandler`
+likewise reads `SortByField`'s `column` and applies a stable `usort`, flipping the
+comparison for the descending direction. Both fall through to the typed
+`Unsupported…` exception for anything they don't recognise.
+
+### Filters
+
+A typical collection handler folds the requested filters and sorts over the query:
+
+```php
+use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
+use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
+
+$filters = new ArrayFilterHandler();
+$sorts = new ArraySortHandler();
+
+$schema = $server->schemas()->schemaFor('articles'); // the AbstractResource
+$rows = $repository->all();
+
+$requestedFilters = $operation->queryParameters()->filter;
+foreach ($schema->filters() as $filter) {
+    if (\array_key_exists($filter->key(), $requestedFilters)) {
+        $rows = $filters->apply($filter, $rows, $requestedFilters[$filter->key()]);
+    }
+}
+
+$allowedSorts = [];
+foreach ($schema->allSorts() as $sort) {
+    $allowedSorts[$sort->key()] = $sort;
+}
+foreach ($operation->queryParameters()->sort as $field) {
+    $descending = \str_starts_with($field, '-');
+    $key = \ltrim($field, '-');
+    if (isset($allowedSorts[$key])) {
+        $rows = $sorts->apply($allowedSorts[$key], $rows, $descending);
+    }
+}
+```
+
+## Writing a handler for your data layer
+
+An adapter for a real data layer implements the same interfaces, narrowing the
+query type to its own object:
+
+```php
+use haddowg\JsonApi\Resource\Filter\Filter;
+use haddowg\JsonApi\Resource\Filter\FilterHandler;
+use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+
+/** @implements FilterHandler<QueryBuilder> */
+final class DoctrineFilterHandler implements FilterHandler
+{
+    public function apply(Filter $filter, mixed $query, mixed $value): mixed
+    {
+        \assert($query instanceof QueryBuilder);
+
+        return match (true) {
+            $filter instanceof Where => $query->andWhere(/* $filter->column, $filter->operator, $value */),
+            $filter instanceof WhereIn => $query->andWhere(/* $filter->column IN (…) */),
+            // … the rest of the built-in vocabulary …
+            default => throw new UnsupportedFilter($filter),
+        };
+    }
+}
+```
+
+Extending the vocabulary is the same move on both sides: define a custom
+[`Filter`](filters.md#writing-a-custom-filter) /
+[`Sort`](sorts.md#writing-a-custom-sort) value object carrying whatever fields the
+handler needs, list it in the schema's `filters()` / `sorts()`, and add a branch
+for it in your handler. A custom value object and the handler that understands it
+are always written together — a handler that meets an unrecognised one throws
+`Unsupported…`.
+
+## Constraint translators and `Custom`
+
+Constraints follow the same metadata-plus-translator split, with one core
+consumer built in: the [JSON Schema compiler](validation.md) translates the
+structural subset of constraints (`Required`, `Min`/`Max`, `Pattern`, formats, …)
+into a per-resource schema for request validation. A framework adapter translates
+the **full** constraint set into its native validator rules (Symfony Validator,
+Laravel rules, …) for complete create/update validation.
+
+For rules the core does not model, `Resource\Constraint\Custom` is the escape
+hatch — an opaque constraint carrying an `$id` and an arbitrary `$payload`
+(`new Custom('coupon_redeemable', ['campaign' => 'spring'])`). It is **not
+round-tripped to JSON Schema**: the schema compiler skips it, leaving it for an
+adapter to interpret by matching on `$id`. An adapter's translator reads the
+`Custom` constraints off a field, looks each `$id` up in its own registry, and
+applies the rule its `$payload` describes. The same is true of `When`, which
+gates a constraint set on a closure the JSON Schema vocabulary cannot express. See
+[Validation](validation.md) for the constraint contexts and the structural subset
+the compiler does cover.
+
+## ORM-backed adapters
+
+Core ships only the in-memory reference handlers; production handlers for an ORM
+or query builder are a separate concern. A dedicated Symfony/Doctrine bundle —
+shipping `FilterHandler` / `SortHandler` implementations and a Symfony Validator
+constraint translator wired into the request lifecycle — is planned to live
+outside this package, so the core stays framework- and storage-agnostic.
+
+## Related pages
+
+- [Filters](filters.md) — the filter value objects and their fields.
+- [Sorts](sorts.md) — the sort value objects and `->sortable()` derivation.
+- [Validation](validation.md) — the constraint vocabulary and the JSON Schema compiler.
+- [Schemas](schemas.md) — declaring filters, sorts, and constraints on a type.
