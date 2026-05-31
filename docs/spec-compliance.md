@@ -77,8 +77,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the typed parsers `Request\Pagination\{Page,Offset,Cursor,FixedPage,FixedCursor}BasedPagination` + `PaginationFactory` (absent/non-numeric params fall back to defaults, per yin). `JsonApiRequestTest`, `tests/Request/Pagination/*`. Unify into a `Page` VO in Phase 2. |
-| Pagination links (`first`/`prev`/`next`/`last`) | ✅ test | `Schema\Pagination\*PaginationLinkProviderTrait` (page/offset/cursor + fixed variants) build the links via `Transformer\Utils::getUri`. `tests/Schema/Pagination/*`. Fold into `Page` in Phase 2. |
+| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the strategy paginators `Pagination\{Page,Offset,FixedPage}Paginator` (implement `Paginator`) and the standalone `Pagination\CursorPaginator`, which read `page[…]` and produce `Page` value objects (absent/non-numeric params fall back to defaults, per yin's rule, via `@internal QueryParam::int`). `tests/Pagination/PaginatorTest.php`. |
+| Pagination links (`first`/`prev`/`next`/`last`) | ✅ test | The `Pagination\{PageBased,OffsetBased,FixedPage,CursorBased}Page` value objects emit `linkSet()` (built via `Transformer\Utils::getUri`, preserving unrelated query params) and `pageMeta()`; `DataResponse::fromPage()` renders them into top-level `links` + `meta.page`. **`CursorBasedPage` omits `last` by design** (no total count). `tests/Pagination/*PageTest.php`, `DataResponsePaginationTest`. Replaces yin's `PaginationLinkProviderInterface` + collection-side traits (deleted). |
 
 ## Filtering (`spec:filtering`)
 
@@ -98,4 +98,18 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). **Note:** media-type params are **profile-only** (yin-faithful); `ext` parameter negotiation is not yet handled. JSON-schema body validation is deferred (later phase). |
+| `Content-Type` / `Accept` handling; reject unknown media-type params | ✅ test | `JsonApiRequest::validateContentTypeHeader()`/`validateAcceptHeader()` (→ `MediaTypeUnsupported`/`MediaTypeUnacceptable`) plus the `Negotiation\RequestValidator`/`ResponseValidator` orchestrators. Only `ext` and `profile` are permitted media-type params (`Request\MediaType::isValid()`, quote-aware multi-instance split); any other param → 415/406. `JsonApiRequestTest`, `RequestValidatorTest`, `ResponseValidatorTest` (`#[Group('spec:content-negotiation')]`). JSON-schema body validation is deferred (later phase). |
+| `ext` parameter negotiation (415/406 on unsupported extensions) | ✅ test | `RequestValidator(string ...$supportedExtensions)` rejects an `ext` not in its supported set: 415 on `Content-Type`, 406 on `Accept`. Empty supported set by default (no extensions shipped — the hook a post-1.0 Atomic Operations `ext` plugs into). `RequestValidatorTest`, `ExtensionTest`. |
+
+## Extensions and profiles (`spec:extensions-and-profiles`)
+
+| Requirement | Status | Notes |
+|---|---|---|
+| `profile` media-type parameter parsed on `Content-Type`/`Accept` (+ `profile` query param) | ✅ test | `JsonApiRequest::getAppliedProfiles()`/`getRequestedProfiles()`/`getRequiredProfiles()` (space-separated URI lists). `JsonApiRequestTest`, `ExtensionTest`. |
+| `ext` media-type parameter parsed | ✅ test | `JsonApiRequest::getAppliedExtensions()`/`getRequestedExtensions()`. `ExtensionTest`. |
+| Server MUST ignore unrecognized profiles (never reject) | ✅ test | Profiles are advisory: `RequestValidator` never rejects on a profile; the response only applies server-registered profiles and silently drops the rest. `RequestValidatorTest::negotiateIgnoresUnrecognizedProfiles`, `ProfileApplicationTest::ignoresUnregisteredRequestedProfile`. |
+| Applied profile advertised in response `Content-Type` `profile` param | ✅ test | `Response\AbstractResponse::toPsrResponse()` echoes applied profile URIs; sets `Vary: Accept`. `ProfileApplicationTest`, `DataResponsePaginationTest`. |
+| Top-level `links.profile` carries applied profile URIs | ✅ test | Populated by the response render path from the applied-profile set. `ProfileApplicationTest`. |
+| Profile abstraction + registry | ✅ test | `Schema\Profile\{ProfileInterface,AbstractProfile,ProfileRegistry}`; `finalizeDocument()` document hook; duplicate-URI registration throws `ProfileAlreadyRegistered`. `ProfileRegistryTest`, `AbstractProfileTest`. |
+| Cursor-pagination profile (first consumer) | ✅ test | `Pagination\CursorPaginationProfile` (`…/ethanresnick/cursor-pagination/`); `CursorBasedPage` activates it, so cursor-paginated responses advertise it on `Content-Type` + `links.profile`. `DataResponsePaginationTest::cursorResponseOmitsLastAndAdvertisesTheCursorProfile`. |
+| Extensions cannot be used unless server-supported (415/406) | ✅ test | See the content-negotiation `ext` row. No extension ships in 1.0; the negotiation path is wired and tested against the empty supported set. |

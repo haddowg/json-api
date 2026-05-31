@@ -422,3 +422,69 @@ supplies it in Phase 3; a missing Target renders a 500 `ErrorResponse`, not a th
 operation by a fixed **HTTP-method × target-shape `match`** dispatch table, invokes the handler, and
 renders the response VO via `toPsrResponse()`. No generics — operations carry concrete fields and the
 handler returns a fixed union. (Adds `psr/http-server-handler` for PSR-15.)
+
+### Profiles (public API)
+
+`Schema\Profile\ProfileInterface` is the consumer extension point for JSON:API 1.1 profiles:
+`uri(): string` (the canonical URI matched against the negotiated `profile` parameter),
+`keywords(): list<string>` (the member/link/query-param names the profile reserves — introspection
+only, does not gate negotiation), and `finalizeDocument(array $body, JsonApiRequestInterface): array`
+(a document-finalisation hook run once per **applied** profile during render, after the body array is
+built and before encoding). `AbstractProfile` is the convenience base (default `keywords()` → `[]`,
+`finalizeDocument()` → identity); the contract is implementable by composition. **Profiles are
+advisory** — the spec says a server MUST *ignore* any profile it does not recognize, so an
+unrecognized profile is never an error (contrast extensions). `ProfileRegistry` is a per-instance,
+injected, eager **simple map keyed by URI** (`register`/`has`/`get`/`all`); duplicate-URI
+registration throws `ProfileAlreadyRegistered` (a `\LogicException`, **not** a `JsonApiException` —
+it is a wiring bug, never an error document). The registry is reached via `ServerInterface::profiles()`
+and folds into the broader Phase-4.5 `Server` registry. Profile *application* lives in the response
+layer (see below), not on the profile.
+
+```php
+final class CursorPaginationProfile extends AbstractProfile
+{
+    public const string URI = 'https://jsonapi.org/profiles/ethanresnick/cursor-pagination/';
+    public function uri(): string { return self::URI; }
+    public function keywords(): array { return ['page[size]', 'page[after]', 'page[before]']; }
+}
+```
+
+#### Profile application & `ext` negotiation
+
+Applied-profile resolution and emission live on `Response\AbstractResponse`: `appliedProfiles()`
+intersects the request's requested/required profile URIs with the server's registered profiles
+(unrecognized ones dropped), `toPsrResponse()` then runs each applied profile's `finalizeDocument()`,
+records the URIs in top-level `links.profile`, echoes them in the `Content-Type` `profile` parameter,
+and sets `Vary: Accept`. A response subtype extends `appliedProfiles()` to add its own (e.g.
+`DataResponse` prepends a paginated `Page`'s profile). **`ext` negotiation** is parsed but not
+dispatched: `Request\MediaType::isValid()` accepts **both** `ext` and `profile` as the only permitted
+media-type parameters (and `MediaType::split()` cuts a header into instances quote-aware so a comma
+inside a quoted value doesn't fragment it); the request exposes `getRequestedExtensions()`/
+`getAppliedExtensions()`; `Negotiation\RequestValidator(string ...$supportedExtensions)` rejects an
+unsupported `ext` (415 on Content-Type, 406 on Accept) against its supported set (empty by default).
+This is the hook a post-1.0 Atomic Operations `ext` plugs into.
+
+### Pagination (`Paginator` + `Page`)
+
+Replaces yin's `PaginationLinkProviderInterface` + collection-side trait pattern (deleted). Two
+halves: **strategy** and **value object**. A `Pagination\Paginator` strategy reads the `page[…]`
+query params and produces a `Page`; the count-based strategies (`PagePaginator`, `OffsetPaginator`,
+`FixedPagePaginator`) implement the `Paginator` interface (`paginate(request, items, totalItems):
+Page`), while `CursorPaginator` is **standalone** (not a `Paginator`) because a cursor page has no
+total and its `prev`/`next` boundaries are caller-supplied cursors, not derivable from a count.
+Strategies are `final readonly`, fluent (`make()` + `with…()`), and silently default an absent/
+non-numeric `page[…]` value (via `@internal Pagination\QueryParam::int`, the inlined yin rule).
+The `Page` value objects (`PageBasedPage`, `OffsetBasedPage`, `FixedPagePage`, `CursorBasedPage`) are
+`final readonly`, **generic** (`@template T`), extend `AbstractPage` (which makes them iterable via
+`IteratorAggregate`, re-keying to int), and own link/meta emission: `linkSet(uri, queryString):
+array<string, Link|null>` (a `null` value = that relation omitted) and `pageMeta(): array`. Links are
+built with `@internal Transformer\Utils::getUri` so unrelated query params (`filter`, `sort`,
+fieldsets) survive across pages. **`CursorBasedPage` omits `last` by design** (no count) and returns
+the cursor profile from `profile(): ?ProfileInterface` (method-on-base, default `null` elsewhere) so
+the response advertises it. The paginated render path is `DataResponse::fromPage($page, $resource)`;
+plain collections stay `fromCollection()` and never carry pagination concerns.
+
+```php
+$page = PagePaginator::make()->withDefaultPerPage(20)->paginate($request, $items, $total);
+return DataResponse::fromPage($page, $resource); // emits links.{first,prev,next,last} + meta.page
+```
