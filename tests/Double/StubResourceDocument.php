@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Double;
 
-use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Document\AbstractResourceDocument;
 use haddowg\JsonApi\Schema\JsonApiObject;
@@ -59,23 +58,5 @@ final class StubResourceDocument extends AbstractResourceDocument
         $data->setIncludedResources($ownData->transformIncluded());
 
         return $this->relationshipResponseContent;
-    }
-
-    public function getRequest(): ?JsonApiRequestInterface
-    {
-        return $this->request;
-    }
-
-    public function getObject(): mixed
-    {
-        return $this->object;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function getAdditionalMeta(): array
-    {
-        return $this->additionalMeta;
     }
 }

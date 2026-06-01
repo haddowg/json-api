@@ -372,9 +372,12 @@ inclusion/dedup decision tree verbatim from yin.
 
 `Transformer\*` (`DocumentTransformer`, `ResourceTransformer`, the `*Transformation` pass-state
 objects, and the folded `TransformerTrait`) plus `Schema\Document\*` (the `Abstract*Document`
-hierarchy + `ErrorDocument` + their interfaces) are **`@internal`, mutable, per-pass/per-request**
-machinery — never the consumer surface (consumers use resources + the forthcoming response value
-objects). They mirror the `Schema\Data` accumulator decision: not `readonly`. The engine is
+hierarchy + `ErrorDocument` + their interfaces) are **`@internal`** machinery — never the consumer
+surface (consumers use resources + the response value objects). The per-pass state lives **only**
+on the mutable `*Transformation` objects (request/object/result accumulate there, mirroring the
+`Schema\Data` accumulator decision: not `readonly`); the **document classes themselves are
+stateless** — `getData()`/`getRelationshipData()` receive the `ResourceDocumentTransformation`
+directly, so there is no `initialize`/`clear` lifecycle on documents or serializers. The engine is
 **serializer-free** — transformations return PHP **arrays**; JSON encoding lives in the response
 layer, so no `json_encode`/`SerializerInterface` appears here. The spec-sensitive logic
 (compound-document `included`, sparse fieldsets, included-resource dedup) is ported verbatim and

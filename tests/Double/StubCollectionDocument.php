@@ -16,17 +16,14 @@ final class StubCollectionDocument extends AbstractCollectionDocument
 {
     /**
      * @param array<string, mixed> $meta
-     * @param iterable<mixed>      $object
      */
     public function __construct(
         private readonly ?JsonApiObject $jsonApi = null,
         private readonly array $meta = [],
         private readonly ?DocumentLinks $links = null,
         ?SerializerInterface $resource = null,
-        iterable $object = [],
     ) {
         parent::__construct($resource ?? new StubResource());
-        $this->object = $object;
     }
 
     public function getJsonApi(): ?JsonApiObject
@@ -42,10 +39,5 @@ final class StubCollectionDocument extends AbstractCollectionDocument
     public function getLinks(): ?DocumentLinks
     {
         return $this->links;
-    }
-
-    public function getHasItems(): bool
-    {
-        return $this->hasItems();
     }
 }

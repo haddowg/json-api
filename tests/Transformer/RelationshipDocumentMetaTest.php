@@ -48,8 +48,6 @@ final class RelationshipDocumentMetaTest extends TestCase
                 return null;
             }
 
-            public function initializeTransformation(ResourceDocumentTransformation $transformation): void {}
-
             public function getData(ResourceDocumentTransformation $transformation, ResourceTransformer $transformer): DataInterface
             {
                 return new SingleResourceData();
@@ -68,8 +66,6 @@ final class RelationshipDocumentMetaTest extends TestCase
                     'meta' => ['relMeta' => true],
                 ];
             }
-
-            public function clearTransformation(): void {}
         };
 
         $transformation = new ResourceDocumentTransformation(

@@ -28,10 +28,8 @@ final class DocumentTransformer
     {
         $transformation = clone $transformation;
 
-        $transformation->document->initializeTransformation($transformation);
         $this->transformMetaMembers($transformation);
         $this->transformResourceDataMembers($transformation);
-        $transformation->document->clearTransformation();
 
         return $transformation;
     }
@@ -40,9 +38,7 @@ final class DocumentTransformer
     {
         $transformation = clone $transformation;
 
-        $transformation->document->initializeTransformation($transformation);
         $this->transformMetaMembers($transformation);
-        $transformation->document->clearTransformation();
 
         return $transformation;
     }
@@ -51,12 +47,10 @@ final class DocumentTransformer
     {
         $transformation = clone $transformation;
 
-        $transformation->document->initializeTransformation($transformation);
         $this->transformRelationshipDataMembers($transformation);
         // A relationship document MAY also carry top-level jsonapi/meta/links; merge
         // them on top of the relationship's own data/links/meta.
         $this->transformMetaMembers($transformation);
-        $transformation->document->clearTransformation();
 
         return $transformation;
     }

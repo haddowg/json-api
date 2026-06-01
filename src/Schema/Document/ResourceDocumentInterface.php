@@ -28,15 +28,5 @@ interface ResourceDocumentInterface extends DocumentInterface
     /**
      * @internal
      */
-    public function initializeTransformation(ResourceDocumentTransformation $transformation): void;
-
-    /**
-     * @internal
-     */
     public function getData(ResourceDocumentTransformation $transformation, ResourceTransformer $transformer): DataInterface;
-
-    /**
-     * @internal
-     */
-    public function clearTransformation(): void;
 }

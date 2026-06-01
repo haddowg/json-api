@@ -27,16 +27,6 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
     }
 
     /**
-     * Returns the resource ID for the current domain object.
-     *
-     * Shortcut for the resource serializer's getId().
-     */
-    public function getResourceId(): string
-    {
-        return $this->getResource()->getId($this->object);
-    }
-
-    /**
      * @internal
      */
     public function getData(ResourceDocumentTransformation $transformation, ResourceTransformer $transformer): DataInterface

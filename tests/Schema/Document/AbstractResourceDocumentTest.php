@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Schema\Document;
 
 use haddowg\JsonApi\Schema\Document\ResourceDocumentInterface;
+use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResourceDocument;
+use haddowg\JsonApi\Transformer\DocumentTransformer;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -14,44 +16,31 @@ use PHPUnit\Framework\TestCase;
 final class AbstractResourceDocumentTest extends TestCase
 {
     #[Test]
-    public function initializeTransformation(): void
+    public function getDataReceivesTheTransformationObjectStatelessly(): void
     {
-        $document = $this->createDocument();
-        $transformation = $this->createTransformation($document);
+        $object = (object) ['id' => '1'];
+        $document = new StubResourceDocument(data: new DummyData());
 
-        $document->initializeTransformation($transformation);
+        // The document holds no per-pass state: the object travels on the
+        // transformation and reaches getData() directly.
+        $result = (new DocumentTransformer())
+            ->transformResourceDocument($this->createTransformation($document, $object))
+            ->result;
 
-        self::assertSame($transformation->request, $document->getRequest());
-        self::assertSame($transformation->object, $document->getObject());
+        self::assertArrayHasKey('data', $result);
     }
 
-    #[Test]
-    public function clearTransformation(): void
-    {
-        $document = $this->createDocument();
-        $transformation = $this->createTransformation($document);
-
-        $document->initializeTransformation($transformation);
-        $document->clearTransformation();
-
-        self::assertNotNull($document->getRequest());
-        self::assertNotNull($document->getObject());
-    }
-
-    private function createTransformation(ResourceDocumentInterface $document): ResourceDocumentTransformation
-    {
+    private function createTransformation(
+        ResourceDocumentInterface $document,
+        mixed $object,
+    ): ResourceDocumentTransformation {
         return new ResourceDocumentTransformation(
             $document,
-            [],
+            $object,
             new StubJsonApiRequest(),
             '',
             '',
             [],
         );
-    }
-
-    private function createDocument(): StubResourceDocument
-    {
-        return new StubResourceDocument();
     }
 }
