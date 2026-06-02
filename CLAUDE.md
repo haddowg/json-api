@@ -1,87 +1,55 @@
 # CLAUDE.md — executor playbook
 
-Executor-facing playbook for `haddowg/json-api`. This file is read by future
-Claude Code sessions (including after context compaction or session restart) to
-keep work consistent. It is **not** consumer documentation — consumer docs are
-produced in Phase 5 under `docs/`.
+Maintenance playbook for `haddowg/json-api`, read by future Claude Code sessions
+(including after compaction or restart). It records the **executor-facing**
+decisions that do *not* belong in consumer docs — yin divergences, why a type
+breaks a convention, what was deliberately not ported, PHPStan level-9 footguns.
+
+Three places carry the rest, and this file links out rather than restating them:
+the **public API** is documented under [`docs/`](docs/README.md), the **domain
+language** in [`CONTEXT.md`](CONTEXT.md), and the **rationale for the big
+architectural decisions** as ADRs under [`docs/adr/`](docs/adr/). Read the
+consumer docs for the surface, an ADR for *why* a decision was made, and this file
+for the finer-grained executor notes that fit none of those — yin divergences,
+convention carve-outs, level-9 footguns.
 
 ## Project orientation
 
-`haddowg/json-api` is a modern, server-side JSON:API 1.1 library for PHP 8.3+.
-It is a **derivative work** based on [woohoolabs/yin](https://github.com/woohoolabs/yin)
-(MIT) — substantial portions of the codebase derive from yin — but it is **not a
-fork**: there is no upstream tracking relationship and no commitment to yin's
-public API. Always credit yin as the original work; never describe this package
-as a "fork".
+`haddowg/json-api` is a modern, server-side JSON:API 1.1 library for PHP 8.3+. It
+is a **derivative work** based on [woohoolabs/yin](https://github.com/woohoolabs/yin)
+(MIT) — substantial portions derive from yin — but it is **not a fork**: no
+upstream tracking, no commitment to yin's public API. Always credit yin as the
+original; never call this package a "fork". (See [ADR 0001](docs/adr/0001-derived-from-yin-not-forked.md).)
 
-- Spec: [JSON:API 1.1](https://jsonapi.org/format/1.1/)
-- Namespace: `haddowg\JsonApi\…`; minimum PHP 8.3
-- The master plan and phase plans live in `docs/`; start at [`docs/PLAN.md`](docs/PLAN.md).
+- Spec: [JSON:API 1.1](https://jsonapi.org/format/1.1/) · Namespace: `haddowg\JsonApi\…` · Min PHP 8.3
+- Consumer docs: [`docs/README.md`](docs/README.md) · Domain language: [`CONTEXT.md`](CONTEXT.md) · Decision records: [`docs/adr/`](docs/adr/)
 
-Pattern entries (value objects, exceptions, resources, hydrators, middleware,
-etc.) are added to this file as each component kind is first built, starting in
-Phase 1.
+### Status
+
+The library is **feature-complete** across the surface documented under `docs/`
+(serialization, hydration, the fluent schema DSL, profiles, pagination,
+middleware, optional validation). The remaining pre-1.0 work is a readiness pass:
+a spec-compliance audit, a public-API surface review, a performance baseline, a
+security review, and the release itself. Known not-yet-built work is the JSON:API
+Atomic Operations extension (its seams are in place — see
+[ADR 0011](docs/adr/0011-atomic-operations-deferred-seams-in-place.md)) and
+attribute-driven hydrators.
 
 ## Git conventions
 
-### Conventional Commits (required)
+Follow `~/.claude/references/commits.md` and `~/.claude/references/pull-requests.md`.
+Project-specific points that drive automated versioning via
+[release-please](https://github.com/googleapis/release-please):
 
-Every commit message MUST follow [Conventional Commits](https://www.conventionalcommits.org/).
-Commit messages and PR titles drive automated versioning and the changelog via
-[release-please](https://github.com/googleapis/release-please).
-
-Format: `type(optional scope): description`
-
-Common types:
-
-| Type | Use for | Version impact (pre-1.0) |
-|------|---------|--------------------------|
-| `feat:` | A new feature | minor |
-| `fix:` | A bug fix | patch |
-| `docs:` | Documentation only | none |
-| `test:` | Tests only | none |
-| `refactor:` | Neither fixes a bug nor adds a feature | patch |
-| `chore:`, `ci:`, `build:` | Tooling / maintenance | none |
-
-- Use the imperative mood ("add", not "added"/"adds").
-- Signal a breaking change with `!` after the type/scope (e.g. `feat!:`) or a
-  `BREAKING CHANGE:` footer. While the package is `0.x`, breaking changes bump
-  the **minor** version.
-
-### Pull requests
-
-**PRs are squash-merged.** The squash commit takes the **PR title** as its
-subject, so:
-
-- The **PR title MUST be a valid Conventional Commit** (e.g.
-  `feat: add cursor-based pagination`, `chore: bootstrap repository tooling`).
-  It becomes the single commit on `main` and feeds release-please — a
+- Every commit message and **PR title** MUST be a valid
+  [Conventional Commit](https://www.conventionalcommits.org/) (imperative mood). PRs
+  are **squash-merged**, so the PR title becomes the single commit on `main` — a
   non-conforming title breaks versioning.
-- The **PR description** reads as natural prose, as if pitched by an external
-  contributor proposing the change — not a templated form. Do **not** use literal
-  "What"/"Why" headings. Convey the purpose and motivation in a short paragraph
-  (optionally a few bullets for notable points), without walking through
-  implementation specifics — the diff is the record of how. Describe the change
-  on its own terms: do **not** reference internal phases, the master plan, or
-  this playbook; a reader of the public repo has no context for them.
-- Individual commits on the branch need not be individually meaningful (they are
-  squashed away), but should still use Conventional Commit messages for a clean
-  in-progress history.
-
-## Operational rules
-
-These apply to all phases (expanded in Phase 1 from the master plan):
-
-- **Single-threaded until a pattern is established.** Build the first instance of
-  a component kind sequentially in the main worktree; write its pattern entry
-  here before fanning out.
-- **Batching** is eligible only once (a) the pattern entry exists, (b) one full
-  instance is built, tested, and merged, and (c) remaining work is mechanical.
-- **Parallel work uses git worktrees**, one per subagent; convergence (merging
-  back) is sequential with CI green at each step.
-- **Tests port/build file-by-file alongside their implementation** — never
-  deferred to a bulk end-of-phase pass.
-- **Consolidation review after every fan-out**, recorded in the phase decision log.
+- While `0.x`, breaking changes (`!` or `BREAKING CHANGE:`) bump the **minor**.
+- The PR description reads as natural prose pitched by an external contributor — no
+  "What"/"Why" headings, no reference to internal planning or this playbook (a
+  public reader has no context for them).
+- When rebasing, use `git push --force-with-lease`.
 
 ## Tooling
 
@@ -93,647 +61,246 @@ composer phpstan    # PHPStan level 9
 composer cs-check   # PHP-CS-Fixer, PER-CS 2.0
 ```
 
-Tests asserting a spec requirement are tagged `#[Group('spec:<section>')]` — see
-[`tests/README.md`](tests/README.md).
+Spec-requirement tests are tagged `#[Group('spec:<section>')]` — see
+[`tests/README.md`](tests/README.md). The CS config disables
+`global_namespace_import`, so reference global classes inline (`\Exception`,
+`\json_decode`), never imported.
 
 ## Porting workflow (yin reference)
 
 A read-only checkout of yin lives at `/tmp/yin` (re-clone with
 `git clone --depth 1 https://github.com/woohoolabs/yin.git /tmp/yin` if absent).
-Map yin paths to ours by dropping the `JsonApi` path segment — it is already in
-our namespace prefix:
-
-- `WoohooLabs\Yin\JsonApi\Schema\Link\Link` (`src/JsonApi/Schema/Link/Link.php`)
-  → `haddowg\JsonApi\Schema\Link\Link` (`src/Schema/Link/Link.php`)
-- test `…\Tests\JsonApi\Schema\…` (`tests/JsonApi/Schema/…`)
-  → `haddowg\JsonApi\Tests\Schema\…` (`tests/Schema/…`)
-
-Port source **and its test together**; the source is not "done" until its test
-is green under the new API. Rewrite (don't skip) tests whose yin behaviour the
-modernised API replaces, and note the rewrite in the phase decision log.
+Map yin paths to ours by dropping the `JsonApi` path segment (already in our
+namespace prefix): `WoohooLabs\Yin\JsonApi\Schema\Link\Link` → `haddowg\JsonApi\Schema\Link\Link`.
+Port source **and its test together** — the source is not "done" until its test is
+green under the new API. Rewrite (don't skip) tests whose yin behaviour the
+modernised API replaces.
 
 ## Type system principles
 
-Default to PHPStan generics (`@template`) on **consumer-visible** types that
-carry a parametric payload — `Page<T>`, `DataResponse<T>`, `Field<T>`,
+Default to PHPStan generics (`@template`) on **consumer-visible** types that carry
+a parametric payload — `Page<T>`, `DataResponse<T>`, `Field<T>`,
 `OperationHandler<TOperation>`, registry lookups (`class-string<T>` → narrowed
 return). Skip generics on internal types, on PSR-* boundary types, and where
-`instanceof`/`match` already narrows just as well. Apply at port time, not as a
-retroactive sweep. Full rationale in `docs/PLAN.md`.
+`instanceof`/`match` already narrows. Apply at port time, not as a retroactive
+sweep.
 
-```php
-// Generic — consumer sees T flow through:
-/** @template T of object */
-final readonly class DataResponse { /** @param T $data */ public function __construct(public object $data) {} }
+## Modernisation conventions (shared)
 
-// Non-generic — internal, instanceof narrows fine:
-final readonly class JsonApiObject { /* no template */ }
-```
+These apply across every component; the per-component notes below only record
+deviations and component-specific gotchas.
 
-## Modernisation patterns
+- **Leaf value objects** (`JsonApiObject`, `ErrorSource`, `Link`, identifiers,
+  output VOs): `final readonly class`, public **promoted** properties, **no getters**
+  (the readonly property *is* the accessor), **named constructors** for alternate
+  forms. **Construct-only** — yin's mutating setters (`setMeta`/`setLink`/…) are
+  dropped; the fluent `with…` surface lives on the response VOs, not here. `meta`
+  is a plain `array<string, mixed>` (`[]` = omit); other absent structured members
+  are nullable. A VO that appears in output carries an `@internal transform():
+  array<…>` the engine calls. `final` unless yin subclasses it (e.g. `Link` is
+  extended by `LinkObject`).
+- **Clone-then-assign, not readonly** — the request and response layers are the
+  *deliberate* exception to readonly-everywhere. Withers do
+  `$self = clone $this; $self->x = $this->x->with…(); return $self;`; the classes
+  are **not** `readonly` because clone-then-assign and the lazy per-group caches
+  both forbid it. Immutability still holds at the use site.
+- **yin's collaborators are gone** — `ExceptionFactory` → throw the typed exception
+  directly; `Deserializer` / engine `SerializerInterface` → inline
+  `\json_decode`/`\json_encode` with `\JSON_THROW_ON_ERROR` passed **inline** (lets
+  PHPStan narrow to `string`, never a `(string)` cast).
+- **Preserve yin's spec surface verbatim** — status codes, `code`, `title`,
+  `detail`, `source`/`meta`, **including yin's existing typos**, are spec-compliance
+  fidelity. yin's error `detail` often differs from the thrown message, so spell out
+  the literal `detail:` string rather than reusing the message.
+- **`@internal` machinery is never consumer surface** — `Transformer\*`,
+  `Schema\Document\*`, `Response\Internal\*`, and every `…\Internal\…` helper.
 
-Each entry is a paragraph + minimal sketch. Add an entry the first time a
-component kind is ported; replace it (with a one-line decision-log note) if a
-later port reveals a better pattern.
+## Component notes
 
-### Value objects / data classes
+Each entry: where it lives → the consumer doc → executor-only notes.
 
-Leaf data types (`JsonApiObject`, `ErrorSource`, `Link`, …): `final readonly
-class` with **public promoted constructor properties and no getters** — the
-readonly property *is* the accessor. Use **named constructors** (static factory
-methods returning `self`) for alternate construction forms instead of multi-form
-constructors or optional-arg soup. Leaf VOs are **construct-only**: drop yin's
-mutating setters (`setMeta`, `setLink`, …); the fluent `with…` surface belongs on
-the response value objects, not here. `meta` stays a plain `array<string, mixed>`
-(`[]` = omit); other absent structured members are nullable (`null` = omit). A VO
-that appears in JSON output carries an `@internal transform(): array<…>` method
-(properly typed for level 9) which the serialization engine calls. Make the class
-`final` unless yin subclasses it (e.g. `Link` is extended by `LinkObject`, so it
-is not `final` and its `transform()` return type is the union `string|array` that
-subclasses covariantly narrow).
-
-```php
-final readonly class ErrorSource
-{
-    public function __construct(public string $pointer, public string $parameter) {}
-
-    public static function fromPointer(string $pointer): self { return new self($pointer, ''); }
-
-    /** @internal @return array<string, string> */
-    public function transform(): array { /* omit empty members */ }
-}
-```
-
-#### Links containers (variant)
-
-Keyed link maps (`AbstractLinks` and its subclasses `ErrorLinks`,
-`DocumentLinks`, `ResourceLinks`, `RelationshipLinks`) follow the value-object
-pattern with two adjustments. (1) The base is `abstract readonly class`; every
-subclass is `final readonly` — a readonly class may only be extended by another
-readonly class, and PHPStan's `class.nonReadOnly` rule enforces it (even
+### Value objects & links containers
+`src/Schema/…` (`JsonApiObject`, `ErrorSource`, `Link`, `ResourceIdentifier`) →
+[architecture](docs/architecture.md), [concepts](docs/concepts.md). Follow the
+leaf-VO convention. **Links containers** (`AbstractLinks` + `ErrorLinks`/
+`DocumentLinks`/`ResourceLinks`/`RelationshipLinks`): base is `abstract readonly`,
+every subclass `final readonly` (PHPStan `class.nonReadOnly` enforces it — even
 anonymous test subclasses must be `new readonly class … extends AbstractLinks`).
-(2) They are **construct-only**: links arrive through the constructor (drop yin's
-`setLink`/`addType`/`setBaseUri` mutators), `null` entries are filtered out so an
-absent relation is simply not in the map, and named constructors
-(`ErrorLinks::withBaseUri(...)`) cover yin's alternate `create*` forms. Arbitrary
-relation keys are allowed (the spec permits custom link relations). In
-`transform()`, build any nested list separately and assign it once rather than
-appending into the `mixed` result of `parent::transform()` (avoids
-`offsetAccess.nonOffsetAccessible` at level 9).
+Construct-only; `null` entries filtered out; arbitrary relation keys allowed. In
+`transform()`, build any nested list separately and assign once (avoids
+`offsetAccess.nonOffsetAccessible` at L9).
 
 ### Exceptions
-
-The typed exception hierarchy replaces yin's `ExceptionFactory` /
-`ErrorDocument`-building exceptions. The `JsonApiException` interface
-(`extends \Throwable`) is the contract: `getErrors(): list<Error>` exposes the
-error **data** and `getStatusCode(): int` the HTTP status — exceptions carry
-data, never a built document (the serialization layer assembles it).
-`AbstractJsonApiException extends \Exception implements JsonApiException` takes
-`(string $message, int $statusCode)`, forwards both to `parent::__construct()`
-(so `getCode()` mirrors the status), stores the status in a
-`private readonly int`, and surfaces it via `getStatusCode()`; it leaves
-`getErrors()` abstract. Each concrete exception is a `final class` whose
-constructor takes the same domain args as yin's factory method, promotes them as
-`public readonly` properties, builds the human message inline, and implements
-`getErrors()` returning freshly-built `Error` VOs via named args. yin's error
-`detail` often differs from the thrown message (e.g. "…is not supported!" vs
-"…is not supported by the endpoint!"), so spell out the literal `detail:` string
-to match yin; use `detail: $this->getMessage()` only where yin's detail is
-identical to the message. Preserve yin's status
-codes, `code`, `title`, `detail`, and `source`/`meta` verbatim — these are
-spec-compliance surface (including yin's existing typos, kept for fidelity).
-Decouple from the not-yet-built request layer: body-invalid exceptions accept
-the already-extracted data (raw/decoded body, validation-error list) rather than
-a PSR message. Global classes are referenced as `\Exception` inline (the CS
-config disables `global_namespace_import`), not imported.
-
-```php
-final class ResourceNotFound extends AbstractJsonApiException
-{
-    public function __construct() { parent::__construct('The requested resource is not found!', 404); }
-
-    public function getErrors(): array
-    {
-        return [new Error(status: '404', code: 'RESOURCE_NOT_FOUND', title: 'Resource not found', detail: $this->getMessage())];
-    }
-}
-```
+`src/Exception` → [exceptions](docs/exceptions.md), [errors](docs/errors.md).
+Typed hierarchy replaces yin's `ExceptionFactory`. `JsonApiException` (`extends
+\Throwable`) is the contract: `getErrors(): list<Error>` + `getStatusCode(): int`
+— exceptions carry **data**, never a built document. `AbstractJsonApiException(string
+$message, int $statusCode)` forwards both to `parent::__construct()` so `getCode()`
+mirrors the status. Body-invalid exceptions take the already-extracted data
+(raw/decoded body, validation-error list) — **decoupled** from the request layer.
 
 ### Requests
-
-The request layer is the one place the readonly-everywhere default is **deliberately
-dropped**. `JsonApiRequestInterface extends \Psr\Http\Message\ServerRequestInterface`
-and adds the JSON:API parsing/validation surface; `AbstractRequest implements
-ServerRequestInterface` (the interface is declared on the abstract base, not only on
-the concrete class — required so the PSR-7 wither methods can covariantly return
-`static`) and **composes** a wrapped `ServerRequestInterface`, delegating every PSR-7
-method to it. Wither methods follow `$self = clone $this; $self->serverRequest =
-$this->serverRequest->with…(); return $self;` — the wrapped request is replaced on a
-clone, never mutated in place, so the value-object immutability contract holds at the
-use site even though the class is **not** `readonly` (clone-then-assign and the lazy
-per-group query-param caches both forbid `readonly` properties). `JsonApiRequest`
-lazily parses and memoizes each query-param group (`fields`/`include`/`sort`/`page`/
-`filter`/`profile`) and nulls the relevant cache when the corresponding header or
-query param is replaced. Two modernisations replace yin's collaborators: (1) the
-`ExceptionFactory` is gone — every `$exceptionFactory->create…()` becomes a direct
-`throw new TypedException(...)`; (2) the `Deserializer` is gone — `getParsedBody()`
-prefers the PSR-7 parsed body and otherwise decodes the raw body inline with
-`\json_decode($raw, true, 512, \JSON_THROW_ON_ERROR)`, wrapping `\JsonException` in
-`RequestBodyInvalidJson`. Tests build requests with `nyholm/psr7` (+ `withParsedBody()`
-for JSON:API bodies) rather than a serializer.
-
-```php
-interface JsonApiRequestInterface extends ServerRequestInterface { /* validate*, get* parsing */ }
-
-abstract class AbstractRequest implements ServerRequestInterface
-{
-    public function __construct(protected ServerRequestInterface $serverRequest) {}
-    public function withMethod(string $method): static { $self = clone $this; $self->serverRequest = $this->serverRequest->withMethod($method); return $self; }
-}
-```
-
-#### Hydrator relationship value objects (early port)
-
-`Hydrator\Relationship\ToOneRelationship` / `ToManyRelationship` were ported ahead of
-the Hydrator round because `JsonApiRequest::getTo{One,Many}Relationship()` returns
-them. They follow the leaf-VO convention — `final readonly`, public promoted
-properties, no simple getters (`$rel->resourceIdentifier(s)` is the accessor) — keeping
-only the *computed* helpers (`isEmpty()`, `getResourceIdentifierTypes()/Ids()`).
-`null`/`[]` data means "clear the relationship" (`isEmpty() === true`). The full
-Hydrator pattern entry lands with the Hydrator round.
-
-### Paginators (request-side)
-
-The request-side pagination parsers (`Request\Pagination\{Page,Offset,Cursor,
-FixedPage,FixedCursor}BasedPagination`) are leaf VOs: `final readonly`, public
-promoted properties, no getters (`$pagination->page`/`->size`/`->offset`/`->limit`/
-`->cursor` is the accessor). Each has a named constructor `fromPaginationQueryParams(
-array $params, …defaults): self` that reads the raw `page[…]` map (from
-`JsonApiRequestInterface::getPagination()`). Integer extraction **silently falls back to
-the default** when the param is absent or non-numeric (`isset && \is_numeric ? (int) … :
-$default`) — this matches yin's `Utils::getIntegerFromQueryParam`, which never threw, so
-no exception is raised here (yin injected an `ExceptionFactory` into the factory but
-never used it — dropped). The link-building statics `getPaginationQueryParams()` /
-`getPaginationQueryString()` are retained (the Schema-side link-provider traits consume
-them). `PaginationFactory` is a `final readonly` wrapper over the request exposing
-`create*Pagination(...defaults)`. **Phase-2 note:** these fold into a unified `Page`
-value object — each class carries a `// TODO(phase-2)` and the link-emission/profile
-side of the paginator pattern is finalised then. The **link-emission side**
-(`Schema\Pagination\{Page,Offset,Cursor,FixedPage,FixedCursor}BasedPaginationLinkProviderTrait`
-+ `PaginationLinkProviderInterface`) is ported as **instance-method traits** (abstract
-`getTotalItems()`/`getPage()`/… hooks) that build first/prev/next/last/self links via the
-`@internal Transformer\Utils::getUri` helper (the one method of yin's root `Utils` that is
-actually needed; the rest stays unported). These traits + the interface are also Phase-2
-`// TODO`-marked: they fold into `Page` and the interface is slated for deletion then.
-
-### Negotiation (validators)
-
-`Negotiation\RequestValidator` / `ResponseValidator` are thin, **stateless** `final
-class`es (no-arg constructors — yin's `SerializerInterface`/`ExceptionFactoryInterface`/
-`$includeOriginalMessageInResponse` are all gone). They orchestrate validation but own
-almost no logic: `RequestValidator` delegates straight to the request
-(`negotiate()` → `validateContentTypeHeader()`+`validateAcceptHeader()`,
-`validateQueryParams()`, `validateTopLevelMembers()`, and `validateJsonBody()` simply
-calls `getParsedBody()` to surface `RequestBodyInvalidJson`). `ResponseValidator`
-validates the response `Content-Type` (profile-only media-type params, mirroring the
-request rule) and lints the body with inline `\json_decode(...JSON_THROW_ON_ERROR)` →
-`ResponseBodyInvalidJson` (empty body = OK). **Phase-1 trim:** all JSON-schema body
-validation (yin's `validateJsonApiBody`, `RequestBodyInvalidJsonApi`/`Response…`, the
-bundled `json-api-schema.json` + `justinrainbow/json-schema`) is **deferred** — header
-negotiation + JSON well-formedness only. yin's `AbstractMessageValidator` was **not
-ported as a class**: once schema validation is removed nothing is genuinely shared
-between request and response linting, so its remnants were folded into the two
-validators rather than leaving an empty base. The JSON:API media-type-parameter rule
-(`application/vnd.api+json` may only carry a `profile` parameter — yin-faithful, `ext`
-not yet handled) lives in one place, `@internal Request\MediaType::isValid()`, consumed by
-both `JsonApiRequest`'s Content-Type/Accept validation and `ResponseValidator`'s
-Content-Type validation.
+`src/Request` → [content-negotiation](docs/content-negotiation.md),
+[concepts](docs/concepts.md). Clone-then-assign / not-readonly (see shared notes).
+`JsonApiRequestInterface extends ServerRequestInterface`; the interface is declared
+on `AbstractRequest` (the base, not only the concrete) so PSR-7 withers covariantly
+return `static`. `AbstractRequest` **composes** a wrapped `ServerRequestInterface`
+and delegates every PSR-7 method. `JsonApiRequest` lazily memoizes each query-param
+group (`fields`/`include`/`sort`/`page`/`filter`/`profile`) and **nulls the cache**
+when the corresponding header/param is replaced. `getParsedBody()` prefers the PSR-7
+parsed body, else inline-decodes and wraps `\JsonException` in `RequestBodyInvalidJson`.
+The media-type-parameter rule (`application/vnd.api+json` may carry only `profile`/
+`ext`) lives once in `@internal Request\MediaType::isValid()`, consumed by request
+validation and `ResponseValidator`. Tests build requests with `nyholm/psr7`.
 
 ### Hydrators
+`src/Hydrator` → [hydrators](docs/hydrators.md). `AbstractHydrator` composes three
+**instance-method** traits and dispatches on HTTP method (POST → create, PATCH →
+update) then runs `validateDomainObject()`. Relationship cardinality is checked by
+**reflecting the hydrator callable's 2nd-parameter type-hint** and comparing
+to-one/to-many; mismatch throws `RelationshipTypeInappropriate`. Decoded-JSON
+boundary: body members arrive as `mixed` — guard with `\is_string`/`\is_array`
+before use. The input relationship VOs (`src/Hydrator/Relationship/{ToOne,ToMany}Relationship`,
+ported early) are **leaf VOs** (distinct from the mutable output relationships);
+`null`/`[]` data = clear the relationship. **`lid`** (1.1 local IDs) is supported at
+the data-model level beyond yin (`ResourceIdentifier` carries `?id` + `?lid`,
+`fromArray()` requires `type` + at-least-one-of); cross-document `lid` *resolution*
+is deferred to the post-1.0 Atomic Operations extension.
 
-`HydratorInterface::hydrate(JsonApiRequestInterface $request, mixed $domainObject):
-mixed` is the request→domain contract (yin's `ExceptionFactory` arg is gone — typed
-exceptions throw directly). `AbstractHydrator` composes the three **instance-method**
-traits (`HydratorTrait` core + `CreateHydratorTrait` + `UpdateHydratorTrait`; no
-`static`, call sites use `$this->`) and dispatches on the HTTP method (POST → create,
-PATCH → update), then runs a `validateDomainObject()` hook. Concrete hydrators implement
-the abstract hooks — `getAcceptedTypes()`, `getAttributeHydrator()`,
-`getRelationshipHydrator()`, `setId()`, `generateId()`, `validateClientGeneratedId()`,
-`validateRequest()` — so the contract stays **implementable by composition** (the traits
-are an inheritance convenience, not a requirement). Relationship cardinality is checked
-by reflecting the hydrator callable's 2nd-parameter type-hint and comparing it (`to-one`/
-`to-many`) against the parsed `ToOneRelationship`/`ToManyRelationship`; a mismatch throws
-`RelationshipTypeInappropriate`. **Decoded-JSON boundary:** request body members
-(`type`/`id`/`attributes`/`relationships`/relationship `data`) arrive as `mixed`; guard
-with `\is_string`/`\is_array` before use (a non-string `type`/`id` is malformed → throw
-the typed exception), and bridge a JSON object to `array<string, mixed>` with an inline
-`@var` only at the point it is handed to `ResourceIdentifier::fromArray()`.
-
-> **`lid` (JSON:API 1.1 local IDs) is supported at the data-model level** (added beyond
-> yin, which has none). `ResourceIdentifier` carries `?id` + `?lid` and `fromArray()`
-> requires `type` + at-least-one-of(`id`,`lid`); a relationship referencing a not-yet-created
-> resource by `lid` therefore parses and reaches the relationship hydrator with
-> `->resourceIdentifier->lid` set and `->id` null (no hydrator logic change — it flows through
-> `createRelationship()`→`ResourceIdentifier::fromArray()`). A resource created with a `lid`
-> still receives a server-generated `id` (`lid` is a document-local handle, never the id);
-> the request exposes it via `getResourceLid()`. **Not** implemented: cross-document `lid`
-> *resolution* (mapping a `lid` to a freshly-created resource within one request) — that
-> belongs with the post-1.0 Atomic Operations extension.
-
-### Serializers (serialization extension point)
-
-`Serializer\SerializerInterface` (formerly `Schema\Resource\ResourceInterface`; renamed in
-Phase 4.5 to free `Resource` for the fluent DSL) is a **consumer** extension point: it maps a
-domain value to a JSON:API resource (`getType`/`getId`/`getMeta`/`getLinks`/`getAttributes`/
-`getRelationships`/`getDefaultIncludedRelationships`). It is **not** generic — the serialized
-value is `mixed` (a resource may describe an object, an array, or any representation; yin's
-own tests pass arrays), so no `@template` is imposed. `getAttributes()`/`getRelationships()`
-return maps of `callable(mixed, JsonApiRequestInterface, string): mixed|AbstractRelationship`.
-The contract is **stateless**: every method is a pure function of its arguments, so a single
-instance safely serializes many objects (collection items and recursively included resources
-alike). Identity (`getType()`/`getId()`) and the default includes depend only on the object;
-the request-shaped members (`getMeta()`/`getLinks()`/`getAttributes()`/`getRelationships()`)
-take the `JsonApiRequestInterface` directly — there is no per-pass lifecycle to drive (yin's
-`initializeTransformation()`/`clearTransformation()` are dropped).
-`AbstractSerializer` is the convenience base; the contract is implementable by composition.
-The fluent `Resource\AbstractResource` (Phase 4.5) implements this contract via its `fields()`,
-so a `Serializer` is only written directly as an escape hatch.
-
-### Relationships (serialization-side)
-
-`Schema\Relationship\{AbstractRelationship, ToOneRelationship, ToManyRelationship}` are the
-**output** relationships a resource emits (distinct from the construct-only
-`Hydrator\Relationship\*` input VOs). They are consumer-facing and **mutable** (fluent
-`setData()`/`setLinks()`/`setMeta()`/`omitDataWhenNotIncluded()`), because a resource builds
-them up per request. `transform()` is `@internal` (the engine calls it) and carries the
-inclusion/dedup decision tree verbatim from yin.
+### Serializers & output relationships
+`src/Serializer`, `src/Schema/Relationship` → [serializers](docs/serializers.md).
+`SerializerInterface` (formerly `Schema\Resource\ResourceInterface`, renamed to
+free `Resource` for the DSL) is **not generic** (the serialized value is
+`mixed`) and **stateless** — yin's `initializeTransformation()`/`clearTransformation()`
+are dropped, a single instance serializes many objects. The **output** relationships
+(`Schema\Relationship\{AbstractRelationship,ToOne,ToMany}Relationship`) are the one
+**mutable** Schema VO (a resource builds them per request); `transform()` is
+`@internal` and carries yin's inclusion/dedup decision tree verbatim.
 
 ### Serialization engine & internal documents (`@internal`)
+`src/Transformer`, `src/Schema/Document` → [architecture](docs/architecture.md).
+Per-pass state lives **only** on the mutable `*Transformation` objects; the document
+classes are **stateless** (no `initialize`/`clear` lifecycle). The engine is
+**serializer-free** — transformations return PHP **arrays**, encoding lives in the
+response layer. Spec-sensitive logic (compound `included`, sparse fieldsets, dedup)
+is ported verbatim, guarded by `ResourceTransformerTest`/`DocumentTransformerTest`.
+yin's root `Utils` was **not ported** except `@internal Transformer\Utils::getUri`;
+`AbstractSimpleResourceDocument` was intentionally **not ported** (recorded footgun).
 
-`Transformer\*` (`DocumentTransformer`, `ResourceTransformer`, the `*Transformation` pass-state
-objects, and the folded `TransformerTrait`) plus `Schema\Document\*` (the `Abstract*Document`
-hierarchy + `ErrorDocument` + their interfaces) are **`@internal`** machinery — never the consumer
-surface (consumers use resources + the response value objects). The per-pass state lives **only**
-on the mutable `*Transformation` objects (request/object/result accumulate there, mirroring the
-`Schema\Data` accumulator decision: not `readonly`); the **document classes themselves are
-stateless** — `getData()`/`getRelationshipData()` receive the `ResourceDocumentTransformation`
-directly, so there is no `initialize`/`clear` lifecycle on documents or serializers. The engine is
-**serializer-free** — transformations return PHP **arrays**; JSON encoding lives in the response
-layer, so no `json_encode`/`SerializerInterface` appears here. The spec-sensitive logic
-(compound-document `included`, sparse fieldsets, included-resource dedup) is ported verbatim and
-guarded by the ported `ResourceTransformerTest`/`DocumentTransformerTest`. `TransformerTrait`/
-`Utils` were root-level in yin; `TransformerTrait` is folded into `Transformer\`, and `Utils` was
-**not** ported (its only remaining consumer, `Utils::getUri`, is the Phase-2 pagination
-link-providers; `getIntegerFromQueryParam` is already inlined in the pagination parsers).
-`AbstractSimpleResourceDocument` is intentionally **not** ported (recorded footgun).
+### Responses & ServerInterface
+`src/Response`, `src/Server` → [responses](docs/responses.md), [server](docs/server.md).
+Clone-then-assign / not-readonly. Construction via **named constructors** (single vs
+collection is **explicit** — `fromResource()`/`fromCollection()` — never inferred
+from `is_iterable`). `render()` builds the body array via the engine and returns an
+`@internal RenderedDocument`; `final toPsrResponse()` wraps a non-JSON:API request in
+`JsonApiRequest` and encodes with `\JSON_THROW_ON_ERROR` inline. **Profile application
+and `ext` negotiation live here** (not on the profile): `appliedProfiles()` intersects
+the request's requested/required URIs with the server's registered profiles, then
+`toPsrResponse()` runs each `finalizeDocument()`, records `links.profile`, echoes the
+`profile` media-type parameter, and sets `Vary: Accept`.
 
-### Response value objects (public API) & `ServerInterface`
+### Operations
+`src/Operation` → [server](docs/server.md). One `final readonly` class **per verb**
+(each carries exactly its fields; the five with a body expose `body()`). Shared VOs:
+`Target`, `QueryParameters` (`fromRequest()`), `OperationContext` (public `server`;
+**nullable** `httpRequest()` — `null` for programmatic dispatch, so handlers must
+null-check). `OperationHandler` is PSR-7-free. `Psr7ToOperationHandlerAdapter` reads
+the `Target` from the `Target::class` request attribute (a missing Target renders a
+500, not a throw) and picks the operation by a fixed HTTP-method × target-shape `match`.
 
-`Response\{DataResponse, MetaResponse, ErrorResponse, RelatedResponse, IdentifierResponse}`
-are the **public** "return a JSON:API response" surface (consumers never touch documents).
-They extend `Response\AbstractResponse` and follow the **clone-then-assign** immutability
-pattern (NOT `readonly`, like `AbstractRequest`): `protected` document-level members (`meta`,
-`links`, `jsonApi`, `headers`, `encodeOptions`) with fluent `with…()` withers returning
-`static`; the response-specific payload (data+resource, error list) is `private readonly` and
-**not** withable. Construction is via **named constructors** (`DataResponse::fromResource()`/
-`fromCollection()` — single vs collection is explicit, never inferred from `is_iterable`;
-`ErrorResponse::fromErrors()`/`fromException()`). Rendering: `render()` (abstract) builds the
-body array + status via the engine and returns an `@internal Response\Internal\RenderedDocument`;
-the `final toPsrResponse(ServerInterface, ServerRequestInterface)` wraps a non-JSON:API request
-in `JsonApiRequest`, `\json_encode`s the body with `\JSON_THROW_ON_ERROR` passed **inline**
-(so PHPStan narrows to `string` — never a `(string)` cast), and builds the PSR-7 response via
-the server's PSR-17 factories with `Content-Type: application/vnd.api+json`. Each response builds
-a **concrete `@internal` document** the response-VO layer adds on top of yin's abstract ones:
-`SingleResourceDocument`/`CollectionDocument`/`MetaDocument` (carry jsonapi/meta/links via ctor);
-`ErrorResponse` reuses the existing concrete `ErrorDocument` and takes its HTTP status from
-`getStatusCode()`. `ServerInterface` (`Server\`) is the minimal Phase-1 placeholder the render
-path reads: `baseUri()`, `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`, plus PSR-17
-`responseFactory()`/`streamFactory()` (the kickoff "minimal Server" + the two factories needed to
-actually emit PSR-7). The concrete `Server` (with a resource registry) is Phase 4.5; here a
-test `StubServer` (nyholm PSR-17) stands in.
+### Profiles
+`src/Schema/Profile` → [profiles](docs/profiles.md). **Advisory** — the spec says a
+server MUST *ignore* an unrecognized profile, so it is never an error (contrast
+extensions). `ProfileRegistry` is a per-instance injected map keyed by URI;
+duplicate-URI registration throws `ProfileAlreadyRegistered`, a `\LogicException`
+(**not** a `JsonApiException` — a wiring bug, never an error document).
 
-### Operations (public API)
+### Pagination
+`src/Pagination` → [pagination](docs/pagination.md). **Replaced** yin's
+`PaginationLinkProviderInterface` and the separate request-side paginator classes
+(both **deleted** — there is no `Request\Pagination`). Count-based strategies
+(`Page`/`Offset`/`FixedPage`Paginator) implement `Paginator`; `CursorPaginator` is
+**standalone** (a cursor page has no total and its boundaries are caller-supplied).
+`Page` VOs are `final readonly`, **generic** (`@template T`), iterable via
+`AbstractPage`. `CursorBasedPage` **omits `last` by design** and returns the cursor
+profile from `profile()` so the response advertises it. `@internal QueryParam::int`
+is the inlined yin silent-default rule (absent/non-numeric `page[…]` → default,
+never throws).
 
-`Operation\JsonApiOperation` is the verb-agnostic contract (`target(): Target`,
-`queryParameters(): QueryParameters`, `context(): OperationContext`); there is **one
-`final readonly` class per verb** (`FetchResource`/`Create`/`Update`/`Delete`/`FetchRelationship`/
-`FetchRelated`/`UpdateRelationship`/`AddToRelationship`/`RemoveFromRelationship`Operation) so each
-carries exactly its fields — the five with a request body also expose `body(): JsonApiRequestInterface`.
-The three shared VOs are `final readonly`: `Target` (`type` + optional `id`/`relationship` +
-`isRelationshipEndpoint` flag distinguishing `…/relationships/x` from the related `…/x`),
-`QueryParameters` (parsed `fields`/`includes`/`sort`/`filter`/`pagination`, built via
-`fromRequest()`), and `OperationContext` (public `server`; **nullable** `httpRequest()` — `null`
-for programmatically-dispatched operations, so handlers must null-check). `OperationHandler`
-(`handle(JsonApiOperation): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse`)
-is the recommended consumer handler — PSR-7-free; reach the request via `context()->httpRequest()`
-only when genuinely needed. `Psr7ToOperationHandlerAdapter` (`final readonly`, PSR-15
-`RequestHandlerInterface`) reads the `Target` from the `Target::class` request attribute (routing
-supplies it in Phase 3; a missing Target renders a 500 `ErrorResponse`, not a throw), picks the
-operation by a fixed **HTTP-method × target-shape `match`** dispatch table, invokes the handler, and
-renders the response VO via `toPsrResponse()`. No generics — operations carry concrete fields and the
-handler returns a fixed union. (Adds `psr/http-server-handler` for PSR-15.)
-
-### Profiles (public API)
-
-`Schema\Profile\ProfileInterface` is the consumer extension point for JSON:API 1.1 profiles:
-`uri(): string` (the canonical URI matched against the negotiated `profile` parameter),
-`keywords(): list<string>` (the member/link/query-param names the profile reserves — introspection
-only, does not gate negotiation), and `finalizeDocument(array $body, JsonApiRequestInterface): array`
-(a document-finalisation hook run once per **applied** profile during render, after the body array is
-built and before encoding). `AbstractProfile` is the convenience base (default `keywords()` → `[]`,
-`finalizeDocument()` → identity); the contract is implementable by composition. **Profiles are
-advisory** — the spec says a server MUST *ignore* any profile it does not recognize, so an
-unrecognized profile is never an error (contrast extensions). `ProfileRegistry` is a per-instance,
-injected, eager **simple map keyed by URI** (`register`/`has`/`get`/`all`); duplicate-URI
-registration throws `ProfileAlreadyRegistered` (a `\LogicException`, **not** a `JsonApiException` —
-it is a wiring bug, never an error document). The registry is reached via `ServerInterface::profiles()`
-and folds into the broader Phase-4.5 `Server` registry. Profile *application* lives in the response
-layer (see below), not on the profile.
-
-```php
-final class CursorPaginationProfile extends AbstractProfile
-{
-    public const string URI = 'https://jsonapi.org/profiles/ethanresnick/cursor-pagination/';
-    public function uri(): string { return self::URI; }
-    public function keywords(): array { return ['page[size]', 'page[after]', 'page[before]']; }
-}
-```
-
-#### Profile application & `ext` negotiation
-
-Applied-profile resolution and emission live on `Response\AbstractResponse`: `appliedProfiles()`
-intersects the request's requested/required profile URIs with the server's registered profiles
-(unrecognized ones dropped), `toPsrResponse()` then runs each applied profile's `finalizeDocument()`,
-records the URIs in top-level `links.profile`, echoes them in the `Content-Type` `profile` parameter,
-and sets `Vary: Accept`. A response subtype extends `appliedProfiles()` to add its own (e.g.
-`DataResponse` prepends a paginated `Page`'s profile **only when the server has registered it** —
-a page never advertises an unregistered profile, and the registered instance is the one applied).
-**`ext` negotiation** is parsed but not
-dispatched: `Request\MediaType::isValid()` accepts **both** `ext` and `profile` as the only permitted
-media-type parameters (and `MediaType::split()` cuts a header into instances quote-aware so a comma
-inside a quoted value doesn't fragment it); the request exposes `getRequestedExtensions()`/
-`getAppliedExtensions()`; `Negotiation\RequestValidator(string ...$supportedExtensions)` rejects an
-unsupported `ext` (415 on Content-Type, 406 on Accept) against its supported set (empty by default).
-This is the hook a post-1.0 Atomic Operations `ext` plugs into.
-
-### Pagination (`Paginator` + `Page`)
-
-Replaces yin's `PaginationLinkProviderInterface` + collection-side trait pattern (deleted). Two
-halves: **strategy** and **value object**. A `Pagination\Paginator` strategy reads the `page[…]`
-query params and produces a `Page`; the count-based strategies (`PagePaginator`, `OffsetPaginator`,
-`FixedPagePaginator`) implement the `Paginator` interface (`paginate(request, items, totalItems):
-Page`), while `CursorPaginator` is **standalone** (not a `Paginator`) because a cursor page has no
-total and its `prev`/`next` boundaries are caller-supplied cursors, not derivable from a count.
-Strategies are `final readonly`, fluent (`make()` + `with…()`), and silently default an absent/
-non-numeric `page[…]` value (via `@internal Pagination\QueryParam::int`, the inlined yin rule).
-The `Page` value objects (`PageBasedPage`, `OffsetBasedPage`, `FixedPagePage`, `CursorBasedPage`) are
-`final readonly`, **generic** (`@template T`), extend `AbstractPage` (which makes them iterable via
-`IteratorAggregate`, re-keying to int), and own link/meta emission: `linkSet(uri, queryString):
-array<string, Link|null>` (a `null` value = that relation omitted) and `pageMeta(): array`. Links are
-built with `@internal Transformer\Utils::getUri` so unrelated query params (`filter`, `sort`,
-fieldsets) survive across pages. **`CursorBasedPage` omits `last` by design** (no count) and returns
-the cursor profile from `profile(): ?ProfileInterface` (method-on-base, default `null` elsewhere) so
-the response advertises it. The paginated render path is `DataResponse::fromPage($page, $resource)`;
-plain collections stay `fromCollection()` and never carry pagination concerns.
-
-```php
-$page = PagePaginator::make()->withDefaultPerPage(20)->paginate($request, $items, $total);
-return DataResponse::fromPage($page, $resource); // emits links.{first,prev,next,last} + meta.page
-```
-
-### Middleware (PSR-15)
-
-`Middleware\*` are the PSR-15 `MiddlewareInterface` implementations of the JSON:API request
-lifecycle: `ContentNegotiationMiddleware`, `RequestBodyParsingMiddleware`, `ErrorHandlerMiddleware`,
-and a `JsonApiMiddleware` aggregate. They acquire all dependencies by **constructor injection only**
-(no service location, no request-attribute server state, no select-server middleware). **The parsed
-request flows by swapping it down the chain, not via an attribute:** the first middleware to need it
-does `$r = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);`
-(idempotent — `JsonApiRequest` *is* a `ServerRequestInterface`) and passes `$r` to
-`$handler->handle()`, so downstream middleware, the handler, and `Psr7ToOperationHandlerAdapter`
-share one memoized parse. The only request **attribute** read anywhere is the routing-supplied
-`Operation\Target::class`. Negotiation is **request-side only** (no post-handler step — the response
-layer's `toPsrResponse()` owns Content-Type/`profile`/`Vary` emission) and takes `string
-...$supportedExtensions` (no `Server`, since profiles are advisory and applied in the response layer).
-`RequestBodyParsingMiddleware` takes **no constructor args** — it builds no responses (it throws
-typed exceptions the error handler renders) and only forces `getParsedBody()` **when a body is
-present** (skip GET/empty). `ErrorHandlerMiddleware(ServerInterface $server, bool $debug = false,
-?LoggerInterface $logger = null)` is **outermost**: it `try`/`catch`es `JsonApiException` (→
-`ErrorResponse::fromException`) and any other `\Throwable` (→ generic 500), renders that
-`ErrorResponse` via `toPsrResponse()`, and **passes a successful PSR-7 response through unchanged**.
-It does **not** inspect the return value for response VOs — PSR-15 `handle(): ResponseInterface` and
-the VOs aren't `ResponseInterface`, so consumer VOs are rendered by the adapter, not here. The
-debug-gated 500 mirrors `laravel-json-api/exceptions`: `title='Internal Server Error'`, `status='500'`,
-`code=(string)getCode()`, and — only when `$debug` — `detail`=message + the **error object's** `meta`
-`{exception, file, line, trace}` (the spec-faithful home; `source` is for request locations, there is
-no standard trace member). Compose chains with the `@internal Middleware\Internal\MiddlewareHandler`
-(wraps one middleware + next handler into a `RequestHandlerInterface`); the aggregate folds
-ErrorHandler → ContentNegotiation → BodyParsing → handler with it.
-
-```php
-final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
-{
-    private RequestValidator $validator;
-    public function __construct(string ...$supportedExtensions) { $this->validator = new RequestValidator(...$supportedExtensions); }
-    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-    {
-        $r = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);
-        $this->validator->negotiate($r);
-        $this->validator->validateQueryParams($r);
-        return $handler->handle($r);
-    }
-}
-```
+### Middleware
+`src/Middleware` → [middleware](docs/middleware.md), [middleware-order](docs/middleware-order.md).
+Constructor injection only (no service location, no select-server middleware). **The
+parsed request flows by swapping it down the chain, not via an attribute** — the
+first middleware to need it does `$r = $request instanceof JsonApiRequestInterface ?
+$request : new JsonApiRequest($request);` (idempotent) and passes `$r` to the handler,
+so the whole chain shares one memoized parse. The only request **attribute** read
+anywhere is `Operation\Target::class`. Negotiation is **request-side only**.
+`ErrorHandlerMiddleware` is **outermost**: it catches throwables → `ErrorResponse`,
+**passes successful responses through unchanged**, and does **not** render consumer
+VOs (the adapter does). Its debug-gated 500 puts `{exception, file, line, trace}` in
+the **error object's `meta`** (the spec-faithful home — `source` is for request
+locations).
 
 ### Validation (JSON Schema, optional/dev)
+`src/Validation` → [validation](docs/validation.md). Backed by the **optional**
+`opis/json-schema` (`require-dev` + `suggest`, **never** `require`). `DocumentValidator`
+builds **one reusable** opis validator and validates against a synthetic composite
+root `{ "allOf": [ {"$ref": <root>}, …$additionalSchemas ], "unevaluatedProperties":
+false }`. `allOf` is the single extension point — **profile fragments** now and
+**per-resource compiled schemas** are both just entries in `$additionalSchemas`.
+Relocating the base root's `unevaluatedProperties` onto the composite is what lets a
+fragment **extend** the allowed top-level members. Violations map to the **existing**
+existing `Request`/`ResponseBodyInvalidJsonApi` exceptions — no new exception type.
+The two middleware are **per-server opt-in** (the injected `DocumentValidator` makes
+DI fail fast if opis is absent). **`SchemaCompiler`** turns a resource's field+
+constraint metadata into a draft-2020-12 `stdClass` that **tightens** the base for one
+type/context and drops into the same `$additionalSchemas` list (no validator API
+change); `When`/`Custom` constraints are **skipped** (don't round-trip). Build nested
+arrays and convert to `stdClass` once at the boundary (analysable at L9).
 
-The `Validation\*` layer adds opt-in, dev/CI JSON Schema validation of JSON:API documents, backed by
-the **optional** `opis/json-schema` (`require-dev` + `suggest`, never `require`). `SchemaProvider`
-supplies two decoded draft-2020-12 roots — `responseSchema()` (resources require `type`+`id`) and
-`requestSchema()` (client-generated resources may omit `id`, may carry `lid`) — each with a stable
-`$id`; `VendoredSchemaProvider` loads them from `resources/schemas/` (`jsonapi-1.1.json` is a
-byte-faithful copy of the upstream VGirol JSON:API 1.1 schema; `jsonapi-1.1-request.json` is authored
-and cross-`$ref`s the base's request definitions). The provider strips the base schema's document-**root**
-`unevaluatedProperties` at load time so the validator can re-apply it on its composite (see below).
-`DocumentValidator(SchemaProvider)` builds **one reusable** opis `Validator` (schemas registered in its
-resolver; `maxErrors` raised + `stopAtFirstError` off so all violations surface) and validates against a
-synthetic composite root `{ "allOf": [ {"$ref": <root id>}, …$additionalSchemas ], "unevaluatedProperties": false }`
-(content-hashed `$id` so opis caches it). `allOf` composition is the single extension point: **profile
-fragments** now and **per-resource compiled schemas** in Phase 4.5 are both just entries in
-`$additionalSchemas` (`validateRequest/Response(mixed $document, list<object> $additionalSchemas = [])`).
-Relocating the root `unevaluatedProperties` onto the composite is what lets a fragment **extend** the
-allowed top-level members (the composite's `unevaluatedProperties` sees both the base's and the
-fragments' `properties` annotations); nested `unevaluatedProperties` stay in the base. Violations are
-mapped from opis leaf errors via `ErrorFormatter::formatKeyed` (keyed by the data JSON pointer) to the
-`list<array{message, property?}>` shape the **existing** Phase-1 exceptions take — `RequestBodyInvalidJsonApi`
-(400) / `ResponseBodyInvalidJsonApi` (500) — so the typed-exception + error-handler render path is reused
-(no new `DocumentValidationFailed`). Profiles opt into contributing a fragment via the sibling interface
-`Validation\SchemaContributingProfile extends ProfileInterface` (`schemaFragment(): ?object`); the
-`@internal Validation\Internal\ProfileSchemaCollector` gathers fragments from the **in-scope** profiles
-(server-registered ∩ request-requested/required, mirroring `AbstractResponse::appliedProfiles()`).
+### Fluent schema — fields, constraints, relations
+`src/Resource` → [resources](docs/resources.md), [fields](docs/fields.md),
+[validation](docs/validation.md). An `AbstractResource` subclass satisfies **both**
+`SerializerInterface` and `HydratorInterface` from one `fields()` list. **Fields are
+mutable builders** (methods mutate and return `$this`) — *deliberately not* the
+readonly-VO pattern, so a field reads as one fluent expression. **`Constraint` is
+metadata only — the core never executes it** (each is a `final readonly` VO with a
+create/update `Context`); execution belongs to the JSON Schema compiler or an adapter.
+A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
+**Relations**: `Relation extends Field`; serializes via the related type's serializer
+(resolved through the injected `SerializerResolver`), hydrates from the parsed
+`Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only** in
+1.0; `MorphTo` picks the serializer by the related object's `getType()`.
 
-```php
-final class DocumentValidator
-{
-    public function __construct(private readonly SchemaProvider $schemaProvider) { /* register both roots in one opis Validator */ }
-    /** @param list<object> $additionalSchemas */
-    public function validateRequest(mixed $document, array $additionalSchemas = []): void { /* throw RequestBodyInvalidJsonApi on violations */ }
-}
-```
+### Filters & sorts
+`src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),
+[sorts](docs/sorts.md), [adapters](docs/adapters.md). **VO metadata** (`Filter`/`Sort`
+are just `key()` + accessors — **no `apply()`**); execution lives in adapter-provided
+`FilterHandler`/`SortHandler` whose `query` arg is a templated `mixed` (no data layer
+coupled in core). Mirrors the `Constraint` + translator split; there is **no generic
+`Query` interface**. An unrecognised VO at a handler throws the typed
+`UnsupportedFilter`/`UnsupportedSort` (a server-config error → **500**). Core ships
+reference `InMemory\Array{Filter,Sort}Handler` for its own tests and as worked
+examples — **not** a production query layer.
 
-The two PSR-15 middleware are **per-server opt-in** (consumers add them only on dev/CI servers; the
-injected `DocumentValidator` makes DI fail fast if opis is absent). `RequestValidationMiddleware(Server,
-DocumentValidator)` runs after body-parsing, validates the parsed body when present (skips bodyless),
-throws `RequestBodyInvalidJsonApi` (400). `ResponseValidationMiddleware(Server, DocumentValidator,
-bool $throwOnViolation = true, ?LoggerInterface)` sits just **inside** the error handler, validates the
-rendered `application/vnd.api+json` body as the response unwinds, and **throws by default** (→ 500 via the
-error handler) with the flag downgrading to log-and-pass-through. The `JsonApiMiddleware` aggregate is left
-unchanged (validation stays out of the zero-config chain). Tests tag the structural cases
-`#[Group('spec:document-structure')]`.
+### Server & resource registry
+`src/Server` → [server](docs/server.md). `Server` is an **immutable value** (`make()`
++ `with…()`/`register()` clone, and the cloned `ResourceRegistry`/`ProfileRegistry`
+are cloned too so registration never leaks). Keeps the base `ServerInterface`
+render contract **unchanged**. It implements PSR-15 `RequestHandlerInterface`
+(`handle()` folds the middleware list over the inner handler via `@internal
+MiddlewareDecorator`; an `OperationHandler` is auto-wrapped in the adapter) **and**
+`SerializerResolver`. `ResourceRegistry` **is** the `SerializerResolver` injected into
+resources; a missing type throws `NoResourceRegistered` (500), a duplicate type is a
+`\LogicException` (wiring bug). `dispatch(JsonApiOperation)` invokes the handler
+directly (no PSR-15 chain).
 
-### Fluent schema — fields & constraints (`Resource\*`, public API)
-
-The recommended consumer surface. A `Resource\AbstractResource` subclass declares
-a resource type's `fields()` and satisfies **both** `Serializer\SerializerInterface`
-and `Hydrator\HydratorInterface` from that one list (serialization: type/id/
-attributes/relationships; hydration: create/update with per-context read-only
-enforcement, type validation, id resolution, relationship linkage). Optional
-`filters()`/`sorts()`/`pagination()` declarations and `allSorts()` (auto-derives a
-`SortByField` from each `->sortable()` field). A `SerializerResolver` (the Server's
-registry) is injected so relationships serialize related types.
-
-`Field` is the member contract; `AbstractField` carries the mutable-builder fluent
-surface (`make()`, read-only/visibility toggles, the serialize/hydrate hook closures
-`serializeUsing`/`extractUsing`/`deserializeUsing`/`fillUsing`, the constraint-list
-machinery, and `onCreate()`/`onUpdate()` context builders). Fields are **mutable
-builders** (methods mutate and return `$this`) — deliberately *not* the readonly-VO
-pattern, so a field reads as one fluent expression. Concrete types: the split string
-family (`Str` + dedicated `Email`/`Url`/`Uuid`/`Slug`/`Ip`, where the shortcut and the
-dedicated type produce identical constraint metadata), `Id`, `Integer`, `Decimal`,
-`Boolean`, `Date`/`DateTime`/`Time`, `ArrayList`, `ArrayHash`, `Map` (same-model
-column spread; `Map::on()` deferred to the bundle). Casting is per-type via the
-`serializeValue()`/`deserializeValue()` hooks; a framework-agnostic `@internal Accessor`
-reads/writes arrays and plain objects.
-
-`Constraint` is **metadata only** — the core never executes it. Each is a `final
-readonly` VO carrying a `Context` (create/update); constraints default to
-`Context::always()` and are scoped via the per-field `onCreate()`/`onUpdate()`
-builders or `requiredOnCreate()`/`requiredOnUpdate()`. The vocabulary: presence
-(`Required`, `Nullable`), bounds/lengths (`Min`/`Max`, `ExclusiveMin`/`Max`,
-`MultipleOf`, `Min`/`MaxLength`, `Min`/`MaxItems`, `Min`/`MaxProperties`,
-`UniqueItems`), patterns/enums (`Pattern`, `In`, `NotIn`), string formats
-(`EmailFormat`/`UrlFormat`/`UuidFormat`/`IpFormat`/`SlugFormat`), date bounds
-(`Before`/`After`/`Between`/`Timezone`), composition (`Each`/`When`/`Custom`), and
-`RelationshipType`. `When`/`Custom` are opaque to the JSON Schema compiler.
-
-```php
-final class PostResource extends AbstractResource
-{
-    public static string $type = 'posts';
-    public function fields(): array
-    {
-        return [Id::make()->uuid(), Str::make('title')->required()->maxLength(200)->sortable(),
-                BelongsTo::make('author')->type('users')->required()];
-    }
-}
-```
-
-### Relations (fluent, `Resource\Field\*`)
-
-`Relation extends Field`; `AbstractRelation` adds the relationship surface
-(`type(...)`, `inverseType()`, `cannotEagerLoad()`, `withUriFieldName()`,
-`retainFieldName()`) and auto-appends a `RelationshipType` constraint from the
-declared types. It serializes via the related type's serializer (resolved through
-the injected `SerializerResolver`) and hydrates from the request's parsed
-`Hydrator\Relationship\*` linkage VOs (not a raw attribute value). Concrete:
-`BelongsTo`/`HasOne` (to-one), `HasMany` (to-many + `min`/`maxItems`),
-`BelongsToMany` (pivot fields **declare-only** in 1.0 via `fields()`), `MorphTo`
-(polymorphic to-one via `types(...)`, serializer picked by the related object's
-`getType()`).
-
-### Filters & sorts (metadata + adapter handlers, `Resource\Filter\*` / `Resource\Sort\*`)
-
-Filters/sorts are **value-object metadata** (`Filter`/`Sort` interfaces — just
-`key()` + parameter accessors, **no `apply()`**); execution lives in adapter-provided
-`FilterHandler`/`SortHandler` implementations (`apply(Filter|Sort, mixed $query, …):
-mixed` — query is a templated `mixed` so no data layer is coupled in core). Mirrors
-the `Constraint` + translator split; there is **no generic `Query` interface**.
-Filters: `Where`, `WhereIn`/`NotIn`, `WhereIdIn`/`IdNotIn`, `WhereNull`/`NotNull`,
-`WhereHas`/`DoesntHave` (each `final readonly` + `make()` + immutable `with`-style
-helpers like `singular()`/`deserializeUsing()`/`delimiter()`). Sorts: `SortByField`.
-An unrecognised VO at a handler throws the typed `UnsupportedFilter`/`UnsupportedSort`
-(a **server-config error → 500**, `AbstractJsonApiException` like the rest). Core
-ships reference `InMemory\ArrayFilterHandler`/`ArraySortHandler` for its own tests and
-as worked examples — **not** a production query layer.
-
-### Server & resource registry (`Server\*`, public API)
-
-`Server\Server` is the per-API-version configuration root and an **immutable value**
-(`make()` + `with…()`/`register()` each return a new instance via clone-then-assign;
-the cloned `ResourceRegistry`/`ProfileRegistry` are cloned too so registration never
-leaks). It keeps the Phase-1 `ServerInterface` render contract **unchanged** and
-adds: the resource registry (+ overrides), `withBaseUri`/`withVersion`/`withDefaultMeta`/
-`withEncodeOptions`/`withDefaultPaginator`/`withPsr17`/`withProfile`/`withMiddleware`/
-`withHandler`, and accessors `resources()`/`serializerFor()`/`hydratorFor()`. It also
-implements PSR-15 `RequestHandlerInterface` — `handle()` folds the ordered middleware
-list over the inner handler (an `OperationHandler` is auto-wrapped in
-`Psr7ToOperationHandlerAdapter`; a bare PSR-15 handler is accepted) via the
-`@internal Server\Internal\MiddlewareDecorator` — and `SerializerResolver`.
-`dispatch(JsonApiOperation)` invokes the configured `OperationHandler` directly
-(no PSR-15 chain). Multiple `Server`s = multiple API versions; routing outside core
-picks one.
-
-`ResourceRegistry` maps a type → `[Resource, ?serializer-override, ?hydrator-override]`
-(class-strings, instantiated lazily, keyed by the resource's `static $type`). It
-**is** the `SerializerResolver` injected into resources. Lookups resolve an override
-ahead of the Resource-class fallback (`resourceFor()` returns the registered
-`AbstractResource`); a missing type throws the typed `NoResourceRegistered`
-(500); a duplicate type at registration is a `\LogicException` (wiring bug, not an
-error document).
-
-### Per-resource JSON Schema compiler (`Validation\SchemaCompiler`)
-
-`SchemaCompiler::compile(AbstractResource, bool $creating): object` turns a resource's
-field+constraint metadata into a decoded draft-2020-12 JSON Schema (`stdClass`) that
-**tightens** the base schema for one type/context. It drops straight into the existing
-`DocumentValidator::validateRequest($doc, $additionalSchemas)` composition list (no
-validator API change) — `Required`/`requiredOnCreate` → per-context `required` arrays;
-bounds/lengths/patterns/enums/formats → the matching keywords; `Nullable` widens the
-`type` union; `When`/`Custom` are **skipped** (don't round-trip). The builder assembles
-nested arrays and converts to the `stdClass` tree once at the boundary (no dynamic
-`stdClass` props → analysable at L9). `RequestValidationMiddleware` now also appends the
-compiled schema for the request's resource type via the `@internal
-Validation\Internal\ResourceSchemaCollector` (reads the concrete `Server`'s registry;
-memoizes per `[type, context]`; a bare `ServerInterface` or unregistered type
-contributes nothing → base validation only).
-
-### Testing utilities (`Testing\*`, public API)
-
-Shipped in the package autoload (not dev-only — useful in consumer suites). Small by
-design: assertions + builders, **no** factories/fixtures/DB traits/HTTP clients.
-`JsonApiDocument`/`JsonApiErrors` are fluent assertion wrappers (each accepts a PSR-7
-response, raw JSON string, parsed array, or a response VO + a `ServerInterface` to
-render it; assertions delegate to PHPUnit `Assert` and return `$this`; raw accessors
-`data()`/`included()`/`meta()`/`links()`/`errors()` for ad-hoc checks).
-`JsonApiRequestBuilder` builds a PSR-7 `ServerRequestInterface` (PSR-17 factories
-injected so no concrete impl is coupled); `JsonApiOperationBuilder` builds
-`JsonApiOperation` VOs for `Server::dispatch()` tests. `SpecCompliance::assert()` (and
-the `AssertsSpecCompliance` trait's `assertJsonApiSpecCompliant()`) wrap
-`DocumentValidator::validateResponse()` into a PHPUnit failure listing each violation's
-pointer+message (defaults to `VendoredSchemaProvider`; opis required at the call site).
-`@internal Testing\Internal\Decode`/`RequestStub` normalise inputs / supply a bare
-PSR-7 request.
-
-### When to use a custom Serializer / Hydrator (escape hatches)
-
-The fluent `Resource` is the 95% case. Drop to a hand-written `Serializer\SerializerInterface`
-when serialization needs more than field walking — request-aware or conditional
-attributes, computed/derived values across fields, or multiple representations of one
-model. Drop to a hand-written `Hydrator\HydratorInterface` when a write needs more than
-field filling — splitting one member across columns, deriving related models, or
-multi-step/transactional writes. Register either alongside the Resource class
-(`->register(PostResource::class, serializer: X::class, hydrator: Y::class)`); the
-registry resolves the override first and falls back to the Resource class for the
-other concern. Both contracts remain implementable by composition (no base class
-required), and skipping the Resource class entirely — registering a bare serializer +
-hydrator pair — still works exactly as Phase 1 shipped.
+### Testing utilities & escape hatches
+`src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**
+dev-only — useful in consumer suites). Assertions + builders only; **no**
+factories/fixtures/DB traits/HTTP clients. **Escape hatches**
+([serializers](docs/serializers.md) / [hydrators](docs/hydrators.md)): drop to a
+hand-written `Serializer`/`Hydrator` when field-walking isn't enough; register the
+override alongside the Resource class (the registry resolves the override first,
+falls back to the Resource for the other concern). A bare serializer+hydrator pair
+with no Resource class still works exactly as the bare contracts do on their own.
