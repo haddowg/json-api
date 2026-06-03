@@ -13,6 +13,9 @@ consumer docs for the surface, an ADR for *why* a decision was made, and this fi
 for the finer-grained executor notes that fit none of those — yin divergences,
 convention carve-outs, level-9 footguns.
 
+When recording a new ADR, follow [`docs/adr/ADR-FORMAT.md`](docs/adr/ADR-FORMAT.md)
+— a short title stating the decision, then 1–3 sentences of *why*.
+
 ## Project orientation
 
 `haddowg/json-api` is a modern, server-side JSON:API 1.1 library for PHP 8.3+. It
@@ -34,6 +37,17 @@ security review, and the release itself. Known not-yet-built work is the JSON:AP
 Atomic Operations extension (its seams are in place — see
 [ADR 0011](docs/adr/0011-atomic-operations-deferred-seams-in-place.md)) and
 attribute-driven hydrators.
+
+### Companion Symfony bundle (sibling repo)
+
+A Symfony integration, [`haddowg/json-api-symfony`](https://github.com/haddowg/json-api-symfony),
+is being built in a **sibling checkout** at `../json-api-symfony`, resolved here via a Composer
+**path repository** (core is not yet on Packagist). It is **co-evolving with this
+library pre-1.0**: building it is a deliberate forcing function to confirm the
+public API has everything required for a real integration before 1.0 freezes it.
+Integration-driven changes land **here** as core PRs (each with an ADR + a tag)
+*ahead* of the bundle phase that consumes them — while the API is still cheap to
+change, prefer fixing core over working around it in the bundle.
 
 ## Git conventions
 
