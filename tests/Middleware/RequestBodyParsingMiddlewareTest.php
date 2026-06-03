@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Middleware;
 
 use haddowg\JsonApi\Exception\RequestBodyInvalidJson;
+use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
 use haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
@@ -47,6 +48,19 @@ final class RequestBodyParsingMiddlewareTest extends TestCase
             ->withBody(Stream::create('{not valid json'));
 
         $this->expectException(RequestBodyInvalidJson::class);
+
+        (new RequestBodyParsingMiddleware())->process($request, $handler);
+    }
+
+    #[Test]
+    public function bodyBreakingTopLevelMemberRulesIsRejected(): void
+    {
+        $handler = new CallableHandler(static fn(): ResponseInterface => (new Psr17Factory())->createResponse(200));
+
+        $request = (new ServerRequest('POST', '/articles', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('{"data":{"type":"articles"},"errors":[]}'));
+
+        $this->expectException(TopLevelMembersIncompatible::class);
 
         (new RequestBodyParsingMiddleware())->process($request, $handler);
     }

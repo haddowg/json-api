@@ -23,8 +23,8 @@ final class ResponseValidator
      * Validates the Content-Type header of the response against the JSON:API
      * media type rules.
      *
-     * Responses MUST use application/vnd.api+json; only the "profile" parameter
-     * is allowed alongside it.
+     * Responses MUST use application/vnd.api+json; only the `ext` and/or
+     * `profile` parameters are allowed alongside it.
      *
      * @throws MediaTypeUnsupported
      */
@@ -38,25 +38,29 @@ final class ResponseValidator
     }
 
     /**
-     * Checks that the response body is well-formed JSON.
+     * Checks that the response body is well-formed JSON and returns the decoded
+     * document for any further inspection (e.g. JSON-schema linting by the
+     * caller).
      *
      * An inline json_decode with JSON_THROW_ON_ERROR is used because responses
-     * do not pass through the request-layer getParsedBody() mechanism. Empty
-     * bodies are silently accepted (a 204 No Content carries no body).
+     * do not pass through the request-layer getParsedBody() mechanism. An empty
+     * body (a 204 No Content carries none) is accepted and yields `null`.
      * JSON-schema linting against the JSON:API schema is not performed here.
+     *
+     * @return mixed the decoded document, or `null` for an empty body
      *
      * @throws ResponseBodyInvalidJson
      */
-    public function validateJsonBody(ResponseInterface $response): void
+    public function validateJsonBody(ResponseInterface $response): mixed
     {
         $body = (string) $response->getBody();
 
         if ($body === '') {
-            return;
+            return null;
         }
 
         try {
-            \json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
+            return \json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
             throw new ResponseBodyInvalidJson($e->getMessage(), $body);
         }

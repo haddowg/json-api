@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Middleware;
 
-use haddowg\JsonApi\Exception\ResponseBodyInvalidJson;
 use haddowg\JsonApi\Exception\ResponseBodyInvalidJsonApi;
+use haddowg\JsonApi\Negotiation\ResponseValidator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Server\ServerInterface;
@@ -53,20 +53,17 @@ final readonly class ResponseValidationMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        $body = (string) $response->getBody();
+        // Delegate JSON well-formedness to the response validator (the same
+        // extension point a framework integration reuses); a malformed body —
+        // our own serializer's bug — throws ResponseBodyInvalidJson. The decoded
+        // document is returned so it is not parsed twice.
+        $document = (new ResponseValidator())->validateJsonBody($response);
         if ($response->getBody()->isSeekable()) {
             $response->getBody()->rewind();
         }
 
-        if ($body === '') {
+        if ($document === null) {
             return $response;
-        }
-
-        try {
-            $document = \json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            // Our own serializer emitted malformed JSON — always loud.
-            throw new ResponseBodyInvalidJson($exception->getMessage(), $body);
         }
 
         $jsonApiRequest = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);

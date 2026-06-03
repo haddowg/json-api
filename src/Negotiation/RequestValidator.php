@@ -10,14 +10,16 @@ use haddowg\JsonApi\Exception\QueryParamUnrecognized;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
- * Validates JSON:API content-negotiation constraints on an incoming request.
+ * The request-side validation extension point: Content-Type/Accept negotiation,
+ * query-param validation, JSON well-formedness, and top-level-member validation.
+ * JSON-schema body linting is a separate concern ({@see \haddowg\JsonApi\Validation\DocumentValidator}).
  *
- * Only Content-Type/Accept negotiation, query-param validation, and
- * top-level-member validation are performed. JSON-schema body linting is not
- * performed here. JSON well-formedness (validateJsonBody) is intentionally
- * delegated: calling getParsedBody() on a JsonApiRequest already throws
- * RequestBodyInvalidJson when the raw body is not valid JSON, so this method is
- * a thin trigger that surfaces that exception to callers who call it explicitly.
+ * The shipped middleware compose these methods ({@see \haddowg\JsonApi\Middleware\ContentNegotiationMiddleware}
+ * runs negotiation + query params; {@see \haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware}
+ * runs well-formedness + top-level members), and a framework integration can
+ * reuse the same methods in its own middleware. `validateJsonBody()` is a thin
+ * trigger: calling getParsedBody() on a JsonApiRequest already throws
+ * RequestBodyInvalidJson when the raw body is not valid JSON.
  *
  * Exceptions are thrown directly as typed instances.
  */

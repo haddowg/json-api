@@ -74,9 +74,7 @@ final class ResponseValidatorTest extends TestCase
         $response = new Response(204);
         $validator = new ResponseValidator();
 
-        $validator->validateJsonBody($response);
-
-        self::addToAssertionCount(1);
+        self::assertNull($validator->validateJsonBody($response));
     }
 
     #[Test]
@@ -85,9 +83,10 @@ final class ResponseValidatorTest extends TestCase
         $response = new Response(200, [], '{"data": {"type":"abc", "id":"cde"}}');
         $validator = new ResponseValidator();
 
-        $validator->validateJsonBody($response);
-
-        self::addToAssertionCount(1);
+        self::assertSame(
+            ['data' => ['type' => 'abc', 'id' => 'cde']],
+            $validator->validateJsonBody($response),
+        );
     }
 
     #[Test]

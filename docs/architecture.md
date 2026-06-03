@@ -68,9 +68,9 @@ wires it for you) is, outermost first:
 2. **`ContentNegotiationMiddleware`** — validates the `Content-Type` and `Accept`
    headers and the JSON:API query parameters, throwing the matching typed
    exception on a violation.
-3. **`RequestBodyParsingMiddleware`** — forces the JSON body to parse when a body
-   is present (skipping bodyless requests), surfacing malformed JSON as a typed
-   exception.
+3. **`RequestBodyParsingMiddleware`** — forces the JSON body to parse and validates
+   its top-level members when a body is present (skipping bodyless requests),
+   surfacing a malformed or non-conformant body as a typed exception.
 4. **Your router** — core ships no router. A router's only job here is to attach a
    [`Operation\Target`](server.md#routing-and-targets) to the request as an
    attribute keyed by `Target::class`.

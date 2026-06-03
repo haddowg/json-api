@@ -19,7 +19,7 @@ middleware. For the full ordering rationale, see
 |---|---|---|
 | `ErrorHandlerMiddleware` | `(ServerInterface $server, bool $debug = false, ?LoggerInterface $logger = null)` | Outermost. Turns any thrown exception into an error document. |
 | `ContentNegotiationMiddleware` | `(string ...$supportedExtensions)` | Validates the JSON:API media type, negotiates extensions, validates query params. |
-| `RequestBodyParsingMiddleware` | `()` | Forces an early JSON decode so malformed bodies fail at the edge. |
+| `RequestBodyParsingMiddleware` | `()` | Forces an early JSON decode and checks the top-level member rules, so a malformed or non-conformant body fails at the edge. |
 | `RequestValidationMiddleware` _(optional, dev/CI)_ | `(ServerInterface $server, DocumentValidator $validator)` | Validates the request body against the JSON:API JSON Schema. |
 | `ResponseValidationMiddleware` _(optional, dev/CI)_ | `(ServerInterface $server, DocumentValidator $validator, bool $throwOnViolation = true, ?LoggerInterface $logger = null)` | Validates the rendered response document. |
 | `JsonApiMiddleware` | `(ServerInterface $server, bool $debug = false, ?LoggerInterface $logger = null, string ...$supportedExtensions)` | Aggregate wiring the core three in the recommended order. |
@@ -43,9 +43,11 @@ Outermost first — the outermost middleware wraps every middleware below it:
    media-type parameters and negotiates extensions (415 / 406), then validates
    query parameters (400). Runs before body parsing so a media-type mismatch is
    rejected before any body work. See [Content negotiation](content-negotiation.md).
-3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode when a body is
-   present, so malformed JSON surfaces as a 400 here rather than inside the
-   handler. A bodyless request (GET, empty body) passes through untouched.
+3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode and checks the
+   top-level member rules (`data`/`errors`/`meta` presence and mutual
+   exclusivity), so a malformed or non-conformant body surfaces as a 400 here
+   rather than inside the handler. A bodyless request (GET, empty body) passes
+   through untouched. Both checks delegate to `Negotiation\RequestValidator`.
 4. **Handler** — innermost. The recommended handler is an `OperationHandlerInterface`
    wrapped in `Psr7ToOperationHandlerAdapter`, which turns the PSR-7 request into
    the matching operation and renders the returned [response value

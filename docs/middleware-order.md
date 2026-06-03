@@ -23,8 +23,9 @@ Outermost first (the outermost middleware wraps every middleware below it):
    untouched. Runs before body parsing so a content-type mismatch is rejected
    before any body work.
 3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode of the
-   request body (when a body is present) so malformed JSON surfaces as a `400`
-   here rather than inside the handler. A bodyless request passes through.
+   request body and validates its top-level members (when a body is present) so a
+   malformed or non-conformant body surfaces as a `400` here rather than inside
+   the handler. A bodyless request passes through.
 4. **`RequestValidationMiddleware`** _(optional, dev/CI)_ — validates the parsed
    request body against the JSON:API request JSON Schema (augmented by in-scope
    profile fragments). A violation throws `RequestBodyInvalidJsonApi` (`400`),
