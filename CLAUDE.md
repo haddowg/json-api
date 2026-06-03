@@ -187,7 +187,12 @@ is deferred to the post-1.0 Atomic Operations extension.
 `SerializerInterface` (formerly `Schema\Resource\ResourceInterface`, renamed to
 free `Resource` for the DSL) is **not generic** (the serialized value is
 `mixed`) and **stateless** — yin's `initializeTransformation()`/`clearTransformation()`
-are dropped, a single instance serializes many objects. The **output** relationships
+are dropped, a single instance serializes many objects. `AbstractSerializer` is a
+thin base that `use`s the **public, composable** `Serializer\TransformerTrait`
+(date/decimal formatting helpers) — mirroring the Hydrator trait/abstract split, a
+consumer can compose the trait onto a bare `SerializerInterface` impl instead of
+extending the base. The trait lives in `Serializer\` (**not** `Transformer\`,
+which stays wholly `@internal`). The **output** relationships
 (`Schema\Relationship\{AbstractRelationship,ToOne,ToMany}Relationship`) are the one
 **mutable** Schema VO (a resource builds them per request); `transform()` is
 `@internal` and carries yin's inclusion/dedup decision tree verbatim.

@@ -35,7 +35,7 @@ final class AbstractSerializerTest extends TestCase
 
 /**
  * Minimal concrete {@see AbstractSerializer} exposing the
- * {@see \haddowg\JsonApi\Transformer\TransformerTrait} helpers it adds, so they
+ * {@see \haddowg\JsonApi\Serializer\TransformerTrait} helpers it adds, so they
  * can be exercised directly. The serializer is stateless: identity depends only
  * on the object and the request-shaped members receive the request as a
  * parameter.

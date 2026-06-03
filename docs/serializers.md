@@ -80,10 +80,13 @@ the request.
 
 ## A worked example
 
-`AbstractSerializer` adds the `TransformerTrait` date/decimal formatting helpers
-and nothing else — the serializer is stateless, so there is nothing per-pass to
-manage. Identity (`getType()` / `getId()`) depends only on the object, while the
-request-shaped members receive the request directly. This `ArticleSerializer`
+`AbstractSerializer` adds the `Serializer\TransformerTrait` date/decimal formatting
+helpers and nothing else — the serializer is stateless, so there is nothing
+per-pass to manage. The trait is public and composable: if you implement
+`SerializerInterface` directly you can `use TransformerTrait` on your own class
+rather than extend the base. Identity (`getType()` / `getId()`) depends only on the
+object, while the request-shaped members receive the request directly. This
+`ArticleSerializer`
 exposes a request-aware `body` (omitted unless the caller is the author) and a
 computed `wordCount`; the request arrives as a method parameter:
 

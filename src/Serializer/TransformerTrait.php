@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace haddowg\JsonApi\Transformer;
+namespace haddowg\JsonApi\Serializer;
 
 /**
- * Attribute-value transformation helpers shared by resource serializers.
+ * Optional attribute-value formatting helpers (date/decimal) for serializers.
  *
- * An instance-method trait per the project convention (no `static`; call sites
- * use `$this->`).
- *
- * @internal
+ * Compose it onto any {@see SerializerInterface} implementation — you do not need
+ * to extend {@see AbstractSerializer} (which simply `use`s this trait) to get
+ * them. Helper methods are instance methods per the project convention (no
+ * `static`; call sites use `$this->`).
  */
 trait TransformerTrait
 {
