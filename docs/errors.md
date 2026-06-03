@@ -112,6 +112,14 @@ stack trace. This mirrors `laravel-json-api/exceptions`. If you pass a PSR-3
 `LoggerInterface` to the error handler, every unexpected throwable is also logged
 at `error` level regardless of the debug flag.
 
+The mapping itself is a public, stateless seam,
+`Schema\Error\InternalServerError::for(\Throwable $throwable, bool $debug = false): Error`,
+so a framework integration that owns its own error handling can produce the exact
+same generic-500 error object without re-implementing it. The seam is pure: it
+returns the single `Error` value object and does **not** log, derive an HTTP
+status, or build a response — the caller wraps it (`ErrorResponse::fromErrors(...)`)
+and logs as it sees fit.
+
 > Leave `$debug` off in production. The trace and message can disclose internals.
 
 ## What the error handler does *not* do
