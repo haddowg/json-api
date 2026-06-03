@@ -40,4 +40,5 @@ the reference pages below as you need them.
 - [Middleware](middleware.md) — the PSR-15 suite for the JSON:API request lifecycle.
 - [Middleware order](middleware-order.md) — the recommended ordering and its rationale.
 - [Adapters](adapters.md) — the metadata-in-core, handlers-in-adapters split for filters, sorts, and constraints.
+- [Security](security.md) — the library's input-handling guarantees and the deployment hardening you must add.
 - [Testing](testing.md) — assertion wrappers, request/operation builders, and the spec-compliance check.
