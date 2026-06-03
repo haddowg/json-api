@@ -151,7 +151,9 @@ $server->register(ArticleResource::class, hydrator: ArticleHydrator::class);
 
 The registry resolves an override ahead of the Resource class and falls back to
 the Resource class for the concern you didn't override. You can also register a
-bare serializer + hydrator pair with no Resource class at all.
+bare serializer + hydrator pair with no Resource class at all, under an explicit
+`$type`, with
+[`registerSerializerHydrator()`](server.md#bare-serializer--hydrator-pairs).
 
 ## Validation
 

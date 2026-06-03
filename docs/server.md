@@ -45,6 +45,8 @@ single setting.
 | `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) (class-string) for its declared `$type`, with optional serializer/hydrator [overrides](serializers.md). |
+| `registerSerializerHydrator(string $type, ?string $serializer, ?string $hydrator)` | Registers a [bare serializer + hydrator pair](#bare-serializer--hydrator-pairs) (class-strings) under an explicit `$type`, with no Resource class. |
+| `withContainer(ContainerInterface\|callable)` | Sets the [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
 | `withMiddleware(list<MiddlewareInterface>)` | Replaces the ordered [middleware](middleware.md) list. |
 | `withHandler(OperationHandlerInterface\|RequestHandlerInterface)` | Sets the inner handler. |
@@ -62,6 +64,66 @@ both factories.
 > parent. Registering two Resource classes for the same `$type`, or two profiles
 > with the same URI, is a wiring error (a `\LogicException`), never a JSON:API
 > error document.
+
+## Lazy instantiation and containers
+
+`register()` takes **class-strings** and the registry reads the resource's
+`static $type` to key the entry **without** instantiating the class. Instances are
+built **lazily on first lookup** and cached, so registering a server is cheap and a
+Resource whose constructor has side effects (or dependencies) is not constructed
+until it is actually used.
+
+By default the registry builds each class with plain `new $class()`, which requires
+a no-argument constructor. To build Resources, serializers and hydrators with
+dependencies, give the server a factory with `withContainer()`. It accepts either a
+PSR-11 `\Psr\Container\ContainerInterface` or any `callable(class-string): object`;
+both are normalised internally to a single closure:
+
+```php
+// PSR-11 container — the registry calls $container->get(SomeResource::class).
+$server = Server::make()
+    ->withContainer($container)
+    ->register(ArticleResource::class);
+
+// Or any callable that maps a class-string to an instance.
+$server = Server::make()
+    ->withContainer(fn(string $class) => $factory->make($class))
+    ->register(ArticleResource::class);
+```
+
+`withContainer()` is order-independent — calling it before or after `register()` is
+equivalent, because lookups are lazy and the factory lives on the registry. Like
+every other configurator it clones, so it never leaks into a parent server.
+
+> The factory must return an instance of the requested concern
+> (`AbstractResource` / `SerializerInterface` / `HydratorInterface`); a wrong-type
+> return is a wiring error and throws a `\LogicException` on lookup. Prefer a
+> factory that hands out **fresh** instances: the registry injects itself as the
+> relationship serializer-resolver on every `resourceFor()` lookup, so a shared
+> singleton handed to two servers would have its resolver overwritten per call.
+
+## Bare serializer + hydrator pairs
+
+For a type that has no field-driven [Resource](resources.md) class, register a
+serializer and/or hydrator directly under an explicit `$type` with
+`registerSerializerHydrator()`. A bare serializer/hydrator exposes its type only via
+the instance method `getType($object)`, so it cannot key itself — the explicit
+`$type` argument is the key:
+
+```php
+$server = Server::make()
+    ->registerSerializerHydrator(
+        'articles',
+        serializer: ArticleSerializer::class,
+        hydrator: ArticleHydrator::class,
+    );
+```
+
+A bare pair has **no Resource fallback**: `serializerFor()`/`hydratorFor()` resolve
+only the explicitly registered class, and any `resourceFor()` lookup (or a lookup
+for the concern you did not register) throws `NoResourceRegistered`. Bare pairs are
+built through the same lazy resolver as Resource classes, so `withContainer()`
+applies to them too.
 
 ## Handling a request
 
@@ -196,8 +258,9 @@ $request = $request->withAttribute(
 );
 ```
 
-`Psr7ToOperationHandlerAdapter` reads that attribute and picks the operation from
-a fixed **HTTP-method × target-shape** dispatch table:
+`Psr7ToOperationHandlerAdapter` reads that attribute and delegates to the public,
+stateless `Operation\OperationFactory`, which picks the operation from a fixed
+**HTTP-method × target-shape** dispatch table:
 
 | Method | No relationship | `…/relationships/x` | `…/x` (related) |
 |---|---|---|---|
@@ -206,9 +269,16 @@ a fixed **HTTP-method × target-shape** dispatch table:
 | PATCH | `UpdateResourceOperation` | `UpdateRelationshipOperation` | — |
 | DELETE | `DeleteResourceOperation` | `RemoveFromRelationshipOperation` | — |
 
-If routing fails to attach a `Target`, the adapter renders a `500` error document
-(it does not throw — the PSR-15 contract still yields a JSON:API response). An
-unhandled method likewise surfaces as an error. The
+`OperationFactory::fromRequest(JsonApiRequestInterface $request, Target $target,
+OperationContext $context): JsonApiOperationInterface` is the single source of
+truth for this decision, so a framework integration can reuse it directly rather
+than re-implementing the table. It takes the already-parsed request (it builds the
+`QueryParameters` and never re-wraps) and the context explicitly (each caller keeps
+its own choice of HTTP request behind the context). A missing `Target` is the
+adapter's concern, not the factory's: if routing fails to attach one, the adapter
+renders a `500` error document (it does not throw — the PSR-15 contract still
+yields a JSON:API response). An unhandled method surfaces as an `ApplicationError`
+(also a `500`) thrown from the factory. The
 [getting-started guide](getting-started.md#the-router) shows a tiny hand-rolled
 path-prefix router that supplies the `Target`.
 

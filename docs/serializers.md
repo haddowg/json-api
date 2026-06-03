@@ -178,7 +178,9 @@ $server = Server::make()
 ```
 
 You can also register a bare serializer with no Resource class at all (paired with a
-custom [hydrator](hydrators.md)) when a type has no field declaration.
+custom [hydrator](hydrators.md)) when a type has no field declaration, under an
+explicit `$type` with
+[`registerSerializerHydrator()`](server.md#bare-serializer--hydrator-pairs).
 
 > The field declaration and this interface are the supported ways to define
 > serialization.

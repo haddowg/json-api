@@ -72,6 +72,15 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
 
     private \haddowg\JsonApi\Operation\OperationHandlerInterface|RequestHandlerInterface|null $handler = null;
 
+    /**
+     * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
+     * null to fall back to plain `new`. Server is the single source of truth and
+     * pushes it into the cloned registry on every clone.
+     *
+     * @var (\Closure(class-string): object)|null
+     */
+    private ?\Closure $resolver = null;
+
     public function __construct()
     {
         $this->resources = new ResourceRegistry();
@@ -147,7 +156,49 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
     {
         $self = clone $this;
         $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
         $self->resources->register($resource, $serializer, $hydrator);
+
+        return $self;
+    }
+
+    /**
+     * Registers a bare serializer + hydrator pair under an explicit `$type`, with
+     * no Resource class. At least one of the two must be supplied; the missing
+     * concern has no Resource fallback. Use this when a type has no field-driven
+     * Resource declaration.
+     *
+     * @param class-string<SerializerInterface>|null $serializer
+     * @param class-string<HydratorInterface>|null   $hydrator
+     */
+    public function registerSerializerHydrator(string $type, ?string $serializer = null, ?string $hydrator = null): self
+    {
+        $self = clone $this;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
+
+        return $self;
+    }
+
+    /**
+     * Sets the lazy instantiation factory the registry uses to build registered
+     * Resources, serializers and hydrators. Accepts a PSR-11 container or any
+     * `callable(class-string): object`; both are normalised to a `\Closure`. With
+     * no resolver set the registry falls back to plain `new`.
+     *
+     * Lookups are lazy, so calling this before or after `register()` is
+     * equivalent — the resolver lives on the registry and is consulted on first
+     * lookup of each type.
+     *
+     * @param \Psr\Container\ContainerInterface|callable(class-string): object $resolver
+     */
+    public function withContainer(\Psr\Container\ContainerInterface|callable $resolver): self
+    {
+        $self = clone $this;
+        $self->resolver = self::normalise($resolver);
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
 
         return $self;
     }
@@ -279,6 +330,35 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
         }
 
         return $handler->handle($operation);
+    }
+
+    /**
+     * Normalises a PSR-11 container or a `callable(class-string): object` to one
+     * `\Closure(class-string): object`.
+     *
+     * @param \Psr\Container\ContainerInterface|callable(class-string): object $resolver
+     *
+     * @return \Closure(class-string): object
+     */
+    private static function normalise(\Psr\Container\ContainerInterface|callable $resolver): \Closure
+    {
+        if ($resolver instanceof \Psr\Container\ContainerInterface) {
+            return static function (string $class) use ($resolver): object {
+                $instance = $resolver->get($class);
+
+                if (!\is_object($instance)) {
+                    throw new \LogicException(\sprintf(
+                        'The container returned %s for "%s"; a JSON:API resolver must return an object.',
+                        \get_debug_type($instance),
+                        $class,
+                    ));
+                }
+
+                return $instance;
+            };
+        }
+
+        return \Closure::fromCallable($resolver);
     }
 
     private function innerHandler(): RequestHandlerInterface

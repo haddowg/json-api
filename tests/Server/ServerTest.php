@@ -123,6 +123,132 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    public function resolverConstructsResourcesLazily(): void
+    {
+        $resolver = new RecordingResolver();
+        $server = Server::make()
+            ->withContainer($resolver)
+            ->register(PostResource::class);
+
+        // Registration must not construct the resource: the type is read from the
+        // static $type, so the resolver is untouched until first lookup.
+        self::assertSame([], $resolver->calls);
+
+        $first = $server->serializerFor('posts');
+        self::assertInstanceOf(PostResource::class, $first);
+        self::assertSame([PostResource::class], $resolver->calls);
+
+        // Subsequent lookups are cached: the resolver is not consulted again, and
+        // the same instance is handed back.
+        $second = $server->resources()->resourceFor('posts');
+        self::assertSame($first, $second);
+        self::assertSame([PostResource::class], $resolver->calls);
+    }
+
+    #[Test]
+    public function psr11ContainerResolvesRegisteredClasses(): void
+    {
+        $resource = new PostResource();
+        $serializer = new CustomPostSerializer();
+        $hydrator = new CustomPostHydrator();
+
+        $container = new ArrayContainer([
+            PostResource::class => $resource,
+            CustomPostSerializer::class => $serializer,
+            CustomPostHydrator::class => $hydrator,
+        ]);
+
+        $server = Server::make()
+            ->withContainer($container)
+            ->register(PostResource::class, serializer: CustomPostSerializer::class, hydrator: CustomPostHydrator::class);
+
+        self::assertSame($serializer, $server->serializerFor('posts'));
+        self::assertSame($hydrator, $server->hydratorFor('posts'));
+        self::assertSame($resource, $server->resources()->resourceFor('posts'));
+    }
+
+    #[Test]
+    public function withContainerIsImmutableAndDoesNotLeak(): void
+    {
+        $base = Server::make()->register(PostResource::class);
+        $resolver = new RecordingResolver();
+        $configured = $base->withContainer($resolver);
+
+        self::assertNotSame($base, $configured);
+
+        // The base server still uses plain `new` — the resolver did not leak in.
+        self::assertInstanceOf(PostResource::class, $base->serializerFor('posts'));
+        self::assertSame([], $resolver->calls);
+
+        // The configured server resolves through the injected factory.
+        self::assertInstanceOf(PostResource::class, $configured->serializerFor('posts'));
+        self::assertSame([PostResource::class], $resolver->calls);
+    }
+
+    #[Test]
+    public function withContainerIsOrderIndependent(): void
+    {
+        $before = new RecordingResolver();
+        $serverBefore = Server::make()
+            ->withContainer($before)
+            ->register(PostResource::class);
+
+        $after = new RecordingResolver();
+        $serverAfter = Server::make()
+            ->register(PostResource::class)
+            ->withContainer($after);
+
+        self::assertInstanceOf(PostResource::class, $serverBefore->serializerFor('posts'));
+        self::assertInstanceOf(PostResource::class, $serverAfter->serializerFor('posts'));
+
+        self::assertSame([PostResource::class], $before->calls);
+        self::assertSame([PostResource::class], $after->calls);
+    }
+
+    #[Test]
+    public function resolverReturningWrongTypeThrowsLogicException(): void
+    {
+        $server = Server::make()
+            ->withContainer(static fn(string $class): object => new \stdClass())
+            ->register(PostResource::class);
+
+        $this->expectException(\LogicException::class);
+        $server->serializerFor('posts');
+    }
+
+    #[Test]
+    public function barePairResolvesSerializerAndHydratorWithoutResourceClass(): void
+    {
+        $server = Server::make()->registerSerializerHydrator(
+            'widgets',
+            serializer: CustomWidgetSerializer::class,
+            hydrator: CustomPostHydrator::class,
+        );
+
+        self::assertTrue($server->hasSerializerFor('widgets'));
+        self::assertInstanceOf(CustomWidgetSerializer::class, $server->serializerFor('widgets'));
+        self::assertInstanceOf(CustomPostHydrator::class, $server->hydratorFor('widgets'));
+
+        // A bare pair has no Resource fallback.
+        $this->expectException(NoResourceRegistered::class);
+        $server->resources()->resourceFor('widgets');
+    }
+
+    #[Test]
+    public function barePairIsBuiltThroughTheInjectedResolver(): void
+    {
+        $resolver = new RecordingResolver();
+        $server = Server::make()
+            ->withContainer($resolver)
+            ->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        self::assertSame([], $resolver->calls);
+
+        self::assertInstanceOf(CustomWidgetSerializer::class, $server->serializerFor('widgets'));
+        self::assertSame([CustomWidgetSerializer::class], $resolver->calls);
+    }
+
+    #[Test]
     public function dispatchInvokesTheOperationHandler(): void
     {
         $response = MetaResponse::fromMeta(['ok' => true]);
@@ -305,5 +431,89 @@ final class CustomPostHydrator implements HydratorInterface
     public function hydrate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
         return $domainObject;
+    }
+}
+
+final class CustomWidgetSerializer extends AbstractSerializer
+{
+    public function getType(mixed $object): string
+    {
+        return 'widgets';
+    }
+
+    public function getId(mixed $object): string
+    {
+        return '1';
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return null;
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return [];
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+}
+
+/**
+ * A `callable(class-string): object` resolver that records every class it built
+ * and constructs it with plain `new`, so a test can assert lazy, once-only
+ * construction.
+ */
+final class RecordingResolver
+{
+    /**
+     * @var list<class-string>
+     */
+    public array $calls = [];
+
+    /**
+     * @param class-string $class
+     */
+    public function __invoke(string $class): object
+    {
+        $this->calls[] = $class;
+
+        return new $class();
+    }
+}
+
+/**
+ * A minimal PSR-11 container backed by a preconfigured class-string => instance
+ * map, for exercising the container branch of the resolver.
+ */
+final class ArrayContainer implements \Psr\Container\ContainerInterface
+{
+    /**
+     * @param array<class-string, object> $instances
+     */
+    public function __construct(private readonly array $instances) {}
+
+    public function get(string $id): object
+    {
+        return $this->instances[$id]
+            ?? throw new class ('No entry for ' . $id) extends \RuntimeException implements \Psr\Container\NotFoundExceptionInterface {};
+    }
+
+    public function has(string $id): bool
+    {
+        return isset($this->instances[$id]);
     }
 }

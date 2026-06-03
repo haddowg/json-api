@@ -180,7 +180,9 @@ $server = Server::make()
 ```
 
 You can also register a bare hydrator with no Resource class at all (paired with a custom
-[serializer](serializers.md)) when a type has no field declaration.
+[serializer](serializers.md)) when a type has no field declaration, under an explicit
+`$type` with
+[`registerSerializerHydrator()`](server.md#bare-serializer--hydrator-pairs).
 
 > **Local IDs (`lid`).** JSON:API 1.1 local ids are supported at the data-model
 > level: a relationship referencing a not-yet-created resource by `lid` parses and
