@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches a column against any value in a set. The incoming value is split on
  * {@see $delimiter} (default: already an array, or a comma-delimited string).
  */
-final readonly class WhereIn implements Filter
+final readonly class WhereIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key,

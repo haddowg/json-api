@@ -20,14 +20,14 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 final class Map extends AbstractField
 {
     /**
-     * @var list<Field>
+     * @var list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     private array $children = [];
 
     /**
      * @return static
      */
-    public function fields(Field ...$children): static
+    public function fields(\haddowg\JsonApi\Resource\Field\FieldInterface ...$children): static
     {
         $this->children = \array_values($children);
 
@@ -35,7 +35,7 @@ final class Map extends AbstractField
     }
 
     /**
-     * @return list<Field>
+     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     public function children(): array
     {

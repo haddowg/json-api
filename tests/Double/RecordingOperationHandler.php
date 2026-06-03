@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Double;
 
-use haddowg\JsonApi\Operation\JsonApiOperation;
 use haddowg\JsonApi\Operation\OperationHandler;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
@@ -16,16 +15,16 @@ use haddowg\JsonApi\Response\RelatedResponse;
  * {@see OperationHandler} test double that records the operation it last received
  * and returns a pre-configured response value object.
  */
-final class RecordingOperationHandler implements OperationHandler
+final class RecordingOperationHandler implements \haddowg\JsonApi\Operation\OperationHandlerInterface
 {
-    public ?JsonApiOperation $received = null;
+    public ?\haddowg\JsonApi\Operation\JsonApiOperationInterface $received = null;
 
     public function __construct(
         private readonly DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse $response,
     ) {}
 
     public function handle(
-        JsonApiOperation $operation,
+        \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
     ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse {
         $this->received = $operation;
 

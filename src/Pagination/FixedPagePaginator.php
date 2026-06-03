@@ -13,7 +13,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * The configured {@see $size} is the server's fixed page size, used to compute
  * the last page; it is never echoed in the emitted links. Fluent and immutable.
  */
-final readonly class FixedPagePaginator implements Paginator
+final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
 {
     public function __construct(
         public int $size = 15,

@@ -16,7 +16,7 @@ use haddowg\JsonApi\Schema\Error\Error;
  *
  * @see https://jsonapi.org/format/1.1/#errors
  */
-interface JsonApiException extends \Throwable
+interface JsonApiExceptionInterface extends \Throwable
 {
     /**
      * The JSON:API error objects describing what went wrong.

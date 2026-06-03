@@ -13,7 +13,7 @@ namespace haddowg\JsonApi\Operation;
  * needs; the five mutating verbs additionally expose a request body. Dispatching
  * on the operation type (rather than a verb enum) keeps handlers type-safe.
  */
-interface JsonApiOperation
+interface JsonApiOperationInterface
 {
     public function target(): Target;
 

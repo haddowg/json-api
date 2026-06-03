@@ -9,15 +9,15 @@ namespace haddowg\JsonApi\Resource\Constraint;
  *
  * The wrapped constraints share this constraint's {@see Context}.
  */
-final readonly class Each implements Constraint
+final readonly class Each implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
-     * @var list<Constraint>
+     * @var list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
      */
     public array $constraints;
 
     /**
-     * @param list<Constraint> $constraints
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
      */
     public function __construct(
         array $constraints,

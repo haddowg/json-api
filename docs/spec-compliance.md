@@ -67,8 +67,8 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Error object members (`id`, `links`, `status`, `code`, `title`, `detail`, `source`, `meta`) | ✅ test | `Schema\Error\Error` (construct-only; each member omitted from `transform()` when empty). `ErrorTest`. |
 | Error `links` (`about`, `type`) | ✅ test | `Schema\Link\ErrorLinks` (construct-only; `type` links de-duped by href). `ErrorLinksTest`. |
 | Error document (top-level `errors` array) | ✅ test | `Response\ErrorResponse` (`fromErrors()`/`fromException()`) renders the top-level `errors` array via `ErrorDocument`; HTTP status derived from the errors. `ErrorResponseTest`, `AbstractErrorDocumentTest`. |
-| Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiException` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail are spec-compliance surface. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
-| Uncaught throwables → JSON:API error response | ✅ test | `Middleware\ErrorHandlerMiddleware` (outermost) catches `JsonApiException` (own status/errors) and any other `\Throwable` (→ generic 500). Debug-gated 500 mirrors `laravel-json-api/exceptions`: `detail`=message + per-error `meta.{exception,file,line,trace}` when `$debug` is on, redacted otherwise; optional PSR-3 logger. `ErrorHandlerMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
+| Typed exception → HTTP status mapping | ✅ test | 33 concrete `Exception\*` classes implementing `JsonApiExceptionInterface` (`getErrors(): list<Error>`, `getStatusCode()`); status/code/title/detail are spec-compliance surface. `JsonApiExceptionTest`, `ExceptionErrorDetailTest`. |
+| Uncaught throwables → JSON:API error response | ✅ test | `Middleware\ErrorHandlerMiddleware` (outermost) catches `JsonApiExceptionInterface` (own status/errors) and any other `\Throwable` (→ generic 500). Debug-gated 500 mirrors `laravel-json-api/exceptions`: `detail`=message + per-error `meta.{exception,file,line,trace}` when `$debug` is on, redacted otherwise; optional PSR-3 logger. `ErrorHandlerMiddlewareTest`, `MiddlewareChainIntegrationTest`. |
 
 ## Fetching data (`spec:fetching-resources`, `spec:fetching-relationships`, `spec:fetching-data`)
 
@@ -88,20 +88,20 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | `fields[TYPE]` query parameter | ✅ test | Request-side parsing **and** engine-side application: `Transformer\ResourceTransformer` filters attributes/relationships by `isIncludedField()`. `JsonApiRequestTest`, `ResourceTransformerTest`. |
-| Per-type sparse-fieldset participation | ✅ test | Each `Field` declares `isSparseField()` (opt out via `notSparseField()`); the transformer narrows attributes/relationships per `fields[type]`. `FieldTest`, `ResourceTransformerTest`. |
+| Per-type sparse-fieldset participation | ✅ test | Each `FieldInterface` declares `isSparseField()` (opt out via `notSparseField()`); the transformer narrows attributes/relationships per `fields[type]`. `FieldTest`, `ResourceTransformerTest`. |
 
 ## Sorting (`spec:sorting`)
 
 | Requirement | Status | Notes |
 |---|---|---|
 | `sort` query parameter parsing | ✅ test | `JsonApiRequest::getSorting()` parses the `sort` param (comma-separated, `-` prefix preserved) and throws `QueryParamMalformed` on a non-string value. `JsonApiRequestTest`. |
-| `sort` allowed-fields enforcement | ✅ test | A schema declares sortable fields (`->sortable()`); `Resource\AbstractResource::allSorts()` derives the allowed `SortByField` set, and `Sort` handlers reject unknown keys via the typed `UnsupportedSort` (500). `ArraySortHandlerTest`, `AbstractResourceTest`. |
+| `sort` allowed-fields enforcement | ✅ test | A schema declares sortable fields (`->sortable()`); `Resource\AbstractResource::allSorts()` derives the allowed `SortByField` set, and `SortInterface` handlers reject unknown keys via the typed `UnsupportedSort` (500). `ArraySortHandlerTest`, `AbstractResourceTest`. |
 
 ## Pagination (`spec:pagination`)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the strategy paginators `Pagination\{Page,Offset,FixedPage}Paginator` (implement `Paginator`) and the standalone `Pagination\CursorPaginator`, which read `page[…]` and produce `Page` value objects (absent/non-numeric params fall back to defaults, via `@internal QueryParam::int`). `tests/Pagination/PaginatorTest.php`. |
+| `page[…]` query parameter parsing | ✅ test | Raw `page[…]` access (`JsonApiRequest::getPagination()`) plus the strategy paginators `Pagination\{Page,Offset,FixedPage}Paginator` (implement `PaginatorInterface`) and the standalone `Pagination\CursorPaginator`, which read `page[…]` and produce `Page` value objects (absent/non-numeric params fall back to defaults, via `@internal QueryParam::int`). `tests/Pagination/PaginatorTest.php`. |
 | Pagination links (`first`/`prev`/`next`/`last`) | ✅ test | The `Pagination\{PageBased,OffsetBased,FixedPage,CursorBased}Page` value objects emit `linkSet()` (built via `Transformer\Utils::getUri`, preserving unrelated query params) and `pageMeta()`; `DataResponse::fromPage()` renders them into top-level `links` + `meta.page`. **`CursorBasedPage` omits `last` by design** (no total count). `tests/Pagination/*PageTest.php`, `DataResponsePaginationTest`. |
 
 ## Filtering (`spec:filtering`)
@@ -109,7 +109,7 @@ Spec-section anchors map to the `spec:<section>` PHPUnit groups (see
 | Requirement | Status | Notes |
 |---|---|---|
 | `filter` query parameter (format-agnostic) | ✅ test | Request-side parsing implemented + tested (`JsonApiRequest::getFiltering()`/`getFilteringParam()`, `JsonApiRequestTest`). Execution remains adapter-provided by design. |
-| `filter` parameter shape / handling | ✅ test | A schema declares `filters()` as typed `Filter` value objects; adapter `FilterHandler`s translate them and reject unregistered filters via the typed `UnsupportedFilter` (500). Core ships reference `InMemory\ArrayFilterHandler`. `ArrayFilterHandlerTest`. |
+| `filter` parameter shape / handling | ✅ test | A schema declares `filters()` as typed `FilterInterface` value objects; adapter `FilterHandlerInterface`s translate them and reject unregistered filters via the typed `UnsupportedFilter` (500). Core ships reference `InMemory\ArrayFilterHandler`. `ArrayFilterHandlerTest`. |
 
 ## CRUD (`spec:crud`)
 

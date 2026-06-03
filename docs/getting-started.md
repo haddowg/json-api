@@ -123,7 +123,7 @@ final class ArticleResource extends AbstractResource
 
 ## The operation handler
 
-Your handler receives a parsed [`JsonApiOperation`](server.md#operations) and
+Your handler receives a parsed [`JsonApiOperationInterface`](server.md#operations) and
 returns one of the [response value objects](responses.md). It never touches PSR-7
 directly — the framing is done for you. Dispatch on the concrete operation type
 with `match (true)`; the type system narrows each branch:
@@ -132,17 +132,17 @@ with `match (true)`; the type system narrows each branch:
 use haddowg\JsonApi\Exception\ResourceNotFound;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
-use haddowg\JsonApi\Operation\JsonApiOperation;
-use haddowg\JsonApi\Operation\OperationHandler;
+use haddowg\JsonApi\Operation\JsonApiOperationInterface;
+use haddowg\JsonApi\Operation\OperationHandlerInterface;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Server\Server;
 
-final class ArticleHandler implements OperationHandler
+final class ArticleHandler implements OperationHandlerInterface
 {
     public function __construct(private readonly ArticleRepository $repository) {}
 
-    public function handle(JsonApiOperation $operation): DataResponse|ErrorResponse
+    public function handle(JsonApiOperationInterface $operation): DataResponse|ErrorResponse
     {
         $server = $operation->context()->server;
         \assert($server instanceof Server);

@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * allowed set of JSON:API resource types. For a polymorphic relationship the
  * list carries every permitted inverse type.
  */
-final readonly class RelationshipType implements Constraint
+final readonly class RelationshipType implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @var list<string>

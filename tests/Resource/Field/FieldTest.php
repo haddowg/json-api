@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\Tests\Resource\Field;
 
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
-use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\IpFormat;
@@ -172,7 +171,7 @@ final class FieldTest extends TestCase
     public function stringFluentConstraints(): void
     {
         $field = Str::make('a')->minLength(1)->maxLength(10)->pattern('^x');
-        $types = \array_map(static fn(Constraint $c): string => $c::class, $field->constraints());
+        $types = \array_map(static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class, $field->constraints());
 
         self::assertSame([MinLength::class, MaxLength::class, \haddowg\JsonApi\Resource\Constraint\Pattern::class], $types);
     }
@@ -340,7 +339,7 @@ final class FieldTest extends TestCase
 
         self::assertSame(['a', 'b', 'c'], $field->serialize(['tags' => ['c', 'a', 'b']], $this->request(), 'tags'));
 
-        $types = \array_map(static fn(Constraint $c): string => $c::class, $field->constraints());
+        $types = \array_map(static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class, $field->constraints());
         self::assertContains(MaxItems::class, $types);
         self::assertContains(UniqueItems::class, $types);
     }

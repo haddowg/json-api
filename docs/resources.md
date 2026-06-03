@@ -40,7 +40,7 @@ final class ArticleResource extends AbstractResource
 ```
 
 `$type` is the JSON:API type member and the key the Resource class registers
-under. Every entry in `fields()` is a [`Field`](fields.md): an `Id`, an attribute,
+under. Every entry in `fields()` is a [`FieldInterface`](fields.md): an `Id`, an attribute,
 or a relationship. The order is preserved in output.
 
 ## What a Resource class declares
@@ -50,10 +50,10 @@ required.
 
 | Method | Returns | Purpose |
 |---|---|---|
-| `fields()` | `list<Field>` | The attribute + relationship inventory (required). |
-| `filters()` | `list<Filter>` | The [filters](filters.md) this type accepts (default: none). |
-| `sorts()` | `list<Sort>` | Computed/multi-column [sorts](sorts.md) beyond the field-derived ones. |
-| `pagination()` | `?Paginator` | The default [pagination](pagination.md) strategy for collections (default: the server's). |
+| `fields()` | `list<FieldInterface>` | The attribute + relationship inventory (required). |
+| `filters()` | `list<FilterInterface>` | The [filters](filters.md) this type accepts (default: none). |
+| `sorts()` | `list<SortInterface>` | Computed/multi-column [sorts](sorts.md) beyond the field-derived ones. |
+| `pagination()` | `?PaginatorInterface` | The default [pagination](pagination.md) strategy for collections (default: the server's). |
 
 `allSorts()` is derived for you: every field marked `->sortable()` yields a
 `SortByField`, merged with anything `sorts()` adds — so you rarely override

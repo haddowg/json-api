@@ -28,7 +28,7 @@ use Opis\JsonSchema\Validator;
  * so an additional schema's top-level `properties` extend (rather than collide
  * with) the permitted members.
  *
- * A failed validation throws a typed {@see \haddowg\JsonApi\Exception\JsonApiException}
+ * A failed validation throws a typed {@see \haddowg\JsonApi\Exception\JsonApiExceptionInterface}
  * — {@see RequestBodyInvalidJsonApi} (400) or {@see ResponseBodyInvalidJsonApi}
  * (500) — carrying one violation per `opis` leaf error, each with the JSON
  * Pointer (`source.pointer`) of the offending location. The existing
@@ -40,7 +40,7 @@ final class DocumentValidator
 {
     private readonly Validator $validator;
 
-    public function __construct(private readonly SchemaProvider $schemaProvider)
+    public function __construct(private readonly \haddowg\JsonApi\Validation\SchemaProviderInterface $schemaProvider)
     {
         $validator = new Validator();
         // Raise the error cap so an invalid document surfaces several violations at

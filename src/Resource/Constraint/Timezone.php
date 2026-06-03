@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * identifiers (e.g. `Europe/London`). Adapter-executed; not round-tripped to
  * JSON Schema.
  */
-final readonly class Timezone implements Constraint
+final readonly class Timezone implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @var list<string>

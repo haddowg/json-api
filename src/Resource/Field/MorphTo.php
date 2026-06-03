@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
@@ -34,7 +33,7 @@ final class MorphTo extends AbstractRelation
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         $related = $this->relatedValue($model, $request, $this->name);
         $relationship = \haddowg\JsonApi\Schema\Relationship\ToOneRelationship::create();

@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * The pattern is an ECMA-262 regular expression **source** without delimiters,
  * as JSON Schema requires.
  */
-final readonly class Pattern implements Constraint
+final readonly class Pattern implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public string $regex,

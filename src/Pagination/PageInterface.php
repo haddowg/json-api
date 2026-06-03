@@ -24,7 +24,7 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  *
  * @see https://jsonapi.org/format/1.1/#fetching-pagination
  */
-interface Page extends \IteratorAggregate
+interface PageInterface extends \IteratorAggregate
 {
     /**
      * The pagination links for this page, keyed by relation

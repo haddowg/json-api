@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
@@ -18,7 +17,7 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  * The schema base routes relations through {@see buildRelationship()} and
  * {@see hydrateRelationship()} instead of the attribute serialize/hydrate path.
  */
-interface Relation extends Field
+interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterface
 {
     /**
      * The allowed related resource type(s). A single-element list for a
@@ -46,7 +45,7 @@ interface Relation extends Field
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship;
 
     /**

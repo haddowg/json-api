@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Operation;
 /**
  * `DELETE /articles/1` — delete a single resource. Has no request body.
  */
-final readonly class DeleteResourceOperation implements JsonApiOperation
+final readonly class DeleteResourceOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

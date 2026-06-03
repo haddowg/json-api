@@ -11,7 +11,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * **Not round-tripped to JSON Schema** — the {@see \haddowg\JsonApi\Validation\SchemaCompiler}
  * skips `Custom` (the rule is adapter-specific).
  */
-final readonly class Custom implements Constraint
+final readonly class Custom implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public string $id,

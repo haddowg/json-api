@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Exclusive upper bound (JSON Schema \`exclusiveMaximum\`).
  */
-final readonly class ExclusiveMax implements Constraint
+final readonly class ExclusiveMax implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int|float $value,

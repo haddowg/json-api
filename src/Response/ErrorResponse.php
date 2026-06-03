@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Response;
 
-use haddowg\JsonApi\Exception\JsonApiException;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\ErrorDocument;
@@ -31,7 +30,7 @@ final class ErrorResponse extends AbstractResponse
         return new self(\array_values($errors));
     }
 
-    public static function fromException(JsonApiException $exception): self
+    public static function fromException(\haddowg\JsonApi\Exception\JsonApiExceptionInterface $exception): self
     {
         return new self($exception->getErrors());
     }

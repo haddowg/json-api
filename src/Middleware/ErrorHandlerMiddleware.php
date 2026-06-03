@@ -44,7 +44,7 @@ final readonly class ErrorHandlerMiddleware implements MiddlewareInterface
     {
         try {
             return $handler->handle($request);
-        } catch (JsonApiException $exception) {
+        } catch (\haddowg\JsonApi\Exception\JsonApiExceptionInterface $exception) {
             return ErrorResponse::fromException($exception)->toPsrResponse($this->server, $request);
         } catch (\Throwable $throwable) {
             $this->logger?->error($throwable->getMessage(), ['exception' => $throwable]);

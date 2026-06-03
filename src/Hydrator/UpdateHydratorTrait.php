@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Hydrator;
 
 use haddowg\JsonApi\Exception\DataMemberMissing;
-use haddowg\JsonApi\Exception\JsonApiException;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
 use haddowg\JsonApi\Exception\ResourceIdMissing;
@@ -34,7 +33,7 @@ trait UpdateHydratorTrait
      * Called after type and ID validation. Override to add request-level
      * constraints; the default implementation is a no-op.
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function validateRequest(JsonApiRequestInterface $request): void;
 
@@ -61,7 +60,7 @@ trait UpdateHydratorTrait
      * @param array<string, mixed> $data
      * @return mixed
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function hydrateRelationships(mixed $domainObject, array $data): mixed;
 
@@ -79,7 +78,7 @@ trait UpdateHydratorTrait
      * @param array<string, mixed>|null $data
      * @return mixed
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function doHydrateRelationship(
         mixed $domainObject,
@@ -96,7 +95,7 @@ trait UpdateHydratorTrait
      * @return mixed
      *
      * @throws DataMemberMissing
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     public function hydrateForUpdate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -122,7 +121,7 @@ trait UpdateHydratorTrait
      * @return mixed
      *
      * @throws RelationshipNotExists
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     public function hydrateForRelationshipUpdate(
         string $relationship,

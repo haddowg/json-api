@@ -18,7 +18,7 @@ use haddowg\JsonApi\Resource\Constraint\Constraint;
  * The fluent builders live on {@see AbstractField}; this interface is the
  * contract the schema base walks.
  */
-interface Field
+interface FieldInterface
 {
     /**
      * The JSON:API attribute member name (camelCase by convention).
@@ -60,7 +60,7 @@ interface Field
     /**
      * The validation constraints declared on this field.
      *
-     * @return list<Constraint>
+     * @return list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
      */
     public function constraints(): array;
 

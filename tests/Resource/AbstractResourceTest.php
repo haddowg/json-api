@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\Tests\Resource;
 
 use haddowg\JsonApi\Hydrator\HydratorInterface as HydratorContract;
 use haddowg\JsonApi\Pagination\PagePaginator;
-use haddowg\JsonApi\Pagination\Paginator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
@@ -17,8 +16,6 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
-use haddowg\JsonApi\Resource\SerializerResolver;
-use haddowg\JsonApi\Resource\Sort\Sort;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -94,7 +91,7 @@ final class AbstractResourceTest extends TestCase
     public function allSortsDerivesFromSortableFieldsPlusExplicitSorts(): void
     {
         $resource = new PostResource();
-        $keys = \array_map(static fn(Sort $sort): string => $sort->key(), $resource->allSorts());
+        $keys = \array_map(static fn(\haddowg\JsonApi\Resource\Sort\SortInterface $sort): string => $sort->key(), $resource->allSorts());
 
         self::assertContains('title', $keys);
         self::assertContains('publishedAt', $keys);
@@ -240,7 +237,7 @@ final class AbstractResourceTest extends TestCase
         return new JsonApiRequest($psr);
     }
 
-    private function resolver(): SerializerResolver
+    private function resolver(): \haddowg\JsonApi\Resource\SerializerResolverInterface
     {
         return new StubSerializerResolver();
     }
@@ -281,7 +278,7 @@ final class PostResource extends AbstractResource
         ];
     }
 
-    public function pagination(): Paginator
+    public function pagination(): \haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return PagePaginator::make()->withDefaultPerPage(15);
     }

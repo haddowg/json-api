@@ -38,7 +38,7 @@ final class ProfileSchemaCollector
             $seen[$uri] = true;
 
             $profile = $server->profiles()->get($uri);
-            if ($profile instanceof SchemaContributingProfile) {
+            if ($profile instanceof \haddowg\JsonApi\Validation\SchemaContributingProfileInterface) {
                 $fragment = $profile->schemaFragment();
                 if ($fragment !== null) {
                     $fragments[] = $fragment;

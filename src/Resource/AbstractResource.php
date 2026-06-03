@@ -43,17 +43,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      */
     public static string $type = '';
 
-    protected ?SerializerResolver $serializerResolver = null;
+    protected ?\haddowg\JsonApi\Resource\SerializerResolverInterface $serializerResolver = null;
 
     /**
-     * @var list<Field>|null
+     * @var list<\haddowg\JsonApi\Resource\Field\FieldInterface>|null
      */
     private ?array $fieldCache = null;
 
     /**
      * The resource's field inventory (attributes + relationships).
      *
-     * @return list<Field>
+     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     abstract public function fields(): array;
 
@@ -61,7 +61,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * The filters this resource exposes (metadata; execution lives in adapter
      * handlers). Default: none.
      *
-     * @return list<\haddowg\JsonApi\Resource\Filter\Filter>
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
      */
     public function filters(): array
     {
@@ -74,7 +74,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * every field that declared `->sortable()`; override only to add computed or
      * multi-column sorts.
      *
-     * @return list<\haddowg\JsonApi\Resource\Sort\Sort>
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
      */
     public function sorts(): array
     {
@@ -86,7 +86,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * pagination (the {@see \haddowg\JsonApi\Server\Server} default applies when
      * this returns null).
      */
-    public function pagination(): ?\haddowg\JsonApi\Pagination\Paginator
+    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return null;
     }
@@ -96,7 +96,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * {@see \haddowg\JsonApi\Resource\Sort\SortByField}s plus any explicit
      * {@see sorts()}. Keyed by sort key (later entries win), returned as a list.
      *
-     * @return list<\haddowg\JsonApi\Resource\Sort\Sort>
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
      */
     public function allSorts(): array
     {
@@ -122,7 +122,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * The {@see \haddowg\JsonApi\Server\Server} calls this when it hands out the
      * resource; standalone use leaves it null (relationships are then omitted).
      */
-    public function setSerializerResolver(SerializerResolver $resolver): void
+    public function setSerializerResolver(\haddowg\JsonApi\Resource\SerializerResolverInterface $resolver): void
     {
         $this->serializerResolver = $resolver;
     }
@@ -387,7 +387,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * The cached field inventory.
      *
-     * @return list<Field>
+     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     final protected function allFields(): array
     {
@@ -397,26 +397,26 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * Non-id, non-relation, non-hidden attribute fields.
      *
-     * @return list<Field>
+     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     protected function attributeFields(): array
     {
         return \array_values(\array_filter(
             $this->allFields(),
-            static fn(Field $field): bool => !$field instanceof Id
-                && !$field instanceof Relation
+            static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $field): bool => !$field instanceof Id
+                && !$field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface
                 && !$field->isHidden(),
         ));
     }
 
     /**
-     * @return list<Relation>
+     * @return list<\haddowg\JsonApi\Resource\Field\RelationInterface>
      */
     protected function relationFields(): array
     {
         $relations = [];
         foreach ($this->allFields() as $field) {
-            if ($field instanceof Relation && !$field->isHidden()) {
+            if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface && !$field->isHidden()) {
                 $relations[] = $field;
             }
         }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Transformer;
 
 /**
- * Internal URL-building helper used by the {@see \haddowg\JsonApi\Pagination\Page}
+ * Internal URL-building helper used by the {@see \haddowg\JsonApi\Pagination\PageInterface}
  * value objects to build pagination links.
  *
  * Only `getUri` lives here; other query-param helpers are inlined at their use

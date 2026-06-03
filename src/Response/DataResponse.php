@@ -28,13 +28,13 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 final class DataResponse extends AbstractResponse
 {
     /**
-     * @param Page<mixed>|null $page
+     * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
      */
     private function __construct(
         private readonly mixed $data,
         private readonly SerializerInterface $resource,
         private readonly bool $isCollection,
-        private readonly ?Page $page = null,
+        private readonly ?\haddowg\JsonApi\Pagination\PageInterface $page = null,
     ) {}
 
     /**
@@ -63,9 +63,9 @@ final class DataResponse extends AbstractResponse
      *
      * @template T
      *
-     * @param Page<T> $page
+     * @param \haddowg\JsonApi\Pagination\PageInterface<T> $page
      */
-    public static function fromPage(Page $page, SerializerInterface $resource): self
+    public static function fromPage(\haddowg\JsonApi\Pagination\PageInterface $page, SerializerInterface $resource): self
     {
         return new self($page, $resource, true, $page);
     }
@@ -101,11 +101,11 @@ final class DataResponse extends AbstractResponse
      * `DocumentLinks` path.
      *
      * @param array<string, mixed> $result
-     * @param Page<mixed>          $page
+     * @param \haddowg\JsonApi\Pagination\PageInterface<mixed> $page
      *
      * @return array<string, mixed>
      */
-    private function applyPagination(array $result, ServerInterface $server, JsonApiRequestInterface $request, Page $page): array
+    private function applyPagination(array $result, ServerInterface $server, JsonApiRequestInterface $request, \haddowg\JsonApi\Pagination\PageInterface $page): array
     {
         $uri = $server->baseUri() . $request->getUri()->getPath();
         $queryString = $request->getUri()->getQuery();

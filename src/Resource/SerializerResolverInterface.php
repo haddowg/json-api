@@ -12,10 +12,10 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * parent schema knowing the related schema directly. The {@see \haddowg\JsonApi\Server\Server}
  * (its schema registry) is the production implementation.
  */
-interface SerializerResolver
+interface SerializerResolverInterface
 {
     /**
-     * @throws \haddowg\JsonApi\Exception\JsonApiException when no serializer is registered for `$type`
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface when no serializer is registered for `$type`
      */
     public function serializerFor(string $type): SerializerInterface;
 

@@ -12,7 +12,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * A {@see SerializerResolver} double backed by a fixed set of
  * {@see StubSerializer}s, one per registered type.
  */
-final class StubSerializerResolver implements SerializerResolver
+final class StubSerializerResolver implements \haddowg\JsonApi\Resource\SerializerResolverInterface
 {
     /**
      * @var array<string, SerializerInterface>

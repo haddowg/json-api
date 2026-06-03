@@ -13,7 +13,6 @@ use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\MorphTo;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
@@ -194,7 +193,7 @@ final class RelationTest extends TestCase
         return new StubJsonApiRequest();
     }
 
-    private function resolver(): SerializerResolver
+    private function resolver(): \haddowg\JsonApi\Resource\SerializerResolverInterface
     {
         return new StubSerializerResolver();
     }

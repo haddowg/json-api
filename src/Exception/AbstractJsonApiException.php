@@ -13,7 +13,7 @@ namespace haddowg\JsonApi\Exception;
  * to expose its JSON:API error data.
  *
  */
-abstract class AbstractJsonApiException extends \Exception implements JsonApiException
+abstract class AbstractJsonApiException extends \Exception implements \haddowg\JsonApi\Exception\JsonApiExceptionInterface
 {
     public function __construct(string $message, private readonly int $statusCode)
     {

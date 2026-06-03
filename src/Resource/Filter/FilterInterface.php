@@ -12,10 +12,10 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Core ships the value objects plus a reference in-memory handler; database
  * handlers (Doctrine, etc.) live in framework adapters.
  *
- * Mirrors the {@see \haddowg\JsonApi\Resource\Constraint\Constraint} metadata +
+ * Mirrors the {@see \haddowg\JsonApi\Resource\Constraint\ConstraintInterface} metadata +
  * adapter-translator pattern.
  */
-interface Filter
+interface FilterInterface
 {
     /**
      * The `filter[<key>]` query-parameter key this filter responds to.

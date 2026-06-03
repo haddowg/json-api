@@ -10,7 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * `POST /articles/1/relationships/tags` — add members to a to-many relationship.
  * Carries the request body holding the identifiers to add.
  */
-final readonly class AddToRelationshipOperation implements JsonApiOperation
+final readonly class AddToRelationshipOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

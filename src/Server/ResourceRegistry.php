@@ -24,7 +24,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * `static $type` keys the entry. Registering two resources with the same type is
  * a configuration error.
  */
-final class ResourceRegistry implements SerializerResolver
+final class ResourceRegistry implements \haddowg\JsonApi\Resource\SerializerResolverInterface
 {
     /**
      * @var array<string, Entry>

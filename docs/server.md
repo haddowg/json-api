@@ -42,12 +42,12 @@ single setting.
 | `withVersion(string)` | The `jsonapi.version` member (default `1.1`). |
 | `withDefaultMeta(array)` | The default `jsonapi.meta` object. |
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `JSON_PRETTY_PRINT`). |
-| `withDefaultPaginator(?Paginator)` | The fallback [paginator](pagination.md) for collections. |
+| `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) (class-string) for its declared `$type`, with optional serializer/hydrator [overrides](serializers.md). |
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
 | `withMiddleware(list<MiddlewareInterface>)` | Replaces the ordered [middleware](middleware.md) list. |
-| `withHandler(OperationHandler\|RequestHandlerInterface)` | Sets the inner handler. |
+| `withHandler(OperationHandlerInterface\|RequestHandlerInterface)` | Sets the inner handler. |
 
 The matching accessors read the configuration back: `baseUri()`,
 `jsonApiVersion()`, `defaultMeta()`, `encodeOptions()`, `defaultPaginator()`,
@@ -76,7 +76,7 @@ $response = $server->handle($request); // PSR-7 ResponseInterface
 The inner handler is whatever you passed to `withHandler()`. There are two
 accepted shapes:
 
-- An **`OperationHandler`** (the recommended consumer surface, below). The server
+- An **`OperationHandlerInterface`** (the recommended consumer surface, below). The server
   wraps it in `Psr7ToOperationHandlerAdapter` automatically — the adapter turns
   the request into an operation, calls your handler, and encodes the returned
   [response value object](responses.md) to PSR-7.
@@ -89,10 +89,10 @@ Calling `handle()` with no handler configured throws a `\LogicException`.
 
 An operation is the PSR-7-decoupled description of one JSON:API request: what
 endpoint it targets, the query parameters in effect, and the ambient context. The
-`Operation\JsonApiOperation` interface is the common contract —
+`Operation\JsonApiOperationInterface` interface is the common contract —
 
 ```php
-interface JsonApiOperation
+interface JsonApiOperationInterface
 {
     public function target(): Target;
     public function queryParameters(): QueryParameters;
@@ -122,11 +122,11 @@ narrows each branch.
 
 ### The handler
 
-`Operation\OperationHandler` is the recommended consumer extension point:
+`Operation\OperationHandlerInterface` is the recommended consumer extension point:
 
 ```php
 public function handle(
-    JsonApiOperation $operation,
+    JsonApiOperationInterface $operation,
 ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse;
 ```
 
@@ -137,17 +137,17 @@ request through `context()->httpRequest()` only when you genuinely need it.
 ```php
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
-use haddowg\JsonApi\Operation\JsonApiOperation;
-use haddowg\JsonApi\Operation\OperationHandler;
+use haddowg\JsonApi\Operation\JsonApiOperationInterface;
+use haddowg\JsonApi\Operation\OperationHandlerInterface;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Server\Server;
 
-final class ArticleHandler implements OperationHandler
+final class ArticleHandler implements OperationHandlerInterface
 {
     public function __construct(private readonly ArticleRepository $repository) {}
 
-    public function handle(JsonApiOperation $operation): DataResponse|ErrorResponse
+    public function handle(JsonApiOperationInterface $operation): DataResponse|ErrorResponse
     {
         $server = $operation->context()->server;
         \assert($server instanceof Server);
@@ -214,7 +214,7 @@ path-prefix router that supplies the `Target`.
 
 ## dispatch()
 
-`Server::dispatch(JsonApiOperation)` invokes the configured `OperationHandler`
+`Server::dispatch(JsonApiOperationInterface)` invokes the configured `OperationHandlerInterface`
 **directly**, bypassing the PSR-15 chain. It returns the response value object
 unrendered, which makes it the natural entry point for programmatic calls and
 integration tests:
@@ -223,7 +223,7 @@ integration tests:
 $response = $server->dispatch($operation); // a response value object, not PSR-7
 ```
 
-`dispatch()` requires the inner handler to be an `OperationHandler` (a bare PSR-15
+`dispatch()` requires the inner handler to be an `OperationHandlerInterface` (a bare PSR-15
 handler throws a `\LogicException`). Build operations for it with the
 [`JsonApiOperationBuilder`](testing.md) test utility.
 

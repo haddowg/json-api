@@ -12,16 +12,16 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * skips `When` (the condition is opaque PHP). Framework adapters that execute
  * validation evaluate the closure.
  */
-final readonly class When implements Constraint
+final readonly class When implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
-     * @var list<Constraint>
+     * @var list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
      */
     public array $constraints;
 
     /**
      * @param \Closure(mixed): bool $condition
-     * @param list<Constraint>      $constraints
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
      */
     public function __construct(
         public \Closure $condition,

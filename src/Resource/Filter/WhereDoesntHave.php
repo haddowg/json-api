@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows that lack a related record on the named relationship (the
  * negation of {@see WhereHas}).
  */
-final readonly class WhereDoesntHave implements Filter
+final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key,

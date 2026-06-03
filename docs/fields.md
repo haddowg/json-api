@@ -246,7 +246,7 @@ A zero-indexed array attribute (JSON `type: array`).
 |---|---|
 | `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems`. |
 | `uniqueItems()` | `UniqueItems`. |
-| `each(Constraint ...$constraints)` | `Each` — applies the given constraints to every item. |
+| `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. |
 | `sorted()` | Sorts the list on serialization. |
 
 ```php

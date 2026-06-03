@@ -10,11 +10,11 @@ exception.
 
 ## The contract
 
-Every exception implements `Exception\JsonApiException`, which extends
+Every exception implements `Exception\JsonApiExceptionInterface`, which extends
 `\Throwable` and adds two methods:
 
 ```php
-interface JsonApiException extends \Throwable
+interface JsonApiExceptionInterface extends \Throwable
 {
     /** @return list<Error> the JSON:API error objects describing what went wrong */
     public function getErrors(): array;
@@ -27,7 +27,7 @@ interface JsonApiException extends \Throwable
 The exception exposes the error **data** (`Schema\Error\Error` value objects) and
 the status — it never builds a document. Assembling the document is the
 serialization layer's job. This is what lets the [error handler](errors.md) turn
-any thrown `JsonApiException` into an `ErrorResponse` and render it.
+any thrown `JsonApiExceptionInterface` into an `ErrorResponse` and render it.
 
 `Exception\AbstractJsonApiException` is the base for the concrete classes. It
 extends `\Exception`, takes `(string $message, int $statusCode)`, forwards both to

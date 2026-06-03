@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Server;
 
 use haddowg\JsonApi\Hydrator\HydratorInterface;
-use haddowg\JsonApi\Operation\JsonApiOperation;
 use haddowg\JsonApi\Operation\OperationHandler;
 use haddowg\JsonApi\Operation\Psr7ToOperationHandlerAdapter;
 use haddowg\JsonApi\Pagination\Paginator;
 use haddowg\JsonApi\Resource\AbstractResource;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
@@ -44,7 +42,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ServerInterface, RequestHandlerInterface, SerializerResolver
+final class Server implements ServerInterface, RequestHandlerInterface, \haddowg\JsonApi\Resource\SerializerResolverInterface
 {
     private ResourceRegistry $resources;
 
@@ -61,7 +59,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
 
     private int $encodeOptions = 0;
 
-    private ?Paginator $defaultPaginator = null;
+    private ?\haddowg\JsonApi\Pagination\PaginatorInterface $defaultPaginator = null;
 
     private ?ResponseFactoryInterface $responseFactory = null;
 
@@ -72,7 +70,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
      */
     private array $middleware = [];
 
-    private OperationHandler|RequestHandlerInterface|null $handler = null;
+    private \haddowg\JsonApi\Operation\OperationHandlerInterface|RequestHandlerInterface|null $handler = null;
 
     public function __construct()
     {
@@ -120,7 +118,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
         return $self;
     }
 
-    public function withDefaultPaginator(?Paginator $paginator): self
+    public function withDefaultPaginator(?\haddowg\JsonApi\Pagination\PaginatorInterface $paginator): self
     {
         $self = clone $this;
         $self->defaultPaginator = $paginator;
@@ -181,7 +179,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
      * is wrapped in {@see Psr7ToOperationHandlerAdapter} automatically; a bare
      * PSR-15 handler is also accepted directly.
      */
-    public function withHandler(OperationHandler|RequestHandlerInterface $handler): self
+    public function withHandler(\haddowg\JsonApi\Operation\OperationHandlerInterface|RequestHandlerInterface $handler): self
     {
         $self = clone $this;
         $self->handler = $handler;
@@ -235,7 +233,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
         return $this->resources;
     }
 
-    public function defaultPaginator(): ?Paginator
+    public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->defaultPaginator;
     }
@@ -273,10 +271,10 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
      * chain. The operation is assumed pre-constructed and complete.
      */
     public function dispatch(
-        JsonApiOperation $operation,
+        \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
     ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse {
         $handler = $this->handler;
-        if (!$handler instanceof OperationHandler) {
+        if (!$handler instanceof \haddowg\JsonApi\Operation\OperationHandlerInterface) {
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');
         }
 
@@ -290,7 +288,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, Serializ
             throw new \LogicException('No inner handler configured; call withHandler().');
         }
 
-        if ($handler instanceof OperationHandler) {
+        if ($handler instanceof \haddowg\JsonApi\Operation\OperationHandlerInterface) {
             return new Psr7ToOperationHandlerAdapter($handler, $this);
         }
 

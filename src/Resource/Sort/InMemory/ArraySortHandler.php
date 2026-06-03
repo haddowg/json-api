@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Sort\InMemory;
 
 use haddowg\JsonApi\Resource\Field\Accessor;
-use haddowg\JsonApi\Resource\Sort\Sort;
 use haddowg\JsonApi\Resource\Sort\SortByField;
-use haddowg\JsonApi\Resource\Sort\SortHandler;
+use haddowg\JsonApi\Resource\Sort\SortHandlerInterface;
+use haddowg\JsonApi\Resource\Sort\SortInterface;
 use haddowg\JsonApi\Resource\Sort\UnsupportedSort;
 
 /**
- * Reference {@see SortHandler} operating on a PHP `list<array|object>` via a
+ * Reference {@see SortHandlerInterface} operating on a PHP `list<array|object>` via a
  * stable `usort`. For tests and worked examples; not a production sort layer.
  *
- * @implements SortHandler<list<mixed>>
+ * @implements SortHandlerInterface<list<mixed>>
  */
-final class ArraySortHandler implements SortHandler
+final class ArraySortHandler implements SortHandlerInterface
 {
-    public function apply(Sort $sort, mixed $query, bool $descending): mixed
+    public function apply(SortInterface $sort, mixed $query, bool $descending): mixed
     {
         if (!$sort instanceof SortByField) {
             throw new UnsupportedSort($sort);

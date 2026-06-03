@@ -11,7 +11,6 @@ use haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
 use haddowg\JsonApi\Operation\JsonApiOperation;
-use haddowg\JsonApi\Operation\OperationHandler;
 use haddowg\JsonApi\Operation\Target;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -229,11 +228,11 @@ final class ArticleResource extends AbstractResource
  * encoding the response — is handled for you by the adapter the `Server` wraps
  * around this handler.
  */
-final class ArticleHandler implements OperationHandler
+final class ArticleHandler implements \haddowg\JsonApi\Operation\OperationHandlerInterface
 {
     public function __construct(private readonly ArticleRepository $repository) {}
 
-    public function handle(JsonApiOperation $operation): DataResponse|ErrorResponse
+    public function handle(\haddowg\JsonApi\Operation\JsonApiOperationInterface $operation): DataResponse|ErrorResponse
     {
         $server = $operation->context()->server;
         \assert($server instanceof Server);

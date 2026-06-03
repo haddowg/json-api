@@ -5,8 +5,8 @@ core ships typed value objects describing intent — [constraints](validation.md
 (`->required()`, `->maxLength()`), [filters](filters.md) (`Where`, `WhereIn`),
 [sorts](sorts.md) (`SortByField`) — but it never runs any of them against your
 data. Execution lives in **handlers** and **translators** that an adapter
-provides: a filter handler turns a `Filter` into a query predicate, a sort handler
-turns a `Sort` into an ordering, a constraint translator turns a `Constraint` into
+provides: a filter handler turns a `FilterInterface` into a query predicate, a sort handler
+turns a `SortInterface` into an ordering, a constraint translator turns a `ConstraintInterface` into
 your validator's native rule. This page explains the pattern and how to extend the
 vocabulary for your own data layer.
 
@@ -22,13 +22,13 @@ Each metadata kind is a one-method (or near-empty) interface; the concrete value
 objects add public readonly fields a handler reads.
 
 ```php
-// Resource\Constraint\Constraint
+// Resource\Constraint\ConstraintInterface
 public function context(): Context;   // create / update / both
 
-// Resource\Filter\Filter
+// Resource\Filter\FilterInterface
 public function key(): string;        // the filter[<key>] this responds to
 
-// Resource\Sort\Sort
+// Resource\Sort\SortInterface
 public function key(): string;        // the sort key (no leading '-')
 ```
 
@@ -44,17 +44,17 @@ data layer leaks into core:
 
 ```php
 /** @template TQuery */
-interface FilterHandler
+interface FilterHandlerInterface
 {
     /** @param TQuery $query @return TQuery */
-    public function apply(Filter $filter, mixed $query, mixed $value): mixed;
+    public function apply(FilterInterface $filter, mixed $query, mixed $value): mixed;
 }
 
 /** @template TQuery */
-interface SortHandler
+interface SortHandlerInterface
 {
     /** @param TQuery $query @return TQuery */
-    public function apply(Sort $sort, mixed $query, bool $descending): mixed;
+    public function apply(SortInterface $sort, mixed $query, bool $descending): mixed;
 }
 ```
 
@@ -124,16 +124,16 @@ An adapter for a real data layer implements the same interfaces, narrowing the
 query type to its own object:
 
 ```php
-use haddowg\JsonApi\Resource\Filter\Filter;
-use haddowg\JsonApi\Resource\Filter\FilterHandler;
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
 
-/** @implements FilterHandler<QueryBuilder> */
-final class DoctrineFilterHandler implements FilterHandler
+/** @implements FilterHandlerInterface<QueryBuilder> */
+final class DoctrineFilterHandler implements FilterHandlerInterface
 {
-    public function apply(Filter $filter, mixed $query, mixed $value): mixed
+    public function apply(FilterInterface $filter, mixed $query, mixed $value): mixed
     {
         \assert($query instanceof QueryBuilder);
 
@@ -148,8 +148,8 @@ final class DoctrineFilterHandler implements FilterHandler
 ```
 
 Extending the vocabulary is the same move on both sides: define a custom
-[`Filter`](filters.md#writing-a-custom-filter) /
-[`Sort`](sorts.md#writing-a-custom-sort) value object carrying whatever fields the
+[`FilterInterface`](filters.md#writing-a-custom-filter) /
+[`SortInterface`](sorts.md#writing-a-custom-sort) value object carrying whatever fields the
 handler needs, list it in the Resource class's `filters()` / `sorts()`, and add a branch
 for it in your handler. A custom value object and the handler that understands it
 are always written together — a handler that meets an unrecognised one throws
@@ -179,7 +179,7 @@ the compiler does cover.
 
 Core ships only the in-memory reference handlers; production handlers for an ORM
 or query builder are a separate concern. A dedicated framework bundle — shipping
-`FilterHandler` / `SortHandler` implementations and a constraint translator wired
+`FilterHandlerInterface` / `SortHandlerInterface` implementations and a constraint translator wired
 into the request lifecycle — belongs outside this package, so the core stays
 framework- and storage-agnostic.
 

@@ -13,7 +13,7 @@ use haddowg\JsonApi\Schema\Error\Error;
  */
 final class UnsupportedSort extends AbstractJsonApiException
 {
-    public function __construct(public readonly Sort $sort)
+    public function __construct(public readonly \haddowg\JsonApi\Resource\Sort\SortInterface $sort)
     {
         parent::__construct(
             \sprintf('No handler is registered for sort "%s" (%s).', $sort->key(), $sort::class),

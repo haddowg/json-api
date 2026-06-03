@@ -13,7 +13,6 @@ use haddowg\JsonApi\Exception\DataMemberMissing;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\InclusionUnsupported;
-use haddowg\JsonApi\Exception\JsonApiException;
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
 use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\QueryParamMalformed;
@@ -101,7 +100,7 @@ final class JsonApiExceptionTest extends TestCase
         string $errorCode,
         string $errorTitle,
     ): void {
-        self::assertInstanceOf(JsonApiException::class, $exception);
+        self::assertInstanceOf(\haddowg\JsonApi\Exception\JsonApiExceptionInterface::class, $exception);
         self::assertSame($statusCode, $exception->getStatusCode());
 
         $errors = $exception->getErrors();

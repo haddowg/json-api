@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  *
  * @template T
  */
-final readonly class In implements Constraint
+final readonly class In implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @var list<T>

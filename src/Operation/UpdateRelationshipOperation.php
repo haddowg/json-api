@@ -10,7 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * `PATCH /articles/1/relationships/author` — replace a relationship's linkage
  * wholesale. Carries the request body holding the new linkage.
  */
-final readonly class UpdateRelationshipOperation implements JsonApiOperation
+final readonly class UpdateRelationshipOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

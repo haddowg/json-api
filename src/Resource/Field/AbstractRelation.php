@@ -8,7 +8,6 @@ use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
@@ -25,7 +24,7 @@ use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
  * {@see hydrate()} is a no-op (relationship hydration runs via the request's
  * parsed linkage, not a raw attribute value).
  */
-abstract class AbstractRelation extends AbstractField implements Relation
+abstract class AbstractRelation extends AbstractField implements \haddowg\JsonApi\Resource\Field\RelationInterface
 {
     /**
      * @var list<string>
@@ -193,7 +192,7 @@ abstract class AbstractRelation extends AbstractField implements Relation
     protected function buildToOne(
         mixed $related,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): OutputToOne {
         $relationship = OutputToOne::create();
 
@@ -213,7 +212,7 @@ abstract class AbstractRelation extends AbstractField implements Relation
     protected function buildToMany(
         mixed $related,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): OutputToMany {
         $relationship = OutputToMany::create();
 
@@ -232,6 +231,6 @@ abstract class AbstractRelation extends AbstractField implements Relation
     abstract public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship;
 }

@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  *
  * Closure bounds **do not round-trip to JSON Schema**; adapters evaluate them.
  */
-final readonly class After implements Constraint
+final readonly class After implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @param \DateTimeInterface|\Closure(): \DateTimeInterface $bound

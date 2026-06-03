@@ -41,7 +41,6 @@ use haddowg\JsonApi\Resource\Field\Field;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
-use haddowg\JsonApi\Resource\Field\Relation;
 use haddowg\JsonApi\Resource\Field\Time;
 
 /**
@@ -93,7 +92,7 @@ final class SchemaCompiler
                 continue;
             }
 
-            if ($field instanceof Relation) {
+            if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface) {
                 $relationshipProperties[$field->name()] = $this->relationshipSchema($field);
                 if ($this->isRequired($field, $creating)) {
                     $relationshipRequired[] = $field->name();
@@ -137,7 +136,7 @@ final class SchemaCompiler
     /**
      * @return array<string, mixed>
      */
-    private function fieldSchema(Field $field, bool $creating): array
+    private function fieldSchema(\haddowg\JsonApi\Resource\Field\FieldInterface $field, bool $creating): array
     {
         $schema = $this->typeSchema($field);
 
@@ -164,7 +163,7 @@ final class SchemaCompiler
     /**
      * @return array<string, mixed>
      */
-    private function relationshipSchema(Relation $relation): array
+    private function relationshipSchema(\haddowg\JsonApi\Resource\Field\RelationInterface $relation): array
     {
         // A JSON:API relationship object: { "data": <linkage> }. Constrain only
         // the linkage type(s); cardinality (object vs array) is governed by the
@@ -185,7 +184,7 @@ final class SchemaCompiler
     /**
      * @return array<string, mixed>
      */
-    private function typeSchema(Field $field): array
+    private function typeSchema(\haddowg\JsonApi\Resource\Field\FieldInterface $field): array
     {
         $type = match (true) {
             $field instanceof Integer => 'integer',
@@ -216,7 +215,7 @@ final class SchemaCompiler
      * @param array<string, mixed> $schema
      * @return array<string, mixed>
      */
-    private function applyConstraint(array $schema, Constraint $constraint, bool $creating): array
+    private function applyConstraint(array $schema, \haddowg\JsonApi\Resource\Constraint\ConstraintInterface $constraint, bool $creating): array
     {
         switch (true) {
             case $constraint instanceof MinLength: $schema['minLength'] = $constraint->value;
@@ -314,7 +313,7 @@ final class SchemaCompiler
      * @param array<string, mixed> $schema
      * @return array<string, mixed>
      */
-    private function allowNull(array $schema, Field $field, bool $creating): array
+    private function allowNull(array $schema, \haddowg\JsonApi\Resource\Field\FieldInterface $field, bool $creating): array
     {
         foreach ($field->constraints() as $constraint) {
             if ($constraint instanceof Nullable && $constraint->context()->appliesTo($creating)) {
@@ -329,7 +328,7 @@ final class SchemaCompiler
         return $schema;
     }
 
-    private function isRequired(Field $field, bool $creating): bool
+    private function isRequired(\haddowg\JsonApi\Resource\Field\FieldInterface $field, bool $creating): bool
     {
         foreach ($field->constraints() as $constraint) {
             if ($constraint instanceof Required && $constraint->context()->appliesTo($creating)) {

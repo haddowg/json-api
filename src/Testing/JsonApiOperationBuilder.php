@@ -98,7 +98,7 @@ final class JsonApiOperationBuilder
         return $this;
     }
 
-    public function build(): JsonApiOperation
+    public function build(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
     {
         $target = new Target($this->type, $this->id);
         $context = new OperationContext($this->server);

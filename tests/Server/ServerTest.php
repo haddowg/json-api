@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\Tests\Server;
 
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
-use haddowg\JsonApi\Operation\JsonApiOperation;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -209,9 +208,9 @@ final class ServerTest extends TestCase
         };
     }
 
-    private function stubOperation(): JsonApiOperation
+    private function stubOperation(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
     {
-        return new class implements JsonApiOperation {
+        return new class implements \haddowg\JsonApi\Operation\JsonApiOperationInterface {
             public function target(): \haddowg\JsonApi\Operation\Target
             {
                 return new \haddowg\JsonApi\Operation\Target('posts');

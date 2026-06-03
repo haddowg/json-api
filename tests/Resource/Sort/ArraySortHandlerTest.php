@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Sort;
 
 use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
-use haddowg\JsonApi\Resource\Sort\Sort;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Resource\Sort\UnsupportedSort;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -76,7 +75,7 @@ final class ArraySortHandlerTest extends TestCase
     #[Test]
     public function unsupportedSortThrows500(): void
     {
-        $sort = new class implements Sort {
+        $sort = new class implements \haddowg\JsonApi\Resource\Sort\SortInterface {
             public function key(): string
             {
                 return 'computed';

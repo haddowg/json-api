@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches the resource id against none of a set of values (the negation of
  * {@see WhereIdIn}).
  */
-final readonly class WhereIdNotIn implements Filter
+final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key = 'id',

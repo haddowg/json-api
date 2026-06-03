@@ -20,7 +20,7 @@ namespace haddowg\JsonApi\Validation;
  *
  * @see https://jsonapi.org/format/1.1/#document-structure
  */
-interface SchemaProvider
+interface SchemaProviderInterface
 {
     /**
      * The base/response JSON:API schema (resources require `type` + `id`).

@@ -12,7 +12,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Fluent and immutable: {@see make()} then `with…()` to override the query-param
  * keys and the defaults used when a parameter is absent.
  */
-final readonly class OffsetPaginator implements Paginator
+final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
 {
     public function __construct(
         public string $offsetKey = 'offset',

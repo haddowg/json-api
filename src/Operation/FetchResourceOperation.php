@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Operation;
  * `GET /articles` or `GET /articles/1` — fetch a resource collection or a single
  * resource. Has no request body.
  */
-final readonly class FetchResourceOperation implements JsonApiOperation
+final readonly class FetchResourceOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

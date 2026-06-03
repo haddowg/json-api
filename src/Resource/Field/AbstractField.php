@@ -26,7 +26,7 @@ use haddowg\JsonApi\Resource\Constraint\Required;
  * classes; the casting of raw values is done by overriding
  * {@see serializeValue()} / {@see deserializeValue()}.
  */
-abstract class AbstractField implements Field
+abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInterface
 {
     protected ?string $column;
 
@@ -41,7 +41,7 @@ abstract class AbstractField implements Field
     protected bool $sortable = false;
 
     /**
-     * @var list<Constraint>
+     * @var list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
      */
     protected array $constraints = [];
 
@@ -402,7 +402,7 @@ abstract class AbstractField implements Field
     /**
      * @return static
      */
-    protected function addConstraint(Constraint $constraint): static
+    protected function addConstraint(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $constraint): static
     {
         $this->constraints[] = $constraint;
 

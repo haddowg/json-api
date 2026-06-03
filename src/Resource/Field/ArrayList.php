@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
-use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
@@ -46,7 +45,7 @@ final class ArrayList extends AbstractField
      *
      * @return static
      */
-    public function each(Constraint ...$constraints): static
+    public function each(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$constraints): static
     {
         return $this->addConstraint(new Each(\array_values($constraints), $this->currentContext()));
     }

@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Maximum number of array items (JSON Schema \`maxItems\`).
  */
-final readonly class MaxItems implements Constraint
+final readonly class MaxItems implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int $value,

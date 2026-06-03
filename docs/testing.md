@@ -99,7 +99,7 @@ in the getting-started example a small router middleware does it).
 
 ## Building operations (the dispatch path)
 
-`Testing\JsonApiOperationBuilder` builds `JsonApiOperation` value objects for
+`Testing\JsonApiOperationBuilder` builds `JsonApiOperationInterface` value objects for
 `Server::dispatch()` — the programmatic path that skips PSR-7 and the middleware
 chain entirely. A `ServerInterface` is required (for the operation context):
 

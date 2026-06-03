@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * bound is a fixed `\DateTimeInterface` or a `\Closure` evaluated at validation
  * time. Closure bounds **do not round-trip to JSON Schema**.
  */
-final readonly class Between implements Constraint
+final readonly class Between implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @param \DateTimeInterface|\Closure(): \DateTimeInterface $min

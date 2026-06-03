@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Hydrator;
 
-use haddowg\JsonApi\Exception\JsonApiException;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
@@ -121,7 +120,7 @@ trait HydratorTrait
      * @param array<string, mixed> $data
      * @return mixed
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     protected function hydrateRelationships(mixed $domainObject, array $data): mixed
     {
@@ -162,7 +161,7 @@ trait HydratorTrait
      * @param array<string, mixed>|null $data
      * @return mixed
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     protected function doHydrateRelationship(
         mixed $domainObject,

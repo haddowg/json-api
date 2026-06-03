@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Maximum string length (JSON Schema \`maxLength\`).
  */
-final readonly class MaxLength implements Constraint
+final readonly class MaxLength implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int $value,

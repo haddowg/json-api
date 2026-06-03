@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Filter\InMemory;
 
 use haddowg\JsonApi\Resource\Field\Accessor;
-use haddowg\JsonApi\Resource\Filter\Filter;
+use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
@@ -16,17 +17,17 @@ use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
 
 /**
- * Reference {@see \haddowg\JsonApi\Resource\Filter\FilterHandler} operating on a
+ * Reference {@see FilterHandlerInterface} operating on a
  * PHP `list<array|object>`. Used by the package's own integration tests and as a
  * worked example for adapter authors. **Not** a production query layer — it
  * filters in memory with no indexing; a real adapter pushes the predicate down
  * to its data store.
  *
- * @implements \haddowg\JsonApi\Resource\Filter\FilterHandler<list<mixed>>
+ * @implements FilterHandlerInterface<list<mixed>>
  */
-final class ArrayFilterHandler implements \haddowg\JsonApi\Resource\Filter\FilterHandler
+final class ArrayFilterHandler implements FilterHandlerInterface
 {
-    public function apply(Filter $filter, mixed $query, mixed $value): mixed
+    public function apply(FilterInterface $filter, mixed $query, mixed $value): mixed
     {
         if (!\is_array($query)) {
             $query = [];
@@ -41,7 +42,7 @@ final class ArrayFilterHandler implements \haddowg\JsonApi\Resource\Filter\Filte
     /**
      * @return \Closure(mixed): bool
      */
-    private function predicate(Filter $filter, mixed $value): \Closure
+    private function predicate(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $value): \Closure
     {
         return match (true) {
             $filter instanceof Where => $this->where($filter, $value),

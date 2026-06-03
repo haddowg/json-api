@@ -10,7 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * `POST /articles` — create a single resource. Carries the request body holding
  * the resource to create.
  */
-final readonly class CreateResourceOperation implements JsonApiOperation
+final readonly class CreateResourceOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

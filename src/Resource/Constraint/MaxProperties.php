@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Maximum number of object properties (JSON Schema \`maxProperties\`).
  */
-final readonly class MaxProperties implements Constraint
+final readonly class MaxProperties implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int $value,

@@ -78,12 +78,27 @@ modernised API replaces.
 
 ## Type system principles
 
-Default to PHPStan generics (`@template`) on **consumer-visible** types that carry
-a parametric payload — `Page<T>`, `DataResponse<T>`, `Field<T>`,
-`OperationHandler<TOperation>`, registry lookups (`class-string<T>` → narrowed
-return). Skip generics on internal types, on PSR-* boundary types, and where
-`instanceof`/`match` already narrows. Apply at port time, not as a retroactive
-sweep.
+Default to PHPStan generics (`@template`) on **consumer-visible** types whose type
+parameter actually **survives to the use site** — `PageInterface<T>` (the page holds its
+items) and the registry lookups (`class-string<T>` → narrowed return). Skip
+generics on internal types, on PSR-* boundary types, and where `instanceof`/`match`
+already narrows. Apply at port time, not as a retroactive sweep.
+
+**Deliberately not generic** (the 1.0-readiness review confirmed the parameter
+**erases at a boundary**, so a `@template` would be ceremony that buys no
+use-site narrowing):
+
+- **`DataResponse`** — `T` is the domain object, but `SerializerInterface` is
+  intentionally non-generic and the rendered `data` is `mixed`; `T` is erased the
+  moment the response is built, and threads `<mixed>` through every frozen
+  signature that returns one (`OperationHandlerInterface`, `Server`).
+- **`OperationHandlerInterface`** — a handler dispatches over the **whole** operation union
+  (`match (true) { $op instanceof … }`), so `TOperation` is always the
+  `JsonApiOperationInterface` base; the parameter would only add `<JsonApiOperationInterface>` noise
+  at every reference.
+- **`FieldInterface`** — `AbstractResource::fields()` is a **heterogeneous** `list<FieldInterface>`
+  and fields are mutable builders whose `serialize()`/`deserializeValue()` are
+  `mixed → mixed` by design; no single `T` can flow through the list.
 
 ## Modernisation conventions (shared)
 
@@ -132,7 +147,7 @@ Construct-only; `null` entries filtered out; arbitrary relation keys allowed. In
 
 ### Exceptions
 `src/Exception` → [exceptions](docs/exceptions.md), [errors](docs/errors.md).
-Typed hierarchy replaces yin's `ExceptionFactory`. `JsonApiException` (`extends
+Typed hierarchy replaces yin's `ExceptionFactory`. `JsonApiExceptionInterface` (`extends
 \Throwable`) is the contract: `getErrors(): list<Error>` + `getStatusCode(): int`
 — exceptions carry **data**, never a built document. `AbstractJsonApiException(string
 $message, int $statusCode)` forwards both to `parent::__construct()` so `getCode()`
@@ -204,7 +219,7 @@ the request's requested/required URIs with the server's registered profiles, the
 (each carries exactly its fields; the five with a body expose `body()`). Shared VOs:
 `Target`, `QueryParameters` (`fromRequest()`), `OperationContext` (public `server`;
 **nullable** `httpRequest()` — `null` for programmatic dispatch, so handlers must
-null-check). `OperationHandler` is PSR-7-free. `Psr7ToOperationHandlerAdapter` reads
+null-check). `OperationHandlerInterface` is PSR-7-free. `Psr7ToOperationHandlerAdapter` reads
 the `Target` from the `Target::class` request attribute (a missing Target renders a
 500, not a throw) and picks the operation by a fixed HTTP-method × target-shape `match`.
 
@@ -213,13 +228,13 @@ the `Target` from the `Target::class` request attribute (a missing Target render
 server MUST *ignore* an unrecognized profile, so it is never an error (contrast
 extensions). `ProfileRegistry` is a per-instance injected map keyed by URI;
 duplicate-URI registration throws `ProfileAlreadyRegistered`, a `\LogicException`
-(**not** a `JsonApiException` — a wiring bug, never an error document).
+(**not** a `JsonApiExceptionInterface` — a wiring bug, never an error document).
 
 ### Pagination
 `src/Pagination` → [pagination](docs/pagination.md). **Replaced** yin's
 `PaginationLinkProviderInterface` and the separate request-side paginator classes
 (both **deleted** — there is no `Request\Pagination`). Count-based strategies
-(`Page`/`Offset`/`FixedPage`Paginator) implement `Paginator`; `CursorPaginator` is
+(`Page`/`Offset`/`FixedPage`Paginator) implement `PaginatorInterface`; `CursorPaginator` is
 **standalone** (a cursor page has no total and its boundaries are caller-supplied).
 `Page` VOs are `final readonly`, **generic** (`@template T`), iterable via
 `AbstractPage`. `CursorBasedPage` **omits `last` by design** and returns the cursor
@@ -263,21 +278,21 @@ arrays and convert to `stdClass` once at the boundary (analysable at L9).
 [validation](docs/validation.md). An `AbstractResource` subclass satisfies **both**
 `SerializerInterface` and `HydratorInterface` from one `fields()` list. **Fields are
 mutable builders** (methods mutate and return `$this`) — *deliberately not* the
-readonly-VO pattern, so a field reads as one fluent expression. **`Constraint` is
+readonly-VO pattern, so a field reads as one fluent expression. **`ConstraintInterface` is
 metadata only — the core never executes it** (each is a `final readonly` VO with a
 create/update `Context`); execution belongs to the JSON Schema compiler or an adapter.
 A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
-**Relations**: `Relation extends Field`; serializes via the related type's serializer
-(resolved through the injected `SerializerResolver`), hydrates from the parsed
+**Relations**: `RelationInterface extends FieldInterface`; serializes via the related type's serializer
+(resolved through the injected `SerializerResolverInterface`), hydrates from the parsed
 `Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only** in
 1.0; `MorphTo` picks the serializer by the related object's `getType()`.
 
 ### Filters & sorts
 `src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),
-[sorts](docs/sorts.md), [adapters](docs/adapters.md). **VO metadata** (`Filter`/`Sort`
+[sorts](docs/sorts.md), [adapters](docs/adapters.md). **VO metadata** (`FilterInterface`/`SortInterface`
 are just `key()` + accessors — **no `apply()`**); execution lives in adapter-provided
-`FilterHandler`/`SortHandler` whose `query` arg is a templated `mixed` (no data layer
-coupled in core). Mirrors the `Constraint` + translator split; there is **no generic
+`FilterHandlerInterface`/`SortHandlerInterface` whose `query` arg is a templated `mixed` (no data layer
+coupled in core). Mirrors the `ConstraintInterface` + translator split; there is **no generic
 `Query` interface**. An unrecognised VO at a handler throws the typed
 `UnsupportedFilter`/`UnsupportedSort` (a server-config error → **500**). Core ships
 reference `InMemory\Array{Filter,Sort}Handler` for its own tests and as worked
@@ -289,8 +304,8 @@ examples — **not** a production query layer.
 are cloned too so registration never leaks). Keeps the base `ServerInterface`
 render contract **unchanged**. It implements PSR-15 `RequestHandlerInterface`
 (`handle()` folds the middleware list over the inner handler via `@internal
-MiddlewareDecorator`; an `OperationHandler` is auto-wrapped in the adapter) **and**
-`SerializerResolver`. `ResourceRegistry` **is** the `SerializerResolver` injected into
+MiddlewareDecorator`; an `OperationHandlerInterface` is auto-wrapped in the adapter) **and**
+`SerializerResolverInterface`. `ResourceRegistry` **is** the `SerializerResolverInterface` injected into
 resources; a missing type throws `NoResourceRegistered` (500), a duplicate type is a
 `\LogicException` (wiring bug). `dispatch(JsonApiOperation)` invokes the handler
 directly (no PSR-15 chain).

@@ -15,10 +15,10 @@ page's links and meta and writes them into the document.
 
 ## Strategies
 
-A count-based strategy implements `Pagination\Paginator`:
+A count-based strategy implements `Pagination\PaginatorInterface`:
 
 ```php
-public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): Page;
+public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): PageInterface;
 ```
 
 It reads the `page[…]` query parameters off the request, combines them with the
@@ -52,13 +52,13 @@ compute the last page — it is never part of the emitted links. Override the ke
 or defaults with the respective `with…()` helpers (`withPageKey()`,
 `withDefaultPage()`, `withSize()`, …).
 
-You supply your own count-based strategy by implementing `Paginator` and returning
-whatever `Page` subtype is appropriate.
+You supply your own count-based strategy by implementing `PaginatorInterface` and returning
+whatever `PageInterface` subtype is appropriate.
 
 ## Cursor pagination
 
 Cursor pagination has a different shape, so `CursorPaginator` is a **standalone**
-fluent strategy that does **not** implement `Paginator`. A cursor page has no
+fluent strategy that does **not** implement `PaginatorInterface`. A cursor page has no
 total count by design (computing one would defeat the purpose of cursors), and its
 `prev`/`next` boundaries are the cursors of the returned items — which only you can
 extract from the domain data. Its `paginate()` therefore takes the boundary
@@ -98,7 +98,7 @@ cursors. The produced `CursorBasedPage`:
 
 ## The `Page` value object
 
-`Page` is generic (`Page<T>`) and **iterable** — it extends `IteratorAggregate`,
+`PageInterface` is generic (`PageInterface<T>`) and **iterable** — it extends `IteratorAggregate`,
 re-keying its items to integer indices — so `DataResponse::fromPage($page, …)` can
 walk the items directly without unwrapping. It exposes two emission methods the
 response layer calls:
@@ -124,7 +124,7 @@ them directly; let the strategy do it.
 ## Per-resource and server defaults
 
 A [Resource class](resources.md) can declare its own default strategy by overriding
-`pagination(): ?Paginator`; returning `null` (the default) defers to the
+`pagination(): ?PaginatorInterface`; returning `null` (the default) defers to the
 [server's](server.md) default paginator, set with
 `Server::withDefaultPaginator()`. Either way, applying the strategy — deciding
 which slice of items to load and what the total is — happens in **your** collection

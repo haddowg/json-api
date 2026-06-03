@@ -7,7 +7,6 @@ namespace haddowg\JsonApi\Tests\Resource\Constraint;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
-use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\Custom;
 use haddowg\JsonApi\Resource\Constraint\Each;
@@ -108,7 +107,7 @@ final class ConstraintTest extends TestCase
     public function constraintsDefaultToAlwaysContext(): void
     {
         foreach ([new Required(), new Nullable(), new MaxLength(5), new Min(0)] as $constraint) {
-            self::assertInstanceOf(Constraint::class, $constraint);
+            self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface::class, $constraint);
             self::assertTrue($constraint->context()->onCreate);
             self::assertTrue($constraint->context()->onUpdate);
         }

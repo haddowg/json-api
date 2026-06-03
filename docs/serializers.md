@@ -155,7 +155,7 @@ final class ArticleSerializer extends AbstractSerializer
 
 > **Override serializers take no constructor arguments.** The registry
 > instantiates an override with `new ArticleSerializer()` and — unlike the Resource
-> class — does **not** inject the relationship `SerializerResolver`. A custom serializer is
+> class — does **not** inject the relationship `SerializerResolverInterface`. A custom serializer is
 > therefore best suited to shaping `attributes` (request-aware, conditional,
 > computed). When a type needs both related-resource serialization *and* attribute
 > logic the field walk can't express, keep the [Resource class](resources.md) and override

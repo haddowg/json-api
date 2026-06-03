@@ -33,7 +33,7 @@ intended for dev/CI; see [Validation](validation.md).
 
 Outermost first — the outermost middleware wraps every middleware below it:
 
-1. **`ErrorHandlerMiddleware`** — catches every `JsonApiException` (rendered with
+1. **`ErrorHandlerMiddleware`** — catches every `JsonApiExceptionInterface` (rendered with
    its own status and errors) and any other `\Throwable` (rendered as a 500), and
    emits the resulting [`ErrorResponse`](errors.md) as a PSR-7 response. It must
    be outermost so it also catches exceptions thrown by negotiation and body
@@ -46,7 +46,7 @@ Outermost first — the outermost middleware wraps every middleware below it:
 3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode when a body is
    present, so malformed JSON surfaces as a 400 here rather than inside the
    handler. A bodyless request (GET, empty body) passes through untouched.
-4. **Handler** — innermost. The recommended handler is an `OperationHandler`
+4. **Handler** — innermost. The recommended handler is an `OperationHandlerInterface`
    wrapped in `Psr7ToOperationHandlerAdapter`, which turns the PSR-7 request into
    the matching operation and renders the returned [response value
    object](responses.md). Any `RequestHandlerInterface` works.

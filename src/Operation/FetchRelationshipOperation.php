@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Operation;
  * `GET /articles/1/relationships/author` — fetch a relationship's linkage
  * (resource identifiers only). Has no request body.
  */
-final readonly class FetchRelationshipOperation implements JsonApiOperation
+final readonly class FetchRelationshipOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

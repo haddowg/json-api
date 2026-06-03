@@ -111,7 +111,7 @@ map:
 
 Registering two profiles under the same URI is a wiring error: `register()` throws
 `ProfileAlreadyRegistered`. That is a `\LogicException`, **not** a
-[`JsonApiException`](exceptions.md) — it should surface as a bug to fix, never as
+[`JsonApiExceptionInterface`](exceptions.md) — it should surface as a bug to fix, never as
 an error document in a response.
 
 ## How applied profiles are surfaced
@@ -134,7 +134,7 @@ not recognize.
 ## Contributing to validation
 
 A profile can also extend the optional [JSON Schema validation](validation.md) of
-documents while it is in scope. Implement `Validation\SchemaContributingProfile`
+documents while it is in scope. Implement `Validation\SchemaContributingProfileInterface`
 (which extends `ProfileInterface`) and return a decoded draft-2020-12 schema
 fragment from `schemaFragment()`; the `DocumentValidator` composes that fragment
 with the base schema for requests that have the profile in scope. See

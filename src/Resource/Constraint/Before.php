@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * `formatMinimum`/`formatMaximum` only for fixed bounds); adapters evaluate
  * the closure.
  */
-final readonly class Before implements Constraint
+final readonly class Before implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @param \DateTimeInterface|\Closure(): \DateTimeInterface $bound

@@ -4,7 +4,7 @@ A filter describes one `filter[…]` query parameter your collection endpoint
 accepts. In this library a filter is **metadata only**: a small value object that
 names the parameter key and the column it targets, but carries no behaviour. The
 work of turning a filter into a query — a `WHERE` clause, an array predicate, a
-search call — lives in an adapter-provided [`FilterHandler`](adapters.md), not in
+search call — lives in an adapter-provided [`FilterHandlerInterface`](adapters.md), not in
 the filter itself. This keeps core decoupled from any data layer: there is no
 generic `Query` interface and no assumption that you are using a database at all.
 
@@ -48,7 +48,7 @@ final class ArticleResource extends AbstractResource
 `filters()` is declarative: it tells consumers (and a handler) which
 `filter[<key>]` parameters are legal for this type and how each maps to a column.
 The default is no filters. The library does **not** read `filters()` and apply it
-for you — your collection handler asks its `FilterHandler` to apply each filter
+for you — your collection handler asks its `FilterHandlerInterface` to apply each filter
 whose key is present in the request.
 
 The filter value objects reach your handler through the request's parsed
@@ -59,12 +59,12 @@ filter key), or directly from the request with
 declared filter and hand both to the handler — see [Adapters](adapters.md#filters)
 for the loop.
 
-## The `Filter` contract
+## The `FilterInterface` contract
 
-Every filter implements `Resource\Filter\Filter`, whose sole member is the key:
+Every filter implements `Resource\Filter\FilterInterface`, whose sole member is the key:
 
 ```php
-interface Filter
+interface FilterInterface
 {
     public function key(): string;
 }
@@ -133,13 +133,13 @@ the reference [`ArrayFilterHandler`](adapters.md#a-worked-handler) consults
 
 ## Writing a custom filter
 
-A custom filter is just a value object implementing `Filter`. Carry whatever
+A custom filter is just a value object implementing `FilterInterface`. Carry whatever
 fields your handler needs to execute it:
 
 ```php
-use haddowg\JsonApi\Resource\Filter\Filter;
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
 
-final readonly class FullTextSearch implements Filter
+final readonly class FullTextSearch implements FilterInterface
 {
     public function __construct(
         public string $key,
@@ -159,7 +159,7 @@ final readonly class FullTextSearch implements Filter
 ```
 
 List it in a Resource class's `filters()` like any built-in. For it to do anything, a
-handler must recognise it: a `FilterHandler` that receives a `Filter` it does not
+handler must recognise it: a `FilterHandlerInterface` that receives a `FilterInterface` it does not
 know throws [`UnsupportedFilter`](#unsupported-filters), so a custom filter and a
 handler that understands it are written together. The handler side — including a
 worked example extending the reference handler — is covered in
@@ -167,7 +167,7 @@ worked example extending the reference handler — is covered in
 
 ## Unsupported filters
 
-When a `Filter` reaches a `FilterHandler` that does not recognise it,
+When a `FilterInterface` reaches a `FilterHandlerInterface` that does not recognise it,
 `Resource\Filter\UnsupportedFilter` is thrown. This is a **server configuration
 error**, not a client error — it means a filter was declared (or sent through)
 with no handler wired to execute it — so it renders as a `500`. It is an

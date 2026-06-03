@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Inclusive lower bound (JSON Schema \`minimum\`).
  */
-final readonly class Min implements Constraint
+final readonly class Min implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int|float $value,

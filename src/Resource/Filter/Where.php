@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 /**
  * Matches a column against a value with a comparison operator (default `=`).
  */
-final readonly class Where implements Filter
+final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     /**
      * @param \Closure(mixed): mixed|null $deserialize optional value transformer applied before comparison

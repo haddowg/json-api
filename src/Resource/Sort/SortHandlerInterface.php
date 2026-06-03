@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Sort;
  *
  * @template TQuery
  */
-interface SortHandler
+interface SortHandlerInterface
 {
     /**
      * Applies `$sort` in the given direction to `$query`, returning the modified
@@ -22,5 +22,5 @@ interface SortHandler
      *
      * @throws UnsupportedSort when this handler does not recognise `$sort`
      */
-    public function apply(Sort $sort, mixed $query, bool $descending): mixed;
+    public function apply(\haddowg\JsonApi\Resource\Sort\SortInterface $sort, mixed $query, bool $descending): mixed;
 }

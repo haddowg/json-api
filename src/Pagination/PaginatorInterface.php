@@ -20,12 +20,12 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *
  * @see https://jsonapi.org/format/1.1/#fetching-pagination
  */
-interface Paginator
+interface PaginatorInterface
 {
     /**
      * @param iterable<mixed> $items
      *
-     * @return Page<mixed>
+     * @return \haddowg\JsonApi\Pagination\PageInterface<mixed>
      */
-    public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): Page;
+    public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): \haddowg\JsonApi\Pagination\PageInterface;
 }

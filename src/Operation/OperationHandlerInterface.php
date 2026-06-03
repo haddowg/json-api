@@ -20,9 +20,9 @@ use haddowg\JsonApi\Response\RelatedResponse;
  * the concrete operation type (e.g. `match (true) { $op instanceof
  * CreateResourceOperation => … }`) keeps handler branches type-safe.
  */
-interface OperationHandler
+interface OperationHandlerInterface
 {
     public function handle(
-        JsonApiOperation $operation,
+        \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
     ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse;
 }

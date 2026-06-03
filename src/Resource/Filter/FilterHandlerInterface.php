@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  *
  * @template TQuery
  */
-interface FilterHandler
+interface FilterHandlerInterface
 {
     /**
      * Applies `$filter` (with the request-supplied `$value`) to `$query`,
@@ -23,5 +23,5 @@ interface FilterHandler
      *
      * @throws UnsupportedFilter when this handler does not recognise `$filter`
      */
-    public function apply(Filter $filter, mixed $query, mixed $value): mixed;
+    public function apply(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $query, mixed $value): mixed;
 }

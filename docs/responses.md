@@ -149,11 +149,11 @@ constructor. Only the document-level members above are mutable.
 
 ## Returning a response from a handler
 
-Inside an [`OperationHandler`](server.md#operations) you simply return the value
+Inside an [`OperationHandlerInterface`](server.md#operations) you simply return the value
 object — the adapter renders it. The handler never touches PSR-7:
 
 ```php
-public function handle(JsonApiOperation $operation): DataResponse|ErrorResponse
+public function handle(JsonApiOperationInterface $operation): DataResponse|ErrorResponse
 {
     $server = $operation->context()->server;
     \assert($server instanceof Server);
@@ -166,7 +166,7 @@ public function handle(JsonApiOperation $operation): DataResponse|ErrorResponse
 }
 ```
 
-`OperationHandler::handle()` returns the union
+`OperationHandlerInterface::handle()` returns the union
 `DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse`, so
 narrow your declared return type to the responses your handler actually produces.
 

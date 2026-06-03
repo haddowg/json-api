@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 #[Group('spec:fetching-data')]
+#[Group('spec:fetching-resources')]
 final class FetchResourceOperationTest extends TestCase
 {
     #[Test]

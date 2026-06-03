@@ -11,7 +11,7 @@ use haddowg\JsonApi\Validation\SchemaContributingProfile;
  * A {@see SchemaContributingProfile} test double: a fixed URI and a fixed
  * (possibly null) decoded JSON Schema fragment.
  */
-final class StubSchemaContributingProfile extends AbstractProfile implements SchemaContributingProfile
+final class StubSchemaContributingProfile extends AbstractProfile implements \haddowg\JsonApi\Validation\SchemaContributingProfileInterface
 {
     public function __construct(
         private readonly string $uri,

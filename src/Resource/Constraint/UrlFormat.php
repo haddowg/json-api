@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * String must be a valid URL (JSON Schema `format: uri`). Optionally restricts
  * the allowed URI schemes (e.g. `https`); an empty list allows any scheme.
  */
-final readonly class UrlFormat implements Constraint
+final readonly class UrlFormat implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     /**
      * @var list<string>

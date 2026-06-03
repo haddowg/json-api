@@ -7,7 +7,6 @@ namespace haddowg\JsonApi\Resource\Field;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
@@ -39,7 +38,7 @@ class HasMany extends AbstractRelation
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         return $this->buildToMany($this->relatedValue($model, $request, $this->name), $request, $resolver);
     }

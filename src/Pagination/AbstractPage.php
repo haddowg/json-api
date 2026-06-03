@@ -20,9 +20,9 @@ use haddowg\JsonApi\Transformer\Utils;
  *
  * @template T
  *
- * @implements Page<T>
+ * @implements \haddowg\JsonApi\Pagination\PageInterface<T>
  */
-abstract readonly class AbstractPage implements Page
+abstract readonly class AbstractPage implements \haddowg\JsonApi\Pagination\PageInterface
 {
     /**
      * @param iterable<T> $items

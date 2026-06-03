@@ -18,7 +18,7 @@ throw SomeJsonApiException
          → rendered to a JSON:API error document (HTTP status from the exception)
 ```
 
-Every typed exception implements [`Exception\JsonApiException`](exceptions.md),
+Every typed exception implements [`Exception\JsonApiExceptionInterface`](exceptions.md),
 which exposes the error *data* (`getErrors(): list<Error>`) and the HTTP status
 (`getStatusCode(): int`). `ErrorResponse::fromException()` reads `getErrors()`, and
 the rendered document derives its status from the errors. So throwing is enough —
@@ -72,7 +72,7 @@ See [Responses](responses.md#errorresponse) for the `ErrorResponse` surface and
 
 ## Unexpected throwables: the generic 500
 
-The error handler catches *any* `\Throwable`, not just `JsonApiException`. A
+The error handler catches *any* `\Throwable`, not just `JsonApiExceptionInterface`. A
 non-JSON:API throwable (a bug, a database failure, a third-party error) is rendered
 as a generic `500 Internal Server Error` document so the client always receives a
 valid JSON:API response.

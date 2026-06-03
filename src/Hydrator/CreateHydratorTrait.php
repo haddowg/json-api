@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\Hydrator;
 
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\DataMemberMissing;
-use haddowg\JsonApi\Exception\JsonApiException;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
@@ -33,7 +32,7 @@ trait CreateHydratorTrait
      * accept client-supplied IDs, or the appropriate exception when the given
      * ID is otherwise invalid.
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function validateClientGeneratedId(
         string $clientGeneratedId,
@@ -46,7 +45,7 @@ trait CreateHydratorTrait
      * Called after type and ID validation. Override to add request-level
      * constraints; the default implementation is a no-op.
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function validateRequest(JsonApiRequestInterface $request): void;
 
@@ -80,7 +79,7 @@ trait CreateHydratorTrait
      * @param array<string, mixed> $data
      * @return mixed
      *
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     abstract protected function hydrateRelationships(mixed $domainObject, array $data): mixed;
 
@@ -91,7 +90,7 @@ trait CreateHydratorTrait
      * @return mixed
      *
      * @throws DataMemberMissing
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     public function hydrateForCreate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -121,7 +120,7 @@ trait CreateHydratorTrait
      * @return mixed
      *
      * @throws ResourceIdInvalid
-     * @throws JsonApiException
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
     protected function hydrateIdForCreate(
         mixed $domainObject,

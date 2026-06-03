@@ -12,7 +12,7 @@ JSON Schema compiler, and the opt-in document-validation layer.
 ## Constraints are metadata
 
 Every constraint is a `final readonly` value object implementing
-`Resource\Constraint\Constraint`, whose single method `context(): Context` reports
+`Resource\Constraint\ConstraintInterface`, whose single method `context(): Context` reports
 when the constraint applies. You rarely construct one directly — the fluent
 [field](fields.md) builders add them for you (`Str::make('title')->required()
 ->maxLength(200)` appends a `Required` and a `MaxLength`). The library does not run
@@ -134,13 +134,13 @@ $validator->validateResponse($decodedBody);  // throws ResponseBodyInvalidJsonAp
 ```
 
 Both methods take an optional `array $additionalSchemas` of decoded schema objects
-to compose. A failure throws a typed [`JsonApiException`](exceptions.md) carrying
+to compose. A failure throws a typed [`JsonApiExceptionInterface`](exceptions.md) carrying
 one violation per JSON Schema error, each with the JSON Pointer of the offending
 location — so the existing [error handler](errors.md) renders it for free.
 
 Request and response schemas differ: a request's primary resource may omit its
 `id` (a client-generated resource) and may carry a `lid`, whereas a response's
-resource requires `type` + `id`. The `SchemaProvider` interface exposes both
+resource requires `type` + `id`. The `SchemaProviderInterface` exposes both
 roots; the default `VendoredSchemaProvider` loads the JSON:API 1.1 schemas
 vendored under `resources/schemas/` (the response schema is a byte-faithful copy of
 the upstream VGirol JSON:API schema).
@@ -161,7 +161,7 @@ composer require --dev opis/json-schema
 ### Profile fragments
 
 A [profile](profiles.md) can extend validation while it is in scope. Implement
-`Validation\SchemaContributingProfile` (which extends `ProfileInterface`) and
+`Validation\SchemaContributingProfileInterface` (which extends `ProfileInterface`) and
 return a decoded schema fragment from `schemaFragment()`; the `DocumentValidator`
 composes that fragment with the base schema (via `allOf`) for requests and
 responses that have the profile in scope. A fragment can both add constraints and

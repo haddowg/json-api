@@ -22,7 +22,7 @@ the reference pages below as you need them.
 - [Validation](validation.md) — field constraints, create/update contexts, and the per-resource JSON Schema compiler.
 - [Filters](filters.md) — declaring the filters a type accepts and the handler that applies them.
 - [Sorts](sorts.md) — field-derived and computed sort declarations.
-- [Pagination](pagination.md) — the `Paginator` strategies and `Page` value objects.
+- [Pagination](pagination.md) — the `PaginatorInterface` strategies and `Page` value objects.
 - [Profiles](profiles.md) — implementing and registering JSON:API 1.1 profiles.
 - [Serializers](serializers.md) — full control of serialization when a Resource class's fields aren't enough.
 - [Hydrators](hydrators.md) — full control of hydration when a Resource class's fields aren't enough.

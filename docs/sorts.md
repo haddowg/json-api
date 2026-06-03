@@ -4,7 +4,7 @@ A sort describes one `sort` key your collection endpoint accepts. Like a
 [filter](filters.md), a sort in this library is **metadata only**: a value object
 that names the sort key and the column it maps to, carrying no behaviour. Turning
 a sort into an ordered query — an `ORDER BY`, a `usort`, a search-engine sort
-clause — lives in an adapter-provided [`SortHandler`](adapters.md), not in the
+clause — lives in an adapter-provided [`SortHandlerInterface`](adapters.md), not in the
 sort itself. This keeps core decoupled from any data layer: there is no generic
 `Query` interface, and the split mirrors exactly how [filters](filters.md) and
 [field constraints](validation.md) work.
@@ -63,12 +63,12 @@ public function sorts(): array
 `make($key, ?$column)` named constructor; the column defaults to the key. A custom
 sort (see below) goes here too.
 
-## The `Sort` contract
+## The `SortInterface` contract
 
-Every sort implements `Resource\Sort\Sort`, whose sole member is the key:
+Every sort implements `Resource\Sort\SortInterface`, whose sole member is the key:
 
 ```php
-interface Sort
+interface SortInterface
 {
     public function key(): string; // the sort key, without a leading '-'
 }
@@ -82,11 +82,11 @@ reads when it orders the query.
 ## Executing sorts
 
 The metadata never orders anything on its own. To apply a sort you pass it, your
-query, and the direction to a [`SortHandler`](adapters.md), which returns the
+query, and the direction to a [`SortHandlerInterface`](adapters.md), which returns the
 ordered query:
 
 ```php
-public function apply(Sort $sort, mixed $query, bool $descending): mixed;
+public function apply(SortInterface $sort, mixed $query, bool $descending): mixed;
 ```
 
 The requested sorts reach your handler through the request's parsed `sort` list.
@@ -132,13 +132,13 @@ via its public `$sort` property.
 
 ## Writing a custom sort
 
-A custom sort is a value object implementing `Sort`, carrying whatever its handler
+A custom sort is a value object implementing `SortInterface`, carrying whatever its handler
 needs:
 
 ```php
-use haddowg\JsonApi\Resource\Sort\Sort;
+use haddowg\JsonApi\Resource\Sort\SortInterface;
 
-final readonly class SortByDistance implements Sort
+final readonly class SortByDistance implements SortInterface
 {
     public function __construct(
         public string $key,
@@ -159,7 +159,7 @@ final readonly class SortByDistance implements Sort
 ```
 
 List it in a Resource class's `sorts()` like any built-in. For it to do anything, a
-handler must recognise it — a `SortHandler` that receives a `Sort` it does not
+handler must recognise it — a `SortHandlerInterface` that receives a `SortInterface` it does not
 know throws `UnsupportedSort` — so a custom sort and a handler that understands it
 are written together. The handler side, including extending the reference handler,
 is covered in [Adapters](adapters.md).

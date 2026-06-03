@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Constraint;
 
 /**
- * Structural validation metadata for a {@see \haddowg\JsonApi\Resource\Field\Field}
- * or {@see \haddowg\JsonApi\Resource\Filter\Filter}.
+ * Structural validation metadata for a {@see \haddowg\JsonApi\Resource\Field\FieldInterface}
+ * or {@see \haddowg\JsonApi\Resource\Filter\FilterInterface}.
  *
  * Constraints are **metadata only** — the core never executes them. The
  * {@see \haddowg\JsonApi\Validation\SchemaCompiler} translates the structural
@@ -14,7 +14,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * native validator rules. Each constraint carries a {@see Context} declaring
  * whether it applies on create requests, update requests, or both.
  */
-interface Constraint
+interface ConstraintInterface
 {
     /**
      * The create/update context in which this constraint applies.

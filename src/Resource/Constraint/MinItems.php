@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Minimum number of array items (JSON Schema \`minItems\`).
  */
-final readonly class MinItems implements Constraint
+final readonly class MinItems implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int $value,

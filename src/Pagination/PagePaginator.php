@@ -13,7 +13,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * keys and the defaults used when a parameter is absent (or non-numeric, which
  * falls back to the default, matching the request-side parsing rule).
  */
-final readonly class PagePaginator implements Paginator
+final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
 {
     public function __construct(
         public string $pageKey = 'number',

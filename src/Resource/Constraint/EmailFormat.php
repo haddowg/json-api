@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * String must be a valid email address (JSON Schema \`format: email\`).
  */
-final readonly class EmailFormat implements Constraint
+final readonly class EmailFormat implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public Context $context = new Context(),

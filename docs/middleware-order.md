@@ -11,7 +11,7 @@ global middleware registry.
 
 Outermost first (the outermost middleware wraps every middleware below it):
 
-1. **`ErrorHandlerMiddleware`** — outermost. Catches every `JsonApiException`
+1. **`ErrorHandlerMiddleware`** — outermost. Catches every `JsonApiExceptionInterface`
    (rendered with its own status + errors) and any other `\Throwable` (rendered
    as a 500), and renders the resulting `ErrorResponse` to a PSR-7 response. A
    successful PSR-7 response from below passes through unchanged. It must be
@@ -34,8 +34,8 @@ Outermost first (the outermost middleware wraps every middleware below it):
    you want validation, e.g. a dev/CI server). See
    [`spec-compliance.md`](./spec-compliance.md) for the spec sections it asserts.
 5. **Handler** — innermost. The recommended handler is an
-   `Operation\OperationHandler` wrapped in `Operation\Psr7ToOperationHandlerAdapter`,
-   which turns the PSR-7 request into the matching `JsonApiOperation`, invokes the
+   `Operation\OperationHandlerInterface` wrapped in `Operation\Psr7ToOperationHandlerAdapter`,
+   which turns the PSR-7 request into the matching `JsonApiOperationInterface`, invokes the
    consumer handler, and renders the returned response value object
    (`DataResponse`, `MetaResponse`, …) to PSR-7. Consumers who prefer PSR-15
    directly can supply any `RequestHandlerInterface`; it returns a PSR-7 response

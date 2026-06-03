@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * narrowed by a nested filter). Data-layer-specific; core ships the metadata,
  * adapters interpret the relationship traversal.
  */
-final readonly class WhereHas implements Filter
+final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key,

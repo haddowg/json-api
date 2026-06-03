@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches a column against none of a set of values (the negation of
  * {@see WhereIn}).
  */
-final readonly class WhereNotIn implements Filter
+final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key,

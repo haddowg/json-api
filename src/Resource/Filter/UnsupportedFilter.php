@@ -14,7 +14,7 @@ use haddowg\JsonApi\Schema\Error\Error;
  */
 final class UnsupportedFilter extends AbstractJsonApiException
 {
-    public function __construct(public readonly Filter $filter)
+    public function __construct(public readonly \haddowg\JsonApi\Resource\Filter\FilterInterface $filter)
     {
         parent::__construct(
             \sprintf('No handler is registered for filter "%s" (%s).', $filter->key(), $filter::class),

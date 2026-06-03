@@ -10,7 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * `PATCH /articles/1` — update a single resource. Carries the request body
  * holding the resource changes.
  */
-final readonly class UpdateResourceOperation implements JsonApiOperation
+final readonly class UpdateResourceOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

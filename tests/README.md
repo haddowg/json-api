@@ -40,7 +40,7 @@ vendor/bin/phpunit --group spec:document-structure
 `spec:document-structure`, `spec:fetching-data`, `spec:fetching-resources`,
 `spec:fetching-relationships`, `spec:inclusion-of-related-resources`,
 `spec:sparse-fieldsets`, `spec:sorting`, `spec:pagination`, `spec:filtering`,
-`spec:crud`, `spec:errors`, `spec:content-negotiation`,
+`spec:crud`, `spec:errors`, `spec:query-parameters`, `spec:content-negotiation`,
 `spec:extensions-and-profiles`.
 
 (The list grows as the suite grows; the canonical compliance tracker is

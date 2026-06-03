@@ -19,7 +19,7 @@ namespace haddowg\JsonApi\Validation;
  *
  * @see resources/schemas/README.md for the upstream source and refresh procedure.
  */
-final class VendoredSchemaProvider implements SchemaProvider
+final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\SchemaProviderInterface
 {
     private const string RESPONSE_ID = 'https://jsonapi.org/schemas/spec/v1.1/draft';
 

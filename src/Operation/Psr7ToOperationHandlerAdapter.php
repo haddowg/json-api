@@ -27,7 +27,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInterface
 {
     public function __construct(
-        private OperationHandler $handler,
+        private \haddowg\JsonApi\Operation\OperationHandlerInterface $handler,
         private ServerInterface $server,
     ) {}
 
@@ -59,7 +59,7 @@ final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInte
         QueryParameters $query,
         OperationContext $context,
         JsonApiRequestInterface $body,
-    ): JsonApiOperation {
+    ): \haddowg\JsonApi\Operation\JsonApiOperationInterface {
         $hasRelationship = $target->hasRelationship();
 
         return match (\strtoupper($method)) {

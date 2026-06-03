@@ -24,7 +24,7 @@ immutable value (every `with…()` / `register()` returns a new instance) that h
 
 `Server` itself implements PSR-15 `RequestHandlerInterface`, so dispatching a
 request is a single `$server->handle($request)` call. (It also exposes
-`dispatch(JsonApiOperation)` for programmatic, PSR-7-free invocation that bypasses
+`dispatch(JsonApiOperationInterface)` for programmatic, PSR-7-free invocation that bypasses
 the middleware chain.)
 
 ## Request flow
@@ -42,8 +42,8 @@ flowchart TD
         eh --> cn --> bp --> router
     end
 
-    router --> adapter[Psr7ToOperationHandlerAdapter<br/>reads Target, builds JsonApiOperation]
-    adapter --> handler[Your OperationHandler<br/>handle: JsonApiOperation -> Response VO]
+    router --> adapter[Psr7ToOperationHandlerAdapter<br/>reads Target, builds JsonApiOperationInterface]
+    adapter --> handler[Your OperationHandlerInterface<br/>handle: JsonApiOperationInterface -> Response VO]
     handler --> vo[Response value object<br/>DataResponse / MetaResponse / ...]
     vo --> engine[Transformer engine<br/>Document/ResourceTransformer -> PHP array]
     engine --> encode[json_encode + PSR-17 response]
@@ -92,8 +92,8 @@ the adapter renders a 500 error response rather than throwing.
 
 ### 3. The operation handler
 
-Your [`OperationHandler`](server.md#operations) receives the parsed
-`JsonApiOperation` and returns one of the [response value objects](responses.md).
+Your [`OperationHandlerInterface`](server.md#operations) receives the parsed
+`JsonApiOperationInterface` and returns one of the [response value objects](responses.md).
 It is PSR-7-free: dispatch on the concrete operation type with `match (true)`, do
 your application work (reaching Resource classes through `$operation->context()->server`),
 and return a response. See [Getting started](getting-started.md#the-operation-handler)

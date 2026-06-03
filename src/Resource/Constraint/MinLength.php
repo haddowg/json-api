@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Minimum string length (JSON Schema \`minLength\`).
  */
-final readonly class MinLength implements Constraint
+final readonly class MinLength implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public int $value,

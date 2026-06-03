@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\SerializerResolver;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
@@ -22,7 +21,7 @@ class BelongsTo extends AbstractRelation
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        SerializerResolver $resolver,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         return $this->buildToOne($this->relatedValue($model, $request, $this->name), $request, $resolver);
     }

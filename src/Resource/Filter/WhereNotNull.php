@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 /**
  * Matches rows whose column is not null (the filter value is truthy).
  */
-final readonly class WhereNotNull implements Filter
+final readonly class WhereNotNull implements \haddowg\JsonApi\Resource\Filter\FilterInterface
 {
     public function __construct(
         public string $key,

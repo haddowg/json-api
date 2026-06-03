@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Operation;
  * `GET /articles/1/author` — fetch the related resource(s) behind a relationship.
  * Has no request body.
  */
-final readonly class FetchRelatedOperation implements JsonApiOperation
+final readonly class FetchRelatedOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

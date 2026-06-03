@@ -10,7 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * `DELETE /articles/1/relationships/tags` — remove members from a to-many
  * relationship. Carries the request body holding the identifiers to remove.
  */
-final readonly class RemoveFromRelationshipOperation implements JsonApiOperation
+final readonly class RemoveFromRelationshipOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(
         private Target $target,

@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Constraint;
 /**
  * Array items must be unique (JSON Schema \`uniqueItems: true\`).
  */
-final readonly class UniqueItems implements Constraint
+final readonly class UniqueItems implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
 {
     public function __construct(
         public Context $context = new Context(),

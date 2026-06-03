@@ -23,7 +23,7 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  *
  * @see https://jsonapi.org/format/1.1/#profiles
  */
-interface SchemaContributingProfile extends ProfileInterface
+interface SchemaContributingProfileInterface extends ProfileInterface
 {
     /**
      * A decoded JSON Schema (draft 2020-12) fragment that augments validation

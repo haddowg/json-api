@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Schema\Profile;
  *
  * This is a wiring-time configuration error, not a JSON:API request error: it is
  * a {@see \LogicException} and deliberately does **not** implement
- * {@see \haddowg\JsonApi\Exception\JsonApiException} — it should surface as a bug
+ * {@see \haddowg\JsonApi\Exception\JsonApiExceptionInterface} — it should surface as a bug
  * to fix, never as an error document in a response.
  */
 final class ProfileAlreadyRegistered extends \LogicException

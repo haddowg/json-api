@@ -53,8 +53,10 @@ namespaces). For each:
 - Parameter and return types are narrowed as far as they can be.
 - No `@internal` type leaks through a public method signature.
 - Consumer-visible parametric types carry their `@template` parameters per the
-  generics policy in `CLAUDE.md` (`Page<T>`, `DataResponse<T>`, `Field<T>`,
-  `OperationHandler<TOperation>`, registry lookups).
+  generics policy in `CLAUDE.md` — `PageInterface<T>` and the registry lookups, the types
+  whose parameter survives to the use site. `DataResponse`, `OperationHandlerInterface`, and
+  `FieldInterface` are deliberately **not** generic (the parameter erases at the
+  serializer/handler boundary; see the policy for the per-type rationale).
 - No dead methods, unused parameters, or leftover yin idioms remain.
 
 Reconcile the `CLAUDE.md` component notes against the code and correct any drift.
@@ -107,8 +109,8 @@ written when one is picked up — listed here only so the direction is recorded.
   `#[Relationship]`, `#[Profile]` attributes as a lower-boilerplate alternative to the
   class-based fluent schema.
 - **OpenAPI generation** — walk a `Server`'s registered resources, profiles, and
-  handlers to emit OpenAPI 3.x; per-resource components derive from the same `Field`
-  + `Constraint` metadata the JSON Schema compiler uses. No 1.0 design dependency.
+  handlers to emit OpenAPI 3.x; per-resource components derive from the same `FieldInterface`
+  + `ConstraintInterface` metadata the JSON Schema compiler uses. No 1.0 design dependency.
 
 ## Acceptance
 
