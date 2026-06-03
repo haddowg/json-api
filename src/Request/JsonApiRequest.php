@@ -753,11 +753,11 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         $name = \strtolower($name);
 
         if ($name === 'content-type') {
-            unset($this->profiles['content-type']);
+            unset($this->profiles['content-type'], $this->extensions['content-type']);
         }
 
         if ($name === 'accept') {
-            unset($this->profiles['accept']);
+            unset($this->profiles['accept'], $this->extensions['accept']);
         }
     }
 

@@ -1014,6 +1014,24 @@ final class JsonApiRequestTest extends TestCase
     }
 
     #[Test]
+    public function withHeaderInvalidatesParsedExtensions(): void
+    {
+        $request = $this->createRequest()
+            ->withHeader('content-type', 'application/vnd.api+json;ext=https://example.com/ext/a')
+            ->withHeader('accept', 'application/vnd.api+json;ext=https://example.com/ext/a');
+
+        $request->getAppliedExtensions();
+        $request->getRequestedExtensions();
+
+        $request = $request
+            ->withHeader('content-type', 'application/vnd.api+json;ext=https://example.com/ext/b')
+            ->withHeader('accept', 'application/vnd.api+json;ext=https://example.com/ext/b');
+
+        self::assertEquals(['https://example.com/ext/b'], $request->getAppliedExtensions());
+        self::assertEquals(['https://example.com/ext/b'], $request->getRequestedExtensions());
+    }
+
+    #[Test]
     public function getResourceWhenEmpty(): void
     {
         $request = $this->createRequestWithJsonBody([]);
