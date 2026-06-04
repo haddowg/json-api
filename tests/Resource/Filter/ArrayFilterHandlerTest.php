@@ -79,6 +79,22 @@ final class ArrayFilterHandlerTest extends TestCase
     }
 
     #[Test]
+    public function whereLikeContainsCaseInsensitively(): void
+    {
+        // `like` is contains with ASCII case-folding — the semantics a SQL
+        // `LIKE '%…%'` gives on common backends, so database adapters can
+        // match this reference behaviour.
+        $filter = Where::make('status', operator: 'like');
+
+        self::assertSame(['2', '3'], $this->ids(
+            (new ArrayFilterHandler())->apply($filter, $this->data(), 'PUBLISH'),
+        ));
+        self::assertSame([], $this->ids(
+            (new ArrayFilterHandler())->apply($filter, $this->data(), 'missing'),
+        ));
+    }
+
+    #[Test]
     public function whereWithDeserializer(): void
     {
         $filter = Where::make('views')->deserializeUsing(static function (mixed $v): int {

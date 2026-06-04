@@ -74,7 +74,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
                 '>=' => $actual >= $expected,
                 '<' => $actual < $expected,
                 '<=' => $actual <= $expected,
-                'like' => \is_string($actual) && \is_string($expected) && \str_contains($actual, $expected),
+                // Contains, case-insensitive for ASCII — the semantics a SQL
+                // `LIKE '%…%'` gives on common backends (SQLite folds ASCII
+                // only; anything beyond is platform-defined), so database
+                // adapters can match this reference behaviour.
+                'like' => \is_string($actual) && \is_string($expected) && \stripos($actual, $expected) !== false,
                 default => false,
             };
         };
