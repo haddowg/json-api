@@ -41,6 +41,13 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
         return new self($this->size, $this->pageKey, $defaultPage);
     }
 
+    public function window(JsonApiRequestInterface $request): OffsetWindow
+    {
+        $page = $this->resolvePage($request);
+
+        return new OffsetWindow(($page - 1) * \max(0, $this->size), $this->size);
+    }
+
     /**
      * @param iterable<mixed> $items
      *
@@ -48,13 +55,16 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
      */
     public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): FixedPagePage
     {
-        $pagination = $request->getPagination();
+        return new FixedPagePage($items, $totalItems, $this->resolvePage($request), $this->size);
+    }
 
-        return new FixedPagePage(
-            $items,
-            $totalItems,
-            QueryParam::int($pagination, $this->pageKey, $this->defaultPage),
-            $this->size,
-        );
+    /**
+     * The normalised page number (clamped to `>= 1`), shared by {@see window()}
+     * and {@see paginate()} so the fetched items and the page meta/links always
+     * agree, even for garbage input.
+     */
+    private function resolvePage(JsonApiRequestInterface $request): int
+    {
+        return \max(1, QueryParam::int($request->getPagination(), $this->pageKey, $this->defaultPage));
     }
 }

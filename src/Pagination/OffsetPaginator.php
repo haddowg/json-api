@@ -46,6 +46,18 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
         return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit);
     }
 
+    public function window(JsonApiRequestInterface $request): OffsetWindow
+    {
+        $pagination = $request->getPagination();
+
+        // OffsetWindow normalises to >= 0; paginate() reuses the same window so
+        // the fetched items and the page meta/links always agree.
+        return new OffsetWindow(
+            QueryParam::int($pagination, $this->offsetKey, $this->defaultOffset),
+            QueryParam::int($pagination, $this->limitKey, $this->defaultLimit),
+        );
+    }
+
     /**
      * @param iterable<mixed> $items
      *
@@ -53,13 +65,8 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
      */
     public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): OffsetBasedPage
     {
-        $pagination = $request->getPagination();
+        $window = $this->window($request);
 
-        return new OffsetBasedPage(
-            $items,
-            $totalItems,
-            QueryParam::int($pagination, $this->offsetKey, $this->defaultOffset),
-            QueryParam::int($pagination, $this->limitKey, $this->defaultLimit),
-        );
+        return new OffsetBasedPage($items, $totalItems, $window->offset, $window->limit);
     }
 }

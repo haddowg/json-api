@@ -23,6 +23,19 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 interface PaginatorInterface
 {
     /**
+     * The fetch window this strategy derives from the request's `page[…]`
+     * parameters, exposed **before** any items are materialized so a data layer
+     * can push it down to its store (SQL `LIMIT`/`OFFSET`, an `array_slice`, …).
+     * The count-based strategies return an {@see OffsetWindow}; {@see paginate()}
+     * then expects exactly the items of that window.
+     */
+    public function window(JsonApiRequestInterface $request): \haddowg\JsonApi\Pagination\WindowInterface;
+
+    /**
+     * Builds the page for the **pre-windowed** `$items` (the slice described by
+     * {@see window()} — pages never slice) and the separately-computed
+     * `$totalItems` of the whole filtered collection.
+     *
      * @param iterable<mixed> $items
      *
      * @return \haddowg\JsonApi\Pagination\PageInterface<mixed>

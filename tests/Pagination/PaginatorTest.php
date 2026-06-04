@@ -11,6 +11,7 @@ use haddowg\JsonApi\Pagination\FixedPagePage;
 use haddowg\JsonApi\Pagination\FixedPagePaginator;
 use haddowg\JsonApi\Pagination\OffsetBasedPage;
 use haddowg\JsonApi\Pagination\OffsetPaginator;
+use haddowg\JsonApi\Pagination\OffsetWindow;
 use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -78,6 +79,93 @@ final class PaginatorTest extends TestCase
         self::assertInstanceOf(FixedPagePage::class, $page);
         self::assertSame(4, $page->page);
         self::assertSame(25, $page->size);
+    }
+
+    #[Test]
+    public function offsetPaginatorExposesItsWindowBeforeFetching(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['offset' => '40', 'limit' => '20']]);
+
+        $window = OffsetPaginator::make()->window($request);
+
+        self::assertInstanceOf(OffsetWindow::class, $window);
+        self::assertSame(40, $window->offset);
+        self::assertSame(20, $window->limit);
+    }
+
+    #[Test]
+    public function pagePaginatorWindowDerivesOffsetFromPageNumber(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '3', 'size' => '20']]);
+
+        $window = PagePaginator::make()->window($request);
+
+        self::assertSame(40, $window->offset);
+        self::assertSame(20, $window->limit);
+    }
+
+    #[Test]
+    public function fixedPagePaginatorWindowUsesTheConfiguredSize(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '4']]);
+
+        $window = FixedPagePaginator::make(25)->window($request);
+
+        self::assertSame(75, $window->offset);
+        self::assertSame(25, $window->limit);
+    }
+
+    #[Test]
+    public function paginateDescribesTheSameWindowItServes(): void
+    {
+        // window() and paginate() share one normalisation, so for out-of-range
+        // input the page meta/links describe exactly the rows the window
+        // fetched — never a phantom page 0 or a negative offset.
+        $pageZero = StubJsonApiRequest::create(['page' => ['number' => '0', 'size' => '2']]);
+        self::assertSame(0, PagePaginator::make()->window($pageZero)->offset);
+        self::assertSame(1, PagePaginator::make()->paginate($pageZero, [], 5)->page);
+
+        $negativeOffset = StubJsonApiRequest::create(['page' => ['offset' => '-5', 'limit' => '2']]);
+        self::assertSame(0, OffsetPaginator::make()->window($negativeOffset)->offset);
+        self::assertSame(0, OffsetPaginator::make()->paginate($negativeOffset, [], 5)->offset);
+
+        $fixedPageZero = StubJsonApiRequest::create(['page' => ['number' => '0']]);
+        self::assertSame(0, FixedPagePaginator::make(2)->window($fixedPageZero)->offset);
+        self::assertSame(1, FixedPagePaginator::make(2)->paginate($fixedPageZero, [], 5)->page);
+    }
+
+    #[Test]
+    public function aZeroPageSizeYieldsADegeneratePageNotACrash(): void
+    {
+        // page[size] is client-controlled: size 0 must render an empty page
+        // (no links, lastPage 0), never divide by zero.
+        $request = StubJsonApiRequest::create(['page' => ['number' => '1', 'size' => '0']]);
+        $page = PagePaginator::make()->paginate($request, [], 5);
+
+        self::assertSame(0, $page->size);
+        self::assertSame(0, $page->pageMeta()['lastPage'] ?? null);
+        self::assertSame([], \array_filter($page->linkSet('https://api.test/users', '')));
+
+        $fixed = FixedPagePaginator::make(0)->paginate(StubJsonApiRequest::create([]), [], 5);
+        self::assertSame(0, $fixed->pageMeta()['lastPage'] ?? null);
+    }
+
+    #[Test]
+    public function windowsFallBackToDefaultsAndNormaliseGarbage(): void
+    {
+        $defaults = OffsetPaginator::make()->window(StubJsonApiRequest::create([]));
+        self::assertSame(0, $defaults->offset);
+        self::assertSame(15, $defaults->limit);
+
+        $garbage = OffsetPaginator::make()->window(
+            StubJsonApiRequest::create(['page' => ['offset' => '-5', 'limit' => '-1']]),
+        );
+        self::assertSame(0, $garbage->offset);
+        self::assertSame(0, $garbage->limit);
+
+        $pageZero = PagePaginator::make()->window(StubJsonApiRequest::create(['page' => ['number' => '0']]));
+        self::assertSame(0, $pageZero->offset);
+        self::assertSame(15, $pageZero->limit);
     }
 
     #[Test]

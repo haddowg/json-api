@@ -65,6 +65,8 @@ final readonly class FixedPagePage extends AbstractPage
 
     private function lastPage(): int
     {
-        return (int) \ceil($this->totalItems / $this->size);
+        // Guard the divisor like linkSet() does: a zero configured size yields
+        // a degenerate empty page, never a crash.
+        return $this->size > 0 ? (int) \ceil($this->totalItems / $this->size) : 0;
     }
 }
