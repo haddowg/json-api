@@ -106,6 +106,9 @@ instance — the value objects are immutable):
 - **`asBoolean()`** — on `Where`. A shortcut for `deserializeUsing()` that coerces
   the value to a boolean via `FILTER_VALIDATE_BOOLEAN` (handy for
   `filter[published]=true`).
+- **`default(mixed $value)`** — on `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`,
+  `WhereIdNotIn`. Declares a value to apply when the request omits the filter's
+  key; a requested value always wins. See [Default values](#default-values).
 
 ```php
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -116,6 +119,48 @@ Where::make('createdAfter', column: 'created_at', operator: '>')
     ->deserializeUsing(static fn(mixed $v): \DateTimeImmutable => new \DateTimeImmutable((string) $v));
 WhereIn::make('tags')->delimiter('|');
 ```
+
+## Default values
+
+A value-carrying filter can declare a **default**: the value to apply when the
+request does not carry its `filter[<key>]` parameter at all.
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+
+Where::make('status')->default('active');       // GET /articles            → status = active
+                                                // GET /articles?filter[status]=archived → archived wins
+WhereIn::make('tags')->default('news,featured'); // shaped as the request would carry it
+```
+
+A default is a **convenience the client can override, never a constraint it
+cannot**: a requested key always wins, and it wins by *presence* — an explicit
+empty or null value (`filter[status]=`) still overrides the default. Anything
+the client must not be able to undo (soft-delete exclusion, tenant scoping)
+belongs in your data layer, not the filter vocabulary. Shape the default
+exactly as the request would carry it: a set filter's default may be an array
+or a delimited string, honouring the filter's `singular()`/`delimiter()`
+declaration.
+
+Defaulting filters implement the `Resource\Filter\HasDefaultValue` capability
+interface (`hasDefault()` + `defaultValue()` — a dedicated flag, because `null`
+is a legitimate default). The presence-only filters (`WhereNull`,
+`WhereNotNull`, `WhereHas`, `WhereDoesntHave`) deliberately don't participate:
+their requested presence *is* their semantics, so a "default" would be an
+always-on constraint in disguise.
+
+Like everything else about filters, a default is metadata — whoever matches
+requested keys to declared filters folds the defaults in first, through
+`FilterDefaults::apply()` so the presence semantics are decided once:
+
+```php
+use haddowg\JsonApi\Resource\Filter\FilterDefaults;
+
+$filter = FilterDefaults::apply($request->getFiltering(), $resource->filters());
+```
+
+A custom filter opts in by implementing `HasDefaultValue` itself.
 
 ## Singular vs list filters
 

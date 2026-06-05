@@ -8,13 +8,15 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches a column against none of a set of values (the negation of
  * {@see WhereIn}).
  */
-final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface
+final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
 {
     public function __construct(
         public string $key,
         public string $column,
         public ?string $delimiter = null,
         public bool $singular = false,
+        public mixed $default = null,
+        public bool $hasDefault = false,
     ) {}
 
     public static function make(string $key, ?string $column = null): self
@@ -29,11 +31,32 @@ final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\Filt
 
     public function delimiter(string $delimiter): self
     {
-        return new self($this->key, $this->column, $delimiter, $this->singular);
+        return new self($this->key, $this->column, $delimiter, $this->singular, $this->default, $this->hasDefault);
     }
 
     public function singular(): self
     {
-        return new self($this->key, $this->column, $this->delimiter, true);
+        return new self($this->key, $this->column, $this->delimiter, true, $this->default, $this->hasDefault);
+    }
+
+    /**
+     * Declares the value to apply when the request omits this filter's key —
+     * a requested value always wins ({@see HasDefaultValue}). Shape it as the
+     * request would carry it (an array, or a string the declared delimiter
+     * splits).
+     */
+    public function default(mixed $value): self
+    {
+        return new self($this->key, $this->column, $this->delimiter, $this->singular, $value, true);
+    }
+
+    public function hasDefault(): bool
+    {
+        return $this->hasDefault;
+    }
+
+    public function defaultValue(): mixed
+    {
+        return $this->default;
     }
 }

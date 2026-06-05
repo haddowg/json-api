@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 /**
  * Matches a column against a value with a comparison operator (default `=`).
  */
-final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface
+final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
 {
     /**
      * @param \Closure(mixed): mixed|null $deserialize optional value transformer applied before comparison
@@ -18,6 +18,8 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
         public string $operator = '=',
         public ?\Closure $deserialize = null,
         public bool $singular = false,
+        public mixed $default = null,
+        public bool $hasDefault = false,
     ) {}
 
     public static function make(string $key, ?string $column = null, string $operator = '='): self
@@ -35,7 +37,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     public function singular(): self
     {
-        return new self($this->key, $this->column, $this->operator, $this->deserialize, true);
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, true, $this->default, $this->hasDefault);
     }
 
     /**
@@ -43,7 +45,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     public function deserializeUsing(\Closure $deserialize): self
     {
-        return new self($this->key, $this->column, $this->operator, $deserialize, $this->singular);
+        return new self($this->key, $this->column, $this->operator, $deserialize, $this->singular, $this->default, $this->hasDefault);
     }
 
     /**
@@ -52,5 +54,24 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
     public function asBoolean(): self
     {
         return $this->deserializeUsing(static fn(mixed $value): bool => \filter_var($value, \FILTER_VALIDATE_BOOLEAN));
+    }
+
+    /**
+     * Declares the value to apply when the request omits this filter's key —
+     * a requested value always wins ({@see HasDefaultValue}).
+     */
+    public function default(mixed $value): self
+    {
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $value, true);
+    }
+
+    public function hasDefault(): bool
+    {
+        return $this->hasDefault;
+    }
+
+    public function defaultValue(): mixed
+    {
+        return $this->default;
     }
 }
