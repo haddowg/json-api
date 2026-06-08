@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Exception\AbstractJsonApiException;
 use haddowg\JsonApi\Exception\ResourceNotFound;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Schema\Error\Error;
@@ -60,6 +61,39 @@ final class ErrorResponseTest extends TestCase
 
         // Two errors spanning 4xx and 5xx round to 500 per AbstractErrorDocument.
         self::assertSame(500, $psr->getStatusCode());
+    }
+
+    #[Test]
+    public function uniformStatusesAreNotRoundedDown(): void
+    {
+        $psr = ErrorResponse::fromErrors(
+            new Error(status: '422'),
+            new Error(status: '422'),
+        )->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
+
+        // A bag of same-status errors keeps that status instead of rounding to 400.
+        self::assertSame(422, $psr->getStatusCode());
+    }
+
+    #[Test]
+    public function fromExceptionUsesTheStatusTheExceptionDeclares(): void
+    {
+        $exception = new class ('Unprocessable Entity', 422) extends AbstractJsonApiException {
+            public function getErrors(): array
+            {
+                return [
+                    new Error(status: '422', code: 'VALIDATION_FAILED', detail: 'title: too long'),
+                    new Error(status: '422', code: 'VALIDATION_FAILED', detail: 'rating: out of range'),
+                ];
+            }
+        };
+
+        $psr = ErrorResponse::fromException($exception)
+            ->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
+
+        // The typed exception declares 422; a multi-violation bag must render 422,
+        // not the rounded-down 400 the bare derivation would otherwise produce.
+        self::assertSame(422, $psr->getStatusCode());
     }
 
     #[Test]

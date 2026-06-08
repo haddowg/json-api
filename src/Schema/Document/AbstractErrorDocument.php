@@ -46,10 +46,31 @@ abstract class AbstractErrorDocument implements ErrorDocumentInterface
             return $statusCode;
         }
 
-        if (\count($this->errors) === 1) {
-            return (int) $this->errors[0]->status;
+        if ($this->errors === []) {
+            return 500;
         }
 
+        // A document whose errors all carry the same status takes that status
+        // verbatim: a bag of validation `422`s is a `422`, not a rounded-down
+        // `400`. Only a genuinely mixed set falls back to the nearest applicable
+        // status class. (A single error is trivially uniform.)
+        $firstStatus = $this->errors[0]->status;
+        foreach ($this->errors as $error) {
+            if ($error->status !== $firstStatus) {
+                return $this->roundedStatusClass();
+            }
+        }
+
+        return (int) $firstStatus;
+    }
+
+    /**
+     * The nearest applicable status class for a set of errors spanning more than
+     * one status: rounds each error's status down to its hundred and keeps the
+     * highest class that is at least one full class away from the running result.
+     */
+    private function roundedStatusClass(): int
+    {
         $result = 500;
         foreach ($this->errors as $error) {
             $roundedStatusCode = (int) ((int) $error->status / 100) * 100;

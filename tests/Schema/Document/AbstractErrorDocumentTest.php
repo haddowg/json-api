@@ -59,6 +59,23 @@ final class AbstractErrorDocumentTest extends TestCase
         self::assertSame(400, $errorDocument->getStatusCode());
     }
 
+    #[Test]
+    public function getStatusCodeWithMultipleErrorsSharingOneStatus(): void
+    {
+        $errorDocument = $this->createErrorDocument()
+            ->addError(new Error(status: '422'))
+            ->addError(new Error(status: '422'));
+
+        // A uniform set keeps its status rather than rounding down to a class.
+        self::assertSame(422, $errorDocument->getStatusCode());
+    }
+
+    #[Test]
+    public function getStatusCodeWithNoErrorsDefaultsToServerError(): void
+    {
+        self::assertSame(500, $this->createErrorDocument()->getStatusCode());
+    }
+
     private function createErrorDocument(): StubErrorDocument
     {
         return new StubErrorDocument();
