@@ -8,6 +8,7 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Response\MetaResponse;
+use haddowg\JsonApi\Response\NoContentResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 
 /**
@@ -24,5 +25,5 @@ interface OperationHandlerInterface
 {
     public function handle(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse;
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse;
 }

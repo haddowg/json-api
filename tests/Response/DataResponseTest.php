@@ -168,6 +168,23 @@ final class DataResponseTest extends TestCase
     }
 
     #[Test]
+    public function withStatusOverridesTheRenderedStatusAndCarriesALocationHeader(): void
+    {
+        $resource = new StubResource('user', '1', attributes: ['name' => static fn(): string => 'Vader']);
+
+        // The create case: a 201 with a Location header, body still rendered.
+        $psr = DataResponse::fromResource(new \stdClass(), $resource)
+            ->withStatus(201)
+            ->withHeader('Location', '/users/1')
+            ->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
+
+        self::assertSame(201, $psr->getStatusCode());
+        self::assertSame('/users/1', $psr->getHeaderLine('Location'));
+        self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
+        self::assertArrayHasKey('data', $this->decode($psr->getBody()->getContents()));
+    }
+
+    #[Test]
     public function plainServerRequestIsWrappedAsJsonApiRequest(): void
     {
         $resource = new StubResource('user', '1');

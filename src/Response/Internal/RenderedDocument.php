@@ -10,6 +10,9 @@ namespace haddowg\JsonApi\Response\Internal;
  * {@see \haddowg\JsonApi\Response\AbstractResponse::toPsrResponse()} template
  * encodes the body and applies the status.
  *
+ * `$hasBody` is `false` for a bodiless response (a `204 No Content`): the
+ * template then omits the body and the `Content-Type` header entirely.
+ *
  * @internal
  */
 final readonly class RenderedDocument
@@ -20,5 +23,6 @@ final readonly class RenderedDocument
     public function __construct(
         public array $body,
         public int $status,
+        public bool $hasBody = true,
     ) {}
 }

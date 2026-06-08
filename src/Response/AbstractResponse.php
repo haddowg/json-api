@@ -48,6 +48,8 @@ abstract class AbstractResponse
 
     protected ?int $encodeOptions = null;
 
+    protected ?int $status = null;
+
     /**
      * @param array<string, mixed> $meta
      */
@@ -103,10 +105,26 @@ abstract class AbstractResponse
     }
 
     /**
+     * Overrides the HTTP status the response renders with. Each response type
+     * renders a sensible default (a `DataResponse` is `200`); a write handler
+     * sets `201` on a create, for example. Ignored by {@see NoContentResponse},
+     * which is always `204`.
+     */
+    public function withStatus(int $status): static
+    {
+        $self = clone $this;
+        $self->status = $status;
+
+        return $self;
+    }
+
+    /**
      * Renders the response value object into a PSR-7 response: builds the body
      * array via {@see render()}, JSON-encodes it with the resolved flags and the
      * fixed `application/vnd.api+json` content type, then applies any configured
-     * headers.
+     * headers. The status is the one {@see withStatus()} set, falling back to the
+     * rendered default. A bodiless render (a `204`) omits the body and the
+     * `Content-Type` header.
      *
      * @throws \JsonException when the body cannot be encoded
      */
@@ -115,6 +133,11 @@ abstract class AbstractResponse
         $jsonApiRequest = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);
 
         $rendered = $this->render($server, $jsonApiRequest);
+        $status = $this->status ?? $rendered->status;
+
+        if (!$rendered->hasBody) {
+            return $this->applyHeaders($server->responseFactory()->createResponse($status));
+        }
 
         $profiles = $this->appliedProfiles($server, $jsonApiRequest);
         $body = $this->applyProfiles($rendered->body, $profiles, $jsonApiRequest);
@@ -127,7 +150,7 @@ abstract class AbstractResponse
         );
 
         $response = $server->responseFactory()
-            ->createResponse($rendered->status)
+            ->createResponse($status)
             ->withHeader('Content-Type', $this->contentType($profiles))
             ->withBody($server->streamFactory()->createStream($json));
 
@@ -136,6 +159,15 @@ abstract class AbstractResponse
             $response = $response->withHeader('Vary', 'Accept');
         }
 
+        return $this->applyHeaders($response);
+    }
+
+    /**
+     * Applies the configured response headers ({@see withHeader()}) onto a PSR-7
+     * response.
+     */
+    private function applyHeaders(ResponseInterface $response): ResponseInterface
+    {
         foreach ($this->headers as $name => $value) {
             $response = $response->withHeader($name, $value);
         }

@@ -13,6 +13,7 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Response\MetaResponse;
+use haddowg\JsonApi\Response\NoContentResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Profile\ProfileInterface;
@@ -323,7 +324,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
      */
     public function dispatch(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse {
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse {
         $handler = $this->handler;
         if (!$handler instanceof \haddowg\JsonApi\Operation\OperationHandlerInterface) {
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');
