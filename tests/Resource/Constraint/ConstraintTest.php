@@ -30,7 +30,6 @@ use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
-use haddowg\JsonApi\Resource\Constraint\Timezone;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -66,7 +65,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RelationshipType::class)]
 #[CoversClass(Required::class)]
 #[CoversClass(SlugFormat::class)]
-#[CoversClass(Timezone::class)]
 #[CoversClass(UniqueItems::class)]
 #[CoversClass(UrlFormat::class)]
 #[CoversClass(UuidFormat::class)]
@@ -204,12 +202,6 @@ final class ConstraintTest extends TestCase
         $between = new Between($fixed, $closure);
         self::assertSame($fixed, $between->min);
         self::assertSame($closure, $between->max);
-    }
-
-    #[Test]
-    public function timezoneCarriesAllowedList(): void
-    {
-        self::assertSame(['Europe/London', 'UTC'], (new Timezone(['Europe/London', 'UTC']))->allowed);
     }
 
     #[Test]

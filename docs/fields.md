@@ -230,7 +230,6 @@ back to a `\DateTimeImmutable`. The default format is ISO-8601
 | `format(string)` | Override the serialization format string. |
 | `before($bound)` / `after($bound)` | `Before` / `After` — accept a `\DateTimeInterface` or a `\Closure(): \DateTimeInterface` (closure bounds do not round-trip to JSON Schema). |
 | `between($min, $max)` | `Between` (same bound forms). |
-| `timezone(string ...$allowed)` | `Timezone` — restrict to IANA identifiers. |
 | `useTimezone(string)` | Convert hydrated values into the given timezone before storing. |
 
 ```php

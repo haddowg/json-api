@@ -7,7 +7,6 @@ namespace haddowg\JsonApi\Resource\Field;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
-use haddowg\JsonApi\Resource\Constraint\Timezone;
 
 /**
  * An ISO-8601 date-time attribute (with timezone). Serializes a
@@ -62,16 +61,6 @@ class DateTime extends AbstractField
     public function between(\DateTimeInterface|\Closure $min, \DateTimeInterface|\Closure $max): static
     {
         return $this->addConstraint(new Between($min, $max, $this->currentContext()));
-    }
-
-    /**
-     * Restricts the accepted timezones (IANA identifiers).
-     *
-     * @return static
-     */
-    public function timezone(string ...$allowed): static
-    {
-        return $this->addConstraint(new Timezone(\array_values($allowed), $this->currentContext()));
     }
 
     /**

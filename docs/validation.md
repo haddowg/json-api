@@ -34,7 +34,7 @@ them; it exposes them. Two readers consume the metadata:
 | Object bounds | `MinProperties`, `MaxProperties` | `minProperties`, `maxProperties` |
 | Pattern / enum | `Pattern`, `In`, `NotIn` | `pattern`, `enum`, `not`/`enum` |
 | String formats | `EmailFormat`, `UrlFormat`, `UuidFormat`, `IpFormat`, `SlugFormat` | `format` (`email`/`uri`/`uuid`/`ipv4`/`ipv6`) or `pattern` |
-| Date bounds | `Before`, `After`, `Between`, `Timezone` | `formatMinimum` / `formatMaximum` (fixed bounds only) |
+| Date bounds | `Before`, `After`, `Between` | `formatMinimum` / `formatMaximum` (fixed bounds only) |
 | Composition | `Each`, `When`, `Custom` | `items` (`Each`); `When`/`Custom` skipped |
 | Relationships | `RelationshipType` | linkage `type` `enum` |
 
