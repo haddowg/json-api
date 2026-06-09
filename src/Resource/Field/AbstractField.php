@@ -316,6 +316,27 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     }
 
     /**
+     * Attaches one or more constraints directly — the typed extension point for
+     * rules the built-in helpers don't cover (pass any
+     * {@see \haddowg\JsonApi\Resource\Constraint\ConstraintInterface}, your own
+     * implementations included). Each constraint carries its own
+     * {@see \haddowg\JsonApi\Resource\Constraint\Context}; unlike the built-in
+     * helpers, `constrain()` does not re-stamp it, so scope a custom constraint by
+     * constructing it with the context you want. Constraints added inside a
+     * `when()` builder are captured into that `When` like any other.
+     *
+     * @return static
+     */
+    public function constrain(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$constraints): static
+    {
+        foreach ($constraints as $constraint) {
+            $this->addConstraint($constraint);
+        }
+
+        return $this;
+    }
+
+    /**
      * Applies the constraints appended inside `$builder` only when `$condition`
      * returns true for the value under validation. The wrapped constraints are
      * captured and folded into a single {@see When} carrying the current context.

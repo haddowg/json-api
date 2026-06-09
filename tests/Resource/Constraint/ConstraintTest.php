@@ -8,7 +8,6 @@ use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\Context;
-use haddowg\JsonApi\Resource\Constraint\Custom;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 use haddowg\JsonApi\Resource\Constraint\ExclusiveMax;
@@ -43,7 +42,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(After::class)]
 #[CoversClass(Before::class)]
 #[CoversClass(Between::class)]
-#[CoversClass(Custom::class)]
 #[CoversClass(Each::class)]
 #[CoversClass(EmailFormat::class)]
 #[CoversClass(ExclusiveMax::class)]
@@ -167,12 +165,10 @@ final class ConstraintTest extends TestCase
     }
 
     #[Test]
-    public function customCarriesIdAndPayload(): void
+    public function emailFormatCarriesStrictFlag(): void
     {
-        $custom = new Custom('my-rule', ['threshold' => 10]);
-
-        self::assertSame('my-rule', $custom->id);
-        self::assertSame(['threshold' => 10], $custom->payload);
+        self::assertFalse((new EmailFormat())->strict);
+        self::assertTrue((new EmailFormat(true))->strict);
     }
 
     #[Test]

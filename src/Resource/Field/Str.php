@@ -46,11 +46,12 @@ class Str extends AbstractField
     }
 
     /**
+     * @param bool $strict opt into RFC-compliant validation (default HTML5-style)
      * @return static
      */
-    public function email(): static
+    public function email(bool $strict = false): static
     {
-        return $this->addConstraint(new EmailFormat($this->currentContext()));
+        return $this->addConstraint(new EmailFormat($strict, $this->currentContext()));
     }
 
     /**

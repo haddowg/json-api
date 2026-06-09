@@ -249,6 +249,44 @@ final class FieldTest extends TestCase
     }
 
     #[Test]
+    public function emailStrictnessIsTypedOnTheConstraint(): void
+    {
+        $loose = Str::make('c')->email()->constraints()[0];
+        self::assertInstanceOf(EmailFormat::class, $loose);
+        self::assertFalse($loose->strict);
+
+        $strict = Str::make('c')->email(true)->constraints()[0];
+        self::assertInstanceOf(EmailFormat::class, $strict);
+        self::assertTrue($strict->strict);
+
+        // Email::strict() reconciles to a SINGLE strict EmailFormat, not a second rule.
+        $email = Email::make('c')->strict()->constraints();
+        self::assertCount(1, $email);
+        self::assertInstanceOf(EmailFormat::class, $email[0]);
+        self::assertTrue($email[0]->strict);
+    }
+
+    #[Test]
+    public function constrainAttachesArbitraryConstraints(): void
+    {
+        $custom = new class implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface {
+            public function context(): \haddowg\JsonApi\Resource\Constraint\Context
+            {
+                return new \haddowg\JsonApi\Resource\Constraint\Context();
+            }
+        };
+
+        $field = Str::make('x')->minLength(2)->constrain($custom);
+
+        $types = \array_map(
+            static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class,
+            $field->constraints(),
+        );
+        self::assertSame([MinLength::class, $custom::class], $types);
+        self::assertSame($custom, $field->constraints()[1]);
+    }
+
+    #[Test]
     public function urlAllowedSchemesNarrowsConstraint(): void
     {
         $constraint = Url::make('c')->allowedSchemes('https')->constraints()[1];

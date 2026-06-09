@@ -35,7 +35,7 @@ them; it exposes them. Two readers consume the metadata:
 | Pattern / enum | `Pattern`, `In`, `NotIn` | `pattern`, `enum`, `not`/`enum` |
 | String formats | `EmailFormat`, `UrlFormat`, `UuidFormat`, `IpFormat`, `SlugFormat` | `format` (`email`/`uri`/`uuid`/`ipv4`/`ipv6`) or `pattern` |
 | Date bounds | `Before`, `After`, `Between` | `formatMinimum` / `formatMaximum` (fixed bounds only) |
-| Composition | `Each`, `When`, `Custom` | `items` (`Each`); `When`/`Custom` skipped |
+| Composition | `Each`, `When` | `items` (`Each`); `When` skipped |
 | Relationships | `RelationshipType` | linkage `type` `enum` |
 
 `Each` applies a wrapped set of constraints to every item of an array.
@@ -43,13 +43,16 @@ them; it exposes them. Two readers consume the metadata:
 resource-identifier `type` member(s) to an allowed set — for a polymorphic
 relationship, every permitted inverse type.
 
-`When` and `Custom` are the **opaque extension points** for value-level rules,
-and they deliberately do **not** round-trip to JSON Schema (see
-[below](#custom-and-when)). `When`
-applies its wrapped constraints only when a closure returns true for the value
-under validation; `Custom` carries an `id` + arbitrary `payload` that a consumer
-or adapter package interprets. Both are evaluated only by an adapter that executes
-validation — the JSON Schema compiler skips them.
+`When` applies its wrapped constraints only when a closure returns true for the
+value under validation. Its closure cannot round-trip to JSON Schema, so the
+compiler skips it (see [below](#when-and-custom-constraints)); an adapter that
+executes validation evaluates it.
+
+For rules the built-in vocabulary doesn't cover, implement your own
+`ConstraintInterface` value object and attach it with the field's `constrain()`
+method — a typed extension point, no opaque `id`/`payload` indirection. An adapter
+translates it by matching on its class (the JSON Schema compiler skips constraints
+it doesn't recognise).
 
 ## Create and update contexts
 
@@ -107,8 +110,8 @@ The output constrains only `data.attributes` and `data.relationships` (plus the
 per-context `required` arrays); it does not restate base members. `creating: true`
 emits the POST schema, where `Required` / `requiredOnCreate` contribute to
 `required`; `creating: false` emits the PATCH schema, where absent members are
-allowed and only `requiredOnUpdate` and supplied values are constrained. `When` and
-`Custom` are skipped, and date bounds round-trip only when the bound is a fixed
+allowed and only `requiredOnUpdate` and supplied values are constrained. `When`
+and unrecognised custom constraints are skipped, and date bounds round-trip only when the bound is a fixed
 `\DateTimeInterface` (a closure bound is evaluated at runtime by an adapter, not in
 the schema).
 
@@ -186,16 +189,20 @@ production — add them only where you want them):
 See [Middleware](middleware.md#optional-validation-middleware-devci) for placement
 in the chain.
 
-## `Custom` and `When`
+## `When` and custom constraints
 
-`When` and `Custom` carry logic the JSON Schema vocabulary cannot express, so they
-**do not round-trip** to JSON Schema — the compiler skips them. They exist for
-value-level rules an [adapter](adapters.md) executes in its native validator:
-`When` gates a constraint set on a closure, and `Custom` names an adapter-specific
-rule with an arbitrary payload. If your validation needs more than the structural
-subset the schema covers, express it with `Custom` (or `When`) and execute it in
-the adapter layer; the structural constraints still feed the JSON Schema check for
-free.
+`When` carries logic the JSON Schema vocabulary cannot express — a PHP closure
+gating a constraint set — so it **does not round-trip** to JSON Schema; the
+compiler skips it and an [adapter](adapters.md) evaluates it in its native
+validator.
+
+For anything else the built-in vocabulary doesn't model, implement your own
+`ConstraintInterface` value object (carrying whatever typed config the rule needs)
+and attach it with the field's `constrain()` method. It is skipped by the schema
+compiler and translated by an adapter that recognises its class. This is the typed
+replacement for an opaque, string-keyed escape hatch: the constraint *is* the
+contract, and the adapter translator matches on its type. The structural
+constraints still feed the JSON Schema check for free.
 
 ## Related pages
 

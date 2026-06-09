@@ -184,7 +184,7 @@ type-specific helper:
 
 | Type | Equivalent to | Extra helper |
 |---|---|---|
-| `Email::make($name)` | `Str::make($name)->email()` | `strict()` — opt into RFC-strict validation (adapter metadata; JSON Schema `format: email` is unaffected). |
+| `Email::make($name)` | `Str::make($name)->email()` | `strict()` — opt into RFC-strict validation (typed `strict` flag on the `EmailFormat` constraint; JSON Schema `format: email` is unaffected). |
 | `Url::make($name)` | `Str::make($name)->url()` | `allowedSchemes(string ...$schemes)` — restrict the URI schemes. |
 | `Uuid::make($name)` | `Str::make($name)->uuid()` | `version(int)` — narrow to a UUID version. |
 | `Slug::make($name)` | `Str::make($name)->slug()` | — |

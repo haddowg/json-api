@@ -155,7 +155,7 @@ for it in your handler. A custom value object and the handler that understands i
 are always written together — a handler that meets an unrecognised one throws
 `Unsupported…`.
 
-## Constraint translators and `Custom`
+## Constraint translators and custom constraints
 
 Constraints follow the same metadata-plus-translator split, with one core
 consumer built in: the [JSON Schema compiler](validation.md) translates the
@@ -164,14 +164,15 @@ into a per-resource schema for request validation. A framework adapter translate
 the **full** constraint set into its native validator rules (Symfony Validator,
 Laravel rules, …) for complete create/update validation.
 
-For rules the core does not model, `Resource\Constraint\Custom` is the extension
-point — an opaque constraint carrying an `$id` and an arbitrary `$payload`
-(`new Custom('coupon_redeemable', ['campaign' => 'spring'])`). It is **not
-round-tripped to JSON Schema**: the schema compiler skips it, leaving it for an
-adapter to interpret by matching on `$id`. An adapter's translator reads the
-`Custom` constraints off a field, looks each `$id` up in its own registry, and
-applies the rule its `$payload` describes. The same is true of `When`, which
-gates a constraint set on a closure the JSON Schema vocabulary cannot express. See
+For rules the core does not model, define your own `ConstraintInterface` value
+object — a typed VO carrying whatever config the rule needs (e.g. a
+`CouponRedeemable` with a `$campaign` property) — and attach it to a field with
+`constrain()`. It is **not round-tripped to JSON Schema**: the schema compiler
+skips constraints it doesn't recognise, leaving it for an adapter to interpret by
+matching on its **class**. An adapter's translator reads the constraints off a
+field and, recognising the type, applies the rule its typed properties describe —
+no opaque `id`/`payload` indirection. The same is true of `When`, which gates a
+constraint set on a closure the JSON Schema vocabulary cannot express. See
 [Validation](validation.md) for the constraint contexts and the structural subset
 the compiler does cover.
 

@@ -61,8 +61,8 @@ use haddowg\JsonApi\Resource\Field\Time;
  * **Context.** `compile($resource, creating: true)` emits the POST schema
  * (`Required`/`requiredOnCreate` → `required`); `creating: false` emits the
  * PATCH schema (absent members allowed; only `requiredOnUpdate` and supplied
- * values constrained). `When` and `Custom` constraints are **skipped** (their
- * logic does not round-trip to JSON Schema).
+ * values constrained). `When` constraints are **skipped** (their closure does
+ * not round-trip to JSON Schema).
  */
 final class SchemaCompiler
 {
@@ -266,7 +266,7 @@ final class SchemaCompiler
                 $schema = $this->applyDateBound($schema, $constraint->min, true);
                 $schema = $this->applyDateBound($schema, $constraint->max, false);
                 break;
-                // Required/Nullable handled by the caller; When/Custom intentionally skipped.
+                // Required/Nullable handled by the caller; When intentionally skipped.
             default: break;
         }
 
