@@ -18,6 +18,7 @@ use haddowg\JsonApi\Resource\Constraint\SlugFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
+use haddowg\JsonApi\Resource\Constraint\When;
 use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
@@ -165,6 +166,63 @@ final class FieldTest extends TestCase
         $constraint = $field->constraints()[0];
         self::assertFalse($constraint->context()->appliesTo(true));
         self::assertTrue($constraint->context()->appliesTo(false));
+    }
+
+    #[Test]
+    public function whenFoldsBuilderConstraintsIntoASingleConditional(): void
+    {
+        $condition = static fn(mixed $value): bool => $value !== null;
+        $field = Str::make('title')->when($condition, static function (Str $f): void {
+            $f->minLength(3)->maxLength(10);
+        });
+
+        $constraints = $field->constraints();
+        self::assertCount(1, $constraints);
+
+        $when = $constraints[0];
+        self::assertInstanceOf(When::class, $when);
+        self::assertSame($condition, $when->condition);
+
+        $wrapped = \array_map(
+            static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class,
+            $when->constraints,
+        );
+        self::assertSame([MinLength::class, MaxLength::class], $wrapped);
+    }
+
+    #[Test]
+    public function whenScopesTheConditionalToTheActiveContext(): void
+    {
+        $field = Str::make('title')->onCreate(static function (Str $f): void {
+            $f->when(static fn(mixed $v): bool => true, static function (Str $g): void {
+                $g->minLength(3);
+            });
+        });
+
+        $constraint = $field->constraints()[0];
+        self::assertInstanceOf(When::class, $constraint);
+        self::assertTrue($constraint->context()->appliesTo(true));
+        self::assertFalse($constraint->context()->appliesTo(false));
+    }
+
+    #[Test]
+    public function nestedWhenBuildersCompose(): void
+    {
+        $field = Str::make('title')->when(static fn(mixed $v): bool => true, static function (Str $f): void {
+            $f->minLength(1)->when(static fn(mixed $v): bool => true, static function (Str $g): void {
+                $g->maxLength(5);
+            });
+        });
+
+        $constraints = $field->constraints();
+        self::assertCount(1, $constraints);
+
+        $outer = $constraints[0];
+        self::assertInstanceOf(When::class, $outer);
+
+        self::assertCount(2, $outer->constraints);
+        self::assertInstanceOf(MinLength::class, $outer->constraints[0]);
+        self::assertInstanceOf(When::class, $outer->constraints[1]);
     }
 
     #[Test]

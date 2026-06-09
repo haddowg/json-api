@@ -108,6 +108,23 @@ Str::make('slug')->onCreate(function (Str $field): void {
 });
 ```
 
+### Conditional constraints
+
+`when()` applies the constraints appended inside the closure only when the
+condition returns true for the value under validation. The wrapped constraints
+are folded into a single `When`; the condition is opaque PHP, so it is not
+round-tripped to JSON Schema — framework adapters that execute validation
+evaluate it.
+
+```php
+Str::make('discountCode')->when(
+    static fn (mixed $value): bool => $value !== null && $value !== '',
+    static function (Str $field): void {
+        $field->minLength(4)->maxLength(16);
+    },
+);
+```
+
 ## Attribute field types
 
 Each concrete type adds per-type casting (its `serializeValue()` /

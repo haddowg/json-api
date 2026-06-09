@@ -11,6 +11,7 @@ use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\NotIn;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\When;
 
 /**
  * Convenience base implementing the common {@see Field} fluent surface:
@@ -70,6 +71,15 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      * `onCreate()` / `onUpdate()` builder; `null` means {@see Context::always()}.
      */
     private ?Context $contextOverride = null;
+
+    /**
+     * When non-null, {@see addConstraint()} appends here instead of to
+     * {@see $constraints}: the capture buffer a {@see when()} builder collects its
+     * wrapped constraints into before folding them into a single {@see When}.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>|null
+     */
+    private ?array $constraintBuffer = null;
 
     final public function __construct(
         protected string $name,
@@ -305,6 +315,32 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->withContext(Context::onlyUpdate(), $builder);
     }
 
+    /**
+     * Applies the constraints appended inside `$builder` only when `$condition`
+     * returns true for the value under validation. The wrapped constraints are
+     * captured and folded into a single {@see When} carrying the current context.
+     * The condition is opaque PHP, so it is not round-tripped to JSON Schema;
+     * framework adapters that execute validation evaluate it.
+     *
+     * @param \Closure(mixed): bool $condition
+     * @param \Closure(static): void $builder
+     * @return static
+     */
+    public function when(\Closure $condition, \Closure $builder): static
+    {
+        $previous = $this->constraintBuffer;
+        $this->constraintBuffer = [];
+
+        try {
+            $builder($this);
+            $collected = $this->constraintBuffer ?? [];
+        } finally {
+            $this->constraintBuffer = $previous;
+        }
+
+        return $this->addConstraint(new When($condition, $collected, $this->currentContext()));
+    }
+
     public function isReadOnly(bool $creating): bool
     {
         return $creating ? $this->readOnlyOnCreate : $this->readOnlyOnUpdate;
@@ -404,7 +440,11 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     protected function addConstraint(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $constraint): static
     {
-        $this->constraints[] = $constraint;
+        if ($this->constraintBuffer !== null) {
+            $this->constraintBuffer[] = $constraint;
+        } else {
+            $this->constraints[] = $constraint;
+        }
 
         return $this;
     }
