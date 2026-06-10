@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Resource\Filter;
 
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -155,10 +156,101 @@ final class ArrayFilterHandlerTest extends TestCase
         self::assertSame(['2'], $this->ids($result));
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function relationData(): array
+    {
+        return [
+            // a non-empty related collection
+            ['id' => '1', 'comments' => [['id' => 'c1'], ['id' => 'c2']]],
+            // an empty related collection
+            ['id' => '2', 'comments' => []],
+            // a present to-one
+            ['id' => '3', 'comments' => [], 'author' => ['id' => 'a1']],
+            // a null to-one and no comments key at all
+            ['id' => '4', 'author' => null],
+        ];
+    }
+
+    #[Test]
+    public function whereHasKeepsRowsWithANonEmptyRelatedCollection(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereHas::make('comments'), $this->relationData(), '');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereDoesntHaveKeepsRowsWithoutARelatedCollection(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereDoesntHave::make('comments'), $this->relationData(), '');
+
+        // empty collection, no key, and the null-to-one row all lack comments.
+        self::assertSame(['2', '3', '4'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereHasTreatsAPresentToOneAsExisting(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereHas::make('author'), $this->relationData(), '');
+
+        self::assertSame(['3'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereDoesntHaveTreatsANullToOneAsMissing(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereDoesntHave::make('author'), $this->relationData(), '');
+
+        // row 4 has author: null; rows 1 and 2 have no author key; row 3 has one.
+        self::assertSame(['1', '2', '4'], $this->ids($result));
+    }
+
+    #[Test]
+    public function relationshipFilterReadsTheRelationshipNameNotTheKey(): void
+    {
+        // The declaration key and the traversed relationship name can differ;
+        // existence is read off the relationship, not the filter key.
+        $result = (new ArrayFilterHandler())->apply(WhereHas::make('hasComments', 'comments'), $this->relationData(), '');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereHasCountsACountableRelation(): void
+    {
+        $data = [
+            ['id' => '1', 'comments' => new \ArrayIterator([['id' => 'c1']])],
+            ['id' => '2', 'comments' => new \ArrayIterator([])],
+        ];
+
+        $result = (new ArrayFilterHandler())->apply(WhereHas::make('comments'), $data, '');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function relationshipFilterIgnoresTheRequestValue(): void
+    {
+        // Whatever the client sends, only presence decides the match.
+        $filter = WhereHas::make('comments');
+
+        self::assertSame(
+            $this->ids((new ArrayFilterHandler())->apply($filter, $this->relationData(), 'true')),
+            $this->ids((new ArrayFilterHandler())->apply($filter, $this->relationData(), 'anything')),
+        );
+    }
+
     #[Test]
     public function unsupportedFilterThrows500(): void
     {
-        $filter = WhereDoesntHave::make('comments');
+        $filter = new class implements FilterInterface {
+            public function key(): string
+            {
+                return 'bespoke';
+            }
+        };
 
         try {
             (new ArrayFilterHandler())->apply($filter, $this->data(), '1');

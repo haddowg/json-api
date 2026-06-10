@@ -9,6 +9,8 @@ use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
+use haddowg\JsonApi\Resource\Filter\WhereHas;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
 use haddowg\JsonApi\Resource\Filter\WhereIdNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
@@ -52,6 +54,8 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
             $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
             $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
+            $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
+            $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
             default => throw new UnsupportedFilter($filter),
         };
     }
@@ -82,6 +86,39 @@ final class ArrayFilterHandler implements FilterHandlerInterface
                 default => false,
             };
         };
+    }
+
+    /**
+     * Existence test for a relationship: a non-empty related collection/array or
+     * a non-null to-one value. The request `filter[...]` value is irrelevant —
+     * presence alone decides the match (a {@see WhereHas} keeps such rows; a
+     * {@see WhereDoesntHave} keeps the complement).
+     */
+    private function hasRelation(mixed $row, string $relationship): bool
+    {
+        $related = Accessor::get($row, $relationship);
+
+        if ($related === null) {
+            return false;
+        }
+
+        if (\is_array($related)) {
+            return $related !== [];
+        }
+
+        if ($related instanceof \Countable) {
+            return \count($related) > 0;
+        }
+
+        if ($related instanceof \Traversable) {
+            foreach ($related as $_) {
+                return true;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
