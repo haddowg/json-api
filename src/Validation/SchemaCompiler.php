@@ -63,8 +63,9 @@ use haddowg\JsonApi\Resource\Field\Time;
  * **Context.** `compile($resource, creating: true)` emits the POST schema
  * (`Required`/`requiredOnCreate` → `required`); `creating: false` emits the
  * PATCH schema (absent members allowed; only `requiredOnUpdate` and supplied
- * values constrained). `When` constraints are **skipped** (their closure does
- * not round-trip to JSON Schema).
+ * values constrained). `When` (an opaque closure) and `CompareField` (no
+ * cross-property comparison in draft 2020-12) are **skipped** — they do not
+ * round-trip to JSON Schema.
  */
 final class SchemaCompiler
 {
@@ -279,7 +280,7 @@ final class SchemaCompiler
                 break;
             case $constraint instanceof AtLeastOneOf: $schema['anyOf'] = $this->atLeastOneOfSchema($constraint, $creating);
                 break;
-                // Required/Nullable handled by the caller; When intentionally skipped.
+                // Required/Nullable handled by the caller; When/CompareField intentionally skipped.
             default: break;
         }
 

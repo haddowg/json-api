@@ -7,6 +7,8 @@ namespace haddowg\JsonApi\Tests\Resource\Field;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
+use haddowg\JsonApi\Resource\Constraint\CompareField;
+use haddowg\JsonApi\Resource\Constraint\Comparison;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\IpFormat;
@@ -300,6 +302,16 @@ final class FieldTest extends TestCase
         self::assertCount(1, $either);
         self::assertInstanceOf(AtLeastOneOf::class, $either[0]);
         self::assertCount(2, $either[0]->constraints);
+    }
+
+    #[Test]
+    public function compareWithAttachesACrossFieldConstraint(): void
+    {
+        $compare = DateTime::make('endDate')->compareWith('startDate', Comparison::GreaterThan)->constraints()[0];
+
+        self::assertInstanceOf(CompareField::class, $compare);
+        self::assertSame('startDate', $compare->field);
+        self::assertSame(Comparison::GreaterThan, $compare->operator);
     }
 
     #[Test]

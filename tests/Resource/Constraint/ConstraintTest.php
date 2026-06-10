@@ -8,6 +8,8 @@ use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
+use haddowg\JsonApi\Resource\Constraint\CompareField;
+use haddowg\JsonApi\Resource\Constraint\Comparison;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
@@ -45,6 +47,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(AtLeastOneOf::class)]
 #[CoversClass(Before::class)]
 #[CoversClass(Between::class)]
+#[CoversClass(CompareField::class)]
+#[CoversClass(Comparison::class)]
 #[CoversClass(Each::class)]
 #[CoversClass(EmailFormat::class)]
 #[CoversClass(ExclusiveMax::class)]
@@ -172,6 +176,16 @@ final class ConstraintTest extends TestCase
         $atLeastOneOf = new AtLeastOneOf($alternatives);
 
         self::assertSame($alternatives, $atLeastOneOf->constraints);
+    }
+
+    #[Test]
+    public function compareFieldCarriesTargetFieldAndOperator(): void
+    {
+        $compare = new CompareField('startDate', Comparison::GreaterThan);
+
+        self::assertSame('startDate', $compare->field);
+        self::assertSame(Comparison::GreaterThan, $compare->operator);
+        self::assertSame('>', $compare->operator->value);
     }
 
     #[Test]

@@ -6,6 +6,8 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
+use haddowg\JsonApi\Resource\Constraint\CompareField;
+use haddowg\JsonApi\Resource\Constraint\Comparison;
 use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\In;
@@ -385,6 +387,17 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     public function atLeastOneOf(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$alternatives): static
     {
         return $this->addConstraint(new AtLeastOneOf(\array_values($alternatives), $this->currentContext()));
+    }
+
+    /**
+     * Compares this field's value to another field's value: the operator reads
+     * `<this field> <operator> <$field>` (e.g. `endDate` `GreaterThan` `startDate`).
+     *
+     * @return static
+     */
+    public function compareWith(string $field, Comparison $operator): static
+    {
+        return $this->addConstraint(new CompareField($field, $operator, $this->currentContext()));
     }
 
     public function isReadOnly(bool $creating): bool
