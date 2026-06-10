@@ -59,6 +59,17 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function emitsLinkageOnlyWhenLoaded(): bool;
 
     /**
+     * Reads the related domain value(s) off the parent `$model` **without
+     * serializing** — a single related object (or `null`) for a to-one relation,
+     * an iterable of related objects for a to-many one. This is the linkage data
+     * the relationship serializes from, exposed directly so a data-layer adapter
+     * driving the related / relationship endpoints can hand the related domain
+     * value(s) to the related type's provider without going through the
+     * serializer.
+     */
+    public function readValue(mixed $model, JsonApiRequestInterface $request): mixed;
+
+    /**
      * Builds the output relationship value object the serializer emits for
      * `$model`, resolving the related type's serializer through `$resolver`.
      */

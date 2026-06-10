@@ -209,6 +209,46 @@ final class AbstractResourceTest extends TestCase
         self::assertSame('99', $model['author']);
     }
 
+    #[Test]
+    public function relationNamedResolvesADeclaredRelation(): void
+    {
+        $resource = new PostResource();
+
+        $author = $resource->relationNamed('author');
+        self::assertNotNull($author);
+        self::assertFalse($author->isToMany());
+        self::assertSame(['users'], $author->relatedTypes());
+
+        $comments = $resource->relationNamed('comments');
+        self::assertNotNull($comments);
+        self::assertTrue($comments->isToMany());
+        self::assertSame(['comments'], $comments->relatedTypes());
+    }
+
+    #[Test]
+    public function relationNamedReturnsNullForAnUnknownOrNonRelationField(): void
+    {
+        $resource = new PostResource();
+
+        // No such relation.
+        self::assertNull($resource->relationNamed('publisher'));
+        // An attribute field is not a relation.
+        self::assertNull($resource->relationNamed('title'));
+    }
+
+    #[Test]
+    public function relationNamedReadsTheRelatedValueOffTheParent(): void
+    {
+        $resource = new PostResource();
+        $relation = $resource->relationNamed('author');
+        self::assertNotNull($relation);
+
+        self::assertSame(
+            ['id' => '1', 'type' => 'users'],
+            $relation->readValue($this->post(), new StubJsonApiRequest()),
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */

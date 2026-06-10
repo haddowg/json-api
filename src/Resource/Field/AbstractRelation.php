@@ -182,6 +182,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $model;
     }
 
+    public function readValue(mixed $model, JsonApiRequestInterface $request): mixed
+    {
+        return $this->relatedValue($model, $request, $this->name);
+    }
+
     public function hydrateRelationship(mixed $model, object $relationship): mixed
     {
         if ($this->fillUsing !== null) {

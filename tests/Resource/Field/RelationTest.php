@@ -247,6 +247,46 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function readValueReadsToOneRelatedValueWithoutSerializing(): void
+    {
+        $relation = BelongsTo::make('author')->type('users');
+        $author = ['id' => '7', 'type' => 'users'];
+        $model = ['author' => $author];
+
+        self::assertSame($author, $relation->readValue($model, $this->request()));
+    }
+
+    #[Test]
+    public function readValueReadsToManyRelatedValuesWithoutSerializing(): void
+    {
+        $relation = HasMany::make('comments')->type('comments');
+        $comments = [['id' => '1'], ['id' => '2']];
+        $model = ['comments' => $comments];
+
+        self::assertSame($comments, $relation->readValue($model, $this->request()));
+    }
+
+    #[Test]
+    public function readValueHonoursTheBackingColumn(): void
+    {
+        $relation = BelongsTo::make('author')->type('users')->storedAs('author_account');
+        $account = ['id' => '99', 'type' => 'users'];
+        $model = ['author_account' => $account];
+
+        self::assertSame($account, $relation->readValue($model, $this->request()));
+    }
+
+    #[Test]
+    public function readValueHonoursACustomExtractor(): void
+    {
+        $relation = BelongsTo::make('author')->type('users')->extractUsing(
+            static fn(): array => ['id' => 'extracted', 'type' => 'users'],
+        );
+
+        self::assertSame(['id' => 'extracted', 'type' => 'users'], $relation->readValue(['author' => null], $this->request()));
+    }
+
+    #[Test]
     public function morphToDeclaresMultipleTypes(): void
     {
         $relation = MorphTo::make('commentable')->types('posts', 'videos');

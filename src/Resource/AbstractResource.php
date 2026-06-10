@@ -410,6 +410,29 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * The relation field declared under the JSON:API member `$name`, or `null`
+     * if this resource has no such (non-hidden) relationship. The single lookup
+     * a data-layer adapter needs to drive the related / relationship endpoints:
+     * the returned {@see \haddowg\JsonApi\Resource\Field\RelationInterface}
+     * answers existence (non-null), cardinality
+     * ({@see \haddowg\JsonApi\Resource\Field\RelationInterface::isToMany()}),
+     * the related type(s)
+     * ({@see \haddowg\JsonApi\Resource\Field\RelationInterface::relatedTypes()}),
+     * and reads the related domain value(s) off the parent without serializing
+     * ({@see \haddowg\JsonApi\Resource\Field\RelationInterface::readValue()}).
+     */
+    public function relationNamed(string $name): ?\haddowg\JsonApi\Resource\Field\RelationInterface
+    {
+        foreach ($this->relationFields() as $relation) {
+            if ($relation->name() === $name) {
+                return $relation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return list<\haddowg\JsonApi\Resource\Field\RelationInterface>
      */
     protected function relationFields(): array
