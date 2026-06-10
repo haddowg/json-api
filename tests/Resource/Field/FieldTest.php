@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Field;
 
 use haddowg\JsonApi\Resource\Constraint\After;
+use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 use haddowg\JsonApi\Resource\Constraint\In;
@@ -14,6 +15,7 @@ use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\MinLength;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
@@ -284,6 +286,20 @@ final class FieldTest extends TestCase
         );
         self::assertSame([MinLength::class, $custom::class], $types);
         self::assertSame($custom, $field->constraints()[1]);
+    }
+
+    #[Test]
+    public function compositionCombinatorsWrapTheirConstraints(): void
+    {
+        $sequential = Str::make('x')->sequentially(new MinLength(3), new MaxLength(10))->constraints();
+        self::assertCount(1, $sequential);
+        self::assertInstanceOf(Sequentially::class, $sequential[0]);
+        self::assertCount(2, $sequential[0]->constraints);
+
+        $either = Str::make('x')->atLeastOneOf(new MinLength(3), new In(['n/a']))->constraints();
+        self::assertCount(1, $either);
+        self::assertInstanceOf(AtLeastOneOf::class, $either[0]);
+        self::assertCount(2, $either[0]->constraints);
     }
 
     #[Test]

@@ -6,6 +6,9 @@ namespace haddowg\JsonApi\Tests\Validation;
 
 use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Constraint\In;
+use haddowg\JsonApi\Resource\Constraint\MaxLength;
+use haddowg\JsonApi\Resource\Constraint\MinLength;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -47,6 +50,8 @@ final class SchemaCompilerTest extends TestCase
                     Integer::make('age')->min(0)->max(150)->nullable(),
                     Str::make('status')->in(['active', 'inactive']),
                     Str::make('createOnly')->requiredOnCreate(),
+                    Str::make('code')->sequentially(new MinLength(3), new MaxLength(8)),
+                    Str::make('ref')->atLeastOneOf(new MinLength(8), new In(['none'])),
                     BelongsTo::make('team')->type('teams')->required(),
                 ];
             }
@@ -139,6 +144,20 @@ final class SchemaCompilerTest extends TestCase
         self::assertArrayNotHasKey('required', $attributes);
         // Value constraints still apply on update.
         self::assertSame(50, $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'name', 'maxLength'));
+    }
+
+    #[Test]
+    public function compositionCombinatorsRoundTripToSchema(): void
+    {
+        $schema = $this->compileToArray(creating: true);
+
+        // Sequentially merges its wrapped constraints into the field's own schema.
+        self::assertSame(3, $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'code', 'minLength'));
+        self::assertSame(8, $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'code', 'maxLength'));
+
+        // AtLeastOneOf becomes anyOf, one sub-schema per alternative.
+        $anyOf = $this->listAt($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'ref', 'anyOf');
+        self::assertCount(2, $anyOf);
     }
 
     #[Test]

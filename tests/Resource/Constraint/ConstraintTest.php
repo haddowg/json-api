@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Constraint;
 
 use haddowg\JsonApi\Resource\Constraint\After;
+use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\Context;
@@ -28,6 +29,7 @@ use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
@@ -40,6 +42,7 @@ use PHPUnit\Framework\TestCase;
 
 #[CoversClass(Context::class)]
 #[CoversClass(After::class)]
+#[CoversClass(AtLeastOneOf::class)]
 #[CoversClass(Before::class)]
 #[CoversClass(Between::class)]
 #[CoversClass(Each::class)]
@@ -62,6 +65,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Pattern::class)]
 #[CoversClass(RelationshipType::class)]
 #[CoversClass(Required::class)]
+#[CoversClass(Sequentially::class)]
 #[CoversClass(SlugFormat::class)]
 #[CoversClass(UniqueItems::class)]
 #[CoversClass(UrlFormat::class)]
@@ -150,6 +154,24 @@ final class ConstraintTest extends TestCase
         $each = new Each($inner);
 
         self::assertSame($inner, $each->constraints);
+    }
+
+    #[Test]
+    public function sequentiallyWrapsConstraints(): void
+    {
+        $inner = [new MinLength(1)];
+        $sequentially = new Sequentially($inner);
+
+        self::assertSame($inner, $sequentially->constraints);
+    }
+
+    #[Test]
+    public function atLeastOneOfWrapsAlternatives(): void
+    {
+        $alternatives = [new MinLength(1)];
+        $atLeastOneOf = new AtLeastOneOf($alternatives);
+
+        self::assertSame($alternatives, $atLeastOneOf->constraints);
     }
 
     #[Test]

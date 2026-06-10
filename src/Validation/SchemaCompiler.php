@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Validation;
 
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Constraint\After;
+use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\Constraint;
@@ -28,6 +29,7 @@ use haddowg\JsonApi\Resource\Constraint\NotIn;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -266,6 +268,17 @@ final class SchemaCompiler
                 $schema = $this->applyDateBound($schema, $constraint->min, true);
                 $schema = $this->applyDateBound($schema, $constraint->max, false);
                 break;
+            case $constraint instanceof Sequentially:
+                // All wrapped constraints ultimately hold, so merge them into the
+                // field's own schema (ordering is an execution-only concern).
+                foreach ($constraint->constraints as $inner) {
+                    if ($inner->context()->appliesTo($creating)) {
+                        $schema = $this->applyConstraint($schema, $inner, $creating);
+                    }
+                }
+                break;
+            case $constraint instanceof AtLeastOneOf: $schema['anyOf'] = $this->atLeastOneOfSchema($constraint, $creating);
+                break;
                 // Required/Nullable handled by the caller; When intentionally skipped.
             default: break;
         }
@@ -286,6 +299,23 @@ final class SchemaCompiler
         }
 
         return $items;
+    }
+
+    /**
+     * Compiles each alternative to its own sub-schema for a JSON Schema `anyOf`.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function atLeastOneOfSchema(AtLeastOneOf $constraint, bool $creating): array
+    {
+        $alternatives = [];
+        foreach ($constraint->constraints as $alternative) {
+            if ($alternative->context()->appliesTo($creating)) {
+                $alternatives[] = $this->applyConstraint([], $alternative, $creating);
+            }
+        }
+
+        return $alternatives;
     }
 
     /**

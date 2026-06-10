@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\NotIn;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\When;
 
 /**
@@ -360,6 +362,29 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         }
 
         return $this->addConstraint(new When($condition, $collected, $this->currentContext()));
+    }
+
+    /**
+     * Applies the given constraints to the value in order, stopping at the first
+     * failure (Symfony's `Sequentially`); all must ultimately hold.
+     *
+     * @return static
+     */
+    public function sequentially(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$constraints): static
+    {
+        return $this->addConstraint(new Sequentially(\array_values($constraints), $this->currentContext()));
+    }
+
+    /**
+     * Passes if the value satisfies at least one of the given alternatives
+     * (Symfony's `AtLeastOneOf`). Use {@see sequentially()} for an alternative made
+     * of several rules.
+     *
+     * @return static
+     */
+    public function atLeastOneOf(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$alternatives): static
+    {
+        return $this->addConstraint(new AtLeastOneOf(\array_values($alternatives), $this->currentContext()));
     }
 
     public function isReadOnly(bool $creating): bool
