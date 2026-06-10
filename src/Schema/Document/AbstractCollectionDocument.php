@@ -39,6 +39,7 @@ abstract class AbstractCollectionDocument extends AbstractResourceDocument
             $transformation->basePath,
             $transformation->requestedRelationshipName,
             '',
+            $transformation->baseUri,
         );
         $data = new CollectionData();
 

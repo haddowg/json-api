@@ -75,6 +75,7 @@ final class RelatedResponse extends AbstractResponse
             '',
             '',
             [],
+            $server->baseUri(),
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

@@ -33,5 +33,6 @@ class ResourceTransformation
         public string $basePath,
         public string $requestedRelationshipName,
         public string $currentRelationshipName,
+        public string $baseUri = '',
     ) {}
 }

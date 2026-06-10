@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Schema\Relationship;
 
 use haddowg\JsonApi\Schema\Data\DataInterface;
+use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
@@ -39,6 +40,15 @@ abstract class AbstractRelationship
     protected bool $omitDataWhenNotIncluded;
 
     protected ?SerializerInterface $resource;
+
+    /**
+     * The relation's URI segment when this relationship should emit the spec's
+     * conventional `self` / `related` links by convention; `null` when the
+     * owning relation opted out (or for a relationship built outside a relation
+     * field). The actual URLs are computed in {@see transform()}, the only layer
+     * that knows the parent resource's type + id and the configured base URI.
+     */
+    protected ?string $conventionLinksUriFieldName = null;
 
     /**
      * @internal
@@ -143,6 +153,23 @@ abstract class AbstractRelationship
     }
 
     /**
+     * Marks this relationship to emit the spec's conventional `self` / `related`
+     * links, using `$uriFieldName` as the relationship's URI segment. The URLs
+     * are built in {@see transform()} from the owning resource's type + id and
+     * the server base URI; an explicit {@see setLinks()} takes precedence.
+     *
+     * @internal
+     *
+     * @return $this
+     */
+    public function withConventionLinks(string $uriFieldName): static
+    {
+        $this->conventionLinksUriFieldName = $uriFieldName;
+
+        return $this;
+    }
+
+    /**
      * @return $this
      */
     public function setData(mixed $data, SerializerInterface $resource): static
@@ -219,8 +246,9 @@ abstract class AbstractRelationship
         // Transform the relationship link because the relationship field is included
         $relationshipObject = [];
 
-        if ($this->links !== null) {
-            $relationshipObject['links'] = $this->links->transform();
+        $links = $this->links ?? $this->conventionLinks($transformation);
+        if ($links !== null) {
+            $relationshipObject['links'] = $links->transform();
         }
 
         if ($this->meta !== []) {
@@ -232,6 +260,52 @@ abstract class AbstractRelationship
         }
 
         return $relationshipObject;
+    }
+
+    /**
+     * Builds the spec's conventional relationship `links` from the owning
+     * resource's context, or returns `null` when convention links are not
+     * requested or the parent identity cannot be resolved.
+     *
+     * `self`    = {baseUri}/{parentType}/{parentId}/relationships/{uriFieldName}
+     * `related` = {baseUri}/{parentType}/{parentId}/{uriFieldName}
+     *
+     * The owning resource's type comes from the parent serializer (falling back
+     * to the transformation's resolved type) and its id from that serializer's
+     * `getId()`. A missing parent serializer or an empty id (e.g. a not-yet-
+     * persisted resource) omits the links rather than emitting a malformed URL.
+     *
+     * @internal
+     */
+    protected function conventionLinks(ResourceTransformation $transformation): ?RelationshipLinks
+    {
+        $uriFieldName = $this->conventionLinksUriFieldName;
+        if ($uriFieldName === null) {
+            return null;
+        }
+
+        $parent = $transformation->resource;
+        if ($parent === null) {
+            return null;
+        }
+
+        $parentType = $parent->getType($transformation->object);
+        if ($parentType === '') {
+            $parentType = $transformation->resourceType;
+        }
+
+        $parentId = $parent->getId($transformation->object);
+        if ($parentType === '' || $parentId === '') {
+            return null;
+        }
+
+        $base = '/' . $parentType . '/' . $parentId;
+
+        return new RelationshipLinks(
+            $transformation->baseUri,
+            new Link($base . '/relationships/' . $uriFieldName),
+            new Link($base . '/' . $uriFieldName),
+        );
     }
 
     /**

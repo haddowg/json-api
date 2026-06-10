@@ -29,6 +29,7 @@ class ResourceDocumentTransformation extends AbstractDocumentTransformation
         public string $basePath,
         public string $requestedRelationshipName,
         array $additionalMeta,
+        public string $baseUri = '',
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

@@ -58,6 +58,7 @@ final class IdentifierResponse extends AbstractResponse
             '',
             $this->relationshipName,
             [],
+            $server->baseUri(),
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;

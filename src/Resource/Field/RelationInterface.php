@@ -39,6 +39,14 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function canEagerLoad(): bool;
 
     /**
+     * Whether the relationship object should carry the spec's conventional
+     * `self` / `related` links, built from the owning resource's type + id and
+     * this relation's URI segment. On by default; suppressed by
+     * {@see AbstractRelation::withoutLinks()}.
+     */
+    public function includesLinks(): bool;
+
+    /**
      * Builds the output relationship value object the serializer emits for
      * `$model`, resolving the related type's serializer through `$resolver`.
      */

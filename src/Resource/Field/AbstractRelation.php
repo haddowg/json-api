@@ -39,6 +39,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $retainFieldName = false;
 
+    protected bool $includesLinks = true;
+
     /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
@@ -98,6 +100,19 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this;
     }
 
+    /**
+     * Suppresses the conventional `self` / `related` relationship links this
+     * relation otherwise emits by default.
+     *
+     * @return static
+     */
+    public function withoutLinks(): static
+    {
+        $this->includesLinks = false;
+
+        return $this;
+    }
+
     public function relatedTypes(): array
     {
         return $this->relatedTypes;
@@ -106,6 +121,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function canEagerLoad(): bool
     {
         return $this->eagerLoad;
+    }
+
+    public function includesLinks(): bool
+    {
+        return $this->includesLinks;
     }
 
     /**
@@ -203,6 +223,10 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             }
         }
 
+        if ($this->includesLinks) {
+            $relationship->withConventionLinks($this->uriFieldName());
+        }
+
         return $relationship;
     }
 
@@ -219,6 +243,10 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         $type = $this->relatedTypes[0] ?? null;
         if ($related !== null && $type !== null && $resolver->hasSerializerFor($type)) {
             $relationship->setData($related, $resolver->serializerFor($type));
+        }
+
+        if ($this->includesLinks) {
+            $relationship->withConventionLinks($this->uriFieldName());
         }
 
         return $relationship;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Schema\Relationship;
 
+use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\FakeRelationship;
@@ -225,6 +226,152 @@ final class AbstractRelationshipTest extends TestCase
                 'data' => [],
             ],
             $relationshipObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsConventionSelfAndRelatedLinks(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author');
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'links' => [
+                    'self' => 'https://api.example.com/articles/42/relationships/author',
+                    'related' => 'https://api.example.com/articles/42/author',
+                ],
+                'data' => [],
+            ],
+            $relationshipObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsConventionLinksWithUriFieldNameOverride(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('writer');
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/articles/42/relationships/writer',
+                'related' => 'https://api.example.com/articles/42/writer',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformOmitsConventionLinksWhenNotRequested(): void
+    {
+        $relationshipObject = $this->createRelationship()->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertArrayNotHasKey('links', (array) $relationshipObject);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformOmitsConventionLinksWhenParentIdUnavailable(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author');
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', ''),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertArrayNotHasKey('links', (array) $relationshipObject);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function explicitLinksTakePrecedenceOverConventionLinks(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author')
+            ->setLinks(new RelationshipLinks('', new Link('/custom/self')));
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['self' => '/custom/self'],
+            $relationshipObject['links'] ?? null,
         );
     }
 

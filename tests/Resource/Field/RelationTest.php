@@ -16,9 +16,14 @@ use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
+use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
+use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
+use haddowg\JsonApi\Transformer\ResourceTransformation;
+use haddowg\JsonApi\Transformer\ResourceTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -103,6 +108,77 @@ final class RelationTest extends TestCase
 
         $relation->withUriFieldName('writer');
         self::assertSame('writer', $relation->uriFieldName());
+    }
+
+    #[Test]
+    public function includesLinksByDefaultAndWithoutLinksOptsOut(): void
+    {
+        $relation = BelongsTo::make('author')->type('users');
+        self::assertTrue($relation->includesLinks());
+
+        self::assertFalse(BelongsTo::make('author')->type('users')->withoutLinks()->includesLinks());
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function buildRelationshipStampsConventionLinksByDefault(): void
+    {
+        $relation = BelongsTo::make('author')->type('users')->withUriFieldName('writer');
+        $model = ['author' => ['id' => '7', 'type' => 'users']];
+
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+
+        $relationshipObject = $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/articles/42/relationships/writer',
+                'related' => 'https://api.example.com/articles/42/writer',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function buildRelationshipOmitsLinksWhenWithoutLinks(): void
+    {
+        $relation = HasMany::make('comments')->type('comments')->withoutLinks();
+        $model = ['comments' => [['id' => '1', 'type' => 'comments']]];
+
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+
+        $relationshipObject = $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertArrayNotHasKey('links', (array) $relationshipObject);
     }
 
     #[Test]

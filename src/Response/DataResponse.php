@@ -83,6 +83,7 @@ final class DataResponse extends AbstractResponse
             '',
             '',
             [],
+            $server->baseUri(),
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;
