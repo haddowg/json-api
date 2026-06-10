@@ -263,10 +263,14 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
                     ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
                     ->omitDataWhenNotIncluded();
             } else {
-                $related = $this->relatedValue($model, $request, $this->name);
-                if ($related !== null) {
-                    $relationship->setData($related, $serializer);
-                }
+                // Always bind the serializer (even for a null related value) so the
+                // relationship carries its resource: an empty to-one then renders
+                // `data: null` rather than omitting the data member, which the
+                // relationship-linkage endpoint (`/relationships/{name}`) requires
+                // per the spec. The data member stays sparse in a full resource
+                // document via the transformer's include/current-relationship gate,
+                // so omitting it there is unaffected.
+                $relationship->setData($this->relatedValue($model, $request, $this->name), $serializer);
             }
         }
 
@@ -297,10 +301,10 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
                     ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
                     ->omitDataWhenNotIncluded();
             } else {
-                $related = $this->relatedValue($model, $request, $this->name);
-                if ($related !== null) {
-                    $relationship->setData($related, $serializer);
-                }
+                // Always bind the serializer (mirrors buildToOne): a to-many over a
+                // null/absent related value then renders `data: []` rather than
+                // omitting it, so the relationship-linkage endpoint is spec-correct.
+                $relationship->setData($this->relatedValue($model, $request, $this->name), $serializer);
             }
         }
 

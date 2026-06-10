@@ -380,6 +380,39 @@ final class RelationTest extends TestCase
         self::assertSame(['type' => 'users', 'id' => '7'], $relationshipObject['data'] ?? null);
     }
 
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function anEmptyToOneBindsItsSerializerAndEmitsNullData(): void
+    {
+        // A null to-one (no related object) still binds its serializer, so the
+        // relationship carries `data: null` rather than omitting the data member —
+        // the precondition the relationship-linkage endpoint relies on to render
+        // `data: null` per the spec.
+        $relation = BelongsTo::make('author')->type('users');
+        $model = ['author' => null];
+
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $this->request(),
+                '',
+                '',
+                'author',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertArrayHasKey('data', $relationshipObject);
+        self::assertNull($relationshipObject['data']);
+    }
+
     /**
      * Runs the relation through build + transform with a load-state predicate
      * wired onto the resolver, returning the transformed relationship object.
