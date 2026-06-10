@@ -249,6 +249,156 @@ final class AbstractResourceTest extends TestCase
         );
     }
 
+    #[Test]
+    public function patchRelationshipEndpointReplacesAToOne(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '42']]);
+
+        $model = $resource->hydrateRelationship('author', $request, ['author' => '1']);
+
+        self::assertIsArray($model);
+        self::assertSame('42', $model['author']);
+    }
+
+    #[Test]
+    public function patchRelationshipEndpointClearsAToOneWithNullData(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', ['data' => null]);
+
+        $model = $resource->hydrateRelationship('author', $request, ['author' => '1']);
+
+        self::assertIsArray($model);
+        self::assertNull($model['author']);
+    }
+
+    #[Test]
+    public function patchRelationshipEndpointReplacesAToMany(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                ['type' => 'comments', 'id' => '5'],
+                ['type' => 'comments', 'id' => '6'],
+            ],
+        ]);
+
+        $model = $resource->hydrateRelationship('comments', $request, ['comments' => ['1', '2']]);
+
+        self::assertIsArray($model);
+        self::assertSame(['5', '6'], $model['comments']);
+    }
+
+    #[Test]
+    public function postRelationshipEndpointAddsToAToMany(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('POST', [
+            'data' => [
+                ['type' => 'comments', 'id' => '2'],
+                ['type' => 'comments', 'id' => '3'],
+            ],
+        ]);
+
+        // Add is idempotent (set semantics): the already-present '2' is not duplicated.
+        $model = $resource->hydrateRelationship('comments', $request, ['comments' => ['1', '2']]);
+
+        self::assertIsArray($model);
+        self::assertSame(['1', '2', '3'], $model['comments']);
+    }
+
+    #[Test]
+    public function deleteRelationshipEndpointRemovesFromAToMany(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('DELETE', [
+            'data' => [
+                ['type' => 'comments', 'id' => '2'],
+            ],
+        ]);
+
+        $model = $resource->hydrateRelationship('comments', $request, ['comments' => ['1', '2', '3']]);
+
+        self::assertIsArray($model);
+        self::assertSame(['1', '3'], $model['comments']);
+    }
+
+    #[Test]
+    public function hydrateRelationshipRejectsAnUnknownRelationship(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', ['data' => null]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RelationshipNotExists::class);
+        $resource->hydrateRelationship('publisher', $request, []);
+    }
+
+    #[Test]
+    public function postToARelationshipEndpointOfAToOneIsACardinalityError(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('POST', ['data' => [['type' => 'users', 'id' => '9']]]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RelationshipTypeInappropriate::class);
+        $resource->hydrateRelationship('author', $request, ['author' => '1']);
+    }
+
+    #[Test]
+    public function deleteToARelationshipEndpointOfAToOneIsACardinalityError(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('DELETE', ['data' => [['type' => 'users', 'id' => '9']]]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RelationshipTypeInappropriate::class);
+        $resource->hydrateRelationship('author', $request, ['author' => '1']);
+    }
+
+    #[Test]
+    public function patchReplaceIsRejectedWhenTheRelationCannotReplace(): void
+    {
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('PATCH', [
+            'data' => [['type' => 'tags', 'id' => '5']],
+        ]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\FullReplacementProhibited::class);
+        $resource->hydrateRelationship('tags', $request, ['tags' => ['1']]);
+    }
+
+    #[Test]
+    public function deleteRemoveIsRejectedWhenTheRelationCannotRemove(): void
+    {
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('DELETE', [
+            'data' => [['type' => 'tags', 'id' => '1']],
+        ]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RemovalProhibited::class);
+        $resource->hydrateRelationship('tags', $request, ['tags' => ['1']]);
+    }
+
+    #[Test]
+    public function patchClearOfAToOneIsRejectedWhenTheRelationCannotRemove(): void
+    {
+        // A to-one PATCH `{data:null}` is a *removal*, gated by allowsRemove().
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('PATCH', ['data' => null]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RemovalProhibited::class);
+        $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
+    }
+
+    #[Test]
+    public function patchReplaceOfAToOneIsRejectedWhenTheRelationCannotReplace(): void
+    {
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\FullReplacementProhibited::class);
+        $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -321,5 +471,26 @@ final class PostResource extends AbstractResource
     public function pagination(): \haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return PagePaginator::make()->withDefaultPerPage(15);
+    }
+}
+
+/**
+ * A resource whose relationships opt out of replace / remove, exercising the
+ * mutability gates ({@see \haddowg\JsonApi\Exception\FullReplacementProhibited} /
+ * {@see \haddowg\JsonApi\Exception\RemovalProhibited}).
+ */
+final class RestrictedResource extends AbstractResource
+{
+    public static string $type = 'restricted';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            // A to-many that may be added to but never replaced or removed from.
+            HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove(),
+            // A to-one that may be replaced but never cleared.
+            BelongsTo::make('owner')->type('users')->cannotReplace()->cannotRemove(),
+        ];
     }
 }

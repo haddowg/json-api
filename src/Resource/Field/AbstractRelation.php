@@ -43,6 +43,10 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $linkageOnlyWhenLoaded = false;
 
+    protected bool $allowsReplace = true;
+
+    protected bool $allowsRemove = true;
+
     /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
@@ -133,6 +137,46 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this;
     }
 
+    /**
+     * Prohibits full replacement of this relationship: a `PATCH` to its
+     * relationship endpoint (and a to-one clear via `data: null`, which is a
+     * removal) is rejected with {@see \haddowg\JsonApi\Exception\FullReplacementProhibited}.
+     * Both replace and remove are allowed by default.
+     *
+     * @return static
+     */
+    public function cannotReplace(): static
+    {
+        $this->allowsReplace = false;
+
+        return $this;
+    }
+
+    /**
+     * Prohibits removal from this relationship: a `DELETE` to its (to-many)
+     * relationship endpoint, or clearing a to-one (`data: null`), is rejected with
+     * {@see \haddowg\JsonApi\Exception\RemovalProhibited}. Both replace and remove
+     * are allowed by default.
+     *
+     * @return static
+     */
+    public function cannotRemove(): static
+    {
+        $this->allowsRemove = false;
+
+        return $this;
+    }
+
+    public function allowsReplace(): bool
+    {
+        return $this->allowsReplace;
+    }
+
+    public function allowsRemove(): bool
+    {
+        return $this->allowsRemove;
+    }
+
     public function relatedTypes(): array
     {
         return $this->relatedTypes;
@@ -211,10 +255,55 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return Accessor::get($model, $this->column ?? $name);
     }
 
+    public function applyToMany(mixed $model, object $relationship, Mode $mode): mixed
+    {
+        if (!$relationship instanceof InputToMany) {
+            return $model;
+        }
+
+        if ($this->fillUsing !== null) {
+            $result = ($this->fillUsing)($model, $relationship, ['mode' => $mode], $this->name);
+
+            return $result ?? $model;
+        }
+
+        $column = $this->column;
+        if ($column === null) {
+            return $model;
+        }
+
+        if ($mode === Mode::Replace) {
+            return Accessor::set($model, $column, $relationship->getResourceIdentifierIds());
+        }
+
+        /** @var list<string> $current */
+        $current = \array_values(\array_filter(
+            (array) (Accessor::get($model, $column) ?? []),
+            static fn(mixed $id): bool => $id !== null,
+        ));
+        /** @var list<string> $incoming */
+        $incoming = \array_values(\array_filter(
+            $relationship->getResourceIdentifierIds(),
+            static fn(?string $id): bool => $id !== null,
+        ));
+
+        if ($mode === Mode::Add) {
+            // Append, deduplicating so add is idempotent (set semantics).
+            $next = \array_values(\array_unique([...$current, ...$incoming]));
+
+            return Accessor::set($model, $column, $next);
+        }
+
+        // Mode::Remove — subtract the incoming ids from the existing set.
+        $next = \array_values(\array_filter($current, static fn(string $id): bool => !\in_array($id, $incoming, true)));
+
+        return Accessor::set($model, $column, $next);
+    }
+
     /**
      * Writes the parsed input relationship into the domain object. Default:
-     * store the related id(s) on the field's column. Override for richer
-     * cardinality handling.
+     * store the related id(s) on the field's column ({@see Mode::Replace}
+     * semantics). Override for richer cardinality handling.
      *
      * @param InputToOne|InputToMany|object $relationship
      */

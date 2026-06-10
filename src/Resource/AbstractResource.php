@@ -6,15 +6,22 @@ namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\DataMemberMissing;
+use haddowg\JsonApi\Exception\FullReplacementProhibited;
+use haddowg\JsonApi\Exception\RelationshipNotExists;
+use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
+use haddowg\JsonApi\Exception\RemovalProhibited;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
+use haddowg\JsonApi\Hydrator\UpdateRelationshipHydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\Field;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\Relation;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -36,7 +43,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * the transformer reading {@see Field::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface
 {
     /**
      * The JSON:API resource type. Subclasses set this.
@@ -198,6 +205,114 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         return $domainObject;
+    }
+
+    /**
+     * Applies a relationship-endpoint mutation
+     * (`/{type}/{id}/relationships/{name}`) to `$domainObject`, returning the
+     * mutated object. The verb selects the mode — `PATCH` replaces, `POST` adds,
+     * `DELETE` removes — and this method enforces both cardinality (add/remove are
+     * to-many only) and the relation's mutability flags before applying the
+     * storage-agnostic baseline (a scalar column write); a data-layer adapter
+     * overrides the apply to mutate the real association.
+     *
+     * @param mixed $domainObject
+     * @return mixed
+     *
+     * @throws RelationshipNotExists when this resource has no such relationship (404)
+     * @throws RelationshipTypeInappropriate when add/remove targets a to-one relationship (400)
+     * @throws FullReplacementProhibited when a replace targets a relation that {@see RelationInterface::allowsReplace()} === false (403)
+     * @throws RemovalProhibited when a removal (or a to-one clear) targets a relation that {@see RelationInterface::allowsRemove()} === false (403)
+     */
+    public function hydrateRelationship(
+        string $relationship,
+        JsonApiRequestInterface $request,
+        mixed $domainObject,
+    ): mixed {
+        $relation = $this->relationNamed($relationship);
+        if ($relation === null) {
+            throw new RelationshipNotExists($relationship);
+        }
+
+        $mode = match ($request->getMethod()) {
+            'POST' => Mode::Add,
+            'DELETE' => Mode::Remove,
+            default => Mode::Replace,
+        };
+
+        // Add / remove are to-many operations: POST / DELETE to a to-one
+        // relationship endpoint is a cardinality error.
+        if ($mode !== Mode::Replace && $relation->isToMany() === false) {
+            throw new RelationshipTypeInappropriate($relationship, 'to-one', 'to-many');
+        }
+
+        if ($relation->isToMany()) {
+            return $this->mutateToMany($relation, $relationship, $request, $domainObject, $mode);
+        }
+
+        return $this->mutateToOne($relation, $relationship, $request, $domainObject);
+    }
+
+    /**
+     * Applies a `PATCH` to a to-one relationship endpoint: a non-null linkage is a
+     * full replacement (gated by {@see RelationInterface::allowsReplace()}); a
+     * `data: null` clears it (a removal, gated by
+     * {@see RelationInterface::allowsRemove()}).
+     *
+     * @param mixed $domainObject
+     * @return mixed
+     *
+     * @throws FullReplacementProhibited
+     * @throws RemovalProhibited
+     */
+    protected function mutateToOne(
+        RelationInterface $relation,
+        string $relationship,
+        JsonApiRequestInterface $request,
+        mixed $domainObject,
+    ): mixed {
+        $linkage = $request->getRelationshipLinkageToOne($relationship);
+
+        if ($linkage->isEmpty()) {
+            if ($relation->allowsRemove() === false) {
+                throw new RemovalProhibited($relationship);
+            }
+        } elseif ($relation->allowsReplace() === false) {
+            throw new FullReplacementProhibited($relationship);
+        }
+
+        return $relation->hydrateRelationship($domainObject, $linkage);
+    }
+
+    /**
+     * Applies a to-many relationship-endpoint mutation under `$mode`: `PATCH`
+     * replaces (gated by {@see RelationInterface::allowsReplace()}), `POST` adds,
+     * `DELETE` removes (gated by {@see RelationInterface::allowsRemove()}).
+     *
+     * @param mixed $domainObject
+     * @return mixed
+     *
+     * @throws FullReplacementProhibited
+     * @throws RemovalProhibited
+     */
+    protected function mutateToMany(
+        RelationInterface $relation,
+        string $relationship,
+        JsonApiRequestInterface $request,
+        mixed $domainObject,
+        Mode $mode,
+    ): mixed {
+        if ($mode === Mode::Replace && $relation->allowsReplace() === false) {
+            throw new FullReplacementProhibited($relationship);
+        }
+
+        if ($mode === Mode::Remove && $relation->allowsRemove() === false) {
+            throw new RemovalProhibited($relationship);
+        }
+
+        $linkage = $request->getRelationshipLinkageToMany($relationship);
+
+        return $relation->applyToMany($domainObject, $linkage, $mode);
     }
 
     /**

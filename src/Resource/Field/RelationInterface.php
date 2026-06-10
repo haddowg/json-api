@@ -81,9 +81,39 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
 
     /**
      * Hydrates the relationship from the request's parsed linkage into `$model`,
-     * returning the (possibly replaced) domain object.
+     * returning the (possibly replaced) domain object. Replaces the relationship
+     * wholesale (the {@see Mode::Replace} baseline) — the path used when this
+     * relation appears inside a whole-resource POST/PATCH body.
      *
      * @param \haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship|\haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship $relationship
      */
     public function hydrateRelationship(mixed $model, object $relationship): mixed;
+
+    /**
+     * Whether full replacement of this relationship is permitted (a `PATCH` to the
+     * relationship endpoint, or a `data` member for this relation in a
+     * whole-resource body). On by default; opt out via
+     * {@see AbstractRelation::cannotReplace()}. A prohibited replacement is a
+     * {@see \haddowg\JsonApi\Exception\FullReplacementProhibited} (403).
+     */
+    public function allowsReplace(): bool;
+
+    /**
+     * Whether removal from this relationship is permitted — `DELETE` to a to-many
+     * relationship endpoint, or clearing a to-one (`data: null`). On by default;
+     * opt out via {@see AbstractRelation::cannotRemove()}. A prohibited removal is
+     * a {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403).
+     */
+    public function allowsRemove(): bool;
+
+    /**
+     * Applies parsed to-many linkage to `$model` under `$mode`: {@see Mode::Replace}
+     * sets the whole set, {@see Mode::Add} appends the linkage ids to the existing
+     * set, {@see Mode::Remove} subtracts them. The storage-agnostic baseline writes
+     * the resulting id list onto the field's column; a data-layer override mutates
+     * the real association.
+     *
+     * @param \haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship $relationship
+     */
+    public function applyToMany(mixed $model, object $relationship, Mode $mode): mixed;
 }

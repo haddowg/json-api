@@ -217,4 +217,28 @@ interface JsonApiRequestInterface extends ServerRequestInterface
      * Returns the $relationship to-many relationship of the primary resource if it is present.
      */
     public function getToManyRelationship(string $relationship): ToManyRelationship;
+
+    /**
+     * Parses the **top-level** `{data: <linkage>}` of a relationship-endpoint body
+     * (`/{type}/{id}/relationships/{name}`) into a to-one linkage value object —
+     * distinct from {@see getToOneRelationship()}, which reads from the
+     * whole-resource `data.relationships.{name}.data` path. `data: null` yields an
+     * empty (clearing) relationship.
+     *
+     * @throws \haddowg\JsonApi\Exception\RelationshipNotExists when the body carries no `data` member
+     * @throws \haddowg\JsonApi\Exception\RelationshipTypeInappropriate when the body's `data` is a list (to-many linkage on a to-one endpoint)
+     */
+    public function getRelationshipLinkageToOne(string $relationship): ToOneRelationship;
+
+    /**
+     * Parses the **top-level** `{data: <linkage>}` of a relationship-endpoint body
+     * (`/{type}/{id}/relationships/{name}`) into a to-many linkage value object —
+     * distinct from {@see getToManyRelationship()}, which reads from the
+     * whole-resource `data.relationships.{name}.data` path. `data: []` yields an
+     * empty (clearing) relationship.
+     *
+     * @throws \haddowg\JsonApi\Exception\RelationshipNotExists when the body carries no `data` member
+     * @throws \haddowg\JsonApi\Exception\RelationshipTypeInappropriate when the body's `data` is a single object or `null` (to-one linkage on a to-many endpoint)
+     */
+    public function getRelationshipLinkageToMany(string $relationship): ToManyRelationship;
 }

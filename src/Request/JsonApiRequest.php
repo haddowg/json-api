@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\QueryParamMalformed;
 use haddowg\JsonApi\Exception\QueryParamUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
+use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
 use haddowg\JsonApi\Exception\TopLevelMemberNotAllowed;
 use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
@@ -719,6 +720,63 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         $relDataList = (array) $rel['data'];
         foreach ($relDataList as $item) {
             $resourceIdentifiers[] = ResourceIdentifier::fromArray((array) $item);
+        }
+
+        return new ToManyRelationship($resourceIdentifiers);
+    }
+
+    public function getRelationshipLinkageToOne(string $relationship): ToOneRelationship
+    {
+        /** @var array<string, mixed> $body */
+        $body = (array) $this->getParsedBody();
+
+        if (\array_key_exists('data', $body) === false) {
+            throw new RelationshipNotExists($relationship);
+        }
+
+        $data = $body['data'];
+
+        if ($data === null) {
+            return new ToOneRelationship();
+        }
+
+        // A relationship-endpoint to-one body MUST carry `data` as a single
+        // resource-identifier object (or `null`, handled above). A list — including
+        // `[]` — is a cardinality mismatch: the client sent to-many linkage to a
+        // to-one relationship endpoint.
+        if (\is_array($data) === false || \array_is_list($data)) {
+            throw new RelationshipTypeInappropriate($relationship, 'to-many', 'to-one');
+        }
+
+        /** @var array<string, mixed> $data */
+        return new ToOneRelationship(ResourceIdentifier::fromArray($data));
+    }
+
+    public function getRelationshipLinkageToMany(string $relationship): ToManyRelationship
+    {
+        /** @var array<string, mixed> $body */
+        $body = (array) $this->getParsedBody();
+
+        if (\array_key_exists('data', $body) === false) {
+            throw new RelationshipNotExists($relationship);
+        }
+
+        $data = $body['data'];
+
+        // A relationship-endpoint to-many body MUST carry `data` as an array of
+        // resource-identifier objects (possibly empty — the clear/replace-with-none
+        // signal). A single object (or `null`) is a cardinality mismatch — the
+        // client sent to-one linkage to a to-many relationship endpoint.
+        if (\is_array($data) === false || ($data !== [] && \array_is_list($data) === false)) {
+            throw new RelationshipTypeInappropriate($relationship, 'to-one', 'to-many');
+        }
+
+        $resourceIdentifiers = [];
+        /** @var list<mixed> $data */
+        foreach ($data as $item) {
+            /** @var array<string, mixed> $itemArray */
+            $itemArray = (array) $item;
+            $resourceIdentifiers[] = ResourceIdentifier::fromArray($itemArray);
         }
 
         return new ToManyRelationship($resourceIdentifiers);

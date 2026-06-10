@@ -212,6 +212,54 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function mutabilityFlagsDefaultToAllowedAndOptOut(): void
+    {
+        $relation = HasMany::make('tags')->type('tags');
+        self::assertTrue($relation->allowsReplace());
+        self::assertTrue($relation->allowsRemove());
+
+        $restricted = HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove();
+        self::assertFalse($restricted->allowsReplace());
+        self::assertFalse($restricted->allowsRemove());
+    }
+
+    #[Test]
+    public function applyToManyReplaceSetsTheWholeColumn(): void
+    {
+        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $input = new InputToMany([new ResourceIdentifier('tags', '5'), new ResourceIdentifier('tags', '6')]);
+
+        $result = $relation->applyToMany(['tag_ids' => ['1', '2']], $input, \haddowg\JsonApi\Resource\Field\Mode::Replace);
+
+        self::assertIsArray($result);
+        self::assertSame(['5', '6'], $result['tag_ids']);
+    }
+
+    #[Test]
+    public function applyToManyAddAppendsIdsIdempotently(): void
+    {
+        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $input = new InputToMany([new ResourceIdentifier('tags', '2'), new ResourceIdentifier('tags', '3')]);
+
+        $result = $relation->applyToMany(['tag_ids' => ['1', '2']], $input, \haddowg\JsonApi\Resource\Field\Mode::Add);
+
+        self::assertIsArray($result);
+        self::assertSame(['1', '2', '3'], $result['tag_ids']);
+    }
+
+    #[Test]
+    public function applyToManyRemoveSubtractsIds(): void
+    {
+        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $input = new InputToMany([new ResourceIdentifier('tags', '2')]);
+
+        $result = $relation->applyToMany(['tag_ids' => ['1', '2', '3']], $input, \haddowg\JsonApi\Resource\Field\Mode::Remove);
+
+        self::assertIsArray($result);
+        self::assertSame(['1', '3'], $result['tag_ids']);
+    }
+
+    #[Test]
     public function hydrateRelationshipRespectsFillUsing(): void
     {
         $relation = BelongsTo::make('author')->fillUsing(

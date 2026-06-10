@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\QueryParamMalformed;
 use haddowg\JsonApi\Exception\QueryParamUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
+use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\TopLevelMemberNotAllowed;
 use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
 use haddowg\JsonApi\Request\JsonApiRequest;
@@ -1381,6 +1382,104 @@ final class JsonApiRequestTest extends TestCase
         $this->expectException(RelationshipNotExists::class);
 
         $request->getToManyRelationship('friends');
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToOneReadsTopLevelData(): void
+    {
+        // A relationship-endpoint body carries linkage at the TOP level under
+        // `data`, NOT nested under `data.relationships.{name}.data`.
+        $request = $this->createRequestWithJsonBody(['data' => ['type' => 'human', 'id' => '1']]);
+
+        $linkage = $request->getRelationshipLinkageToOne('owner');
+
+        self::assertNotNull($linkage->resourceIdentifier);
+        self::assertSame('human', $linkage->resourceIdentifier->type);
+        self::assertSame('1', $linkage->resourceIdentifier->id);
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToOneTreatsNullDataAsClearing(): void
+    {
+        $request = $this->createRequestWithJsonBody(['data' => null]);
+
+        self::assertTrue($request->getRelationshipLinkageToOne('owner')->isEmpty());
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToOneThrowsWhenDataMemberAbsent(): void
+    {
+        $request = $this->createRequestWithJsonBody(['meta' => []]);
+
+        $this->expectException(RelationshipNotExists::class);
+
+        $request->getRelationshipLinkageToOne('owner');
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToOneRejectsAListAsACardinalityError(): void
+    {
+        // To-many linkage sent to a to-one relationship endpoint.
+        $request = $this->createRequestWithJsonBody(['data' => [['type' => 'human', 'id' => '1']]]);
+
+        $this->expectException(RelationshipTypeInappropriate::class);
+
+        $request->getRelationshipLinkageToOne('owner');
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToManyReadsTopLevelData(): void
+    {
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                ['type' => 'dog', 'id' => '2'],
+                ['type' => 'dog', 'id' => '3'],
+            ],
+        ]);
+
+        $identifiers = $request->getRelationshipLinkageToMany('friends')->resourceIdentifiers;
+
+        self::assertSame('2', $identifiers[0]->id);
+        self::assertSame('3', $identifiers[1]->id);
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToManyTreatsEmptyArrayAsClearing(): void
+    {
+        $request = $this->createRequestWithJsonBody(['data' => []]);
+
+        self::assertTrue($request->getRelationshipLinkageToMany('friends')->isEmpty());
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToManyThrowsWhenDataMemberAbsent(): void
+    {
+        $request = $this->createRequestWithJsonBody(['meta' => []]);
+
+        $this->expectException(RelationshipNotExists::class);
+
+        $request->getRelationshipLinkageToMany('friends');
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToManyRejectsASingleObjectAsACardinalityError(): void
+    {
+        // To-one linkage sent to a to-many relationship endpoint.
+        $request = $this->createRequestWithJsonBody(['data' => ['type' => 'dog', 'id' => '2']]);
+
+        $this->expectException(RelationshipTypeInappropriate::class);
+
+        $request->getRelationshipLinkageToMany('friends');
+    }
+
+    #[Test]
+    public function getRelationshipLinkageToManyRejectsNullAsACardinalityError(): void
+    {
+        $request = $this->createRequestWithJsonBody(['data' => null]);
+
+        $this->expectException(RelationshipTypeInappropriate::class);
+
+        $request->getRelationshipLinkageToMany('friends');
     }
 
     #[Test]
