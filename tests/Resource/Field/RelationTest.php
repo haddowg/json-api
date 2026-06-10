@@ -17,6 +17,7 @@ use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
 use haddowg\JsonApi\Tests\Double\DummyData;
+use haddowg\JsonApi\Tests\Double\FakeRelationshipLoadState;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
@@ -262,6 +263,118 @@ final class RelationTest extends TestCase
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
         self::assertInstanceOf(OutputToOne::class, $built);
+    }
+
+    #[Test]
+    public function linkageOnlyWhenLoadedOffByDefaultAndOptsIn(): void
+    {
+        self::assertFalse(BelongsTo::make('author')->type('users')->emitsLinkageOnlyWhenLoaded());
+        self::assertTrue(BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded()->emitsLinkageOnlyWhenLoaded());
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function linkageOnlyWhenLoadedOmitsDataWhenNotLoadedAndNotIncluded(): void
+    {
+        // (1) policy ON + predicate=false + not included + has links => data omitted, links present.
+        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+        $loadState = new FakeRelationshipLoadState(false);
+
+        $relationshipObject = $this->buildAndTransform($relation, $loadState);
+
+        self::assertArrayNotHasKey('data', $relationshipObject);
+        self::assertArrayHasKey('links', $relationshipObject);
+        self::assertNotSame([], $loadState->askedAbout, 'predicate must be consulted');
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function linkageOnlyWhenLoadedEmitsDataWhenLoaded(): void
+    {
+        // (2) policy ON + predicate=true => data present.
+        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+
+        $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(true));
+
+        self::assertSame(['type' => 'users', 'id' => '7'], $relationshipObject['data'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function linkageOnlyWhenLoadedEmitsDataWhenIncludedDespiteNotLoaded(): void
+    {
+        // (3) policy ON + included => data present (include-wins).
+        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+
+        $relationshipObject = $this->buildAndTransform(
+            $relation,
+            new FakeRelationshipLoadState(false),
+            new StubJsonApiRequest(['include' => 'author']),
+        );
+
+        self::assertSame(['type' => 'users', 'id' => '7'], $relationshipObject['data'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function linkageOnlyWhenLoadedEmitsDataWithoutLinksDespiteNotLoaded(): void
+    {
+        // (4) policy ON + withoutLinks + predicate=false => data present (validity guard).
+        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded()->withoutLinks();
+
+        $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
+
+        self::assertSame(['type' => 'users', 'id' => '7'], $relationshipObject['data'] ?? null);
+        self::assertArrayNotHasKey('links', $relationshipObject);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function policyOffEmitsDataRegardlessOfPredicate(): void
+    {
+        // (5) policy OFF => data always present regardless of predicate.
+        $relation = BelongsTo::make('author')->type('users');
+
+        $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
+
+        self::assertSame(['type' => 'users', 'id' => '7'], $relationshipObject['data'] ?? null);
+    }
+
+    /**
+     * Runs the relation through build + transform with a load-state predicate
+     * wired onto the resolver, returning the transformed relationship object.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildAndTransform(
+        BelongsTo $relation,
+        FakeRelationshipLoadState $loadState,
+        ?StubJsonApiRequest $request = null,
+    ): array {
+        $request ??= new StubJsonApiRequest();
+        $model = ['author' => ['id' => '7', 'type' => 'users']];
+
+        $resolver = (new StubSerializerResolver())->withRelationshipLoadState($loadState);
+
+        $built = $relation->buildRelationship($model, $request, $resolver);
+
+        $relationshipObject = $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $request,
+                '',
+                '',
+                'author',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        return (array) $relationshipObject;
     }
 
     private function request(): StubJsonApiRequest

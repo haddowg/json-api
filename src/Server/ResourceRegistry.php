@@ -59,6 +59,14 @@ final class ResourceRegistry implements SerializerResolverInterface
     private ?\Closure $resolver = null;
 
     /**
+     * The storage-aware predicate that answers whether a relation's linkage is
+     * already loaded, or null when none is injected (standalone core treats
+     * every relation as loaded). Threaded down from the {@see Server}, the same
+     * way the lazy {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -68,6 +76,20 @@ final class ResourceRegistry implements SerializerResolverInterface
     public function setResolver(?\Closure $resolver): void
     {
         $this->resolver = $resolver;
+    }
+
+    /**
+     * Sets (or clears) the relationship load-state predicate consulted when a
+     * relation opts in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::linkageOnlyWhenLoaded()}.
+     */
+    public function setRelationshipLoadState(?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState): void
+    {
+        $this->relationshipLoadState = $relationshipLoadState;
+    }
+
+    public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
+    {
+        return $this->relationshipLoadState;
     }
 
     /**

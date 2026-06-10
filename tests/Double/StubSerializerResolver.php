@@ -19,6 +19,8 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
      */
     private array $serializers = [];
 
+    private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
+
     public function __construct(string ...$types)
     {
         if ($types === []) {
@@ -30,6 +32,13 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
         }
     }
 
+    public function withRelationshipLoadState(?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState): self
+    {
+        $this->relationshipLoadState = $relationshipLoadState;
+
+        return $this;
+    }
+
     public function serializerFor(string $type): SerializerInterface
     {
         return $this->serializers[$type] ?? throw new ResourceNotFound();
@@ -38,5 +47,10 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
     public function hasSerializerFor(string $type): bool
     {
         return isset($this->serializers[$type]);
+    }
+
+    public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
+    {
+        return $this->relationshipLoadState;
     }
 }

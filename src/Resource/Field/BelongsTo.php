@@ -23,6 +23,6 @@ class BelongsTo extends AbstractRelation
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
-        return $this->buildToOne($this->relatedValue($model, $request, $this->name), $request, $resolver);
+        return $this->buildToOne($model, $request, $resolver);
     }
 }

@@ -74,6 +74,14 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
     private \haddowg\JsonApi\Operation\OperationHandlerInterface|RequestHandlerInterface|null $handler = null;
 
     /**
+     * The storage-aware relationship load-state predicate, or null for the
+     * standalone default (every relation treated as loaded; linkage data always
+     * emitted). Pushed into the {@see ResourceRegistry} — the resolver relations
+     * actually consult — the same way the lazy instantiation factory is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
+
+    /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
      * null to fall back to plain `new`. Server is the single source of truth and
      * pushes it into the cloned registry on every clone.
@@ -158,6 +166,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
         $self = clone $this;
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->register($resource, $serializer, $hydrator);
 
         return $self;
@@ -177,6 +186,7 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
         $self = clone $this;
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
 
         return $self;
@@ -200,6 +210,25 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
         $self->resolver = self::normalise($resolver);
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+
+        return $self;
+    }
+
+    /**
+     * Injects the storage-aware predicate relations consult — when they have
+     * opted in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::linkageOnlyWhenLoaded()}
+     * — to decide whether their linkage is already loaded and so cheap to emit.
+     * Passing `null` (the default) restores the standalone behaviour: every
+     * relation is treated as loaded and its linkage data is emitted as today.
+     */
+    public function withRelationshipLoadState(?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState): self
+    {
+        $self = clone $this;
+        $self->relationshipLoadState = $relationshipLoadState;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
 
         return $self;
     }
@@ -298,6 +327,11 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
     public function hasSerializerFor(string $type): bool
     {
         return $this->resources->hasSerializerFor($type);
+    }
+
+    public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
+    {
+        return $this->relationshipLoadState;
     }
 
     public function hydratorFor(string $type): HydratorInterface

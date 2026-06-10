@@ -40,6 +40,6 @@ class HasMany extends AbstractRelation
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
-        return $this->buildToMany($this->relatedValue($model, $request, $this->name), $request, $resolver);
+        return $this->buildToMany($model, $request, $resolver);
     }
 }

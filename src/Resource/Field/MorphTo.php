@@ -35,24 +35,47 @@ final class MorphTo extends AbstractRelation
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship {
-        $related = $this->relatedValue($model, $request, $this->name);
         $relationship = \haddowg\JsonApi\Schema\Relationship\ToOneRelationship::create();
 
-        if ($related === null) {
-            return $relationship;
-        }
+        // A polymorphic relation resolves the serializer from the related
+        // object's own type, so it must read the related value. Under the
+        // load-aware policy, defer that read (and the data member) unless the
+        // relationship is included — see AbstractRelation::shouldDeferLinkage().
+        if ($this->shouldDeferLinkage($model, $resolver)) {
+            $deferredSerializer = null;
+            foreach ($this->relatedTypes as $type) {
+                if ($resolver->hasSerializerFor($type)) {
+                    $deferredSerializer = $resolver->serializerFor($type);
 
-        // Resolve the serializer for whichever declared type can serialize the
-        // related object: try each until one is registered.
-        foreach ($this->relatedTypes as $type) {
-            if ($resolver->hasSerializerFor($type)) {
-                $serializer = $resolver->serializerFor($type);
-                if ($serializer->getType($related) === $type) {
-                    $relationship->setData($related, $serializer);
-
-                    return $relationship;
+                    break;
                 }
             }
+
+            if ($deferredSerializer !== null) {
+                $relationship
+                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $deferredSerializer)
+                    ->omitDataWhenNotIncluded();
+            }
+        } else {
+            $related = $this->relatedValue($model, $request, $this->name);
+            if ($related !== null) {
+                // Resolve the serializer for whichever declared type can serialize
+                // the related object: try each until one is registered.
+                foreach ($this->relatedTypes as $type) {
+                    if ($resolver->hasSerializerFor($type)) {
+                        $serializer = $resolver->serializerFor($type);
+                        if ($serializer->getType($related) === $type) {
+                            $relationship->setData($related, $serializer);
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($this->includesLinks) {
+            $relationship->withConventionLinks($this->uriFieldName());
         }
 
         return $relationship;

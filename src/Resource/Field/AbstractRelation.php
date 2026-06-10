@@ -41,6 +41,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $includesLinks = true;
 
+    protected bool $linkageOnlyWhenLoaded = false;
+
     /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
@@ -113,6 +115,24 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this;
     }
 
+    /**
+     * Opts this relation into load-aware linkage: when the related value is not
+     * already loaded, emit the relationship object's `links` only and omit the
+     * `data` member rather than triggering a (lazy) storage load just to render
+     * identifiers. Off by default. Gated by the injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}: an
+     * included relationship still emits data (include-wins), and a relation with
+     * no links always emits data (never an empty relationship object).
+     *
+     * @return static
+     */
+    public function linkageOnlyWhenLoaded(): static
+    {
+        $this->linkageOnlyWhenLoaded = true;
+
+        return $this;
+    }
+
     public function relatedTypes(): array
     {
         return $this->relatedTypes;
@@ -126,6 +146,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function includesLinks(): bool
     {
         return $this->includesLinks;
+    }
+
+    public function emitsLinkageOnlyWhenLoaded(): bool
+    {
+        return $this->linkageOnlyWhenLoaded;
     }
 
     /**
@@ -207,19 +232,36 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
-     * Builds a to-one output relationship from the resolved related object.
+     * Builds a to-one output relationship for `$model`.
+     *
+     * When this relation has opted into {@see linkageOnlyWhenLoaded()} and the
+     * injected load-state predicate reports the related value is *not* loaded,
+     * the linkage data read is deferred behind a callable and the relationship is
+     * flagged {@see AbstractRelationship::omitDataWhenNotIncluded()}: the
+     * transformer omits the `data` member (emitting links only) unless the
+     * relationship is included, in which case the callable runs and the value is
+     * read as today (include-wins). Otherwise the value is read eagerly and the
+     * data member is set, exactly as before.
      */
     protected function buildToOne(
-        mixed $related,
+        mixed $model,
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): OutputToOne {
         $relationship = OutputToOne::create();
 
-        if ($related !== null) {
-            $type = $this->relatedTypes[0] ?? null;
-            if ($type !== null && $resolver->hasSerializerFor($type)) {
-                $relationship->setData($related, $resolver->serializerFor($type));
+        $type = $this->relatedTypes[0] ?? null;
+        if ($type !== null && $resolver->hasSerializerFor($type)) {
+            $serializer = $resolver->serializerFor($type);
+            if ($this->shouldDeferLinkage($model, $resolver)) {
+                $relationship
+                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
+                    ->omitDataWhenNotIncluded();
+            } else {
+                $related = $this->relatedValue($model, $request, $this->name);
+                if ($related !== null) {
+                    $relationship->setData($related, $serializer);
+                }
             }
         }
 
@@ -231,18 +273,30 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
-     * Builds a to-many output relationship from the resolved related collection.
+     * Builds a to-many output relationship for `$model`. Linkage is deferred and
+     * omitted-unless-included under the same load-aware policy as
+     * {@see buildToOne()}.
      */
     protected function buildToMany(
-        mixed $related,
+        mixed $model,
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): OutputToMany {
         $relationship = OutputToMany::create();
 
         $type = $this->relatedTypes[0] ?? null;
-        if ($related !== null && $type !== null && $resolver->hasSerializerFor($type)) {
-            $relationship->setData($related, $resolver->serializerFor($type));
+        if ($type !== null && $resolver->hasSerializerFor($type)) {
+            $serializer = $resolver->serializerFor($type);
+            if ($this->shouldDeferLinkage($model, $resolver)) {
+                $relationship
+                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
+                    ->omitDataWhenNotIncluded();
+            } else {
+                $related = $this->relatedValue($model, $request, $this->name);
+                if ($related !== null) {
+                    $relationship->setData($related, $serializer);
+                }
+            }
         }
 
         if ($this->includesLinks) {
@@ -250,6 +304,33 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         return $relationship;
+    }
+
+    /**
+     * Whether the linkage data read for this relation should be deferred and the
+     * data member omitted-unless-included, per the load-aware policy. True only
+     * when the relation opted into {@see linkageOnlyWhenLoaded()}, it carries the
+     * convention links (so omitting data never yields an empty relationship
+     * object — the validity guard), an injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface} is
+     * present, and that predicate reports the related value is *not* loaded.
+     * With no predicate injected the relation is treated as loaded (standalone
+     * default).
+     */
+    protected function shouldDeferLinkage(
+        mixed $model,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): bool {
+        if ($this->linkageOnlyWhenLoaded === false || $this->includesLinks === false) {
+            return false;
+        }
+
+        $loadState = $resolver->relationshipLoadState();
+        if ($loadState === null) {
+            return false;
+        }
+
+        return $loadState->isRelationshipLoaded($model, $this) === false;
     }
 
     /**

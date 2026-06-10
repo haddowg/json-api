@@ -47,6 +47,18 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function includesLinks(): bool;
 
     /**
+     * Whether this relation only emits linkage `data` when the related value is
+     * already loaded (a load-aware policy: emit links-only rather than trigger a
+     * lazy storage load just to serialize identifiers). Off by default; enabled
+     * by {@see AbstractRelation::linkageOnlyWhenLoaded()}. The policy is
+     * advisory and gated by an injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}; an
+     * included relationship always emits data, and a relation with no links
+     * always emits data (never an empty relationship object).
+     */
+    public function emitsLinkageOnlyWhenLoaded(): bool;
+
+    /**
      * Builds the output relationship value object the serializer emits for
      * `$model`, resolving the related type's serializer through `$resolver`.
      */
