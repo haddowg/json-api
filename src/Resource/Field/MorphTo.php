@@ -59,17 +59,11 @@ final class MorphTo extends AbstractRelation
         } else {
             $related = $this->relatedValue($model, $request, $this->name);
             if ($related !== null) {
-                // Resolve the serializer for whichever declared type can serialize
-                // the related object: try each until one is registered.
-                foreach ($this->relatedTypes as $type) {
-                    if ($resolver->hasSerializerFor($type)) {
-                        $serializer = $resolver->serializerFor($type);
-                        if ($serializer->getType($related) === $type) {
-                            $relationship->setData($related, $serializer);
-
-                            break;
-                        }
-                    }
+                // Resolve the serializer for whichever declared type reports the
+                // related object's own type (the shared per-relation rule).
+                $serializer = $this->resolveSerializer($related, $resolver);
+                if ($serializer !== null) {
+                    $relationship->setData($related, $serializer);
                 }
             }
         }

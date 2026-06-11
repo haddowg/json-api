@@ -435,6 +435,53 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function resolveSerializerReturnsTheSingleRegisteredSerializerForAMonomorphicRelation(): void
+    {
+        $relation = BelongsTo::make('author')->type('users');
+        $resolver = $this->resolver();
+
+        $serializer = $relation->resolveSerializer(['id' => '7'], $resolver);
+
+        self::assertSame($resolver->serializerFor('users'), $serializer);
+    }
+
+    #[Test]
+    public function resolveSerializerSelectsTheMatchingSerializerForAPolymorphicRelation(): void
+    {
+        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $resolver = $this->resolver();
+        $related = ['kind' => 'videos', 'id' => '9'];
+
+        $serializer = $relation->resolveSerializer($related, $resolver);
+
+        self::assertNotNull($serializer);
+        self::assertSame($resolver->serializerFor('videos'), $serializer);
+        self::assertNotSame($resolver->serializerFor('posts'), $serializer);
+        self::assertSame('videos', $serializer->getType($related));
+    }
+
+    #[Test]
+    public function resolveSerializerReturnsTheFirstDeclaredSerializerForANullRelatedValue(): void
+    {
+        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $resolver = $this->resolver();
+
+        $serializer = $relation->resolveSerializer(null, $resolver);
+
+        self::assertSame($resolver->serializerFor('posts'), $serializer);
+    }
+
+    #[Test]
+    public function resolveSerializerReturnsNullWhenNoDeclaredTypeMatchesThePolymorphicObject(): void
+    {
+        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+
+        $serializer = $relation->resolveSerializer(['kind' => 'tags'], $this->resolver());
+
+        self::assertNull($serializer);
+    }
+
+    #[Test]
     #[Group('spec:pagination')]
     public function paginationDefaultsToNullAndPaginateSetsIt(): void
     {

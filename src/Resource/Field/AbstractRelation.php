@@ -8,9 +8,11 @@ use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Convenience base for {@see Relation} fields. Reuses {@see AbstractField}'s
@@ -290,6 +292,24 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function emitsLinkageOnlyWhenLoaded(): bool
     {
         return $this->linkageOnlyWhenLoaded;
+    }
+
+    public function resolveSerializer(mixed $related, SerializerResolverInterface $resolver): ?SerializerInterface
+    {
+        $monomorphic = \count($this->relatedTypes) === 1;
+
+        foreach ($this->relatedTypes as $type) {
+            if (!$resolver->hasSerializerFor($type)) {
+                continue;
+            }
+
+            $serializer = $resolver->serializerFor($type);
+            if ($related === null || $monomorphic || $serializer->getType($related) === $type) {
+                return $serializer;
+            }
+        }
+
+        return null;
     }
 
     /**

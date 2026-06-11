@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * A relationship member of a resource's field inventory. Distinct from an
@@ -78,6 +80,17 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
         JsonApiRequestInterface $request,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): AbstractRelationship;
+
+    /**
+     * Resolves the serializer that renders the given related object as a FULL resource,
+     * among this relation's declared types: the single declared type for a monomorphic
+     * relation, or — for a polymorphic ({@see MorphTo}) relation — the declared type
+     * whose serializer reports the object's own type ({@see SerializerInterface::getType()}).
+     * For a null related value there is no object to discriminate, so the first declared,
+     * registered serializer is returned (the caller renders `data: null`). Null when the
+     * relation declares no registered type, or (polymorphic) none matches the object.
+     */
+    public function resolveSerializer(mixed $related, SerializerResolverInterface $resolver): ?SerializerInterface;
 
     /**
      * Hydrates the relationship from the request's parsed linkage into `$model`,
