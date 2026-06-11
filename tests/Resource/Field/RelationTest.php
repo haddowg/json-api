@@ -13,6 +13,7 @@ use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\MorphTo;
+use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
@@ -34,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(HasMany::class)]
 #[CoversClass(BelongsToMany::class)]
 #[CoversClass(MorphTo::class)]
+#[CoversClass(MorphToMany::class)]
 final class RelationTest extends TestCase
 {
     #[Test]
@@ -479,6 +481,51 @@ final class RelationTest extends TestCase
         $serializer = $relation->resolveSerializer(['kind' => 'tags'], $this->resolver());
 
         self::assertNull($serializer);
+    }
+
+    #[Test]
+    public function morphToManyIsToManyAndDeclaresMultipleTypes(): void
+    {
+        $relation = MorphToMany::make('items')->types('posts', 'videos');
+
+        self::assertTrue($relation->isToMany());
+        self::assertSame(['posts', 'videos'], $relation->relatedTypes());
+    }
+
+    #[Test]
+    public function morphToManyBuildsToManyRelationshipWithPerMemberTypes(): void
+    {
+        $relation = MorphToMany::make('items')->types('posts', 'videos');
+        $model = ['items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
+
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+        self::assertInstanceOf(OutputToMany::class, $built);
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $this->request(),
+                '',
+                '',
+                'items',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        // Each member's `type` came from its own object — proof that the bound
+        // PolymorphicSerializer resolved a serializer per member.
+        self::assertSame(
+            [
+                ['type' => 'posts', 'id' => '1'],
+                ['type' => 'videos', 'id' => '2'],
+            ],
+            $relationshipObject['data'] ?? null,
+        );
     }
 
     #[Test]
