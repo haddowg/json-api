@@ -23,7 +23,6 @@ use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\Relation;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
@@ -44,8 +43,10 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see Field::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface
 {
+    use RendersRelationsTrait;
+
     /**
      * The JSON:API resource type. Subclasses set this.
      */
@@ -198,13 +199,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return [];
         }
 
-        $relationships = [];
-        foreach ($this->relationFields() as $relation) {
-            $relationships[$relation->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
-                => $relation->buildRelationship($model, $request, $resolver);
-        }
-
-        return $relationships;
+        return self::relationshipCallables($this->relationFields(), $resolver);
     }
 
     public function hydrate(JsonApiRequestInterface $request, mixed $domainObject): mixed
