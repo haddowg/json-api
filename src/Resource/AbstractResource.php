@@ -25,6 +25,7 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
  * The recommended public surface: a single declaration of a JSON:API resource
@@ -43,12 +44,20 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * the transformer reading {@see Field::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface
 {
     /**
      * The JSON:API resource type. Subclasses set this.
      */
     public static string $type = '';
+
+    /**
+     * The URI path segment for this resource type, used in generated links (and,
+     * by hosts, routes) — e.g. `books` for the type `book`. Empty means "use
+     * {@see $type}". Subclasses override to decouple the URL segment from the
+     * JSON:API type (a plural, or a kebab-cased name).
+     */
+    public static string $uriType = '';
 
     protected ?\haddowg\JsonApi\Resource\SerializerResolverInterface $serializerResolver = null;
 
@@ -137,6 +146,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function getType(mixed $object): string
     {
         return static::$type;
+    }
+
+    public function uriType(): string
+    {
+        return static::$uriType !== '' ? static::$uriType : static::$type;
     }
 
     public function getId(mixed $object): string

@@ -8,6 +8,7 @@ use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 
@@ -289,7 +290,12 @@ abstract class AbstractRelationship
             return null;
         }
 
-        $parentType = $parent->getType($transformation->object);
+        // The path segment is the parent's URI type (so a resource whose JSON:API
+        // type differs from its URL segment links correctly); a serializer that is
+        // not URI-type-aware falls back to its JSON:API type, as before.
+        $parentType = $parent instanceof UriTypeAwareInterface
+            ? $parent->uriType()
+            : $parent->getType($transformation->object);
         if ($parentType === '') {
             $parentType = $transformation->resourceType;
         }

@@ -49,6 +49,20 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function uriTypeDefaultsToTheJsonApiType(): void
+    {
+        self::assertSame('posts', (new PostResource())->uriType());
+    }
+
+    #[Test]
+    public function uriTypeUsesTheDeclaredSegmentWhenSet(): void
+    {
+        // The JSON:API type stays singular; only the URI segment differs.
+        self::assertSame('segment', SegmentedResource::$type);
+        self::assertSame('segments', (new SegmentedResource())->uriType());
+    }
+
+    #[Test]
     public function attributeCallablesSerializeFields(): void
     {
         $resource = new PostResource();
@@ -471,6 +485,24 @@ final class PostResource extends AbstractResource
     public function pagination(): \haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return PagePaginator::make()->withDefaultPerPage(15);
+    }
+}
+
+/**
+ * A resource whose URI segment (`segments`) differs from its JSON:API type
+ * (`segment`), exercising the {@see AbstractResource::uriType()} override.
+ */
+final class SegmentedResource extends AbstractResource
+{
+    public static string $type = 'segment';
+
+    public static string $uriType = 'segments';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+        ];
     }
 }
 
