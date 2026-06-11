@@ -107,6 +107,32 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function allowsRemove(): bool;
 
     /**
+     * Whether this relation's related HTTP endpoint (`GET /{type}/{id}/{rel}`) is
+     * exposed. On by default; suppressed by
+     * {@see AbstractRelation::withoutRelatedEndpoint()}. A suppressed endpoint is
+     * enforced by the host as a 404, and its conventional `related` link is omitted
+     * so a rendered link never points at that 404.
+     */
+    public function exposesRelatedEndpoint(): bool;
+
+    /**
+     * Whether this relation's relationship-linkage HTTP endpoint
+     * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`) is exposed. On by
+     * default; suppressed by {@see AbstractRelation::withoutRelationshipEndpoint()}.
+     * A suppressed endpoint is enforced by the host as a 404, and its conventional
+     * `self` link is omitted so a rendered link never points at that 404.
+     */
+    public function exposesRelationshipEndpoint(): bool;
+
+    /**
+     * Whether additions to this (to-many) relationship are permitted — a `POST` to
+     * its relationship endpoint. On by default; opt out via
+     * {@see AbstractRelation::cannotAdd()}. A prohibited addition is an
+     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403).
+     */
+    public function allowsAdd(): bool;
+
+    /**
      * Applies parsed to-many linkage to `$model` under `$mode`: {@see Mode::Replace}
      * sets the whole set, {@see Mode::Add} appends the linkage ids to the existing
      * set, {@see Mode::Remove} subtracts them. The storage-agnostic baseline writes

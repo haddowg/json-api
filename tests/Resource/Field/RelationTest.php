@@ -224,6 +224,87 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function endpointExposureFlagsDefaultToExposedAndOptOut(): void
+    {
+        $relation = HasMany::make('tags')->type('tags');
+        self::assertTrue($relation->exposesRelatedEndpoint());
+        self::assertTrue($relation->exposesRelationshipEndpoint());
+        self::assertTrue($relation->allowsAdd());
+
+        $restricted = HasMany::make('tags')->type('tags')
+            ->withoutRelatedEndpoint()
+            ->withoutRelationshipEndpoint()
+            ->cannotAdd();
+        self::assertFalse($restricted->exposesRelatedEndpoint());
+        self::assertFalse($restricted->exposesRelationshipEndpoint());
+        self::assertFalse($restricted->allowsAdd());
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function buildRelationshipOmitsSelfLinkWhenRelationshipEndpointSuppressed(): void
+    {
+        $relation = BelongsTo::make('author')->type('users')->withoutRelationshipEndpoint();
+        $model = ['author' => ['id' => '7', 'type' => 'users']];
+
+        $links = $this->buildLinks($relation, $model);
+
+        self::assertSame(
+            ['related' => 'https://api.example.com/articles/42/author'],
+            $links,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function buildRelationshipOmitsRelatedLinkWhenRelatedEndpointSuppressed(): void
+    {
+        $relation = HasMany::make('comments')->type('comments')->withoutRelatedEndpoint();
+        $model = ['comments' => [['id' => '1', 'type' => 'comments']]];
+
+        $links = $this->buildLinks($relation, $model);
+
+        self::assertSame(
+            ['self' => 'https://api.example.com/articles/42/relationships/comments'],
+            $links,
+        );
+    }
+
+    /**
+     * Builds the relation's relationship object and returns its `links` member
+     * (an empty array when none are emitted).
+     *
+     * @param array<string, mixed> $model
+     *
+     * @return array<string, mixed>
+     */
+    private function buildLinks(\haddowg\JsonApi\Resource\Field\AbstractRelation $relation, array $model): array
+    {
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        /** @var array<string, mixed> $links */
+        $links = $relationshipObject['links'] ?? [];
+
+        return $links;
+    }
+
+    #[Test]
     public function applyToManyReplaceSetsTheWholeColumn(): void
     {
         $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');

@@ -268,6 +268,68 @@ final class AbstractRelationshipTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsOnlyRelatedConventionLinkWhenSelfSuppressed(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author', false, true);
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'related' => 'https://api.example.com/articles/42/author',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsOnlySelfConventionLinkWhenRelatedSuppressed(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author', true, false);
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/articles/42/relationships/author',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
     public function transformEmitsConventionLinksUsingTheParentUriType(): void
     {
         // The parent's JSON:API type is `article`, but its URI segment is

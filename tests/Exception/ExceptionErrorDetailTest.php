@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Exception;
 
+use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
@@ -30,6 +31,19 @@ final class ExceptionErrorDetailTest extends TestCase
         self::assertNotNull($error->source);
         self::assertSame('/data/relationships/author', $error->source->pointer);
         self::assertSame("Full replacement of relationship 'author' is prohibited!", $error->detail);
+    }
+
+    #[Test]
+    public function additionProhibitedPointsAtTheRelationship(): void
+    {
+        $error = (new AdditionProhibited('tags'))->getErrors()[0];
+
+        self::assertSame('403', $error->status);
+        self::assertSame('ADDITION_PROHIBITED', $error->code);
+        self::assertSame('Addition is prohibited', $error->title);
+        self::assertNotNull($error->source);
+        self::assertSame('/data/relationships/tags', $error->source->pointer);
+        self::assertSame("Addition to relationship 'tags' is prohibited!", $error->detail);
     }
 
     #[Test]

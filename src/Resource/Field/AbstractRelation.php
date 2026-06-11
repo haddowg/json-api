@@ -47,6 +47,12 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $allowsRemove = true;
 
+    protected bool $exposesRelatedEndpoint = true;
+
+    protected bool $exposesRelationshipEndpoint = true;
+
+    protected bool $allowsAdd = true;
+
     /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
@@ -167,6 +173,51 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this;
     }
 
+    /**
+     * Suppresses this relation's related HTTP endpoint (`GET /{type}/{id}/{rel}`):
+     * the host treats a request for it as a 404, and the conventional `related`
+     * link is omitted so a rendered link never points at that 404. The endpoint is
+     * exposed by default.
+     *
+     * @return static
+     */
+    public function withoutRelatedEndpoint(): static
+    {
+        $this->exposesRelatedEndpoint = false;
+
+        return $this;
+    }
+
+    /**
+     * Suppresses this relation's relationship-linkage HTTP endpoint
+     * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`): the host treats a
+     * request for it as a 404, and the conventional `self` link is omitted so a
+     * rendered link never points at that 404. The endpoint is exposed by default.
+     *
+     * @return static
+     */
+    public function withoutRelationshipEndpoint(): static
+    {
+        $this->exposesRelationshipEndpoint = false;
+
+        return $this;
+    }
+
+    /**
+     * Prohibits additions to this (to-many) relationship: a `POST` to its
+     * relationship endpoint is rejected with
+     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). Additions are
+     * allowed by default, completing the replace / add / remove gate trio.
+     *
+     * @return static
+     */
+    public function cannotAdd(): static
+    {
+        $this->allowsAdd = false;
+
+        return $this;
+    }
+
     public function allowsReplace(): bool
     {
         return $this->allowsReplace;
@@ -175,6 +226,21 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function allowsRemove(): bool
     {
         return $this->allowsRemove;
+    }
+
+    public function exposesRelatedEndpoint(): bool
+    {
+        return $this->exposesRelatedEndpoint;
+    }
+
+    public function exposesRelationshipEndpoint(): bool
+    {
+        return $this->exposesRelationshipEndpoint;
+    }
+
+    public function allowsAdd(): bool
+    {
+        return $this->allowsAdd;
     }
 
     public function relatedTypes(): array
@@ -364,7 +430,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         if ($this->includesLinks) {
-            $relationship->withConventionLinks($this->uriFieldName());
+            $relationship->withConventionLinks(
+                $this->uriFieldName(),
+                $this->exposesRelationshipEndpoint,
+                $this->exposesRelatedEndpoint,
+            );
         }
 
         return $relationship;
@@ -398,7 +468,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         if ($this->includesLinks) {
-            $relationship->withConventionLinks($this->uriFieldName());
+            $relationship->withConventionLinks(
+                $this->uriFieldName(),
+                $this->exposesRelationshipEndpoint,
+                $this->exposesRelatedEndpoint,
+            );
         }
 
         return $relationship;

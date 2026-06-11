@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource;
 
+use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\DataMemberMissing;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
@@ -231,6 +232,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws RelationshipNotExists when this resource has no such relationship (404)
      * @throws RelationshipTypeInappropriate when add/remove targets a to-one relationship (400)
      * @throws FullReplacementProhibited when a replace targets a relation that {@see RelationInterface::allowsReplace()} === false (403)
+     * @throws AdditionProhibited when an add targets a relation that {@see RelationInterface::allowsAdd()} === false (403)
      * @throws RemovalProhibited when a removal (or a to-one clear) targets a relation that {@see RelationInterface::allowsRemove()} === false (403)
      */
     public function hydrateRelationship(
@@ -295,13 +297,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
     /**
      * Applies a to-many relationship-endpoint mutation under `$mode`: `PATCH`
-     * replaces (gated by {@see RelationInterface::allowsReplace()}), `POST` adds,
-     * `DELETE` removes (gated by {@see RelationInterface::allowsRemove()}).
+     * replaces (gated by {@see RelationInterface::allowsReplace()}), `POST` adds
+     * (gated by {@see RelationInterface::allowsAdd()}), `DELETE` removes (gated by
+     * {@see RelationInterface::allowsRemove()}).
      *
      * @param mixed $domainObject
      * @return mixed
      *
      * @throws FullReplacementProhibited
+     * @throws AdditionProhibited
      * @throws RemovalProhibited
      */
     protected function mutateToMany(
@@ -313,6 +317,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     ): mixed {
         if ($mode === Mode::Replace && $relation->allowsReplace() === false) {
             throw new FullReplacementProhibited($relationship);
+        }
+
+        if ($mode === Mode::Add && $relation->allowsAdd() === false) {
+            throw new AdditionProhibited($relationship);
         }
 
         if ($mode === Mode::Remove && $relation->allowsRemove() === false) {

@@ -381,6 +381,18 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function postAddIsRejectedWhenTheRelationCannotAdd(): void
+    {
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('POST', [
+            'data' => [['type' => 'tags', 'id' => '5']],
+        ]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\AdditionProhibited::class);
+        $resource->hydrateRelationship('pinned', $request, ['pinned' => ['1']]);
+    }
+
+    #[Test]
     public function deleteRemoveIsRejectedWhenTheRelationCannotRemove(): void
     {
         $resource = new RestrictedResource();
@@ -507,8 +519,9 @@ final class SegmentedResource extends AbstractResource
 }
 
 /**
- * A resource whose relationships opt out of replace / remove, exercising the
- * mutability gates ({@see \haddowg\JsonApi\Exception\FullReplacementProhibited} /
+ * A resource whose relationships opt out of replace / add / remove, exercising
+ * the mutability gates ({@see \haddowg\JsonApi\Exception\FullReplacementProhibited} /
+ * {@see \haddowg\JsonApi\Exception\AdditionProhibited} /
  * {@see \haddowg\JsonApi\Exception\RemovalProhibited}).
  */
 final class RestrictedResource extends AbstractResource
@@ -521,6 +534,8 @@ final class RestrictedResource extends AbstractResource
             Id::make(),
             // A to-many that may be added to but never replaced or removed from.
             HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove(),
+            // A to-many that may be replaced / removed from but never added to.
+            HasMany::make('pinned')->type('tags')->cannotAdd(),
             // A to-one that may be replaced but never cleared.
             BelongsTo::make('owner')->type('users')->cannotReplace()->cannotRemove(),
         ];
