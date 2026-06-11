@@ -9,7 +9,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
-use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
@@ -27,6 +26,8 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  */
 final class DataResponse extends AbstractResponse
 {
+    use AppliesPaginationTrait;
+
     /**
      * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
      */
@@ -96,74 +97,11 @@ final class DataResponse extends AbstractResponse
     }
 
     /**
-     * Merges the page's pagination links and `meta.page` into the rendered body.
-     * Links are absolute (built from the request's self URI + query string), so
-     * they are injected post-transform rather than through the base-URI-prefixing
-     * `DocumentLinks` path.
-     *
-     * @param array<string, mixed> $result
-     * @param \haddowg\JsonApi\Pagination\PageInterface<mixed> $page
-     *
-     * @return array<string, mixed>
-     */
-    private function applyPagination(array $result, ServerInterface $server, JsonApiRequestInterface $request, \haddowg\JsonApi\Pagination\PageInterface $page): array
-    {
-        $uri = $server->baseUri() . $request->getUri()->getPath();
-        $queryString = $request->getUri()->getQuery();
-
-        /** @var array<string, mixed> $links */
-        $links = $result['links'] ?? [];
-        foreach ($page->linkSet($uri, $queryString) as $rel => $link) {
-            if ($link instanceof Link) {
-                $links[$rel] = $link->transform('');
-            }
-        }
-        if ($links !== []) {
-            $result['links'] = $links;
-        }
-
-        $pageMeta = $page->pageMeta();
-        if ($pageMeta !== []) {
-            /** @var array<string, mixed> $meta */
-            $meta = $result['meta'] ?? [];
-            $existingPage = $meta['page'] ?? [];
-            $meta['page'] = [...(\is_array($existingPage) ? $existingPage : []), ...$pageMeta];
-            $result['meta'] = $meta;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Adds the page's profile to the applied set, on top of the request-requested
-     * registered profiles — but only when the server **recognises** it. A page
-     * must not advertise a profile the server has not registered; an unrecognized
-     * page profile is silently dropped, mirroring the advisory treatment of
-     * request-requested profiles. The registered instance is used (not the page's
-     * own), so the server's configuration of that profile wins.
+     * Adds the page's profile (if any) to the request-requested applied set, via
+     * the shared {@see AppliesPaginationTrait::appliedPageProfiles()} helper.
      */
     protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
     {
-        $profiles = parent::appliedProfiles($server, $request);
-
-        $pageProfile = $this->page?->profile();
-        if ($pageProfile === null) {
-            return $profiles;
-        }
-
-        $registered = $server->profiles()->get($pageProfile->uri());
-        if ($registered === null) {
-            return $profiles;
-        }
-
-        foreach ($profiles as $profile) {
-            if ($profile->uri() === $registered->uri()) {
-                return $profiles;
-            }
-        }
-
-        \array_unshift($profiles, $registered);
-
-        return $profiles;
+        return $this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page);
     }
 }

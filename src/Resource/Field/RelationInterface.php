@@ -133,6 +133,16 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function allowsAdd(): bool;
 
     /**
+     * This relation's declared default paginator for its related-collection
+     * endpoint (`GET /{type}/{id}/{rel}`), or `null` for none. Set via
+     * {@see AbstractRelation::paginate()}. It is the to-many related-endpoint
+     * paginator — a to-one relation has no collection and ignores it; the host
+     * resolves the effective strategy as relation → related-resource → server
+     * default.
+     */
+    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface;
+
+    /**
      * Applies parsed to-many linkage to `$model` under `$mode`: {@see Mode::Replace}
      * sets the whole set, {@see Mode::Add} appends the linkage ids to the existing
      * set, {@see Mode::Remove} subtracts them. The storage-agnostic baseline writes

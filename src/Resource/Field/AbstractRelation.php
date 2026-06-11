@@ -53,6 +53,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $allowsAdd = true;
 
+    protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
+
     /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
@@ -216,6 +218,33 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         $this->allowsAdd = false;
 
         return $this;
+    }
+
+    /**
+     * Sets the default paginator for this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`). A to-many relation paginates its related
+     * collection with this strategy when the request carries `page[…]`; a to-one
+     * relation has no collection and ignores it. Mutates and returns `$this`,
+     * matching the relation builder's other fluent setters.
+     *
+     * @return static
+     */
+    public function paginate(\haddowg\JsonApi\Pagination\PaginatorInterface $paginator): static
+    {
+        $this->relationPaginator = $paginator;
+
+        return $this;
+    }
+
+    /**
+     * This relation's declared default paginator, or `null` for none. It is the
+     * to-many related-endpoint paginator (a to-one relation ignores it); the host
+     * resolves the effective strategy as relation → related-resource → server
+     * default.
+     */
+    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    {
+        return $this->relationPaginator;
     }
 
     public function allowsReplace(): bool

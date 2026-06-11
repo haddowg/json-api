@@ -435,6 +435,21 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:pagination')]
+    public function paginationDefaultsToNullAndPaginateSetsIt(): void
+    {
+        $relation = HasMany::make('comments')->type('comments');
+        self::assertNull($relation->pagination());
+
+        $paginator = \haddowg\JsonApi\Pagination\PagePaginator::make();
+        $returned = $relation->paginate($paginator);
+
+        // paginate() mutates and returns the same builder (not a clone).
+        self::assertSame($relation, $returned);
+        self::assertSame($paginator, $relation->pagination());
+    }
+
+    #[Test]
     public function linkageOnlyWhenLoadedOffByDefaultAndOptsIn(): void
     {
         self::assertFalse(BelongsTo::make('author')->type('users')->emitsLinkageOnlyWhenLoaded());
