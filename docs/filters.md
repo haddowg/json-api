@@ -98,7 +98,8 @@ the target column/relationship to the filter key when you omit it.
 instance — the value objects are immutable):
 
 - **`singular()`** — on `Where`, `WhereIn`, `WhereNotIn`. Marks the filter as
-  accepting a **single value** rather than a comma-delimited list. See below.
+  yielding a **zero-to-one** result, so the collection renders as a single resource
+  (or `null`) rather than an array when the client applies it. See below.
 - **`delimiter(string $delimiter)`** — on `WhereIn`, `WhereNotIn`, `WhereIdIn`,
   `WhereIdNotIn`. Overrides the default `,` separator a string value is split on.
 - **`deserializeUsing(\Closure $deserialize)`** — on `Where`. Supplies a value
@@ -140,8 +141,7 @@ empty or null value (`filter[status]=`) still overrides the default. Anything
 the client must not be able to undo (soft-delete exclusion, tenant scoping)
 belongs in your data layer, not the filter vocabulary. Shape the default
 exactly as the request would carry it: a set filter's default may be an array
-or a delimited string, honouring the filter's `singular()`/`delimiter()`
-declaration.
+or a delimited string, honouring the filter's `delimiter()` declaration.
 
 Defaulting filters implement the `Resource\Filter\HasDefaultValue` capability
 interface (`hasDefault()` + `defaultValue()` — a dedicated flag, because `null`
@@ -162,19 +162,41 @@ $filter = FilterDefaults::apply($request->getFiltering(), $resource->filters());
 
 A custom filter opts in by implementing `HasDefaultValue` itself.
 
-## Singular vs list filters
+## Singular filters
+
+A filter on a **unique** attribute — a slug, a UUID — matches at most one resource.
+Marking it `singular()` renders that zero-to-one shape: when the client applies the
+filter, the collection endpoint returns a **single resource object (or `null`) in
+`data`**, not an array — the JSON:API representation of a to-one result.
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+
+Where::make('slug')->singular();
+```
+
+```
+GET /articles?filter[slug]=hello-world    →  { "data": { "type": "articles", … } }
+GET /articles?filter[slug]=does-not-exist →  { "data": null }
+GET /articles                             →  { "data": [ … ] }   // normal collection
+```
+
+The collapse applies only when the client actually sends the singular filter
+(otherwise the usual zero-to-many collection is returned), and has no effect on
+relationship endpoints. `singular()` is metadata: a filter declares it by
+implementing the `Resource\Filter\SupportsSingular` capability interface
+(`isSingular()`), and the collection handler reads it for an applied filter and
+renders the first match (or `null`). A custom filter opts in by implementing
+`SupportsSingular` itself.
+
+## List values
 
 A set filter (`WhereIn`, `WhereNotIn`, the id variants) treats its incoming value
 as a **list**: either an already-array value (`filter[tags][]=a&filter[tags][]=b`)
-or a delimited string (`filter[tags]=a,b`, split on the configured delimiter).
-Marking a filter `singular()` declares the opposite — the value is one scalar and
-should not be split. This matters when a value can legitimately contain the
-delimiter (`filter[name]=Smith, Jr.`); a `singular()` filter passes it through
-intact.
-
-The split itself happens in the handler. The flag is metadata the handler reads —
-the reference [`ArrayFilterHandler`](adapters.md#a-worked-handler) consults
-`$filter->delimiter` when splitting and treats an array value as already-split.
+or a delimited string (`filter[tags]=a,b`, split on the configured `delimiter()`).
+The split happens in the handler — the reference
+[`ArrayFilterHandler`](adapters.md#a-worked-handler) consults `$filter->delimiter`
+when splitting and treats an array value as already-split.
 
 ## Writing a custom filter
 

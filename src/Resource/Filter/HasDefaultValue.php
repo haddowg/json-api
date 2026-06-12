@@ -33,8 +33,7 @@ interface HasDefaultValue
     /**
      * The value to apply when the request omits the filter's key. Shaped
      * exactly as the request would carry it (a set filter's default may be a
-     * delimited string or an array, per its `singular()`/`delimiter()`
-     * declaration).
+     * delimited string or an array, per its `delimiter()` declaration).
      */
     public function defaultValue(): mixed;
 }

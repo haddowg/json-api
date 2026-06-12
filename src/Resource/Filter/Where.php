@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 /**
  * Matches a column against a value with a comparison operator (default `=`).
  */
-final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
+final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular
 {
     /**
      * @param \Closure(mixed): mixed|null $deserialize optional value transformer applied before comparison
@@ -33,11 +33,18 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
     }
 
     /**
-     * Marks the filter as accepting a single value (not a comma list).
+     * Marks this filter as yielding a zero-to-one result: when the client applies
+     * it, the collection renders as a single resource object or `null`, not an
+     * array. Use on a unique attribute (a slug, a UUID) — see {@see SupportsSingular}.
      */
     public function singular(): self
     {
         return new self($this->key, $this->column, $this->operator, $this->deserialize, true, $this->default, $this->hasDefault);
+    }
+
+    public function isSingular(): bool
+    {
+        return $this->singular;
     }
 
     /**
