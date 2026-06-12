@@ -8,7 +8,7 @@ use haddowg\JsonApi\Exception\ApplicationError;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\ErrorResponse;
-use haddowg\JsonApi\Server\ServerInterface;
+use haddowg\JsonApi\Server\ResolvingServerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -28,7 +28,7 @@ final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInte
 {
     public function __construct(
         private \haddowg\JsonApi\Operation\OperationHandlerInterface $handler,
-        private ServerInterface $server,
+        private ResolvingServerInterface $server,
         private OperationFactory $factory = new OperationFactory(),
     ) {}
 

@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Server;
 
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
+use haddowg\JsonApi\Hydrator\HydratorResolverInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
@@ -28,7 +29,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * registry falls back to plain `new $class()`. Registering two resources with the
  * same type is a configuration error.
  */
-final class ResourceRegistry implements SerializerResolverInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface
 {
     /**
      * @var array<string, Entry>
@@ -214,6 +215,13 @@ final class ResourceRegistry implements SerializerResolverInterface
         }
 
         return $this->resourceFor($type);
+    }
+
+    public function hasHydratorFor(string $type): bool
+    {
+        $entry = $this->entries[$type] ?? null;
+
+        return $entry !== null && ($entry->resource !== null || $entry->hydrator !== null);
     }
 
     /**

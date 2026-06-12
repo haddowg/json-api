@@ -14,7 +14,7 @@ use haddowg\JsonApi\Operation\Target;
 use haddowg\JsonApi\Operation\UpdateResourceOperation;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Server\ServerInterface;
+use haddowg\JsonApi\Server\ResolvingServerInterface;
 
 /**
  * Fluent builder for {@see JsonApiOperation} value objects, for programmatic-
@@ -29,7 +29,7 @@ use haddowg\JsonApi\Server\ServerInterface;
  *
  * Body-carrying verbs (create/update) assemble a {@see JsonApiRequest} from the
  * declared attributes/relationships; bodyless verbs (fetch/delete) ignore them.
- * A {@see ServerInterface} is required for the {@see OperationContext}.
+ * A {@see ResolvingServerInterface} is required for the {@see OperationContext}.
  */
 final class JsonApiOperationBuilder
 {
@@ -46,26 +46,26 @@ final class JsonApiOperationBuilder
     private function __construct(
         private readonly string $verb,
         private readonly string $type,
-        private readonly ServerInterface $server,
+        private readonly ResolvingServerInterface $server,
         private readonly ?string $id = null,
     ) {}
 
-    public static function create(string $type, ServerInterface $server): self
+    public static function create(string $type, ResolvingServerInterface $server): self
     {
         return new self('create', $type, $server);
     }
 
-    public static function update(string $type, string $id, ServerInterface $server): self
+    public static function update(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('update', $type, $server, $id);
     }
 
-    public static function fetch(string $type, string $id, ServerInterface $server): self
+    public static function fetch(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('fetch', $type, $server, $id);
     }
 
-    public static function delete(string $type, string $id, ServerInterface $server): self
+    public static function delete(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('delete', $type, $server, $id);
     }

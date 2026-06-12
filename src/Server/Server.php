@@ -43,7 +43,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ServerInterface, RequestHandlerInterface, \haddowg\JsonApi\Resource\SerializerResolverInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface
 {
     private ResourceRegistry $resources;
 
@@ -337,6 +337,11 @@ final class Server implements ServerInterface, RequestHandlerInterface, \haddowg
     public function hydratorFor(string $type): HydratorInterface
     {
         return $this->resources->hydratorFor($type);
+    }
+
+    public function hasHydratorFor(string $type): bool
+    {
+        return $this->resources->hasHydratorFor($type);
     }
 
     // --- PSR-15 entry point + programmatic dispatch -------------------------

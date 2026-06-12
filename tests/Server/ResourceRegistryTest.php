@@ -148,6 +148,7 @@ final class ResourceRegistryTest extends TestCase
 
         self::assertTrue($registry->has('widgets'));
         self::assertTrue($registry->hasSerializerFor('widgets'));
+        self::assertTrue($registry->hasHydratorFor('widgets'));
         self::assertInstanceOf(CustomWidgetSerializer::class, $registry->serializerFor('widgets'));
         self::assertInstanceOf(CustomPostHydrator::class, $registry->hydratorFor('widgets'));
     }
@@ -181,7 +182,19 @@ final class ResourceRegistryTest extends TestCase
 
         self::assertTrue($registry->has('widgets'));
         self::assertFalse($registry->hasSerializerFor('widgets'));
+        self::assertTrue($registry->hasHydratorFor('widgets'));
         self::assertInstanceOf(CustomPostHydrator::class, $registry->hydratorFor('widgets'));
+    }
+
+    #[Test]
+    public function barePairWithoutHydratorIsNotReportedByHydratorCheck(): void
+    {
+        $registry = new ResourceRegistry();
+        $registry->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        self::assertTrue($registry->has('widgets'));
+        self::assertFalse($registry->hasHydratorFor('widgets'));
+        self::assertTrue($registry->hasSerializerFor('widgets'));
     }
 
     #[Test]

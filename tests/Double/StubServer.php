@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Double;
 
+use haddowg\JsonApi\Exception\NoResourceRegistered;
+use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
-use haddowg\JsonApi\Server\ServerInterface;
+use haddowg\JsonApi\Serializer\RelationshipLoadStateInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Server\ResolvingServerInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 /**
- * Minimal {@see ServerInterface} test double backed by the Nyholm PSR-17
- * factory (which implements both the response and stream factories).
+ * Minimal {@see ResolvingServerInterface} test double backed by the Nyholm PSR-17
+ * factory (which implements both the response and stream factories). It registers
+ * no resources, so the serializer/hydrator resolvers report nothing and throw if
+ * asked to resolve — operation-plumbing tests that use it never resolve.
  */
-final class StubServer implements ServerInterface
+final class StubServer implements ResolvingServerInterface
 {
     private readonly Psr17Factory $psr17Factory;
 
@@ -68,5 +74,30 @@ final class StubServer implements ServerInterface
     public function streamFactory(): StreamFactoryInterface
     {
         return $this->psr17Factory;
+    }
+
+    public function serializerFor(string $type): SerializerInterface
+    {
+        throw new NoResourceRegistered($type);
+    }
+
+    public function hasSerializerFor(string $type): bool
+    {
+        return false;
+    }
+
+    public function hydratorFor(string $type): HydratorInterface
+    {
+        throw new NoResourceRegistered($type);
+    }
+
+    public function hasHydratorFor(string $type): bool
+    {
+        return false;
+    }
+
+    public function relationshipLoadState(): ?RelationshipLoadStateInterface
+    {
+        return null;
     }
 }
