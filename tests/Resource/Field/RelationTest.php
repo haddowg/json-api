@@ -272,6 +272,24 @@ final class RelationTest extends TestCase
         );
     }
 
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function morphToOmitsRelatedLinkWhenRelatedEndpointSuppressed(): void
+    {
+        // Regression: a polymorphic MorphTo must thread its endpoint-exposure flags
+        // into its convention links like every sibling relation, so suppressing the
+        // related endpoint stops it advertising a link to a host the handler 404s.
+        $relation = MorphTo::make('commentable')->types('posts', 'videos')->withoutRelatedEndpoint();
+        $model = ['commentable' => ['kind' => 'videos', 'id' => '9']];
+
+        $links = $this->buildLinks($relation, $model);
+
+        self::assertSame(
+            ['self' => 'https://api.example.com/articles/42/relationships/commentable'],
+            $links,
+        );
+    }
+
     /**
      * Builds the relation's relationship object and returns its `links` member
      * (an empty array when none are emitted).

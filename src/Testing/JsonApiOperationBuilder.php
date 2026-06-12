@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Testing;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\DeleteResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
-use haddowg\JsonApi\Operation\JsonApiOperation;
+use haddowg\JsonApi\Operation\JsonApiOperationInterface;
 use haddowg\JsonApi\Operation\OperationContext;
 use haddowg\JsonApi\Operation\QueryParameters;
 use haddowg\JsonApi\Operation\Target;
@@ -17,7 +17,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Server\ResolvingServerInterface;
 
 /**
- * Fluent builder for {@see JsonApiOperation} value objects, for programmatic-
+ * Fluent builder for {@see JsonApiOperationInterface} value objects, for programmatic-
  * dispatch tests that pair with {@see \haddowg\JsonApi\Server\Server::dispatch()}:
  *
  * ```php
@@ -98,7 +98,7 @@ final class JsonApiOperationBuilder
         return $this;
     }
 
-    public function build(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
+    public function build(): JsonApiOperationInterface
     {
         $target = new Target($this->type, $this->id);
         $context = new OperationContext($this->server);

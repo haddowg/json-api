@@ -11,7 +11,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * A relationship member of a resource's field inventory. Distinct from an
- * attribute {@see Field}: it serializes to a JSON:API relationship object
+ * attribute {@see FieldInterface}: it serializes to a JSON:API relationship object
  * (linkage + links + meta) via the related type's serializer, and hydrates from
  * the request's parsed relationship value object rather than a raw attribute
  * value.

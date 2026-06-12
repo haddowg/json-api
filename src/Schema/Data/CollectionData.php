@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Schema\Data;
  *
  * @internal
  */
-class CollectionData extends AbstractData
+final class CollectionData extends AbstractData
 {
     /**
      * @return array<int, array<string, mixed>>

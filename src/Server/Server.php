@@ -309,9 +309,24 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
 
     // --- Resource registry accessors ------------------------------------------
 
+    /**
+     * @internal the registry is package-internal; consumers reach a type's
+     *           Resource via {@see resourceFor()}, and register through the fluent
+     *           {@see register()} / {@see registerSerializerHydrator()}
+     */
     public function resources(): ResourceRegistry
     {
         return $this->resources;
+    }
+
+    /**
+     * The {@see AbstractResource} registered for `$type`.
+     *
+     * @throws \haddowg\JsonApi\Exception\NoResourceRegistered when `$type` has no Resource class
+     */
+    public function resourceFor(string $type): AbstractResource
+    {
+        return $this->resources->resourceFor($type);
     }
 
     public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface

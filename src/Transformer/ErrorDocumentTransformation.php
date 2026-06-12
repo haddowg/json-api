@@ -14,4 +14,4 @@ use haddowg\JsonApi\Schema\Document\ErrorDocumentInterface;
  * @extends AbstractDocumentTransformation<ErrorDocumentInterface>
  *
  */
-class ErrorDocumentTransformation extends AbstractDocumentTransformation {}
+final class ErrorDocumentTransformation extends AbstractDocumentTransformation {}

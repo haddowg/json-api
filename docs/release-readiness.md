@@ -51,7 +51,11 @@ namespaces). For each:
 - Naming is idiomatic and consistent with its neighbours (`…Interface` suffix used
   or not, applied uniformly).
 - Parameter and return types are narrowed as far as they can be.
-- No `@internal` type leaks through a public method signature.
+- No `@internal` type leaks through a public method signature. A type is non-public
+  (and freeze-exempt) when it sits in an `Internal\` namespace **or** carries a
+  class-level `@internal` PHPDoc — both are binding, per
+  [ADR 0040](adr/0040-internal-phpdoc-is-a-binding-boundary.md). A member-level
+  `@internal` marks only that method/property internal; its class stays public.
 - Consumer-visible parametric types carry their `@template` parameters per the
   generics policy in `CLAUDE.md` — `PageInterface<T>` and the registry lookups, the types
   whose parameter survives to the use site. `DataResponse`, `OperationHandlerInterface`, and

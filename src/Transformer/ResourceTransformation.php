@@ -16,7 +16,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * @internal
  *
  */
-class ResourceTransformation
+final class ResourceTransformation
 {
     /**
      * The accumulated JSON:API resource (or resource identifier) representation.

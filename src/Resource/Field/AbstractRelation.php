@@ -15,7 +15,7 @@ use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
- * Convenience base for {@see Relation} fields. Reuses {@see AbstractField}'s
+ * Convenience base for {@see RelationInterface} fields. Reuses {@see AbstractField}'s
  * flag / constraint / context machinery and adds the relationship-shaping fluent
  * surface (`type()`, `inverseType()`, `cannotEagerLoad()`, the URI helpers) plus
  * the serialize/hydrate routing relationships use.
@@ -38,8 +38,6 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     protected bool $eagerLoad = true;
 
     protected ?string $uriFieldName = null;
-
-    protected bool $retainFieldName = false;
 
     protected bool $includesLinks = true;
 
@@ -102,16 +100,6 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function withUriFieldName(string $uriFieldName): static
     {
         $this->uriFieldName = $uriFieldName;
-
-        return $this;
-    }
-
-    /**
-     * @return static
-     */
-    public function retainFieldName(): static
-    {
-        $this->retainFieldName = true;
 
         return $this;
     }

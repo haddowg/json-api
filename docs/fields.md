@@ -324,7 +324,6 @@ field surface, share these methods:
 | `inverseType(string)` | Records the inverse relationship name on the related type (advisory metadata for adapters / OpenAPI). |
 | `cannotEagerLoad()` | Marks the relation as not eager-loadable (advisory for data-layer adapters). |
 | `withUriFieldName(string)` | Overrides the URI segment for this relationship (defaults to the field name). |
-| `retainFieldName()` | Keeps the field name when it would otherwise be transformed. |
 
 ### `BelongsTo` / `HasOne`
 

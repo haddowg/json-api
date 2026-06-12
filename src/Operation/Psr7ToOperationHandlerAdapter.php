@@ -15,7 +15,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Bridges the PSR-15 world to the operations layer: turns an incoming PSR-7
- * request into the matching {@see JsonApiOperation}, hands it to an
+ * request into the matching {@see JsonApiOperationInterface}, hands it to an
  * {@see OperationHandler}, and encodes the returned response value object back to
  * a PSR-7 response.
  *

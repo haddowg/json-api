@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * Framework-agnostic read/write of a named member on a domain value.
+ * Framework-agnostic read/write of a named member on a domain value, offered as
+ * a convenience for adapter authors writing a {@see \haddowg\JsonApi\Resource\Filter\FilterHandlerInterface}
+ * or {@see \haddowg\JsonApi\Resource\Sort\SortHandlerInterface} (the reference
+ * in-memory handlers use it).
  *
  * Supports plain associative arrays / `ArrayAccess`, public object properties,
  * and conventional `getXxx()` / `isXxx()` / `setXxx()` accessor methods. ORM
  * entities with typed private properties and bespoke accessors are handled by a
  * field's `extractUsing()` / `fillUsing()` hooks instead — this helper is the
  * zero-config default, not an ORM bridge.
- *
- * @internal
  */
 final class Accessor
 {

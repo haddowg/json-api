@@ -233,7 +233,7 @@ abstract class AbstractRelationship
      *
      * @return array<string, mixed>|null
      */
-    public function transform(
+    final public function transform(
         ResourceTransformation $transformation,
         ResourceTransformer $resourceTransformer,
         DataInterface $data,

@@ -18,10 +18,8 @@ use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Hydrator\UpdateRelationshipHydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Accessor;
-use haddowg\JsonApi\Resource\Field\Field;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Mode;
-use haddowg\JsonApi\Resource\Field\Relation;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -41,7 +39,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  *
  * `getAttributes()`/`getRelationships()` return callables (the contract the
  * transformer consumes); sparse-fieldset filtering and inclusion are handled by
- * the transformer reading {@see Field::isSparseField()} and the request, so the
+ * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
 abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface

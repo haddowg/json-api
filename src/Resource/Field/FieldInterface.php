@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Constraint\Constraint;
+use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 
 /**
  * One declared member of a {@see \haddowg\JsonApi\Resource\AbstractResource}'s
- * field inventory: an attribute (or, via the {@see Relation} sub-contract, a
+ * field inventory: an attribute (or, via the {@see RelationInterface} sub-contract, a
  * relationship). A field knows how to **serialize** a value out of a domain
  * object and **hydrate** a value back into it, carries its validation
- * {@see Constraint} metadata, and declares its read-only / sparse-fieldset /
+ * {@see ConstraintInterface} metadata, and declares its read-only / sparse-fieldset /
  * sortable behaviour.
  *
  * The fluent builders live on {@see AbstractField}; this interface is the

@@ -17,7 +17,7 @@ use haddowg\JsonApi\Schema\Document\ResourceDocumentInterface;
  * @extends AbstractDocumentTransformation<ResourceDocumentInterface>
  *
  */
-class ResourceDocumentTransformation extends AbstractDocumentTransformation
+final class ResourceDocumentTransformation extends AbstractDocumentTransformation
 {
     /**
      * @param array<string, mixed> $additionalMeta

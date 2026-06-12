@@ -27,8 +27,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('author', '42', attributes: ['name' => static fn(): string => 'Ada']);
 
         $response = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );
@@ -104,8 +102,6 @@ final class RelatedResponseTest extends TestCase
         };
 
         $response = RelatedResponse::fromCollection(
-            parent: new \stdClass(),
-            relationshipName: 'comments',
             related: [$item1, $item2],
             relatedResource: $relatedResource,
         );
@@ -132,8 +128,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('comment', '1');
 
         $response = RelatedResponse::fromCollection(
-            parent: new \stdClass(),
-            relationshipName: 'comments',
             related: [],
             relatedResource: $relatedResource,
         );
@@ -162,8 +156,6 @@ final class RelatedResponseTest extends TestCase
         ));
 
         $psr = RelatedResponse::fromPage(
-            parent: new \stdClass(),
-            relationshipName: 'comments',
             page: $page,
             relatedSerializer: $relatedResource,
         )->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
@@ -194,8 +186,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('author', '1');
 
         $base = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );
@@ -223,8 +213,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('author', '7', attributes: ['name' => static fn(): string => 'Lovelace']);
 
         $response = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );

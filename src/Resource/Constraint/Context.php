@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Constraint;
 
 /**
- * Declares whether a {@see Constraint} applies on create (POST) requests,
+ * Declares whether a {@see ConstraintInterface} applies on create (POST) requests,
  * update (PATCH) requests, or both.
  *
  * Constraints default to {@see self::always()}; the per-field `onCreate()` /

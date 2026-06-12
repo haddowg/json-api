@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\MinLength;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -49,6 +50,7 @@ final class SchemaCompilerTest extends TestCase
                     Email::make('email')->required(),
                     Integer::make('age')->min(0)->max(150)->nullable(),
                     Str::make('status')->in(['active', 'inactive']),
+                    ArrayList::make('tags')->minItems(1)->maxItems(10)->uniqueItems(),
                     Str::make('createOnly')->requiredOnCreate(),
                     Str::make('code')->sequentially(new MinLength(3), new MaxLength(8)),
                     Str::make('ref')->atLeastOneOf(new MinLength(8), new In(['none'])),
@@ -132,6 +134,20 @@ final class SchemaCompilerTest extends TestCase
             ['teams'],
             $this->at($schema, 'properties', 'data', 'properties', 'relationships', 'properties', 'team', 'properties', 'data', 'properties', 'type', 'enum'),
         );
+    }
+
+    #[Test]
+    public function compiledSchemaIncludesTheArrayBoundsTrio(): void
+    {
+        // minItems / maxItems / uniqueItems all compile onto an array field — the
+        // uniqueItems arm in particular (it was previously dropped).
+        $tags = $this->at($this->compileToArray(creating: true), 'properties', 'data', 'properties', 'attributes', 'properties', 'tags');
+        self::assertIsArray($tags);
+
+        self::assertSame('array', $tags['type'] ?? null);
+        self::assertSame(1, $tags['minItems'] ?? null);
+        self::assertSame(10, $tags['maxItems'] ?? null);
+        self::assertTrue($tags['uniqueItems'] ?? null);
     }
 
     #[Test]

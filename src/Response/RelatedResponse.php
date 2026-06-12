@@ -34,8 +34,6 @@ final class RelatedResponse extends AbstractResponse
      * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
      */
     private function __construct(
-        public readonly mixed $parent,
-        public readonly string $relationshipName,
         private readonly mixed $related,
         private readonly SerializerInterface $relatedResource,
         private readonly bool $isCollection,
@@ -46,12 +44,10 @@ final class RelatedResponse extends AbstractResponse
      * A single related-resource response whose `data` is the related object.
      */
     public static function fromResource(
-        mixed $parent,
-        string $relationshipName,
         mixed $related,
         SerializerInterface $relatedResource,
     ): self {
-        return new self($parent, $relationshipName, $related, $relatedResource, false);
+        return new self($related, $relatedResource, false);
     }
 
     /**
@@ -60,12 +56,10 @@ final class RelatedResponse extends AbstractResponse
      * @param iterable<mixed> $related
      */
     public static function fromCollection(
-        mixed $parent,
-        string $relationshipName,
         iterable $related,
         SerializerInterface $relatedResource,
     ): self {
-        return new self($parent, $relationshipName, $related, $relatedResource, true);
+        return new self($related, $relatedResource, true);
     }
 
     /**
@@ -82,12 +76,10 @@ final class RelatedResponse extends AbstractResponse
      * @param \haddowg\JsonApi\Pagination\PageInterface<T> $page
      */
     public static function fromPage(
-        mixed $parent,
-        string $relationshipName,
         \haddowg\JsonApi\Pagination\PageInterface $page,
         SerializerInterface $relatedSerializer,
     ): self {
-        return new self($parent, $relationshipName, $page, $relatedSerializer, true, $page);
+        return new self($page, $relatedSerializer, true, $page);
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument

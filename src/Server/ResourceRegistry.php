@@ -28,6 +28,11 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * object` or a PSR-11 container, normalised to a `\Closure`); with no resolver the
  * registry falls back to plain `new $class()`. Registering two resources with the
  * same type is a configuration error.
+ *
+ * @internal package-internal registry; consumers register via the fluent
+ *           {@see Server::register()} / {@see Server::registerSerializerHydrator()}
+ *           and resolve a type via {@see Server::resourceFor()},
+ *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
 final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface
 {
