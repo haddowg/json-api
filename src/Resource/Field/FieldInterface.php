@@ -71,9 +71,11 @@ interface FieldInterface
 
     /**
      * Hydrates `$value` into `$model`, returning the (possibly replaced) domain
-     * object.
+     * object. `$creating` carries the operation context (true on create, false on
+     * update) so a composite field — e.g. {@see \haddowg\JsonApi\Resource\Field\Map} —
+     * can gate read-only children the same way the resource gates top-level fields.
      *
      * @param array<string, mixed> $data the full resource data array
      */
-    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed;
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed;
 }

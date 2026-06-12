@@ -455,7 +455,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->serializeValue($raw);
     }
 
-    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->fillUsing !== null) {
             $result = ($this->fillUsing)($model, $value, $data, $this->name);

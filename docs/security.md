@@ -56,7 +56,23 @@ new ErrorHandlerMiddleware($server, debug: true); // opt in for local/dev only
   values (which may contain secrets) are never serialised.
 
 Typed `JsonApiExceptionInterface`s render their own spec-defined `status`/`code`/`title`/
-`detail`; those strings are library-controlled and do not echo untrusted input.
+`detail`; those strings are library-controlled. A few errors deliberately echo the
+**requester's own input** back to that same requester — a media-type error includes the
+offending `Accept`/`Content-Type`, and a malformed-JSON error includes the raw body in
+`meta` — which is reflection of the caller's own request, not a leak of server state,
+secrets, or another tenant's data.
+
+### Allow-list write hydration (no mass-assignment)
+
+Hydration is **allow-list based**: it walks the resource's *declared* field inventory
+and reads each declared field from the body — it never iterates the client's keys. An
+attribute or relationship the resource did not declare (the classic `isAdmin` over-post)
+is silently **ignored**, never written. Within the declared set, a field marked
+`readOnly()` / `readOnlyOnCreate()` / `readOnlyOnUpdate()` is skipped for that operation
+(including nested `Map` children and relationships in a whole-resource write), and a
+client-generated `id` is rejected unless the resource opts in. This is a structural
+guard against mass-assignment — but it is **not** per-user field authorisation (see
+"Treat hydrated input as untrusted" below).
 
 ## What you must do
 

@@ -12,21 +12,24 @@ never an error.
 ## The media type and its parameters
 
 Per JSON:API 1.1, the media type `application/vnd.api+json` **MUST NOT** carry any
-media-type parameter other than `ext` or `profile`. The single source of truth
-for that rule is `@internal Request\MediaType::isValid()`, consumed by both the
-request-side `Content-Type` / `Accept` checks and the response-side `Content-Type`
-check. Any other parameter (for example a stray `charset`) makes the header
-invalid:
+media-type parameter other than `ext` or `profile`. `@internal Request\MediaType`
+applies that rule, but the **`Content-Type` and `Accept` rules differ**, as the spec
+requires:
 
-- An invalid `Content-Type` is rejected with **415 Unsupported Media Type**
+- **`Content-Type`** (`MediaType::isValid()`, also the response-side check) — the
+  single media type must carry only `ext` / `profile` parameters; any other parameter
+  (for example a stray `charset`) is rejected with **415 Unsupported Media Type**
   (`MediaTypeUnsupported`).
-- An invalid `Accept` is rejected with **406 Not Acceptable**
-  (`MediaTypeUnacceptable`).
+- **`Accept`** (`MediaType::accepts()`) — rejected with **406 Not Acceptable**
+  (`MediaTypeUnacceptable`) **only when every** `application/vnd.api+json` instance
+  carries a forbidden parameter. A single conforming instance (e.g. in
+  `application/vnd.api+json; charset=utf-8, application/vnd.api+json`) makes the header
+  acceptable, and the optional `q` weight is not a media-type parameter — it is ignored.
 
 A header that does not assert the JSON:API media type at all, or asserts it with
-no parameters, is treated as valid — negotiation only polices the JSON:API media
-type's own parameters. The parser is quote-aware, so a comma inside a quoted
-`profile` / `ext` value does not split one media-type instance into two.
+no parameters, is acceptable — negotiation only polices the JSON:API media type's
+own parameters. The parser is quote-aware, so a comma inside a quoted `profile` /
+`ext` value does not split one media-type instance into two.
 
 ## Query parameters
 

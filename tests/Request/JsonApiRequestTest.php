@@ -181,6 +181,35 @@ final class JsonApiRequestTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:content-negotiation')]
+    public function validateAcceptHeaderAcceptsWhenOneJsonApiInstanceIsUnparametrized(): void
+    {
+        // A 406 is required only when EVERY application/vnd.api+json instance carries
+        // a forbidden parameter; a single clean instance makes the header acceptable.
+        $request = $this->createRequestWithHeader(
+            'accept',
+            'application/vnd.api+json; charset=utf-8, application/vnd.api+json',
+        );
+
+        $request->validateAcceptHeader();
+
+        self::addToAssertionCount(1);
+    }
+
+    #[Test]
+    #[Group('spec:content-negotiation')]
+    public function validateAcceptHeaderIgnoresTheQualityWeight(): void
+    {
+        // The q weight (and any accept-extension after it) is not a media-type
+        // parameter, so it must not trigger a 406.
+        $request = $this->createRequestWithHeader('accept', 'application/vnd.api+json;q=0.9');
+
+        $request->validateAcceptHeader();
+
+        self::addToAssertionCount(1);
+    }
+
+    #[Test]
     #[Group('spec:fetching-data')]
     public function validateEmptyQueryParams(): void
     {

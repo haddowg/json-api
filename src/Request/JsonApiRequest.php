@@ -108,7 +108,10 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
      */
     public function validateAcceptHeader(): void
     {
-        if ($this->isValidMediaTypeHeader('accept') === false) {
+        // The Accept rule differs from the Content-Type rule: a 406 is required only
+        // when EVERY application/vnd.api+json instance is parametrized; a single
+        // conforming instance is acceptable, and the q weight is not a parameter.
+        if (MediaType::accepts($this->getHeaderLine('accept')) === false) {
             throw new MediaTypeUnacceptable($this->getHeaderLine('accept'));
         }
     }

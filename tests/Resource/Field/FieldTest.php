@@ -383,7 +383,7 @@ final class FieldTest extends TestCase
 
         self::assertSame(5, $field->serialize(['count' => '5'], $this->request(), 'count'));
 
-        $model = $field->hydrate(['count' => 0], '9', [], $this->request());
+        $model = $field->hydrate(['count' => 0], '9', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame(9, $model['count']);
     }
@@ -395,7 +395,7 @@ final class FieldTest extends TestCase
 
         self::assertSame(1.5, $field->serialize(['price' => '1.5'], $this->request(), 'price'));
 
-        $model = $field->hydrate(['price' => 0], '2', [], $this->request());
+        $model = $field->hydrate(['price' => 0], '2', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame(2.0, $model['price']);
     }
@@ -407,7 +407,7 @@ final class FieldTest extends TestCase
 
         self::assertTrue($field->serialize(['active' => 1], $this->request(), 'active'));
 
-        $model = $field->hydrate(['active' => true], 0, [], $this->request());
+        $model = $field->hydrate(['active' => true], 0, [], $this->request(), true);
         self::assertIsArray($model);
         self::assertFalse($model['active']);
     }
@@ -420,7 +420,7 @@ final class FieldTest extends TestCase
 
         self::assertSame('2020-01-02T03:04:05+00:00', $field->serialize(['publishedAt' => $date], $this->request(), 'publishedAt'));
 
-        $model = $field->hydrate(['publishedAt' => null], '2021-06-07T08:09:10+00:00', [], $this->request());
+        $model = $field->hydrate(['publishedAt' => null], '2021-06-07T08:09:10+00:00', [], $this->request(), true);
         self::assertIsArray($model);
         $hydrated = $model['publishedAt'];
         self::assertInstanceOf(\DateTimeImmutable::class, $hydrated);
@@ -496,10 +496,34 @@ final class FieldTest extends TestCase
             ['street' => '2 Low St', 'city' => 'Leeds'],
             [],
             $this->request(),
+            true,
         );
         self::assertIsArray($model);
         self::assertSame('2 Low St', $model['street']);
         self::assertSame('Leeds', $model['city']);
+    }
+
+    #[Test]
+    public function mapGatesReadOnlyChildrenOnHydrate(): void
+    {
+        // A read-only child must not be writable through the nested object — the
+        // Map gates it the same way the resource gates a top-level field.
+        $field = Map::make('settings')->fields(
+            Str::make('name'),
+            Str::make('role')->readOnly(),
+        );
+
+        $model = $field->hydrate(
+            ['name' => 'old', 'role' => 'user'],
+            ['name' => 'new', 'role' => 'admin'],
+            [],
+            $this->request(),
+            true,
+        );
+
+        self::assertIsArray($model);
+        self::assertSame('new', $model['name']);
+        self::assertSame('user', $model['role'], 'a read-only Map child must not be overwritten');
     }
 
     #[Test]
@@ -549,7 +573,7 @@ final class FieldTest extends TestCase
             },
         );
 
-        $model = $field->hydrate(['name' => ''], 'bob', [], $this->request());
+        $model = $field->hydrate(['name' => ''], 'bob', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame('BOB', $model['name']);
     }
@@ -563,7 +587,7 @@ final class FieldTest extends TestCase
             return \trim($v);
         });
 
-        $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request());
+        $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame('bob', $model['name']);
     }
@@ -574,7 +598,7 @@ final class FieldTest extends TestCase
         $field = Str::make('preview')->computed();
         $model = ['preview' => 'original'];
 
-        self::assertSame($model, $field->hydrate($model, 'new', [], $this->request()));
+        self::assertSame($model, $field->hydrate($model, 'new', [], $this->request(), true));
     }
 
     private function request(): StubJsonApiRequest

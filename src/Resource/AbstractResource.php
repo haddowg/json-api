@@ -481,7 +481,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
-            $domainObject = $field->hydrate($domainObject, $attributes[$field->name()], $data, $request);
+            $domainObject = $field->hydrate($domainObject, $attributes[$field->name()], $data, $request, $creating);
         }
 
         return $domainObject;
