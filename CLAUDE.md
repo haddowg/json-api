@@ -6,7 +6,7 @@ decisions that do *not* belong in consumer docs — yin divergences, why a type
 breaks a convention, what was deliberately not ported, PHPStan level-9 footguns.
 
 Three places carry the rest, and this file links out rather than restating them:
-the **public API** is documented under [`docs/`](docs/README.md), the **domain
+the **public API** is documented under [`docs/`](docs/index.md), the **domain
 language** in [`CONTEXT.md`](CONTEXT.md), and the **rationale for the big
 architectural decisions** as ADRs under [`docs/adr/`](docs/adr/). Read the
 consumer docs for the surface, an ADR for *why* a decision was made, and this file
@@ -25,7 +25,7 @@ upstream tracking, no commitment to yin's public API. Always credit yin as the
 original; never call this package a "fork". (See [ADR 0001](docs/adr/0001-derived-from-yin-not-forked.md).)
 
 - Spec: [JSON:API 1.1](https://jsonapi.org/format/1.1/) · Namespace: `haddowg\JsonApi\…` · Min PHP 8.3
-- Consumer docs: [`docs/README.md`](docs/README.md) · Domain language: [`CONTEXT.md`](CONTEXT.md) · Decision records: [`docs/adr/`](docs/adr/)
+- Consumer docs: [`docs/index.md`](docs/index.md) · Domain language: [`CONTEXT.md`](CONTEXT.md) · Decision records: [`docs/adr/`](docs/adr/)
 
 ### Status
 
@@ -160,7 +160,7 @@ Construct-only; `null` entries filtered out; arbitrary relation keys allowed. In
 `offsetAccess.nonOffsetAccessible` at L9).
 
 ### Exceptions
-`src/Exception` → [exceptions](docs/exceptions.md), [errors](docs/errors.md).
+`src/Exception` → [errors & exceptions](docs/errors-and-exceptions.md).
 Typed hierarchy replaces yin's `ExceptionFactory`. `JsonApiExceptionInterface` (`extends
 \Throwable`) is the contract: `getErrors(): list<Error>` + `getStatusCode(): int`
 — exceptions carry **data**, never a built document. `AbstractJsonApiException(string
@@ -262,7 +262,7 @@ is the inlined yin silent-default rule (absent/non-numeric `page[…]` → defau
 never throws).
 
 ### Middleware
-`src/Middleware` → [middleware](docs/middleware.md), [middleware-order](docs/middleware-order.md).
+`src/Middleware` → [middleware](docs/middleware.md).
 Constructor injection only (no service location, no select-server middleware). **The
 parsed request flows by swapping it down the chain, not via an attribute** — the
 first middleware to need it does `$r = $request instanceof JsonApiRequestInterface ?
@@ -276,7 +276,7 @@ the **error object's `meta`** (the spec-faithful home — `source` is for reques
 locations).
 
 ### Validation (JSON Schema, optional/dev)
-`src/Validation` → [validation](docs/validation.md). Backed by the **optional**
+`src/Validation` → [schema validation](docs/schema-validation.md). Backed by the **optional**
 `opis/json-schema` (`require-dev` + `suggest`, **never** `require`). `DocumentValidator`
 builds **one reusable** opis validator and validates against a synthetic composite
 root `{ "allOf": [ {"$ref": <root>}, …$additionalSchemas ], "unevaluatedProperties":
@@ -294,7 +294,7 @@ arrays and convert to `stdClass` once at the boundary (analysable at L9).
 
 ### Fluent schema — fields, constraints, relations
 `src/Resource` → [resources](docs/resources.md), [fields](docs/fields.md),
-[validation](docs/validation.md). An `AbstractResource` subclass satisfies **both**
+[constraints](docs/constraints.md). An `AbstractResource` subclass satisfies **both**
 `SerializerInterface` and `HydratorInterface` from one `fields()` list. **Fields are
 mutable builders** (methods mutate and return `$this`) — *deliberately not* the
 readonly-VO pattern, so a field reads as one fluent expression. **`ConstraintInterface` is

@@ -1,132 +1,114 @@
-# Getting started
+# Getting started: your first music-catalog endpoint
 
-This page builds a small but complete JSON:API endpoint — fetching and creating
-`articles` — from an empty project. By the end you will have a running PSR-15
-application that serves spec-compliant responses, and you will know which pieces
-the library provides and which you are expected to wire up yourself.
+By the end of this page you will have a running PSR-15 application that fetches and
+creates `albums` and serves spec-compliant JSON:API responses — built from an empty
+project, with every piece test-verified. You will also know exactly which pieces
+the library provides and which you supply yourself.
 
-Every code block on this page is taken from a test that runs on each CI build
-([`tests/Docs/GettingStartedExampleTest.php`](../tests/Docs/GettingStartedExampleTest.php)),
-so the example cannot drift from the code.
-
-## Installation
-
-> Not yet published to Packagist. Once the first `0.x` release is cut:
-
-```bash
-composer require haddowg/json-api
-```
-
-The library targets PHP 8.3+ and speaks [PSR-7](https://www.php-fig.org/psr/psr-7/)
-v2 and [PSR-15](https://www.php-fig.org/psr/psr-15/) throughout. It does **not**
-bundle a PSR-7 implementation, so install one — the examples here use
-[`nyholm/psr7`](https://github.com/Nyholm/psr7):
-
-```bash
-composer require nyholm/psr7
-```
+This walkthrough is the front of the [music catalog](../examples/music-catalog/)
+example app — the single source of truth for every snippet in these docs. Each
+outcome below is asserted by a CI-run test
+([`GettingStartedTest`](../examples/music-catalog/tests/GettingStartedTest.php)),
+so the example cannot drift from the code. If you are still evaluating, start at the
+[documentation index](index.md) — it covers install, requirements, and the pre-1.0
+caveat.
 
 ## The pieces you provide
 
-The library is framework- and storage-agnostic. To serve a resource type you
-supply:
+The library is framework- and storage-agnostic. To serve a resource type you supply
+four things:
 
-1. **A domain model** — any object or array; the library never dictates its shape.
+1. **A domain model** — any object or array. The library never dictates its shape:
+   no base class, no ORM, no annotations.
 2. **A Resource class** — an [`AbstractResource`](resources.md) subclass declaring
-   the type's fields. One declaration drives both serialization (model → JSON:API)
-   and hydration (request → model).
-3. **An operation handler** — your application logic, expressed as a function from
-   a parsed [operation](server.md#operations) to a [response value object](responses.md).
-4. **A router** — mapping a URL to a JSON:API [`Target`](server.md#routing-and-targets).
-   Core ships no router; this is your framework's job. The example uses a tiny
-   path-prefix stand-in.
+   the type's [fields](fields.md). This one declaration drives both serialization
+   (model → JSON:API) and hydration (request → model).
+3. **An operation handler** — your application logic, expressed as a function from a
+   parsed [operation](operations.md) to a [response value object](responses.md). It
+   never touches PSR-7.
+4. **A router** — mapping a URL to a JSON:API [`Target`](operations.md). Core ships
+   no router; this is your framework's job. The example uses a tiny path-prefix
+   stand-in.
 
-The library provides everything between the HTTP message and your handler:
-content negotiation, request parsing, sparse fieldsets, includes, error
-rendering, and response encoding.
+Everything between the HTTP message and your handler is the library's job: content
+negotiation, body parsing, sparse fieldsets, includes, error rendering, and response
+encoding.
 
-## The domain model
+## Step 1 — the domain model
 
-A plain object — no base class, no ORM, no annotations:
+A plain mutable object. No base class, no ORM, no annotations — the relationships
+are simply held as the related objects, so a default reader returns them straight
+off the model. From [`Album`](../examples/music-catalog/src/Domain/Album.php):
 
 ```php
-final class Article
+final class Album
 {
+    /**
+     * @param list<Track> $tracks
+     */
     public function __construct(
         public string $id = '',
         public string $title = '',
-        public string $body = '',
+        public bool $explicit = false,
+        // … other columns elided
+        public ?Artist $artist = null,
+        public array $tracks = [],
     ) {}
 }
 ```
 
-A trivial in-memory store stands in for a database:
+A trivial in-memory store stands in for a database. The example app keeps reads and
+writes against one shared
+[`InMemoryStore`](../examples/music-catalog/src/Data/InMemoryStore.php) behind an
+[`InMemoryRepository`](../examples/music-catalog/src/Data/InMemoryRepository.php), so
+a created resource is immediately readable.
 
-```php
-final class ArticleRepository
-{
-    /** @var array<int|string, Article> */
-    private array $articles;
+## Step 2 — the Resource class
 
-    public function __construct()
-    {
-        $this->articles = [
-            '1' => new Article('1', 'JSON:API in PHP', 'A worked example.'),
-            '2' => new Article('2', 'Second article', 'Another one.'),
-        ];
-    }
-
-    public function find(string $id): ?Article
-    {
-        return $this->articles[$id] ?? null;
-    }
-
-    /** @return list<Article> */
-    public function all(): array
-    {
-        return \array_values($this->articles);
-    }
-
-    public function save(Article $article): void
-    {
-        $this->articles[$article->id] = $article;
-    }
-}
-```
-
-## The Resource class
-
-A Resource class declares the resource type's fields. This one list is the single source
-of truth for both directions: it tells the serializer how to render an `Article`
-and the hydrator how to fill one from a request body. See [Resources](resources.md)
-and [Fields](fields.md) for the full surface.
+A Resource class declares the type's fields. This one list is the single source of
+truth for both directions: it tells the serializer how to render an `Album` and the
+hydrator how to fill one from a request body. From
+[`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php) (its
+richer fields elided to the two essentials):
 
 ```php
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 
-final class ArticleResource extends AbstractResource
+final class AlbumResource extends AbstractResource
 {
-    public static string $type = 'articles';
+    public static string $type = 'albums';
 
     public function fields(): array
     {
         return [
             Id::make(),
-            Str::make('title')->required()->maxLength(255)->sortable(),
-            Str::make('body')->required(),
+            Str::make('title')->required()->maxLength(200)->sortable(),
+            Boolean::make('explicit'),
+            // … relations and richer fields — see resources.md / fields.md
         ];
     }
 }
 ```
 
-## The operation handler
+`$type` is the JSON:API type **and** the registry key. [`Id::make()`](ids.md) maps to
+the top-level `id`; each [`Str`](field-types.md)/[`Boolean`](field-types.md) field
+becomes an attribute. `required()`, `maxLength()` and `sortable()` are declarative
+[metadata](constraints.md) — the field surface is documented in full in
+[Fields](fields.md). See [Resources](resources.md) for the rest of the
+`AbstractResource` contract.
 
-Your handler receives a parsed [`JsonApiOperationInterface`](server.md#operations) and
-returns one of the [response value objects](responses.md). It never touches PSR-7
-directly — the framing is done for you. Dispatch on the concrete operation type
-with `match (true)`; the type system narrows each branch:
+## Step 3 — the operation handler
+
+Your handler receives a parsed
+[`JsonApiOperationInterface`](operations.md) and returns one of the
+[response value objects](responses.md). It never touches PSR-7 — the framing is done
+for you. Dispatch on the concrete operation type with `match (true)`; the type
+system narrows each branch. This is the shape of
+[`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php),
+reduced to the two arms this page exercises:
 
 ```php
 use haddowg\JsonApi\Exception\ResourceNotFound;
@@ -138,93 +120,126 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Server\Server;
 
-final class ArticleHandler implements OperationHandlerInterface
+final class MusicCatalogHandler implements OperationHandlerInterface
 {
-    public function __construct(private readonly ArticleRepository $repository) {}
-
     public function handle(JsonApiOperationInterface $operation): DataResponse|ErrorResponse
     {
-        $server = $operation->context()->server;
-        \assert($server instanceof Server);
-
-        $articles = $server->serializerFor('articles');
-
         return match (true) {
-            $operation instanceof FetchResourceOperation => $operation->target()->hasId()
-                ? $this->show((string) $operation->target()->id, $server)
-                : DataResponse::fromCollection($this->repository->all(), $articles),
-            $operation instanceof CreateResourceOperation => $this->create($operation, $server),
+            $operation instanceof FetchResourceOperation => $this->fetch($operation),
+            $operation instanceof CreateResourceOperation => $this->create($operation),
+            // … the other seven operation VOs — see operations.md
             default => ErrorResponse::fromException(new ResourceNotFound()),
         };
     }
-
-    private function show(string $id, Server $server): DataResponse|ErrorResponse
-    {
-        $article = $this->repository->find($id);
-        if ($article === null) {
-            return ErrorResponse::fromException(new ResourceNotFound());
-        }
-
-        return DataResponse::fromResource($article, $server->serializerFor('articles'));
-    }
-
-    private function create(CreateResourceOperation $operation, Server $server): DataResponse
-    {
-        $article = $server->hydratorFor('articles')->hydrate($operation->body(), new Article());
-        \assert($article instanceof Article);
-
-        $this->repository->save($article);
-
-        return DataResponse::fromResource($article, $server->serializerFor('articles'));
-    }
 }
 ```
 
-The handler reaches the registered Resource class through `$operation->context()->server`.
-That property is typed as the minimal `ServerInterface`; narrow it to the concrete
-`Server` (with `assert` / `instanceof`) to reach `serializerFor()` /
-`hydratorFor()`.
+### Reaching the registry
 
-## The router
+A handler reaches the registered Resource through `$operation->context()->server`.
+That property is typed as the minimal `ResolvingServerInterface`; narrow it to the
+concrete [`Server`](server.md) to reach `serializerFor()` / `hydratorFor()`:
 
-Core deliberately ships no router — mapping a URL to a resource is your
-framework's concern. A router's only job here is to attach a
-[`Target`](server.md#routing-and-targets) to the request as an attribute keyed by
-`Target::class`; the operations adapter reads it to pick the operation. A
-hand-rolled path-prefix stand-in:
+```php
+$server = $operation->context()->server;
+\assert($server instanceof Server);
+```
+
+### Fetching: collection vs single
+
+A `FetchResourceOperation` covers both `GET /albums` and `GET /albums/1`. The two are
+distinguished by `target()->hasId()`. A single fetch that finds nothing returns an
+[`ErrorResponse`](responses.md) from [`ResourceNotFound`](errors-and-exceptions.md);
+a found one renders through `DataResponse::fromResource()`:
+
+```php
+$serializer = $server->serializerFor($type);
+
+$id = $operation->target()->id;
+if ($id !== null) {
+    $model = $this->repository->fetchOne($type, $id);
+    if ($model === null) {
+        return ErrorResponse::fromException(new ResourceNotFound());
+    }
+
+    return DataResponse::fromResource($model, $serializer);
+}
+
+// A collection (the example app paginates here; the simplest form is a plain list):
+return DataResponse::fromCollection($this->repository->fetchAll($type), $serializer);
+```
+
+`DataResponse::fromResource(mixed $object, SerializerInterface $serializer)` and
+`fromCollection(iterable $objects, SerializerInterface $serializer)` are the two
+read builders. (The full handler also paginates collections — see
+[Pagination](pagination.md).)
+
+### Creating: hydrate, persist, 201
+
+A `CreateResourceOperation` carries the parsed request `body()`. Drive the per-type
+hydrator with `hydratorFor($type)->hydrate($body, $newInstance)` to fill a fresh
+domain object, persist it, then render `201` with a `Location` header. The
+[`Server`](server.md) never dictates instantiation — the handler owns a tiny
+type → `new Album()` map:
+
+```php
+$serializer = $server->serializerFor($type);
+
+$entity = $server->hydratorFor($type)->hydrate($operation->body(), new Album());
+\assert(\is_object($entity));
+
+$id = $serializer->getId($entity);
+$this->repository->create($type, $entity, $id);
+
+return DataResponse::fromResource($entity, $serializer)
+    ->withStatus(201)
+    ->withHeader('Location', $server->baseUri() . '/' . $type . '/' . $id);
+```
+
+`withStatus(int)` and `withHeader(string, string)` are immutable withers on every
+response VO — each returns a new instance. With no client id supplied, the server
+[generates one](ids.md) (an RFC-4122 v4 UUID by default); `Location` echoes it.
+
+## Step 4 — the router
+
+Core deliberately ships no router — mapping a URL to a resource is your framework's
+concern. A router's only job here is to attach a [`Target`](operations.md) to the
+request as an attribute keyed by `Target::class`; the operations adapter reads it to
+pick the operation. From
+[`PathPrefixRouter`](../examples/music-catalog/src/Http/PathPrefixRouter.php),
+matching the four JSON:API endpoint shapes:
 
 ```php
 use haddowg\JsonApi\Operation\Target;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
-final class ArticleRouter implements MiddlewareInterface
-{
-    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-    {
-        $path = \trim($request->getUri()->getPath(), '/');
-        $segments = $path === '' ? [] : \explode('/', $path);
-
-        if (($segments[0] ?? null) === 'articles') {
-            $request = $request->withAttribute(
-                Target::class,
-                new Target('articles', $segments[1] ?? null),
-            );
-        }
-
-        return $handler->handle($request);
-    }
-}
+return match ($count) {
+    // /{type}
+    1 => new Target($type),
+    // /{type}/{id}
+    2 => new Target($type, $segments[1]),
+    // /{type}/{id}/{relationship}
+    3 => new Target($type, $segments[1], $segments[2], isRelationshipEndpoint: false),
+    // /{type}/{id}/relationships/{relationship}
+    4 => $segments[2] === 'relationships'
+        ? new Target($type, $segments[1], $segments[3], isRelationshipEndpoint: true)
+        : null,
+    default => null,
+};
 ```
 
-## Wiring the server
+`Target($type, $id, $relationship, $isRelationshipEndpoint)` is the router-agnostic
+endpoint identifier — `hasId()` / `hasRelationship()` distinguish the shapes. In a
+real app your framework's router builds this; the library only needs the attribute
+present. The example's router is a stand-in, not a routing engine.
 
-The [`Server`](server.md) is the configuration root for one API version. It holds
-the Resource registry, the PSR-17 factories, the ordered middleware list, and the
-handler. It is an immutable value (every `with…()` returns a new instance) and is
-itself a PSR-15 `RequestHandlerInterface`:
+## Step 5 — wire the server
+
+The [`Server`](server.md) is the configuration root for one API version. It holds the
+Resource registry, the PSR-17 factories, the ordered middleware list, and the
+handler. It is an immutable value — every `with…()` / `register()` returns a new
+instance — and is itself a PSR-15 `RequestHandlerInterface`. From the example's
+[`bootstrap.php`](../examples/music-catalog/src/bootstrap.php) (elided to the albums
+slice):
 
 ```php
 use haddowg\JsonApi\Middleware\ContentNegotiationMiddleware;
@@ -234,75 +249,90 @@ use haddowg\JsonApi\Server\Server;
 use Nyholm\Psr7\Factory\Psr17Factory;
 
 $psr17 = new Psr17Factory();
-$repository = new ArticleRepository();
 
 $base = Server::make()
-    ->withBaseUri('https://example.test')
+    ->withBaseUri('https://music.example')
     ->withPsr17($psr17, $psr17)
-    ->register(ArticleResource::class);
+    ->register(AlbumResource::class);
 
 $server = $base
     ->withMiddleware([
         new ErrorHandlerMiddleware($base),
         new ContentNegotiationMiddleware(),
         new RequestBodyParsingMiddleware(),
-        new ArticleRouter(),
+        new PathPrefixRouter($base),
     ])
-    ->withHandler(new ArticleHandler($repository));
+    ->withHandler(new MusicCatalogHandler($repository));
 ```
 
-The middleware list runs outermost-first: the error handler wraps everything (so
-any thrown JSON:API exception becomes an error document), content negotiation
+`register()` reads the static `$type` **without instantiating** the Resource, so a
+Resource with constructor dependencies works (instances are built lazily on first
+lookup). The middleware list runs outermost-first: the error handler wraps everything
+(so any thrown JSON:API exception becomes an error document), content negotiation
 enforces the media type, body parsing decodes the request, and the router resolves
-the target just before the handler runs. See [Middleware](middleware.md) for the
-ordering rationale.
+the `Target` just before the handler runs. See [Server](server.md) for the full
+configurator surface and [Middleware](middleware.md) for the ordering rationale.
 
-## Handling a request
+## Step 6 — handle a request
 
 `Server` is a request handler, so dispatching is a single call. Pass it the PSR-7
 request your framework hands you:
 
 ```php
-$response = $server->handle($request); // $response is a PSR-7 ResponseInterface
+$response = $server->handle($request); // a PSR-7 ResponseInterface
 ```
 
-A `GET https://example.test/articles/1` with `Accept: application/vnd.api+json`
-produces:
+## Three worked outcomes
+
+Each outcome below is asserted by
+[`GettingStartedTest`](../examples/music-catalog/tests/GettingStartedTest.php).
+
+### `GET /albums/1` → `200`
+
+A request with `Accept: application/vnd.api+json` resolves to a single-resource
+`FetchResourceOperation`, finds the album, and renders a spec-compliant document:
 
 ```json
 {
     "jsonapi": { "version": "1.1" },
     "data": {
-        "type": "articles",
+        "type": "albums",
         "id": "1",
-        "attributes": { "title": "JSON:API in PHP", "body": "A worked example." }
+        "attributes": { "title": "OK Computer", "explicit": false }
     }
 }
 ```
 
-A `POST https://example.test/articles` with a JSON:API body creates a resource.
-The Resource class hydrates the new `Article`, the handler saves it, and the response
-echoes the created resource (with the server-generated `id`):
+### `POST /albums` → `201`
+
+A full create envelope — a `data` member of `type` `albums` with `attributes`, sent
+with both `Accept` and `Content-Type: application/vnd.api+json`:
 
 ```json
 {
     "data": {
-        "type": "articles",
-        "attributes": { "title": "A new article", "body": "Created over HTTP." }
+        "type": "albums",
+        "attributes": { "title": "In Rainbows", "explicit": false }
     }
 }
 ```
 
-A request for a missing resource (`GET /articles/999`) renders a `404` error
-document, because the handler returns `ErrorResponse::fromException(new ResourceNotFound())`
-and the error handler middleware encodes it.
+No client id is supplied, so the server generates one and echoes it in `Location`
+(`https://music.example/albums/{id}`). The response is `201` carrying the created
+resource. Because reads and writes share one store, the new album is immediately
+fetchable through the same server.
+
+### `GET /albums/999` → `404`
+
+A request for a missing resource renders a `404` error document, because the handler
+returns `ErrorResponse::fromException(new ResourceNotFound())` and the error-handler
+middleware encodes it. The body is a spec-compliant errors document.
 
 ## Where to go next
 
-- [Resources](resources.md) — the recommended way to declare a resource type.
-- [Fields](fields.md) — every field type and its fluent options.
-- [Responses](responses.md) — the five response value objects and their `with…` chaining.
-- [Server](server.md) — configuration, routing, operations, multi-version APIs.
-- [Middleware](middleware.md) — the PSR-15 suite and recommended order.
-- [Concepts](concepts.md) — the JSON:API document model as this package represents it.
-- [Documentation index](README.md) — the full page list.
+- [Concepts](concepts.md) — the JSON:API document model these pieces produce.
+- [Architecture](architecture.md) — how a request flows through the library.
+- [Resources](resources.md) and [Fields](fields.md) — the type model and the field DSL.
+- [Operations](operations.md) and [Responses](responses.md) — the handler's input and output.
+- [Server](server.md) and [Middleware](middleware.md) — wiring an API and the PSR-15 suite.
+- [Documentation index](index.md) — the full page map.

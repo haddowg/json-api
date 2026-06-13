@@ -6,7 +6,7 @@ confirms the public surface is deliberate, the spec coverage holds, and the inpu
 the library accepts and outputs it produces are safe.
 
 The library is feature-complete across the surface documented under
-[`docs/`](README.md); this is a verification and release pass, not a feature pass.
+[`docs/`](index.md); this is a verification and release pass, not a feature pass.
 Any gap surfaced here is either fixed now or filed as a known post-1.0 follow-up.
 
 ## Out of scope (deliberately)

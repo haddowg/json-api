@@ -1,14 +1,12 @@
-# Fields
+# Fields: the shared builder surface
 
-A field is one entry in a [Resource class](resources.md)'s `fields()` list. Each field
+A field is one entry in a [resource](resources.md)'s `fields()` list. Each field
 describes one member of a resource type — the `id`, an attribute, or a
-relationship — and that single declaration drives both directions: how the
-member is serialized out of a domain object and how it is hydrated back into one.
-Fields are **mutable builders**: every fluent method mutates the field and
-returns it, so a field reads as one expression
-(`Str::make('title')->required()->maxLength(200)->sortable()`). This page
-documents the shared fluent surface, then every concrete field type and its
-type-specific options.
+[relationship](relations.md) — and that single declaration drives **both**
+directions: how the member is serialized out of a domain object and how it is
+hydrated back into one. This page documents the fluent surface that *every*
+attribute field inherits from `Resource\Field\AbstractField`. Each concrete field
+type ([field types](field-types.md)) adds only its type-specific delta on top.
 
 ```php
 use haddowg\JsonApi\Resource\Field\Id;
@@ -18,47 +16,82 @@ public function fields(): array
 {
     return [
         Id::make(),
-        Str::make('title')->required()->maxLength(200),
+        Str::make('title')->required()->maxLength(200)->sortable(),
     ];
 }
 ```
 
-## The shared fluent surface
+Fields are **mutable builders**: every fluent method mutates the field and
+returns it, so a field reads as one chained expression and one `fields()` entry
+configures serialize *and* hydrate at once.
 
-Every field extends `Resource\Field\AbstractField` and inherits the methods
-below. The constructor takes the JSON:API member name and, optionally, the
-backing domain-object member it maps to; in practice you call the static
-`make()` factory rather than `new`.
+## Naming and storage
 
-```php
-Str::make('title');           // name and column both 'title'
-Str::make('title', 'heading') // name 'title', backed by the 'heading' member
-```
-
-### Naming and storage
+You always construct a field through its static `make()` factory, never with
+`new`. The first argument is the JSON:API member name; by default that name is
+also the backing domain-object member.
 
 | Method | Effect |
 |---|---|
 | `make(string $name)` | Constructs the field. The member name is also the default backing column. |
 | `storedAs(string $column)` | Reads/writes a different domain-object member than the JSON:API member name. |
-| `computed()` | Marks the field as having no backing column. Pair with `extractUsing()` for the value. |
+| `computed()` | Marks the field as having no backing column. Pair with `extractUsing()` for the read value. |
 
-The backing member is resolved through a framework-agnostic accessor: a public
-property, a `getXxx()` / `setXxx()`-style accessor, or an array key, in that
-order. You never wire it up explicitly.
+[`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php)
+exposes a `durationSeconds` member backed by a differently named column, and a
+`displayTitle` member with no column at all:
 
-### Visibility and query eligibility
+```php
+// The JSON:API member `durationSeconds` is stored on the domain object's
+// `length_seconds` column — the rename round-trips through serialize and hydrate.
+Integer::make('durationSeconds')->storedAs('length_seconds'),
+
+// Computed: no backing column, derived on read via extractUsing().
+Str::make('displayTitle')
+    ->computed()
+    ->readOnly()
+    ->extractUsing(static fn(mixed $track): string => $track instanceof Track
+        ? \sprintf('%d. %s', $track->trackNumber, $track->title)
+        : ''),
+```
+
+### Accessor resolution order
+
+The backing member is resolved through a framework-agnostic accessor. For a
+member named `genres` on an object, the read path tries, in order:
+
+1. a `getGenres()` method,
+2. an `isGenres()` method,
+3. a public `genres` property;
+
+and the write path tries a `setGenres()` method, then a public `genres`
+property. Plain associative arrays and `ArrayAccess` objects are addressed by
+key. You never wire any of this up explicitly — it is the zero-config default.
+ORM entities with private properties and bespoke accessors are handled by a
+field's `extractUsing()` / `fillUsing()` hooks (below), not by this helper.
+
+## Visibility and query eligibility
 
 | Method | Effect |
 |---|---|
-| `hidden()` | Drops the field from output entirely. |
+| `hidden()` | Drops the field from output **and** from hydration entirely. |
 | `notSparseField()` | Exempts the field from sparse-fieldset (`?fields[type]=…`) filtering, so it is always emitted. |
-| `sortable()` | Marks the field as sortable; the Resource class's `allSorts()` derives a [`SortByField`](sorts.md) for it. |
+| `sortable()` | Marks the field as sortable; the resource's `allSorts()` derives a [`SortByField`](sorts.md) for it. |
 
-### Read-only contexts
+`hidden()` removes the member from both directions. To render a member but never
+serialize its value — a write-only `password`, say — keep the field visible to
+hydration and null its read instead (see [the hooks](#the-four-hooks) below):
 
-A read-only field is still serialized but is ignored during hydration in the
-matching context.
+```php
+// users: rendered as null but still hydrated — NOT hidden().
+Str::make('password')->serializeUsing(fn(): ?string => null),
+```
+
+## Read-only scoping (gates hydration)
+
+A read-only field is still serialized, but is **silently skipped** during
+hydration in the matching context — a client value in the request body is
+ignored, not rejected.
 
 | Method | Effect |
 |---|---|
@@ -66,41 +99,65 @@ matching context.
 | `readOnlyOnCreate()` | Read-only on create (POST) only. |
 | `readOnlyOnUpdate()` | Read-only on update (PATCH) only. |
 
-### Serialize / hydrate hooks
+[`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)'s
+`averageRating` is server-computed: a client value in the write body is dropped,
+and a freshly created album keeps its domain default.
 
-When the accessor and per-type casting are not enough, override a single
-member's behaviour with a closure. These customise one field; for a whole
-resource type, drop to a custom [serializer](serializers.md) or
-[hydrator](hydrators.md) instead.
+```php
+Decimal::make('averageRating')->readOnly()->nullable(),
+```
 
-| Method | Closure signature | Replaces |
-|---|---|---|
-| `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
-| `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; per-type casting still applies. |
-| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration. |
-| `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
+## Presence (gates validation)
 
-### Constraint shortcuts
-
-These appear on every field; type-specific constraints (lengths, bounds, …) live
-on the concrete types below. All constraints are **metadata** — the core never
-runs them against data; they feed the optional [JSON Schema compiler](validation.md)
-and framework adapters. See [Validation](validation.md) for the full vocabulary
-and the create/update context model.
+The presence helpers declare whether a member must appear, and whether it may be
+`null`. They are **validation** metadata, scoped by request context. On a PATCH,
+an absent member means "no change" — so `required()` and `requiredOnCreate()`
+differ only on update.
 
 | Method | Adds |
 |---|---|
-| `required()` | `Required` (always). |
-| `requiredOnCreate()` | `Required` on create (POST) only. |
+| `required()` | `Required` on both create and update. |
+| `requiredOnCreate()` | `Required` on create (POST) only; absent on PATCH means "no change". |
 | `requiredOnUpdate()` | `Required` when supplied on update (PATCH) only. |
 | `nullable()` | `Nullable` — the member may be `null`. |
+
+```php
+Str::make('title')->required()->maxLength(200),
+Date::make('birthDate')->nullable(),
+```
+
+### Two axes, not one
+
+Read-only and required look adjacent but gate opposite directions, and they
+compose:
+
+- **Read-only** (`readOnly*`) gates **hydration** — the value is *skipped* if
+  present.
+- **Required** (`required*`) gates **validation** — the value is *demanded* if
+  the [validation adapter](constraints.md) executes it.
+
+A `readOnly()->nullable()` field is serialized, never accepts a client write, and
+advertises that its value may be null. The two helpers never conflict because
+they act in different phases.
+
+## Enumeration
+
+Every field can constrain its value to (or away from) a fixed set:
+
+| Method | Adds |
+|---|---|
 | `in(array $values)` | `In` — value must be one of `$values`. |
 | `notIn(array $values)` | `NotIn` — value must not be one of `$values`. |
 
-### Scoping constraints to a context
+```php
+Str::make('status')->in(['draft', 'published', 'archived']),
+```
 
-`onCreate()` / `onUpdate()` scope **every** constraint appended inside the
-closure to that context, so you don't repeat `…OnCreate` per call:
+## Context scoping
+
+`onCreate()` / `onUpdate()` re-stamp **every** constraint appended inside the
+closure with that request context, so you don't repeat the `…OnCreate` suffix on
+each call:
 
 ```php
 Str::make('slug')->onCreate(function (Str $field): void {
@@ -108,272 +165,134 @@ Str::make('slug')->onCreate(function (Str $field): void {
 });
 ```
 
-### Conditional constraints
+Inside `onUpdate()`, an `Str::make('slug')->required()` becomes "required on
+update only" — the closure context wins over the helper's default.
 
-`when()` applies the constraints appended inside the closure only when the
-condition returns true for the value under validation. The wrapped constraints
-are folded into a single `When`; the condition is opaque PHP, so it is not
-round-tripped to JSON Schema — framework adapters that execute validation
-evaluate it.
+## Composition and cross-field rules
 
-```php
-Str::make('discountCode')->when(
-    static fn (mixed $value): bool => $value !== null && $value !== '',
-    static function (Str $field): void {
-        $field->minLength(4)->maxLength(16);
-    },
-);
-```
+These appear on **every** field. They build up the constraint vocabulary that the
+optional [validation adapter](constraints.md) executes; core itself never runs
+them against data.
 
-## Attribute field types
-
-Each concrete type adds per-type casting (its `serializeValue()` /
-`deserializeValue()`) and a small set of type-specific constraint helpers. All of
-them inherit the shared surface above.
-
-### `Id`
-
-`Id::make()` declares the resource's top-level `id` member. The name defaults to
-`'id'` (pass another if your domain object stores it elsewhere — e.g.
-`Id::make('uuid')`). Unlike attribute fields it is rendered into the resource's
-`id`, not into `attributes`, and is hydrated via the hydrator's id hook.
-
-| Method | Adds |
+| Method | Effect |
 |---|---|
-| `uuid(?int $version = null)` | A UUID client-generated-id format constraint. |
-| `numeric()` | A `^[0-9]+$` pattern constraint. |
-| `pattern(string $regex)` | An arbitrary pattern constraint. |
+| `constrain(ConstraintInterface ...$c)` | Attaches constraints directly — the typed escape hatch for rules the helpers don't cover, your own implementations included. Each constraint carries its own context; `constrain()` does **not** re-stamp it. |
+| `sequentially(ConstraintInterface ...$c)` | Applies the constraints in order, stopping at the first failure; all must ultimately hold. |
+| `atLeastOneOf(ConstraintInterface ...$alt)` | Passes if the value satisfies at least one alternative. |
+| `when($condition, $builder)` | Applies the constraints appended inside `$builder` only when `$condition` returns true for the value. The wrapped rules fold into a single `When`; the condition is opaque PHP, so it does not round-trip to JSON Schema. |
+| `compareWith(string $field, Comparison $op)` | Cross-field comparison: the operator reads `<this field> <op> <$field>`. |
+
+[`UserResource`](../examples/music-catalog/src/Resource/UserResource.php)'s
+`passwordConfirm` stacks all three of the composition forms in one chain:
 
 ```php
-Id::make();            // reads the 'id' member, serialized as a string
-Id::make()->uuid(4);   // constrains a client-generated id to UUID v4
+Str::make('passwordConfirm')
+    ->computed()
+    ->serializeUsing(fn(): ?string => null)
+    ->atLeastOneOf(
+        new MinLength(8),
+        new Pattern('^.*[0-9].*$'),
+    )
+    ->when(
+        static fn(mixed $value): bool => $value !== null && $value !== '',
+        static function (Str $field): void {
+            $field->minLength(8);
+        },
+    )
+    ->compareWith('password', Comparison::EqualTo),
 ```
 
-> A client-supplied `id` is rejected by default. See
-> [Resources](resources.md#how-fields-drive-hydration) for opting in and controlling
-> server-side id generation.
-
-### `Str`
-
-A generic string attribute, and the base for the dedicated string types below.
-
-| Method | Adds |
-|---|---|
-| `minLength(int)` / `maxLength(int)` | `MinLength` / `MaxLength`. |
-| `pattern(string $regex)` | `Pattern`. |
-| `email()` | `EmailFormat`. |
-| `url(array $allowedSchemes = [])` | `UrlFormat`. |
-| `uuid(?int $version = null)` | `UuidFormat`. |
-| `slug(?string $regex = null)` | `SlugFormat`. |
-| `ip(?int $version = null)` | `IpFormat`. |
+`compareWith` is directional. The album pair reads `availableUntil >
+availableFrom` — this field is the **left** operand:
 
 ```php
-Str::make('title')->required()->minLength(1)->maxLength(200);
+Date::make('availableUntil')
+    ->nullable()
+    ->compareWith('availableFrom', Comparison::GreaterThan),
 ```
 
-The `email()` / `url()` / `uuid()` / `slug()` / `ip()` shortcuts produce exactly
-the same constraint metadata as the dedicated field types below — `Str::make('contact')->email()`
-and `Email::make('contact')` are interchangeable. Reach for the dedicated type
-when the field is *only* that format; reach for the shortcut when you also want
-other string constraints in the same chain.
+See [validation](constraints.md) for the full constraint vocabulary and the
+create/update context model, and [field types](field-types.md) for the per-type
+helpers (`minLength`, `min`, `before`, …) that wrap these same constraints.
 
-### `Email`, `Url`, `Uuid`, `Slug`, `Ip`
+## The four hooks
 
-Each is a `Str` whose `make()` pre-applies the matching format constraint, plus a
-type-specific helper:
+When the accessor and per-type casting aren't enough for a single member, replace
+part of its read or write path with a closure. Two hooks customise reading, two
+customise writing — reach for them before dropping to a whole-resource custom
+[serializer](serializers.md) / [hydrator](hydrators.md).
 
-| Type | Equivalent to | Extra helper |
+| Hook | Closure signature | Replaces |
 |---|---|---|
-| `Email::make($name)` | `Str::make($name)->email()` | `strict()` — opt into RFC-strict validation (typed `strict` flag on the `EmailFormat` constraint; JSON Schema `format: email` is unaffected). |
-| `Url::make($name)` | `Str::make($name)->url()` | `allowedSchemes(string ...$schemes)` — restrict the URI schemes. |
-| `Uuid::make($name)` | `Str::make($name)->uuid()` | `version(int)` — narrow to a UUID version. |
-| `Slug::make($name)` | `Str::make($name)->slug()` | — |
-| `Ip::make($name)` | `Str::make($name)->ip()` | `v4()` / `v6()` / `both()` — narrow the IP version (default both). |
+| `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
+| `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. |
+| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration. |
+| `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
+
+On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
+over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting
+finish the job, while `serializeUsing` owns the value outright (it is the place to
+render a write-only member as `null`).
+
+### Worked example: a computed read and a renamed column
+
+[`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php) is the
+most instructive declaration. `displayTitle` is `computed()` (no column) and
+`readOnly()`, with its value assembled across two real columns purely on read via
+`extractUsing()`; `durationSeconds` is a plain field whose column is renamed with
+`storedAs()`, so the rename round-trips transparently through serialize and
+hydrate without a hook at all:
 
 ```php
-Email::make('contact')->required();
-Url::make('homepage')->allowedSchemes('https');
-Ip::make('last_seen_from')->v6();
+final class TrackResource extends AbstractResource
+{
+    public static string $type = 'tracks';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title')->required()->sortable(),
+            Integer::make('trackNumber')->min(1)->sortable(),
+            Integer::make('durationSeconds')->storedAs('length_seconds'),
+            // …
+            Str::make('displayTitle')
+                ->computed()
+                ->readOnly()
+                ->extractUsing(static fn(mixed $track): string => $track instanceof Track
+                    ? \sprintf('%d. %s', $track->trackNumber, $track->title)
+                    : ''),
+            // …
+        ];
+    }
+}
 ```
 
-### `Integer`
+> The single-field hooks are the right tool for one member's quirk. When the
+> *whole* read or write path needs hand-writing — a request-dependent attribute
+> set, say — drop to a custom [serializer](serializers.md) or
+> [hydrator](hydrators.md) instead. The example's
+> [`TrackSerializer`](../examples/music-catalog/src/Serializer/TrackSerializer.php)
+> is registered as a read override for exactly that reason, while the resource
+> above still hydrates writes.
 
-An integer attribute (JSON `type: integer`); casts to `int` both ways.
+## Relationships are fields too
 
-| Method | Adds |
-|---|---|
-| `min(int)` / `max(int)` | `Min` / `Max`. |
-| `exclusiveMin(int)` / `exclusiveMax(int)` | `ExclusiveMin` / `ExclusiveMax`. |
-| `multipleOf(int)` | `MultipleOf`. |
-| `in(array $values)` | `In`. |
+A relationship is declared in the same `fields()` list and produces the resource
+object's `relationships` member. Relations inherit this shared surface (presence,
+read-only scoping, context) and add their own linkage-shaped helpers. The
+example's `BelongsTo::make('album')->type('albums')` and
+`HasMany::make('tracks')->type('tracks')` sit alongside the attribute fields
+above. See [relations](relations.md) for the relation field types and how the
+[server registry](server.md) resolves the related resource.
 
-```php
-Integer::make('rating')->min(1)->max(5);
-```
+## Next
 
-### `Decimal`
-
-A floating-point attribute (JSON `type: number`); casts to `float`. The bound
-helpers accept `int|float`.
-
-| Method | Adds |
-|---|---|
-| `min(int\|float)` / `max(int\|float)` | `Min` / `Max`. |
-| `exclusiveMin(int\|float)` / `exclusiveMax(int\|float)` | `ExclusiveMin` / `ExclusiveMax`. |
-| `multipleOf(int\|float)` | `MultipleOf`. |
-| `in(array $values)` | `In`. |
-
-```php
-Decimal::make('price')->min(0)->multipleOf(0.01);
-```
-
-### `Boolean`
-
-A boolean attribute; casts to `bool`. No type-specific constraints.
-
-```php
-Boolean::make('published');
-```
-
-### `DateTime`, `Date`, `Time`
-
-`DateTime` serializes a `\DateTimeInterface` to a string and hydrates a string
-back to a `\DateTimeImmutable`. The default format is ISO-8601
-(`\DateTimeInterface::ATOM`). `Date` and `Time` are `DateTime` specialised to
-`Y-m-d` and `H:i:s`.
-
-| Method | Effect |
-|---|---|
-| `format(string)` | Override the serialization format string. |
-| `before($bound)` / `after($bound)` | `Before` / `After` — accept a `\DateTimeInterface` or a `\Closure(): \DateTimeInterface` (closure bounds do not round-trip to JSON Schema). |
-| `between($min, $max)` | `Between` (same bound forms). |
-| `useTimezone(string)` | Convert hydrated values into the given timezone before storing. |
-
-```php
-DateTime::make('publishedAt')->after(new \DateTimeImmutable('2000-01-01'));
-Date::make('dob')->before(static fn () => new \DateTimeImmutable('today'));
-```
-
-### `ArrayList`
-
-A zero-indexed array attribute (JSON `type: array`).
-
-| Method | Adds / effect |
-|---|---|
-| `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems`. |
-| `uniqueItems()` | `UniqueItems`. |
-| `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. |
-| `sorted()` | Sorts the list on serialization. |
-
-```php
-use haddowg\JsonApi\Resource\Constraint\MaxLength;
-
-ArrayList::make('tags')->uniqueItems()->each(new MaxLength(32));
-```
-
-### `ArrayHash`
-
-A JSON object attribute exposed as a PHP associative array (JSON `type: object`).
-
-| Method | Adds / effect |
-|---|---|
-| `minProperties(int)` / `maxProperties(int)` | `MinProperties` / `MaxProperties`. |
-| `sortKeys()` | Sort by key on serialization. |
-| `sortValues()` | Sort by value on serialization (keys preserved). |
-
-```php
-ArrayHash::make('settings')->maxProperties(20);
-```
-
-### `Map`
-
-`Map` exposes a nested JSON object in the resource attributes while spreading its
-values across multiple **flat columns on the same domain object**. Each child
-field reads and writes its own column; the child's name is the key inside the
-nested object. Declare the children with `fields()`.
-
-```php
-Map::make('address')->fields(
-    Str::make('street'),
-    Str::make('city'),
-    Str::make('postcode')->pattern('^[0-9A-Z ]+$'),
-);
-```
-
-Top-level constraints on a `Map` are limited to presence (`required()` /
-`nullable()`); structural constraints belong on the child fields.
-
-> `Map::on($relation)` — spreading across a **related** model rather than the
-> same one — is not currently supported.
-
-## Relationships
-
-A relationship is a field too: it appears in `fields()` and produces the resource
-object's `relationships` member. The related resource serializes through the
-[server's registry](server.md), so every participating type must be registered.
-On hydration a relationship is filled from the request's parsed linkage — a
-to-one stores the related id, a to-many the list of ids — not from a raw
-attribute value.
-
-All relations extend `Resource\Field\AbstractRelation` and, on top of the shared
-field surface, share these methods:
-
-| Method | Effect |
-|---|---|
-| `type(string ...$types)` | Declares the related resource type(s). One type for a monomorphic relation; several for a polymorphic one. Auto-appends a `RelationshipType` constraint. |
-| `inverseType(string)` | Records the inverse relationship name on the related type (advisory metadata for adapters / OpenAPI). |
-| `cannotEagerLoad()` | Marks the relation as not eager-loadable (advisory for data-layer adapters). |
-| `withUriFieldName(string)` | Overrides the URI segment for this relationship (defaults to the field name). |
-
-### `BelongsTo` / `HasOne`
-
-To-one relations. `BelongsTo` models a foreign key on the owning model; `HasOne`
-models it on the related model. They carry identical metadata — the distinction
-is for data-layer adapters.
-
-```php
-BelongsTo::make('author')->type('authors')->required();
-HasOne::make('profile')->type('profiles');
-```
-
-### `HasMany`
-
-A to-many relation: a collection of related models. Adds collection bounds:
-
-| Method | Adds |
-|---|---|
-| `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems` on the linkage. |
-
-```php
-HasMany::make('comments')->type('comments')->maxItems(100);
-```
-
-### `BelongsToMany`
-
-A pivot-backed to-many relation. Same serialization and constraint surface as
-`HasMany`, plus a `fields()` method declaring the pivot (join-table) fields.
-Pivot fields are **declare-only** — carried as metadata for data-layer adapters,
-not validated by core. Validation of pivot fields is not currently supported.
-
-```php
-BelongsToMany::make('tags')->type('tags')->fields([
-    'added_at' => 'datetime',
-]);
-```
-
-### `MorphTo`
-
-A polymorphic to-one relation: the related resource may be one of several
-declared types. Declare them with `types()`; the related object's serializer is
-resolved at runtime by its own `getType()`.
-
-```php
-MorphTo::make('commentable')->types('articles', 'videos');
-```
-
-## Related pages
-
-- [Resources](resources.md) — declaring `fields()` and how they drive serialization/hydration.
-- [Validation](validation.md) — the constraint vocabulary and the create/update context model.
-- [Filters](filters.md) / [Sorts](sorts.md) — query-shaping metadata (`sortable()` feeds `allSorts()`).
-- [Resources](serializers.md) / [Hydrators](hydrators.md) — the per-type customisation points.
+- [Field types](field-types.md) — the per-type delta for each concrete field
+  (`Str`, `Integer`, `DateTime`, `Map`, `ArrayList`, …).
+- [Relations](relations.md) — relationship field types (`BelongsTo`, `HasMany`,
+  `MorphTo`, …) and the registry.
+- [Resources](resources.md) — how `fields()` drives the serialize and hydrate
+  walks, id generation, and registration.
+- [Validation](constraints.md) — the constraint vocabulary and the create/update
+  context model the presence and composition helpers feed.
