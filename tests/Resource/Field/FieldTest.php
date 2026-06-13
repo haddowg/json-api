@@ -19,6 +19,7 @@ use haddowg\JsonApi\Resource\Constraint\MinLength;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -40,6 +41,7 @@ use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Field\Uuid;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -539,7 +541,64 @@ final class FieldTest extends TestCase
     public function idFormatShortcuts(): void
     {
         self::assertInstanceOf(UuidFormat::class, Id::make()->uuid()->constraints()[0]);
+        self::assertInstanceOf(UlidFormat::class, Id::make()->ulid()->constraints()[0]);
         self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, Id::make()->numeric()->constraints()[0]);
+    }
+
+    #[Test]
+    public function idFormatShortcutsAlsoSetTheRoutePattern(): void
+    {
+        self::assertNull(Id::make()->routePattern());
+        self::assertSame(Id::UUID_FORMAT_PATTERN, Id::make()->uuid()->routePattern());
+        self::assertSame(Id::ULID_FORMAT_PATTERN, Id::make()->ulid()->routePattern());
+        self::assertSame(Id::NUMERIC_FORMAT_PATTERN, Id::make()->numeric()->routePattern());
+    }
+
+    #[Test]
+    public function idPatternStripsAnchorsForTheRoutePatternButKeepsTheAnchoredConstraint(): void
+    {
+        $field = Id::make()->pattern('^[a-z0-9]+$');
+
+        self::assertSame('[a-z0-9]+', $field->routePattern());
+        self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, $field->constraints()[0]);
+        self::assertSame('^[a-z0-9]+$', $field->constraints()[0]->regex);
+    }
+
+    #[Test]
+    public function idMatchAsSetsTheRoutePatternWithoutAConstraint(): void
+    {
+        $field = Id::make()->matchAs('\d+');
+
+        self::assertSame('\d+', $field->routePattern());
+        self::assertSame([], $field->constraints());
+    }
+
+    #[Test]
+    public function idUlidPatternMatchesAValidUlidCaseInsensitively(): void
+    {
+        $pattern = '/^' . Id::ULID_FORMAT_PATTERN . '$/';
+
+        self::assertSame(1, \preg_match($pattern, '01ARZ3NDEKTSV4RRFFQ69G5FAV'));
+        self::assertSame(1, \preg_match($pattern, \strtolower('01ARZ3NDEKTSV4RRFFQ69G5FAV')));
+        self::assertSame(0, \preg_match($pattern, 'not-a-ulid'));
+    }
+
+    #[Test]
+    public function idEncoderRoundTripsOnSerialize(): void
+    {
+        $field = Id::make()->encodeUsing(new ReversingIdEncoder());
+
+        self::assertSame($field->encoder(), $field->encoder());
+        self::assertNotNull($field->encoder());
+        // The domain object holds the storage key; serialize emits the wire id.
+        self::assertSame('54321', $field->serializeWithoutRequest(['id' => '12345']));
+    }
+
+    #[Test]
+    public function idWithoutAnEncoderSerializesTheRawId(): void
+    {
+        self::assertNull(Id::make()->encoder());
+        self::assertSame('42', Id::make()->serializeWithoutRequest(['id' => 42]));
     }
 
     #[Test]

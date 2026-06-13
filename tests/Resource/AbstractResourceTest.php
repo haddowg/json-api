@@ -18,6 +18,8 @@ use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Tests\Double\RejectingIdEncoder;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use Nyholm\Psr7\ServerRequest;
@@ -201,6 +203,38 @@ final class AbstractResourceTest extends TestCase
 
         $this->expectException(\haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported::class);
         $resource->hydrate($request, []);
+    }
+
+    #[Test]
+    public function decodesAClientGeneratedIdToTheStorageKeyOnCreate(): void
+    {
+        $resource = new EncodedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'encoded', 'id' => '12345', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        // The wire id '12345' decodes (reverses) to the storage key '54321'.
+        self::assertSame('54321', $model['id']);
+    }
+
+    #[Test]
+    public function rejectsAnUndecodableClientGeneratedIdWith422(): void
+    {
+        $resource = new RejectingIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'rejected', 'id' => 'well-formed-but-unknown', 'attributes' => []],
+        ]);
+
+        try {
+            $resource->hydrate($request, []);
+            self::fail('Expected ResourceIdUndecodable.');
+        } catch (\haddowg\JsonApi\Exception\ResourceIdUndecodable $exception) {
+            self::assertSame(422, $exception->getStatusCode());
+            self::assertSame('well-formed-but-unknown', $exception->id);
+        }
     }
 
     #[Test]
@@ -545,6 +579,48 @@ final class SegmentedResource extends AbstractResource
         return [
             Id::make(),
         ];
+    }
+}
+
+/**
+ * A resource whose id is the wire form of a distinct storage key, exercising the
+ * {@see ReversingIdEncoder} decode-on-create path. Accepts client-generated ids.
+ */
+final class EncodedIdResource extends AbstractResource
+{
+    public static string $type = 'encoded';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->encodeUsing(new ReversingIdEncoder()),
+        ];
+    }
+
+    protected function acceptsClientGeneratedId(): bool
+    {
+        return true;
+    }
+}
+
+/**
+ * A resource whose encoder rejects every wire id, exercising the 422 safety net
+ * behind {@see \haddowg\JsonApi\Exception\ResourceIdUndecodable}.
+ */
+final class RejectingIdResource extends AbstractResource
+{
+    public static string $type = 'rejected';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->encodeUsing(new RejectingIdEncoder()),
+        ];
+    }
+
+    protected function acceptsClientGeneratedId(): bool
+    {
+        return true;
     }
 }
 

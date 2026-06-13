@@ -102,6 +102,7 @@ type carries which method); construct the VO directly only inside `each()`,
 | `EmailFormat` | `Str`, `Email` | `->email($strict = false)` / `Email`'s `->strict()` | `strict: bool` (RFC vs HTML5) |
 | `UrlFormat` | `Str`, `Url` | `->url($allowedSchemes = [])` | `list<string> $allowedSchemes` |
 | `UuidFormat` | `Str`, `Uuid` | `->uuid($version = null)` | `?int $version` |
+| `UlidFormat` | `Id` | `->ulid()` | ULID format (26-char Crockford base32) |
 | `IpFormat` | `Str`, `Ip` | `->ip($version = null)` / `Ip`'s `->v4()` / `->v6()` | `?int $version` (4 or 6; null = both) |
 | `SlugFormat` | `Str`, `Slug` | `->slug($regex = null)` | `string $regex` (defaults to a kebab-case pattern) |
 | `MinItems` / `MaxItems` | `ArrayList`, `HasMany` | `->minItems($n)` / `->maxItems($n)` | array length bounds |

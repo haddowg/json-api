@@ -30,6 +30,7 @@ use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -257,6 +258,8 @@ final class SchemaCompiler
             case $constraint instanceof UrlFormat: $schema['format'] = 'uri';
                 break;
             case $constraint instanceof UuidFormat: $schema['format'] = 'uuid';
+                break;
+            case $constraint instanceof UlidFormat: $schema['pattern'] = \haddowg\JsonApi\Resource\Field\Id::ULID_FORMAT_PATTERN;
                 break;
             case $constraint instanceof IpFormat: $schema['format'] = $constraint->version === 6 ? 'ipv6' : 'ipv4';
                 break;

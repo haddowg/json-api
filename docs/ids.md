@@ -47,14 +47,30 @@ always serialized as a **string** — a numeric `2` becomes `"2"` on the wire.
 
 ## Format helpers for a client-generated id
 
-The `Id` field carries three format shortcuts. Each appends the matching
-constraint, used to validate a client-supplied id on create:
+The `Id` field carries four format shortcuts. Each appends the matching
+constraint, used to validate a client-supplied id on create, **and** sets the
+route `{id}` requirement so a malformed id in a URL is rejected at routing (a
+`404`) before any handler runs:
 
-| Helper | Constraint added | Use |
-|---|---|---|
-| `uuid(?int $version = null)` | RFC 4122 UUID format (optionally pinned to a version) | UUID ids |
-| `numeric()` | pattern `^[0-9]+$` | digit-only ids |
-| `pattern(string $regex)` | the regex you pass | any custom format |
+| Helper | Constraint added | Route `{id}` pattern | Use |
+|---|---|---|---|
+| `uuid(?int $version = null)` | RFC 4122 UUID format (optionally pinned to a version) | the UUID regex | UUID ids |
+| `ulid()` | ULID format (26-char Crockford base32, case-insensitive) | the ULID regex | ULID ids |
+| `numeric()` | pattern `^[0-9]+$` | `[0-9]+` | digit-only ids |
+| `pattern(string $regex)` | the regex you pass | `$regex` with any leading `^` / trailing `$` stripped | any custom format |
+
+The constraint side keeps the anchored ECMA-262 form JSON Schema requires; the
+route side is the **inner** regex a Symfony route requirement expects (Symfony
+anchors it). One call governs both.
+
+### Setting only the route pattern: `matchAs()`
+
+To constrain the URL `{id}` without adding a create-id format constraint — for an
+id that is server-generated but still has a known shape — call
+`matchAs(string $pattern)`. It stores the inner route regex (no surrounding
+`^…$`) read back via `routePattern()`; the framework integration applies it as the
+`{id}` route requirement. The format shortcuts call `matchAs()` for you (a later
+shortcut does not overwrite an explicit `matchAs()`).
 
 [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)
 declares a UUID id:
@@ -173,6 +189,46 @@ required, already taken). For how errors are shaped and rendered, see
 [errors](errors-and-exceptions.md). For the hydrator side of the create lifecycle — `generateId()`,
 `setId()`, `validateClientGeneratedId()` as the hooks a custom hydrator
 implements — see [hydrators](hydrators.md).
+
+## Encoding: when the wire id differs from the storage key
+
+Sometimes the id a client sees is a transform of the value the entity actually
+stores — a binary UUID exposed as a string, an integer primary key obscured
+behind a reversible codec (hashids), and so on. Attach an
+`IdEncoderInterface` with `encodeUsing()` and the `Id` field becomes the **wire
+form** of a distinct **storage key**:
+
+```php
+interface IdEncoderInterface
+{
+    public function encode(mixed $storageKey): string; // storage -> wire
+    public function decode(string $wireId): mixed;      // wire -> storage; null when undecodable
+}
+```
+
+```php
+Id::make()->encodeUsing($myEncoder);
+```
+
+The entity always holds the storage key. Core drives the entity's own id
+transform across both directions of the lifecycle:
+
+- **On serialize** the stored key is `encode()`d, so every rendered `id` (the
+  top-level member and any id-as-field) is the wire form.
+- **On create with a client id** the wire id is `decode()`d to the storage key and
+  *that* is set on the new entity — so a created entity holds the storage key,
+  exactly like a read entity, and its rendered id round-trips. A well-formed id
+  that `decode()` rejects (`null`) is a `422` `ResourceIdUndecodable` (pointer
+  `/data/id`); the format constraint above already catches a *malformed* id before
+  hydration, so `decode()` only ever runs on a well-formed value — the `null`
+  branch is the safety net. Update (`PATCH`) never sets the id, so it does not
+  decode.
+
+A type with **no** encoder behaves exactly as before: wire == storage, nothing is
+transformed. The id-as-lookup-key transforms — decoding the route `{id}` before a
+database find, and decoding linkage ids in relationship writes — live in the
+framework integration's data layer, not in core, because they flow through the
+provider/persister as wire strings; see the Symfony bundle's data-layer docs.
 
 ## `lid` is a separate concern
 

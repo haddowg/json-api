@@ -12,6 +12,7 @@ use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RemovalProhibited;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
+use haddowg\JsonApi\Exception\ResourceIdUndecodable;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
@@ -496,6 +497,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      *
      * @throws ResourceIdInvalid
      * @throws ClientGeneratedIdNotSupported
+     * @throws ResourceIdUndecodable
      */
     protected function hydrateId(mixed $domainObject, array $data): mixed
     {
@@ -522,6 +524,19 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         $id = $clientId !== '' ? $clientId : $this->generateId();
+
+        // An encoder makes the id the wire form of a distinct storage key: the
+        // entity must hold the decoded storage key so its serialized id (which
+        // re-encodes) round-trips. A well-formed but undecodable client id 422s.
+        $encoder = $idField->encoder();
+        if ($encoder !== null) {
+            $storageKey = $encoder->decode($id);
+            if ($storageKey === null) {
+                throw new ResourceIdUndecodable($id);
+            }
+
+            return Accessor::set($domainObject, $column, $storageKey);
+        }
 
         return Accessor::set($domainObject, $column, $id);
     }

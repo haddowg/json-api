@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\MinLength;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Email;
@@ -54,6 +55,7 @@ final class SchemaCompilerTest extends TestCase
                     Str::make('createOnly')->requiredOnCreate(),
                     Str::make('code')->sequentially(new MinLength(3), new MaxLength(8)),
                     Str::make('ref')->atLeastOneOf(new MinLength(8), new In(['none'])),
+                    Str::make('ulid')->constrain(new UlidFormat()),
                     BelongsTo::make('team')->type('teams')->required(),
                 ];
             }
@@ -174,6 +176,12 @@ final class SchemaCompilerTest extends TestCase
         // AtLeastOneOf becomes anyOf, one sub-schema per alternative.
         $anyOf = $this->listAt($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'ref', 'anyOf');
         self::assertCount(2, $anyOf);
+
+        // UlidFormat has no JSON Schema `format`, so it compiles to the ULID pattern.
+        self::assertSame(
+            Id::ULID_FORMAT_PATTERN,
+            $this->at($schema, 'properties', 'data', 'properties', 'attributes', 'properties', 'ulid', 'pattern'),
+        );
     }
 
     #[Test]

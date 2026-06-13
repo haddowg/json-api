@@ -33,6 +33,7 @@ use haddowg\JsonApi\Resource\Constraint\RelationshipType;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -71,6 +72,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Required::class)]
 #[CoversClass(Sequentially::class)]
 #[CoversClass(SlugFormat::class)]
+#[CoversClass(UlidFormat::class)]
 #[CoversClass(UniqueItems::class)]
 #[CoversClass(UrlFormat::class)]
 #[CoversClass(UuidFormat::class)]
@@ -215,6 +217,7 @@ final class ConstraintTest extends TestCase
         self::assertSame(['https'], (new UrlFormat(['https']))->allowedSchemes);
         self::assertSame(4, (new UuidFormat(4))->version);
         self::assertNull((new UuidFormat())->version);
+        self::assertTrue((new UlidFormat())->context()->onCreate);
         self::assertSame(6, (new IpFormat(6))->version);
         self::assertSame(SlugFormat::DEFAULT_PATTERN, (new SlugFormat())->regex);
         self::assertSame('^custom$', (new SlugFormat('^custom$'))->regex);
