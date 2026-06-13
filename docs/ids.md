@@ -24,10 +24,12 @@ public function fields(): array
 }
 ```
 
-`GET /albums/2` then renders `"id": "2"` read straight from the seeded album. If
-you omit `Id::make()` entirely the field falls back to the same default `id`
-source, so declaring it is a habit that pays off the moment you need any of the
-levers below.
+`GET /albums/2` then renders `"id": "2"` read straight from the seeded album.
+There is no implicit fallback: omit `Id::make()` entirely and the resource has no
+id field, so it renders an empty top-level `id` and applies no id on create. The
+only default at play is that `Id::make()` — when you do declare it — defaults its
+source to the `id` column. Declaring it is the habit that pays off the moment you
+need any of the levers below.
 
 ## When to declare one
 

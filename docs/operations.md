@@ -13,6 +13,11 @@ integration.
 
 For how the surrounding lifecycle is assembled (the middleware that runs before
 your handler), see [architecture](architecture.md) and [middleware](middleware.md).
+In order, a request flows through: negotiate content type, parse the body, route
+and attach the [`Target`](#target), build the operation with the
+[`OperationFactory`](#operationfactory-from-request-to-operation), call your
+[handler](#operationhandlerinterface-the-one-seam), then render its response VO. The
+fuller stage-by-stage account is in [architecture](architecture.md#request-flow).
 
 ## The common contract
 
@@ -33,7 +38,9 @@ interface JsonApiOperationInterface
 
 The five *mutating* operations — create, update, delete-relationship-member, and
 the two relationship-mutation verbs — add one more method, `body(): JsonApiRequestInterface`,
-giving you the parsed write document. The four read operations have no body.
+giving you the parsed write document. The other four operations have no body: the
+three reads (`FetchResourceOperation`, `FetchRelatedOperation`,
+`FetchRelationshipOperation`) plus `DeleteResourceOperation`.
 
 Dispatching on the concrete operation *type* (rather than inspecting an HTTP verb)
 is the whole point: each verb-crossed-with-shape combination is its own class, so a
@@ -88,6 +95,11 @@ public function handle(
     };
 }
 ```
+
+The handler's return union here lists five response VOs; the sixth allowed return,
+the meta-only [`MetaResponse`](responses.md#metaresponse), is simply one the
+music-catalog handler never produces (the full closed union is shown under
+[`OperationHandlerInterface`](#operationhandlerinterface-the-one-seam)).
 
 Notice the single read arm for collection-or-single, and that the three
 relationship-mutation arms read `$operation->body()` — only available because those

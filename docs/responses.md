@@ -32,8 +32,11 @@ response value is safe to pass around and reuse.
 
 The worked referent for this whole page is the example app's single handler,
 [`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php) —
-one `match (true)` over the nine concrete operations, every arm returning one of
-these six value objects.
+one `match (true)` over the nine concrete operations, each arm returning one of
+five of these value objects (`DataResponse`, `RelatedResponse`,
+`IdentifierResponse`, `NoContentResponse`, `ErrorResponse`); `MetaResponse` is the
+sixth in the [`OperationHandlerInterface`](operations.md) union but the example app
+never returns it.
 
 ## `DataResponse`
 
@@ -219,9 +222,9 @@ The HTTP status is derived from the errors themselves:
   the derivation.
 - **`fromErrors()`** derives the status from the error objects: if they all carry
   the same `status`, that status is used verbatim — a bag of validation `422`s is
-  a `422`, **not** a rounded-down `400`. Only a genuinely mixed set falls back to
-  the nearest applicable status class, rounding each error down to its hundred and
-  keeping the highest class.
+  a `422`, **not** a collapsed `400`. Only a genuinely mixed set falls back to its
+  status class: each error maps to its class (`4xx` or `5xx`), and the rendered
+  status is the highest class present, emitted as `400` or `500`.
 
 So the worked contrast is:
 
@@ -229,8 +232,8 @@ So the worked contrast is:
 |---|---|---|
 | a single `404` | `404` | trivially uniform |
 | `422` + `422` | `422` | uniform — kept verbatim, never collapsed to `400` |
-| `404` + `422` | `400` | mixed within `4xx` → nearest applicable `4xx` class |
-| `404` + `500` | `500` | spans `4xx`/`5xx` → rounds up to `5xx` |
+| `404` + `422` | `400` | mixed within `4xx` → the `4xx` class, emitted as `400` |
+| `404` + `500` | `500` | spans `4xx`/`5xx` → highest class is `5xx`, emitted as `500` |
 
 These cases are pinned in
 [`ErrorResponseTest`](../tests/Response/ErrorResponseTest.php). The full

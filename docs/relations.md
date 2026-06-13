@@ -83,10 +83,14 @@ renders `data: null`.
 ## HasMany — a to-many collection
 
 A to-many relation. [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)'s
-tracks:
+tracks (the `PagePaginator` here is one of the paginators from
+[pagination](pagination.md#pagepaginator--the-baseline); per-relation pagination
+is covered [below](#per-relation-pagination)):
 
 ```php
 // src/Resource/AlbumResource.php
+use haddowg\JsonApi\Pagination\PagePaginator;
+
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
@@ -101,8 +105,9 @@ HasMany::make('tracks')->type('tracks')->minItems(1)->maxItems(50),
 ```
 
 On a to-many mutation the default apply maintains a **deduplicated id set** under
-the `Mode` of the request: `Mode::Replace` sets the whole set, `Mode::Add`
-appends (idempotently), `Mode::Remove` subtracts. See
+the `Mode` of the request (the `Mode` enum, see
+[relationship-mutation](relationship-mutation.md)): `Mode::Replace` sets the whole
+set, `Mode::Add` appends (idempotently), `Mode::Remove` subtracts. See
 [relationship-mutation](relationship-mutation.md) for the endpoints that drive
 those modes.
 

@@ -10,11 +10,20 @@ In this library a filter is **metadata only**: a small value object that names
 the `filter[<key>]` parameter and the column (or relationship) it targets, but
 carries no behaviour. The work of turning a filter into a query — a `WHERE`
 clause, an array predicate, a search call — lives in an adapter-provided
-[`FilterHandlerInterface`](adapters.md), not in the filter itself. This is the
+[`FilterHandlerInterface`](adapters.md), not in the filter itself. Here "adapter"
+means a data-layer integration — a Doctrine/Eloquent backend or the in-memory
+reference — not the request-lifecycle `Psr7ToOperationHandlerAdapter` from
+[architecture](architecture.md). This is the
 same metadata/handler split that [constraints](constraints.md) and
 [sorts](sorts.md) use: core ships typed metadata, the data layer ships the
 translators that execute it. The library never reads `filters()` and applies it
 for you.
+
+You declare filters here; a handler executes them. If you have not built one yet,
+core ships a reference [`ArrayFilterHandler`](adapters.md#the-reference-handlers)
+(and the example catalog's [`CriteriaApplier`](../examples/music-catalog/src/Data/CriteriaApplier.php)
+wires it) — see [Adapters](adapters.md#the-reference-handlers) for the minimal
+executing side. The rest of this page is purely the declaration side.
 
 ## A worked filter: searching tracks by title
 
@@ -138,9 +147,13 @@ their semantics.
 ## Singular filters
 
 A filter on a **unique** attribute — a slug, a UUID — matches at most one
-resource. Marking it `singular()` declares that zero-to-one shape: when the
-client applies the filter, the collection endpoint returns a **single resource
-object (or `null`) in `data`**, not an array. The
+resource. Marking it `singular()` declares that zero-to-one shape, but whether the
+collapse to a single object actually happens is up to your handler: the metadata
+says "this match is zero-to-one", and a handler that honours the flag returns a
+**single resource object (or `null`) in `data`**, not an array. The reference
+catalog handler narrows to the matching artist but still renders a collection — so
+the responses below show the intended collapse a handler that honours the flag
+would produce, not what the example catalog returns today. The
 [`ArtistResource`](../examples/music-catalog/src/Resource/ArtistResource.php)
 declares one on `slug`:
 
@@ -171,11 +184,10 @@ implementing the `Resource\Filter\SupportsSingular` capability interface
 renders the first match (or `null`). A custom filter opts in by implementing
 `SupportsSingular` itself.
 
-> The reference [`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php)
-> applies the `slug` predicate (narrowing to the matching artist) but does not
-> yet perform the single-resource collapse — it always renders a collection.
-> The collapse is a handler-level affordance; the metadata is in place for an
-> adapter to honour.
+The reference [`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php)
+is the example here: it applies the `slug` predicate (narrowing to the matching
+artist) but does not yet perform the single-resource collapse — the collapse is a
+handler-level affordance and the metadata is in place for an adapter to honour.
 
 ## Default values
 

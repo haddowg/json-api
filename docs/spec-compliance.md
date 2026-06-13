@@ -93,7 +93,7 @@ schema validation is wired.
 | `data` / `errors` / `meta` mutual exclusivity & required members | ✅ test | Each response value object emits exactly one primary member by construction — `DataResponse`→`data`, `MetaResponse`→`meta`, `ErrorResponse`→`errors` (coexistence is unconstructable in the type system); the request-side guard (`JsonApiRequest::validateTopLevelMembers`) is enforced by `RequestBodyParsingMiddleware` via `Negotiation\RequestValidator`. `DataResponseTest`, `MetaResponseTest`, `ErrorResponseTest`, `RequestBodyParsingMiddlewareTest`. |
 | Resource objects (`type`, `id`, `attributes`, `relationships`, `links`, `meta`) | ✅ test | `Serializer\AbstractSerializer`/`SerializerInterface` (consumer extension point) + `Transformer\ResourceTransformer`. `AbstractSerializerTest`, `ResourceTransformerTest`. |
 | Resource identifier objects (`type`, `id`/`lid`, `meta`) | ✅ test | `Schema\ResourceIdentifier` (construct-only `final readonly`); `fromArray()` validates `type` + at-least-one-of(`id`,`lid`) and throws the typed `ResourceIdentifier*` exceptions directly; `transform()` emits whichever of `id`/`lid`/`meta` are present. `ResourceIdentifierTest`. |
-| Compound documents / `included` | ✅ test | `Transformer\ResourceTransformer` + `DocumentTransformer` build the `included` array with resource dedup (primary takes precedence) via the `Schema\Data` accumulator. `ResourceTransformerTest`, `DocumentTransformerTest`; end-to-end in `SparseFieldsetsAndIncludesTest`. |
+| Compound documents / `included` | ✅ test | `Transformer\ResourceTransformer` + `DocumentTransformer` build the `included` array with resource dedup (primary takes precedence) via the `Schema\Data\AbstractData` accumulator (the `Schema\Data\DataInterface` contract). `ResourceTransformerTest`, `DocumentTransformerTest`; end-to-end in `SparseFieldsetsAndIncludesTest`. |
 | Whole-document structural conformance (top-level member rules, resource/identifier/relationship/error shapes, member-name patterns, `data` XOR `errors`, `id`-optional-on-create) | ✅ test (opt-in) | `Validation\DocumentValidator` validates a decoded document against the vendored JSON:API 1.1 JSON Schema (draft 2020-12, `opis/json-schema`), with separate request/response roots; violations carry the offending JSON pointer as `source.pointer`. `DocumentValidatorTest`, `VendoredSchemaProviderTest`, `Request`/`ResponseValidationMiddlewareTest`. **Opt-in** (dev/CI), via the two validation middleware; requires the suggested `opis/json-schema`. |
 | Per-resource request body validation (schema-driven) | ✅ test | `Validation\SchemaCompiler` compiles a resource's field+constraint metadata into a per-type create/update JSON Schema, composed into `DocumentValidator`'s `$additionalSchemas`; `RequestValidationMiddleware` validates the body against it (opt-in, with correct `source.pointer`s). `SchemaCompilerTest`, `PerResourceValidationTest`. |
 
@@ -256,7 +256,7 @@ the `VendoredSchemaProvider` and the testing helpers, is in
 ## Internal-class evidence (not user-facing capability)
 
 Several rows above cite engine internals — `Transformer\ResourceTransformer`,
-`Transformer\DocumentTransformer`, the `Schema\Data` accumulator, the
+`Transformer\DocumentTransformer`, the `Schema\Data\AbstractData` accumulator, the
 `@internal QueryParam` reader — as *proof* that a requirement is satisfied. They
 are named here only as evidence; they are **not** part of the supported public
 surface and are not capabilities you build against. Your extension points are

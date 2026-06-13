@@ -111,9 +111,14 @@ self::assertSame(['4', '2'], $this->linkageIds($read));
 The body of a relationship request is a *linkage* document — resource identifiers
 (`type` + `id`), never full resources. Core parses it for you off the request:
 `getRelationshipLinkageToMany($name)` yields a `ToManyRelationship`,
-`getRelationshipLinkageToOne($name)` a `ToOneRelationship`. What you do with that
-linkage is storage-specific, so it is the handler's (or a [hydrator](hydrators.md)'s)
-job to turn the supplied ids into the parent's stored relationship.
+`getRelationshipLinkageToOne($name)` a `ToOneRelationship`. These read the
+**top-level** `data` of a relationship-endpoint body (where `data` *is* the
+linkage); they are distinct from `getToManyRelationship($name)` /
+`getToOneRelationship($name)`, the pair a whole-resource write uses to read a
+named relationship out of the `data.relationships.{name}.data` path. What you do
+with that linkage is storage-specific, so it is the handler's (or a
+[hydrator](hydrators.md)'s) job to turn the supplied ids into the parent's stored
+relationship.
 
 In the object-graph example app, the store holds related *objects*, so the
 handler resolves each linkage id back to the stored object and sets the parent's
@@ -153,7 +158,7 @@ JsonApiDocument::of($response)->assertHasRelationship('artist', 'artists', '2');
 ```
 
 For how a whole-resource write strips, collects, and re-applies its relationships
-around the attribute hydrator, see [writes](hydrators.md).
+around the attribute hydrator, see [hydrators (whole-resource writes)](hydrators.md).
 
 ## Mutation gates and their 403s
 
@@ -285,6 +290,6 @@ There are two places the mutation can actually happen, and you pick one per type
   linkage these verbs mutate.
 - [Hydrators](hydrators.md) — the resource / hydrator apply path and the
   `UpdateRelationshipHydratorInterface` seam.
-- [Writes](hydrators.md) — relationships embedded in a whole-resource create/update.
+- [Hydrators (whole-resource writes)](hydrators.md) — relationships embedded in a whole-resource create/update.
 - [Errors and exceptions](errors-and-exceptions.md) — the full typed-exception
   catalogue, including the `403`/`400`/`404` raised here.

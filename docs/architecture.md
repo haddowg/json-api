@@ -32,7 +32,13 @@ one fluently and hold onto it. It carries:
 - the **ordered middleware list** and the **inner handler**.
 
 You assemble one with `Server::make()`, as the example app's [`bootstrap`](../examples/music-catalog/src/bootstrap.php)
-does:
+does. The snippet below carries more than the minimal albums slice that
+[Getting started](getting-started.md) builds — the default paginator, a profile, a
+per-type serializer override, and a standalone serializer/hydrator pair are all
+**optional** features, each covered on the [Server](server.md) page (and in
+[Pagination](pagination.md), [Profiles](profiles.md), and
+[Serializers](serializers.md)); the only essentials here are `withPsr17()` and the
+`register()` calls:
 
 ```php
 $base = Server::make()
@@ -117,8 +123,10 @@ flowchart TD
 
 `Server::handle()` folds the configured middleware list over the inner handler —
 wrapping each middleware (outermost last in the array) around the next — and runs
-the result. The recommended order, which the [`JsonApiMiddleware`](middleware.md)
-aggregate wires for you, is, outermost first:
+the result. The bootstrap above lists all four explicitly because it slots a
+router; the [`JsonApiMiddleware`](middleware.md#the-aggregate) aggregate wires the
+first three core middleware for you when you do not need to manage their ordering
+(the router is always your own). The recommended order is, outermost first:
 
 1. **`ErrorHandlerMiddleware`** — wraps everything in a `try`/`catch`. Any
    [typed exception](errors-and-exceptions.md) thrown downstream becomes a JSON:API

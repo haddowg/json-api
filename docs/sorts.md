@@ -14,6 +14,15 @@ not in the sort itself. This keeps core decoupled from any data layer: there is 
 generic query interface, and the split mirrors exactly how [filters](filters.md)
 and [field constraints](constraints.md) work.
 
+This page is the **declaration side** — marking fields sortable and writing sort
+value objects. If you followed the getting-started handler and just want
+`?sort=title` working end to end, the smallest executing side is the reference
+[`ArraySortHandler`](../src/Resource/Sort/InMemory/ArraySortHandler.php) wired up
+the way the catalog's
+[`CriteriaApplier`](../examples/music-catalog/src/Data/CriteriaApplier.php) does it
+(shown under [Executing sorts](#executing-sorts)); see [Adapters](adapters.md) for
+pushing the ordering down to a real store.
+
 ## Marking a field sortable
 
 The common case needs no explicit sort declaration. Calling `->sortable()` on a

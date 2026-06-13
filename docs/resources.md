@@ -140,14 +140,16 @@ covered, you only ever touch `sorts()` for a sort that doesn't map to one column
 
 ### Narrowing hooks
 
-Below those, a handful of `protected` hooks slice the field inventory for the
-engine. You rarely override them, but they are the seams a data-layer adapter uses:
+Below those, a handful of hooks slice the field inventory for the engine — mostly
+`protected` (`attributeFields()`, `relationFields()`, `idField()`), with the
+relationship lookup `relationNamed()` exposed `public` for adapters. You rarely
+override them, but they are the seams a data-layer adapter uses:
 
 | Hook | Returns | Purpose |
 |---|---|---|
 | `attributeFields()` | `list<FieldInterface>` | The non-id, non-relation, non-hidden attribute fields the serialize/hydrate walks iterate. |
 | `relationFields()` | `list<RelationInterface>` | The non-hidden relationship fields. |
-| `relationNamed(string $name)` | `?RelationInterface` | The relationship declared under member `$name`, or `null` — the single lookup the related / relationship endpoints need. |
+| `relationNamed(string $name)` | `?RelationInterface` | (public) The relationship declared under member `$name`, or `null` — the single lookup the related / relationship endpoints and data-layer adapters call. |
 | `idField()` | `?Id` | The declared `Id` field, or `null`. |
 
 These are derived from `fields()` and cached; overriding them is an advanced escape
@@ -161,7 +163,8 @@ When the engine serializes a domain object, it walks the non-hidden fields:
   `Id::make()` the id is read off the object's `id` property and rendered as a
   string.
 - **Attribute fields** produce `attributes`, each read via a framework-agnostic
-  accessor (a public property, then a `getXxx()` getter, then an array key) — or via
+  accessor (an array / `ArrayAccess` key first, then on an object a `getXxx()` getter,
+  an `isXxx()` getter, a member-named method, and finally a public property) — or via
   the field's own `serializeUsing()` / `extractUsing()` hook for a computed value.
   `displayTitle` on [`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php)
   is `computed()` and derived purely on read:

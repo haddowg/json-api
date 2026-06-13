@@ -9,8 +9,9 @@ profile to the client.
 Profiles are **advisory**. A server applies the profiles it recognizes and ignores
 any it does not, so a profile a client asks for but the server has not registered is
 silently dropped rather than rejected. That is the defining contrast with
-[extensions](content-negotiation.md#profiles-flow-through-extensions-can-fail), which demand strict
-client/server agreement and 400 an unsupported one.
+[extensions](content-negotiation.md#profiles-flow-through-extensions-can-fail), which require strict
+client/server agreement (a request asking for an extension the server does not
+support is rejected with a `400`, never silently ignored).
 
 ## The profile contract
 

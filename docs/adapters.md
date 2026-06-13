@@ -24,6 +24,11 @@ query parameter is `mixed`, so a Doctrine handler narrows it to a
 `QueryBuilder`, an in-memory handler to an array, a search adapter to its own
 request object, and the core couples to none of them.
 
+Note the asymmetry up front: filters and sorts execute through core *handler
+interfaces*, but constraints translate through an interface *you define* — the
+core ships no `ConstraintTranslatorInterface` (see
+[Constraints follow the same split](#constraints-follow-the-same-split) below).
+
 ## The metadata contracts
 
 Each metadata kind is a one-method interface; the concrete value objects add
@@ -319,6 +324,17 @@ The reference handlers are the behavioural spec to match: a `like` should be a
 case-insensitive substring, a set filter should split on the VO's delimiter, and
 an unrecognised VO must throw the typed `Unsupported…` rather than silently
 no-op.
+
+### Where the handler runs
+
+The handler is inert until something invokes it for a request. On a bare
+framework that something is your [operation handler](operations.md#operationhandlerinterface-the-one-seam):
+it resolves the resource, reads `JsonApiRequestInterface::getFiltering()` /
+`getSorting()` off the request, matches each requested key against the resource's
+declared filters/sorts, and calls your handler — exactly the fold the
+[`CriteriaApplier`](../examples/music-catalog/src/Data/CriteriaApplier.php)
+performs in [Folding the request over the query](#folding-the-request-over-the-query)
+above. The companion Symfony bundle does this wiring for you.
 
 ## Constraints follow the same split
 

@@ -30,7 +30,7 @@ use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
 use haddowg\JsonApi\Schema\Link\Link;
 
-$response = DataResponse::fromPage($page)
+$response = DataResponse::fromPage($page, $serializer)
     ->withMeta(['totalPlays' => 41_204])
     ->withLinks(DocumentLinks::withBaseUri(
         'https://music.example',
@@ -60,11 +60,14 @@ response.
 ## Resource-level: getMeta / getLinks on a serializer
 
 Resource-object `meta` and `links` come from the two serializer hooks. On an
-[`AbstractResource`](serializers.md) (or any `AbstractSerializer`) both default to
-"nothing" — `getMeta()` returns `[]` and `getLinks()` returns `null` — so a
-resource emits no custom `meta` and only the conventional `self` link unless you
-override them. The [`ChartSerializer`](../examples/music-catalog/src/Serializer/ChartSerializer.php)
-shows the no-op defaults written out explicitly:
+[`AbstractResource`](serializers.md) both default to "nothing" — `getMeta()`
+returns `[]` and `getLinks()` returns `null` — so a resource emits no custom
+`meta` and only the conventional `self` link unless you override them. A bare
+`AbstractSerializer` subclass leaves both methods abstract (they come from
+`SerializerInterface`, and `AbstractSerializer` only supplies the
+`TransformerTrait` helpers), so it must implement them itself — which is exactly
+why the [`ChartSerializer`](../examples/music-catalog/src/Serializer/ChartSerializer.php)
+writes the no-op defaults out by hand:
 
 ```php
 // ChartSerializer.php — the two hooks, opted out
@@ -112,7 +115,7 @@ alongside it.
 A link serializes one of two ways, and the library picks for you based on whether
 it carries meta:
 
-- **A bare URL string** — a [`Link`](../examples/music-catalog/src/Serializer/ChartSerializer.php)
+- **A bare URL string** — a [`Link`](../src/Schema/Link/Link.php)
   with no `meta` renders as a plain string (`"https://music.example/charts/top-100"`).
 - **A link object** — the moment a `Link` carries `meta`, or you use the richer
   `LinkObject`, it renders as an object with an `href` member.
@@ -161,8 +164,10 @@ present) and prepends a shared `baseUri` to every `href` at render time:
 | `RelationshipLinks` | relationship object | `self`, `related` |
 | `ErrorLinks` | error object | `about`, `type` |
 
-Each container takes the reserved relations as named constructor arguments, plus
-an arbitrary `links` map for the custom relations the spec also permits:
+`DocumentLinks`, `ResourceLinks` and `RelationshipLinks` each take the reserved
+relations as named constructor arguments, plus an arbitrary `links` map for the
+custom relations the spec also permits (`ErrorLinks` is the exception — it takes
+only `about` and a list of `types`, with no custom-`links` map):
 
 ```php
 use haddowg\JsonApi\Schema\Link\DocumentLinks;

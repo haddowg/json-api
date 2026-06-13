@@ -19,6 +19,9 @@ are touched, so a configured server is a shareable value and a derived server
 never leaks back into its parent. You can keep a base server around and specialise
 it per request, per test, or per version without surprise mutation.
 
+At a glance, the common path is three steps: **register** your types, **set** the
+middleware list and inner handler, then **drive** the server — `handle()` for an
+HTTP request or [`dispatch()`](#dispatch-the-no-psr-7-path) for a programmatic call.
 The example app's [`bootstrap.php`](../examples/music-catalog/src/bootstrap.php) is
 the single source of truth for a full assembly. It builds the configuration root,
 then derives the runnable server from it:
@@ -115,56 +118,6 @@ A handler that only needs resolution (not `resourceFor()` / `defaultPaginator()`
 can type-hint the `ResolvingServerInterface` and skip the downcast — see
 [operations](operations.md).
 
-## Lazy instantiation and containers
-
-`register()` takes **class-strings** and the registry reads the resource's
-`static $type` to key the entry **without** constructing the class. Instances are
-built **lazily on first lookup** and cached, so registering a server is cheap and a
-resource whose constructor has dependencies (or side effects) is not built until it
-is actually used.
-
-By default the registry builds each class with plain `new $class()`, which needs a
-no-argument constructor. To build resources, serializers, and hydrators with
-dependencies, give the server a factory through `withContainer()`. It accepts
-either a PSR-11 `\Psr\Container\ContainerInterface` **or** any
-`callable(class-string): object`; both are normalised internally to a single
-closure:
-
-```php
-// PSR-11 container — the registry calls $container->get(ArtistResource::class).
-$server = Server::make()
-    ->withContainer($container)
-    ->register(ArtistResource::class);
-
-// Or any callable that maps a class-string to an instance.
-$server = Server::make()
-    ->withContainer(fn(string $class) => $factory->make($class))
-    ->register(ArtistResource::class);
-```
-
-`withContainer()` is **order-independent** — calling it before or after
-`register()` is equivalent, because lookups are lazy and the factory lives on the
-registry. Like every other configurator it clones, so it never leaks into a parent
-server.
-
-> The factory must return an instance of the requested concern
-> (`AbstractResource` / `SerializerInterface` / `HydratorInterface`); a wrong-type
-> return is a wiring fault and throws a `\LogicException` on lookup. A PSR-11
-> container that returns a non-object is caught the same way. Prefer a factory that
-> hands out **fresh** instances: the registry injects itself as the relationship
-> serializer-resolver on every `resourceFor()` lookup, so a shared singleton handed
-> to two servers would have its resolver overwritten per call.
-
-## Relationship load state
-
-`withRelationshipLoadState()` injects the storage-aware predicate relations consult
-when they opt in via `RelationInterface::linkageOnlyWhenLoaded()` — it decides
-whether a relation's linkage is already loaded and so cheap to emit, letting a lazy
-to-many render links-only without forcing a fetch. Passing `null` (the default)
-restores the standalone behaviour: every relation is treated as loaded and its
-linkage data is emitted. See [relations](relations.md) for the policy and the
-predicate contract.
-
 ## Registering types
 
 `register()` and `registerSerializerHydrator()` are the two ways a type enters the
@@ -245,6 +198,57 @@ $operation = JsonApiOperationBuilder::create('albums', $server)
 
 See [operations](operations.md) for the operation model, the `Target`/router seam,
 and the handler contract.
+
+## Lazy instantiation and containers
+
+`register()` takes **class-strings** and the registry reads the resource's
+`static $type` to key the entry **without** constructing the class. Instances are
+built **lazily on first lookup** and cached, so registering a server is cheap and a
+resource whose constructor has dependencies (or side effects) is not built until it
+is actually used.
+
+By default the registry builds each class with plain `new $class()`, which needs a
+no-argument constructor. To build resources, serializers, and hydrators with
+dependencies, give the server a factory through `withContainer()`. It accepts
+either a PSR-11 `\Psr\Container\ContainerInterface` **or** any
+`callable(class-string): object`; both are normalised internally to a single
+closure:
+
+```php
+// PSR-11 container — the registry calls $container->get(ArtistResource::class).
+$server = Server::make()
+    ->withContainer($container)
+    ->register(ArtistResource::class);
+
+// Or any callable that maps a class-string to an instance.
+$server = Server::make()
+    ->withContainer(fn(string $class) => $factory->make($class))
+    ->register(ArtistResource::class);
+```
+
+`withContainer()` is **order-independent** — calling it before or after
+`register()` is equivalent, because lookups are lazy and the factory lives on the
+registry. Like every other configurator it clones, so it never leaks into a parent
+server.
+
+> The factory must return an instance of the requested concern
+> (`AbstractResource` / `SerializerInterface` / `HydratorInterface`); a wrong-type
+> return is a wiring fault and throws a `\LogicException` on lookup. A PSR-11
+> container that returns a non-object is caught the same way. Prefer a factory that
+> hands out **fresh** instances: the registry injects itself as the relationship
+> serializer-resolver when it first builds (and caches) an instance, so a shared
+> singleton handed to two servers would have its resolver overwritten by whichever
+> server's registry built it last.
+
+## Relationship load state
+
+`withRelationshipLoadState()` injects the storage-aware predicate relations consult
+when they opt in via `RelationInterface::linkageOnlyWhenLoaded()` — it decides
+whether a relation's linkage is already loaded and so cheap to emit, letting a lazy
+to-many render links-only without forcing a fetch. Passing `null` (the default)
+restores the standalone behaviour: every relation is treated as loaded and its
+linkage data is emitted. See [relations](relations.md) for the policy and the
+predicate contract.
 
 ## Wiring faults are exceptions, not error documents
 

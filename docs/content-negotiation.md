@@ -101,9 +101,10 @@ self::assertSame('application/vnd.api+json', $response->getHeaderLine('Content-T
 with **400 Bad Request** (`QueryParamUnrecognized`). The rule mirrors the spec:
 any all-lowercase query-parameter name (`a`–`z` only) is reserved to the JSON:API
 family, and only six names are recognized — `fields`, `include`, `sort`, `page`,
-`filter`, `profile`. So `?albumsort=...` (it contains a non-`a-z` character) is
-your own implementation-specific parameter and passes through, but `?sortby=...`
-(all lowercase, not one of the six) is rejected:
+`filter`, `profile`. So `?albumSort=...` (the capital `S` is a non-`a-z`
+character) is your own implementation-specific parameter and passes through, but
+`?sortby=...` — like `?albumsort=...` — is all lowercase, not one of the six, and
+is rejected:
 
 ```php
 \in_array($queryParamName, ['fields', 'include', 'sort', 'page', 'filter', 'profile'], true)

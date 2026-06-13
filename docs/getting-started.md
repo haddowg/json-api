@@ -150,9 +150,12 @@ $server = $operation->context()->server;
 A `FetchResourceOperation` covers both `GET /albums` and `GET /albums/1`. The two are
 distinguished by `target()->hasId()`. A single fetch that finds nothing returns an
 [`ErrorResponse`](responses.md) from [`ResourceNotFound`](errors-and-exceptions.md);
-a found one renders through `DataResponse::fromResource()`:
+a found one renders through `DataResponse::fromResource()`. The handler reads the
+type off the operation's [`Target`](operations.md) — `$type` below is
+`$operation->target()->type`:
 
 ```php
+$type = $operation->target()->type;
 $serializer = $server->serializerFor($type);
 
 $id = $operation->target()->id;
@@ -169,10 +172,10 @@ if ($id !== null) {
 return DataResponse::fromCollection($this->repository->fetchAll($type), $serializer);
 ```
 
-`DataResponse::fromResource(mixed $object, SerializerInterface $serializer)` and
-`fromCollection(iterable $objects, SerializerInterface $serializer)` are the two
-read builders. (The full handler also paginates collections — see
-[Pagination](pagination.md).)
+`DataResponse::fromResource(mixed $object, SerializerInterface $resource)` and
+`fromCollection(iterable $objects, SerializerInterface $resource)` are the two
+read builders (the second parameter is the serializer, named `$resource`). (The
+full handler also paginates collections — see [Pagination](pagination.md).)
 
 ### Creating: hydrate, persist, 201
 
@@ -180,9 +183,10 @@ A `CreateResourceOperation` carries the parsed request `body()`. Drive the per-t
 hydrator with `hydratorFor($type)->hydrate($body, $newInstance)` to fill a fresh
 domain object, persist it, then render `201` with a `Location` header. The
 [`Server`](server.md) never dictates instantiation — the handler owns a tiny
-type → `new Album()` map:
+type → `new Album()` map (`$type` is again `$operation->target()->type`):
 
 ```php
+$type = $operation->target()->type;
 $serializer = $server->serializerFor($type);
 
 $entity = $server->hydratorFor($type)->hydrate($operation->body(), new Album());
@@ -228,9 +232,11 @@ return match ($count) {
 ```
 
 `Target($type, $id, $relationship, $isRelationshipEndpoint)` is the router-agnostic
-endpoint identifier — `hasId()` / `hasRelationship()` distinguish the shapes. In a
-real app your framework's router builds this; the library only needs the attribute
-present. The example's router is a stand-in, not a routing engine.
+endpoint identifier — `hasId()` / `hasRelationship()` distinguish the shapes. Once
+built, the router attaches it before delegating — `$handler->handle($request->withAttribute(Target::class, $target))`
+(see [`PathPrefixRouter`](../examples/music-catalog/src/Http/PathPrefixRouter.php)).
+In a real app your framework's router builds this; the library only needs the
+attribute present. The example's router is a stand-in, not a routing engine.
 
 ## Step 5 — wire the server
 

@@ -141,6 +141,10 @@ parsing rule — it never throws).
 | [`FixedPagePaginator`](../src/Pagination/FixedPagePaginator.php) | `page[number]` only | `number`, page `1`, fixed `size` `15` (server-set, never echoed) |
 | [`CursorPaginator`](../src/Pagination/CursorPaginator.php) | `page[size]` / `page[after]` / `page[before]` | `size`, default size `15` |
 
+Three are count-based and share the two-method `PaginatorInterface` contract above;
+the fourth, [`CursorPaginator`](#cursor-pagination), has a different shape and is
+covered separately under [Cursor pagination](#cursor-pagination) below.
+
 ### PagePaginator — the baseline
 
 `page[number]` / `page[size]`. Override the keys and defaults with
@@ -254,7 +258,7 @@ The four pages side by side — which links they emit and what `meta.page` carri
 | `PageBasedPage` | `self`, `first`, `prev`, `next`, `last` | `currentPage`, `perPage`, `from`, `to`, `total`, `lastPage` |
 | `OffsetBasedPage` | `self`, `first`, `prev`, `next`, `last` | `offset`, `limit`, `from`, `to`, `total` |
 | `FixedPagePage` | `self`, `first`, `prev`, `next`, `last` | `currentPage`, `total`, `lastPage` (no `perPage` — size is server-fixed) |
-| `CursorBasedPage` | `self`, `first`, `prev`, `next` (**no `last`** by design) | `perPage`, `hasMore` |
+| `CursorBasedPage` | `first`, `prev`, `next` (**no `self` or `last`** by design) | `perPage`, `hasMore` |
 
 Two defensive behaviours apply to the count-based pages:
 

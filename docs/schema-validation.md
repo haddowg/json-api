@@ -41,6 +41,14 @@ provider's schemas are registered into one reusable `opis` validator at
 construction and compiled-and-cached on first use, so validation is cheap across
 requests.
 
+**The common path:** in a PSR-15 server you usually don't call the validator
+directly — you add the two optional middleware that drive it off the request and
+response automatically (see [Wiring it into the middleware
+chain](#wiring-it-into-the-middleware-chain) below). The rest of this page —
+`validateRequest`/`validateResponse`, the schema roots, the `unevaluatedProperties`
+relocation, `SchemaCompiler` — is the "how it works / customize it" detail beneath
+that.
+
 ## Validating a document
 
 The validator exposes two methods, because request and response bodies differ:
@@ -103,6 +111,10 @@ document-root `unevaluatedProperties`** keyword from the response schema so the
 `SchemaProviderInterface` yourself and pass it to the `DocumentValidator`.
 
 ## Composing in extra schemas: the `allOf` + `unevaluatedProperties` relocation
+
+In practice: you can pass extra schema fragments to **extend** (never override)
+what's allowed — e.g. a profile adding a top-level member. The mechanism below is
+how that works; skip it unless you author fragments.
 
 Every validation builds a synthetic composite root:
 

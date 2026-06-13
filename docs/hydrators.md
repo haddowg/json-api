@@ -92,7 +92,7 @@ but the full set is:
 | `setId(mixed $obj, string $id): mixed` | Apply the resolved id to the object. |
 | `generateId(): string` | Generate a server-side id on create (UUID v4 preferred). |
 | `validateClientGeneratedId(string $id, JsonApiRequestInterface $request): void` | Reject (or accept) a client-supplied id; throw `ClientGeneratedIdNotSupported` to refuse. |
-| `validateRequest(JsonApiRequestInterface $request): void` | Request-level validation, called after type and id checks (default no-op). |
+| `validateRequest(JsonApiRequestInterface $request): void` | Request-level validation, called after type and id checks (**abstract — you must implement it**, even as an empty no-op, as `PlaylistHydrator` does). |
 | `validateDomainObject(JsonApiRequestInterface $request, mixed $obj): void` | **Post-hydration** seam, called once the object is fully built (default no-op). |
 
 `validateDomainObject()` is the seam where adapter-level, cross-field, or
@@ -121,7 +121,9 @@ list). `isEmpty()` is true when the request wants to clear the relationship
 | `ToOneRelationship` | `->resourceIdentifier` (nullable) | `isEmpty()` |
 | `ToManyRelationship` | `->resourceIdentifiers` (list) | `getResourceIdentifierIds()`, `getResourceIdentifierTypes()`, `getResourceIdentifierLids()`, `isEmpty()` |
 
-Each `ResourceIdentifier` exposes `->type`, `->id`, `->lid`, and `->meta`.
+Each [`ResourceIdentifier`](concepts.md#resource-identifiers) exposes `->type`,
+`->id`, `->lid`, and `->meta` (the `->lid` carries a JSON:API 1.1 local id — see
+[the `lid` callout under registering a hydrator](#registering-a-hydrator) below).
 
 **Type-hint the callable's second parameter to declare the cardinality you
 expect.** The hydrator reflects that hint and raises
@@ -215,7 +217,9 @@ witness is [`HydratorsTest`](../examples/music-catalog/tests/HydratorsTest.php).
 > apply relationships. That's a domain choice, not a rule: this store holds the
 > *related objects* (a `Playlist` carries `User`/`Track` instances), so a linkage
 > id must be resolved to the stored object before it's set — work that needs the
-> store the hydrator has no handle on. When your write only needs the linkage
+> store the hydrator has no handle on (the store/persister is the host
+> integration's data layer — see [the Symfony bundle](index.md#scope-boundaries);
+> core itself only parses the linkage). When your write only needs the linkage
 > **id** (a foreign-key column), put the callable here and type-hint its
 > cardinality as shown above.
 
@@ -248,7 +252,8 @@ replace against a relation that disallows it throws `FullReplacementProhibited`
 (`403`), a remove against an immutable relation throws `RemovalProhibited`
 (`403`), and an `Add`/`Remove` against a to-one relation is the inappropriate
 shape. See [relationship mutation](relationship-mutation.md) for the full picture,
-including the matching `DataPersister` apply step.
+including the matching `DataPersister` apply step (the persister is a host-layer
+seam — core parses and validates the linkage, the host integration writes it).
 
 ## Registering a hydrator
 

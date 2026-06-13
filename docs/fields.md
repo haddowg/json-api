@@ -180,12 +180,22 @@ them against data.
 | `sequentially(ConstraintInterface ...$c)` | Applies the constraints in order, stopping at the first failure; all must ultimately hold. |
 | `atLeastOneOf(ConstraintInterface ...$alt)` | Passes if the value satisfies at least one alternative. |
 | `when($condition, $builder)` | Applies the constraints appended inside `$builder` only when `$condition` returns true for the value. The wrapped rules fold into a single `When`; the condition is opaque PHP, so it does not round-trip to JSON Schema. |
-| `compareWith(string $field, Comparison $op)` | Cross-field comparison: the operator reads `<this field> <op> <$field>`. |
+| `compareWith(string $field, Comparison $op)` | Cross-field comparison: the operator reads `<this field> <op> <$field>`. `$op` is a [`Comparison` enum case](constraints.md#the-comparison-enum). |
 
 [`UserResource`](../examples/music-catalog/src/Resource/UserResource.php)'s
-`passwordConfirm` stacks all three of the composition forms in one chain:
+`passwordConfirm` stacks all three of the composition forms in one chain. Unlike
+the stored-but-write-only `password` field above, `passwordConfirm` is
+`computed()` because it is a transient confirmation value that is only compared,
+never persisted. `atLeastOneOf()`/`sequentially()`/`when()` take constraint value
+objects directly (from the [constraint
+vocabulary](constraints.md#the-constraint-vocabulary)), the same way `each(new
+MinLength(1))` does in [field types](field-types.md):
 
 ```php
+use haddowg\JsonApi\Resource\Constraint\Comparison;
+use haddowg\JsonApi\Resource\Constraint\MinLength;
+use haddowg\JsonApi\Resource\Constraint\Pattern;
+
 Str::make('passwordConfirm')
     ->computed()
     ->serializeUsing(fn(): ?string => null)

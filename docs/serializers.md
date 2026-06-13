@@ -113,6 +113,9 @@ two columns on read.
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 
+// SerializerResolverAwareInterface is the opt-in for relationship rendering,
+// covered in "Rendering relationships from a serializer" below; it is not needed
+// for the request-aware/computed attributes this example is about.
 final class TrackSerializer extends AbstractSerializer implements SerializerResolverAwareInterface
 {
     public function getType(mixed $object): string
@@ -213,7 +216,15 @@ and the registry calls `setSerializerResolver()` after construction; without it,
 `getRelationships()` has nothing to resolve related types against and returns `[]`.
 
 `TrackSerializer` opts in and renders the same `album` and `playlists` relations
-the Resource declares, through the shared `RendersRelationsTrait`:
+the Resource declares, through the shared `RendersRelationsTrait`. The trait
+supplies one helper — `relationshipCallables(array $relations, SerializerResolverInterface $resolver): array` —
+which turns a list of [relation fields](relations.md) into the callable map
+`getRelationships()` returns. It does **not** supply the relations themselves: the
+`relations()` it is handed is a method **you** write on the serializer, returning a
+`list<RelationInterface>` (in
+[`TrackSerializer`](../examples/music-catalog/src/Serializer/TrackSerializer.php)
+it re-declares the same `album` / `playlists` the Resource declares). It is built
+per call, since the contract is stateless:
 
 ```php
 use haddowg\JsonApi\Resource\RendersRelationsTrait;
@@ -268,6 +279,14 @@ true but `hasHydratorFor('charts')` is false, and `resourceFor('charts')` throws
 read and write are decoupled. See [capability composition](capability-composition.md)
 for the full standalone story.
 
+`ChartSerializer` has no relations, so its `getRelationships()` returns `[]`. A
+standalone serializer that *does* render relations declares them exactly as the
+override above does — there is no Resource to lean on, but none is needed: the
+`relations()` list is hand-written on the serializer itself. Implement
+`SerializerResolverAwareInterface`, `use RendersRelationsTrait`, and return
+`relationshipCallables($this->relations(), $resolver)` from `getRelationships()`,
+with your own `relations()` supplying the `list<RelationInterface>`.
+
 A standalone serializer can also declare its own URL segment by implementing
 [`UriTypeAwareInterface`](../examples/music-catalog/src/Serializer/ChartSerializer.php):
 
@@ -285,10 +304,12 @@ final class ChartSerializer extends AbstractSerializer implements UriTypeAwareIn
 }
 ```
 
+This is the same URL-segment decoupling already taught for `AbstractResource`'s
+`$uriType` (see [resources](resources.md#uritype--the-url-segment-decoupled-from-the-type)),
+exposed here as an interface a standalone serializer implements directly.
 `uriType()` is the URI path segment, decoupled from the JSON:API `type` member: a
 type whose `getType()` is `book` can live at `/books`. A serializer that does not
-implement the interface falls back to `getType()` as the segment. (`AbstractResource`
-implements it too — see [resources](resources.md).)
+implement the interface falls back to `getType()` as the segment.
 
 ## Polymorphic serialization (the read side of polymorphism)
 

@@ -221,19 +221,22 @@ object before asserting — this is the response-VO input shape from the
 `Testing\SpecCompliance::assert()` validates a document against the JSON:API 1.1
 response schema and turns any violation into a PHPUnit failure listing each
 offending pointer and message. The `AssertsSpecCompliance` trait exposes the same
-check as `assertJsonApiSpecCompliant()` on your test case — the music-catalog
-suites mix it into the [shared base](../examples/music-catalog/tests/MusicCatalogTestCase.php)
-and assert every body compliant:
+check as `assertJsonApiSpecCompliant()` on your test case — each music-catalog
+suite mixes it in at its own class level (e.g.
+[`GettingStartedTest`](../examples/music-catalog/tests/GettingStartedTest.php))
+and asserts every body compliant:
 
 ```php
 use haddowg\JsonApi\Testing\AssertsSpecCompliance;
 use haddowg\JsonApi\Testing\JsonApiDocument;
+use PHPUnit\Framework\Attributes\Test;
 
 final class GettingStartedTest extends MusicCatalogTestCase
 {
     use AssertsSpecCompliance;
 
-    public function testFetchingASingleAlbum(): void
+    #[Test]
+    public function fetchingASingleAlbumReturnsASpecCompliantDocument(): void
     {
         $response = $this->get('/albums/1');
 
