@@ -329,6 +329,15 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         return $this->resources->resourceFor($type);
     }
 
+    /**
+     * Whether `$type` has a Resource class (vs a bare serializer/hydrator pair) —
+     * the presence-check mirror of {@see resourceFor()}.
+     */
+    public function hasResourceFor(string $type): bool
+    {
+        return $this->resources->hasResourceFor($type);
+    }
+
     public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->defaultPaginator;

@@ -154,6 +154,18 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
         return isset($this->entries[$type]);
     }
 
+    /**
+     * Whether `$type` has a Resource class (vs a bare serializer/hydrator pair).
+     * The presence-check mirror of {@see resourceFor()}, so a caller can branch on
+     * a standalone-registered type without catching {@see NoResourceRegistered}.
+     */
+    public function hasResourceFor(string $type): bool
+    {
+        $entry = $this->entries[$type] ?? null;
+
+        return $entry !== null && $entry->resource !== null;
+    }
+
     public function hasSerializerFor(string $type): bool
     {
         $entry = $this->entries[$type] ?? null;

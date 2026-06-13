@@ -198,6 +198,21 @@ final class ResourceRegistryTest extends TestCase
     }
 
     #[Test]
+    public function hasResourceForDistinguishesAResourceFromABarePair(): void
+    {
+        $registry = new ResourceRegistry();
+        $registry->register(PostResource::class);
+        $registry->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        // The presence-check mirror of resourceFor(): a type registered with a
+        // Resource class reports a resource; a bare serializer/hydrator pair (or an
+        // unregistered type) does not — so a caller can branch without catching.
+        self::assertTrue($registry->hasResourceFor('posts'));
+        self::assertFalse($registry->hasResourceFor('widgets'));
+        self::assertFalse($registry->hasResourceFor('unregistered'));
+    }
+
+    #[Test]
     public function emptyBarePairTypeThrows(): void
     {
         $registry = new ResourceRegistry();
