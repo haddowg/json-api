@@ -523,22 +523,23 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return $domainObject;
         }
 
-        $id = $clientId !== '' ? $clientId : $this->generateId();
-
-        // An encoder makes the id the wire form of a distinct storage key: the
-        // entity must hold the decoded storage key so its serialized id (which
-        // re-encodes) round-trips. A well-formed but undecodable client id 422s.
+        // An encoder makes the id the wire form of a distinct storage key, so a
+        // *client-supplied* id must be decoded back to its storage key before it is
+        // set (its serialized id then re-encodes and round-trips). A well-formed but
+        // undecodable client id 422s. A server-generated id is the storage key's own
+        // wire form already (e.g. a fresh UUID) and is never the encoder's input, so
+        // it is set as-is — decoding it would reject every server-minted create.
         $encoder = $idField->encoder();
-        if ($encoder !== null) {
-            $storageKey = $encoder->decode($id);
+        if ($encoder !== null && $clientId !== '') {
+            $storageKey = $encoder->decode($clientId);
             if ($storageKey === null) {
-                throw new ResourceIdUndecodable($id);
+                throw new ResourceIdUndecodable($clientId);
             }
 
             return Accessor::set($domainObject, $column, $storageKey);
         }
 
-        return Accessor::set($domainObject, $column, $id);
+        return Accessor::set($domainObject, $column, $clientId !== '' ? $clientId : $this->generateId());
     }
 
     /**

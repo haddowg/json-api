@@ -238,6 +238,24 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function doesNotDecodeAServerGeneratedIdOnCreate(): void
+    {
+        // The encoder rejects every wire id, but a create with no client id must use
+        // the server-generated value as-is rather than feeding it to decode() — a
+        // server-minted id is the storage key's own wire form, not the encoder's
+        // input, so decoding it would 422 every server-generated create.
+        $resource = new ServerGeneratedEncodedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'server-encoded', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame(ServerGeneratedEncodedIdResource::GENERATED_ID, $model['id']);
+    }
+
+    #[Test]
     public function hydratesToOneRelationship(): void
     {
         $resource = new PostResource();
@@ -621,6 +639,31 @@ final class RejectingIdResource extends AbstractResource
     protected function acceptsClientGeneratedId(): bool
     {
         return true;
+    }
+}
+
+/**
+ * A resource that attaches an encoder but does NOT accept client-generated ids, so
+ * every create falls through to a server-generated id. The encoder rejects every
+ * wire id ({@see RejectingIdEncoder}), proving the server-generated value is stored
+ * as-is and never fed to decode() (which would 422 the create).
+ */
+final class ServerGeneratedEncodedIdResource extends AbstractResource
+{
+    public const string GENERATED_ID = 'server-minted-id';
+
+    public static string $type = 'server-encoded';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->encodeUsing(new RejectingIdEncoder()),
+        ];
+    }
+
+    protected function generateId(): string
+    {
+        return self::GENERATED_ID;
     }
 }
 

@@ -221,8 +221,10 @@ transform across both directions of the lifecycle:
   that `decode()` rejects (`null`) is a `422` `ResourceIdUndecodable` (pointer
   `/data/id`); the format constraint above already catches a *malformed* id before
   hydration, so `decode()` only ever runs on a well-formed value — the `null`
-  branch is the safety net. Update (`PATCH`) never sets the id, so it does not
-  decode.
+  branch is the safety net. A *server*-generated id (no client id, the default) is
+  set as-is and never decoded — it is the storage key's own wire form, not the
+  encoder's input, so feeding it to `decode()` would reject every server-minted
+  create. Update (`PATCH`) never sets the id, so it does not decode.
 
 A type with **no** encoder behaves exactly as before: wire == storage, nothing is
 transformed. The id-as-lookup-key transforms — decoding the route `{id}` before a
