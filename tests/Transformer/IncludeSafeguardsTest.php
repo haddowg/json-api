@@ -195,6 +195,47 @@ final class IncludeSafeguardsTest extends TestCase
     }
 
     #[Test]
+    public function theRootAllowListImpliesTheAncestorsOfAListedDeepPath(): void
+    {
+        // The root lists only the deep path 'comments.author'; requesting it
+        // succeeds even though the intermediate 'comments' is not itself listed —
+        // a listed deep path implies its ancestors are traversable (prefix
+        // semantics, matching Laravel's allowedIncludePaths).
+        $author = new ControllableSerializer('users', '7');
+        $comment = new ControllableSerializer('comments', '3', relationships: [
+            'author' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+        ]);
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], allowedIncludePaths: ['comments.author']);
+
+        $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments.author']));
+
+        self::assertCount(2, $this->included($result));
+    }
+
+    #[Test]
+    public function theRootAllowListForbidsASiblingOfAListedDeepPath(): void
+    {
+        // Allowing 'comments.author' implies 'comments' but NOT a sibling nested
+        // path like 'comments.editor' (a declared, includable relation) — it is
+        // not a listed path nor an ancestor of one, so it is rejected.
+        $author = new ControllableSerializer('users', '7');
+        $editor = new ControllableSerializer('users', '8');
+        $comment = new ControllableSerializer('comments', '3', relationships: [
+            'author' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+            'editor' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '8'], $editor),
+        ]);
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], allowedIncludePaths: ['comments.author']);
+
+        $this->expectException(InclusionNotAllowed::class);
+
+        $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments.editor']));
+    }
+
+    #[Test]
     public function aNullAllowListLeavesIncludesUnrestricted(): void
     {
         // Same shape as the forbidding case, but no allow-list set: the nested

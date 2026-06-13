@@ -33,10 +33,11 @@ resolved per-render as `primary override ?? server default`, normalised so `<= 0
 (and `null`) means **unlimited** — core stays unopinionated, leaving the
 opinionated default of 3 to the bundle. The document layer evaluates the
 root-scoped checks once, up front, against the request's primary resource: the
-allowed-paths whitelist rejects any requested full path outside it, and the depth
-check rejects any over-deep requested path — both raising
+allowed-paths whitelist rejects any requested path that is neither a listed path
+nor an ancestor of one (so listing a deep path implies its intermediates), and the
+depth check rejects any over-deep requested path — both raising
 `InclusionNotAllowed` (code `INCLUSION_NOT_ALLOWED`) / `InclusionDepthExceeded`
-(code `INCLUSION_DEPTH_EXCEEDED`), each a 400 with `source.pointer` on `include`.
+(code `INCLUSION_DEPTH_EXCEEDED`), each a 400 with `source.parameter` on `include`.
 The per-relation opt-out is enforced per-resource-level inside the transformer
 (it is a property of each hop's resource), and the recursion descent is
 additionally gated by depth — past the cap the compound expansion is **silently

@@ -25,8 +25,8 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
      *
      *  - Capability C (allowed include paths): if the primary serializer is
      *    {@see IncludeControlsInterface} and declares a non-null whitelist, every
-     *    requested full include path must be a member of it, else
-     *    {@see InclusionNotAllowed}.
+     *    requested path must be a listed path or an ancestor of one (a listed deep
+     *    path implies its intermediates), else {@see InclusionNotAllowed}.
      *  - Capability B (max include depth): the effective cap is the primary's
      *    per-resource override (if any) else the server default carried on the
      *    transformation, normalised so `<= 0` means unlimited (null); any
@@ -46,9 +46,22 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
         if ($primary instanceof IncludeControlsInterface) {
             $allowed = $primary->getAllowedIncludePaths();
             if ($allowed !== null) {
+                // A requested path is permitted when it is a listed path or an
+                // ancestor of one — listing a deep path (`posts.author`) implies its
+                // intermediates (`posts`) are traversable, so the author need not
+                // enumerate every prefix. A sibling or unlisted nested path
+                // (`posts.comments`) is not implied and is rejected.
                 $offending = \array_values(\array_filter(
                     $requestedPaths,
-                    static fn(string $path): bool => !\in_array($path, $allowed, true),
+                    static function (string $path) use ($allowed): bool {
+                        foreach ($allowed as $allowedPath) {
+                            if ($allowedPath === $path || \str_starts_with($allowedPath, $path . '.')) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    },
                 ));
                 if ($offending !== []) {
                     throw new InclusionNotAllowed($offending);

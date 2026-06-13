@@ -198,14 +198,16 @@ dotted paths permitted when this resource is the request's primary/root type, vi
 // UserResource — posts (and posts.author) are includable, but posts.comments is not
 public function getAllowedIncludePaths(): ?array
 {
-    return ['posts', 'posts.author'];
+    return ['posts.author'];
 }
 ```
 
 `GET /users/1?include=posts.comments` is now `400 InclusionNotAllowed` even though
 `comments` is includable when a post is the root
-(`GET /posts/1?include=comments` still succeeds). `null` (the default) is
-unrestricted (today's behaviour); an empty list `[]` permits no includes at all.
+(`GET /posts/1?include=comments` still succeeds). Listing a deep path **implies its
+ancestors** — `['posts.author']` permits `posts` and `posts.author` without
+enumerating every prefix, but not the sibling `posts.comments`. `null` (the default)
+is unrestricted (today's behaviour); an empty list `[]` permits no includes at all.
 
 The three safeguards compose: a path is permitted only if every hop's relation is
 includable, it is within the effective max depth, and it is in the root's allowed
