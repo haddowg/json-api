@@ -132,6 +132,34 @@ final class PaginationTest extends MusicCatalogTestCase
         self::assertSame(10, $page['perPage'] ?? null);
     }
 
+    #[Test]
+    public function anOverLargePageSizeIsCappedNotHonoured(): void
+    {
+        // The default paginator caps page[size] at 50 (see bootstrap.php). An
+        // abusive page[size]=1000000 is clamped to the cap and returns 200 — the
+        // page-size DoS vector is closed by the clamp, not a 400.
+        $response = $this->get('/tracks?page[size]=1000000');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        $doc = JsonApiDocument::of($response);
+        // At most the cap's worth of items (here bounded further by the 3 available).
+        self::assertLessThanOrEqual(50, \count($this->listData($doc)));
+        self::assertSame(50, $this->pageMeta($response)['perPage'] ?? null, 'meta.page.perPage reflects the cap, not 1000000');
+    }
+
+    #[Test]
+    public function anInRangePageSizeIsUnaffectedByTheCap(): void
+    {
+        // A size at or below the cap is honoured verbatim — the cap only clamps down.
+        $response = $this->get('/tracks?page[size]=2&sort=trackNumber');
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(2, $this->listData(JsonApiDocument::of($response)));
+        self::assertSame(2, $this->pageMeta($response)['perPage'] ?? null);
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

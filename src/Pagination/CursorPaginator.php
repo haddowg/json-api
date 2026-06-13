@@ -19,6 +19,11 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  * The produced {@see CursorBasedPage} carries the {@see CursorPaginationProfile}
  * so the response advertises it.
  *
+ * The client-controlled `page[size]` is capped at {@see $maxPerPage} (default
+ * {@see PagePaginator::DEFAULT_MAX_PER_PAGE}) so an over-large request is silently
+ * clamped to the cap rather than honoured. Pass `0` to {@see withMaxPerPage()} to
+ * disable the cap (unlimited).
+ *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */
 final readonly class CursorPaginator
@@ -27,6 +32,7 @@ final readonly class CursorPaginator
         public int $defaultSize = 15,
         public string $sizeKey = 'size',
         public ProfileInterface $profile = new CursorPaginationProfile(),
+        public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
     ) {}
 
     public static function make(): self
@@ -36,12 +42,22 @@ final readonly class CursorPaginator
 
     public function withDefaultSize(int $defaultSize): self
     {
-        return new self($defaultSize, $this->sizeKey, $this->profile);
+        return new self($defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage);
     }
 
     public function withSizeKey(string $sizeKey): self
     {
-        return new self($this->defaultSize, $sizeKey, $this->profile);
+        return new self($this->defaultSize, $sizeKey, $this->profile, $this->maxPerPage);
+    }
+
+    /**
+     * Caps the resolved page size at `$max` items. The cap clamps an over-large
+     * `page[size]` down to `$max` (the requested size is honoured up to it), so it
+     * never *raises* a smaller request. Pass `0` to disable the cap (unlimited).
+     */
+    public function withMaxPerPage(int $max): self
+    {
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, \max(0, $max));
     }
 
     /**
@@ -59,9 +75,11 @@ final readonly class CursorPaginator
         bool $hasNext,
         bool $hasPrevious,
     ): CursorBasedPage {
+        $size = QueryParam::int($request->getPagination(), $this->sizeKey, $this->defaultSize);
+
         return new CursorBasedPage(
             $items,
-            QueryParam::int($request->getPagination(), $this->sizeKey, $this->defaultSize),
+            $this->maxPerPage > 0 ? \min($size, $this->maxPerPage) : $size,
             $cursorBefore,
             $cursorAfter,
             $hasNext,

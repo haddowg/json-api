@@ -11,6 +11,13 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *
  * Fluent and immutable: {@see make()} then `with…()` to override the query-param
  * keys and the defaults used when a parameter is absent.
+ *
+ * The client-controlled `page[limit]` is capped at {@see $maxPerPage} (default
+ * {@see PagePaginator::DEFAULT_MAX_PER_PAGE}) so an over-large request is silently
+ * clamped to the cap rather than honoured — `page[limit]=1000000` returns the
+ * cap's worth of items with `200`, in keeping with the clamp-don't-`400`
+ * pagination stance. Pass `0` to {@see withMaxPerPage()} to disable the cap
+ * (unlimited).
  */
 final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
 {
@@ -19,6 +26,7 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
         public string $limitKey = 'limit',
         public int $defaultOffset = 0,
         public int $defaultLimit = 15,
+        public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
     ) {}
 
     public static function make(): self
@@ -28,33 +36,46 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
 
     public function withOffsetKey(string $offsetKey): self
     {
-        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit);
+        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage);
     }
 
     public function withLimitKey(string $limitKey): self
     {
-        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit);
+        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage);
     }
 
     public function withDefaultOffset(int $defaultOffset): self
     {
-        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit);
+        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage);
     }
 
     public function withDefaultLimit(int $defaultLimit): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage);
+    }
+
+    /**
+     * Caps the resolved limit at `$max` items. The cap clamps an over-large
+     * `page[limit]` down to `$max` (the requested limit is honoured up to it), so
+     * it never *raises* a smaller request. Pass `0` to disable the cap (unlimited).
+     */
+    public function withMaxPerPage(int $max): self
+    {
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max));
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow
     {
         $pagination = $request->getPagination();
 
-        // OffsetWindow normalises to >= 0; paginate() reuses the same window so
-        // the fetched items and the page meta/links always agree.
+        $limit = QueryParam::int($pagination, $this->limitKey, $this->defaultLimit);
+
+        // OffsetWindow normalises to >= 0; the cap clamps an over-large limit down
+        // to maxPerPage. paginate() reuses the same window so the fetched items and
+        // the page meta/links always agree.
         return new OffsetWindow(
             QueryParam::int($pagination, $this->offsetKey, $this->defaultOffset),
-            QueryParam::int($pagination, $this->limitKey, $this->defaultLimit),
+            $this->maxPerPage > 0 ? \min(\max(0, $limit), $this->maxPerPage) : $limit,
         );
     }
 

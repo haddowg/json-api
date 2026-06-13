@@ -136,14 +136,16 @@ parsing rule — it never throws).
 
 | Strategy | Reads | Defaults (keys / values) |
 |---|---|---|
-| [`PagePaginator`](../src/Pagination/PagePaginator.php) | `page[number]` / `page[size]` | `number`/`size`, page `1`, per-page `15` |
-| [`OffsetPaginator`](../src/Pagination/OffsetPaginator.php) | `page[offset]` / `page[limit]` | `offset`/`limit`, offset `0`, limit `15` |
+| [`PagePaginator`](../src/Pagination/PagePaginator.php) | `page[number]` / `page[size]` | `number`/`size`, page `1`, per-page `15`, max-per-page `100` |
+| [`OffsetPaginator`](../src/Pagination/OffsetPaginator.php) | `page[offset]` / `page[limit]` | `offset`/`limit`, offset `0`, limit `15`, max-per-page `100` |
 | [`FixedPagePaginator`](../src/Pagination/FixedPagePaginator.php) | `page[number]` only | `number`, page `1`, fixed `size` `15` (server-set, never echoed) |
-| [`CursorPaginator`](../src/Pagination/CursorPaginator.php) | `page[size]` / `page[after]` / `page[before]` | `size`, default size `15` |
+| [`CursorPaginator`](../src/Pagination/CursorPaginator.php) | `page[size]` / `page[after]` / `page[before]` | `size`, default size `15`, max-per-page `100` |
 
 Three are count-based and share the two-method `PaginatorInterface` contract above;
 the fourth, [`CursorPaginator`](#cursor-pagination), has a different shape and is
-covered separately under [Cursor pagination](#cursor-pagination) below.
+covered separately under [Cursor pagination](#cursor-pagination) below. The three
+client-size-controlled strategies cap `page[size]`/`page[limit]` — see
+[Capping the page size](#capping-the-page-size).
 
 ### PagePaginator — the baseline
 
@@ -178,7 +180,49 @@ $paginator = FixedPagePaginator::make(50); // 50-per-page, fixed
 
 The configured `size` (default `15`) is used solely to compute the last page — it
 is **never** echoed in the emitted links. Refine with `withSize()`, `withPageKey()`
-and `withDefaultPage()`.
+and `withDefaultPage()`. It has no page-size cap because the client never controls
+its size.
+
+## Capping the page size
+
+The client controls `page[size]` (and `page[limit]`), so without a ceiling a
+single request can ask for `page[size]=1000000` and force your store to fetch a
+million rows — a denial-of-service vector. The page-size strategies therefore
+**cap** the resolved size: `PagePaginator`, `OffsetPaginator` and `CursorPaginator`
+clamp an over-large request down to a maximum, the same clamp-don't-`400` stance
+as every other garbage `page[…]` value. **The cap is on by default at `100`**, so
+every store is protected without any configuration:
+
+```php
+// page[size]=1000000 → 100 items, 200 OK; meta.page.perPage reads 100.
+PagePaginator::make();
+```
+
+Tune it with `withMaxPerPage()` — the cap only clamps **down**, never raising a
+smaller request, and the default-per-page is untouched as long as it sits at or
+below the cap:
+
+```php
+$paginator = PagePaginator::make()
+    ->withDefaultPerPage(25)
+    ->withMaxPerPage(50); // page[size]=1000 → 50; page[size]=10 → 10; no page → 25
+```
+
+The cap applies in both places that read the size, so they always agree: the
+[fetch window](#the-fetch-window) your store loads (`window()->limit`) **and** the
+rendered `meta.page` size. An over-large `page[size]` thus returns the capped
+number of items with a `200`, and `meta.page.perPage` reports the cap — never the
+abusive number.
+
+Pass `0` to **disable** the cap (unlimited):
+
+```php
+PagePaginator::make()->withMaxPerPage(0); // honours any page[size]
+```
+
+The [music catalog](../examples/music-catalog/src/bootstrap.php) caps its default
+paginator at `50` to witness the clamp; `page[size]=1000000` there returns at most
+`50` items with `meta.page.perPage: 50`.
 
 ## Cursor pagination
 

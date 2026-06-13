@@ -84,7 +84,11 @@ function assemble(InMemoryStore $store, bool $debug): array
     $base = Server::make()
         ->withBaseUri('https://music.example')
         ->withPsr17($psr17, $psr17)
-        ->withDefaultPaginator(PagePaginator::make()->withDefaultPerPage(10))
+        // The default paginator caps page[size] at 50 here (above the 10-per-page
+        // default, so the default is untouched): an over-large page[size] is
+        // clamped to the cap, not honoured. PagePaginator caps at 100 out of the
+        // box; withMaxPerPage(0) would disable the cap entirely.
+        ->withDefaultPaginator(PagePaginator::make()->withDefaultPerPage(10)->withMaxPerPage(50))
         ->withProfile(new TimestampProfile())
         ->withProfile(new CursorPaginationProfile())
         // Step 2: register the seven Resources by CLASS-STRING key. Two carry an

@@ -169,6 +169,95 @@ final class PaginatorTest extends TestCase
     }
 
     #[Test]
+    public function pagePaginatorCapsAnOverLargePageSizeAtTheDefaultMax(): void
+    {
+        // The default cap (100) clamps an abusive page[size] in both the window
+        // (what the store fetches) and the rendered page meta — never honoured.
+        $request = StubJsonApiRequest::create(['page' => ['number' => '1', 'size' => '1000000']]);
+
+        self::assertSame(100, PagePaginator::make()->window($request)->limit);
+        self::assertSame(100, PagePaginator::make()->paginate($request, [], 1000)->size);
+        self::assertSame(100, PagePaginator::make()->paginate($request, [], 1000)->pageMeta()['perPage'] ?? null);
+    }
+
+    #[Test]
+    public function pagePaginatorLeavesAnInRangeSizeUnchanged(): void
+    {
+        // A size at or below the cap is honoured verbatim; the cap only clamps
+        // down, it never raises a smaller request.
+        $request = StubJsonApiRequest::create(['page' => ['number' => '1', 'size' => '50']]);
+
+        self::assertSame(50, PagePaginator::make()->window($request)->limit);
+        self::assertSame(50, PagePaginator::make()->paginate($request, [], 1000)->size);
+    }
+
+    #[Test]
+    public function pagePaginatorHonoursACustomMaxPerPage(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '1', 'size' => '500']]);
+
+        $paginator = PagePaginator::make()->withMaxPerPage(25);
+
+        self::assertSame(25, $paginator->window($request)->limit);
+        self::assertSame(25, $paginator->paginate($request, [], 1000)->size);
+    }
+
+    #[Test]
+    public function pagePaginatorDisablesTheCapWithMaxPerPageZero(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '1', 'size' => '1000000']]);
+
+        $paginator = PagePaginator::make()->withMaxPerPage(0);
+
+        self::assertSame(1000000, $paginator->window($request)->limit);
+        self::assertSame(1000000, $paginator->paginate($request, [], 5_000_000)->size);
+    }
+
+    #[Test]
+    public function theDefaultPerPageIsUnaffectedByTheCapWhenNoSizeIsSent(): void
+    {
+        // No page[size] sent: the configured default (below the cap) is used as-is.
+        $request = StubJsonApiRequest::create([]);
+
+        self::assertSame(15, PagePaginator::make()->window($request)->limit);
+        self::assertSame(15, PagePaginator::make()->paginate($request, [], 1000)->size);
+    }
+
+    #[Test]
+    public function offsetPaginatorCapsAnOverLargeLimitAtTheDefaultMax(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['offset' => '0', 'limit' => '1000000']]);
+
+        self::assertSame(100, OffsetPaginator::make()->window($request)->limit);
+        self::assertSame(100, OffsetPaginator::make()->paginate($request, [], 1000)->limit);
+        self::assertSame(100, OffsetPaginator::make()->paginate($request, [], 1000)->pageMeta()['limit'] ?? null);
+    }
+
+    #[Test]
+    public function offsetPaginatorHonoursAnInRangeOrCustomCappedLimit(): void
+    {
+        $inRange = StubJsonApiRequest::create(['page' => ['offset' => '0', 'limit' => '40']]);
+        self::assertSame(40, OffsetPaginator::make()->window($inRange)->limit);
+
+        $custom = StubJsonApiRequest::create(['page' => ['offset' => '0', 'limit' => '500']]);
+        self::assertSame(25, OffsetPaginator::make()->withMaxPerPage(25)->window($custom)->limit);
+        self::assertSame(500, OffsetPaginator::make()->withMaxPerPage(0)->window($custom)->limit);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function cursorPaginatorCapsAnOverLargeSize(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['size' => '1000000']]);
+
+        $capped = CursorPaginator::make()->paginate($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
+        self::assertSame(100, $capped->size);
+
+        $uncapped = CursorPaginator::make()->withMaxPerPage(0)->paginate($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
+        self::assertSame(1000000, $uncapped->size);
+    }
+
+    #[Test]
     #[Group('spec:extensions-and-profiles')]
     public function cursorPaginatorReadsSizeAndAttachesProfile(): void
     {
