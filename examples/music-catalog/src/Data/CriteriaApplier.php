@@ -157,8 +157,14 @@ final class CriteriaApplier
     private function applySorts(array $rows, AbstractResource $resource, JsonApiRequestInterface $request): array
     {
         $requested = $request->getSorting();
+
+        // No `?sort`: fall back to the resource's default order (if any). An
+        // explicit `?sort` overrides the default entirely — the default is never
+        // appended to a requested sort.
         if ($requested === []) {
-            return $rows;
+            $directives = $resource->defaultSort();
+
+            return $directives === [] ? $rows : $this->runDirectives($rows, $directives);
         }
 
         /** @var array<string, SortInterface> $allSorts */
@@ -184,6 +190,20 @@ final class CriteriaApplier
             return $rows;
         }
 
+        return $this->runDirectives($rows, $directives);
+    }
+
+    /**
+     * Executes an ordered list of {@see SortDirective}s — from a requested `?sort`
+     * or from a resource's {@see AbstractResource::defaultSort()} — over the rows.
+     *
+     * @param list<object>         $rows
+     * @param list<SortDirective>  $directives
+     *
+     * @return list<object>
+     */
+    private function runDirectives(array $rows, array $directives): array
+    {
         // The reference ArraySortHandler only understands SortByField. A computed
         // sort (TrackCountSort) is executed by a pre-arm here so the handler never
         // sees it; mixing a computed sort with field sorts is out of scope for this

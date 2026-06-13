@@ -98,6 +98,30 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * The default sort order applied to a collection of this resource **only when
+     * the request carries no `sort` parameter**. An explicit `?sort=` overrides it
+     * entirely (the default is not appended to it).
+     *
+     * Each entry is a {@see \haddowg\JsonApi\Resource\Sort\SortDirective} — the
+     * same shape a data layer builds for a requested sort — pairing one
+     * {@see \haddowg\JsonApi\Resource\Sort\SortInterface} (any sort the resource
+     * exposes, typically a {@see \haddowg\JsonApi\Resource\Sort\SortByField}) with
+     * its direction, most significant first. Default: `[]` (no default order, the
+     * collection is returned in storage order).
+     *
+     * A default sort makes an otherwise unsorted collection — and therefore its
+     * pagination — deterministic. The directives are applied through the resource's
+     * sort handler exactly as a requested sort would be, so a default must name a
+     * sort the handler can execute.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortDirective>
+     */
+    public function defaultSort(): array
+    {
+        return [];
+    }
+
+    /**
      * The pagination strategy for this resource's collections, or `null` for no
      * pagination (the {@see \haddowg\JsonApi\Server\Server} default applies when
      * this returns null).

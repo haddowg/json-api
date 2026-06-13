@@ -18,6 +18,8 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\WhereHas;
+use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
 
 /**
  * The `albums` resource type.
@@ -86,6 +88,21 @@ final class AlbumResource extends AbstractResource
         // would render an EXISTS subquery over the same relation).
         return [
             WhereHas::make('tracks'),
+        ];
+    }
+
+    /**
+     * Newest first by default. With no `?sort` the albums collection is ordered by
+     * `releasedAt` descending (so OK Computer (1997) precedes Dummy (1994)),
+     * keeping the unsorted collection — and its pagination — deterministic. An
+     * explicit `?sort=…` overrides this entirely.
+     *
+     * @return list<SortDirective>
+     */
+    public function defaultSort(): array
+    {
+        return [
+            new SortDirective(SortByField::make('releasedAt'), descending: true),
         ];
     }
 

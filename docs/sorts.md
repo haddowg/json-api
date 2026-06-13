@@ -98,6 +98,48 @@ public function sorts(): array
 }
 ```
 
+## `defaultSort()`: the order with no `?sort`
+
+`allSorts()` only governs which sorts a collection *accepts*. With no `sort`
+parameter a collection is returned in **storage order**, which also makes
+pagination non-deterministic. Override `defaultSort()` to declare a default order
+applied **only when the request carries no `?sort`** — an explicit `?sort=`
+overrides it entirely (the default is never appended to a requested sort). The
+[`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php) orders
+albums newest-first by default:
+
+```php
+use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
+
+public function defaultSort(): array
+{
+    return [
+        new SortDirective(SortByField::make('releasedAt'), descending: true),
+    ];
+}
+```
+
+`GET /albums` (no `?sort`) now orders by `releasedAt` descending; `GET
+/albums?sort=title` orders by `title` ascending and ignores the default.
+
+Each entry is a [`SortDirective`](#executing-sorts) — the same `SortInterface` +
+direction pair a data layer builds for a requested sort, most significant first —
+so a default flows through the resource's [sort handler](#executing-sorts) on the
+*same* path as a requested sort, with no new execution arm. A default must
+therefore name a sort the handler can execute (a `SortByField` for the reference
+[`ArraySortHandler`](#the-reference-arraysorthandler), or a custom sort with a
+handler arm). `defaultSort()` defaults to `[]` — no default order. The data layer
+falls back to it whenever the request's parsed `sort` list is empty:
+
+```php
+$requested = $request->getSorting();
+if ($requested === []) {
+    $directives = $resource->defaultSort(); // [] ⇒ storage order
+    // … apply $directives through the same handler a requested sort uses
+}
+```
+
 ## The `SortInterface` contract
 
 Every sort implements

@@ -105,6 +105,39 @@ final class SortsTest extends MusicCatalogTestCase
     }
 
     #[Test]
+    public function aDefaultSortAppliesWhenNoSortIsRequested(): void
+    {
+        // AlbumResource declares defaultSort() = releasedAt descending. With no
+        // ?sort the albums collection is ordered newest-first: OK Computer (1997)
+        // before Dummy (1994) — not storage/insertion order.
+        $response = $this->get('/albums');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        self::assertSame(
+            ['OK Computer', 'Dummy'],
+            $this->values($response, 'title'),
+        );
+    }
+
+    #[Test]
+    public function anExplicitSortOverridesTheDefaultEntirely(): void
+    {
+        // ?sort=title overrides the releasedAt-descending default: ascending by
+        // title is Dummy before OK Computer, the reverse of the default order.
+        $response = $this->get('/albums?sort=title');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        self::assertSame(
+            ['Dummy', 'OK Computer'],
+            $this->values($response, 'title'),
+        );
+    }
+
+    #[Test]
     public function anUnknownSortKeyIsIgnoredRatherThanReordering(): void
     {
         // A sort key matching no declared/derived sort is skipped by the applier;
