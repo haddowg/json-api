@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\Transformer;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
@@ -211,6 +212,52 @@ final class IncludeSafeguardsTest extends TestCase
         self::assertCount(2, $this->included($result));
     }
 
+    #[Test]
+    public function aCollectionRootedRequestDeeperThanTheCapIs400(): void
+    {
+        // The collection path wires the cap through a distinct call site
+        // (AbstractCollectionDocument::getData) from the single-resource path, so
+        // it gets its own over-depth assertion.
+        $serializer = $this->chainOfDepth(4);
+
+        $this->expectException(InclusionDepthExceeded::class);
+
+        $this->renderCollection(
+            $serializer,
+            [['post'], ['post']],
+            new StubJsonApiRequest(['include' => 'next.next.next.next']),
+            maxIncludeDepth: 3,
+        );
+    }
+
+    #[Test]
+    public function aCollectionRootedDefaultIncludeCycleTerminatesAtTheCap(): void
+    {
+        // A circular default-include ring rendered as the primary collection. As
+        // with the single-resource case, reaching the assertion proves the cascade
+        // terminates rather than recursing forever.
+        $a = new ControllableSerializer('a', '1', defaultIncludes: ['next']);
+        $b = new ControllableSerializer('b', '2', defaultIncludes: ['next']);
+        $c = new ControllableSerializer('c', '3', defaultIncludes: ['next']);
+        $a->relationships = ['next' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '2'], $b)];
+        $b->relationships = ['next' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $c)];
+        $c->relationships = ['next' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '1'], $a)];
+
+        $result = $this->renderCollection($a, [['id' => '1']], new StubJsonApiRequest(), maxIncludeDepth: 2);
+
+        // Depth-1 (b) and depth-2 (c) expand; depth-3 (back to a) is silently capped.
+        $included = $this->included($result);
+        self::assertCount(2, $included);
+        $identities = [];
+        foreach ($included as $resource) {
+            self::assertIsString($resource['type']);
+            self::assertIsString($resource['id']);
+            $identities[] = $resource['type'] . ':' . $resource['id'];
+        }
+        \sort($identities);
+        self::assertSame(['b:2', 'c:3'], $identities);
+    }
+
     /**
      * @return callable(mixed, JsonApiRequestInterface, string): ToOneRelationship
      */
@@ -258,6 +305,39 @@ final class IncludeSafeguardsTest extends TestCase
         $transformation = new ResourceDocumentTransformation(
             $document,
             $object,
+            $request ?? new StubJsonApiRequest(),
+            '',
+            '',
+            [],
+            '',
+            $maxIncludeDepth,
+        );
+
+        $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;
+
+        return $result;
+    }
+
+    /**
+     * Renders a primary COLLECTION through the real {@see CollectionDocument} path,
+     * the distinct call site that {@see AbstractCollectionDocument::getData} wires
+     * the include safeguards through.
+     *
+     * @param list<mixed> $objects
+     *
+     * @return array<string, mixed>
+     */
+    private function renderCollection(
+        SerializerInterface $serializer,
+        array $objects,
+        ?JsonApiRequestInterface $request = null,
+        ?int $maxIncludeDepth = null,
+    ): array {
+        $document = new CollectionDocument($serializer, null, [], null);
+
+        $transformation = new ResourceDocumentTransformation(
+            $document,
+            $objects,
             $request ?? new StubJsonApiRequest(),
             '',
             '',
