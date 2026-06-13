@@ -26,7 +26,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *    read-only `slug` from the normalised title (a value the field DSL never lets
  *    the client set);
  *  - the client-generated-id policy ({@see validateClientGeneratedId()} accepts a
- *    client UUID, matching the resource's `acceptsClientGeneratedId()`);
+ *    client UUID, matching the resource's `Id::make()->uuid()->allowClientId()`);
  *  - {@see validateDomainObject()} — a cross-field business rule checked after the
  *    object is fully hydrated.
  *
@@ -84,9 +84,9 @@ final class PlaylistHydrator extends AbstractHydrator
 
     /**
      * The resource opts in to client-generated ids
-     * (`PlaylistResource::acceptsClientGeneratedId()` returns true), so a client
-     * UUID is accepted and never rejected here. A type that did not accept one
-     * would throw {@see \haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported}.
+     * (`PlaylistResource` declares `Id::make()->uuid()->allowClientId()`), so a
+     * client UUID is accepted and never rejected here. A type that did not accept
+     * one would throw {@see \haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported}.
      */
     protected function validateClientGeneratedId(string $clientGeneratedId, JsonApiRequestInterface $request): void
     {

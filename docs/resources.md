@@ -192,29 +192,26 @@ filtering. See [fields](fields.md) for the full builder surface.
 
 For a `POST` (create) or `PATCH` (update), the same fields fill the domain object:
 
-- **The id.** A client-supplied `id` is rejected by default with
-  [`ClientGeneratedIdNotSupported`](errors-and-exceptions.md) (`403`);
-  `acceptsClientGeneratedId()` returns `false` until you opt in. When the server mints the id, `generateId()`
-  provides it — the default is an RFC 4122 v4 UUID:
+- **The id.** Two axes on the `Id` field decide where a created resource's id
+  comes from. A client-supplied `id` is rejected by default with
+  [`ClientGeneratedIdNotSupported`](errors-and-exceptions.md) (`403`) until you opt
+  in with `allowClientId()` (optional) or `requireClientId()` (mandatory). When the
+  client supplies none, the default is **store-provided** — core sets nothing and
+  the persister/DB assigns the id; `generated()` (over a `uuid()`/`ulid()` format)
+  or `generateUsing()` makes the *application* mint it instead:
 
   ```php
-  // src/Resource/AbstractResource.php
-  protected function generateId(): string  { /* RFC 4122 v4 UUID */ }
-  protected function acceptsClientGeneratedId(): bool { return false; }
+  Id::make();                       // store-provided (DB assigns the id)
+  Id::make()->uuid()->generated();  // app mints a v4 UUID
   ```
 
   [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)
-  opts in so a `POST` may carry its own UUID, and pairs it with a UUID id format
-  (the id lifecycle and formats are covered in [ids](ids.md)):
+  opts in so a `POST` may carry its own UUID, paired with a UUID id format (the id
+  lifecycle and formats are covered in [ids](ids.md)):
 
   ```php
   // examples/music-catalog/src/Resource/PlaylistResource.php
-  Id::make()->uuid(),
-  // …
-  protected function acceptsClientGeneratedId(): bool
-  {
-      return true;
-  }
+  Id::make()->uuid()->allowClientId(),
   ```
 
 - **Attribute fields** write back through the accessor (or the field's

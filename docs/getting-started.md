@@ -323,7 +323,8 @@ with both `Accept` and `Content-Type: application/vnd.api+json`:
 }
 ```
 
-No client id is supplied, so the server generates one and echoes it in `Location`
+No client id is supplied, and `AlbumResource` declares `Id::make()->uuid()->generated()`,
+so the app mints a UUID and echoes it in `Location`
 (`https://music.example/albums/{id}`). The response is `201` carrying the created
 resource. Because reads and writes share one store, the new album is immediately
 fetchable through the same server.

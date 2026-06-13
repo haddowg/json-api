@@ -141,8 +141,9 @@ final class AbstractResourceTest extends TestCase
         self::assertIsArray($model);
         self::assertSame('New title', $model['title']);
         self::assertTrue($model['published']);
-        self::assertArrayHasKey('id', $model);
-        self::assertNotSame('', $model['id']);
+        // A plain Id::make() is store-provided by default: core sets no id, leaving
+        // it for the persister/DB to assign.
+        self::assertArrayNotHasKey('id', $model);
     }
 
     #[Test]
@@ -253,6 +254,143 @@ final class AbstractResourceTest extends TestCase
 
         self::assertIsArray($model);
         self::assertSame(ServerGeneratedEncodedIdResource::GENERATED_ID, $model['id']);
+    }
+
+    #[Test]
+    public function storeProvidedIsTheDefaultAndSetsNoIdOnCreate(): void
+    {
+        // The default fallback: no client id and no generated() / generateUsing(),
+        // so core sets nothing — the persister/DB assigns the id.
+        $resource = new StoreProvidedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'store-provided', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertArrayNotHasKey('id', $model);
+    }
+
+    #[Test]
+    public function anOptionalClientIdIsUsedWhenSupplied(): void
+    {
+        $resource = new OptionalClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'optional', 'id' => 'client-chosen', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('client-chosen', $model['id']);
+    }
+
+    #[Test]
+    public function anOptionalClientIdFallsBackToStoreProvidedWhenAbsent(): void
+    {
+        $resource = new OptionalClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'optional', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertArrayNotHasKey('id', $model);
+    }
+
+    #[Test]
+    public function aRequiredClientIdIsUsedWhenSupplied(): void
+    {
+        $resource = new RequiredClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'required', 'id' => 'mandatory', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('mandatory', $model['id']);
+    }
+
+    #[Test]
+    public function aRequiredClientIdIsRejectedWith403WhenAbsent(): void
+    {
+        $resource = new RequiredClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'required', 'attributes' => []],
+        ]);
+
+        try {
+            $resource->hydrate($request, []);
+            self::fail('Expected ClientGeneratedIdRequired.');
+        } catch (\haddowg\JsonApi\Exception\ClientGeneratedIdRequired $exception) {
+            self::assertSame(403, $exception->getStatusCode());
+        }
+    }
+
+    #[Test]
+    public function generatedUuidMintsAUuidWhenNoClientIdIsSupplied(): void
+    {
+        $resource = new GeneratedUuidResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-uuid', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertIsString($model['id']);
+        self::assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $model['id'],
+        );
+    }
+
+    #[Test]
+    public function generatedUlidMintsAUlidWhenNoClientIdIsSupplied(): void
+    {
+        $resource = new GeneratedUlidResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-ulid', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertIsString($model['id']);
+        self::assertMatchesRegularExpression('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/', $model['id']);
+    }
+
+    #[Test]
+    public function generateUsingMintsTheClosureValueAsTheStorageKey(): void
+    {
+        $resource = new GeneratedClosureResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-closure', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame(GeneratedClosureResource::GENERATED_ID, $model['id']);
+    }
+
+    #[Test]
+    public function generatedOnANonSelfGeneratingFormatIsAConfigError(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Id::make()->numeric()->generated();
+    }
+
+    #[Test]
+    public function generatedWithoutAnyFormatIsAConfigError(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Id::make()->generated();
     }
 
     #[Test]
@@ -611,13 +749,8 @@ final class EncodedIdResource extends AbstractResource
     public function fields(): array
     {
         return [
-            Id::make()->encodeUsing(new ReversingIdEncoder()),
+            Id::make()->encodeUsing(new ReversingIdEncoder())->allowClientId(),
         ];
-    }
-
-    protected function acceptsClientGeneratedId(): bool
-    {
-        return true;
     }
 }
 
@@ -632,21 +765,16 @@ final class RejectingIdResource extends AbstractResource
     public function fields(): array
     {
         return [
-            Id::make()->encodeUsing(new RejectingIdEncoder()),
+            Id::make()->encodeUsing(new RejectingIdEncoder())->allowClientId(),
         ];
-    }
-
-    protected function acceptsClientGeneratedId(): bool
-    {
-        return true;
     }
 }
 
 /**
  * A resource that attaches an encoder but does NOT accept client-generated ids, so
- * every create falls through to a server-generated id. The encoder rejects every
- * wire id ({@see RejectingIdEncoder}), proving the server-generated value is stored
- * as-is and never fed to decode() (which would 422 the create).
+ * every create falls through to a server-generated id (here a closure). The encoder
+ * rejects every wire id ({@see RejectingIdEncoder}), proving the server-generated
+ * value is stored as-is and never fed to decode() (which would 422 the create).
  */
 final class ServerGeneratedEncodedIdResource extends AbstractResource
 {
@@ -657,13 +785,106 @@ final class ServerGeneratedEncodedIdResource extends AbstractResource
     public function fields(): array
     {
         return [
-            Id::make()->encodeUsing(new RejectingIdEncoder()),
+            Id::make()
+                ->encodeUsing(new RejectingIdEncoder())
+                ->generateUsing(static fn(): string => self::GENERATED_ID),
         ];
     }
+}
 
-    protected function generateId(): string
+/**
+ * The store-provided default: a plain {@see Id::make()} with no fallback, so a
+ * create with no client id sets nothing and leaves the id for the store to assign.
+ */
+final class StoreProvidedIdResource extends AbstractResource
+{
+    public static string $type = 'store-provided';
+
+    public function fields(): array
     {
-        return self::GENERATED_ID;
+        return [
+            Id::make(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::allowClientId()}: a client id is optional — used when supplied, falling
+ * back to store-provided otherwise.
+ */
+final class OptionalClientIdResource extends AbstractResource
+{
+    public static string $type = 'optional';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->allowClientId(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::requireClientId()}: a client id is mandatory — its absence is a `403`
+ * {@see \haddowg\JsonApi\Exception\ClientGeneratedIdRequired}.
+ */
+final class RequiredClientIdResource extends AbstractResource
+{
+    public static string $type = 'required';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->requireClientId(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generated()} over a `uuid()` format: core mints a v4 UUID when no
+ * client id is supplied.
+ */
+final class GeneratedUuidResource extends AbstractResource
+{
+    public static string $type = 'gen-uuid';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->uuid()->generated(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generated()} over a `ulid()` format: core mints a Crockford-base32 ULID.
+ */
+final class GeneratedUlidResource extends AbstractResource
+{
+    public static string $type = 'gen-ulid';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->ulid()->generated(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generateUsing()}: a closure returns the generated storage key directly.
+ */
+final class GeneratedClosureResource extends AbstractResource
+{
+    public const string GENERATED_ID = 'closure-minted';
+
+    public static string $type = 'gen-closure';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->generateUsing(static fn(): string => self::GENERATED_ID),
+        ];
     }
 }
 

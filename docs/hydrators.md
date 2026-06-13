@@ -173,9 +173,9 @@ final class PlaylistHydrator extends AbstractHydrator
 
 The id hooks below let the type accept a client-supplied UUID — the
 [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)
-opts in with `acceptsClientGeneratedId()`, so `validateClientGeneratedId()` is a
-no-op rather than a throw, and `generateId()` mints a UUID when the client omits
-one:
+opts in with `Id::make()->uuid()->allowClientId()`, so `validateClientGeneratedId()`
+is a no-op rather than a throw, and `generateId()` mints a UUID when the client
+omits one:
 
 ```php
 protected function validateClientGeneratedId(string $clientGeneratedId, JsonApiRequestInterface $request): void

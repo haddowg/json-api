@@ -45,7 +45,10 @@ final class AlbumResource extends AbstractResource
     public function fields(): array
     {
         return [
-            Id::make(),
+            // The app mints a v4 UUID when no client id is supplied (a client id is
+            // still rejected — albums does not opt in). Contrast PlaylistResource,
+            // which accepts a client UUID.
+            Id::make()->uuid()->generated(),
             Str::make('title')->required()->maxLength(200)->sortable(),
             Decimal::make('averageRating')->readOnly()->nullable(),
             // Closure bound: no future release dates. Resolved at validation time

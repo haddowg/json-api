@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\Examples\MusicCatalog\Domain;
 
 /**
  * A playlist. Its `id` is a client-generated UUID (the resource opts in via
- * `acceptsClientGeneratedId()`); `slug` is derived from `title` by the custom
+ * `Id::make()->uuid()->allowClientId()`); `slug` is derived from `title` by the custom
  * {@see \haddowg\JsonApi\Examples\MusicCatalog\Hydrator\PlaylistHydrator}.
  *
  * Relationships are held as the **related objects**: `$owner` is a {@see User}

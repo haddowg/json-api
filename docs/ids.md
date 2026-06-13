@@ -79,9 +79,9 @@ declares a UUID id:
 public function fields(): array
 {
     return [
-        // A client-generated UUID id: the resource opts in below so a POST may
-        // carry its own `id` (a default resource rejects one).
-        Id::make()->uuid(),
+        // A client-generated UUID id: allowClientId() opts in so a POST may carry
+        // its own `id` (a default resource rejects one).
+        Id::make()->uuid()->allowClientId(),
         // …
     ];
 }
@@ -90,19 +90,59 @@ public function fields(): array
 These format constraints only matter when a client supplies the id. They are part
 of the broader field constraint vocabulary — see [fields](fields.md).
 
-## Server-side generation is the default
+## Where a create's id comes from
 
-When no `id` is supplied on a `POST`, the server generates one. The default
-`generateId()` returns an RFC 4122 v4 UUID; override it for any other scheme:
+Two orthogonal axes on the `Id` field decide a created resource's id. Both have a
+default, so a plain `Id::make()` is the common case: a client id is rejected, and
+the store assigns the id.
+
+**Axis 1 — client-id acceptance** (default: **forbidden**):
+
+| Call | A client `data.id` is… |
+|---|---|
+| *(default)* | rejected with `403` `ClientGeneratedIdNotSupported` |
+| `allowClientId()` | optional — used when supplied (validated against the format), otherwise the Axis 2 fallback applies |
+| `requireClientId()` | mandatory — its absence is `403` `ClientGeneratedIdRequired` |
+
+Read with `allowsClientId()` / `requiresClientId()`.
+
+**Axis 2 — the fallback when the client supplies none** (default:
+**store-provided**):
+
+| Call | When no client id is supplied… |
+|---|---|
+| *(default)* | core sets **nothing** — the persister/DB assigns the id (an auto-increment column, a database default) |
+| `generated()` | core mints one from the declared format: `uuid()` → a v4 UUID, `ulid()` → a Crockford-base32 ULID |
+| `generateUsing(fn)` | core mints one by calling your closure (it returns the storage key directly) |
+
+`generated()` only works on a self-generating format — declare `uuid()` or `ulid()`
+first. `generated()` on `numeric()`, `pattern()`, or no format is a configuration
+error (a `\LogicException` raised when the field is declared). For anything else,
+use `generateUsing()`.
+
+### Store-provided is the default
+
+With a plain `Id::make()` and no client id, core sets no id and the store assigns
+one. This is the natural fit for an auto-increment integer key:
 
 ```php
-protected function generateId(): string
-{
-    // default implementation returns a v4 UUID; override to mint your own.
-}
+// The resource just declares Id::make(); the entity's id column is a DB-assigned
+// auto-increment.
+$response = $this->post('/widgets', [
+    'data' => ['type' => 'widgets', 'attributes' => ['name' => 'Sprocket']],
+]);
+// 201; response data carries the DB-assigned id, e.g. "id": "42".
 ```
 
-A create with no `id` member is given a generated id and rendered with `201`:
+The id is read back off the persisted entity for the `201` body and the `Location`
+header, so a store-assigned id round-trips exactly like any other.
+
+### App-generated ids
+
+Call `generated()` (or `generateUsing()`) when the *application* should mint the id
+rather than the database — typically a UUID or ULID primary key. `AlbumResource`
+declares `Id::make()->uuid()->generated()`, so a `POST` with no `id` is given an
+app-minted UUID:
 
 ```php
 $response = $this->post('/albums', [
@@ -111,17 +151,18 @@ $response = $this->post('/albums', [
         'attributes' => ['title' => 'Hail to the Thief'],
     ],
 ]);
-// 201, response data carries a non-empty server-generated `id`.
+// 201, response data carries a non-empty app-generated UUID `id`.
 ```
 
 This is the witness in [`IdsTest`](../examples/music-catalog/tests/IdsTest.php)
-(`aServerGeneratedIdIsAssignedWhenNoneIsSupplied`).
+(`aServerGeneratedIdIsAssignedWhenNoneIsSupplied`). A `ulid()->generated()` field
+mints a lexicographically-sortable ULID instead; `generateUsing(fn)` gives you full
+control over the minted storage key.
 
 ## Client-generated ids
 
 By default a resource **rejects** a client-supplied id — the spec lets a server
-do so. `acceptsClientGeneratedId()` returns `false`, and supplying an `id` on a
-create yields a `403`
+do so. Supplying an `id` on a create yields a `403`
 [`ClientGeneratedIdNotSupported`](../examples/music-catalog/src/Resource/AlbumResource.php)
 (pointer `/data/id`). Posting an id to `albums`, which does not opt in, is a
 `403`:
@@ -137,18 +178,13 @@ $response = $this->post('/albums', [
 // 403 ClientGeneratedIdNotSupported
 ```
 
-To honour client ids, override the opt-in — that is the whole difference between
-`AlbumResource` and `PlaylistResource`:
+To honour client ids, call `allowClientId()` on the `Id` field — that is the whole
+difference between `AlbumResource` and `PlaylistResource`:
 
 ```php
-/**
- * Accept a client-supplied UUID id on create (the default is to reject one
- * with ClientGeneratedIdNotSupported).
- */
-protected function acceptsClientGeneratedId(): bool
-{
-    return true;
-}
+// Accept a client-supplied UUID id on create; fall back to store-provided when
+// none is given.
+Id::make()->uuid()->allowClientId();
 ```
 
 With the opt-in in place a `POST` that carries its own UUID is honoured verbatim:
@@ -170,25 +206,22 @@ $fetched = $this->get('/playlists/a1a2a3a4-b1b2-4c3c-8d4d-e1e2e3e4e5e6');
 // 200, same id, readable at the client-chosen id.
 ```
 
-### Validating a client-generated id
+To make a client id **mandatory** — a natural key the client owns, with no
+server-side fallback — call `requireClientId()`: a create without an `id` is then a
+`403` `ClientGeneratedIdRequired`.
 
-Client-id handling runs through one hook, `validateClientGeneratedId(string $id,
-JsonApiRequestInterface $request)`, called before the id is applied. Beyond the
-default not-supported rejection, this is where the two remaining client-id
-exceptions belong:
+### The client-id exceptions
 
 | Exception | Status | Code | When |
 |---|---|---|---|
-| `ClientGeneratedIdNotSupported` | `403` | `CLIENT_GENERATED_ID_NOT_SUPPORTED` | a client id was supplied but the resource does not accept one |
-| `ClientGeneratedIdRequired` | `403` | `CLIENT_GENERATED_ID_REQUIRED` | a client id is mandatory but none was supplied |
-| `ClientGeneratedIdAlreadyExists` | `409` | `CLIENT_GENERATED_ID_ALREADY_EXISTS` | the supplied id collides with an existing resource |
+| `ClientGeneratedIdNotSupported` | `403` | `CLIENT_GENERATED_ID_NOT_SUPPORTED` | a client id was supplied but the resource does not accept one (`allowClientId()` not set) |
+| `ClientGeneratedIdRequired` | `403` | `CLIENT_GENERATED_ID_REQUIRED` | `requireClientId()` is set but no id was supplied |
+| `ClientGeneratedIdAlreadyExists` | `409` | `CLIENT_GENERATED_ID_ALREADY_EXISTS` | the supplied id collides with an existing resource (raised by the data layer) |
 
 All three carry an `ErrorSource` pointer of `/data/id`. The format helpers above
 catch a *malformed* client id; these exceptions cover *policy* (not supported,
 required, already taken). For how errors are shaped and rendered, see
-[errors](errors-and-exceptions.md). For the hydrator side of the create lifecycle — `generateId()`,
-`setId()`, `validateClientGeneratedId()` as the hooks a custom hydrator
-implements — see [hydrators](hydrators.md).
+[errors](errors-and-exceptions.md).
 
 ## Encoding: when the wire id differs from the storage key
 
@@ -221,10 +254,11 @@ transform across both directions of the lifecycle:
   that `decode()` rejects (`null`) is a `422` `ResourceIdUndecodable` (pointer
   `/data/id`); the format constraint above already catches a *malformed* id before
   hydration, so `decode()` only ever runs on a well-formed value — the `null`
-  branch is the safety net. A *server*-generated id (no client id, the default) is
-  set as-is and never decoded — it is the storage key's own wire form, not the
-  encoder's input, so feeding it to `decode()` would reject every server-minted
-  create. Update (`PATCH`) never sets the id, so it does not decode.
+  branch is the safety net. An app-generated id (`generated()` / `generateUsing()`,
+  no client id) is a storage key already and is set as-is, never decoded — it is the
+  storage key's own wire form, not the encoder's input, so feeding it to `decode()`
+  would reject every minted create. A store-provided id is never set by core at all.
+  Update (`PATCH`) never sets the id, so it does not decode.
 
 A type with **no** encoder behaves exactly as before: wire == storage, nothing is
 transformed. The id-as-lookup-key transforms — decoding the route `{id}` before a

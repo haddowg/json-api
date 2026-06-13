@@ -17,9 +17,9 @@ use haddowg\JsonApi\Resource\Field\Uuid;
 /**
  * The `playlists` resource type.
  *
- * Demonstrates: a client-generated UUID id (`Id::make()->uuid()` paired with the
- * {@see acceptsClientGeneratedId()} opt-in, so a `POST` may supply its own id); a
- * read-only `slug` derived from `title` by the custom
+ * Demonstrates: a client-generated UUID id (`Id::make()->uuid()->allowClientId()`,
+ * so a `POST` may supply its own id — the custom {@see PlaylistHydrator} that wins
+ * for writes accepts it too); a read-only `slug` derived from `title` by the custom
  * {@see \haddowg\JsonApi\Examples\MusicCatalog\Hydrator\PlaylistHydrator} (never
  * client-written); a `belongsTo` owner; and a pivot-backed `belongsToMany`
  * `tracks` whose related collection paginates two-per-page.
@@ -34,9 +34,9 @@ final class PlaylistResource extends AbstractResource
     public function fields(): array
     {
         return [
-            // A client-generated UUID id: the resource opts in below so a POST may
+            // A client-generated UUID id: allowClientId() opts in so a POST may
             // carry its own `id` (a default resource rejects one).
-            Id::make()->uuid(),
+            Id::make()->uuid()->allowClientId(),
             Str::make('title')->required(),
             // Derived from title by the custom hydrator, so read-only on the wire.
             Slug::make('slug')->readOnly(),
@@ -53,14 +53,5 @@ final class PlaylistResource extends AbstractResource
                 ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
         ];
-    }
-
-    /**
-     * Accept a client-supplied UUID id on create (the default is to reject one
-     * with {@see \haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported}).
-     */
-    protected function acceptsClientGeneratedId(): bool
-    {
-        return true;
     }
 }

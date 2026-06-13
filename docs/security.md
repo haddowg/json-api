@@ -112,8 +112,8 @@ client's keys. This is a structural guard against mass-assignment.
   custom hydrator, never client-written.
 
 - **A client-generated `id` is rejected unless opted in.** A `POST` that supplies
-  its own `id` is rejected with `ClientGeneratedIdNotSupported` unless the resource
-  overrides `acceptsClientGeneratedId()` — as `PlaylistResource` does for its
+  its own `id` is rejected with `ClientGeneratedIdNotSupported` unless the `Id`
+  field calls `allowClientId()` — as `PlaylistResource` does for its
   client-generated UUID. See [client-generated ids](ids.md).
 
 This is a structural guard, not per-user field authorisation: it stops a client

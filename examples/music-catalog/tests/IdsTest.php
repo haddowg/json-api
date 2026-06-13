@@ -16,14 +16,14 @@ use Psr\Http\Message\ResponseInterface;
  *
  * Two id sources are contrasted end-to-end through the wired server:
  *
- *  - **Server-generated** (the default): an `albums` `POST` with no `id` member is
- *    given a generated id, and a client-supplied id on that type is *rejected* with
+ *  - **App-generated**: `AlbumResource` declares `Id::make()->uuid()->generated()`,
+ *    so an `albums` `POST` with no `id` member is given an app-minted UUID, and a
+ *    client-supplied id on that type is *rejected* with
  *    {@see \haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported} (`403`),
- *    because a default resource does not opt in.
- *  - **Client-generated**: `PlaylistResource` declares `Id::make()->uuid()` and
- *    overrides `acceptsClientGeneratedId()` to return `true`, so a `POST` that
- *    carries its own UUID `id` is honoured and the created resource is readable at
- *    exactly that id.
+ *    because a default resource does not opt in to client ids.
+ *  - **Client-generated**: `PlaylistResource` declares
+ *    `Id::make()->uuid()->allowClientId()`, so a `POST` that carries its own UUID
+ *    `id` is honoured and the created resource is readable at exactly that id.
  *
  * The implicit-id default (a resource that declares no `Id` reads the `id` column)
  * is witnessed by the albums read carrying the seeded id.
@@ -38,7 +38,8 @@ final class IdsTest extends MusicCatalogTestCase
     #[Test]
     public function aServerGeneratedIdIsAssignedWhenNoneIsSupplied(): void
     {
-        // The default id source: no `id` in the request → the server generates one.
+        // albums declares uuid()->generated(): no `id` in the request → the app
+        // mints a UUID.
         $response = $this->post('/albums', [
             'data' => [
                 'type' => 'albums',
@@ -73,8 +74,8 @@ final class IdsTest extends MusicCatalogTestCase
     #[Test]
     public function aPlaylistAcceptsAClientGeneratedUuidId(): void
     {
-        // PlaylistResource opts in (acceptsClientGeneratedId() → true) and declares a
-        // uuid id format, so a client-supplied UUID is honoured verbatim. `public:
+        // PlaylistResource opts in (Id::make()->uuid()->allowClientId()), so a
+        // client-supplied UUID is honoured verbatim. `public:
         // true` keeps it clear of the premium (402) guard for private playlists.
         $response = $this->post('/playlists', [
             'data' => [

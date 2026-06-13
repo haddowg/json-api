@@ -23,6 +23,16 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * the wire form of a distinct storage key: {@see serializeValue()} encodes the
  * stored key on the way out, and the hydrator decodes a client-generated id back
  * to the storage key on the way in.
+ *
+ * Two orthogonal axes govern where a create's id comes from:
+ *
+ * - **Client-id acceptance** (default: forbidden). {@see allowClientId()} makes a
+ *   client-supplied `data.id` optional, {@see requireClientId()} makes it
+ *   mandatory; read via {@see allowsClientId()} / {@see requiresClientId()}.
+ * - **Server-side fallback** when the client supplies none (default: store-provided
+ *   — core sets nothing and the store/DB assigns the id). {@see generated()} mints
+ *   one from the declared format ({@see uuid()} / {@see ulid()}); {@see generateUsing()}
+ *   takes a closure returning the storage key. Read via {@see generateIdValue()}.
  */
 final class Id extends AbstractField
 {
@@ -47,6 +57,28 @@ final class Id extends AbstractField
     private ?string $routePattern = null;
 
     /**
+     * The declared id format, set by the {@see uuid()} / {@see ulid()} /
+     * {@see numeric()} / {@see pattern()} shortcuts. Drives {@see generated()},
+     * which can only mint a value from a self-generating format.
+     */
+    private ?IdFormat $format = null;
+
+    private ClientIdPolicy $clientIdPolicy = ClientIdPolicy::Forbidden;
+
+    /**
+     * The server-side fallback when the client supplies no id. `null` means
+     * store-provided (core sets nothing); otherwise the value is minted on demand.
+     */
+    private ?IdSource $source = null;
+
+    /**
+     * A closure returning the generated storage key, set by {@see generateUsing()}.
+     *
+     * @var (\Closure(): string)|null
+     */
+    private ?\Closure $generator = null;
+
+    /**
      * @return static
      */
     public static function make(string $name = 'id'): static
@@ -60,6 +92,7 @@ final class Id extends AbstractField
     public function uuid(?int $version = null): static
     {
         $this->routePattern ??= self::UUID_FORMAT_PATTERN;
+        $this->format ??= IdFormat::Uuid;
 
         return $this->addConstraint(new UuidFormat($version, $this->currentContext()));
     }
@@ -70,6 +103,7 @@ final class Id extends AbstractField
     public function ulid(): static
     {
         $this->routePattern ??= self::ULID_FORMAT_PATTERN;
+        $this->format ??= IdFormat::Ulid;
 
         return $this->addConstraint(new UlidFormat($this->currentContext()));
     }
@@ -80,6 +114,7 @@ final class Id extends AbstractField
     public function numeric(): static
     {
         $this->routePattern ??= self::NUMERIC_FORMAT_PATTERN;
+        $this->format ??= IdFormat::Numeric;
 
         return $this->addConstraint(new Pattern('^' . self::NUMERIC_FORMAT_PATTERN . '$', $this->currentContext()));
     }
@@ -90,6 +125,7 @@ final class Id extends AbstractField
     public function pattern(string $regex): static
     {
         $this->routePattern ??= self::stripAnchors($regex);
+        $this->format ??= IdFormat::Pattern;
 
         return $this->addConstraint(new Pattern($regex, $this->currentContext()));
     }
@@ -133,6 +169,120 @@ final class Id extends AbstractField
     public function encoder(): ?IdEncoderInterface
     {
         return $this->encoder;
+    }
+
+    /**
+     * Accepts a client-supplied `data.id` on create as **optional** — used when
+     * supplied (validated against the declared format), generated otherwise. The
+     * default is to reject any client id with `ClientGeneratedIdNotSupported`.
+     *
+     * @return static
+     */
+    public function allowClientId(): static
+    {
+        $this->clientIdPolicy = ClientIdPolicy::Optional;
+
+        return $this;
+    }
+
+    /**
+     * Requires a client-supplied `data.id` on create: a create without one yields
+     * a `403` `ClientGeneratedIdRequired`.
+     *
+     * @return static
+     */
+    public function requireClientId(): static
+    {
+        $this->clientIdPolicy = ClientIdPolicy::Required;
+
+        return $this;
+    }
+
+    /**
+     * Whether a client-supplied id is accepted (optional or required).
+     */
+    public function allowsClientId(): bool
+    {
+        return $this->clientIdPolicy !== ClientIdPolicy::Forbidden;
+    }
+
+    /**
+     * Whether a client-supplied id is mandatory.
+     */
+    public function requiresClientId(): bool
+    {
+        return $this->clientIdPolicy === ClientIdPolicy::Required;
+    }
+
+    /**
+     * Core mints the id from the declared format when the client supplies none —
+     * `uuid()` mints a v4 UUID, `ulid()` a Crockford-base32 ULID. The default
+     * (without this call) is store-provided: core sets nothing and the store/DB
+     * assigns the id.
+     *
+     * @throws \LogicException when no self-generating format is declared (the
+     *                         format must be `uuid()` or `ulid()`)
+     *
+     * @return static
+     */
+    public function generated(): static
+    {
+        if ($this->format !== IdFormat::Uuid && $this->format !== IdFormat::Ulid) {
+            throw new \LogicException(
+                'Id::generated() requires a self-generating format: declare uuid() or ulid() '
+                . '(numeric(), pattern() and a format-less id cannot be generated — supply generateUsing() '
+                . 'or leave the id store-provided).',
+            );
+        }
+
+        $this->source = IdSource::Format;
+        $this->generator = null;
+
+        return $this;
+    }
+
+    /**
+     * Core mints the id with `$fn` when the client supplies none. The closure
+     * returns the **storage key** directly (it is not decoded — only a client wire
+     * id is). Supersedes any {@see generated()} format generation.
+     *
+     * @param \Closure(): string $fn
+     * @return static
+     */
+    public function generateUsing(\Closure $fn): static
+    {
+        $this->source = IdSource::Closure;
+        $this->generator = $fn;
+
+        return $this;
+    }
+
+    /**
+     * The server-side fallback value to set when the client supplies no id, or
+     * `null` when the id is store-provided (core sets nothing; the store/DB
+     * assigns it). For a format-generated id this mints a fresh value on each
+     * call; for a closure it invokes the closure.
+     */
+    public function generateIdValue(): ?string
+    {
+        return match ($this->source) {
+            IdSource::Format => $this->format === IdFormat::Ulid ? Ulid::generate() : self::generateUuid(),
+            IdSource::Closure => ($this->generator ?? static fn(): string => '')(),
+            null => null,
+        };
+    }
+
+    /**
+     * Generates an RFC 4122 v4 UUID. The id-field implementation of the `uuid()`
+     * format generator, used when the id is declared `uuid()->generated()`.
+     */
+    public static function generateUuid(): string
+    {
+        $bytes = \random_bytes(16);
+        $bytes[6] = \chr((\ord($bytes[6]) & 0x0F) | 0x40);
+        $bytes[8] = \chr((\ord($bytes[8]) & 0x3F) | 0x80);
+
+        return \vsprintf('%s%s-%s-%s-%s-%s%s%s', \str_split(\bin2hex($bytes), 4));
     }
 
     protected function serializeValue(mixed $raw): mixed

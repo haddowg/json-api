@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
+use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
 use haddowg\JsonApi\Exception\DataMemberMissing;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
@@ -422,28 +423,6 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
-     * Generates a new resource id when the client does not supply one. Defaults
-     * to a RFC 4122 v4 UUID; override for a different scheme.
-     */
-    protected function generateId(): string
-    {
-        $bytes = \random_bytes(16);
-        $bytes[6] = \chr((\ord($bytes[6]) & 0x0F) | 0x40);
-        $bytes[8] = \chr((\ord($bytes[8]) & 0x3F) | 0x80);
-
-        return \vsprintf('%s%s-%s-%s-%s-%s%s%s', \str_split(\bin2hex($bytes), 4));
-    }
-
-    /**
-     * Whether this resource accepts a client-generated id. Defaults to false
-     * (the spec lets a server reject client ids).
-     */
-    protected function acceptsClientGeneratedId(): bool
-    {
-        return false;
-    }
-
-    /**
      * @param mixed $domainObject
      * @return mixed
      *
@@ -491,12 +470,19 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * Sources the new resource's id from two orthogonal axes declared on the
+     * {@see Id} field. A client-supplied `data.id` is honoured per the field's
+     * client-id policy (default: forbidden); when none is supplied the field's
+     * server-side fallback applies (default: store-provided — set nothing and let
+     * the store/DB assign the id).
+     *
      * @param mixed $domainObject
      * @param array<string, mixed> $data
      * @return mixed
      *
      * @throws ResourceIdInvalid
      * @throws ClientGeneratedIdNotSupported
+     * @throws ClientGeneratedIdRequired
      * @throws ResourceIdUndecodable
      */
     protected function hydrateId(mixed $domainObject, array $data): mixed
@@ -514,32 +500,47 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             $clientId = $data['id'];
         }
 
-        if ($clientId !== '' && !$this->acceptsClientGeneratedId()) {
-            throw new ClientGeneratedIdNotSupported($clientId);
+        $column = $idField->column();
+
+        if ($clientId !== '') {
+            if (!$idField->allowsClientId()) {
+                throw new ClientGeneratedIdNotSupported($clientId);
+            }
+
+            if ($column === null) {
+                return $domainObject;
+            }
+
+            // An encoder makes the id the wire form of a distinct storage key, so a
+            // *client-supplied* id must be decoded back to its storage key before it is
+            // set (its serialized id then re-encodes and round-trips). A well-formed but
+            // undecodable client id 422s. A generated/closure value is a storage key
+            // already and is never decoded.
+            $encoder = $idField->encoder();
+            if ($encoder !== null) {
+                $storageKey = $encoder->decode($clientId);
+                if ($storageKey === null) {
+                    throw new ResourceIdUndecodable($clientId);
+                }
+
+                return Accessor::set($domainObject, $column, $storageKey);
+            }
+
+            return Accessor::set($domainObject, $column, $clientId);
         }
 
-        $column = $idField->column();
-        if ($column === null) {
+        // No client id supplied.
+        if ($idField->requiresClientId()) {
+            throw new ClientGeneratedIdRequired();
+        }
+
+        $generated = $idField->generateIdValue();
+        if ($generated === null || $column === null) {
+            // Store-provided: set nothing — the persister/DB assigns the id.
             return $domainObject;
         }
 
-        // An encoder makes the id the wire form of a distinct storage key, so a
-        // *client-supplied* id must be decoded back to its storage key before it is
-        // set (its serialized id then re-encodes and round-trips). A well-formed but
-        // undecodable client id 422s. A server-generated id is the storage key's own
-        // wire form already (e.g. a fresh UUID) and is never the encoder's input, so
-        // it is set as-is — decoding it would reject every server-minted create.
-        $encoder = $idField->encoder();
-        if ($encoder !== null && $clientId !== '') {
-            $storageKey = $encoder->decode($clientId);
-            if ($storageKey === null) {
-                throw new ResourceIdUndecodable($clientId);
-            }
-
-            return Accessor::set($domainObject, $column, $storageKey);
-        }
-
-        return Accessor::set($domainObject, $column, $clientId !== '' ? $clientId : $this->generateId());
+        return Accessor::set($domainObject, $column, $generated);
     }
 
     /**
