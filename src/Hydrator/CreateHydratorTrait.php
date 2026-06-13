@@ -14,6 +14,18 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * Provides the `hydrateForCreate()` method and its supporting hooks.
  *
+ * Id sourcing here is **hook-based**, intentionally distinct from the declarative
+ * `Id`-field SOURCE/POLICY model on {@see \haddowg\JsonApi\Resource\AbstractResource}
+ * (ADR 0048): a subclass owns id sourcing through the abstract {@see generateId()}
+ * (mint the server-side id when the client supplies none) and
+ * {@see validateClientGeneratedId()} (the client-id acceptance gate). The two create
+ * paths are deliberately separate — `AbstractResource` reads its `Id` field's
+ * `allowClientId()`/`generated()`/store-provided policy, while a hand-written hydrator
+ * built on this family expresses the same choices by implementing these hooks (e.g. a
+ * UUID id mints one in `generateId()`, a client-id-required hydrator throws from
+ * `validateClientGeneratedId()` on an empty id). `generateId()` being abstract, this
+ * family never auto-mints silently: a subclass must implement it. The
+ * `CreateHydratorTraitTest` pins that contract so the two paths cannot drift unnoticed.
  */
 trait CreateHydratorTrait
 {
@@ -50,9 +62,15 @@ trait CreateHydratorTrait
     abstract protected function validateRequest(JsonApiRequestInterface $request): void;
 
     /**
-     * Generates a new ID for the resource being created.
+     * Generates a new ID for the resource being created, when the client supplies
+     * none.
      *
-     * UUID v4 strings are preferred per the JSON:API specification.
+     * UUID v4 strings are preferred per the JSON:API specification. This is the
+     * hook-based equivalent of {@see \haddowg\JsonApi\Resource\Field\Id::generated()}
+     * on the declarative `AbstractResource` path (ADR 0048): a subclass must implement
+     * it (it is abstract — there is no silent auto-UUID), minting whatever format it
+     * needs. A store-provided id (the DB assigns it) is expressed by having
+     * {@see setId()} leave the id untouched, not here.
      */
     abstract protected function generateId(): string;
 

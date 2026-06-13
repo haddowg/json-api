@@ -90,7 +90,7 @@ but the full set is:
 | `getAttributeHydrator(mixed $obj): array<string, callable>` | Per-attribute fill callables, keyed by attribute name. |
 | `getRelationshipHydrator(mixed $obj): array<string, callable>` | Per-relationship fill callables, keyed by name. |
 | `setId(mixed $obj, string $id): mixed` | Apply the resolved id to the object. |
-| `generateId(): string` | Generate a server-side id on create (UUID v4 preferred). |
+| `generateId(): string` | Generate a server-side id on create when the client supplies none (UUID v4 preferred). Abstract — you implement it; there is no silent auto-UUID. For a store-provided id (the DB assigns it), leave `setId()` a no-op instead. |
 | `validateClientGeneratedId(string $id, JsonApiRequestInterface $request): void` | Reject (or accept) a client-supplied id; throw `ClientGeneratedIdNotSupported` to refuse. |
 | `validateRequest(JsonApiRequestInterface $request): void` | Request-level validation, called after type and id checks (**abstract — you must implement it**, even as an empty no-op, as `PlaylistHydrator` does). |
 | `validateDomainObject(JsonApiRequestInterface $request, mixed $obj): void` | **Post-hydration** seam, called once the object is fully built (default no-op). |
@@ -98,6 +98,16 @@ but the full set is:
 `validateDomainObject()` is the seam where adapter-level, cross-field, or
 entity-level checks hang — the rules a per-member callable can't see because they
 span the whole object. It runs after the create and update paths alike.
+
+This hand-written family sources the id through the `generateId()` /
+`validateClientGeneratedId()` / `setId()` hooks, **not** the declarative `Id`-field
+SOURCE/POLICY model `AbstractResource` reads (`allowClientId()` / `requireClientId()`
+/ `generated()` / store-provided, [ADR 0048](adr/0048-resource-id-source-and-client-id-policy.md)).
+The two create paths are deliberately separate — a hydrator built on this family
+expresses the same choices through its hooks (mint a format in `generateId()`, throw
+from `validateClientGeneratedId()` to require a client id, leave `setId()` a no-op for
+a store-provided id). [ADR 0049](adr/0049-legacy-hydrator-family-sources-ids-through-hooks.md)
+records the decision, pinned by `CreateHydratorTraitTest`.
 
 ## Attribute and relationship callables
 
