@@ -61,6 +61,17 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    public function maxIncludeDepthIsUnlimitedByDefaultAndSettable(): void
+    {
+        $base = Server::make();
+        self::assertNull($base->maxIncludeDepth());
+
+        $configured = $base->withMaxIncludeDepth(3);
+        self::assertNull($base->maxIncludeDepth());
+        self::assertSame(3, $configured->maxIncludeDepth());
+    }
+
+    #[Test]
     public function registerIsImmutableAndDoesNotLeak(): void
     {
         $base = Server::make();

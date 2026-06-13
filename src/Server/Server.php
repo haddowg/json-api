@@ -62,6 +62,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
 
     private ?\haddowg\JsonApi\Pagination\PaginatorInterface $defaultPaginator = null;
 
+    private ?int $maxIncludeDepth = null;
+
     private ?ResponseFactoryInterface $responseFactory = null;
 
     private ?StreamFactoryInterface $streamFactory = null;
@@ -140,6 +142,21 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     {
         $self = clone $this;
         $self->defaultPaginator = $paginator;
+
+        return $self;
+    }
+
+    /**
+     * Sets the default maximum include depth (number of relationship hops from the
+     * primary resource) for every resource this server renders. Core is
+     * unopinionated: `null` (the default) means unlimited, as does any value
+     * `<= 0`. A resource may override it via
+     * {@see \haddowg\JsonApi\Serializer\IncludeControlsInterface::maxIncludeDepth()}.
+     */
+    public function withMaxIncludeDepth(?int $depth): self
+    {
+        $self = clone $this;
+        $self->maxIncludeDepth = $depth;
 
         return $self;
     }
@@ -341,6 +358,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->defaultPaginator;
+    }
+
+    public function maxIncludeDepth(): ?int
+    {
+        return $this->maxIncludeDepth;
     }
 
     public function serializerFor(string $type): SerializerInterface

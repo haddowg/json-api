@@ -30,6 +30,7 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
         public string $requestedRelationshipName,
         array $additionalMeta,
         public string $baseUri = '',
+        public ?int $maxIncludeDepth = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

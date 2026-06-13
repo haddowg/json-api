@@ -96,6 +96,7 @@ final class RelatedResponse extends AbstractResponse
             '',
             [],
             $server->baseUri(),
+            $server->maxIncludeDepth(),
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

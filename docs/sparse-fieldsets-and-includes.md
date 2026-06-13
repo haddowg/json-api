@@ -137,6 +137,80 @@ relation is *explicitly included*, the include wins: the resources are fetched a
 both the linkage and the `included` entries appear. See
 [relations](relations.md) for the full linkage and `links` policy.
 
+## Constraining includes: the safeguards
+
+By default every declared relationship is includable at every path, and nested
+`?include` chains are unbounded. Three composable safeguards let you constrain that
+— and guarantee a compound document always terminates (a mutual default-include
+cycle would otherwise recurse forever).
+
+### Per-relation opt-out: `cannotBeIncluded()`
+
+Mark a relation non-includable on the field. A `?include` naming it (at any path)
+is rejected with `400 InclusionNotAllowed`, and it is dropped from the
+default-include cascade. Its linkage and its `self` / `related` links are
+unaffected — only the compound expansion is suppressed.
+
+```php
+// AlbumResource::fields()
+BelongsTo::make('internalNotes')->type('notes')->cannotBeIncluded(),
+```
+
+### Maximum include depth
+
+Depth is the number of relationship hops from the primary resource:
+`?include=artist` is depth 1, `?include=tracks.playlists` is depth 2,
+`?include=tracks.playlists.owner` is depth 3. A cap of N allows depth ≤ N and
+rejects deeper requests with `400 InclusionDepthExceeded`.
+
+Set a server-wide default (core is unopinionated: unset, or any value `<= 0`, means
+*unlimited*):
+
+```php
+$server = Server::make()->withMaxIncludeDepth(3);
+```
+
+A resource overrides the default for itself by implementing
+`IncludeControlsInterface::maxIncludeDepth()` (an `AbstractResource` subclass just
+overrides the method — it already implements the interface):
+
+```php
+// AlbumResource — cap includes rooted at an album at 2, beating the server default
+public function maxIncludeDepth(): ?int
+{
+    return 2;
+}
+```
+
+Resolution is `resource override ?? server default`, with `<= 0` normalised to
+unlimited. Beyond the cap the compound *expansion* is silently dropped from the
+default cascade (the linkage identifier is still emitted), so the cascade always
+terminates; an over-deep *requested* path is the up-front `400`.
+
+### Allowed include paths (root-scoped whitelist)
+
+`cannotBeIncluded()` is all-or-nothing for a relation at its own resource. To allow
+a relation directly yet forbid it as a *nested* path from a parent, declare the full
+dotted paths permitted when this resource is the request's primary/root type, via
+`IncludeControlsInterface::getAllowedIncludePaths()`:
+
+```php
+// UserResource — posts (and posts.author) are includable, but posts.comments is not
+public function getAllowedIncludePaths(): ?array
+{
+    return ['posts', 'posts.author'];
+}
+```
+
+`GET /users/1?include=posts.comments` is now `400 InclusionNotAllowed` even though
+`comments` is includable when a post is the root
+(`GET /posts/1?include=comments` still succeeds). `null` (the default) is
+unrestricted (today's behaviour); an empty list `[]` permits no includes at all.
+
+The three safeguards compose: a path is permitted only if every hop's relation is
+includable, it is within the effective max depth, and it is in the root's allowed
+paths when one is set.
+
 ## Reading the parsed query
 
 Inside a [handler](operations.md), the parsed query parameters hang off the
@@ -163,6 +237,8 @@ the negotiation layer's job, not this projection's.
 | Exception | Status | When |
 | --- | --- | --- |
 | `InclusionUnrecognized` | `400` | An `include` path names a relationship the endpoint does not recognize. The error's `source` is the `include` parameter and lists the offending paths. |
+| `InclusionNotAllowed` | `400` | An `include` path names a relationship marked `cannotBeIncluded()`, or a path outside the root resource's `getAllowedIncludePaths()` whitelist. Lists the offending paths. |
+| `InclusionDepthExceeded` | `400` | An `include` path is deeper than the effective maximum include depth. Lists the offending paths and the cap. |
 | `InclusionUnsupported` | `400` | The endpoint does not support inclusion at all. |
 
 Both render as JSON:API errors with `source.parameter` set to `include`. See
@@ -174,4 +250,4 @@ full exception catalogue.
 - [fields](fields.md) — the shared field surface, including `notSparseField()`.
 - [relations](relations.md) — linkage policy and `linkageOnlyWhenLoaded()`.
 - [pagination](pagination.md) — windowing the primary collection and related to-many collections.
-- [errors and exceptions](errors-and-exceptions.md) — `InclusionUnrecognized` / `InclusionUnsupported` and the rest of the catalogue.
+- [errors and exceptions](errors-and-exceptions.md) — `InclusionUnrecognized` / `InclusionNotAllowed` / `InclusionDepthExceeded` / `InclusionUnsupported` and the rest of the catalogue.

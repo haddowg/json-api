@@ -36,6 +36,7 @@ final class StubServer implements ResolvingServerInterface
         private readonly array $defaultMeta = [],
         private readonly int $encodeOptions = 0,
         ?ProfileRegistry $profiles = null,
+        private readonly ?int $maxIncludeDepth = null,
     ) {
         $this->psr17Factory = new Psr17Factory();
         $this->profiles = $profiles ?? new ProfileRegistry();
@@ -59,6 +60,11 @@ final class StubServer implements ResolvingServerInterface
     public function encodeOptions(): int
     {
         return $this->encodeOptions;
+    }
+
+    public function maxIncludeDepth(): ?int
+    {
+        return $this->maxIncludeDepth;
     }
 
     public function profiles(): ProfileRegistry

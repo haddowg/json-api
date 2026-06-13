@@ -34,5 +34,6 @@ final class ResourceTransformation
         public string $requestedRelationshipName,
         public string $currentRelationshipName,
         public string $baseUri = '',
+        public ?int $maxIncludeDepth = null,
     ) {}
 }

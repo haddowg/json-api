@@ -81,6 +81,15 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function getIncludedRelationships(string $baseRelationshipPath): array;
 
     /**
+     * Returns every requested full dotted include path (e.g. `a`, `a.b`, `a.b.c`
+     * for `?include=a.b.c`), so include depth and allowed-path checks can be
+     * evaluated against the complete requested set.
+     *
+     * @return list<string>
+     */
+    public function getIncludePaths(): array;
+
+    /**
      * Determines if a given relationship name that is a child of the $baseRelationshipPath should be included
      * in the response.
      *

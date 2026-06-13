@@ -31,6 +31,8 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
      */
     public function getData(ResourceDocumentTransformation $transformation, ResourceTransformer $transformer): DataInterface
     {
+        $maxIncludeDepth = $this->resolveEffectiveMaxIncludeDepth($transformation, $this->getResource());
+
         $resourceTransformation = new ResourceTransformation(
             $this->getResource(),
             $transformation->object,
@@ -40,6 +42,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             $transformation->requestedRelationshipName,
             '',
             $transformation->baseUri,
+            $maxIncludeDepth,
         );
         $data = new SingleResourceData();
 
@@ -61,6 +64,8 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
         ResourceTransformer $transformer,
         DataInterface $data,
     ): ?array {
+        $maxIncludeDepth = $this->resolveEffectiveMaxIncludeDepth($transformation, $this->getResource());
+
         $resourceTransformation = new ResourceTransformation(
             $this->getResource(),
             $transformation->object,
@@ -70,6 +75,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             $transformation->requestedRelationshipName,
             $transformation->requestedRelationshipName,
             $transformation->baseUri,
+            $maxIncludeDepth,
         );
 
         return $transformer->transformToRelationshipObject($resourceTransformation, $data);

@@ -283,6 +283,21 @@ All three are allowed by default. See
 [relationship-mutation](relationship-mutation.md) for how the endpoints map to
 these gates.
 
+## Includability
+
+A relation is includable in a compound document by default. Opt out with
+`cannotBeIncluded()`: a `?include` naming it (at any path) is then a
+`400 InclusionNotAllowed`, and it is dropped from the default-include cascade. Its
+linkage and `self` / `related` links are unaffected.
+
+```php
+BelongsTo::make('internalNotes')->type('notes')->cannotBeIncluded(),
+```
+
+This is the per-relation half of the include safeguards; a root-scoped
+allowed-include-paths whitelist and a maximum include depth are documented under
+[sparse fieldsets and includes](sparse-fieldsets-and-includes.md#constraining-includes-the-safeguards).
+
 ## Per-relation pagination
 
 A to-many relation paginates its related-collection endpoint with `paginate()`:

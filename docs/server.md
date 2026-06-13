@@ -77,6 +77,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withDefaultMeta(array)` | The default `jsonapi.meta` object. |
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`). |
 | `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
+| `withMaxIncludeDepth(?int)` | The default [maximum include depth](sparse-fieldsets-and-includes.md#maximum-include-depth) (hops from the primary resource). `null` (the default) or `<= 0` means unlimited; a resource can override it. |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `withContainer(ContainerInterface\|callable)` | The [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
 | `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) relations consult for `linkageOnlyWhenLoaded()`. |

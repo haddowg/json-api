@@ -53,6 +53,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $allowsAdd = true;
 
+    protected bool $isIncludable = true;
+
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
@@ -211,6 +213,23 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
+     * Prohibits this relationship from being included in a compound document: a
+     * `?include` naming it (at any path) is rejected with
+     * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400), and it is
+     * excluded from the default-include cascade. The relationship linkage and its
+     * `self` / `related` links are unaffected — only the compound `included`
+     * expansion is suppressed. Includable by default.
+     *
+     * @return static
+     */
+    public function cannotBeIncluded(): static
+    {
+        $this->isIncludable = false;
+
+        return $this;
+    }
+
+    /**
      * Sets the default paginator for this relation's related-collection endpoint
      * (`GET /{type}/{id}/{rel}`). A to-many relation paginates its related
      * collection with this strategy when the request carries `page[…]`; a to-one
@@ -260,6 +279,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function allowsAdd(): bool
     {
         return $this->allowsAdd;
+    }
+
+    public function isIncludable(): bool
+    {
+        return $this->isIncludable;
     }
 
     public function relatedTypes(): array

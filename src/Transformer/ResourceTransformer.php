@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Transformer;
 
+use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Transforms a single domain object into a JSON:API resource object, resource
@@ -71,7 +74,7 @@ final class ResourceTransformer
             throw new RelationshipNotExists($transformation->requestedRelationshipName);
         }
 
-        $defaultRelationships = \array_flip($transformation->resource->getDefaultIncludedRelationships($transformation->object));
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
 
         $transformation->result = $this->transformRelationshipObject(
             $transformation,
@@ -144,7 +147,7 @@ final class ResourceTransformer
         }
 
         $relationships = $transformation->resource->getRelationships($transformation->object, $transformation->request);
-        $defaultRelationships = \array_flip($transformation->resource->getDefaultIncludedRelationships($transformation->object));
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
 
         $this->validateRelationships($transformation, $relationships);
 
@@ -206,10 +209,51 @@ final class ResourceTransformer
         $nonExistentRelationships = \array_diff($requestedRelationships, \array_keys($relationships));
         if ($nonExistentRelationships !== []) {
             foreach ($nonExistentRelationships as $key => $relationship) {
-                $nonExistentRelationships[$key] = ($transformation->basePath !== '' ? $transformation->basePath . '.' : '') . $relationship;
+                $nonExistentRelationships[$key] = $this->prefixBasePath($transformation->basePath, $relationship);
             }
 
             throw new InclusionUnrecognized(\array_values($nonExistentRelationships));
         }
+
+        // A requested relationship that exists but has opted out of inclusion
+        // (Capability A) — evaluated per-resource-level so it covers a relation
+        // reached at any path. Capability C (the root allow-list) is checked once,
+        // up front, against the primary resource.
+        $resource = $transformation->resource;
+        if ($resource instanceof IncludeControlsInterface) {
+            $nonIncludable = $resource->getNonIncludableRelationships($transformation->object);
+            $offending = \array_values(\array_intersect($requestedRelationships, $nonIncludable));
+            if ($offending !== []) {
+                throw new InclusionNotAllowed(
+                    \array_map(fn(string $name): string => $this->prefixBasePath($transformation->basePath, $name), $offending),
+                );
+            }
+        }
+    }
+
+    /**
+     * The resource's default-included relationship names, flipped to a set, with
+     * any non-includable relation (Capability A) removed so the default cascade
+     * never auto-includes a relation that has opted out of inclusion.
+     *
+     * @return array<string, int>
+     */
+    private function defaultIncludedRelationships(SerializerInterface $resource, mixed $object): array
+    {
+        $defaults = $resource->getDefaultIncludedRelationships($object);
+
+        if ($resource instanceof IncludeControlsInterface) {
+            $nonIncludable = $resource->getNonIncludableRelationships($object);
+            if ($nonIncludable !== []) {
+                $defaults = \array_values(\array_diff($defaults, $nonIncludable));
+            }
+        }
+
+        return \array_flip($defaults);
+    }
+
+    private function prefixBasePath(string $basePath, string $name): string
+    {
+        return ($basePath !== '' ? $basePath . '.' : '') . $name;
     }
 }

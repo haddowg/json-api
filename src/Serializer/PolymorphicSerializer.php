@@ -17,7 +17,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * {@see \haddowg\JsonApi\Schema\Relationship\ToManyRelationship}, or a host's
  * related-resource collection.
  */
-final class PolymorphicSerializer implements SerializerInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface
 {
     /**
      * @param \Closure(mixed): SerializerInterface $serializerFor resolves the
@@ -58,6 +58,33 @@ final class PolymorphicSerializer implements SerializerInterface
     public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->for($object)->getRelationships($object, $request);
+    }
+
+    public function getNonIncludableRelationships(mixed $object): array
+    {
+        $serializer = $this->for($object);
+
+        return $serializer instanceof IncludeControlsInterface
+            ? $serializer->getNonIncludableRelationships($object)
+            : [];
+    }
+
+    /**
+     * The root-scoped depth override and allowed-include-paths whitelist resolve
+     * against the request's PRIMARY/root serializer, never a relationship-member
+     * one — a polymorphic serializer only ever serializes related members, where
+     * there is no single inner serializer to delegate to (members span types). It
+     * is therefore unrestricted on both: a member's own resource still enforces
+     * its per-relation includability during the recursion.
+     */
+    public function maxIncludeDepth(): ?int
+    {
+        return null;
+    }
+
+    public function getAllowedIncludePaths(): ?array
+    {
+        return null;
     }
 
     private function for(mixed $object): SerializerInterface

@@ -492,6 +492,28 @@ final class JsonApiRequestTest extends TestCase
 
     #[Test]
     #[Group('spec:inclusion-of-related-resources')]
+    public function getIncludePathsReturnsEveryRequestedFullPath(): void
+    {
+        $request = $this->createRequestWithQueryParams(['include' => 'author,comments.author']);
+
+        $paths = $request->getIncludePaths();
+        \sort($paths);
+
+        // The nested 'comments.author' contributes both itself and the
+        // intermediate 'comments'; 'author' is the other root path.
+        self::assertSame(['author', 'comments', 'comments.author'], $paths);
+    }
+
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    public function getIncludePathsIsEmptyWhenNoIncludeRequested(): void
+    {
+        self::assertSame([], $this->createRequestWithQueryParams([])->getIncludePaths());
+        self::assertSame([], $this->createRequestWithQueryParams(['include' => ''])->getIncludePaths());
+    }
+
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
     public function getIncludedEmptyRelationshipsWhenEmpty(): void
     {
         $baseRelationshipPath = 'book';

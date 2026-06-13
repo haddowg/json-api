@@ -226,6 +226,17 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    public function includabilityDefaultsToIncludableAndOptsOut(): void
+    {
+        $relation = HasMany::make('comments')->type('comments');
+        self::assertTrue($relation->isIncludable());
+
+        $restricted = HasMany::make('comments')->type('comments')->cannotBeIncluded();
+        self::assertFalse($restricted->isIncludable());
+    }
+
+    #[Test]
     public function endpointExposureFlagsDefaultToExposedAndOptOut(): void
     {
         $relation = HasMany::make('tags')->type('tags');

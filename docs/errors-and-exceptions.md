@@ -292,6 +292,8 @@ error object's `code` member; the **source** column names the error object's
 | `FilterParamUnrecognized` | 400 | `FILTERING_UNRECOGNIZED` | parameter | A `filter[...]` key is not recognized for the type. |
 | `InclusionUnsupported` | 400 | `INCLUSION_UNSUPPORTED` | parameter | The endpoint does not support `include`. |
 | `InclusionUnrecognized` | 400 | `INCLUSION_UNRECOGNIZED` | parameter | An `include` path is not recognized for the type. |
+| `InclusionNotAllowed` | 400 | `INCLUSION_NOT_ALLOWED` | parameter | An `include` path names a relation marked `cannotBeIncluded()`, or is outside the root's `getAllowedIncludePaths()` whitelist. |
+| `InclusionDepthExceeded` | 400 | `INCLUSION_DEPTH_EXCEEDED` | parameter | An `include` path is deeper than the effective maximum include depth. |
 | `SortingUnsupported` | 400 | `SORTING_UNSUPPORTED` | parameter | The endpoint does not support `sort`. |
 | `SortParamUnrecognized` | 400 | `SORTING_UNRECOGNIZED` | parameter | A `sort` field is not recognized. |
 

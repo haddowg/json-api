@@ -452,6 +452,31 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
     }
 
     /**
+     * Returns every requested full dotted include path, reconstructed from the
+     * parsed include tree. A request for `?include=a.b.c` yields the full chain
+     * `a`, `a.b`, `a.b.c` (the intermediate paths are themselves requested per
+     * JSON:API semantics), so depth and allow-list checks can be evaluated against
+     * the complete set.
+     *
+     * @return list<string>
+     */
+    public function getIncludePaths(): array
+    {
+        if ($this->includedRelationships === null) {
+            $this->parseIncludedRelationships();
+        }
+
+        $paths = [];
+        foreach ($this->includedRelationships ?? [] as $parentPath => $names) {
+            foreach ($names as $name) {
+                $paths[] = $parentPath === '' ? $name : $parentPath . '.' . $name;
+            }
+        }
+
+        return \array_values(\array_unique($paths));
+    }
+
+    /**
      * Determines if a given relationship name that is a child of the $baseRelationshipPath should be included
      * in the response.
      *

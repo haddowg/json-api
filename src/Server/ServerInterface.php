@@ -43,6 +43,15 @@ interface ServerInterface
     public function encodeOptions(): int;
 
     /**
+     * The default maximum include depth (number of relationship hops from the
+     * primary resource) applied to every rendered resource, or `null` for
+     * unlimited (the core default). A value `<= 0` is also treated as unlimited.
+     * A resource may override it via
+     * {@see \haddowg\JsonApi\Serializer\IncludeControlsInterface::maxIncludeDepth()}.
+     */
+    public function maxIncludeDepth(): ?int;
+
+    /**
      * The profiles this server recognizes. The response layer applies the
      * registered profiles a request asks for (echoing them on the `Content-Type`
      * and in `links.profile`) and ignores any it does not recognize.

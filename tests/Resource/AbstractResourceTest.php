@@ -425,6 +425,36 @@ final class AbstractResourceTest extends TestCase
         $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
     }
 
+    #[Test]
+    public function nonIncludableRelationshipsAreDerivedFromCannotBeIncluded(): void
+    {
+        $resource = new IncludeControlledResource();
+
+        // 'secret' opted out via cannotBeIncluded(); 'author' did not.
+        self::assertSame(['secret'], $resource->getNonIncludableRelationships([]));
+    }
+
+    #[Test]
+    public function includeControlsDefaultToUnrestricted(): void
+    {
+        $resource = new PostResource();
+
+        // No per-resource depth override and no allowed-paths whitelist by default,
+        // so every AbstractResource subclass is unrestricted without any edit.
+        self::assertNull($resource->maxIncludeDepth());
+        self::assertNull($resource->getAllowedIncludePaths());
+        self::assertSame([], $resource->getNonIncludableRelationships([]));
+    }
+
+    #[Test]
+    public function includeControlsExposeTheAuthorOverrides(): void
+    {
+        $resource = new IncludeControlledResource();
+
+        self::assertSame(2, $resource->maxIncludeDepth());
+        self::assertSame(['author'], $resource->getAllowedIncludePaths());
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -539,5 +569,38 @@ final class RestrictedResource extends AbstractResource
             // A to-one that may be replaced but never cleared.
             BelongsTo::make('owner')->type('users')->cannotReplace()->cannotRemove(),
         ];
+    }
+}
+
+/**
+ * A resource exercising the include safeguards: a relation that opts out of
+ * inclusion ({@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}),
+ * a per-resource maximum include depth and an allowed-include-paths whitelist
+ * ({@see \haddowg\JsonApi\Serializer\IncludeControlsInterface}).
+ */
+final class IncludeControlledResource extends AbstractResource
+{
+    public static string $type = 'controlled';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('author')->type('users'),
+            BelongsTo::make('secret')->type('secrets')->cannotBeIncluded(),
+        ];
+    }
+
+    public function maxIncludeDepth(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getAllowedIncludePaths(): array
+    {
+        return ['author'];
     }
 }

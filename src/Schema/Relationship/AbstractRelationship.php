@@ -373,7 +373,16 @@ abstract class AbstractRelationship
         $basePath .= ($basePath !== '' ? '.' : '') . $relationshipTransformation->currentRelationshipName;
         $relationshipTransformation->basePath = $basePath;
 
+        // The included resource's depth is the segment count of its new basePath.
+        // When a max include depth is in effect, descending past it is silently
+        // skipped — the linkage identifier is still returned below, only the
+        // compound `included` expansion is capped. This halts the default cascade
+        // at the cap and guarantees termination of mutual default-include cycles.
+        $maxIncludeDepth = $transformation->maxIncludeDepth;
+        $withinDepth = $maxIncludeDepth === null || \substr_count($basePath, '.') + 1 <= $maxIncludeDepth;
+
         if (
+            $withinDepth &&
             $transformation->request->isIncludedRelationship(
                 $transformation->basePath,
                 $transformation->currentRelationshipName,

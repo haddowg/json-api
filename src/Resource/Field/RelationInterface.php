@@ -146,6 +146,18 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function allowsAdd(): bool;
 
     /**
+     * Whether this relationship may be included in a compound document — fetched
+     * via `?include` and expanded into `included`, and auto-included when it is a
+     * default-include. On by default; opt out via
+     * {@see AbstractRelation::cannotBeIncluded()}. A `?include` naming a
+     * non-includable relation is an
+     * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400); a non-includable
+     * relation is also excluded from the default-include cascade. Linkage and
+     * `self` / `related` links are unaffected.
+     */
+    public function isIncludable(): bool;
+
+    /**
      * This relation's declared default paginator for its related-collection
      * endpoint (`GET /{type}/{id}/{rel}`), or `null` for none. Set via
      * {@see AbstractRelation::paginate()}. It is the to-many related-endpoint
