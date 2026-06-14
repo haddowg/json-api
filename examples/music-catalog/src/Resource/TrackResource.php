@@ -11,6 +11,7 @@ use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\Boolean;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -69,12 +70,16 @@ final class TrackResource extends AbstractResource
             // null) straight off the object — no foreign-key column, no extractor.
             BelongsTo::make('album')->type('albums'),
             // A pivot-backed to-many reading $track->playlists (a list<Playlist>).
-            // The pivot fields are declare-only metadata in 1.0; cannotReplace()
-            // rejects a PATCH to the relationship endpoint with 403
-            // FullReplacementProhibited (add/remove still allowed).
+            // The pivot fields are real field definitions — a writable `position`
+            // and a server-owned, read-only `addedAt`; cannotReplace() rejects a
+            // PATCH to the relationship endpoint with 403 FullReplacementProhibited
+            // (add/remove still allowed).
             BelongsToMany::make('playlists')
                 ->type('playlists')
-                ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+                ->fields(
+                    Integer::make('position')->min(1),
+                    DateTime::make('addedAt')->readOnly(),
+                )
                 ->cannotReplace(),
         ];
     }

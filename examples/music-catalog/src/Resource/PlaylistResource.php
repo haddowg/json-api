@@ -9,7 +9,9 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\Boolean;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Uuid;
@@ -47,10 +49,15 @@ final class PlaylistResource extends AbstractResource
             // `tracks` reads $playlist->tracks (a list<Track>).
             BelongsTo::make('owner')->type('users'),
             // A pivot-backed to-many whose related-collection endpoint paginates
-            // two-per-page (the pivot fields are declare-only metadata in 1.0).
+            // two-per-page. The pivot fields are real field definitions: a writable
+            // `position` and a server-owned, read-only `addedAt` — one declaration
+            // drives render, filter/sort and (in the Symfony bundle) write/validate.
             BelongsToMany::make('tracks')
                 ->type('tracks')
-                ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+                ->fields(
+                    Integer::make('position')->min(1),
+                    DateTime::make('addedAt')->readOnly(),
+                )
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
         ];
     }

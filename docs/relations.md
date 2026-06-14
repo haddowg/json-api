@@ -121,22 +121,75 @@ playlists:
 // src/Resource/TrackResource.php
 BelongsToMany::make('playlists')
     ->type('playlists')
-    ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+    ->fields(
+        Integer::make('position')->min(1),
+        DateTime::make('addedAt')->readOnly(),
+    )
     ->cannotReplace(),
 ```
 
-`fields()` declares the pivot fields and accepts either an array or a closure
-returning one:
+`fields()` declares the pivot (join-table) fields as **real field definitions** —
+the same field DSL you use for attributes (`Integer`, `Str`, `DateTime`, …) with
+their constraints, casts and read-only / context behaviour:
 
 ```php
-public function fields(\Closure|array $fields): static
-public function pivotFields(): array
+public function fields(FieldInterface ...$fields): static
+public function pivotFields(): array              // list<FieldInterface>
+public function pivotField(string $name): ?FieldInterface
+public function writablePivotFields(bool $creating): array  // list<FieldInterface>
 ```
 
-In core 1.0 these are **declare-only** — carried as metadata, never validated by
-core. The Symfony bundle's Doctrine adapter consumes them: it renders each pivot
-field as per-member relationship meta and exposes a filter/sort key per field.
-Read them back with the `pivotFields()` accessor (which resolves the closure form).
+One declaration drives every pivot concern:
+
+- **render** — the field's value cast applies to the raw pivot column before it
+  emits as relationship meta;
+- **filter / sort** — the field's name + column become a `filter[…]` / `sort=`
+  key on the related-collection endpoint;
+- **write / validate** — the field's constraints validate the incoming `meta`,
+  resolved by the operation's create vs update context exactly as for an attribute.
+
+### Writing pivot fields — the linkage `meta` convention
+
+A pivot field is **writable by default**; opt a server-owned column out with
+`->readOnly()` (or `->readOnlyOnUpdate()` / `->readOnlyOnCreate()` for a
+context-scoped opt-out). Pivot values are written through the JSON:API
+**resource-identifier `meta`** on each linkage member — the spec allows a
+resource identifier to carry `meta`:
+
+```http
+POST /playlists/1/relationships/orderedTracks
+{ "data": [ { "type": "tracks", "id": "7", "meta": { "position": 3 } } ] }
+```
+
+```http
+PATCH /playlists/1/relationships/orderedTracks
+{ "data": [
+  { "type": "tracks", "id": "7", "meta": { "position": 1 } },
+  { "type": "tracks", "id": "9", "meta": { "position": 2 } }
+] }
+```
+
+The same per-member `meta` rides the relationship when it appears inline in a
+whole-resource `POST` / `PATCH` body. `DELETE` (remove) carries no pivot.
+
+The relevant readers:
+
+- `writablePivotFields($creating)` returns the fields settable from `meta` in the
+  given operation context (read-only ones filtered out by their context);
+- each parsed linkage member exposes its `meta` on the
+  [`ResourceIdentifier`](../src/Schema/ResourceIdentifier.php) value object
+  (`$identifier->meta`) — on **both** the relationship-endpoint body and a
+  relationship nested in a whole-resource body. No new wire-parsing surface was
+  needed: a resource identifier has always parsed its `meta`.
+
+Core stays **storage-agnostic**: it carries the field definitions and the parsed
+`meta`, but never writes the join row. The Symfony bundle's Doctrine adapter is
+the executor — it validates the `meta` against the writable pivot fields'
+constraints (a violation is a `422` pointing at the linkage `meta`), and persists
+the association entity as an **upsert / reorder diff** (update an existing row in
+place, create a missing one, and on a full replace remove rows whose member is no
+longer present). A read-only pivot field supplied in `meta` is never written. See
+the bundle's relationships / Doctrine docs for the persistence details.
 
 > **The Doctrine fact.** A plain `#[ORM\ManyToMany]` join table holds only the
 > two foreign keys — Doctrine cannot map a `position` / `addedAt` column on it. To
@@ -160,7 +213,10 @@ public function pivotThrough(): ?string
 ```php
 BelongsToMany::make('tracks')
     ->type('tracks')
-    ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+    ->fields(
+        Integer::make('position')->min(1),
+        DateTime::make('addedAt')->readOnly(),
+    )
     ->through(PlaylistTrack::class),
 ```
 

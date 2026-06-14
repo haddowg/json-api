@@ -171,7 +171,10 @@ on [`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php):
 // TrackResource::fields()
 BelongsToMany::make('playlists')
     ->type('playlists')
-    ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+    ->fields(
+        Integer::make('position')->min(1),
+        DateTime::make('addedAt')->readOnly(),
+    )
     ->cannotReplace();
 ```
 

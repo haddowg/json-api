@@ -1495,6 +1495,48 @@ final class JsonApiRequestTest extends TestCase
     }
 
     #[Test]
+    public function getRelationshipLinkageToManyExposesPerMemberMeta(): void
+    {
+        // A relationship-endpoint to-many body may carry per-member resource-identifier
+        // `meta` — the pivot-field write convention. Each identifier exposes it.
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                ['type' => 'dog', 'id' => '2', 'meta' => ['position' => 1]],
+                ['type' => 'dog', 'id' => '3', 'meta' => ['position' => 2]],
+            ],
+        ]);
+
+        $identifiers = $request->getRelationshipLinkageToMany('friends')->resourceIdentifiers;
+
+        self::assertSame(['position' => 1], $identifiers[0]->meta);
+        self::assertSame(['position' => 2], $identifiers[1]->meta);
+    }
+
+    #[Test]
+    public function getToManyRelationshipExposesPerMemberMeta(): void
+    {
+        // The same per-member linkage `meta` rides a relationship nested in a
+        // whole-resource body.
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                'type' => 'dog',
+                'id' => '1',
+                'relationships' => [
+                    'friends' => [
+                        'data' => [
+                            ['type' => 'dog', 'id' => '2', 'meta' => ['position' => 3]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $identifiers = $request->getToManyRelationship('friends')->resourceIdentifiers;
+
+        self::assertSame(['position' => 3], $identifiers[0]->meta);
+    }
+
+    #[Test]
     public function getRelationshipLinkageToManyTreatsEmptyArrayAsClearing(): void
     {
         $request = $this->createRequestWithJsonBody(['data' => []]);

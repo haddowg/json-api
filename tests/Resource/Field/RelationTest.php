@@ -8,12 +8,16 @@ use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
+use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
+use haddowg\JsonApi\Resource\Field\DateTime as DateTimeField;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\HasOne;
+use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
@@ -392,20 +396,61 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
-    public function belongsToManyDeclaresPivotFields(): void
+    public function belongsToManyDeclaresPivotFieldDefinitions(): void
     {
-        $relation = BelongsToMany::make('roles')->type('roles')->fields(['assigned_at' => 'datetime']);
+        $position = Integer::make('position')->required()->min(1);
+        $addedAt = DateTimeField::make('addedAt')->readOnly();
+
+        $relation = BelongsToMany::make('roles')->type('roles')->fields($position, $addedAt);
 
         self::assertTrue($relation->isToMany());
-        self::assertSame(['assigned_at' => 'datetime'], $relation->pivotFields());
+        self::assertSame([$position, $addedAt], $relation->pivotFields());
     }
 
     #[Test]
-    public function belongsToManyResolvesClosurePivotFields(): void
+    public function belongsToManyHasNoPivotFieldsByDefault(): void
     {
-        $relation = BelongsToMany::make('roles')->fields(static fn(): array => ['x' => 1]);
+        $relation = BelongsToMany::make('roles')->type('roles');
 
-        self::assertSame(['x' => 1], $relation->pivotFields());
+        self::assertSame([], $relation->pivotFields());
+    }
+
+    #[Test]
+    public function belongsToManyLooksUpAPivotFieldByName(): void
+    {
+        $position = Integer::make('position');
+
+        $relation = BelongsToMany::make('roles')->fields($position);
+
+        self::assertSame($position, $relation->pivotField('position'));
+        self::assertNull($relation->pivotField('missing'));
+    }
+
+    #[Test]
+    public function belongsToManyPivotFieldCarriesItsConstraints(): void
+    {
+        $position = Integer::make('position')->required();
+
+        $relation = BelongsToMany::make('roles')->fields($position);
+
+        $constraints = $relation->pivotFields()[0]->constraints();
+        self::assertCount(1, $constraints);
+        self::assertInstanceOf(Required::class, $constraints[0]);
+    }
+
+    #[Test]
+    public function belongsToManyPivotFieldsAreWritableUnlessReadOnly(): void
+    {
+        $position = Integer::make('position');
+        $addedAt = DateTimeField::make('addedAt')->readOnly();
+        $note = Str::make('note')->readOnlyOnUpdate();
+
+        $relation = BelongsToMany::make('roles')->fields($position, $addedAt, $note);
+
+        // On create: position + note are writable, addedAt is read-only.
+        self::assertSame([$position, $note], $relation->writablePivotFields(true));
+        // On update: only position is writable (note is read-only on update).
+        self::assertSame([$position], $relation->writablePivotFields(false));
     }
 
     #[Test]
