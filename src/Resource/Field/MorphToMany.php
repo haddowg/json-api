@@ -68,6 +68,16 @@ final class MorphToMany extends AbstractRelation
             );
         }
 
+        // The general relationship-meta hook (its first consumer is the countable
+        // `meta.total`), mirroring AbstractRelation::buildToMany — so a countable
+        // polymorphic to-many named in `?withCount` renders its cardinality too
+        // (core ADR 0057). The count value is supplied per (model, relation) by an
+        // injected RelationshipCountInterface; with none injected this is empty.
+        $meta = $this->relationshipMeta($model, $request, $resolver);
+        if ($meta !== []) {
+            $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
+        }
+
         return $relationship;
     }
 }

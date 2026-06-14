@@ -32,7 +32,11 @@ relations.
 **The count seam.** `AbstractRelation::buildToMany()` realises the previously
 stubbed "future link/meta wiring" hook as a **general per-relationship
 meta-contribution** point, `relationshipMeta()`, merged onto the built
-relationship; the countable `total` is its first consumer. The count value is
+relationship; the countable `total` is its first consumer. `MorphToMany`
+overrides `buildRelationship()` (it binds a per-member `PolymorphicSerializer`),
+so it applies the same `relationshipMeta()` merge before returning — a countable
+polymorphic to-many named in `?withCount` renders its cardinality too. The count
+value is
 storage-specific, so core reads it through `RelationshipCountInterface`
 (`countRelationship(model, relation): ?int`), injected through
 `SerializerResolverInterface::relationshipCount()` exactly as

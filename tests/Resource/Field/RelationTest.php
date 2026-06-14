@@ -630,6 +630,39 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableMorphToManyEmitsMetaTotalWhenRequestedAndResolverSupplies(): void
+    {
+        // The countable seam reaches a polymorphic to-many too: countable() + ?withCount
+        // names it + resolver supplies a count => meta.total on the morph relationship.
+        $relation = MorphToMany::make('items')->types('posts', 'videos')->countable();
+        $model = ['items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
+        $count = new FakeRelationshipCount(5);
+
+        $resolver = (new StubSerializerResolver())->withRelationshipCount($count);
+        $built = $relation->buildRelationship($model, new StubJsonApiRequest(['withCount' => 'items']), $resolver);
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                new StubJsonApiRequest(['withCount' => 'items']),
+                '',
+                '',
+                'items',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(['total' => 5], $relationshipObject['meta'] ?? null);
+        self::assertNotSame([], $count->askedAbout, 'count seam must be consulted for a morph-to-many');
+    }
+
+    #[Test]
     #[Group('spec:pagination')]
     public function paginationDefaultsToNullAndPaginateSetsIt(): void
     {
