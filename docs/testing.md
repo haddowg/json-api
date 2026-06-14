@@ -61,7 +61,7 @@ JsonApiDocument::of($response)
     ->assertProfileApplied('https://music.example/profiles/timestamp');
 ```
 
-The full assertion surface:
+The full single-resource assertion surface:
 
 | Method | Asserts |
 | --- | --- |
@@ -69,17 +69,100 @@ The full assertion surface:
 | `assertHasId(string $id)` | primary `data.id` |
 | `assertHasAttribute(string $name, mixed $expected = null)` | attribute present; value matches if a second argument is passed |
 | `assertHasRelationship(string $name, ?string $expectedType = null, ?string $expectedId = null)` | relationship present; linkage type/id match if given |
+| `assertFetchedOneExact(array $expected)` | the **whole** primary resource object equals `$expected` (catches leaked/extra attributes or relationships) |
 | `assertHasIncluded(string $type, ?int $count = null)` | at least one (or exactly `$count`) included resources of `$type` |
+| `assertHasIncludedResource(string $type, string $id)` | a specific `{type, id}` is present in `included` |
+| `assertIncludedExactly(array $expected)` | `included` carries exactly the given `{type, id}` set (order-insensitive) |
 | `assertNotHasIncluded(string $type)` | no included resources of `$type` |
 | `assertHasMetaKey(string $key)` | top-level meta key present |
 | `assertMetaValue(string $key, mixed $expected)` | meta key present with that value |
+| `assertExactMeta(array $expected)` | the whole `meta` member equals `$expected` |
 | `assertHasLink(string $rel, ?string $expectedHref = null)` | top-level link present; href matches if given |
+| `assertExactLinks(array $expected)` | the whole `links` member equals `$expected` |
 | `assertProfileApplied(string $uri)` | `links.profile` advertises the profile |
 
 The value-optional behaviour is exact: `assertHasAttribute` distinguishes
 *present* from *equal to* by argument count (`\func_num_args()`), so passing
 `null` as the second argument really does assert the value is `null` — pass no
 second argument to assert presence only.
+
+### Asserting status, content type, and headers as a unit
+
+When `JsonApiDocument` is constructed from a **PSR-7 response** it also carries
+the HTTP status code and headers, so the same wrapper can assert the transport
+envelope and the body together — no separate `assertSame(200, …)` line:
+
+```php
+JsonApiDocument::of($response)
+    ->assertStatus(200)
+    ->assertContentType()                  // defaults to application/vnd.api+json
+    ->assertHeader('Location')
+    ->assertHasType('albums');
+```
+
+The envelope is plain scalars — a `Testing\ResponseMeta` value object holding a
+nullable `int` status and an `array<string, string>` header map (case-insensitive
+lookup), with **no `psr/http-message` dependency in the assertion path**. A
+framework caller that does not hand you a PSR-7 response — e.g. a test driving an
+HttpFoundation `Response` — passes the envelope explicitly:
+
+```php
+$meta = new ResponseMeta($response->getStatusCode(), ['Content-Type' => '…']);
+
+JsonApiDocument::of($body, meta: $meta)->assertStatus(201)->assertContentType();
+```
+
+| Method | Asserts |
+| --- | --- |
+| `assertStatus(int $status)` | the response status code |
+| `assertContentType(string $expected = 'application/vnd.api+json')` | `Content-Type` contains `$expected` |
+| `assertHeader(string $name, ?string $expected = null)` | header present; value matches if given |
+
+### Asserting a collection
+
+A fetched-many document (e.g. a `GET /albums` or a `?sort` result) has its own
+family. `assertFetchedManyInOrder()` is the **order-sensitive sort witness** — the
+ids must appear in exactly that order, so a `?sort=-year` test finally has a
+first-class assertion:
+
+```php
+JsonApiDocument::of($response)
+    ->assertFetchedMany()
+    ->assertCollectionCount(3)
+    ->assertCollectionContains('albums', '2')
+    ->assertFetchedManyInOrder(['3', '1', '2'], 'albums');
+```
+
+| Method | Asserts |
+| --- | --- |
+| `assertFetchedMany()` | primary `data` is a list of resource objects |
+| `assertFetchedManyInOrder(array $idsInOrder, ?string $type = null)` | the collection ids appear in **exactly** that order (the `?sort` witness) |
+| `assertCollectionCount(int $count)` | collection size |
+| `assertCollectionContains(string $type, string $id)` | a `{type, id}` member is present |
+| `assertFetchedManyExact(array $expected)` | the collection is exactly `$expected`, order-sensitive (each member at least `{type, id}`, optionally `attributes`) |
+
+### Exact-match and absence
+
+`assertFetchedOneExact()` / `assertFetchedManyExact()` / `assertExactMeta()` /
+`assertExactLinks()` are **whole-member** compares — they catch a *leaked* or
+extra attribute or relationship that a presence-only assertion passes silently.
+Both sides are recursively key-sorted before comparison, so a failure prints a
+stable, readable diff (incidental key ordering never perturbs it). The absence
+family witnesses the empty cases — a `withoutLinks()` resource, a meta-only or
+empty-to-one endpoint:
+
+```php
+JsonApiDocument::of($response)
+    ->assertNoData()           // data absent or null (e.g. empty to-one)
+    ->assertNoMeta()
+    ->assertNoLink();          // no links at all — a withoutLinks() witness
+```
+
+| Method | Asserts |
+| --- | --- |
+| `assertNoData()` | primary `data` is absent or `null` |
+| `assertNoMeta()` | no (or empty) `meta` member |
+| `assertNoLink(?string $rel = null)` | no `links` at all, or — with `$rel` — that specific link absent |
 
 The raw accessors return the parsed structure when an assertion isn't enough:
 
@@ -116,7 +199,14 @@ The surface:
 | `assertHasError(?string $status = null, ?string $pointer = null, ?string $code = null)` | an error matches **every** non-null argument |
 | `assertHasErrorAt(string $pointer)` | some error has that `source.pointer` |
 | `assertHasErrorWithCode(string $code)` | some error has that `code` |
+| `assertHasExactError(array $error)` | some error object equals `$error` exactly |
+| `assertErrorsExact(array $errors)` | the error list is exactly `$errors`, order-sensitive |
 | `errors()` | the raw `list<array<string, mixed>>` for ad-hoc checks |
+
+`JsonApiErrors` carries the same response envelope as `JsonApiDocument` — when
+built from a PSR-7 response (or given a `ResponseMeta`) it also exposes
+`assertStatus()`, `assertContentType()`, and `assertHeader()`, so a `422` body and
+its status assert together.
 
 `assertHasError()` is the general one — pass any combination of `status`,
 `pointer` (read from `source.pointer`), and `code`, and it asserts a single error
