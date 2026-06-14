@@ -19,7 +19,7 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * validator and checks a client-supplied `filter[<key>]` value **before** the
  * filter reaches the data layer, so a mistyped value (`filter[age]=banana` on an
  * integer column) is a clean `400` {@see \haddowg\JsonApi\Exception\FilterValueInvalid}
- * rather than a data-layer crash.
+ * rather than the provider's silent non-match (or, on a strict driver, a PDO `500`).
  *
  * The filter VOs are immutable, so {@see constrain()} and the shortcuts are
  * withers: each returns a new instance with the constraint appended, exactly like

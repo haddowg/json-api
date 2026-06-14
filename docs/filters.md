@@ -241,9 +241,10 @@ filter opts in by implementing `HasDefaultValue` itself.
 A filter is metadata only: nothing about `Where::make('age', 'age')` says the
 value must be a number. Without a declared constraint a mistyped value
 (`GET /tracks?filter[duration]=banana` against an integer column) flows straight
-to the data layer — a Doctrine adapter raises a PDO type error (a `500`); the
-in-memory handler simply never matches. Declaring a **value constraint** turns
-that into a clean `400`, validated *before* the filter reaches the data layer.
+to the data layer and gets the adapter's unhelpful default: the in-memory handler
+and a loosely-typed database (sqlite) simply never match, while a strict driver
+such as Postgres raises a PDO type error (a `500`). Declaring a **value constraint**
+turns that into a clean `400`, validated *before* the filter reaches the data layer.
 
 Declare constraints on a value-carrying filter (`Where`, `WhereIn`, `WhereNotIn`,
 `WhereIdIn`, `WhereIdNotIn`) with `constrain()` or the type shortcuts — immutable
@@ -305,7 +306,8 @@ One error is rendered per violation. Only a **client-supplied** value is validat
 a filter's author-set `default()` is trusted and never checked. A filter that
 declares no constraints behaves exactly as before. Validation is provider-agnostic
 — it runs on the value, before any handler — so both the in-memory and database
-adapters get the same clean `400` instead of a downstream crash. The check is
+adapters get the same clean `400` instead of the silent non-match (or, on a strict
+driver, the downstream `500`) an unvalidated value would yield. The check is
 opt-in on the adapter's validator integration: with no validator installed a filter
 that declares constraints behaves as if it had none (see the bundle's filter docs).
 

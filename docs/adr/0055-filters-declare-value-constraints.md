@@ -2,9 +2,11 @@
 
 A filter was metadata-only (key, column, operator, deserialize, default) and
 carried no value type, so a mistyped value — `filter[year]=banana` on an integer
-column — flowed straight to the data layer and crashed there: a Doctrine adapter
-raised a PDO type error (a `500`), and the in-memory handler silently failed to
-match. We let a filter **declare** value constraints — `FilterInterface` gains
+column — flowed straight to the data layer, where the best case was a silent
+non-match (the in-memory handler, and a loosely-typed database such as sqlite)
+and the worst case a crash (a strict driver such as Postgres raising a PDO type
+error — a `500`). Either way the client got no useful signal. We let a filter
+**declare** value constraints — `FilterInterface` gains
 `constraints(): list<ConstraintInterface>` (default `[]`), and the value-carrying
 built-ins (`Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`) gain a
 fluent `constrain(...)` plus the type shortcuts `numeric()` / `integer()` /
@@ -31,5 +33,6 @@ translated-constraint violations. It is a **`400`** with `source.parameter` on
 located by `source.pointer`. It renders one `Error` per violation message. Like
 every other constraint these are metadata only: core never executes them, and a
 filter that declares none behaves exactly as before. Validating the value
-pre-provider makes the check provider-agnostic — both the in-memory and database
-adapters get the clean `400` rather than a downstream crash.
+pre-provider makes the check provider-agnostic — every adapter gets the same
+deliberate `400` with `source.parameter` rather than the silent non-match an
+unvalidated value would yield (or, on a strict driver, the downstream `500`).

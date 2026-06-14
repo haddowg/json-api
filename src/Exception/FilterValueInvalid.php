@@ -14,8 +14,9 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * This is a **`400`** — a bad query *parameter*, located by `source.parameter` on
  * `filter[<key>]` — deliberately **not** a `422` (which is reserved for document
  * *semantic* errors located by `source.pointer`). Validating the value here, before
- * it reaches the data layer, turns what was a data-layer crash (a Doctrine PDO error
- * on a mistyped column, or a silent non-match in memory) into a clean client error.
+ * it reaches the data layer, turns the provider's unhelpful default for a mistyped
+ * value (a silent non-match in memory and on a loosely-typed database, or a Doctrine
+ * PDO error — a `500` — on a strict driver) into a clean client error.
  *
  * Core declares the exception so any consumer (an in-memory handler, a core path)
  * can throw it; a framework adapter populates `$messages` from its translated
