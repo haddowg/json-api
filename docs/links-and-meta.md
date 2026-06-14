@@ -62,7 +62,8 @@ response.
 Resource-object `meta` and `links` come from the two serializer hooks. On an
 [`AbstractResource`](serializers.md) both default to "nothing" — `getMeta()`
 returns `[]` and `getLinks()` returns `null` — so a resource emits no custom
-`meta` and only the conventional `self` link unless you override them. A bare
+`meta`, and only the by-convention `self` link (described
+[below](#auto-emitted-links-you-dont-set-by-hand)) unless you override them. A bare
 `AbstractSerializer` subclass leaves both methods abstract (they come from
 `SerializerInterface`, and `AbstractSerializer` only supplies the
 `TransformerTrait` helpers), so it must implement them itself — which is exactly
@@ -105,10 +106,11 @@ public function getLinks(mixed $object, JsonApiRequestInterface $request): ?Reso
 }
 ```
 
-The conventional `self` and `related` relationship links are emitted for you by
-the relation DSL — see [relations](relations.md). You only reach for `getLinks()`
-when you want a `self` link the library can't derive, or an extra custom relation
-alongside it.
+The conventional resource `self` link, and the `self`/`related` relationship
+links, are emitted for you (see [below](#auto-emitted-links-you-dont-set-by-hand)
+and [relations](relations.md)). You only reach for `getLinks()` when you want a
+`self` link the library can't derive, or an extra custom relation alongside it — a
+`self` you set here wins over the convention.
 
 ## Link forms
 
@@ -194,12 +196,38 @@ passes through untouched.
 
 ### Auto-emitted links you don't set by hand
 
-Two families of `links` are populated for you, so you rarely construct a
-`DocumentLinks` or `RelationshipLinks` directly:
+Several families of `links` are populated for you, so you rarely construct a
+`DocumentLinks`, `ResourceLinks` or `RelationshipLinks` directly. All are
+spec-recommended (SHOULD) and on by default:
 
-- **Pagination** — `first`/`prev`/`next`/`last` are derived from the
-  `Pagination\Page` when you build a collection response with
+- **Resource `self`** — every resource object carries
+  `links.self` = `{baseUri}/{uriType}/{id}`, the URL to fetch that resource. The
+  path segment is the resource's `uriType` (which defaults to its JSON:API
+  `type`), so a resource whose type is `book` but lives at `/books` links
+  correctly. It is omitted for a resource with an empty id (a not-yet-persisted
+  resource has no self), and a `getLinks()` `self` you set by hand wins over it.
+  An `AbstractResource` opts out by overriding `emitsSelfLink()` to return
+  `false`:
+
+  ```php
+  // No by-convention resource self link for this type.
+  public function emitsSelfLink(): bool
+  {
+      return false;
+  }
+  ```
+
+- **Top-level document `self`** — every data/resource document (a single
+  resource, a collection, a related or relationship document, a meta document —
+  but not an error document) carries a top-level `links.self` = the URI that
+  produced it (`{server.baseUri}{request.path}`, including the query string on a
+  filtered or sorted request). A paginated collection's per-page `self` (and a
+  `self` you set with `withLinks()`) takes precedence.
+
+- **Pagination** — `first`/`prev`/`next`/`last` (and the per-page `self`) are
+  derived from the `Pagination\Page` when you build a collection response with
   `DataResponse::fromPage()`. See [pagination](pagination.md).
+
 - **Relationship `self`/`related`** — emitted by convention for every declared
   relation. See [relations](relations.md).
 

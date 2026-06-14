@@ -271,6 +271,13 @@ constructor. Only the document-level members above are mutable. On a
 `NoContentResponse` the body withers have no body to attach to and the status
 stays `204` by construction.
 
+Every data/resource document (single, collection, related, relationship, meta —
+not an error document) also carries a spec-recommended top-level `links.self`: the
+URI that produced it (`{server.baseUri}{request.path}`, including the query string
+on a filtered or sorted request), emitted by convention. A paginated collection's
+per-page `self`, or a `self` you set with `withLinks()`, takes precedence. See
+[links and meta](links-and-meta.md#auto-emitted-links-you-dont-set-by-hand).
+
 ## Returning a response from a handler
 
 Inside an [`OperationHandlerInterface`](operations.md) you simply return the value

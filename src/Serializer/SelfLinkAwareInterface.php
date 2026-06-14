@@ -16,7 +16,7 @@ namespace haddowg\JsonApi\Serializer;
  * capability pattern: an external serializer or a bare serializer/hydrator pair
  * that does not implement it is unaffected and still gets a convention `self`.
  * {@see \haddowg\JsonApi\Resource\AbstractResource} implements it, defaulting to
- * `true`, with a `withoutSelfLink()` toggle.
+ * `true`; override {@see emitsSelfLink()} to return `false` to opt out.
  */
 interface SelfLinkAwareInterface
 {
