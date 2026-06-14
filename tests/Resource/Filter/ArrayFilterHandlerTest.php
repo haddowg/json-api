@@ -250,6 +250,11 @@ final class ArrayFilterHandlerTest extends TestCase
             {
                 return 'bespoke';
             }
+
+            public function constraints(): array
+            {
+                return [];
+            }
         };
 
         try {

@@ -11,12 +11,18 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
 {
+    use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints declared value constraints
+     */
     public function __construct(
         public string $key = 'id',
         public string $column = 'id',
         public ?string $delimiter = null,
         public mixed $default = null,
         public bool $hasDefault = false,
+        public array $constraints = [],
     ) {}
 
     public static function make(string $key = 'id', string $column = 'id'): self
@@ -31,7 +37,7 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
 
     public function delimiter(string $delimiter): self
     {
-        return new self($this->key, $this->column, $delimiter, $this->default, $this->hasDefault);
+        return new self($this->key, $this->column, $delimiter, $this->default, $this->hasDefault, $this->constraints);
     }
 
     /**
@@ -42,7 +48,7 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
      */
     public function default(mixed $value): self
     {
-        return new self($this->key, $this->column, $this->delimiter, $value, true);
+        return new self($this->key, $this->column, $this->delimiter, $value, true, $this->constraints);
     }
 
     public function hasDefault(): bool
@@ -53,5 +59,13 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
     public function defaultValue(): mixed
     {
         return $this->default;
+    }
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
+     */
+    protected function withConstraints(array $constraints): static
+    {
+        return new self($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $constraints);
     }
 }

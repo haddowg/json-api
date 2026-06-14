@@ -78,20 +78,25 @@ The default is no filters.
 
 ## The `FilterInterface` contract
 
-Every filter implements `Resource\Filter\FilterInterface`, whose sole member is
-the parameter key:
+Every filter implements `Resource\Filter\FilterInterface`, whose two members are
+the parameter key and the declared value constraints:
 
 ```php
 interface FilterInterface
 {
     public function key(): string;
+
+    /** @return list<ConstraintInterface> */
+    public function constraints(): array; // default []
 }
 ```
 
 Concrete filters add their own `public readonly` fields (`column`, `operator`,
 `delimiter`, …) that a handler reads. They are `final readonly` value objects
 constructed through `make()`, with immutable `with`-style refinement helpers that
-each return a new instance.
+each return a new instance. `constraints()` declares the value constraints a
+framework adapter validates a client-supplied value against **before** the filter
+reaches the data layer — see [Validating filter values](#validating-filter-values).
 
 ## The built-in catalogue
 
@@ -129,6 +134,7 @@ the filters that carry the helper expose it:
 | `deserializeUsing(\Closure)` | `Where` | a value transformer applied before comparison |
 | `asBoolean()` | `Where` | a shortcut for `deserializeUsing()` coercing via `FILTER_VALIDATE_BOOLEAN` |
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
+| `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 
 ```php
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -229,6 +235,79 @@ $requested = FilterDefaults::apply($request->getFiltering(), $resource->filters(
 When two declared filters share a key, the first wins — the same first-match
 rule a handler uses to resolve a requested key to its declared filter. A custom
 filter opts in by implementing `HasDefaultValue` itself.
+
+## Validating filter values
+
+A filter is metadata only: nothing about `Where::make('age', 'age')` says the
+value must be a number. Without a declared constraint a mistyped value
+(`GET /tracks?filter[duration]=banana` against an integer column) flows straight
+to the data layer — a Doctrine adapter raises a PDO type error (a `500`); the
+in-memory handler simply never matches. Declaring a **value constraint** turns
+that into a clean `400`, validated *before* the filter reaches the data layer.
+
+Declare constraints on a value-carrying filter (`Where`, `WhereIn`, `WhereNotIn`,
+`WhereIdIn`, `WhereIdNotIn`) with `constrain()` or the type shortcuts — immutable
+withers that append the matching core constraint, mirroring the `Id` field's
+`uuid()` / `numeric()` / `pattern()`:
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+use haddowg\JsonApi\Resource\Constraint\Min;
+
+public function filters(): array
+{
+    return [
+        Where::make('year')->integer(),                 // ^-?[0-9]+$
+        Where::make('rating')->numeric(),               // integer or decimal
+        Where::make('active')->boolean(),               // true | false | 1 | 0
+        Where::make('isrc')->pattern('^[A-Z]{2}.{10}$'),// any ECMA-262 regex
+        WhereIdIn::make()->uuid(4),                      // a UUIDv4 id set
+        Where::make('listens')->constrain(new Min(0)),   // any core ConstraintInterface
+    ];
+}
+```
+
+| Shortcut | Appends | Wire form it accepts |
+|---|---|---|
+| `numeric()` | `Pattern('^-?[0-9]+(?:\.[0-9]+)?$')` | an integer or decimal |
+| `integer()` | `Pattern('^-?[0-9]+$')` | an integer |
+| `uuid(?int $version = null)` | `UuidFormat($version)` | a UUID (optionally a specific version) |
+| `boolean()` | `Pattern('^(?:true\|false\|1\|0)$')` | `true`, `false`, `1` or `0` |
+| `pattern(string $regex)` | `Pattern($regex)` | a value matching the ECMA-262 regex |
+| `constrain(ConstraintInterface ...)` | the given constraints | as the constraint describes |
+
+`constrain()` and the shortcuts reuse the same
+[constraint vocabulary](constraints.md) as fields, so any
+`Resource\Constraint\ConstraintInterface` (`Min`, `Max`, `In`, …) works too.
+
+Constraints are **metadata only** — core never executes them. A framework adapter
+(the Symfony bundle) translates them to its native validator and checks the
+client-supplied value, throwing `Exception\FilterValueInvalid` on a violation:
+
+```json
+{
+  "errors": [
+    {
+      "status": "400",
+      "code": "FILTER_VALUE_INVALID",
+      "title": "Filter value is invalid",
+      "detail": "This value should be of type integer.",
+      "source": { "parameter": "filter[year]" }
+    }
+  ]
+}
+```
+
+It is a **`400`** — a bad query *parameter*, located by `source.parameter`, not a
+`422` (which is reserved for document semantic errors located by `source.pointer`).
+One error is rendered per violation. Only a **client-supplied** value is validated;
+a filter's author-set `default()` is trusted and never checked. A filter that
+declares no constraints behaves exactly as before. Validation is provider-agnostic
+— it runs on the value, before any handler — so both the in-memory and database
+adapters get the same clean `400` instead of a downstream crash. The check is
+opt-in on the adapter's validator integration: with no validator installed a filter
+that declares constraints behaves as if it had none (see the bundle's filter docs).
 
 ## Relationship-existence filters
 

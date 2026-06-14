@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Exception;
 
 use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
+use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
@@ -86,6 +87,40 @@ final class ExceptionErrorDetailTest extends TestCase
         self::assertNotNull($error->source);
         self::assertSame('filter', $error->source->parameter);
         self::assertSame(['x' => 1], $exception->malformedQueryParamValue);
+    }
+
+    #[Test]
+    public function filterValueInvalidPointsAtTheFilterParameter(): void
+    {
+        $error = (new FilterValueInvalid('age', ['This value should be numeric.']))->getErrors()[0];
+
+        self::assertSame('400', $error->status);
+        self::assertSame('FILTER_VALUE_INVALID', $error->code);
+        self::assertNotNull($error->source);
+        self::assertSame('filter[age]', $error->source->parameter);
+        self::assertSame('This value should be numeric.', $error->detail);
+    }
+
+    #[Test]
+    public function filterValueInvalidRendersOneErrorPerViolationMessage(): void
+    {
+        $exception = new FilterValueInvalid('age', ['too low', 'not an integer']);
+        $errors = $exception->getErrors();
+
+        self::assertCount(2, $errors);
+        self::assertSame('too low', $errors[0]->detail);
+        self::assertSame('not an integer', $errors[1]->detail);
+        self::assertSame('filter[age]', $errors[1]->source?->parameter);
+    }
+
+    #[Test]
+    public function filterValueInvalidStillRendersAnErrorWithNoMessages(): void
+    {
+        $errors = (new FilterValueInvalid('age', []))->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertSame('filter[age]', $errors[0]->source?->parameter);
+        self::assertNotSame('', $errors[0]->detail);
     }
 
     #[Test]
