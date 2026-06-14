@@ -409,6 +409,30 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function belongsToManyHasNoPivotThroughByDefault(): void
+    {
+        $relation = BelongsToMany::make('roles')->type('roles');
+
+        self::assertNull($relation->pivotThrough());
+    }
+
+    #[Test]
+    public function belongsToManyNamesPivotThroughAssociationEntity(): void
+    {
+        $relation = BelongsToMany::make('roles')->type('roles')->through('App\\Entity\\UserRole');
+
+        self::assertSame('App\\Entity\\UserRole', $relation->pivotThrough());
+    }
+
+    #[Test]
+    public function belongsToManyClearsPivotThrough(): void
+    {
+        $relation = BelongsToMany::make('roles')->through('App\\Entity\\UserRole')->through(null);
+
+        self::assertNull($relation->pivotThrough());
+    }
+
+    #[Test]
     public function readValueReadsToOneRelatedValueWithoutSerializing(): void
     {
         $relation = BelongsTo::make('author')->type('users');

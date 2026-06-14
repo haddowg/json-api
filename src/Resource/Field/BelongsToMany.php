@@ -17,6 +17,8 @@ final class BelongsToMany extends HasMany
      */
     private \Closure|array $pivotFields = [];
 
+    private ?string $pivotThrough = null;
+
     /**
      * Declares the pivot (join-table) fields. Declare-only in 1.0.
      *
@@ -40,5 +42,30 @@ final class BelongsToMany extends HasMany
         return $this->pivotFields instanceof \Closure
             ? ($this->pivotFields)()
             : $this->pivotFields;
+    }
+
+    /**
+     * Names the association entity backing the pivot. Declare-only in 1.0:
+     * an opaque class-string the host interprets (the Symfony bundle's Doctrine
+     * adapter reads it as the association entity backing the pivot relation,
+     * overriding its auto-detection). Core never interprets it. Pass `null` to
+     * clear an earlier override.
+     *
+     * @return static
+     */
+    public function through(?string $associationEntity): static
+    {
+        $this->pivotThrough = $associationEntity;
+
+        return $this;
+    }
+
+    /**
+     * The declared pivot association entity (the `through()` override), or
+     * `null` when none was declared.
+     */
+    public function pivotThrough(): ?string
+    {
+        return $this->pivotThrough;
     }
 }

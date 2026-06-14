@@ -130,11 +130,42 @@ returning one:
 
 ```php
 public function fields(\Closure|array $fields): static
+public function pivotFields(): array
 ```
 
 In core 1.0 these are **declare-only** — carried as metadata, never validated by
-core. The Symfony bundle's Doctrine adapter consumes them to write the join row.
+core. The Symfony bundle's Doctrine adapter consumes them: it renders each pivot
+field as per-member relationship meta and exposes a filter/sort key per field.
 Read them back with the `pivotFields()` accessor (which resolves the closure form).
+
+> **The Doctrine fact.** A plain `#[ORM\ManyToMany]` join table holds only the
+> two foreign keys — Doctrine cannot map a `position` / `addedAt` column on it. To
+> *have* pivot columns the join must be modelled as an **association entity**
+> (`PlaylistTrack { int position; \DateTime addedAt; ManyToOne playlist; ManyToOne
+> track }`), with the parent owning a `OneToMany` to it and the association entity
+> a `ManyToOne` to the far type. The bundle's Doctrine adapter auto-detects this
+> association entity from the parent's metadata.
+
+When auto-detection is ambiguous (the parent has more than one to-many association
+that could back the pivot) or finds nothing, name the association entity explicitly
+with `through()` — an **opaque, declare-only** class-string that core carries but
+never interprets (it stays storage-agnostic), and the host adapter reads as the
+association entity backing the pivot:
+
+```php
+public function through(?string $associationEntity): static
+public function pivotThrough(): ?string
+```
+
+```php
+BelongsToMany::make('tracks')
+    ->type('tracks')
+    ->fields(['position' => 'integer', 'addedAt' => 'datetime'])
+    ->through(PlaylistTrack::class),
+```
+
+`pivotThrough()` reads it back (`null` when no override was declared). Passing
+`null` clears an earlier override.
 
 `BelongsToMany` extends `HasMany`, so it inherits `minItems()` / `maxItems()` and
 the deduplicated-set apply. The `cannotReplace()` above is a mutation gate covered
