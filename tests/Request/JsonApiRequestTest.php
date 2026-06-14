@@ -1615,6 +1615,61 @@ final class JsonApiRequestTest extends TestCase
         self::assertEquals(['https://example.com/profiles/created'], $request->getRequiredProfiles());
     }
 
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function parsesWithCountIntoAFlatRelationshipNameList(): void
+    {
+        $request = $this->createRequestWithQueryParams(['withCount' => 'comments,tags']);
+
+        self::assertSame(['comments', 'tags'], $request->getCountedRelationships());
+        self::assertTrue($request->countsRelationship('comments'));
+        self::assertTrue($request->countsRelationship('tags'));
+        self::assertFalse($request->countsRelationship('author'));
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function withCountTrimsAndDeduplicatesNames(): void
+    {
+        $request = $this->createRequestWithQueryParams(['withCount' => ' comments , comments , ']);
+
+        self::assertSame(['comments'], $request->getCountedRelationships());
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function absentOrBlankWithCountCountsNothing(): void
+    {
+        self::assertSame([], $this->createRequest()->getCountedRelationships());
+        self::assertSame([], $this->createRequestWithQueryParams(['withCount' => ''])->getCountedRelationships());
+        self::assertFalse($this->createRequest()->countsRelationship('comments'));
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function nonStringWithCountIsMalformed(): void
+    {
+        $request = $this->createRequestWithQueryParams(['withCount' => ['comments']]);
+
+        $this->expectException(QueryParamMalformed::class);
+
+        $request->getCountedRelationships();
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function withCountIsNotRejectedByQueryParamValidation(): void
+    {
+        // ?withCount carries an uppercase letter, so it is a valid implementation-
+        // specific query param (it satisfies the "at least one non a-z char" rule)
+        // and is not rejected by validateQueryParams().
+        $request = $this->createRequestWithQueryParams(['withCount' => 'comments']);
+
+        $request->validateQueryParams();
+
+        self::addToAssertionCount(1);
+    }
+
     private function createRequest(): JsonApiRequest
     {
         return new JsonApiRequest(new ServerRequest('GET', '/'));

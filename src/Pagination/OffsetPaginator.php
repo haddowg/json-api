@@ -90,4 +90,16 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
 
         return new OffsetBasedPage($items, $totalItems, $window->offset, $window->limit);
     }
+
+    /**
+     * @param iterable<mixed> $items
+     *
+     * @return OffsetBasedPage<mixed>
+     */
+    public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): OffsetBasedPage
+    {
+        $window = $this->window($request);
+
+        return new OffsetBasedPage($items, null, $window->offset, $window->limit, $hasMore);
+    }
 }

@@ -32,4 +32,13 @@ interface SerializerResolverInterface
      * and linkage data is emitted as today).
      */
     public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface;
+
+    /**
+     * The storage-aware resolver a countable relation consults — when it is
+     * {@see \haddowg\JsonApi\Resource\Field\RelationInterface::isCountable()} and
+     * named in the request's `?withCount` — for the `meta.total` core renders on
+     * the relationship object, or `null` when no adapter injected one (standalone
+     * core: no count is available, so no `meta.total` is emitted).
+     */
+    public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface;
 }

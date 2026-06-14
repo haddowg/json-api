@@ -55,6 +55,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $isIncludable = true;
 
+    protected bool $isCountable = false;
+
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
@@ -244,6 +246,26 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
+     * Declares this (to-many) relation **countable**: its cardinality is exposed
+     * as `meta.total` on the relationship object when the request names it in
+     * `?withCount`, and its related-collection endpoint (`GET /{type}/{id}/{rel}`)
+     * emits the pagination `total` + `last` link. A non-countable relation's
+     * endpoint paginates count-free (no `total`, no `last` — "there is a next
+     * page" is signalled by `next` alone). The count is the single universal gate:
+     * a `?withCount` naming a relation that is not countable (or a to-one) is
+     * rejected. Off by default. {@see countable()} is the single universal count
+     * gate.
+     *
+     * @return static
+     */
+    public function countable(): static
+    {
+        $this->isCountable = true;
+
+        return $this;
+    }
+
+    /**
      * Sets the default paginator for this relation's related-collection endpoint
      * (`GET /{type}/{id}/{rel}`). A to-many relation paginates its related
      * collection with this strategy when the request carries `page[…]`; a to-one
@@ -342,6 +364,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function isIncludable(): bool
     {
         return $this->isIncludable;
+    }
+
+    public function isCountable(): bool
+    {
+        return $this->isCountable;
     }
 
     public function relatedTypes(): array
@@ -594,7 +621,63 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             );
         }
 
+        $meta = $this->relationshipMeta($model, $request, $resolver);
+        if ($meta !== []) {
+            $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
+        }
+
         return $relationship;
+    }
+
+    /**
+     * The relationship-object `meta` this relation contributes for `$model` — the
+     * general per-relationship meta-contribution hook merged onto the built
+     * relationship by {@see buildToMany()}. Its first consumer is the countable
+     * relation `meta.total`: when the relation is {@see countable()}, the request
+     * names it in `?withCount` ({@see JsonApiRequestInterface::countsRelationship()}),
+     * and an injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface} supplies a
+     * non-null cardinality, this returns `['total' => N]` (the same `total` key the
+     * count-based pages emit, so the relationship-object total and the endpoint
+     * pagination total are one consistent semantic). With no resolver injected, a
+     * non-countable relation, or a relation the request did not name, this returns
+     * `[]` and no meta is emitted. Override (calling `parent`) to contribute further
+     * relationship meta.
+     *
+     * @return array<string, mixed>
+     */
+    protected function relationshipMeta(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): array {
+        $meta = [];
+
+        $total = $this->resolveCount($model, $request, $resolver);
+        if ($total !== null) {
+            $meta['total'] = $total;
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Resolves the countable cardinality for this relation on `$model`, or `null`
+     * when no count should be emitted: the relation is not {@see countable()}, the
+     * request did not name it in `?withCount`, no
+     * {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface} was injected, or
+     * the resolver itself returned `null` (no count available for this parent).
+     */
+    private function resolveCount(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): ?int {
+        if ($this->isCountable === false || $request->countsRelationship($this->name) === false) {
+            return null;
+        }
+
+        return $resolver->relationshipCount()?->countRelationship($model, $this);
     }
 
     /**

@@ -6,6 +6,8 @@ namespace haddowg\JsonApi\Schema\Document;
 
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\Exception\InclusionNotAllowed;
+use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
+use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
@@ -41,6 +43,8 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
         ResourceDocumentTransformation $transformation,
         SerializerInterface $primary,
     ): ?int {
+        $this->validateCountedRelationships($transformation, $primary);
+
         $requestedPaths = $transformation->request->getIncludePaths();
 
         if ($primary instanceof IncludeControlsInterface) {
@@ -86,5 +90,35 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
         }
 
         return $effective;
+    }
+
+    /**
+     * Validates the request's flat `?withCount` against the primary resource's
+     * countable relationships, up front (root-scoped, like the include allow-list).
+     * A named relationship the primary serializer does not declare countable —
+     * because it is not {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()},
+     * or it is to-one — is rejected with {@see RelationshipCountNotAllowed} (400).
+     *
+     * A serializer that is not {@see CountableControlsInterface} declares no
+     * countable relationships, so any `?withCount` against it is rejected — counting
+     * is opt-in. An empty `?withCount` (or none) is a no-op.
+     */
+    private function validateCountedRelationships(
+        ResourceDocumentTransformation $transformation,
+        SerializerInterface $primary,
+    ): void {
+        $requested = $transformation->request->getCountedRelationships();
+        if ($requested === []) {
+            return;
+        }
+
+        $countable = $primary instanceof CountableControlsInterface
+            ? $primary->getCountableRelationships($transformation->object)
+            : [];
+
+        $offending = \array_values(\array_diff($requested, $countable));
+        if ($offending !== []) {
+            throw new RelationshipCountNotAllowed($offending);
+        }
     }
 }

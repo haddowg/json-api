@@ -98,6 +98,27 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function isIncludedRelationship(string $baseRelationshipPath, string $relationshipName, array $defaultRelationships): bool;
 
     /**
+     * The relationship names requested for counting via the `?withCount` query
+     * parameter — a flat, comma-separated list (e.g. `?withCount=comments,tags`),
+     * like `?include` but never dotted. Each names a relationship whose
+     * cardinality the client wants exposed as `meta.total` on the relationship
+     * object. The list is the raw requested set; whether a given name is actually
+     * countable (and to-many) is validated against the resource, and a count is
+     * only emitted when a {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface}
+     * supplies one.
+     *
+     * @return list<string>
+     */
+    public function getCountedRelationships(): array;
+
+    /**
+     * Whether the request named `$relationship` in `?withCount` — the flat,
+     * position-independent membership test the serializer consults when deciding
+     * to render a relationship's `meta.total`.
+     */
+    public function countsRelationship(string $relationship): bool;
+
+    /**
      * Returns the "sort[]" query parameters.
      *
      * @return list<string>

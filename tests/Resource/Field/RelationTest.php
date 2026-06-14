@@ -24,6 +24,7 @@ use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
 use haddowg\JsonApi\Tests\Double\DummyData;
+use haddowg\JsonApi\Tests\Double\FakeRelationshipCount;
 use haddowg\JsonApi\Tests\Double\FakeRelationshipLoadState;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
@@ -807,6 +808,139 @@ final class RelationTest extends TestCase
 
         self::assertArrayHasKey('data', $relationshipObject);
         self::assertNull($relationshipObject['data']);
+    }
+
+    #[Test]
+    public function countableOffByDefaultAndOptsIn(): void
+    {
+        self::assertFalse(HasMany::make('comments')->type('comments')->isCountable());
+        self::assertTrue(HasMany::make('comments')->type('comments')->countable()->isCountable());
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableEmitsMetaTotalWhenRequestedAndResolverSupplies(): void
+    {
+        // countable() + ?withCount names it + resolver supplies a count => meta.total.
+        $relation = HasMany::make('comments')->type('comments')->countable();
+        $count = new FakeRelationshipCount(7);
+
+        $relationshipObject = $this->buildToManyAndTransform(
+            $relation,
+            new StubJsonApiRequest(['withCount' => 'comments']),
+            $count,
+        );
+
+        self::assertSame(['total' => 7], $relationshipObject['meta'] ?? null);
+        self::assertNotSame([], $count->askedAbout, 'count seam must be consulted');
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableOmitsMetaTotalWhenNotNamedInWithCount(): void
+    {
+        // countable() but ?withCount does not name it => no count, seam not consulted.
+        $relation = HasMany::make('comments')->type('comments')->countable();
+        $count = new FakeRelationshipCount(7);
+
+        $relationshipObject = $this->buildToManyAndTransform(
+            $relation,
+            new StubJsonApiRequest(),
+            $count,
+        );
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+        self::assertSame([], $count->askedAbout, 'count seam must not be consulted when not requested');
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function nonCountableRelationNamedInWithCountEmitsNoMetaTotal(): void
+    {
+        // Not countable(), yet named in ?withCount => the relation-level gate stays
+        // shut (the document-level 400 is the request-validation layer, tested there).
+        $relation = HasMany::make('comments')->type('comments');
+        $count = new FakeRelationshipCount(7);
+
+        $relationshipObject = $this->buildToManyAndTransform(
+            $relation,
+            new StubJsonApiRequest(['withCount' => 'comments']),
+            $count,
+        );
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+        self::assertSame([], $count->askedAbout);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableOmitsMetaTotalWithNoResolverInjected(): void
+    {
+        // countable() + named, but no count resolver injected (standalone) => no meta.
+        $relation = HasMany::make('comments')->type('comments')->countable();
+
+        $relationshipObject = $this->buildToManyAndTransform(
+            $relation,
+            new StubJsonApiRequest(['withCount' => 'comments']),
+            null,
+        );
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableOmitsMetaTotalWhenResolverReturnsNull(): void
+    {
+        // countable() + named + resolver injected but returns null (no count for this
+        // parent) => no meta.total emitted (never a guessed/zero value).
+        $relation = HasMany::make('comments')->type('comments')->countable();
+        $count = new FakeRelationshipCount(null);
+
+        $relationshipObject = $this->buildToManyAndTransform(
+            $relation,
+            new StubJsonApiRequest(['withCount' => 'comments']),
+            $count,
+        );
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+        self::assertNotSame([], $count->askedAbout, 'count seam is consulted even when it returns null');
+    }
+
+    /**
+     * Builds a to-many relation through build + transform with a count resolver
+     * wired onto the resolver, returning the transformed relationship object.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildToManyAndTransform(
+        HasMany $relation,
+        StubJsonApiRequest $request,
+        ?FakeRelationshipCount $count,
+    ): array {
+        $model = ['comments' => [['id' => '1', 'type' => 'comments'], ['id' => '2', 'type' => 'comments']]];
+
+        $resolver = (new StubSerializerResolver())->withRelationshipCount($count);
+
+        $built = $relation->buildRelationship($model, $request, $resolver);
+
+        $relationshipObject = $built->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $request,
+                '',
+                '',
+                'comments',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        return (array) $relationshipObject;
     }
 
     /**

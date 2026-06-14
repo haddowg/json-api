@@ -41,4 +41,21 @@ interface PaginatorInterface
      * @return \haddowg\JsonApi\Pagination\PageInterface<mixed>
      */
     public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): \haddowg\JsonApi\Pagination\PageInterface;
+
+    /**
+     * Builds the page **without a total count** — the "do not count" mode — for the
+     * pre-windowed `$items`. The total of the whole collection is left unknown, so
+     * the page omits `meta.page.total` and the `last` link; whether a further page
+     * follows is signalled by `$hasMore` (a data layer typically fetches one item
+     * past the window to determine this), which drives the `next` link. This lets a
+     * data layer paginate a non-countable related collection without ever running a
+     * `COUNT` query. The cursor strategy is inherently count-free and so is not a
+     * {@see PaginatorInterface}; this brings the same shape to the count-based
+     * strategies on demand.
+     *
+     * @param iterable<mixed> $items
+     *
+     * @return \haddowg\JsonApi\Pagination\PageInterface<mixed>
+     */
+    public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): \haddowg\JsonApi\Pagination\PageInterface;
 }

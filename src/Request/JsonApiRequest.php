@@ -48,6 +48,14 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
     protected ?array $includedRelationships = null;
 
     /**
+     * Parsed "withCount" query param: the flat set of requested relationship
+     * names, as a name → name map for O(1) membership testing.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $countedRelationships = null;
+
+    /**
      * Parsed "sort" query param.
      *
      * @var list<string>|null
@@ -503,6 +511,58 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
     }
 
     /**
+     * Parses the flat, comma-separated `?withCount` query parameter into a
+     * name → name map (deduplicated, empty names dropped). A blank or absent
+     * parameter yields an empty map.
+     *
+     * @return array<string, string>
+     */
+    protected function parseCountedRelationships(): array
+    {
+        $withCount = $this->getQueryParam('withCount', '');
+
+        if (\is_string($withCount) === false) {
+            throw new QueryParamMalformed('withCount', $withCount);
+        }
+
+        $withCount = \trim($withCount);
+        if ($withCount === '') {
+            return [];
+        }
+
+        $names = [];
+        foreach (\explode(',', $withCount) as $name) {
+            $name = \trim($name);
+            if ($name !== '') {
+                $names[$name] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getCountedRelationships(): array
+    {
+        if ($this->countedRelationships === null) {
+            $this->countedRelationships = $this->parseCountedRelationships();
+        }
+
+        return \array_values($this->countedRelationships);
+    }
+
+    public function countsRelationship(string $relationship): bool
+    {
+        if ($this->countedRelationships === null) {
+            $this->countedRelationships = $this->parseCountedRelationships();
+        }
+
+        return isset($this->countedRelationships[$relationship]);
+    }
+
+    /**
      * Returns the "sort[]" query parameters.
      *
      * @return list<string>
@@ -855,6 +915,10 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
         if ($name === 'include') {
             $this->includedRelationships = null;
+        }
+
+        if ($name === 'withCount') {
+            $this->countedRelationships = null;
         }
 
         if ($name === 'sort') {

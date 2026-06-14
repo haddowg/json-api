@@ -91,6 +91,18 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
     }
 
     /**
+     * @param iterable<mixed> $items
+     *
+     * @return PageBasedPage<mixed>
+     */
+    public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): PageBasedPage
+    {
+        [$page, $size] = $this->resolve($request);
+
+        return new PageBasedPage($items, null, $page, $size, $hasMore);
+    }
+
+    /**
      * The normalised `[page, size]` for the request — page clamped to `>= 1`,
      * size to `>= 0` and then to at most {@see $maxPerPage} (when the cap is
      * enabled). One derivation shared by {@see window()} and {@see paginate()}, so

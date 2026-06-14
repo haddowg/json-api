@@ -82,6 +82,49 @@ final class PaginatorTest extends TestCase
     }
 
     #[Test]
+    public function pagePaginatorPaginateWithoutCountBuildsACountFreePage(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '2', 'size' => '20']]);
+
+        $page = PagePaginator::make()->paginateWithoutCount($request, ['a'], hasMore: true);
+
+        self::assertInstanceOf(PageBasedPage::class, $page);
+        self::assertNull($page->totalItems);
+        self::assertTrue($page->hasMore);
+        self::assertSame(2, $page->page);
+        self::assertSame(20, $page->size);
+        self::assertArrayNotHasKey('total', $page->pageMeta());
+    }
+
+    #[Test]
+    public function offsetPaginatorPaginateWithoutCountBuildsACountFreePage(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['offset' => '40', 'limit' => '20']]);
+
+        $page = OffsetPaginator::make()->paginateWithoutCount($request, [], hasMore: false);
+
+        self::assertInstanceOf(OffsetBasedPage::class, $page);
+        self::assertNull($page->totalItems);
+        self::assertFalse($page->hasMore);
+        self::assertSame(40, $page->offset);
+        self::assertArrayNotHasKey('total', $page->pageMeta());
+    }
+
+    #[Test]
+    public function fixedPagePaginatorPaginateWithoutCountBuildsACountFreePage(): void
+    {
+        $request = StubJsonApiRequest::create(['page' => ['number' => '3']]);
+
+        $page = FixedPagePaginator::make(25)->paginateWithoutCount($request, [], hasMore: true);
+
+        self::assertInstanceOf(FixedPagePage::class, $page);
+        self::assertNull($page->totalItems);
+        self::assertTrue($page->hasMore);
+        self::assertSame(3, $page->page);
+        self::assertArrayNotHasKey('total', $page->pageMeta());
+    }
+
+    #[Test]
     public function offsetPaginatorExposesItsWindowBeforeFetching(): void
     {
         $request = StubJsonApiRequest::create(['page' => ['offset' => '40', 'limit' => '20']]);

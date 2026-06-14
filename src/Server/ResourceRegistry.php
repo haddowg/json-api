@@ -74,6 +74,14 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
 
     /**
+     * The storage-aware resolver that supplies a countable relation's cardinality
+     * (`meta.total`), or null when none is injected (standalone core emits no
+     * count). Threaded down from the {@see Server}, the same way the lazy
+     * {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -97,6 +105,21 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
     {
         return $this->relationshipLoadState;
+    }
+
+    /**
+     * Sets (or clears) the relationship-count resolver consulted for a relation
+     * that is {@see \haddowg\JsonApi\Resource\Field\RelationInterface::isCountable()}
+     * and named in the request's `?withCount`.
+     */
+    public function setRelationshipCount(?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount): void
+    {
+        $this->relationshipCount = $relationshipCount;
+    }
+
+    public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
+    {
+        return $this->relationshipCount;
     }
 
     /**

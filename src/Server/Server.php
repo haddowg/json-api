@@ -94,6 +94,14 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
 
     /**
+     * The storage-aware resolver that supplies a countable relation's cardinality
+     * (the `meta.total` rendered on a `?withCount`-named relationship), or null for
+     * the standalone default (no count available, so no `meta.total`). Pushed into
+     * the {@see ResourceRegistry} the same way the load-state predicate is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
+
+    /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
      * null to fall back to plain `new`. Server is the single source of truth and
      * pushes it into the cloned registry on every clone.
@@ -217,6 +225,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->register($resource, $serializer, $hydrator);
 
         return $self;
@@ -237,6 +246,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
 
         return $self;
@@ -261,6 +271,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
 
         return $self;
     }
@@ -279,6 +290,28 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources = clone $this->resources;
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
+
+        return $self;
+    }
+
+    /**
+     * Injects the storage-aware resolver a countable relation consults — when it
+     * is {@see \haddowg\JsonApi\Resource\Field\RelationInterface::isCountable()}
+     * and named in the request's `?withCount` — for the `meta.total` rendered on
+     * its relationship object. Passing `null` (the default) restores the standalone
+     * behaviour: no count is available, so no `meta.total` is emitted even for a
+     * countable, `?withCount`-named relation. The data-layer adapter batches the
+     * counts across the fetched page (avoiding an N+1) and supplies them here.
+     */
+    public function withRelationshipCount(?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount): self
+    {
+        $self = clone $this;
+        $self->relationshipCount = $relationshipCount;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
 
         return $self;
     }
@@ -422,6 +455,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
     {
         return $this->relationshipLoadState;
+    }
+
+    public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
+    {
+        return $this->relationshipCount;
     }
 
     public function hydratorFor(string $type): HydratorInterface

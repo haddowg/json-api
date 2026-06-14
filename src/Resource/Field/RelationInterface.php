@@ -158,6 +158,19 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function isIncludable(): bool;
 
     /**
+     * Whether this (to-many) relation is **countable**: its cardinality may be
+     * exposed as `meta.total` on the relationship object (when the request names
+     * it in `?withCount`), and its related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`) emits the pagination `total` + `last` link. A
+     * non-countable relation's endpoint paginates count-free (no `total`, no
+     * `last`). Off by default; opt in via {@see AbstractRelation::countable()}.
+     * This is the single universal gate for any relationship count: a `?withCount`
+     * naming a relation that is not countable — or a to-one relation — is rejected
+     * (400).
+     */
+    public function isCountable(): bool;
+
+    /**
      * This relation's declared default paginator for its related-collection
      * endpoint (`GET /{type}/{id}/{rel}`), or `null` for none. Set via
      * {@see AbstractRelation::paginate()}. It is the to-many related-endpoint

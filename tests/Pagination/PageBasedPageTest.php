@@ -85,6 +85,40 @@ final class PageBasedPageTest extends TestCase
     }
 
     #[Test]
+    public function countFreeMiddlePageOmitsLastAndEmitsNextFromHasMore(): void
+    {
+        $page = new PageBasedPage(['a', 'b'], totalItems: null, page: 2, size: 10, hasMore: true);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertSame(self::URI . '?page%5Bnumber%5D=2&page%5Bsize%5D=10', $this->href($links['self']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=1&page%5Bsize%5D=10', $this->href($links['first']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=1&page%5Bsize%5D=10', $this->href($links['prev']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=3&page%5Bsize%5D=10', $this->href($links['next']));
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreeLastPageOmitsNextWhenNoMore(): void
+    {
+        $page = new PageBasedPage(['a'], totalItems: null, page: 2, size: 10, hasMore: false);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertNotNull($links['prev']);
+        self::assertNull($links['next']);
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreePageMetaOmitsTotalAndLastPage(): void
+    {
+        $page = new PageBasedPage([], totalItems: null, page: 2, size: 10, hasMore: true);
+
+        self::assertSame(['currentPage' => 2, 'perPage' => 10, 'from' => 11], $page->pageMeta());
+    }
+
+    #[Test]
     public function hasNoProfile(): void
     {
         $page = new PageBasedPage([], totalItems: 0, page: 1, size: 10);

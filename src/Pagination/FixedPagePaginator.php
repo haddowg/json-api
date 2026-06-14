@@ -59,6 +59,16 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
     }
 
     /**
+     * @param iterable<mixed> $items
+     *
+     * @return FixedPagePage<mixed>
+     */
+    public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): FixedPagePage
+    {
+        return new FixedPagePage($items, null, $this->resolvePage($request), $this->size, $hasMore);
+    }
+
+    /**
      * The normalised page number (clamped to `>= 1`), shared by {@see window()}
      * and {@see paginate()} so the fetched items and the page meta/links always
      * agree, even for garbage input.

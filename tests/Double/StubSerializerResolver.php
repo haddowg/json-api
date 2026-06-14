@@ -21,6 +21,8 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
 
     private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
 
+    private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
+
     public function __construct(string ...$types)
     {
         if ($types === []) {
@@ -52,5 +54,17 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
     public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
     {
         return $this->relationshipLoadState;
+    }
+
+    public function withRelationshipCount(?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount): self
+    {
+        $this->relationshipCount = $relationshipCount;
+
+        return $this;
+    }
+
+    public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
+    {
+        return $this->relationshipCount;
     }
 }
