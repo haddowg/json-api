@@ -168,6 +168,36 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface;
 
     /**
+     * Extra filters this relation exposes **only** on its related-collection
+     * endpoint (`GET /{type}/{id}/{rel}`) — scoped to that one relationship, not
+     * the primary collection of the related type. Mirrors how a resource declares
+     * {@see \haddowg\JsonApi\Resource\AbstractResource::filters()}; the host merges
+     * this set with the related resource's own filters when parsing the request's
+     * `?filter`, and on a key clash the relation's declaration wins (the more
+     * specific scope). Declared via {@see AbstractRelation::withFilters()}.
+     * Default: none. Metadata only — execution lives in the adapter's filter
+     * handler, exactly as for a resource filter.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    public function filters(): array;
+
+    /**
+     * Extra sorts this relation exposes **only** on its related-collection
+     * endpoint (`GET /{type}/{id}/{rel}`) — scoped to that one relationship, not
+     * the primary collection of the related type. Mirrors how a resource declares
+     * {@see \haddowg\JsonApi\Resource\AbstractResource::sorts()}; the host merges
+     * this set with the related resource's own sorts when parsing the request's
+     * `?sort`, and on a key clash the relation's declaration wins (the more
+     * specific scope). Declared via {@see AbstractRelation::withSorts()}. Default:
+     * none. Metadata only — execution lives in the adapter's sort handler, exactly
+     * as for a resource sort.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
+     */
+    public function sorts(): array;
+
+    /**
      * Applies parsed to-many linkage to `$model` under `$mode`: {@see Mode::Replace}
      * sets the whole set, {@see Mode::Add} appends the linkage ids to the existing
      * set, {@see Mode::Remove} subtracts them. The storage-agnostic baseline writes

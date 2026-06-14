@@ -314,6 +314,48 @@ server default**: a relation-level paginator wins, otherwise the related
 resource's default, otherwise the server's. A to-one relation has no collection
 and ignores it. See [pagination](pagination.md) for the paginators.
 
+## Relation-scoped filters and sorts
+
+A to-many relation can declare extra `filter`/`sort` keys that apply **only** to
+its related-collection endpoint (`GET /{type}/{id}/{rel}`) — not the primary
+collection of the related type. Declare them with `withFilters()` / `withSorts()`,
+passing the same [`FilterInterface`](filters.md) / [`SortInterface`](sorts.md)
+value objects a resource exposes:
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Sort\SortByField;
+
+// src/Resource/PlaylistResource.php
+HasMany::make('tracks')
+    ->type('tracks')
+    ->withFilters(Where::make('genre'))
+    ->withSorts(SortByField::make('title')),
+```
+
+The point is **scoping**. A filter or sort declared on the related *resource* is
+exposed everywhere that type is listed — `/tracks` **and** `/playlists/1/tracks`.
+Declaring it on the *relation* scopes it to that one related-collection endpoint:
+the natural home for a contextual filter/sort (ordering a playlist's tracks by
+their in-playlist position; a filter only meaningful when listing a user's
+posts). The same key is **not** recognized on the primary `/{relatedType}`
+collection — a request using it there `400`s (or simply isn't advertised), exactly
+as for any unknown key.
+
+The host merges a relation's `withFilters()`/`withSorts()` with the related
+resource's own vocabulary, so both apply together on the related endpoint. On a
+**key clash** (the same `filter`/`sort` key declared on both the related resource
+and the relation) the **relation's** declaration wins — the more specific scope.
+A key in *neither* set still `400`s as an unrecognized parameter.
+
+> **Scope: the related entity, not the pivot.** A relation-scoped filter/sort
+> targets a column on the **related entity** (the common case) — that works out of
+> the box. A **pivot/join-table** filter/sort (e.g. a many-to-many `position`
+> column on the join row, not on the related entity) is supported **only** via a
+> custom `FilterHandler` / `SortHandler` you supply — the seam allows it, but the
+> framework does not auto-wire join-table columns. Declare the metadata here and
+> point it at your handler.
+
 ## Custom relation hooks
 
 When the default reader does not fit — the related value is derived, not a plain

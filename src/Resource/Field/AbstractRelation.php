@@ -58,6 +58,20 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
+     * Extra filters scoped to this relation's related-collection endpoint.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    protected array $relationFilters = [];
+
+    /**
+     * Extra sorts scoped to this relation's related-collection endpoint.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Sort\SortInterface>
+     */
+    protected array $relationSorts = [];
+
+    /**
      * Declares the related resource type(s). A single type for a monomorphic
      * relation; pass several (or call repeatedly) for a polymorphic one.
      *
@@ -254,6 +268,50 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->relationPaginator;
+    }
+
+    /**
+     * Declares extra filters scoped to this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`) — not the primary collection of the related type.
+     * Appends to any already declared, matching the relation builder's other
+     * fluent setters. Read them back with {@see filters()}. The host merges them
+     * with the related resource's own filters; on a key clash the relation's
+     * declaration wins (the more specific scope).
+     *
+     * @return static
+     */
+    public function withFilters(\haddowg\JsonApi\Resource\Filter\FilterInterface ...$filters): static
+    {
+        $this->relationFilters = [...$this->relationFilters, ...\array_values($filters)];
+
+        return $this;
+    }
+
+    /**
+     * Declares extra sorts scoped to this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`) — not the primary collection of the related type.
+     * Appends to any already declared, matching the relation builder's other
+     * fluent setters. Read them back with {@see sorts()}. The host merges them with
+     * the related resource's own sorts; on a key clash the relation's declaration
+     * wins (the more specific scope).
+     *
+     * @return static
+     */
+    public function withSorts(\haddowg\JsonApi\Resource\Sort\SortInterface ...$sorts): static
+    {
+        $this->relationSorts = [...$this->relationSorts, ...\array_values($sorts)];
+
+        return $this;
+    }
+
+    public function filters(): array
+    {
+        return $this->relationFilters;
+    }
+
+    public function sorts(): array
+    {
+        return $this->relationSorts;
     }
 
     public function allowsReplace(): bool

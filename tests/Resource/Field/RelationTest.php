@@ -14,6 +14,8 @@ use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
@@ -570,6 +572,64 @@ final class RelationTest extends TestCase
         // paginate() mutates and returns the same builder (not a clone).
         self::assertSame($relation, $returned);
         self::assertSame($paginator, $relation->pagination());
+    }
+
+    #[Test]
+    #[Group('spec:fetching-filtering')]
+    public function filtersDefaultToEmptyAndWithFiltersDeclaresThem(): void
+    {
+        $relation = HasMany::make('tracks')->type('tracks');
+        self::assertSame([], $relation->filters());
+
+        $byPosition = Where::make('position', 'pivot_position');
+        $byName = Where::make('name');
+        $returned = $relation->withFilters($byPosition, $byName);
+
+        // withFilters() mutates and returns the same builder (not a clone).
+        self::assertSame($relation, $returned);
+        self::assertSame([$byPosition, $byName], $relation->filters());
+    }
+
+    #[Test]
+    public function withFiltersAppendsAcrossCalls(): void
+    {
+        $first = Where::make('a');
+        $second = Where::make('b');
+
+        $relation = HasMany::make('tracks')->type('tracks')
+            ->withFilters($first)
+            ->withFilters($second);
+
+        self::assertSame([$first, $second], $relation->filters());
+    }
+
+    #[Test]
+    #[Group('spec:fetching-sorting')]
+    public function sortsDefaultToEmptyAndWithSortsDeclaresThem(): void
+    {
+        $relation = HasMany::make('tracks')->type('tracks');
+        self::assertSame([], $relation->sorts());
+
+        $byPosition = SortByField::make('position', 'pivot_position');
+        $byName = SortByField::make('name');
+        $returned = $relation->withSorts($byPosition, $byName);
+
+        // withSorts() mutates and returns the same builder (not a clone).
+        self::assertSame($relation, $returned);
+        self::assertSame([$byPosition, $byName], $relation->sorts());
+    }
+
+    #[Test]
+    public function withSortsAppendsAcrossCalls(): void
+    {
+        $first = SortByField::make('a');
+        $second = SortByField::make('b');
+
+        $relation = HasMany::make('tracks')->type('tracks')
+            ->withSorts($first)
+            ->withSorts($second);
+
+        self::assertSame([$first, $second], $relation->sorts());
     }
 
     #[Test]
