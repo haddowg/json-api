@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Server;
 
+use haddowg\JsonApi\Exception\AbstractJsonApiException;
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
@@ -15,6 +16,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Tests\Double\RecordingOperationHandler;
+use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -283,6 +285,108 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    public function withServingIsImmutableAndAppends(): void
+    {
+        $base = Server::make();
+        self::assertSame([], $base->serving());
+
+        $first = static function (JsonApiRequestInterface $request): void {};
+        $second = static function (JsonApiRequestInterface $request): void {};
+
+        $withOne = $base->withServing($first);
+        $withTwo = $withOne->withServing($second);
+
+        // Each wither is immutable and does not leak into the source instance.
+        self::assertNotSame($base, $withOne);
+        self::assertNotSame($withOne, $withTwo);
+        self::assertSame([], $base->serving());
+        self::assertSame([$first], $withOne->serving());
+        self::assertSame([$first, $second], $withTwo->serving());
+    }
+
+    #[Test]
+    public function servingHandlerFiresOnceBeforeTheOperationHandler(): void
+    {
+        $order = [];
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta(['ok' => true]));
+        $request = StubJsonApiRequest::create();
+
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $received) use (&$order, $request): void {
+                self::assertSame($request, $received);
+                $order[] = 'serving';
+            });
+
+        // The operation handler records itself only when it runs.
+        $operation = $this->stubOperation($request);
+        $result = $server->dispatch($operation);
+
+        self::assertSame(['serving'], $order);
+        self::assertSame($operation, $handler->received);
+        self::assertInstanceOf(MetaResponse::class, $result);
+    }
+
+    #[Test]
+    public function multipleServingHandlersFireInRegistrationOrder(): void
+    {
+        $order = [];
+        $server = Server::make()
+            ->withHandler(new RecordingOperationHandler(MetaResponse::fromMeta([])))
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$order): void {
+                $order[] = 'a';
+            })
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$order): void {
+                $order[] = 'b';
+            });
+
+        $server->dispatch($this->stubOperation(StubJsonApiRequest::create()));
+
+        self::assertSame(['a', 'b'], $order);
+    }
+
+    #[Test]
+    public function aThrowingServingHandlerAbortsBeforeTheOperationHandler(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $request): void {
+                throw new ServingDenied();
+            });
+
+        try {
+            $server->dispatch($this->stubOperation(StubJsonApiRequest::create()));
+            self::fail('Expected the serving handler to abort dispatch.');
+        } catch (ServingDenied $e) {
+            // The JSON:API exception propagates out of dispatch() unchanged.
+            self::assertSame(403, $e->getStatusCode());
+        }
+
+        // The operation handler never ran.
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    public function servingDoesNotFireForAProgrammaticDispatchWithNoHttpRequest(): void
+    {
+        $fired = false;
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$fired): void {
+                $fired = true;
+            });
+
+        // No HTTP message backs the operation, so there is no request to gate.
+        $operation = $this->stubOperation();
+        $server->dispatch($operation);
+
+        self::assertFalse($fired);
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
     public function handleRunsTheMiddlewareChainInOrder(): void
     {
         $psr17 = new Psr17Factory();
@@ -345,9 +449,11 @@ final class ServerTest extends TestCase
         };
     }
 
-    private function stubOperation(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
+    private function stubOperation(?ServerRequestInterface $httpRequest = null): \haddowg\JsonApi\Operation\JsonApiOperationInterface
     {
-        return new class implements \haddowg\JsonApi\Operation\JsonApiOperationInterface {
+        return new class ($httpRequest) implements \haddowg\JsonApi\Operation\JsonApiOperationInterface {
+            public function __construct(private readonly ?ServerRequestInterface $httpRequest) {}
+
             public function target(): \haddowg\JsonApi\Operation\Target
             {
                 return new \haddowg\JsonApi\Operation\Target('posts');
@@ -362,6 +468,7 @@ final class ServerTest extends TestCase
             {
                 return new \haddowg\JsonApi\Operation\OperationContext(
                     new \haddowg\JsonApi\Tests\Double\StubServer(),
+                    $this->httpRequest,
                 );
             }
         };
@@ -526,5 +633,23 @@ final class ArrayContainer implements \Psr\Container\ContainerInterface
     public function has(string $id): bool
     {
         return isset($this->instances[$id]);
+    }
+}
+
+/**
+ * A 403 JSON:API exception a `serving` handler throws to abort the request,
+ * modelling an authorization gate. It propagates out of {@see Server::dispatch()}
+ * unchanged.
+ */
+final class ServingDenied extends AbstractJsonApiException
+{
+    public function __construct()
+    {
+        parent::__construct('Serving denied.', 403);
+    }
+
+    public function getErrors(): array
+    {
+        return [];
     }
 }

@@ -73,6 +73,16 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      */
     private array $middleware = [];
 
+    /**
+     * The registered server-level `serving` handlers, fired once per dispatch
+     * (= once per request) at the start of {@see dispatch()}, before the
+     * operation handler runs. Each may throw a {@see \haddowg\JsonApi\Exception\JsonApiExceptionInterface}
+     * to abort; the throw propagates out of {@see dispatch()} unchanged.
+     *
+     * @var list<\Closure(\haddowg\JsonApi\Request\JsonApiRequestInterface): void>
+     */
+    private array $serving = [];
+
     private \haddowg\JsonApi\Operation\OperationHandlerInterface|RequestHandlerInterface|null $handler = null;
 
     /**
@@ -166,6 +176,29 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self = clone $this;
         $self->responseFactory = $responseFactory;
         $self->streamFactory = $streamFactory;
+
+        return $self;
+    }
+
+    /**
+     * Registers a server-level `serving` handler, fired once per dispatch
+     * (= once per request) at the start of {@see dispatch()}, before the
+     * operation runs — the request-scoped seam for cross-cutting concerns
+     * (authorization gates, request-wide setup) that every operation shares.
+     *
+     * Handlers are appended: each call adds one more, and on dispatch they fire
+     * in registration order. A handler may throw a
+     * {@see \haddowg\JsonApi\Exception\JsonApiExceptionInterface} to abort the
+     * request — the throw propagates out of {@see dispatch()} unchanged (callers
+     * already map JSON:API exceptions to error responses), so the operation
+     * handler never runs.
+     *
+     * @param \Closure(\haddowg\JsonApi\Request\JsonApiRequestInterface): void $handler
+     */
+    public function withServing(\Closure $handler): self
+    {
+        $self = clone $this;
+        $self->serving[] = $handler;
 
         return $self;
     }
@@ -365,6 +398,17 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         return $this->maxIncludeDepth;
     }
 
+    /**
+     * The registered server-level `serving` handlers, in registration order —
+     * exposed primarily for inspection and tests.
+     *
+     * @return list<\Closure(\haddowg\JsonApi\Request\JsonApiRequestInterface): void>
+     */
+    public function serving(): array
+    {
+        return $this->serving;
+    }
+
     public function serializerFor(string $type): SerializerInterface
     {
         return $this->resources->serializerFor($type);
@@ -415,7 +459,34 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');
         }
 
+        $this->fireServing($operation);
+
         return $handler->handle($operation);
+    }
+
+    /**
+     * Fires every registered `serving` handler once, in registration order,
+     * before the operation handler runs. The JSON:API request is resolved from
+     * the operation's {@see \haddowg\JsonApi\Operation\OperationContext}; a
+     * programmatic dispatch with no HTTP message (or a non-JSON:API request) has
+     * nothing to gate, so firing is skipped. A handler throwing a
+     * {@see \haddowg\JsonApi\Exception\JsonApiExceptionInterface} propagates out
+     * of {@see dispatch()} unchanged, so the operation handler never runs.
+     */
+    private function fireServing(\haddowg\JsonApi\Operation\JsonApiOperationInterface $operation): void
+    {
+        if ($this->serving === []) {
+            return;
+        }
+
+        $request = $operation->context()->httpRequest();
+        if (!$request instanceof \haddowg\JsonApi\Request\JsonApiRequestInterface) {
+            return;
+        }
+
+        foreach ($this->serving as $serving) {
+            $serving($request);
+        }
     }
 
     /**

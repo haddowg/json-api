@@ -86,6 +86,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
 | `withMiddleware(list<MiddlewareInterface>)` | Replaces the ordered [middleware](middleware.md) list. |
 | `withHandler(OperationHandlerInterface\|RequestHandlerInterface)` | Sets the inner [handler](operations.md). |
+| `withServing(\Closure)` | Appends a [`serving` handler](#serving-a-pre-operation-hook) fired once before each operation; it may throw to abort. |
 
 The matching accessors read the configuration back:
 
@@ -102,6 +103,7 @@ The matching accessors read the configuration back:
 | `hydratorFor(string)` / `hasHydratorFor(string)` | The hydrator for a type, or whether one exists. |
 | `resourceFor(string)` / `hasResourceFor(string)` | The `AbstractResource` for a type, or whether one exists. |
 | `relationshipLoadState()` | The injected load-state predicate, or `null`. |
+| `serving()` | The registered [`serving` handlers](#serving-a-pre-operation-hook), in registration order. |
 
 `serializerFor()` / `hydratorFor()` are the resolution surface your handler uses.
 The [music-catalog handler](../examples/music-catalog/src/Handler/MusicCatalogHandler.php)
@@ -199,6 +201,38 @@ $operation = JsonApiOperationBuilder::create('albums', $server)
 
 See [operations](operations.md) for the operation model, the `Target`/router seam,
 and the handler contract.
+
+## serving: a pre-operation hook
+
+`withServing(\Closure)` registers a **request-scoped** handler that `dispatch()`
+fires **once, before the operation handler runs** — the seam for cross-cutting,
+request-wide concerns (an authorization gate, request-wide setup, an
+imperative-validation escape hatch) that every operation shares. The wither is
+immutable and **appends**, so handlers fire in registration order:
+
+```php
+$server = Server::make()
+    ->withHandler($handler)
+    ->withServing(static function (JsonApiRequestInterface $request): void {
+        // Authorize the request, set up request-wide state, etc.
+        if (!authorized($request)) {
+            throw new Forbidden(); // any JsonApiExceptionInterface
+        }
+    });
+```
+
+The handler is a `\Closure(JsonApiRequestInterface): void`. The request is resolved
+from the operation's [context](operations.md) (`context()->httpRequest()`); a
+**programmatic `dispatch()` with no HTTP message** has no request to gate, so firing
+is skipped. A handler **aborts the request by throwing** any
+`JsonApiExceptionInterface` — the throw propagates out of `dispatch()` unchanged (the
+operation handler never runs), and the caller maps it to an error document the same
+way it maps any other JSON:API exception (a `403` gate, a `422` validation failure, a
+`409` conflict). `serving()` reads the registered handlers back, in order.
+
+This is the core seam the Symfony bundle builds its per-operation lifecycle hooks on
+— core has no CRUD lifecycle of its own to fire finer-grained before/after hooks in,
+so those belong in the integration layer, built over `serving`.
 
 ## Lazy instantiation and containers
 
