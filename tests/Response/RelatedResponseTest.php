@@ -41,8 +41,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '42',
+                    'links' => ['self' => '/author/42'],
                     'attributes' => ['name' => 'Ada'],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -114,9 +116,10 @@ final class RelatedResponseTest extends TestCase
             [
                 'jsonapi' => ['version' => '1.1'],
                 'data' => [
-                    ['type' => 'comment', 'id' => '10'],
-                    ['type' => 'comment', 'id' => '20'],
+                    ['type' => 'comment', 'id' => '10', 'links' => ['self' => '/comment/10']],
+                    ['type' => 'comment', 'id' => '20', 'links' => ['self' => '/comment/20']],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -177,7 +180,10 @@ final class RelatedResponseTest extends TestCase
             $meta['page'],
         );
 
-        self::assertSame([['type' => 'comment', 'id' => '1']], $body['data']);
+        self::assertSame(
+            [['type' => 'comment', 'id' => '1', 'links' => ['self' => 'https://api.test/comment/1']]],
+            $body['data'],
+        );
     }
 
     #[Test]
@@ -223,8 +229,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '7',
+                    'links' => ['self' => '/author/7'],
                     'attributes' => ['name' => 'Lovelace'],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode(
                 $response->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),

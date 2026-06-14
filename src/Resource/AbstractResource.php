@@ -25,6 +25,7 @@ use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
@@ -45,7 +46,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, SelfLinkAwareInterface
 {
     use RendersRelationsTrait;
 
@@ -200,6 +201,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;
+    }
+
+    /**
+     * Emits the spec-recommended by-convention resource `self` link
+     * (`{baseUri}/{uriType}/{id}`) by default. Override to return `false` to opt
+     * this resource out of the convention self link (a `getLinks()` self still
+     * wins regardless).
+     */
+    public function emitsSelfLink(): bool
+    {
+        return true;
     }
 
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array

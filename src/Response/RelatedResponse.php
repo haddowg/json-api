@@ -105,6 +105,8 @@ final class RelatedResponse extends AbstractResponse
             $result = $this->applyPagination($result, $server, $request, $this->page);
         }
 
+        $result = $this->applyTopLevelSelf($result, $server, $request);
+
         return new RenderedDocument($result, 200);
     }
 

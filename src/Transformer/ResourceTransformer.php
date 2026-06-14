@@ -10,7 +10,9 @@ use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
  * Transforms a single domain object into a JSON:API resource object, resource
@@ -115,9 +117,62 @@ final class ResourceTransformer
 
         $links = $transformation->resource->getLinks($transformation->object, $transformation->request);
 
-        if ($links !== null) {
-            $transformation->result['links'] = $links->transform();
+        $transformed = $links !== null ? $links->transform() : [];
+
+        // The spec RECOMMENDS a resource carry a by-convention `self` link
+        // (`{baseUri}/{uriType}/{id}`). It is emitted for every serializer unless
+        // it opts out via SelfLinkAwareInterface, the id is empty (a not-yet-
+        // persisted resource has no self), or getLinks() already supplied a self
+        // (a hand-written self wins). Built here, the only layer that knows the
+        // resolved type + id and the configured base URI.
+        if (isset($transformed['self']) === false) {
+            $self = $this->conventionSelfLink($transformation);
+            if ($self !== null) {
+                $transformed['self'] = $self;
+            }
         }
+
+        // Emit `links` when getLinks() supplied a (possibly empty) container, as
+        // before, or when the convention self was added.
+        if ($links !== null || $transformed !== []) {
+            $transformation->result['links'] = $transformed;
+        }
+    }
+
+    /**
+     * Builds the by-convention resource `self` URL (`{baseUri}/{uriType}/{id}`),
+     * or `null` when the resource opted out or has no id. The path segment is the
+     * serializer's URI type (so a resource whose JSON:API type differs from its
+     * URL segment links correctly); a serializer that is not URI-type-aware falls
+     * back to its JSON:API type, mirroring {@see AbstractRelationship::conventionLinks()}.
+     */
+    private function conventionSelfLink(ResourceTransformation $transformation): ?string
+    {
+        $resource = $transformation->resource;
+        if ($resource === null) {
+            return null;
+        }
+
+        if ($resource instanceof SelfLinkAwareInterface && $resource->emitsSelfLink() === false) {
+            return null;
+        }
+
+        $id = $resource->getId($transformation->object);
+        if ($id === '') {
+            return null;
+        }
+
+        $uriType = $resource instanceof UriTypeAwareInterface
+            ? $resource->uriType()
+            : $resource->getType($transformation->object);
+        if ($uriType === '') {
+            $uriType = $transformation->resourceType;
+        }
+        if ($uriType === '') {
+            return null;
+        }
+
+        return $transformation->baseUri . '/' . $uriType . '/' . $id;
     }
 
     private function transformAttributesObject(ResourceTransformation $transformation): void

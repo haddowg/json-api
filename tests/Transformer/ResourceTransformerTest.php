@@ -7,12 +7,14 @@ namespace haddowg\JsonApi\Tests\Transformer;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
+use haddowg\JsonApi\Tests\Double\StubSelfLinkResource;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 use PHPUnit\Framework\Attributes\Group;
@@ -87,6 +89,7 @@ final class ResourceTransformerTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
+                'links' => ['self' => '/user/1'],
             ],
             $resourceObject,
         );
@@ -138,7 +141,7 @@ final class ResourceTransformerTest extends TestCase
                 'type' => 'user',
                 'id' => '1',
                 'meta' => ['abc' => 'def'],
-                'links' => [],
+                'links' => ['self' => '/user/1'],
             ],
             $resourceObject,
         );
@@ -171,11 +174,106 @@ final class ResourceTransformerTest extends TestCase
                 'type' => 'user',
                 'id' => '1',
                 'meta' => ['abc' => 'def'],
-                'links' => [],
+                'links' => ['self' => '/user/1'],
                 'attributes' => [
                     'full_name' => 'John Doe',
                     'birth' => 1985,
                 ],
+            ],
+            $resourceObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-links')]
+    public function emitsTheConventionSelfLinkForAResourceWithAnId(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        $resourceObject = $this->toResourceObject($resource, [], null, 'https://api.test');
+
+        self::assertSame(
+            [
+                'type' => 'user',
+                'id' => '1',
+                'links' => ['self' => 'https://api.test/user/1'],
+            ],
+            $resourceObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-links')]
+    public function theConventionSelfLinkUsesTheUriTypeWhenItDiffersFromTheType(): void
+    {
+        // JSON:API type `book`, URL segment `books` — the self link's path segment
+        // is the uriType, while the resource object still carries `"type": "book"`.
+        $resource = new StubSelfLinkResource(type: 'book', id: '7', uriType: 'books');
+
+        $resourceObject = $this->toResourceObject($resource, [], null, 'https://api.test');
+
+        self::assertSame(
+            [
+                'type' => 'book',
+                'id' => '7',
+                'links' => ['self' => 'https://api.test/books/7'],
+            ],
+            $resourceObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-links')]
+    public function aResourceWithAnEmptyIdEmitsNoConventionSelfLink(): void
+    {
+        // A not-yet-persisted resource has no id, so no self URL is emitted.
+        $resource = new StubResource('user', '');
+
+        $resourceObject = $this->toResourceObject($resource, [], null, 'https://api.test');
+
+        self::assertSame(
+            [
+                'type' => 'user',
+                'id' => '',
+            ],
+            $resourceObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-links')]
+    public function aResourceCanOptOutOfTheConventionSelfLink(): void
+    {
+        $resource = new StubSelfLinkResource(type: 'user', id: '1', emitsSelfLink: false);
+
+        $resourceObject = $this->toResourceObject($resource, [], null, 'https://api.test');
+
+        self::assertSame(
+            [
+                'type' => 'user',
+                'id' => '1',
+            ],
+            $resourceObject,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-links')]
+    public function aHandWrittenSelfLinkWinsOverTheConvention(): void
+    {
+        $resource = new StubSelfLinkResource(
+            type: 'user',
+            id: '1',
+            links: ResourceLinks::withBaseUri('https://api.test', self: new Link('/me')),
+        );
+
+        $resourceObject = $this->toResourceObject($resource, [], null, 'https://api.test');
+
+        self::assertSame(
+            [
+                'type' => 'user',
+                'id' => '1',
+                'links' => ['self' => 'https://api.test/me'],
             ],
             $resourceObject,
         );
@@ -204,6 +302,7 @@ final class ResourceTransformerTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
+                'links' => ['self' => '/user/1'],
                 'relationships' => [
                     'father' => [
                         'data' => [
@@ -239,6 +338,7 @@ final class ResourceTransformerTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
+                'links' => ['self' => '/user/1'],
             ],
             $resourceObject,
         );
@@ -288,6 +388,7 @@ final class ResourceTransformerTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
+                'links' => ['self' => '/user/1'],
                 'relationships' => [
                     'father' => [
                         'data' => null,
@@ -391,6 +492,7 @@ final class ResourceTransformerTest extends TestCase
         SerializerInterface $resource,
         mixed $object,
         ?JsonApiRequestInterface $request = null,
+        string $baseUri = '',
     ): ?array {
         $transformation = new ResourceTransformation(
             $resource,
@@ -400,6 +502,7 @@ final class ResourceTransformerTest extends TestCase
             '',
             '',
             '',
+            $baseUri,
         );
 
         $transformer = new ResourceTransformer();

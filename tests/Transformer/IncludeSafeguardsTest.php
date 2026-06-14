@@ -65,7 +65,10 @@ final class IncludeSafeguardsTest extends TestCase
 
         $result = $this->render($serializer, ['post'], new StubJsonApiRequest());
 
-        self::assertSame([['type' => 'tags', 'id' => '5']], $this->included($result));
+        self::assertSame(
+            [['type' => 'tags', 'id' => '5', 'links' => ['self' => '/tags/5']]],
+            $this->included($result),
+        );
     }
 
     #[Test]
@@ -191,7 +194,10 @@ final class IncludeSafeguardsTest extends TestCase
 
         $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments']));
 
-        self::assertSame([['type' => 'comments', 'id' => '3']], $this->included($result));
+        self::assertSame(
+            [['type' => 'comments', 'id' => '3', 'links' => ['self' => '/comments/3']]],
+            $this->included($result),
+        );
     }
 
     #[Test]

@@ -43,7 +43,10 @@ final class DataResponsePaginationTest extends TestCase
             $meta['page'],
         );
 
-        self::assertSame([['type' => 'user', 'id' => '1']], $body['data']);
+        self::assertSame(
+            [['type' => 'user', 'id' => '1', 'links' => ['self' => 'https://api.test/user/1']]],
+            $body['data'],
+        );
     }
 
     #[Test]
