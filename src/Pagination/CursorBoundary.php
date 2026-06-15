@@ -21,15 +21,25 @@ namespace haddowg\JsonApi\Pagination;
  * **backward** (the `prev`/`page[before]` cursor, the first row): the executing
  * provider reads it to orient the keyset comparison. C1 defines and round-trips
  * it through the codec; the provider consumes it.
+ *
+ * {@see $descending} carries the per-column sort direction that was in effect
+ * when the token was minted — keyed by the same columns as {@see $values}
+ * (every keyset column, incl. the appended PK key), `true` for descending and
+ * `false` for ascending. The token thus pins the order it was paged under: a
+ * stale check can reject a request whose resolved active sort flips a column's
+ * direction (`?sort=name` → `?sort=-name`) even when the columns are otherwise
+ * identical, which a column-set comparison alone cannot catch.
  */
 final readonly class CursorBoundary
 {
     /**
      * @param array<string, scalar|null> $values             boundary value per sort column (incl. the PK key); null allowed for a nullable column
      * @param bool                        $pointsToNextItems  whether this is a forward (`page[after]`) cursor; false for a backward (`page[before]`) cursor
+     * @param array<string, bool>         $descending         per-column sort direction (keyed as {@see $values}; true = descending) the token was minted under
      */
     public function __construct(
         public array $values,
         public bool $pointsToNextItems,
+        public array $descending = [],
     ) {}
 }

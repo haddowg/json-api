@@ -23,6 +23,7 @@ final class CursorCodecTest extends TestCase
         $boundary = new CursorBoundary(
             values: ['name' => 'Ada', 'rank' => 7, 'score' => 1.5, 'active' => true, 'id' => 42],
             pointsToNextItems: true,
+            descending: ['name' => false, 'rank' => true, 'score' => false, 'active' => false, 'id' => false],
         );
 
         $token = $codec->encode($boundary);
@@ -30,6 +31,36 @@ final class CursorCodecTest extends TestCase
 
         self::assertSame($boundary->values, $decoded->values);
         self::assertTrue($decoded->pointsToNextItems);
+        self::assertSame($boundary->descending, $decoded->descending);
+    }
+
+    #[Test]
+    public function roundTripsThePerColumnSortDirections(): void
+    {
+        $codec = new CursorCodec();
+
+        $boundary = new CursorBoundary(
+            values: ['name' => 'Ada', 'id' => 7],
+            pointsToNextItems: true,
+            descending: ['name' => true, 'id' => false],
+        );
+
+        $decoded = $codec->decode($codec->encode($boundary), 'page[after]');
+
+        self::assertSame(['name' => true, 'id' => false], $decoded->descending);
+    }
+
+    #[Test]
+    public function roundTripsAnEmptyDirectionMap(): void
+    {
+        $codec = new CursorCodec();
+
+        // The no-active-sort boundary (PK-only) still carries an explicit empty map.
+        $boundary = new CursorBoundary(values: ['id' => 1], pointsToNextItems: true, descending: []);
+
+        $decoded = $codec->decode($codec->encode($boundary), 'page[after]');
+
+        self::assertSame([], $decoded->descending);
     }
 
     #[Test]
@@ -38,7 +69,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
 
         // A nullable sort column legitimately carries a null boundary value.
-        $boundary = new CursorBoundary(values: ['deletedAt' => null, 'id' => 5], pointsToNextItems: false);
+        $boundary = new CursorBoundary(values: ['deletedAt' => null, 'id' => 5], pointsToNextItems: false, descending: ['deletedAt' => false, 'id' => false]);
 
         $decoded = $codec->decode($codec->encode($boundary), 'page[before]');
 
@@ -53,7 +84,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
 
         // The provider stringifies dates before encoding; the codec stays scalar-only.
-        $boundary = new CursorBoundary(values: ['publishedAt' => '2026-06-15T10:30:00+00:00', 'id' => 9], pointsToNextItems: true);
+        $boundary = new CursorBoundary(values: ['publishedAt' => '2026-06-15T10:30:00+00:00', 'id' => 9], pointsToNextItems: true, descending: ['publishedAt' => true, 'id' => false]);
 
         $decoded = $codec->decode($codec->encode($boundary), 'page[after]');
 
@@ -116,11 +147,67 @@ final class CursorCodecTest extends TestCase
     public function rejectsANonScalarBoundaryValue(): void
     {
         $codec = new CursorCodec();
-        $token = $this->base64url((string) \json_encode(['nested' => ['a' => 1], '_pointsToNextItems' => true]));
+        $token = $this->base64url((string) \json_encode(['nested' => ['a' => 1], '_pointsToNextItems' => true, '_d' => []]));
 
         $this->expectException(MalformedCursor::class);
 
         $codec->decode($token, 'page[after]');
+    }
+
+    #[Test]
+    public function rejectsAJsonTokenMissingTheDirectionsKey(): void
+    {
+        $codec = new CursorCodec();
+        // Carries the forward/backward flag but not the reserved direction map:
+        // a directionless (pre-fix) token can no longer be decoded.
+        $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true]));
+
+        $this->expectException(MalformedCursor::class);
+
+        $codec->decode($token, 'page[after]');
+    }
+
+    #[Test]
+    public function rejectsADirectionsMapThatIsNotAMapOfBooleans(): void
+    {
+        $codec = new CursorCodec();
+        $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true, '_d' => ['id' => 'yes']]));
+
+        $this->expectException(MalformedCursor::class);
+
+        $codec->decode($token, 'page[after]');
+    }
+
+    #[Test]
+    public function rejectsADirectionsValueThatIsNotAMap(): void
+    {
+        $codec = new CursorCodec();
+        $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true, '_d' => 'nope']));
+
+        $this->expectException(MalformedCursor::class);
+
+        $codec->decode($token, 'page[after]');
+    }
+
+    #[Test]
+    public function theReservedDirectionsKeyDoesNotCollideWithASortColumn(): void
+    {
+        $codec = new CursorCodec();
+
+        // A JSON:API member name cannot begin with an underscore, so a column can
+        // never be named `_d`; the reserved key stays distinct from boundary values.
+        $boundary = new CursorBoundary(
+            values: ['name' => 'Ada', 'id' => 7],
+            pointsToNextItems: true,
+            descending: ['name' => true, 'id' => false],
+        );
+
+        $decoded = $codec->decode($codec->encode($boundary), 'page[after]');
+
+        self::assertArrayNotHasKey('_d', $decoded->values);
+        self::assertArrayNotHasKey('_pointsToNextItems', $decoded->values);
+        self::assertSame(['name' => 'Ada', 'id' => 7], $decoded->values);
+        self::assertSame(['name' => true, 'id' => false], $decoded->descending);
     }
 
     #[Test]
