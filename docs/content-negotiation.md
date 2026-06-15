@@ -118,6 +118,44 @@ malformed value *inside* a recognized
 family — for example a non-string `profile` query value — is a separate
 `QueryParamMalformed` (`400`).
 
+## Strict query-parameter validation (on by default)
+
+The baseline above only rejects an **all-lowercase** unrecognized name. The spec
+permits, but does not require, a server to *also* reject a **well-named** custom
+parameter (one carrying a non-`a-z` character) that it does not recognize —
+`?albumSort=...` passes the naming rule but the server may have no such parameter.
+Tolerating it silently means a client typo (`?withCont=comments`, a misspelled
+`?relatedQ[...]`) is dropped and the request returns a wrong-but-`200` result.
+
+`Server` closes that gap with **strict query-parameter validation, on by
+default**. Before the operation handler runs, `Server::dispatch()` rejects any
+query parameter whose **family base name** is not recognized with a `400`
+`QueryParamUnrecognized` (`source.parameter` is the offending base). The
+recognized set for a request is:
+
+- the six reserved JSON:API families (`fields`, `include`, `sort`, `page`,
+  `filter`, `profile`) — their *internal* key validation (an unknown
+  `filter`/`sort` key, a malformed `page`) is unchanged and still each family's
+  own job; strict mode only adds the **family**-level check;
+- the always-on `withCount` custom family;
+- the reserved keywords of every registered [profile](profiles.md) the request
+  **negotiated** — so the relationship-queries profile's `relatedQuery` / `rQ`
+  families are recognized only when that profile's URI is in the `Accept`
+  `profile` parameter, and are rejected otherwise;
+- any host-registered custom families.
+
+```php
+$server = Server::make()
+    ->withCustomQueryParameter('withTrashed') // recognize your own param
+    // ->withStrictQueryParameters(false)      // opt out: ignore unknown params
+;
+```
+
+`withStrictQueryParameters(false)` restores the tolerant behaviour (an
+unrecognized family is silently ignored). A host registers its own
+implementation-specific families with `withCustomQueryParameter(...)`; each should
+carry a non-`a-z` character to satisfy the spec's custom-parameter naming rule.
+
 ## Body structure
 
 When a request carries a body, two further checks run before your hydrator sees it.

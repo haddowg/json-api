@@ -32,6 +32,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 #[CoversClass(\haddowg\JsonApi\Server\ResourceRegistry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Entry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Internal\MiddlewareDecorator::class)]
+#[CoversClass(\haddowg\JsonApi\Negotiation\StrictQueryParameterValidator::class)]
+#[CoversClass(\haddowg\JsonApi\Operation\Psr7ToOperationHandlerAdapter::class)]
 #[CoversClass(NoResourceRegistered::class)]
 #[Group('spec:crud')]
 final class ServerTest extends TestCase
@@ -406,6 +408,169 @@ final class ServerTest extends TestCase
 
         self::assertFalse($fired);
         self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function strictQueryParametersIsOnByDefaultAndFluent(): void
+    {
+        $server = Server::make();
+        self::assertTrue($server->strictQueryParameters());
+        self::assertSame([], $server->customQueryParameters());
+
+        $relaxed = $server->withStrictQueryParameters(false);
+        self::assertFalse($relaxed->strictQueryParameters());
+        // Immutable: the source is untouched.
+        self::assertTrue($server->strictQueryParameters());
+
+        $withCustom = $server->withCustomQueryParameter('withTrashed', 'myFilter');
+        self::assertSame(['withTrashed', 'myFilter'], $withCustom->customQueryParameters());
+        self::assertSame([], $server->customQueryParameters());
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchRejectsAnUnrecognizedQueryParameterByDefault(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()->withHandler($handler);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['bogus' => '1']));
+
+        try {
+            $server->dispatch($operation);
+            self::fail('Expected the unrecognized query parameter to be rejected.');
+        } catch (\haddowg\JsonApi\Exception\QueryParamUnrecognized $e) {
+            self::assertSame('bogus', $e->unrecognizedQueryParam);
+            self::assertSame(400, $e->getStatusCode());
+        }
+
+        // The 400 fires before the operation handler runs.
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchIgnoresAnUnrecognizedQueryParameterWhenRelaxed(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta(['ok' => true]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withStrictQueryParameters(false);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['bogus' => '1']));
+        $result = $server->dispatch($operation);
+
+        // Tolerant: the param is ignored and the operation runs as before.
+        self::assertInstanceOf(MetaResponse::class, $result);
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsTheReservedFamiliesAndWithCount(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()->withHandler($handler);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title'],
+            'include' => 'author',
+            'sort' => '-title',
+            'page' => ['number' => '1'],
+            'filter' => ['draft' => '0'],
+            'withCount' => 'comments',
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsAHostRegisteredCustomQueryParameter(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withCustomQueryParameter('withTrashed');
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['withTrashed' => '1']));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchRejectsAProfileFamilyWhenTheProfileIsNotNegotiated(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile());
+
+        // No Accept profile negotiated -> the relatedQuery family is unrecognized.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'relatedQuery' => ['author' => ['sort' => 'name']],
+        ]));
+
+        $this->expectException(\haddowg\JsonApi\Exception\QueryParamUnrecognized::class);
+
+        $server->dispatch($operation);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsAProfileFamilyWhenTheProfileIsNegotiated(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile());
+
+        $request = (new \haddowg\JsonApi\Request\JsonApiRequest(
+            (new ServerRequest('GET', '/'))
+                ->withHeader(
+                    'accept',
+                    'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile::URI . '"',
+                )
+                ->withQueryParams(['relatedQuery' => ['author' => ['sort' => 'name']]]),
+        ));
+
+        $operation = $this->stubOperation($request);
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function thePsr15HandlePathEnforcesStrictQueryParametersToo(): void
+    {
+        // An OperationHandler is wrapped in the adapter, which the server hands the
+        // strict-validation hook — so handle() rejects an unrecognized family too.
+        $psr17 = new Psr17Factory();
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withPsr17($psr17, $psr17)
+            ->withHandler($handler);
+
+        $request = (new ServerRequest('GET', '/api/posts?bogus=1'))
+            ->withQueryParams(['bogus' => '1'])
+            ->withAttribute(\haddowg\JsonApi\Operation\Target::class, new \haddowg\JsonApi\Operation\Target('posts'));
+
+        try {
+            $server->handle($request);
+            self::fail('Expected the PSR-15 handle() path to reject the unrecognized param.');
+        } catch (\haddowg\JsonApi\Exception\QueryParamUnrecognized $e) {
+            self::assertSame('bogus', $e->unrecognizedQueryParam);
+        }
+
+        self::assertNull($handler->received);
     }
 
     #[Test]

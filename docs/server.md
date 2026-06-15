@@ -78,6 +78,8 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`). |
 | `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
 | `withMaxIncludeDepth(?int)` | The default [maximum include depth](sparse-fieldsets-and-includes.md#maximum-include-depth) (hops from the primary resource). `null` (the default) or `<= 0` means unlimited; a resource can override it. |
+| `withStrictQueryParameters(bool)` | Whether to reject an [unrecognized query-parameter family](content-negotiation.md#strict-query-parameter-validation-on-by-default) with a `400` (default `true`). `false` ignores unknown families. |
+| `withCustomQueryParameter(string ...$names)` | Registers host [custom query-parameter families](content-negotiation.md#strict-query-parameter-validation-on-by-default) the server recognizes (so strict mode does not reject them). |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `withContainer(ContainerInterface\|callable)` | The [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
 | `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) relations consult for `linkageOnlyWhenLoaded()`. |
