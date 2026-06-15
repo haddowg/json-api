@@ -41,6 +41,14 @@ interface FieldInterface
     public function isReadOnly(bool $creating): bool;
 
     /**
+     * Whether the field is write-only — accepted on write (hydrated on both
+     * create and update, and still validated) but never serialized into the
+     * resource `attributes`, so it appears on no read and a sparse fieldset
+     * naming it cannot resurrect it. The inverse of {@see isReadOnly()}.
+     */
+    public function isWriteOnly(): bool;
+
+    /**
      * Whether the field is hidden from serialization entirely.
      */
     public function isHidden(): bool;

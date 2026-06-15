@@ -218,6 +218,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     {
         $attributes = [];
         foreach ($this->attributeFields() as $field) {
+            // A write-only field is accepted on write but never rendered: skip it
+            // here, alongside the sparse-fieldset filtering, so it appears on no
+            // read and a fields[type] parameter naming it cannot resurrect it.
+            if ($field->isWriteOnly()) {
+                continue;
+            }
+
             $attributes[$field->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
                 => $field->serialize($model, $request, $fieldName);
         }

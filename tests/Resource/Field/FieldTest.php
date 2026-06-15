@@ -117,6 +117,36 @@ final class FieldTest extends TestCase
     }
 
     #[Test]
+    public function writeOnlyDefaultsFalseAndIsTheInverseOfReadOnly(): void
+    {
+        self::assertFalse(Str::make('a')->isWriteOnly());
+        self::assertTrue(Str::make('password')->writeOnly()->isWriteOnly());
+
+        // Write-only is not read-only: it is still hydrated on both contexts.
+        $field = Str::make('password')->writeOnly();
+        self::assertFalse($field->isReadOnly(true));
+        self::assertFalse($field->isReadOnly(false));
+    }
+
+    #[Test]
+    public function writeOnlyAfterReadOnlyThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('cannot be both write-only and read-only');
+
+        Str::make('secret')->readOnly()->writeOnly();
+    }
+
+    #[Test]
+    public function readOnlyAfterWriteOnlyThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('cannot be both read-only and write-only');
+
+        Str::make('secret')->writeOnly()->readOnly();
+    }
+
+    #[Test]
     public function flagBuilders(): void
     {
         self::assertTrue(Str::make('a')->hidden()->isHidden());
@@ -526,6 +556,36 @@ final class FieldTest extends TestCase
         self::assertIsArray($model);
         self::assertSame('new', $model['name']);
         self::assertSame('user', $model['role'], 'a read-only Map child must not be overwritten');
+    }
+
+    #[Test]
+    public function mapSkipsWriteOnlyChildrenOnSerialize(): void
+    {
+        // A write-only child is accepted on write but never rendered — the Map
+        // skips it the same way the resource skips a top-level write-only field.
+        $field = Map::make('credentials')->fields(
+            Str::make('username'),
+            Str::make('secret')->writeOnly(),
+        );
+
+        $nested = $field->serialize(
+            ['username' => 'ada', 'secret' => 's3cr3t'],
+            $this->request(),
+            'credentials',
+        );
+
+        self::assertSame(['username' => 'ada'], $nested);
+
+        // But it is still hydrated through the nested object.
+        $model = $field->hydrate(
+            ['username' => 'old', 'secret' => 'old'],
+            ['username' => 'new', 'secret' => 'new'],
+            [],
+            $this->request(),
+            true,
+        );
+        self::assertIsArray($model);
+        self::assertSame('new', $model['secret'], 'a write-only Map child is still hydrated');
     }
 
     #[Test]

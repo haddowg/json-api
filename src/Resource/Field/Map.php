@@ -50,6 +50,12 @@ final class Map extends AbstractField
 
         $nested = [];
         foreach ($this->children as $child) {
+            // Skip a write-only child the same way the resource skips a write-only
+            // top-level field: it is accepted on write but never rendered.
+            if ($child->isWriteOnly()) {
+                continue;
+            }
+
             $nested[$child->name()] = $child->serialize($model, $request, $child->name());
         }
 

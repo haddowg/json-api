@@ -90,6 +90,67 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function writeOnlyFieldsAreNotSerialized(): void
+    {
+        // A write-only field never appears in the rendered attributes — skipped
+        // alongside sparse-fieldset filtering, so it is absent from every read.
+        $resource = new PostResource();
+        $attributes = $resource->getAttributes($this->post(), new StubJsonApiRequest());
+
+        self::assertArrayNotHasKey('password', $attributes);
+        // The other attributes are unaffected.
+        self::assertArrayHasKey('title', $attributes);
+    }
+
+    #[Test]
+    public function sparseFieldsetCannotResurrectAWriteOnlyField(): void
+    {
+        // Even a fields[posts] explicitly naming the write-only member does not
+        // bring it back: it is dropped before sparse-fieldset filtering runs.
+        $resource = new PostResource();
+        $request = StubJsonApiRequest::create(['fields' => ['posts' => 'title,password']]);
+
+        $attributes = $resource->getAttributes($this->post(), $request);
+
+        self::assertArrayNotHasKey('password', $attributes);
+    }
+
+    #[Test]
+    public function writeOnlyFieldsAreHydratedOnCreate(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('POST', [
+            'data' => [
+                'type' => 'posts',
+                'attributes' => ['title' => 'T', 'password' => 'hunter2!'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('hunter2!', $model['password'], 'a write-only field is accepted on create');
+    }
+
+    #[Test]
+    public function writeOnlyFieldsAreHydratedOnUpdate(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'posts',
+                'id' => '7',
+                'attributes' => ['password' => 'rotated!'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, ['password' => 'original']);
+
+        self::assertIsArray($model);
+        self::assertSame('rotated!', $model['password'], 'a write-only field is accepted on update');
+    }
+
+    #[Test]
     public function relationshipsRequireAResolver(): void
     {
         $resource = new PostResource();
@@ -656,6 +717,7 @@ final class AbstractResourceTest extends TestCase
             'viewCount' => 42,
             'published' => true,
             'secret' => 'do not show',
+            'password' => 'never echoed',
             'author' => ['id' => '1', 'type' => 'users'],
             'comments' => [],
         ];
@@ -695,6 +757,7 @@ final class PostResource extends AbstractResource
             Boolean::make('published'),
             DateTime::make('publishedAt')->sortable(),
             Str::make('secret')->hidden(),
+            Str::make('password')->writeOnly()->minLength(8),
             BelongsTo::make('author')->type('users'),
             HasMany::make('comments')->type('comments'),
         ];
