@@ -293,10 +293,10 @@ final class PaginatorTest extends TestCase
     {
         $request = StubJsonApiRequest::create(['page' => ['size' => '1000000']]);
 
-        $capped = CursorPaginator::make()->paginate($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
+        $capped = CursorPaginator::make()->fromBoundaries($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
         self::assertSame(100, $capped->size);
 
-        $uncapped = CursorPaginator::make()->withMaxPerPage(0)->paginate($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
+        $uncapped = CursorPaginator::make()->withMaxPerPage(0)->fromBoundaries($request, [], 'a', 'b', hasNext: true, hasPrevious: false);
         self::assertSame(1000000, $uncapped->size);
     }
 
@@ -306,7 +306,7 @@ final class PaginatorTest extends TestCase
     {
         $request = StubJsonApiRequest::create(['page' => ['size' => '10']]);
 
-        $page = CursorPaginator::make()->paginate($request, [], 'first-cursor', 'last-cursor', hasNext: true, hasPrevious: false);
+        $page = CursorPaginator::make()->fromBoundaries($request, [], 'first-cursor', 'last-cursor', hasNext: true, hasPrevious: false);
 
         self::assertInstanceOf(CursorBasedPage::class, $page);
         self::assertSame(10, $page->size);
@@ -328,7 +328,7 @@ final class PaginatorTest extends TestCase
         // one) without updating CursorPaginationProfile::keywords() — or vice versa —
         // this fails.
         $request = StubJsonApiRequest::create(['page' => ['size' => '10']]);
-        $page = CursorPaginator::make()->paginate($request, [], 'before-cur', 'after-cur', hasNext: true, hasPrevious: true);
+        $page = CursorPaginator::make()->fromBoundaries($request, [], 'before-cur', 'after-cur', hasNext: true, hasPrevious: true);
 
         $emitted = [];
         foreach ($page->linkSet('https://api.test/users', '') as $link) {

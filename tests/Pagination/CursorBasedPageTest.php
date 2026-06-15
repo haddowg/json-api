@@ -71,8 +71,47 @@ final class CursorBasedPageTest extends TestCase
             profile: $profile,
         );
 
+        // from/to omitted on an empty page (no boundary ids).
         self::assertSame(['perPage' => 10, 'hasMore' => true], $page->pageMeta());
         self::assertSame($profile, $page->profile());
+    }
+
+    #[Test]
+    public function pageMetaCarriesFromAndToWhenPresent(): void
+    {
+        $page = new CursorBasedPage(
+            items: [],
+            size: 10,
+            cursorBefore: 'a',
+            cursorAfter: 'b',
+            hasNext: true,
+            hasPrevious: false,
+            from: 11,
+            to: 20,
+        );
+
+        self::assertSame(['perPage' => 10, 'from' => 11, 'to' => 20, 'hasMore' => true], $page->pageMeta());
+        self::assertSame(11, $page->from);
+        self::assertSame(20, $page->to);
+    }
+
+    #[Test]
+    public function withProfileCarriesFromAndTo(): void
+    {
+        $page = (new CursorBasedPage(
+            items: [],
+            size: 10,
+            cursorBefore: 'a',
+            cursorAfter: 'b',
+            hasNext: false,
+            hasPrevious: false,
+            from: 1,
+            to: 9,
+        ))->withProfile(new CursorPaginationProfile());
+
+        self::assertSame(1, $page->from);
+        self::assertSame(9, $page->to);
+        self::assertSame(['perPage' => 10, 'from' => 1, 'to' => 9, 'hasMore' => false], $page->pageMeta());
     }
 
     /**

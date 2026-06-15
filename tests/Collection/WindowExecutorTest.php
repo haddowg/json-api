@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Collection;
 
+use haddowg\JsonApi\Collection\CursorCollectionResult;
 use haddowg\JsonApi\Collection\WindowExecutor;
+use haddowg\JsonApi\Pagination\CursorWindow;
 use haddowg\JsonApi\Pagination\OffsetWindow;
 use haddowg\JsonApi\Pagination\WindowInterface;
 use PHPUnit\Framework\Attributes\Group;
@@ -124,6 +126,83 @@ final class WindowExecutorTest extends TestCase
             page: $this->unusedPage(),
             probe: $this->unusedPage(),
         );
+    }
+
+    #[Test]
+    public function runRejectsACursorWindowAsNonOffset(): void
+    {
+        // run() is offset-only; a cursor window must go through runCursor().
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('can only execute');
+
+        (new WindowExecutor())->run(
+            window: new CursorWindow(2),
+            countable: true,
+            all: $this->unusedAll(),
+            count: $this->unusedCount(),
+            page: $this->unusedPage(),
+            probe: $this->unusedPage(),
+        );
+    }
+
+    #[Test]
+    public function runCursorProbesIsCountFreeAndSlicesSurplusSettingHasMore(): void
+    {
+        $a = $this->item('a');
+        $b = $this->item('b');
+        $c = $this->item('c');
+        $window = new CursorWindow(2);
+
+        // probe returns limit + 1 (3) rows -> a further page follows; the surplus
+        // is dropped before the provider mints tokens. No count closure exists at all.
+        $result = (new WindowExecutor())->runCursor(
+            window: $window,
+            probe: static function (CursorWindow $w) use ($a, $b, $c): array {
+                self::assertSame(2, $w->limit);
+
+                return [$a, $b, $c];
+            },
+            cursors: static function (array $rows, bool $hasMore) use ($a, $b): CursorCollectionResult {
+                // The provider sees the already-sliced page and the computed hasMore.
+                self::assertSame([$a, $b], $rows);
+                self::assertTrue($hasMore);
+
+                return new CursorCollectionResult($rows, cursorAfter: 'tok-next', hasPrevious: false, hasMore: $hasMore);
+            },
+        );
+
+        self::assertInstanceOf(CursorCollectionResult::class, $result);
+        self::assertSame([$a, $b], $result->items); // surplus dropped
+        self::assertNull($result->total);
+        self::assertTrue($result->windowed);
+        self::assertTrue($result->hasMore);
+        self::assertSame('tok-next', $result->cursorAfter);
+    }
+
+    #[Test]
+    public function runCursorSetsHasMoreFalseWhenProbeReturnsExactlyLimit(): void
+    {
+        $a = $this->item('a');
+        $b = $this->item('b');
+        $window = new CursorWindow(2);
+
+        $result = (new WindowExecutor())->runCursor(
+            window: $window,
+            probe: static fn(CursorWindow $w): array => [$a, $b], // exactly limit
+            cursors: static fn(array $rows, bool $hasMore): CursorCollectionResult => new CursorCollectionResult(
+                $rows,
+                cursorBefore: 'tok-prev',
+                cursorAfter: 'tok-next',
+                hasPrevious: true,
+                hasMore: $hasMore,
+            ),
+        );
+
+        self::assertSame([$a, $b], $result->items);
+        self::assertFalse($result->hasMore);
+        self::assertTrue($result->hasPrevious);
+        self::assertSame('tok-prev', $result->cursorBefore);
+        self::assertSame('tok-next', $result->cursorAfter);
     }
 
     /**

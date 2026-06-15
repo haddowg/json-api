@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Collection;
 
+use haddowg\JsonApi\Pagination\CursorWindow;
 use haddowg\JsonApi\Pagination\OffsetWindow;
 use haddowg\JsonApi\Pagination\WindowInterface;
 
@@ -26,8 +27,13 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  * The branches, all behaviour-identical to the tails they replace:
  *
  * - **no window** — {@see $all} is returned verbatim, no count;
+ * - **a {@see CursorWindow}** — handled by {@see runCursor()} (the keyset branch,
+ *   count-free by definition): {@see run()} rejects it like any non-offset window,
+ *   because the cursor probe is keyset-shaped (boundary in, not `offset`/`limit`)
+ *   and a store that does not implement keyset must not silently fall through to
+ *   offset paging;
  * - **a non-{@see OffsetWindow} window** — a `\LogicException` (the only window
- *   shape a count-based store can execute is offset-based; a different window is a
+ *   shape {@see run()} can execute is offset-based; a different window is a
  *   programming error, not a request error);
  * - **countable + window** — {@see $count} gives the pre-window total, {@see $page}
  *   the windowed page, and the result carries both ({@see CollectionResult::$total}
@@ -38,6 +44,15 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  *   0057). The limit+1 probe is equivalent to the in-memory `count(items) > offset
  *   + count(page)` form: both report "more available beyond this page" without a
  *   total.
+ *
+ * The cursor (keyset) window is **count-free by definition** and keyset-shaped, so
+ * it has its own entry point {@see runCursor()} rather than overloading the
+ * offset {@see run()} signature: the provider supplies a single keyset-probe
+ * closure that fetches up to `limit + 1` rows past the decoded boundary and a
+ * token-minting closure that reads the boundary cursors off the sliced page (the
+ * provider owns the row → value reader). The executor computes `hasMore` from the
+ * surplus exactly as the count-free offset branch does, slices, and returns a
+ * {@see CursorCollectionResult} carrying the minted boundary cursors.
  */
 final class WindowExecutor
 {
@@ -105,5 +120,46 @@ final class WindowExecutor
         $total = $count();
 
         return new CollectionResult($page($window->offset, $window->limit), $total, windowed: true);
+    }
+
+    /**
+     * Runs the keyset (cursor) tail and returns a {@see CursorCollectionResult}.
+     *
+     * The cursor window is **count-free by definition** — no COUNT ever runs — and
+     * keyset-shaped, so it is a distinct entry point from the offset {@see run()}.
+     * The store-specific work is two closures: {@see $probe} runs the keyset fetch
+     * (the IS-NULL-branched WHERE, the active-sort → column resolution, the stale
+     * check, the `before`-reversal — all C2/C3 concerns) and returns UP TO
+     * `limit + 1` rows in render order; {@see $cursors} reads the boundary cursors
+     * off the sliced page (the provider owns the row → boundary-value reader and
+     * mints the opaque tokens). The executor only over-fetch-probes for `hasMore`,
+     * slices the surplus, and assembles the result — identical book-keeping to the
+     * count-free offset branch, no keyset logic of its own.
+     *
+     * @template TEntity of object
+     *
+     * @param CursorWindow                            $window  the decoded keyset window (limit + boundaries)
+     * @param callable(CursorWindow):list<TEntity>    $probe   runs the keyset fetch, returning UP TO `limit + 1` rows in render order
+     * @param callable(list<TEntity>,bool):CursorCollectionResult<TEntity> $cursors mints the {@see CursorCollectionResult} from the sliced page rows and the computed `hasMore` (the provider reads the boundary cursors off the rows)
+     *
+     * @return CursorCollectionResult<TEntity>
+     */
+    public function runCursor(
+        CursorWindow $window,
+        callable $probe,
+        callable $cursors,
+    ): CursorCollectionResult {
+        // Over-fetch by one past the window: a surplus row proves a further page
+        // follows, exactly as the count-free offset branch determines hasMore.
+        $probed = $probe($window);
+
+        $hasMore = \count($probed) > $window->limit;
+        if ($hasMore) {
+            $probed = \array_slice($probed, 0, $window->limit);
+        }
+
+        // The provider reads the boundary cursors off the sliced page and mints the
+        // CursorCollectionResult; the executor never inspects a row's values.
+        return $cursors($probed, $hasMore);
     }
 }

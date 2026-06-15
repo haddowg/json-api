@@ -11,11 +11,17 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * {@see Page} for a count-based pagination strategy.
  *
  * Implemented by {@see PagePaginator}, {@see OffsetPaginator} and
- * {@see FixedPagePaginator} (the strategies whose page boundaries derive from a
- * known total item count). Cursor pagination has a distinct shape — its
- * boundaries are caller-supplied cursors, not a total — so {@see CursorPaginator}
- * is a standalone fluent strategy that does not implement this interface.
- * Consumers can supply their own count-based strategy by implementing this
+ * {@see FixedPagePaginator} (the count-based strategies, whose page boundaries
+ * derive from a known total item count) and by {@see CursorPaginator} (the
+ * keyset strategy). It is therefore the single pagination seam: {@see window()}
+ * may return any {@see WindowInterface} — an {@see OffsetWindow} for the
+ * count-based strategies or a {@see CursorWindow} for cursor — and a data layer
+ * narrows on the concrete window type it knows how to execute. Cursor pagination
+ * is inherently **count-free**: its {@see paginate()} ignores the `$totalItems`
+ * argument (a keyset page never derives a total), and its real builder takes the
+ * caller-minted boundary cursors directly ({@see CursorPaginator::fromBoundaries()}),
+ * so the cursor path runs through {@see paginateWithoutCount()}-shaped, count-free
+ * book-keeping. Consumers can supply their own strategy by implementing this
  * contract and returning whatever {@see Page} subtype is appropriate.
  *
  * @see https://jsonapi.org/format/1.1/#fetching-pagination
@@ -25,9 +31,11 @@ interface PaginatorInterface
     /**
      * The fetch window this strategy derives from the request's `page[…]`
      * parameters, exposed **before** any items are materialized so a data layer
-     * can push it down to its store (SQL `LIMIT`/`OFFSET`, an `array_slice`, …).
-     * The count-based strategies return an {@see OffsetWindow}; {@see paginate()}
-     * then expects exactly the items of that window.
+     * can push it down to its store (SQL `LIMIT`/`OFFSET`, a keyset `WHERE`, an
+     * `array_slice`, …). The count-based strategies return an {@see OffsetWindow}
+     * and {@see paginate()} then expects exactly the items of that window; the
+     * cursor strategy returns a {@see CursorWindow} (the decoded keyset boundaries
+     * + limit) which a keyset-capable data layer executes instead.
      */
     public function window(JsonApiRequestInterface $request): \haddowg\JsonApi\Pagination\WindowInterface;
 

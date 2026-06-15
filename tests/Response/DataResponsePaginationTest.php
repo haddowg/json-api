@@ -60,7 +60,7 @@ final class DataResponsePaginationTest extends TestCase
             profiles: new ProfileRegistry(new CursorPaginationProfile()),
         );
 
-        $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
+        $page = CursorPaginator::make()->fromBoundaries($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
 
         $psr = DataResponse::fromPage($page, $resource)->toPsrResponse($server, $request);
         $body = $this->decode((string) $psr->getBody());
@@ -89,7 +89,7 @@ final class DataResponsePaginationTest extends TestCase
         $resource = new StubResource('user', '1');
         $request = new JsonApiRequest(new ServerRequest('GET', 'https://api.test/users?page[size]=10'));
 
-        $page = CursorPaginator::make()->paginate($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
+        $page = CursorPaginator::make()->fromBoundaries($request, [new \stdClass()], 'cur-a', 'cur-b', hasNext: true, hasPrevious: false);
 
         // Empty registry on the server: the page's profile is unrecognized → dropped.
         $psr = DataResponse::fromPage($page, $resource)->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
