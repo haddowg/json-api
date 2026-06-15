@@ -111,4 +111,9 @@ final class StubServer implements ResolvingServerInterface
     {
         return null;
     }
+
+    public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
+    {
+        return null;
+    }
 }

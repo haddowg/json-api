@@ -119,6 +119,36 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function countsRelationship(string $relationship): bool;
 
     /**
+     * The Relationship Queries profile's per-relationship sort + filter for the
+     * relationship at `$path` (its include path, e.g. `comments` or
+     * `albums.tracks`), parsed from the `relatedQuery` / `rQ` family of the
+     * primary request.
+     *
+     * Opt-in: an empty {@see RelatedQuery} unless the client negotiated
+     * {@see \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile::URI}. On a
+     * per-`[path][op]` conflict between the families the canonical `relatedQuery`
+     * wins. The returned values are raw client input — the host validates the
+     * sort/filter keys against the relationship's vocabulary (the related-
+     * collection endpoint's vocabulary), rejecting an unknown key with a `400`.
+     */
+    public function getRelatedQuery(string $path): RelatedQuery;
+
+    /**
+     * Whether any `relatedQuery` / `rQ` params target the relationship at `$path`
+     * (and the profile was negotiated). `false` for an empty default path.
+     */
+    public function hasRelatedQuery(string $path): bool;
+
+    /**
+     * The relationship (include) paths the `relatedQuery` / `rQ` family targets,
+     * for up-front validation against the resource's relationships. Empty unless
+     * the profile was negotiated.
+     *
+     * @return list<string>
+     */
+    public function getRelatedQueryPaths(): array;
+
+    /**
      * Returns the "sort[]" query parameters.
      *
      * @return list<string>

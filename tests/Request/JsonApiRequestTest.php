@@ -1670,6 +1670,157 @@ final class JsonApiRequestTest extends TestCase
         self::addToAssertionCount(1);
     }
 
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function relatedQueryIsIgnoredWhenTheProfileIsNotNegotiated(): void
+    {
+        // No Accept profile negotiated: the relatedQuery family is ignored entirely.
+        $request = $this->createRequestWithQueryParams([
+            'relatedQuery' => ['tracks' => ['sort' => '-duration']],
+        ]);
+
+        self::assertFalse($request->hasRelatedQuery('tracks'));
+        self::assertTrue($request->getRelatedQuery('tracks')->isEmpty());
+        self::assertSame([], $request->getRelatedQueryPaths());
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function parsesRelatedQuerySortAndFilterWhenTheProfileIsNegotiated(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => [
+                'tracks' => [
+                    'sort' => '-duration',
+                    'filter' => ['longerThan' => '300'],
+                ],
+            ],
+        ]);
+
+        self::assertTrue($request->hasRelatedQuery('tracks'));
+        self::assertSame(['tracks'], $request->getRelatedQueryPaths());
+
+        $query = $request->getRelatedQuery('tracks');
+        self::assertSame('-duration', $query->sort);
+        self::assertSame(['longerThan' => '300'], $query->filter);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function relatedQueryKeysByDottedIncludePath(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => ['albums.tracks' => ['sort' => 'year']],
+        ]);
+
+        self::assertSame('year', $request->getRelatedQuery('albums.tracks')->sort);
+        self::assertTrue($request->getRelatedQuery('tracks')->isEmpty());
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function rqShorthandIsEquivalentToTheCanonicalFamily(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'rQ' => ['tracks' => ['sort' => '-duration']],
+        ]);
+
+        self::assertSame('-duration', $request->getRelatedQuery('tracks')->sort);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function theCanonicalFamilyWinsOnAConflict(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'rQ' => ['tracks' => ['sort' => 'title']],
+            'relatedQuery' => ['tracks' => ['sort' => '-duration']],
+        ]);
+
+        self::assertSame('-duration', $request->getRelatedQuery('tracks')->sort);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function theCanonicalAndShorthandMergePerOp(): void
+    {
+        // The shorthand supplies the filter, the canonical the sort: both apply.
+        $request = $this->createRelationshipQueriesRequest([
+            'rQ' => ['tracks' => ['filter' => ['longerThan' => '300']]],
+            'relatedQuery' => ['tracks' => ['sort' => '-duration']],
+        ]);
+
+        $query = $request->getRelatedQuery('tracks');
+        self::assertSame('-duration', $query->sort);
+        self::assertSame(['longerThan' => '300'], $query->filter);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function relatedQueryFamilyIsNotRejectedByQueryParamValidation(): void
+    {
+        // relatedQuery / rQ both carry an uppercase letter, so they satisfy the
+        // "at least one non a-z char" rule and are not rejected by validateQueryParams().
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => ['tracks' => ['sort' => '-duration']],
+            'rQ' => ['tracks' => ['sort' => '-duration']],
+        ]);
+
+        $request->validateQueryParams();
+
+        self::addToAssertionCount(1);
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function aNonArrayRelatedQueryFamilyIsMalformed(): void
+    {
+        $request = $this->createRelationshipQueriesRequest(['relatedQuery' => 'oops']);
+
+        $this->expectException(QueryParamMalformed::class);
+
+        $request->getRelatedQuery('tracks');
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function aNonStringRelatedQuerySortIsMalformed(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => ['tracks' => ['sort' => ['-duration']]],
+        ]);
+
+        $this->expectException(QueryParamMalformed::class);
+
+        $request->getRelatedQuery('tracks');
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function aNonArrayRelatedQueryFilterIsMalformed(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => ['tracks' => ['filter' => 'oops']],
+        ]);
+
+        $this->expectException(QueryParamMalformed::class);
+
+        $request->getRelatedQuery('tracks');
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function aNonArrayOpListIsMalformed(): void
+    {
+        $request = $this->createRelationshipQueriesRequest([
+            'relatedQuery' => ['tracks' => 'oops'],
+        ]);
+
+        $this->expectException(QueryParamMalformed::class);
+
+        $request->getRelatedQuery('tracks');
+    }
+
     private function createRequest(): JsonApiRequest
     {
         return new JsonApiRequest(new ServerRequest('GET', '/'));
@@ -1694,6 +1845,23 @@ final class JsonApiRequestTest extends TestCase
     private function createRequestWithQueryParams(array $queryParams): JsonApiRequest
     {
         $psrRequest = (new ServerRequest('GET', '/'))->withQueryParams($queryParams);
+
+        return new JsonApiRequest($psrRequest);
+    }
+
+    /**
+     * A request that has negotiated the Relationship Queries profile via the
+     * Accept `profile` media-type parameter, carrying the given query params.
+     *
+     * @param array<string, mixed> $queryParams
+     */
+    private function createRelationshipQueriesRequest(array $queryParams): JsonApiRequest
+    {
+        $psrRequest = (new ServerRequest(
+            'GET',
+            '/',
+            ['accept' => 'application/vnd.api+json;profile="https://haddowg.dev/profiles/relationship-queries"'],
+        ))->withQueryParams($queryParams);
 
         return new JsonApiRequest($psrRequest);
     }

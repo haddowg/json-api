@@ -63,6 +63,28 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function withRelationshipPaginationThreadsIntoTheResolverAndSurvivesFurtherWithers(): void
+    {
+        $resolver = new \haddowg\JsonApi\Tests\Double\FakeRelationshipPagination(null);
+
+        $base = Server::make();
+        self::assertNull($base->relationshipPagination());
+        self::assertNull($base->resources()->relationshipPagination());
+
+        $configured = $base->withRelationshipPagination($resolver);
+
+        // Immutable, threaded into the registry (the resolver relations consult).
+        self::assertNull($base->relationshipPagination());
+        self::assertSame($resolver, $configured->relationshipPagination());
+        self::assertSame($resolver, $configured->resources()->relationshipPagination());
+
+        // A subsequent unrelated wither re-pushes the resolver into the new registry.
+        $rebased = $configured->withBaseUri('https://api.example.com');
+        self::assertSame($resolver, $rebased->resources()->relationshipPagination());
+    }
+
+    #[Test]
     public function maxIncludeDepthIsUnlimitedByDefaultAndSettable(): void
     {
         $base = Server::make();

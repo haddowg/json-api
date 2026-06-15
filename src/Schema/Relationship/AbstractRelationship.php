@@ -68,6 +68,16 @@ abstract class AbstractRelationship
     protected bool $conventionLinksRelated = true;
 
     /**
+     * The pagination state for a rendered to-many relationship, or `null` for an
+     * unpaginated relationship. When set (and the relationship carries convention
+     * links so a parent identity is resolvable), {@see transform()} emits the
+     * page's `first` / `prev` / `next` (+ `last` when countable) links into the
+     * relationship's own `links` object, in the spec's plain-form against the
+     * relationship-linkage endpoint.
+     */
+    protected ?RelationshipPagination $pagination = null;
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -188,6 +198,24 @@ abstract class AbstractRelationship
         $this->conventionLinksUriFieldName = $uriFieldName;
         $this->conventionLinksSelf = $exposeSelf;
         $this->conventionLinksRelated = $exposeRelated;
+
+        return $this;
+    }
+
+    /**
+     * Attaches pagination state to a rendered to-many relationship so its
+     * relationship object emits `first` / `prev` / `next` (+ `last` when
+     * countable) links in the spec's plain-form against the relationship-linkage
+     * endpoint. The link URLs are completed in {@see transform()} from the parent
+     * resource's identity and the base URI. Has effect only alongside convention
+     * links (an explicit {@see setLinks()} or no parent identity suppresses them,
+     * since the endpoint cannot otherwise be located).
+     *
+     * @return $this
+     */
+    public function withPagination(RelationshipPagination $pagination): static
+    {
+        $this->pagination = $pagination;
 
         return $this;
     }
@@ -328,12 +356,36 @@ abstract class AbstractRelationship
         }
 
         $base = '/' . $parentType . '/' . $parentId;
+        $selfHref = $base . '/relationships/' . $uriFieldName;
 
         return new RelationshipLinks(
             $transformation->baseUri,
-            $this->conventionLinksSelf ? new Link($base . '/relationships/' . $uriFieldName) : null,
+            $this->conventionLinksSelf ? new Link($selfHref) : null,
             $this->conventionLinksRelated ? new Link($base . '/' . $uriFieldName) : null,
+            $this->paginationLinks($selfHref),
         );
+    }
+
+    /**
+     * The relationship-object pagination links (`first` / `prev` / `next` / `last`)
+     * for a paginated to-many relationship, built from the carried page against
+     * the relationship-linkage endpoint (`$selfHref`) in the spec's plain-form;
+     * `[]` when the relationship is not paginated. The `self` relation the page
+     * may emit is dropped — the convention `self` link already addresses the
+     * endpoint — and any `null` relation is filtered by {@see RelationshipLinks}.
+     *
+     * @return array<string, Link|null>
+     */
+    private function paginationLinks(string $selfHref): array
+    {
+        if ($this->pagination === null) {
+            return [];
+        }
+
+        $links = $this->pagination->linksFor($selfHref);
+        unset($links['self']);
+
+        return $links;
     }
 
     /**

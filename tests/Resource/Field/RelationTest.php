@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Resource\Field;
 
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
+use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
 use haddowg\JsonApi\Resource\Constraint\Required;
@@ -20,12 +21,14 @@ use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\FakeRelationshipCount;
 use haddowg\JsonApi\Tests\Double\FakeRelationshipLoadState;
+use haddowg\JsonApi\Tests\Double\FakeRelationshipPagination;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
@@ -660,6 +663,142 @@ final class RelationTest extends TestCase
 
         self::assertSame(['total' => 5], $relationshipObject['meta'] ?? null);
         self::assertNotSame([], $count->askedAbout, 'count seam must be consulted for a morph-to-many');
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function toManyEmitsPlainFormPaginationLinksWhenTheResolverSupplies(): void
+    {
+        // Count-free page 1 of size 2 with a further page (hasMore) — the relation
+        // is not countable, so no `last`. The plain-form query string mirrors the
+        // client-supplied sort/filter on the relationship's OWN endpoint.
+        $relation = HasMany::make('tracks')->type('tracks');
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks'], ['id' => '2', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: null, page: 1, size: 2, hasMore: true);
+        $pagination = new RelationshipPagination($page, 'sort=-duration&filter%5BlongerThan%5D=300');
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination($pagination));
+
+        $built = $relation->buildRelationship($model, $this->request(), $resolver);
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('albums', '1'),
+                $model,
+                'albums',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                'tracks',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        $links = $relationshipObject['links'] ?? [];
+        self::assertIsArray($links);
+
+        // self/related are the convention links (plain endpoint, no query); the
+        // page's own `self` is dropped in favour of the convention self.
+        self::assertSame('https://api.example.com/albums/1/relationships/tracks', $links['self'] ?? null);
+        self::assertSame('https://api.example.com/albums/1/tracks', $links['related'] ?? null);
+
+        // first/next carry the plain-form sort + filter + page[number] against the
+        // relationship-linkage endpoint — never the profile relatedQuery[…] form.
+        self::assertIsString($links['first'] ?? null);
+        self::assertStringStartsWith('https://api.example.com/albums/1/relationships/tracks?', $links['first']);
+        $firstParams = [];
+        \parse_str((string) \parse_url($links['first'], \PHP_URL_QUERY), $firstParams);
+        self::assertSame('-duration', $firstParams['sort'] ?? null);
+        self::assertSame(['longerThan' => '300'], $firstParams['filter'] ?? null);
+        self::assertSame(['number' => '1', 'size' => '2'], $firstParams['page'] ?? null);
+
+        self::assertIsString($links['next'] ?? null);
+        $nextParams = [];
+        \parse_str((string) \parse_url($links['next'], \PHP_URL_QUERY), $nextParams);
+        self::assertSame(['number' => '2', 'size' => '2'], $nextParams['page'] ?? null);
+
+        // Count-free: no `last`, and `prev` is null on page 1 (so it is dropped).
+        self::assertArrayNotHasKey('last', $links);
+        self::assertArrayNotHasKey('prev', $links);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function countableToManyEmitsLastPaginationLink(): void
+    {
+        // A counted page (totalItems known) emits `last` — the countable vs
+        // count-free distinction from slice 1 carries through to the links.
+        $relation = HasMany::make('tracks')->type('tracks')->countable();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: 5, page: 1, size: 2);
+        $pagination = new RelationshipPagination($page, 'sort=title');
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination($pagination));
+
+        $built = $relation->buildRelationship($model, $this->request(), $resolver);
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('albums', '1'),
+                $model,
+                'albums',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                'tracks',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        $links = $relationshipObject['links'] ?? [];
+        self::assertIsArray($links);
+        self::assertIsString($links['last'] ?? null);
+        $lastParams = [];
+        \parse_str((string) \parse_url($links['last'], \PHP_URL_QUERY), $lastParams);
+        self::assertSame('3', $lastParams['page']['number'] ?? null, 'ceil(5/2) = 3');
+        self::assertSame('title', $lastParams['sort'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function noPaginationLinksWithoutAResolver(): void
+    {
+        // Standalone core (no resolver injected): no relationship-object pagination
+        // links, only the convention self/related.
+        $relation = HasMany::make('tracks')->type('tracks');
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
+
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('albums', '1'),
+                $model,
+                'albums',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                'tracks',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/albums/1/relationships/tracks',
+                'related' => 'https://api.example.com/albums/1/tracks',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
     }
 
     #[Test]

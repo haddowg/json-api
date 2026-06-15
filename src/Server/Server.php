@@ -102,6 +102,15 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
 
     /**
+     * The storage-aware resolver that supplies a to-many relation's page-1
+     * pagination state (the relationship-object pagination links) under the
+     * Relationship Queries profile, or null for the standalone default (no such
+     * links emitted). Pushed into the {@see ResourceRegistry} the same way the
+     * count resolver is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
+
+    /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
      * null to fall back to plain `new`. Server is the single source of truth and
      * pushes it into the cloned registry on every clone.
@@ -226,6 +235,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->register($resource, $serializer, $hydrator);
 
         return $self;
@@ -247,6 +257,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
 
         return $self;
@@ -272,6 +283,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
 
         return $self;
     }
@@ -291,6 +303,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
 
         return $self;
     }
@@ -312,6 +325,29 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setResolver($self->resolver);
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
+
+        return $self;
+    }
+
+    /**
+     * Injects the storage-aware resolver a to-many relation consults — when the
+     * Relationship Queries profile is negotiated — for the page-1 pagination state
+     * rendered as the relationship-object `first` / `prev` / `next` (+ `last`)
+     * links. Passing `null` (the default) restores the standalone behaviour: no
+     * relationship-object pagination links are emitted. The data-layer adapter
+     * windows each relation to page 1 (ordered/filtered by the per-relationship
+     * sort/filter) and supplies the page here.
+     */
+    public function withRelationshipPagination(?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination): self
+    {
+        $self = clone $this;
+        $self->relationshipPagination = $relationshipPagination;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
 
         return $self;
     }
@@ -460,6 +496,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
     {
         return $this->relationshipCount;
+    }
+
+    public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
+    {
+        return $this->relationshipPagination;
     }
 
     public function hydratorFor(string $type): HydratorInterface

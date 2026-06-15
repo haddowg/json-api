@@ -41,4 +41,13 @@ interface SerializerResolverInterface
      * core: no count is available, so no `meta.total` is emitted).
      */
     public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface;
+
+    /**
+     * The storage-aware resolver a to-many relation consults — when the
+     * Relationship Queries profile is negotiated — for the page-1 pagination state
+     * core renders as the relationship-object `first` / `prev` / `next` (+ `last`)
+     * links, or `null` when no adapter injected one (standalone core: no
+     * relationship-object pagination links are emitted).
+     */
+    public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface;
 }

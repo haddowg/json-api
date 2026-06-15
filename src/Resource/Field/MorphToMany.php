@@ -78,6 +78,15 @@ final class MorphToMany extends AbstractRelation
             $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
         }
 
+        // The relationship-object pagination links under the Relationship Queries
+        // profile, mirroring AbstractRelation::buildToMany — supplied per
+        // (model, relation) by an injected RelationshipPaginationInterface; with
+        // none injected this is null and no links are emitted.
+        $pagination = $this->resolvePagination($model, $request, $resolver);
+        if ($pagination !== null) {
+            $relationship->withPagination($pagination);
+        }
+
         return $relationship;
     }
 }

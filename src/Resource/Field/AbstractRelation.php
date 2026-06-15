@@ -626,7 +626,30 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
         }
 
+        $pagination = $this->resolvePagination($model, $request, $resolver);
+        if ($pagination !== null) {
+            $relationship->withPagination($pagination);
+        }
+
         return $relationship;
+    }
+
+    /**
+     * Resolves the page-1 pagination state for this to-many relation on `$model`
+     * under the Relationship Queries profile — the relationship-object
+     * `first` / `prev` / `next` (+ `last`) links — or `null` when none should be
+     * emitted: no
+     * {@see \haddowg\JsonApi\Serializer\RelationshipPaginationInterface} was
+     * injected, or the resolver returned `null` (the relation is not paginated for
+     * this request). The injected resolver owns the page-1 windowing and the
+     * plain-form link translation; core only attaches the result.
+     */
+    protected function resolvePagination(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): ?\haddowg\JsonApi\Schema\Relationship\RelationshipPagination {
+        return $resolver->relationshipPagination()?->paginateRelationship($model, $this, $request);
     }
 
     /**

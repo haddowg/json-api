@@ -170,6 +170,55 @@ advertise the profile automatically once the server has registered it. See
 [Pagination](pagination.md) for the cursor paginator and how a page declares its
 profile.
 
+## The bundled relationship-queries profile
+
+The library also ships `Schema\Profile\RelationshipQueriesProfile`
+(`https://haddowg.dev/profiles/relationship-queries`), which lets a client
+**filter and sort a relationship's linkage from the primary request** — whether
+the relationship is rendered via `?include`, as links-only linkage, or at its
+endpoint. It reserves two query-parameter families, both spec-compliant because
+their base names each carry a non a-z character (a capital `Q`):
+
+```
+relatedQuery[<relationship-path>][sort]=-field,field
+relatedQuery[<relationship-path>][filter][<key>]=<value>
+rQ[<relationship-path>][sort]=-field            # rQ is the shorthand alias
+```
+
+The path is the relationship's **include path** (a dotted path like
+`albums.tracks` is legal in the single bracket), not its type. `relatedQuery` is
+canonical and `rQ` is a shorthand alias with identical semantics; on a conflict
+targeting the same `[path][op]` the canonical `relatedQuery` wins. `page` is
+deliberately **not** part of the profile — an addressed relationship always
+renders **page 1**, navigated via the relationship object's own pagination links.
+
+Like every profile it is **opt-in by negotiation**: the families are parsed only
+when the client negotiated the profile URI (in the `Accept` `profile` parameter),
+and are otherwise ignored entirely — so a relationship literally named after a
+reserved family never collides. A structurally malformed param under the profile
+(a non-array family, a non-string `sort`, a non-array `filter`) is a `400`
+`QueryParamMalformed`; semantic validation of the sort/filter keys against the
+relationship's vocabulary (and that the path resolves to a to-many relation) is
+the host's, raising the same `400` the related-collection endpoint does.
+
+Core exposes the parsed query through the request and supplies a render seam; the
+host (e.g. the Doctrine bundle) does the page-1 windowing:
+
+- `JsonApiRequestInterface::getRelatedQuery($path)` returns a read-only
+  `Request\RelatedQuery` (`sort` raw string + `filter` map) for a path, and
+  `RelatedQuery::toPlainQueryString()` translates it to the **plain-form**
+  (`sort=…&filter[…]=…`) the relationship's own endpoint uses.
+- `Server::withRelationshipPagination(...)` injects a
+  `Serializer\RelationshipPaginationInterface` that windows a to-many relation to
+  page 1 (ordered/filtered) and returns a
+  `Schema\Relationship\RelationshipPagination` (page + plain-form query string).
+  Core attaches it so the relationship object emits `first`/`prev`/`next`
+  (+ `last` only when the relation is [`countable()`](relations.md)) links — in
+  the spec's plain-form against the relationship-linkage endpoint, never the
+  profile's `relatedQuery[…]` form (which only addresses a relationship from a
+  parent request). With no resolver injected (standalone core) no
+  relationship-object pagination links are emitted.
+
 ## Registering profiles
 
 A profile becomes active once registered on a [`Server`](server.md). Every

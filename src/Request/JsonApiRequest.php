@@ -15,6 +15,7 @@ use haddowg\JsonApi\Exception\TopLevelMemberNotAllowed;
 use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship;
+use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -75,6 +76,17 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
      * @var array<string, mixed>|null
      */
     protected ?array $filtering = null;
+
+    /**
+     * Parsed Relationship Queries profile family (`relatedQuery` / `rQ`), keyed
+     * by relationship (include) path → the path's merged {@see RelatedQuery}
+     * (canonical `relatedQuery` wins on a per-`[path][op]` conflict). `null`
+     * until first read; an empty map when the profile was not negotiated or no
+     * family params were supplied.
+     *
+     * @var array<string, RelatedQuery>|null
+     */
+    protected ?array $relatedQueries = null;
 
     /**
      * Parsed profile lists: keyed by "applied", "requested", "required".
@@ -562,6 +574,104 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return isset($this->countedRelationships[$relationship]);
     }
 
+    public function getRelatedQuery(string $path): RelatedQuery
+    {
+        if ($this->relatedQueries === null) {
+            $this->relatedQueries = $this->parseRelatedQueries();
+        }
+
+        return $this->relatedQueries[$path] ?? new RelatedQuery();
+    }
+
+    public function hasRelatedQuery(string $path): bool
+    {
+        if ($this->relatedQueries === null) {
+            $this->relatedQueries = $this->parseRelatedQueries();
+        }
+
+        return isset($this->relatedQueries[$path]);
+    }
+
+    public function getRelatedQueryPaths(): array
+    {
+        if ($this->relatedQueries === null) {
+            $this->relatedQueries = $this->parseRelatedQueries();
+        }
+
+        return \array_keys($this->relatedQueries);
+    }
+
+    /**
+     * Parses the Relationship Queries profile family (`relatedQuery` / `rQ`) into
+     * a path → {@see RelatedQuery} map. Opt-in: an empty map unless the client
+     * negotiated {@see RelationshipQueriesProfile::URI} (via the `Accept`
+     * `profile` media-type parameter) — otherwise the family is ignored entirely.
+     *
+     * The canonical {@see RelationshipQueriesProfile::FAMILY} is merged after the
+     * shorthand {@see RelationshipQueriesProfile::FAMILY_SHORTHAND}, so on a
+     * conflict targeting the same `[path][op]` the canonical value wins. Each
+     * family value must be an array keyed by path → an array keyed by op
+     * (`sort` / `filter`); a non-conforming shape is a `400`
+     * ({@see QueryParamMalformed}).
+     *
+     * @return array<string, RelatedQuery>
+     */
+    protected function parseRelatedQueries(): array
+    {
+        if ($this->isProfileRequested(RelationshipQueriesProfile::URI) === false) {
+            return [];
+        }
+
+        // Shorthand first, then canonical — canonical overrides per (path, op).
+        $sorts = [];
+        $filters = [];
+
+        foreach ([RelationshipQueriesProfile::FAMILY_SHORTHAND, RelationshipQueriesProfile::FAMILY] as $family) {
+            $value = $this->getQueryParam($family);
+            if ($value === null) {
+                continue;
+            }
+
+            if (\is_array($value) === false) {
+                throw new QueryParamMalformed($family, $value);
+            }
+
+            foreach ($value as $path => $ops) {
+                $path = (string) $path;
+                if (\is_array($ops) === false) {
+                    throw new QueryParamMalformed($family . '[' . $path . ']', $ops);
+                }
+
+                if (\array_key_exists('sort', $ops)) {
+                    $sort = $ops['sort'];
+                    if (\is_string($sort) === false) {
+                        throw new QueryParamMalformed($family . '[' . $path . '][sort]', $sort);
+                    }
+                    $sorts[$path] = $sort;
+                }
+
+                if (\array_key_exists('filter', $ops)) {
+                    $filter = $ops['filter'];
+                    if (\is_array($filter) === false) {
+                        throw new QueryParamMalformed($family . '[' . $path . '][filter]', $filter);
+                    }
+                    /** @var array<string, mixed> $filter */
+                    $filters[$path] = $filter;
+                }
+            }
+        }
+
+        $queries = [];
+        foreach ([...\array_keys($sorts), ...\array_keys($filters)] as $path) {
+            if (isset($queries[$path])) {
+                continue;
+            }
+            $queries[$path] = new RelatedQuery($sorts[$path] ?? null, $filters[$path] ?? []);
+        }
+
+        return $queries;
+    }
+
     /**
      * Returns the "sort[]" query parameters.
      *
@@ -904,6 +1014,9 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
         if ($name === 'accept') {
             unset($this->profiles['accept'], $this->extensions['accept']);
+            // Negotiation gates the relatedQuery/rQ parse, so a changed Accept
+            // (which carries the negotiated profile) invalidates the cache.
+            $this->relatedQueries = null;
         }
     }
 
@@ -931,6 +1044,10 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
         if ($name === 'filter') {
             $this->filtering = null;
+        }
+
+        if ($name === RelationshipQueriesProfile::FAMILY || $name === RelationshipQueriesProfile::FAMILY_SHORTHAND) {
+            $this->relatedQueries = null;
         }
 
         if ($name === 'profile') {
