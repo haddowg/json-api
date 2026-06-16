@@ -16,6 +16,7 @@ use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,6 +32,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(WhereNotNull::class)]
 #[CoversClass(WhereHas::class)]
 #[CoversClass(WhereDoesntHave::class)]
+#[CoversClass(WhereThrough::class)]
 #[CoversClass(UnsupportedFilter::class)]
 #[Group('spec:filtering')]
 final class ArrayFilterHandlerTest extends TestCase
@@ -240,6 +242,109 @@ final class ArrayFilterHandlerTest extends TestCase
             $this->ids((new ArrayFilterHandler())->apply($filter, $this->relationData(), 'true')),
             $this->ids((new ArrayFilterHandler())->apply($filter, $this->relationData(), 'anything')),
         );
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function traversalData(): array
+    {
+        return [
+            // to-one author, multi-hop author.company
+            [
+                'id' => '1',
+                'author' => ['name' => 'Ada', 'company' => ['name' => 'Acme']],
+                'comments' => [['body' => 'first'], ['body' => 'second']],
+            ],
+            [
+                'id' => '2',
+                'author' => ['name' => 'Bob', 'company' => ['name' => 'Globex']],
+                'comments' => [['body' => 'third']],
+            ],
+            // no author, empty comments
+            ['id' => '3', 'author' => null, 'comments' => []],
+        ];
+    }
+
+    #[Test]
+    public function whereThroughMatchesASingleToOneHop(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name'), $this->traversalData(), 'Ada');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughIsExistsAnyAcrossAToManyHop(): void
+    {
+        // Keeps a row that has *some* comment whose body matches.
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('comments.body'), $this->traversalData(), 'second');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughChainsMultipleHops(): void
+    {
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.company.name'), $this->traversalData(), 'Globex');
+
+        self::assertSame(['2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughAppliesTheFluentOperator(): void
+    {
+        $filter = WhereThrough::make('author.name')->operator('like');
+        $result = (new ArrayFilterHandler())->apply($filter, $this->traversalData(), 'AD');
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughUsesTheNamedKeyOverridePathDistinctly(): void
+    {
+        // The key and the traversal path differ; traversal reads the path, not the key.
+        $filter = WhereThrough::make('topAuthor', 'author.name');
+        self::assertSame('topAuthor', $filter->key());
+
+        $result = (new ArrayFilterHandler())->apply($filter, $this->traversalData(), 'Bob');
+
+        self::assertSame(['2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughAppliesTheDeserializerBeforeComparing(): void
+    {
+        $data = [
+            ['id' => '1', 'author' => ['age' => 30]],
+            ['id' => '2', 'author' => ['age' => 50]],
+        ];
+        $filter = WhereThrough::make('author.age')->operator('>=')->deserializeUsing(static function (mixed $v): int {
+            self::assertIsString($v);
+
+            return (int) $v;
+        });
+
+        $result = (new ArrayFilterHandler())->apply($filter, $data, '40');
+
+        self::assertSame(['2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughEmptyOrMissingHopMatchesNothing(): void
+    {
+        // Row 3 has a null author; no reachable leaf, so it never matches.
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name'), $this->traversalData(), 'Nobody');
+
+        self::assertSame([], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughDeclaresItsValueConstraints(): void
+    {
+        $filter = WhereThrough::make('author.age')->integer();
+
+        self::assertCount(1, $filter->constraints());
     }
 
     #[Test]
