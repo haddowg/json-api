@@ -17,6 +17,13 @@ _REPO_LINK = re.compile(
     r"\]\((?:\.\./)+((?:examples|src|tests|config|LICENSE|CONTRIBUTING)[^)]*)\)"
 )
 
+# Maintainer-facing pages excluded from the published site (the compliance ledger
+# and the pre-release readiness checklist): point their in-doc links at the GitHub
+# source so references still resolve.
+_OFFSITE = re.compile(r"\]\((spec-compliance|release-readiness)\.md([^)]*)\)")
+
 
 def on_page_markdown(markdown, **kwargs):
-    return _REPO_LINK.sub(rf"]({_GH_BLOB}\1)", markdown)
+    markdown = _REPO_LINK.sub(rf"]({_GH_BLOB}\1)", markdown)
+    markdown = _OFFSITE.sub(rf"]({_GH_BLOB}docs/\1.md\2)", markdown)
+    return markdown

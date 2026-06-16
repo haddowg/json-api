@@ -69,11 +69,13 @@ validation:
   links:
     anchors: warn
 
-# Working/analysis docs kept in the repo but not part of the published site.
+# Working/analysis and maintainer-facing docs kept in the repo but not on the site.
 exclude_docs: |
   IA-PLAN.md
   v1-readiness-review.md
   v1-security-negotiation-review.md
+  spec-compliance.md
+  release-readiness.md
 
 nav:
   - Home: index.md
@@ -113,7 +115,5 @@ nav:
       - security.md
       - testing.md
   - Reference:
-      - spec-compliance.md
       - schema-validation.md
       - adapters.md
-      - release-readiness.md
