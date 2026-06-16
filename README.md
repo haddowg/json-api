@@ -82,14 +82,15 @@ $server = Server::make()
 $response = $server->handle($request); // a spec-compliant PSR-7 response
 ```
 
-See [Getting started](docs/getting-started.md) for the handler, routing, and
+See [Getting started](https://haddowg.github.io/json-api/getting-started/) for the handler, routing, and
 middleware that complete this example.
 
 ## Documentation
 
-Full documentation lives under [`docs/`](docs/index.md). Start with
-[Getting started](docs/getting-started.md) for an end-to-end walkthrough, or
-browse the [documentation index](docs/index.md) for the reference pages.
+The full documentation is published at **[haddowg.github.io/json-api](https://haddowg.github.io/json-api/)**.
+Start with [Getting started](https://haddowg.github.io/json-api/getting-started/) for an end-to-end
+walkthrough, or browse the [documentation index](https://haddowg.github.io/json-api/) for the reference
+pages. The source Markdown lives under [`docs/`](docs/index.md) in the repository.
 
 The [worked music-catalog example](examples/music-catalog/) is the single source
 of truth for every documentation snippet — and it serves itself. Run
