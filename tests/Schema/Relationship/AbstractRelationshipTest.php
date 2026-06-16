@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Schema\Relationship;
 
+use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Tests\Double\DummyData;
@@ -266,6 +268,103 @@ final class AbstractRelationshipTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsOnlyRelatedConventionLinkWhenSelfSuppressed(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author', false, true);
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'related' => 'https://api.example.com/articles/42/author',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsOnlySelfConventionLinkWhenRelatedSuppressed(): void
+    {
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author', true, false);
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                [],
+                'articles',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/articles/42/relationships/author',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformEmitsConventionLinksUsingTheParentUriType(): void
+    {
+        // The parent's JSON:API type is `article`, but its URI segment is
+        // `articles`; the convention links must use the segment, so a URI-type-aware
+        // parent's links match the routes that emit it.
+        $relationship = $this->createRelationship()
+            ->withConventionLinks('author');
+
+        $relationshipObject = $relationship->transform(
+            new ResourceTransformation(
+                new SegmentedParentResource(),
+                ['id' => '42'],
+                'article',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                '',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                'self' => 'https://api.example.com/articles/42/relationships/author',
+                'related' => 'https://api.example.com/articles/42/author',
+            ],
+            $relationshipObject['links'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
     public function transformEmitsConventionLinksWithUriFieldNameOverride(): void
     {
         $relationship = $this->createRelationship()
@@ -391,5 +490,23 @@ final class AbstractRelationshipTest extends TestCase
     private function createRelationship(): FakeRelationship
     {
         return new FakeRelationship();
+    }
+}
+
+/**
+ * A parent resource whose URI segment (`articles`) differs from its JSON:API
+ * type (`article`), so the convention links exercise the URI-type-aware path.
+ */
+final class SegmentedParentResource extends AbstractResource
+{
+    public static string $type = 'article';
+
+    public static string $uriType = 'articles';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+        ];
     }
 }

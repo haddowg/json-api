@@ -28,24 +28,26 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  */
 final class RelatedResponse extends AbstractResponse
 {
+    use AppliesPaginationTrait;
+
+    /**
+     * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
+     */
     private function __construct(
-        public readonly mixed $parent,
-        public readonly string $relationshipName,
         private readonly mixed $related,
         private readonly SerializerInterface $relatedResource,
         private readonly bool $isCollection,
+        private readonly ?\haddowg\JsonApi\Pagination\PageInterface $page = null,
     ) {}
 
     /**
      * A single related-resource response whose `data` is the related object.
      */
     public static function fromResource(
-        mixed $parent,
-        string $relationshipName,
         mixed $related,
         SerializerInterface $relatedResource,
     ): self {
-        return new self($parent, $relationshipName, $related, $relatedResource, false);
+        return new self($related, $relatedResource, false);
     }
 
     /**
@@ -54,12 +56,30 @@ final class RelatedResponse extends AbstractResponse
      * @param iterable<mixed> $related
      */
     public static function fromCollection(
-        mixed $parent,
-        string $relationshipName,
         iterable $related,
         SerializerInterface $relatedResource,
     ): self {
-        return new self($parent, $relationshipName, $related, $relatedResource, true);
+        return new self($related, $relatedResource, true);
+    }
+
+    /**
+     * A paginated related-collection response: the `data` is the page's items,
+     * and the document gains the pagination `links.{first,prev,self,next,last}`
+     * and `meta.page` the {@see \haddowg\JsonApi\Pagination\Page} emits — scoped
+     * to the related-collection URL the client hit (e.g. `/articles/1/comments`),
+     * exactly as {@see DataResponse::fromPage()} paginates the primary
+     * collection. A page that activates a profile (e.g. cursor pagination) causes
+     * the response to advertise it.
+     *
+     * @template T
+     *
+     * @param \haddowg\JsonApi\Pagination\PageInterface<T> $page
+     */
+    public static function fromPage(
+        \haddowg\JsonApi\Pagination\PageInterface $page,
+        SerializerInterface $relatedSerializer,
+    ): self {
+        return new self($page, $relatedSerializer, true, $page);
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
@@ -76,10 +96,26 @@ final class RelatedResponse extends AbstractResponse
             '',
             [],
             $server->baseUri(),
+            $server->maxIncludeDepth(),
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;
 
+        if ($this->page !== null) {
+            $result = $this->applyPagination($result, $server, $request, $this->page);
+        }
+
+        $result = $this->applyTopLevelSelf($result, $server, $request);
+
         return new RenderedDocument($result, 200);
+    }
+
+    /**
+     * Adds the page's profile (if any) to the request-requested applied set, via
+     * the shared {@see AppliesPaginationTrait::appliedPageProfiles()} helper.
+     */
+    protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        return $this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page);
     }
 }

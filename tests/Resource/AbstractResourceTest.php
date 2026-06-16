@@ -18,6 +18,8 @@ use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Tests\Double\RejectingIdEncoder;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use Nyholm\Psr7\ServerRequest;
@@ -49,6 +51,20 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function uriTypeDefaultsToTheJsonApiType(): void
+    {
+        self::assertSame('posts', (new PostResource())->uriType());
+    }
+
+    #[Test]
+    public function uriTypeUsesTheDeclaredSegmentWhenSet(): void
+    {
+        // The JSON:API type stays singular; only the URI segment differs.
+        self::assertSame('segment', SegmentedResource::$type);
+        self::assertSame('segments', (new SegmentedResource())->uriType());
+    }
+
+    #[Test]
     public function attributeCallablesSerializeFields(): void
     {
         $resource = new PostResource();
@@ -71,6 +87,67 @@ final class AbstractResourceTest extends TestCase
         $attributes = $resource->getAttributes($this->post(), new StubJsonApiRequest());
 
         self::assertArrayNotHasKey('secret', $attributes);
+    }
+
+    #[Test]
+    public function writeOnlyFieldsAreNotSerialized(): void
+    {
+        // A write-only field never appears in the rendered attributes — skipped
+        // alongside sparse-fieldset filtering, so it is absent from every read.
+        $resource = new PostResource();
+        $attributes = $resource->getAttributes($this->post(), new StubJsonApiRequest());
+
+        self::assertArrayNotHasKey('password', $attributes);
+        // The other attributes are unaffected.
+        self::assertArrayHasKey('title', $attributes);
+    }
+
+    #[Test]
+    public function sparseFieldsetCannotResurrectAWriteOnlyField(): void
+    {
+        // Even a fields[posts] explicitly naming the write-only member does not
+        // bring it back: it is dropped before sparse-fieldset filtering runs.
+        $resource = new PostResource();
+        $request = StubJsonApiRequest::create(['fields' => ['posts' => 'title,password']]);
+
+        $attributes = $resource->getAttributes($this->post(), $request);
+
+        self::assertArrayNotHasKey('password', $attributes);
+    }
+
+    #[Test]
+    public function writeOnlyFieldsAreHydratedOnCreate(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('POST', [
+            'data' => [
+                'type' => 'posts',
+                'attributes' => ['title' => 'T', 'password' => 'hunter2!'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('hunter2!', $model['password'], 'a write-only field is accepted on create');
+    }
+
+    #[Test]
+    public function writeOnlyFieldsAreHydratedOnUpdate(): void
+    {
+        $resource = new PostResource();
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'posts',
+                'id' => '7',
+                'attributes' => ['password' => 'rotated!'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, ['password' => 'original']);
+
+        self::assertIsArray($model);
+        self::assertSame('rotated!', $model['password'], 'a write-only field is accepted on update');
     }
 
     #[Test]
@@ -125,8 +202,9 @@ final class AbstractResourceTest extends TestCase
         self::assertIsArray($model);
         self::assertSame('New title', $model['title']);
         self::assertTrue($model['published']);
-        self::assertArrayHasKey('id', $model);
-        self::assertNotSame('', $model['id']);
+        // A plain Id::make() is store-provided by default: core sets no id, leaving
+        // it for the persister/DB to assign.
+        self::assertArrayNotHasKey('id', $model);
     }
 
     #[Test]
@@ -187,6 +265,193 @@ final class AbstractResourceTest extends TestCase
 
         $this->expectException(\haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported::class);
         $resource->hydrate($request, []);
+    }
+
+    #[Test]
+    public function decodesAClientGeneratedIdToTheStorageKeyOnCreate(): void
+    {
+        $resource = new EncodedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'encoded', 'id' => '12345', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        // The wire id '12345' decodes (reverses) to the storage key '54321'.
+        self::assertSame('54321', $model['id']);
+    }
+
+    #[Test]
+    public function rejectsAnUndecodableClientGeneratedIdWith422(): void
+    {
+        $resource = new RejectingIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'rejected', 'id' => 'well-formed-but-unknown', 'attributes' => []],
+        ]);
+
+        try {
+            $resource->hydrate($request, []);
+            self::fail('Expected ResourceIdUndecodable.');
+        } catch (\haddowg\JsonApi\Exception\ResourceIdUndecodable $exception) {
+            self::assertSame(422, $exception->getStatusCode());
+            self::assertSame('well-formed-but-unknown', $exception->id);
+        }
+    }
+
+    #[Test]
+    public function doesNotDecodeAServerGeneratedIdOnCreate(): void
+    {
+        // The encoder rejects every wire id, but a create with no client id must use
+        // the server-generated value as-is rather than feeding it to decode() — a
+        // server-minted id is the storage key's own wire form, not the encoder's
+        // input, so decoding it would 422 every server-generated create.
+        $resource = new ServerGeneratedEncodedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'server-encoded', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame(ServerGeneratedEncodedIdResource::GENERATED_ID, $model['id']);
+    }
+
+    #[Test]
+    public function storeProvidedIsTheDefaultAndSetsNoIdOnCreate(): void
+    {
+        // The default fallback: no client id and no generated() / generateUsing(),
+        // so core sets nothing — the persister/DB assigns the id.
+        $resource = new StoreProvidedIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'store-provided', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertArrayNotHasKey('id', $model);
+    }
+
+    #[Test]
+    public function anOptionalClientIdIsUsedWhenSupplied(): void
+    {
+        $resource = new OptionalClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'optional', 'id' => 'client-chosen', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('client-chosen', $model['id']);
+    }
+
+    #[Test]
+    public function anOptionalClientIdFallsBackToStoreProvidedWhenAbsent(): void
+    {
+        $resource = new OptionalClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'optional', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertArrayNotHasKey('id', $model);
+    }
+
+    #[Test]
+    public function aRequiredClientIdIsUsedWhenSupplied(): void
+    {
+        $resource = new RequiredClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'required', 'id' => 'mandatory', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame('mandatory', $model['id']);
+    }
+
+    #[Test]
+    public function aRequiredClientIdIsRejectedWith403WhenAbsent(): void
+    {
+        $resource = new RequiredClientIdResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'required', 'attributes' => []],
+        ]);
+
+        try {
+            $resource->hydrate($request, []);
+            self::fail('Expected ClientGeneratedIdRequired.');
+        } catch (\haddowg\JsonApi\Exception\ClientGeneratedIdRequired $exception) {
+            self::assertSame(403, $exception->getStatusCode());
+        }
+    }
+
+    #[Test]
+    public function generatedUuidMintsAUuidWhenNoClientIdIsSupplied(): void
+    {
+        $resource = new GeneratedUuidResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-uuid', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertIsString($model['id']);
+        self::assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $model['id'],
+        );
+    }
+
+    #[Test]
+    public function generatedUlidMintsAUlidWhenNoClientIdIsSupplied(): void
+    {
+        $resource = new GeneratedUlidResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-ulid', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertIsString($model['id']);
+        self::assertMatchesRegularExpression('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/', $model['id']);
+    }
+
+    #[Test]
+    public function generateUsingMintsTheClosureValueAsTheStorageKey(): void
+    {
+        $resource = new GeneratedClosureResource();
+        $request = $this->createRequest('POST', [
+            'data' => ['type' => 'gen-closure', 'attributes' => []],
+        ]);
+
+        $model = $resource->hydrate($request, []);
+
+        self::assertIsArray($model);
+        self::assertSame(GeneratedClosureResource::GENERATED_ID, $model['id']);
+    }
+
+    #[Test]
+    public function generatedOnANonSelfGeneratingFormatIsAConfigError(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Id::make()->numeric()->generated();
+    }
+
+    #[Test]
+    public function generatedWithoutAnyFormatIsAConfigError(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Id::make()->generated();
     }
 
     #[Test]
@@ -367,6 +632,18 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function postAddIsRejectedWhenTheRelationCannotAdd(): void
+    {
+        $resource = new RestrictedResource();
+        $request = $this->createRequest('POST', [
+            'data' => [['type' => 'tags', 'id' => '5']],
+        ]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\AdditionProhibited::class);
+        $resource->hydrateRelationship('pinned', $request, ['pinned' => ['1']]);
+    }
+
+    #[Test]
     public function deleteRemoveIsRejectedWhenTheRelationCannotRemove(): void
     {
         $resource = new RestrictedResource();
@@ -399,6 +676,36 @@ final class AbstractResourceTest extends TestCase
         $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
     }
 
+    #[Test]
+    public function nonIncludableRelationshipsAreDerivedFromCannotBeIncluded(): void
+    {
+        $resource = new IncludeControlledResource();
+
+        // 'secret' opted out via cannotBeIncluded(); 'author' did not.
+        self::assertSame(['secret'], $resource->getNonIncludableRelationships([]));
+    }
+
+    #[Test]
+    public function includeControlsDefaultToUnrestricted(): void
+    {
+        $resource = new PostResource();
+
+        // No per-resource depth override and no allowed-paths whitelist by default,
+        // so every AbstractResource subclass is unrestricted without any edit.
+        self::assertNull($resource->maxIncludeDepth());
+        self::assertNull($resource->getAllowedIncludePaths());
+        self::assertSame([], $resource->getNonIncludableRelationships([]));
+    }
+
+    #[Test]
+    public function includeControlsExposeTheAuthorOverrides(): void
+    {
+        $resource = new IncludeControlledResource();
+
+        self::assertSame(2, $resource->maxIncludeDepth());
+        self::assertSame(['author'], $resource->getAllowedIncludePaths());
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -410,6 +717,7 @@ final class AbstractResourceTest extends TestCase
             'viewCount' => 42,
             'published' => true,
             'secret' => 'do not show',
+            'password' => 'never echoed',
             'author' => ['id' => '1', 'type' => 'users'],
             'comments' => [],
         ];
@@ -449,6 +757,7 @@ final class PostResource extends AbstractResource
             Boolean::make('published'),
             DateTime::make('publishedAt')->sortable(),
             Str::make('secret')->hidden(),
+            Str::make('password')->writeOnly()->minLength(8),
             BelongsTo::make('author')->type('users'),
             HasMany::make('comments')->type('comments'),
         ];
@@ -475,8 +784,177 @@ final class PostResource extends AbstractResource
 }
 
 /**
- * A resource whose relationships opt out of replace / remove, exercising the
- * mutability gates ({@see \haddowg\JsonApi\Exception\FullReplacementProhibited} /
+ * A resource whose URI segment (`segments`) differs from its JSON:API type
+ * (`segment`), exercising the {@see AbstractResource::uriType()} override.
+ */
+final class SegmentedResource extends AbstractResource
+{
+    public static string $type = 'segment';
+
+    public static string $uriType = 'segments';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+        ];
+    }
+}
+
+/**
+ * A resource whose id is the wire form of a distinct storage key, exercising the
+ * {@see ReversingIdEncoder} decode-on-create path. Accepts client-generated ids.
+ */
+final class EncodedIdResource extends AbstractResource
+{
+    public static string $type = 'encoded';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->encodeUsing(new ReversingIdEncoder())->allowClientId(),
+        ];
+    }
+}
+
+/**
+ * A resource whose encoder rejects every wire id, exercising the 422 safety net
+ * behind {@see \haddowg\JsonApi\Exception\ResourceIdUndecodable}.
+ */
+final class RejectingIdResource extends AbstractResource
+{
+    public static string $type = 'rejected';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->encodeUsing(new RejectingIdEncoder())->allowClientId(),
+        ];
+    }
+}
+
+/**
+ * A resource that attaches an encoder but does NOT accept client-generated ids, so
+ * every create falls through to a server-generated id (here a closure). The encoder
+ * rejects every wire id ({@see RejectingIdEncoder}), proving the server-generated
+ * value is stored as-is and never fed to decode() (which would 422 the create).
+ */
+final class ServerGeneratedEncodedIdResource extends AbstractResource
+{
+    public const string GENERATED_ID = 'server-minted-id';
+
+    public static string $type = 'server-encoded';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()
+                ->encodeUsing(new RejectingIdEncoder())
+                ->generateUsing(static fn(): string => self::GENERATED_ID),
+        ];
+    }
+}
+
+/**
+ * The store-provided default: a plain {@see Id::make()} with no fallback, so a
+ * create with no client id sets nothing and leaves the id for the store to assign.
+ */
+final class StoreProvidedIdResource extends AbstractResource
+{
+    public static string $type = 'store-provided';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::allowClientId()}: a client id is optional — used when supplied, falling
+ * back to store-provided otherwise.
+ */
+final class OptionalClientIdResource extends AbstractResource
+{
+    public static string $type = 'optional';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->allowClientId(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::requireClientId()}: a client id is mandatory — its absence is a `403`
+ * {@see \haddowg\JsonApi\Exception\ClientGeneratedIdRequired}.
+ */
+final class RequiredClientIdResource extends AbstractResource
+{
+    public static string $type = 'required';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->requireClientId(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generated()} over a `uuid()` format: core mints a v4 UUID when no
+ * client id is supplied.
+ */
+final class GeneratedUuidResource extends AbstractResource
+{
+    public static string $type = 'gen-uuid';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->uuid()->generated(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generated()} over a `ulid()` format: core mints a Crockford-base32 ULID.
+ */
+final class GeneratedUlidResource extends AbstractResource
+{
+    public static string $type = 'gen-ulid';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->ulid()->generated(),
+        ];
+    }
+}
+
+/**
+ * {@see Id::generateUsing()}: a closure returns the generated storage key directly.
+ */
+final class GeneratedClosureResource extends AbstractResource
+{
+    public const string GENERATED_ID = 'closure-minted';
+
+    public static string $type = 'gen-closure';
+
+    public function fields(): array
+    {
+        return [
+            Id::make()->generateUsing(static fn(): string => self::GENERATED_ID),
+        ];
+    }
+}
+
+/**
+ * A resource whose relationships opt out of replace / add / remove, exercising
+ * the mutability gates ({@see \haddowg\JsonApi\Exception\FullReplacementProhibited} /
+ * {@see \haddowg\JsonApi\Exception\AdditionProhibited} /
  * {@see \haddowg\JsonApi\Exception\RemovalProhibited}).
  */
 final class RestrictedResource extends AbstractResource
@@ -489,8 +967,43 @@ final class RestrictedResource extends AbstractResource
             Id::make(),
             // A to-many that may be added to but never replaced or removed from.
             HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove(),
+            // A to-many that may be replaced / removed from but never added to.
+            HasMany::make('pinned')->type('tags')->cannotAdd(),
             // A to-one that may be replaced but never cleared.
             BelongsTo::make('owner')->type('users')->cannotReplace()->cannotRemove(),
         ];
+    }
+}
+
+/**
+ * A resource exercising the include safeguards: a relation that opts out of
+ * inclusion ({@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}),
+ * a per-resource maximum include depth and an allowed-include-paths whitelist
+ * ({@see \haddowg\JsonApi\Serializer\IncludeControlsInterface}).
+ */
+final class IncludeControlledResource extends AbstractResource
+{
+    public static string $type = 'controlled';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('author')->type('users'),
+            BelongsTo::make('secret')->type('secrets')->cannotBeIncluded(),
+        ];
+    }
+
+    public function maxIncludeDepth(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getAllowedIncludePaths(): array
+    {
+        return ['author'];
     }
 }

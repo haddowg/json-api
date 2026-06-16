@@ -5,10 +5,19 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Server;
 
 use haddowg\JsonApi\Exception\NoResourceRegistered;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\RendersRelationsTrait;
+use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Schema\Link\ResourceLinks;
+use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Server\Entry;
 use haddowg\JsonApi\Server\ResourceRegistry;
+use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -139,6 +148,7 @@ final class ResourceRegistryTest extends TestCase
 
         self::assertTrue($registry->has('widgets'));
         self::assertTrue($registry->hasSerializerFor('widgets'));
+        self::assertTrue($registry->hasHydratorFor('widgets'));
         self::assertInstanceOf(CustomWidgetSerializer::class, $registry->serializerFor('widgets'));
         self::assertInstanceOf(CustomPostHydrator::class, $registry->hydratorFor('widgets'));
     }
@@ -172,7 +182,34 @@ final class ResourceRegistryTest extends TestCase
 
         self::assertTrue($registry->has('widgets'));
         self::assertFalse($registry->hasSerializerFor('widgets'));
+        self::assertTrue($registry->hasHydratorFor('widgets'));
         self::assertInstanceOf(CustomPostHydrator::class, $registry->hydratorFor('widgets'));
+    }
+
+    #[Test]
+    public function barePairWithoutHydratorIsNotReportedByHydratorCheck(): void
+    {
+        $registry = new ResourceRegistry();
+        $registry->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        self::assertTrue($registry->has('widgets'));
+        self::assertFalse($registry->hasHydratorFor('widgets'));
+        self::assertTrue($registry->hasSerializerFor('widgets'));
+    }
+
+    #[Test]
+    public function hasResourceForDistinguishesAResourceFromABarePair(): void
+    {
+        $registry = new ResourceRegistry();
+        $registry->register(PostResource::class);
+        $registry->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        // The presence-check mirror of resourceFor(): a type registered with a
+        // Resource class reports a resource; a bare serializer/hydrator pair (or an
+        // unregistered type) does not — so a caller can branch without catching.
+        self::assertTrue($registry->hasResourceFor('posts'));
+        self::assertFalse($registry->hasResourceFor('widgets'));
+        self::assertFalse($registry->hasResourceFor('unregistered'));
     }
 
     #[Test]
@@ -202,6 +239,97 @@ final class ResourceRegistryTest extends TestCase
         self::assertInstanceOf(CustomPostSerializer::class, $registry->serializerFor('posts'));
         // Hydration still falls back to the Resource class.
         self::assertInstanceOf(PostResource::class, $registry->hydratorFor('posts'));
+    }
+
+    #[Test]
+    public function injectsResolverIntoAStandaloneSerializerThatOptsIn(): void
+    {
+        // A bare serializer (no AbstractResource) that opts in via
+        // SerializerResolverAwareInterface receives the registry as its resolver,
+        // so it can render relationships from a standalone relation list.
+        $registry = new ResourceRegistry();
+        $registry->registerSerializerHydrator('articles', serializer: StandaloneRelationSerializer::class);
+        $registry->registerSerializerHydrator('authors', serializer: CustomWidgetSerializer::class);
+
+        $serializer = $registry->serializerFor('articles');
+        self::assertInstanceOf(StandaloneRelationSerializer::class, $serializer);
+
+        $relationships = $serializer->getRelationships(['id' => '1'], new StubJsonApiRequest());
+        self::assertArrayHasKey('author', $relationships);
+    }
+
+    #[Test]
+    public function leavesABareSerializerThatDoesNotOptInUntouched(): void
+    {
+        // BC: a bare serializer that does not implement the aware interface is
+        // never called and renders without a resolver, exactly as before.
+        $registry = new ResourceRegistry();
+        $registry->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        $serializer = $registry->serializerFor('widgets');
+        self::assertInstanceOf(CustomWidgetSerializer::class, $serializer);
+        // CustomWidgetSerializer does not implement SerializerResolverAwareInterface,
+        // so the registry never injects a resolver; it renders as it always has.
+        self::assertSame([], $serializer->getRelationships([], new StubJsonApiRequest()));
+    }
+}
+
+/**
+ * A bare serializer (not an {@see AbstractResource}) that renders relationships
+ * from a standalone relation list, receiving its resolver through
+ * {@see SerializerResolverAwareInterface} + {@see RendersRelationsTrait}.
+ */
+final class StandaloneRelationSerializer extends AbstractSerializer implements SerializerResolverAwareInterface
+{
+    use RendersRelationsTrait;
+
+    private ?SerializerResolverInterface $resolver = null;
+
+    public function setSerializerResolver(SerializerResolverInterface $resolver): void
+    {
+        $this->resolver = $resolver;
+    }
+
+    public function getType(mixed $object): string
+    {
+        return 'articles';
+    }
+
+    public function getId(mixed $object): string
+    {
+        return '1';
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return null;
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return [];
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        if ($this->resolver === null) {
+            return [];
+        }
+
+        /** @var list<RelationInterface> $relations */
+        $relations = [BelongsTo::make('author')->type('authors')];
+
+        return self::relationshipCallables($relations, $this->resolver);
     }
 }
 

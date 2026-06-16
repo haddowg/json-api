@@ -24,9 +24,11 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 final readonly class CursorBasedPage extends AbstractPage
 {
     /**
-     * @param iterable<T> $items
-     * @param int|string  $cursorBefore the cursor of the first item (for `prev`)
-     * @param int|string  $cursorAfter  the cursor of the last item (for `next`)
+     * @param iterable<T>          $items
+     * @param int|string           $cursorBefore the cursor of the first item (for `prev`)
+     * @param int|string           $cursorAfter  the cursor of the last item (for `next`)
+     * @param int|string|null      $from         the id of the first row on the page (for `meta.page.from`), or null when empty
+     * @param int|string|null      $to           the id of the last row on the page (for `meta.page.to`), or null when empty
      */
     public function __construct(
         iterable $items,
@@ -36,6 +38,8 @@ final readonly class CursorBasedPage extends AbstractPage
         public bool $hasNext,
         public bool $hasPrevious,
         private readonly ?ProfileInterface $profile = null,
+        public int|string|null $from = null,
+        public int|string|null $to = null,
     ) {
         parent::__construct($items);
     }
@@ -58,10 +62,20 @@ final readonly class CursorBasedPage extends AbstractPage
 
     public function pageMeta(): array
     {
-        return [
-            'perPage' => $this->size,
-            'hasMore' => $this->hasNext,
-        ];
+        $meta = ['perPage' => $this->size];
+
+        // from/to are the ids of the first/last row on the page; omitted on an
+        // empty page (both null) so meta.page never carries a null boundary.
+        if ($this->from !== null) {
+            $meta['from'] = $this->from;
+        }
+        if ($this->to !== null) {
+            $meta['to'] = $this->to;
+        }
+
+        $meta['hasMore'] = $this->hasNext;
+
+        return $meta;
     }
 
     public function profile(): ?ProfileInterface
@@ -85,6 +99,8 @@ final readonly class CursorBasedPage extends AbstractPage
             $this->hasNext,
             $this->hasPrevious,
             $profile,
+            $this->from,
+            $this->to,
         );
     }
 }

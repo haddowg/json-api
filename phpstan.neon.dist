@@ -3,5 +3,7 @@ parameters:
     paths:
         - src
         - tests
+        - examples/music-catalog/src
+        - examples/music-catalog/tests
     tmpDir: .phpstan.cache
     treatPhpDocTypesAsCertain: false

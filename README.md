@@ -87,9 +87,9 @@ middleware that complete this example.
 
 ## Documentation
 
-Full documentation lives under [`docs/`](docs/README.md). Start with
+Full documentation lives under [`docs/`](docs/index.md). Start with
 [Getting started](docs/getting-started.md) for an end-to-end walkthrough, or
-browse the [documentation index](docs/README.md) for the reference pages.
+browse the [documentation index](docs/index.md) for the reference pages.
 
 ## Contributing
 

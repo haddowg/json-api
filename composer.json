@@ -51,8 +51,13 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "haddowg\\JsonApi\\Tests\\": "tests/"
-        }
+            "haddowg\\JsonApi\\Tests\\": "tests/",
+            "haddowg\\JsonApi\\Examples\\MusicCatalog\\": "examples/music-catalog/src/",
+            "haddowg\\JsonApi\\Examples\\MusicCatalog\\Tests\\": "examples/music-catalog/tests/"
+        },
+        "files": [
+            "examples/music-catalog/src/bootstrap.php"
+        ]
     },
     "config": {
         "sort-packages": true,

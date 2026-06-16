@@ -13,11 +13,13 @@
     <testsuites>
         <testsuite name="haddowg/json-api test suite">
             <directory>tests</directory>
+            <directory>examples/music-catalog/tests</directory>
         </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>src</directory>
+            <directory>examples/music-catalog/src</directory>
         </include>
     </source>
 </phpunit>

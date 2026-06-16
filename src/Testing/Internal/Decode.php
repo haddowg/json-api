@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Testing\Internal;
 
 use haddowg\JsonApi\Response\AbstractResponse;
 use haddowg\JsonApi\Server\ServerInterface;
+use haddowg\JsonApi\Testing\ResponseMeta;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -59,5 +60,37 @@ final class Decode
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    /**
+     * Extracts the plain-data response envelope (status + flattened header map)
+     * from a PSR-7 response, so the existing PSR-7 callers of the document
+     * wrappers gain status/header assertions for free. Any other input shape
+     * carries no envelope.
+     *
+     * @param ResponseInterface|string|array<string, mixed>|AbstractResponse $document
+     */
+    public static function toResponseMeta(
+        ResponseInterface|string|array|AbstractResponse $document,
+        ?ServerInterface $server = null,
+        ?ServerRequestInterface $request = null,
+    ): ?ResponseMeta {
+        if ($document instanceof AbstractResponse) {
+            if ($server === null) {
+                return null;
+            }
+            $document = $document->toPsrResponse($server, $request ?? RequestStub::get());
+        }
+
+        if (!$document instanceof ResponseInterface) {
+            return null;
+        }
+
+        $headers = [];
+        foreach ($document->getHeaders() as $name => $values) {
+            $headers[$name] = \implode(', ', $values);
+        }
+
+        return new ResponseMeta($document->getStatusCode(), $headers);
     }
 }

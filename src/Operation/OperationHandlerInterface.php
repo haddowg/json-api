@@ -13,7 +13,7 @@ use haddowg\JsonApi\Response\RelatedResponse;
 
 /**
  * The consumer extension point for the operations layer: given any
- * {@see JsonApiOperation}, produce one of the public response value objects.
+ * {@see JsonApiOperationInterface}, produce one of the public response value objects.
  *
  * Handlers receive a PSR-7-decoupled operation (the optional originating HTTP
  * message is still reachable via {@see OperationContext::httpRequest()}) and

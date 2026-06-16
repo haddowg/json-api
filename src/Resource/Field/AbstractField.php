@@ -8,7 +8,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\CompareField;
 use haddowg\JsonApi\Resource\Constraint\Comparison;
-use haddowg\JsonApi\Resource\Constraint\Constraint;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\NotIn;
@@ -18,7 +17,7 @@ use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\When;
 
 /**
- * Convenience base implementing the common {@see Field} fluent surface:
+ * Convenience base implementing the common {@see FieldInterface} fluent surface:
  * read-only state, hidden/sparse flags, the serialize/hydrate hook closures
  * (`serializeUsing`/`extractUsing`/`deserializeUsing`/`fillUsing`), the
  * constraint-list machinery and the `onCreate()` / `onUpdate()` context
@@ -38,6 +37,8 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected bool $readOnlyOnCreate = false;
 
     protected bool $readOnlyOnUpdate = false;
+
+    protected bool $writeOnly = false;
 
     protected bool $hidden = false;
 
@@ -141,6 +142,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     public function readOnly(): static
     {
+        $this->guardNotWriteOnly('readOnly');
         $this->readOnlyOnCreate = true;
         $this->readOnlyOnUpdate = true;
 
@@ -152,6 +154,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     public function readOnlyOnCreate(): static
     {
+        $this->guardNotWriteOnly('readOnlyOnCreate');
         $this->readOnlyOnCreate = true;
 
         return $this;
@@ -162,7 +165,38 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     public function readOnlyOnUpdate(): static
     {
+        $this->guardNotWriteOnly('readOnlyOnUpdate');
         $this->readOnlyOnUpdate = true;
+
+        return $this;
+    }
+
+    /**
+     * Marks the field write-only: it is **accepted on write** (hydrated on both
+     * create and update, and still validated) but **never rendered** — it is
+     * skipped in the attribute render exactly where sparse-fieldset filtering
+     * happens, so it appears on no read (single, collection, included, related)
+     * and a `fields[type]` parameter naming it cannot resurrect it. The inverse
+     * of {@see readOnly()}. Intended for write-once secrets a client sets but the
+     * server never echoes back (passwords, API tokens). Declaring a field both
+     * write-only and read-only is contradictory (it could be neither read nor
+     * written) and throws a {@see \LogicException}.
+     *
+     * A future OpenAPI generator reads {@see isWriteOnly()} to place the member in
+     * the request schema only.
+     *
+     * @return static
+     */
+    public function writeOnly(): static
+    {
+        if ($this->readOnlyOnCreate || $this->readOnlyOnUpdate) {
+            throw new \LogicException(\sprintf(
+                'Field "%s" cannot be both write-only and read-only.',
+                $this->name,
+            ));
+        }
+
+        $this->writeOnly = true;
 
         return $this;
     }
@@ -405,6 +439,11 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $creating ? $this->readOnlyOnCreate : $this->readOnlyOnUpdate;
     }
 
+    public function isWriteOnly(): bool
+    {
+        return $this->writeOnly;
+    }
+
     public function isHidden(): bool
     {
         return $this->hidden;
@@ -456,7 +495,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->serializeValue($raw);
     }
 
-    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->fillUsing !== null) {
             $result = ($this->fillUsing)($model, $value, $data, $this->name);
@@ -515,6 +554,21 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected function currentContext(): Context
     {
         return $this->contextOverride ?? Context::always();
+    }
+
+    /**
+     * Guards against declaring a field both read-only and write-only, which is
+     * contradictory (it could be neither read nor written).
+     */
+    private function guardNotWriteOnly(string $method): void
+    {
+        if ($this->writeOnly) {
+            throw new \LogicException(\sprintf(
+                'Field "%s" cannot be both read-only and write-only; %s() was called on a write-only field.',
+                $this->name,
+                $method,
+            ));
+        }
     }
 
     /**

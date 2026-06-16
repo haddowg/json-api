@@ -23,4 +23,14 @@ final readonly class WhereNull implements \haddowg\JsonApi\Resource\Filter\Filte
     {
         return $this->key;
     }
+
+    /**
+     * A presence-only filter carries no client value to validate.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
+     */
+    public function constraints(): array
+    {
+        return [];
+    }
 }

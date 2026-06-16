@@ -31,6 +31,8 @@ abstract class AbstractCollectionDocument extends AbstractResourceDocument
      */
     public function getData(ResourceDocumentTransformation $transformation, ResourceTransformer $transformer): DataInterface
     {
+        $maxIncludeDepth = $this->resolveEffectiveMaxIncludeDepth($transformation, $this->getResource());
+
         $resourceTransformation = new ResourceTransformation(
             $this->getResource(),
             null,
@@ -40,6 +42,7 @@ abstract class AbstractCollectionDocument extends AbstractResourceDocument
             $transformation->requestedRelationshipName,
             '',
             $transformation->baseUri,
+            $maxIncludeDepth,
         );
         $data = new CollectionData();
 

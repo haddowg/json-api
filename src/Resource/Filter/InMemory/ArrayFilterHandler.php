@@ -17,6 +17,7 @@ use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
 
 /**
  * Reference {@see FilterHandlerInterface} operating on a
@@ -54,6 +55,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
             $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
             $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
+            $filter instanceof WhereThrough => $this->whereThrough($filter, $value),
             $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
             $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
             default => throw new UnsupportedFilter($filter),
@@ -67,58 +69,120 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
 
-        return function (mixed $row) use ($filter, $expected): bool {
-            $actual = Accessor::get($row, $filter->column);
+        return fn(mixed $row): bool => $this->compare(Accessor::get($row, $filter->column), $filter->operator, $expected);
+    }
 
-            return match ($filter->operator) {
-                '=', '==' => $actual == $expected,
-                '===' => $actual === $expected,
-                '!=', '<>' => $actual != $expected,
-                '>' => $actual > $expected,
-                '>=' => $actual >= $expected,
-                '<' => $actual < $expected,
-                '<=' => $actual <= $expected,
-                // Contains, case-insensitive for ASCII — the semantics a SQL
-                // `LIKE '%…%'` gives on common backends (SQLite folds ASCII
-                // only; anything beyond is platform-defined), so database
-                // adapters can match this reference behaviour.
-                'like' => \is_string($actual) && \is_string($expected) && \stripos($actual, $expected) !== false,
-                default => false,
-            };
+    /**
+     * Traversal filter ({@see WhereThrough}): walk the dotted path, flat-mapping
+     * across each relationship hop (a to-many hop fans out to every member), and
+     * match if **any** reachable leaf value satisfies the operator — the in-memory
+     * witness for a correlated EXISTS-ANY semi-join.
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function whereThrough(WhereThrough $filter, mixed $value): \Closure
+    {
+        $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
+        $segments = \explode('.', $filter->path);
+        $leaf = fn(mixed $actual): bool => $this->compare($actual, $filter->operator, $expected);
+
+        return fn(mixed $row): bool => $this->existsThrough($row, $segments, $leaf);
+    }
+
+    /**
+     * Shared operator comparison, identical for a {@see Where} column and a
+     * {@see WhereThrough} leaf so the two stay byte-for-byte equivalent.
+     */
+    private function compare(mixed $actual, string $operator, mixed $expected): bool
+    {
+        return match ($operator) {
+            '=', '==' => $actual == $expected,
+            '===' => $actual === $expected,
+            '!=', '<>' => $actual != $expected,
+            '>' => $actual > $expected,
+            '>=' => $actual >= $expected,
+            '<' => $actual < $expected,
+            '<=' => $actual <= $expected,
+            // Contains, case-insensitive for ASCII — the semantics a SQL
+            // `LIKE '%…%'` gives on common backends (SQLite folds ASCII
+            // only; anything beyond is platform-defined), so database
+            // adapters can match this reference behaviour.
+            'like' => \is_string($actual) && \is_string($expected) && \stripos($actual, $expected) !== false,
+            default => false,
         };
+    }
+
+    /**
+     * Walks `$segments` from `$row`, fanning out across every to-many hop, and
+     * returns whether **any** reached leaf value satisfies `$leaf`. A `null`
+     * `$leaf` is the degenerate existence test ({@see WhereHas}): true when the
+     * path reaches at least one present value — i.e. a non-empty related
+     * collection or a non-null to-one across the whole chain.
+     *
+     * @param list<string>            $segments
+     * @param (\Closure(mixed): bool)|null $leaf
+     */
+    private function existsThrough(mixed $row, array $segments, ?\Closure $leaf): bool
+    {
+        $segment = $segments[0];
+        $rest = \array_slice($segments, 1);
+        $isLeafHop = $rest === [];
+
+        foreach ($this->fanOut(Accessor::get($row, $segment)) as $next) {
+            if ($isLeafHop) {
+                if ($leaf === null || $leaf($next)) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if ($this->existsThrough($next, $rest, $leaf)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Expands a hop value into the set of next-hop values: a to-many (a list array
+     * or a `Traversable`) fans out to its members, while a present to-one — a
+     * single object or an associative map (a `name => value` shape, *not* a list) —
+     * is one value. `null` and an empty collection yield nothing. A list keyed
+     * `0..n` reads as a to-many; an associative array reads as one related record,
+     * the only honest distinction available without relationship metadata (a real
+     * adapter resolves arity from its `ClassMetadata`).
+     *
+     * @return list<mixed>
+     */
+    private function fanOut(mixed $related): array
+    {
+        if ($related === null) {
+            return [];
+        }
+
+        if (\is_array($related)) {
+            return \array_is_list($related) ? $related : [$related];
+        }
+
+        if ($related instanceof \Traversable) {
+            return \iterator_to_array($related, false);
+        }
+
+        return [$related];
     }
 
     /**
      * Existence test for a relationship: a non-empty related collection/array or
      * a non-null to-one value. The request `filter[...]` value is irrelevant —
      * presence alone decides the match (a {@see WhereHas} keeps such rows; a
-     * {@see WhereDoesntHave} keeps the complement).
+     * {@see WhereDoesntHave} keeps the complement). Folded onto the shared
+     * traversal as a degenerate length-1 path with no leaf predicate.
      */
     private function hasRelation(mixed $row, string $relationship): bool
     {
-        $related = Accessor::get($row, $relationship);
-
-        if ($related === null) {
-            return false;
-        }
-
-        if (\is_array($related)) {
-            return $related !== [];
-        }
-
-        if ($related instanceof \Countable) {
-            return \count($related) > 0;
-        }
-
-        if ($related instanceof \Traversable) {
-            foreach ($related as $_) {
-                return true;
-            }
-
-            return false;
-        }
-
-        return true;
+        return $this->existsThrough($row, [$relationship], null);
     }
 
     /**

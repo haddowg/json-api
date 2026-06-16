@@ -8,12 +8,14 @@ use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
- * Convenience base for {@see Relation} fields. Reuses {@see AbstractField}'s
+ * Convenience base for {@see RelationInterface} fields. Reuses {@see AbstractField}'s
  * flag / constraint / context machinery and adds the relationship-shaping fluent
  * surface (`type()`, `inverseType()`, `cannotEagerLoad()`, the URI helpers) plus
  * the serialize/hydrate routing relationships use.
@@ -37,8 +39,6 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected ?string $uriFieldName = null;
 
-    protected bool $retainFieldName = false;
-
     protected bool $includesLinks = true;
 
     protected bool $linkageOnlyWhenLoaded = false;
@@ -46,6 +46,32 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     protected bool $allowsReplace = true;
 
     protected bool $allowsRemove = true;
+
+    protected bool $exposesRelatedEndpoint = true;
+
+    protected bool $exposesRelationshipEndpoint = true;
+
+    protected bool $allowsAdd = true;
+
+    protected bool $isIncludable = true;
+
+    protected bool $isCountable = false;
+
+    protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
+
+    /**
+     * Extra filters scoped to this relation's related-collection endpoint.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    protected array $relationFilters = [];
+
+    /**
+     * Extra sorts scoped to this relation's related-collection endpoint.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Sort\SortInterface>
+     */
+    protected array $relationSorts = [];
 
     /**
      * Declares the related resource type(s). A single type for a monomorphic
@@ -92,16 +118,6 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function withUriFieldName(string $uriFieldName): static
     {
         $this->uriFieldName = $uriFieldName;
-
-        return $this;
-    }
-
-    /**
-     * @return static
-     */
-    public function retainFieldName(): static
-    {
-        $this->retainFieldName = true;
 
         return $this;
     }
@@ -167,6 +183,159 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this;
     }
 
+    /**
+     * Suppresses this relation's related HTTP endpoint (`GET /{type}/{id}/{rel}`):
+     * the host treats a request for it as a 404, and the conventional `related`
+     * link is omitted so a rendered link never points at that 404. The endpoint is
+     * exposed by default.
+     *
+     * @return static
+     */
+    public function withoutRelatedEndpoint(): static
+    {
+        $this->exposesRelatedEndpoint = false;
+
+        return $this;
+    }
+
+    /**
+     * Suppresses this relation's relationship-linkage HTTP endpoint
+     * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`): the host treats a
+     * request for it as a 404, and the conventional `self` link is omitted so a
+     * rendered link never points at that 404. The endpoint is exposed by default.
+     *
+     * @return static
+     */
+    public function withoutRelationshipEndpoint(): static
+    {
+        $this->exposesRelationshipEndpoint = false;
+
+        return $this;
+    }
+
+    /**
+     * Prohibits additions to this (to-many) relationship: a `POST` to its
+     * relationship endpoint is rejected with
+     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). Additions are
+     * allowed by default, completing the replace / add / remove gate trio.
+     *
+     * @return static
+     */
+    public function cannotAdd(): static
+    {
+        $this->allowsAdd = false;
+
+        return $this;
+    }
+
+    /**
+     * Prohibits this relationship from being included in a compound document: a
+     * `?include` naming it (at any path) is rejected with
+     * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400), and it is
+     * excluded from the default-include cascade. The relationship linkage and its
+     * `self` / `related` links are unaffected — only the compound `included`
+     * expansion is suppressed. Includable by default.
+     *
+     * @return static
+     */
+    public function cannotBeIncluded(): static
+    {
+        $this->isIncludable = false;
+
+        return $this;
+    }
+
+    /**
+     * Declares this (to-many) relation **countable**: its cardinality is exposed
+     * as `meta.total` on the relationship object when the request names it in
+     * `?withCount`, and its related-collection endpoint (`GET /{type}/{id}/{rel}`)
+     * emits the pagination `total` + `last` link. A non-countable relation's
+     * endpoint paginates count-free (no `total`, no `last` — "there is a next
+     * page" is signalled by `next` alone). The count is the single universal gate:
+     * a `?withCount` naming a relation that is not countable (or a to-one) is
+     * rejected. Off by default. {@see countable()} is the single universal count
+     * gate.
+     *
+     * @return static
+     */
+    public function countable(): static
+    {
+        $this->isCountable = true;
+
+        return $this;
+    }
+
+    /**
+     * Sets the default paginator for this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`). A to-many relation paginates its related
+     * collection with this strategy when the request carries `page[…]`; a to-one
+     * relation has no collection and ignores it. Mutates and returns `$this`,
+     * matching the relation builder's other fluent setters.
+     *
+     * @return static
+     */
+    public function paginate(\haddowg\JsonApi\Pagination\PaginatorInterface $paginator): static
+    {
+        $this->relationPaginator = $paginator;
+
+        return $this;
+    }
+
+    /**
+     * This relation's declared default paginator, or `null` for none. It is the
+     * to-many related-endpoint paginator (a to-one relation ignores it); the host
+     * resolves the effective strategy as relation → related-resource → server
+     * default.
+     */
+    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    {
+        return $this->relationPaginator;
+    }
+
+    /**
+     * Declares extra filters scoped to this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`) — not the primary collection of the related type.
+     * Appends to any already declared, matching the relation builder's other
+     * fluent setters. Read them back with {@see filters()}. The host merges them
+     * with the related resource's own filters; on a key clash the relation's
+     * declaration wins (the more specific scope).
+     *
+     * @return static
+     */
+    public function withFilters(\haddowg\JsonApi\Resource\Filter\FilterInterface ...$filters): static
+    {
+        $this->relationFilters = [...$this->relationFilters, ...\array_values($filters)];
+
+        return $this;
+    }
+
+    /**
+     * Declares extra sorts scoped to this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`) — not the primary collection of the related type.
+     * Appends to any already declared, matching the relation builder's other
+     * fluent setters. Read them back with {@see sorts()}. The host merges them with
+     * the related resource's own sorts; on a key clash the relation's declaration
+     * wins (the more specific scope).
+     *
+     * @return static
+     */
+    public function withSorts(\haddowg\JsonApi\Resource\Sort\SortInterface ...$sorts): static
+    {
+        $this->relationSorts = [...$this->relationSorts, ...\array_values($sorts)];
+
+        return $this;
+    }
+
+    public function filters(): array
+    {
+        return $this->relationFilters;
+    }
+
+    public function sorts(): array
+    {
+        return $this->relationSorts;
+    }
+
     public function allowsReplace(): bool
     {
         return $this->allowsReplace;
@@ -175,6 +344,31 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function allowsRemove(): bool
     {
         return $this->allowsRemove;
+    }
+
+    public function exposesRelatedEndpoint(): bool
+    {
+        return $this->exposesRelatedEndpoint;
+    }
+
+    public function exposesRelationshipEndpoint(): bool
+    {
+        return $this->exposesRelationshipEndpoint;
+    }
+
+    public function allowsAdd(): bool
+    {
+        return $this->allowsAdd;
+    }
+
+    public function isIncludable(): bool
+    {
+        return $this->isIncludable;
+    }
+
+    public function isCountable(): bool
+    {
+        return $this->isCountable;
     }
 
     public function relatedTypes(): array
@@ -195,6 +389,24 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function emitsLinkageOnlyWhenLoaded(): bool
     {
         return $this->linkageOnlyWhenLoaded;
+    }
+
+    public function resolveSerializer(mixed $related, SerializerResolverInterface $resolver): ?SerializerInterface
+    {
+        $monomorphic = \count($this->relatedTypes) === 1;
+
+        foreach ($this->relatedTypes as $type) {
+            if (!$resolver->hasSerializerFor($type)) {
+                continue;
+            }
+
+            $serializer = $resolver->serializerFor($type);
+            if ($related === null || $monomorphic || $serializer->getType($related) === $type) {
+                return $serializer;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -221,7 +433,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this->relatedValue($model, $request, $name);
     }
 
-    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         return $model;
     }
@@ -364,7 +576,11 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         if ($this->includesLinks) {
-            $relationship->withConventionLinks($this->uriFieldName());
+            $relationship->withConventionLinks(
+                $this->uriFieldName(),
+                $this->exposesRelationshipEndpoint,
+                $this->exposesRelatedEndpoint,
+            );
         }
 
         return $relationship;
@@ -398,10 +614,93 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         if ($this->includesLinks) {
-            $relationship->withConventionLinks($this->uriFieldName());
+            $relationship->withConventionLinks(
+                $this->uriFieldName(),
+                $this->exposesRelationshipEndpoint,
+                $this->exposesRelatedEndpoint,
+            );
+        }
+
+        $meta = $this->relationshipMeta($model, $request, $resolver);
+        if ($meta !== []) {
+            $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
+        }
+
+        $pagination = $this->resolvePagination($model, $request, $resolver);
+        if ($pagination !== null) {
+            $relationship->withPagination($pagination);
         }
 
         return $relationship;
+    }
+
+    /**
+     * Resolves the page-1 pagination state for this to-many relation on `$model`
+     * under the Relationship Queries profile — the relationship-object
+     * `first` / `prev` / `next` (+ `last`) links — or `null` when none should be
+     * emitted: no
+     * {@see \haddowg\JsonApi\Serializer\RelationshipPaginationInterface} was
+     * injected, or the resolver returned `null` (the relation is not paginated for
+     * this request). The injected resolver owns the page-1 windowing and the
+     * plain-form link translation; core only attaches the result.
+     */
+    protected function resolvePagination(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): ?\haddowg\JsonApi\Schema\Relationship\RelationshipPagination {
+        return $resolver->relationshipPagination()?->paginateRelationship($model, $this, $request);
+    }
+
+    /**
+     * The relationship-object `meta` this relation contributes for `$model` — the
+     * general per-relationship meta-contribution hook merged onto the built
+     * relationship by {@see buildToMany()}. Its first consumer is the countable
+     * relation `meta.total`: when the relation is {@see countable()}, the request
+     * names it in `?withCount` ({@see JsonApiRequestInterface::countsRelationship()}),
+     * and an injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface} supplies a
+     * non-null cardinality, this returns `['total' => N]` (the same `total` key the
+     * count-based pages emit, so the relationship-object total and the endpoint
+     * pagination total are one consistent semantic). With no resolver injected, a
+     * non-countable relation, or a relation the request did not name, this returns
+     * `[]` and no meta is emitted. Override (calling `parent`) to contribute further
+     * relationship meta.
+     *
+     * @return array<string, mixed>
+     */
+    protected function relationshipMeta(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): array {
+        $meta = [];
+
+        $total = $this->resolveCount($model, $request, $resolver);
+        if ($total !== null) {
+            $meta['total'] = $total;
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Resolves the countable cardinality for this relation on `$model`, or `null`
+     * when no count should be emitted: the relation is not {@see countable()}, the
+     * request did not name it in `?withCount`, no
+     * {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface} was injected, or
+     * the resolver itself returned `null` (no count available for this parent).
+     */
+    private function resolveCount(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): ?int {
+        if ($this->isCountable === false || $request->countsRelationship($this->name) === false) {
+            return null;
+        }
+
+        return $resolver->relationshipCount()?->countRelationship($model, $this);
     }
 
     /**

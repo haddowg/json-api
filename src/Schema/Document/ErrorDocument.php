@@ -15,7 +15,7 @@ use haddowg\JsonApi\Schema\Link\DocumentLinks;
  * @internal
  *
  */
-class ErrorDocument extends AbstractErrorDocument
+final class ErrorDocument extends AbstractErrorDocument
 {
     protected ?JsonApiObject $jsonApi = null;
 

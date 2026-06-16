@@ -7,17 +7,17 @@ namespace haddowg\JsonApi\Testing;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\DeleteResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
-use haddowg\JsonApi\Operation\JsonApiOperation;
+use haddowg\JsonApi\Operation\JsonApiOperationInterface;
 use haddowg\JsonApi\Operation\OperationContext;
 use haddowg\JsonApi\Operation\QueryParameters;
 use haddowg\JsonApi\Operation\Target;
 use haddowg\JsonApi\Operation\UpdateResourceOperation;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Server\ServerInterface;
+use haddowg\JsonApi\Server\ResolvingServerInterface;
 
 /**
- * Fluent builder for {@see JsonApiOperation} value objects, for programmatic-
+ * Fluent builder for {@see JsonApiOperationInterface} value objects, for programmatic-
  * dispatch tests that pair with {@see \haddowg\JsonApi\Server\Server::dispatch()}:
  *
  * ```php
@@ -29,7 +29,7 @@ use haddowg\JsonApi\Server\ServerInterface;
  *
  * Body-carrying verbs (create/update) assemble a {@see JsonApiRequest} from the
  * declared attributes/relationships; bodyless verbs (fetch/delete) ignore them.
- * A {@see ServerInterface} is required for the {@see OperationContext}.
+ * A {@see ResolvingServerInterface} is required for the {@see OperationContext}.
  */
 final class JsonApiOperationBuilder
 {
@@ -46,26 +46,26 @@ final class JsonApiOperationBuilder
     private function __construct(
         private readonly string $verb,
         private readonly string $type,
-        private readonly ServerInterface $server,
+        private readonly ResolvingServerInterface $server,
         private readonly ?string $id = null,
     ) {}
 
-    public static function create(string $type, ServerInterface $server): self
+    public static function create(string $type, ResolvingServerInterface $server): self
     {
         return new self('create', $type, $server);
     }
 
-    public static function update(string $type, string $id, ServerInterface $server): self
+    public static function update(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('update', $type, $server, $id);
     }
 
-    public static function fetch(string $type, string $id, ServerInterface $server): self
+    public static function fetch(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('fetch', $type, $server, $id);
     }
 
-    public static function delete(string $type, string $id, ServerInterface $server): self
+    public static function delete(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('delete', $type, $server, $id);
     }
@@ -98,7 +98,7 @@ final class JsonApiOperationBuilder
         return $this;
     }
 
-    public function build(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
+    public function build(): JsonApiOperationInterface
     {
         $target = new Target($this->type, $this->id);
         $context = new OperationContext($this->server);

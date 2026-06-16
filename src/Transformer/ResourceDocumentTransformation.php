@@ -17,7 +17,7 @@ use haddowg\JsonApi\Schema\Document\ResourceDocumentInterface;
  * @extends AbstractDocumentTransformation<ResourceDocumentInterface>
  *
  */
-class ResourceDocumentTransformation extends AbstractDocumentTransformation
+final class ResourceDocumentTransformation extends AbstractDocumentTransformation
 {
     /**
      * @param array<string, mixed> $additionalMeta
@@ -30,6 +30,7 @@ class ResourceDocumentTransformation extends AbstractDocumentTransformation
         public string $requestedRelationshipName,
         array $additionalMeta,
         public string $baseUri = '',
+        public ?int $maxIncludeDepth = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

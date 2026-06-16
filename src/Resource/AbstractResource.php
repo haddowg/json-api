@@ -4,27 +4,30 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource;
 
+use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
+use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
 use haddowg\JsonApi\Exception\DataMemberMissing;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RemovalProhibited;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
+use haddowg\JsonApi\Exception\ResourceIdUndecodable;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Hydrator\UpdateRelationshipHydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Accessor;
-use haddowg\JsonApi\Resource\Field\Field;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Mode;
-use haddowg\JsonApi\Resource\Field\Relation;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
  * The recommended public surface: a single declaration of a JSON:API resource
@@ -40,15 +43,25 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *
  * `getAttributes()`/`getRelationships()` return callables (the contract the
  * transformer consumes); sparse-fieldset filtering and inclusion are handled by
- * the transformer reading {@see Field::isSparseField()} and the request, so the
+ * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, SelfLinkAwareInterface
 {
+    use RendersRelationsTrait;
+
     /**
      * The JSON:API resource type. Subclasses set this.
      */
     public static string $type = '';
+
+    /**
+     * The URI path segment for this resource type, used in generated links (and,
+     * by hosts, routes) — e.g. `books` for the type `book`. Empty means "use
+     * {@see $type}". Subclasses override to decouple the URL segment from the
+     * JSON:API type (a plural, or a kebab-cased name).
+     */
+    public static string $uriType = '';
 
     protected ?\haddowg\JsonApi\Resource\SerializerResolverInterface $serializerResolver = null;
 
@@ -84,6 +97,30 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
      */
     public function sorts(): array
+    {
+        return [];
+    }
+
+    /**
+     * The default sort order applied to a collection of this resource **only when
+     * the request carries no `sort` parameter**. An explicit `?sort=` overrides it
+     * entirely (the default is not appended to it).
+     *
+     * Each entry is a {@see \haddowg\JsonApi\Resource\Sort\SortDirective} — the
+     * same shape a data layer builds for a requested sort — pairing one
+     * {@see \haddowg\JsonApi\Resource\Sort\SortInterface} (any sort the resource
+     * exposes, typically a {@see \haddowg\JsonApi\Resource\Sort\SortByField}) with
+     * its direction, most significant first. Default: `[]` (no default order, the
+     * collection is returned in storage order).
+     *
+     * A default sort makes an otherwise unsorted collection — and therefore its
+     * pagination — deterministic. The directives are applied through the resource's
+     * sort handler exactly as a requested sort would be, so a default must name a
+     * sort the handler can execute.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortDirective>
+     */
+    public function defaultSort(): array
     {
         return [];
     }
@@ -139,6 +176,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return static::$type;
     }
 
+    public function uriType(): string
+    {
+        return static::$uriType !== '' ? static::$uriType : static::$type;
+    }
+
     public function getId(mixed $object): string
     {
         $idField = $this->idField();
@@ -161,10 +203,28 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return null;
     }
 
+    /**
+     * Emits the spec-recommended by-convention resource `self` link
+     * (`{baseUri}/{uriType}/{id}`) by default. Override to return `false` to opt
+     * this resource out of the convention self link (a `getLinks()` self still
+     * wins regardless).
+     */
+    public function emitsSelfLink(): bool
+    {
+        return true;
+    }
+
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         $attributes = [];
         foreach ($this->attributeFields() as $field) {
+            // A write-only field is accepted on write but never rendered: skip it
+            // here, alongside the sparse-fieldset filtering, so it appears on no
+            // read and a fields[type] parameter naming it cannot resurrect it.
+            if ($field->isWriteOnly()) {
+                continue;
+            }
+
             $attributes[$field->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
                 => $field->serialize($model, $request, $fieldName);
         }
@@ -177,6 +237,67 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return [];
     }
 
+    /**
+     * The relationship names this resource has opted out of inclusion for, derived
+     * from {@see relationFields()} where the relation declared
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}.
+     *
+     * @return list<string>
+     */
+    public function getNonIncludableRelationships(mixed $object): array
+    {
+        $names = [];
+        foreach ($this->relationFields() as $relation) {
+            if ($relation->isIncludable() === false) {
+                $names[] = $relation->name();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * The relationship names this resource declares countable, derived from
+     * {@see relationFields()} where the relation is to-many and declared
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}. A
+     * `?withCount` naming any other relationship is rejected (400).
+     *
+     * @return list<string>
+     */
+    public function getCountableRelationships(mixed $object): array
+    {
+        $names = [];
+        foreach ($this->relationFields() as $relation) {
+            if ($relation->isToMany() && $relation->isCountable()) {
+                $names[] = $relation->name();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * No per-resource maximum include depth by default — the server default (if
+     * any) applies. Override to cap includes for this resource specifically.
+     */
+    public function maxIncludeDepth(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * No allowed-include-paths whitelist by default — includes are unrestricted
+     * (subject to per-relation includability and the max include depth). Override
+     * to return the full dotted paths permissible when this resource is the
+     * request's primary/root type.
+     *
+     * @return list<string>|null
+     */
+    public function getAllowedIncludePaths(): ?array
+    {
+        return null;
+    }
+
     public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         $resolver = $this->serializerResolver;
@@ -184,13 +305,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return [];
         }
 
-        $relationships = [];
-        foreach ($this->relationFields() as $relation) {
-            $relationships[$relation->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
-                => $relation->buildRelationship($model, $request, $resolver);
-        }
-
-        return $relationships;
+        return self::relationshipCallables($this->relationFields(), $resolver);
     }
 
     public function hydrate(JsonApiRequestInterface $request, mixed $domainObject): mixed
@@ -222,6 +337,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws RelationshipNotExists when this resource has no such relationship (404)
      * @throws RelationshipTypeInappropriate when add/remove targets a to-one relationship (400)
      * @throws FullReplacementProhibited when a replace targets a relation that {@see RelationInterface::allowsReplace()} === false (403)
+     * @throws AdditionProhibited when an add targets a relation that {@see RelationInterface::allowsAdd()} === false (403)
      * @throws RemovalProhibited when a removal (or a to-one clear) targets a relation that {@see RelationInterface::allowsRemove()} === false (403)
      */
     public function hydrateRelationship(
@@ -286,13 +402,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
     /**
      * Applies a to-many relationship-endpoint mutation under `$mode`: `PATCH`
-     * replaces (gated by {@see RelationInterface::allowsReplace()}), `POST` adds,
-     * `DELETE` removes (gated by {@see RelationInterface::allowsRemove()}).
+     * replaces (gated by {@see RelationInterface::allowsReplace()}), `POST` adds
+     * (gated by {@see RelationInterface::allowsAdd()}), `DELETE` removes (gated by
+     * {@see RelationInterface::allowsRemove()}).
      *
      * @param mixed $domainObject
      * @return mixed
      *
      * @throws FullReplacementProhibited
+     * @throws AdditionProhibited
      * @throws RemovalProhibited
      */
     protected function mutateToMany(
@@ -304,6 +422,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     ): mixed {
         if ($mode === Mode::Replace && $relation->allowsReplace() === false) {
             throw new FullReplacementProhibited($relationship);
+        }
+
+        if ($mode === Mode::Add && $relation->allowsAdd() === false) {
+            throw new AdditionProhibited($relationship);
         }
 
         if ($mode === Mode::Remove && $relation->allowsRemove() === false) {
@@ -337,28 +459,6 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         if ($type !== static::$type) {
             throw new ResourceTypeUnacceptable($type, [static::$type]);
         }
-    }
-
-    /**
-     * Generates a new resource id when the client does not supply one. Defaults
-     * to a RFC 4122 v4 UUID; override for a different scheme.
-     */
-    protected function generateId(): string
-    {
-        $bytes = \random_bytes(16);
-        $bytes[6] = \chr((\ord($bytes[6]) & 0x0F) | 0x40);
-        $bytes[8] = \chr((\ord($bytes[8]) & 0x3F) | 0x80);
-
-        return \vsprintf('%s%s-%s-%s-%s-%s%s%s', \str_split(\bin2hex($bytes), 4));
-    }
-
-    /**
-     * Whether this resource accepts a client-generated id. Defaults to false
-     * (the spec lets a server reject client ids).
-     */
-    protected function acceptsClientGeneratedId(): bool
-    {
-        return false;
     }
 
     /**
@@ -409,12 +509,20 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * Sources the new resource's id from two orthogonal axes declared on the
+     * {@see Id} field. A client-supplied `data.id` is honoured per the field's
+     * client-id policy (default: forbidden); when none is supplied the field's
+     * server-side fallback applies (default: store-provided — set nothing and let
+     * the store/DB assign the id).
+     *
      * @param mixed $domainObject
      * @param array<string, mixed> $data
      * @return mixed
      *
      * @throws ResourceIdInvalid
      * @throws ClientGeneratedIdNotSupported
+     * @throws ClientGeneratedIdRequired
+     * @throws ResourceIdUndecodable
      */
     protected function hydrateId(mixed $domainObject, array $data): mixed
     {
@@ -431,18 +539,47 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             $clientId = $data['id'];
         }
 
-        if ($clientId !== '' && !$this->acceptsClientGeneratedId()) {
-            throw new ClientGeneratedIdNotSupported($clientId);
+        $column = $idField->column();
+
+        if ($clientId !== '') {
+            if (!$idField->allowsClientId()) {
+                throw new ClientGeneratedIdNotSupported($clientId);
+            }
+
+            if ($column === null) {
+                return $domainObject;
+            }
+
+            // An encoder makes the id the wire form of a distinct storage key, so a
+            // *client-supplied* id must be decoded back to its storage key before it is
+            // set (its serialized id then re-encodes and round-trips). A well-formed but
+            // undecodable client id 422s. A generated/closure value is a storage key
+            // already and is never decoded.
+            $encoder = $idField->encoder();
+            if ($encoder !== null) {
+                $storageKey = $encoder->decode($clientId);
+                if ($storageKey === null) {
+                    throw new ResourceIdUndecodable($clientId);
+                }
+
+                return Accessor::set($domainObject, $column, $storageKey);
+            }
+
+            return Accessor::set($domainObject, $column, $clientId);
         }
 
-        $column = $idField->column();
-        if ($column === null) {
+        // No client id supplied.
+        if ($idField->requiresClientId()) {
+            throw new ClientGeneratedIdRequired();
+        }
+
+        $generated = $idField->generateIdValue();
+        if ($generated === null || $column === null) {
+            // Store-provided: set nothing — the persister/DB assigns the id.
             return $domainObject;
         }
 
-        $id = $clientId !== '' ? $clientId : $this->generateId();
-
-        return Accessor::set($domainObject, $column, $id);
+        return Accessor::set($domainObject, $column, $generated);
     }
 
     /**
@@ -466,7 +603,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
-            $domainObject = $field->hydrate($domainObject, $attributes[$field->name()], $data, $request);
+            $domainObject = $field->hydrate($domainObject, $attributes[$field->name()], $data, $request, $creating);
         }
 
         return $domainObject;

@@ -57,7 +57,9 @@ final class ProfileApplicationTest extends TestCase
 
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame('', $psr->getHeaderLine('Vary'));
-        self::assertArrayNotHasKey('links', $body);
+        // No profile applied, so no links.profile — but the document still carries
+        // the by-convention top-level self link.
+        self::assertSame(['self' => '/users/1'], $body['links']);
     }
 
     private function timestampsProfile(): AbstractProfile

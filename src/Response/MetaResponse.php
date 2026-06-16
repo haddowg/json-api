@@ -43,9 +43,13 @@ final class MetaResponse extends AbstractResponse
             '',
             '',
             [],
+            $server->baseUri(),
+            $server->maxIncludeDepth(),
         );
 
         $result = (new DocumentTransformer())->transformMetaDocument($transformation)->result;
+
+        $result = $this->applyTopLevelSelf($result, $server, $request);
 
         return new RenderedDocument($result, 200);
     }

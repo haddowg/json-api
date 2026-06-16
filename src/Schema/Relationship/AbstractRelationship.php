@@ -8,6 +8,7 @@ use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 
@@ -49,6 +50,32 @@ abstract class AbstractRelationship
      * that knows the parent resource's type + id and the configured base URI.
      */
     protected ?string $conventionLinksUriFieldName = null;
+
+    /**
+     * Whether the conventional `self` link (the relationship-linkage endpoint) is
+     * emitted when {@see withConventionLinks()} is in effect. Suppressed when the
+     * owning relation's relationship endpoint is not exposed, so a rendered link
+     * never points at a host 404.
+     */
+    protected bool $conventionLinksSelf = true;
+
+    /**
+     * Whether the conventional `related` link (the related endpoint) is emitted
+     * when {@see withConventionLinks()} is in effect. Suppressed when the owning
+     * relation's related endpoint is not exposed, so a rendered link never points
+     * at a host 404.
+     */
+    protected bool $conventionLinksRelated = true;
+
+    /**
+     * The pagination state for a rendered to-many relationship, or `null` for an
+     * unpaginated relationship. When set (and the relationship carries convention
+     * links so a parent identity is resolvable), {@see transform()} emits the
+     * page's `first` / `prev` / `next` (+ `last` when countable) links into the
+     * relationship's own `links` object, in the spec's plain-form against the
+     * relationship-linkage endpoint.
+     */
+    protected ?RelationshipPagination $pagination = null;
 
     /**
      * @internal
@@ -158,13 +185,37 @@ abstract class AbstractRelationship
      * are built in {@see transform()} from the owning resource's type + id and
      * the server base URI; an explicit {@see setLinks()} takes precedence.
      *
+     * `$exposeSelf` / `$exposeRelated` gate the individual links: pass `false`
+     * for either to omit the link to a suppressed endpoint, so a rendered link
+     * never points at a host 404.
+     *
      * @internal
      *
      * @return $this
      */
-    public function withConventionLinks(string $uriFieldName): static
+    public function withConventionLinks(string $uriFieldName, bool $exposeSelf = true, bool $exposeRelated = true): static
     {
         $this->conventionLinksUriFieldName = $uriFieldName;
+        $this->conventionLinksSelf = $exposeSelf;
+        $this->conventionLinksRelated = $exposeRelated;
+
+        return $this;
+    }
+
+    /**
+     * Attaches pagination state to a rendered to-many relationship so its
+     * relationship object emits `first` / `prev` / `next` (+ `last` when
+     * countable) links in the spec's plain-form against the relationship-linkage
+     * endpoint. The link URLs are completed in {@see transform()} from the parent
+     * resource's identity and the base URI. Has effect only alongside convention
+     * links (an explicit {@see setLinks()} or no parent identity suppresses them,
+     * since the endpoint cannot otherwise be located).
+     *
+     * @return $this
+     */
+    public function withPagination(RelationshipPagination $pagination): static
+    {
+        $this->pagination = $pagination;
 
         return $this;
     }
@@ -210,7 +261,7 @@ abstract class AbstractRelationship
      *
      * @return array<string, mixed>|null
      */
-    public function transform(
+    final public function transform(
         ResourceTransformation $transformation,
         ResourceTransformer $resourceTransformer,
         DataInterface $data,
@@ -289,7 +340,12 @@ abstract class AbstractRelationship
             return null;
         }
 
-        $parentType = $parent->getType($transformation->object);
+        // The path segment is the parent's URI type (so a resource whose JSON:API
+        // type differs from its URL segment links correctly); a serializer that is
+        // not URI-type-aware falls back to its JSON:API type, as before.
+        $parentType = $parent instanceof UriTypeAwareInterface
+            ? $parent->uriType()
+            : $parent->getType($transformation->object);
         if ($parentType === '') {
             $parentType = $transformation->resourceType;
         }
@@ -300,12 +356,36 @@ abstract class AbstractRelationship
         }
 
         $base = '/' . $parentType . '/' . $parentId;
+        $selfHref = $base . '/relationships/' . $uriFieldName;
 
         return new RelationshipLinks(
             $transformation->baseUri,
-            new Link($base . '/relationships/' . $uriFieldName),
-            new Link($base . '/' . $uriFieldName),
+            $this->conventionLinksSelf ? new Link($selfHref) : null,
+            $this->conventionLinksRelated ? new Link($base . '/' . $uriFieldName) : null,
+            $this->paginationLinks($selfHref),
         );
+    }
+
+    /**
+     * The relationship-object pagination links (`first` / `prev` / `next` / `last`)
+     * for a paginated to-many relationship, built from the carried page against
+     * the relationship-linkage endpoint (`$selfHref`) in the spec's plain-form;
+     * `[]` when the relationship is not paginated. The `self` relation the page
+     * may emit is dropped — the convention `self` link already addresses the
+     * endpoint — and any `null` relation is filtered by {@see RelationshipLinks}.
+     *
+     * @return array<string, Link|null>
+     */
+    private function paginationLinks(string $selfHref): array
+    {
+        if ($this->pagination === null) {
+            return [];
+        }
+
+        $links = $this->pagination->linksFor($selfHref);
+        unset($links['self']);
+
+        return $links;
     }
 
     /**
@@ -345,7 +425,16 @@ abstract class AbstractRelationship
         $basePath .= ($basePath !== '' ? '.' : '') . $relationshipTransformation->currentRelationshipName;
         $relationshipTransformation->basePath = $basePath;
 
+        // The included resource's depth is the segment count of its new basePath.
+        // When a max include depth is in effect, descending past it is silently
+        // skipped — the linkage identifier is still returned below, only the
+        // compound `included` expansion is capped. This halts the default cascade
+        // at the cap and guarantees termination of mutual default-include cycles.
+        $maxIncludeDepth = $transformation->maxIncludeDepth;
+        $withinDepth = $maxIncludeDepth === null || \substr_count($basePath, '.') + 1 <= $maxIncludeDepth;
+
         if (
+            $withinDepth &&
             $transformation->request->isIncludedRelationship(
                 $transformation->basePath,
                 $transformation->currentRelationshipName,

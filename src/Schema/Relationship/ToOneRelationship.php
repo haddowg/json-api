@@ -14,7 +14,7 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  *
  * @see https://jsonapi.org/format/1.1/#document-resource-object-relationships
  */
-class ToOneRelationship extends AbstractRelationship
+final class ToOneRelationship extends AbstractRelationship
 {
     /**
      * @internal

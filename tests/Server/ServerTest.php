@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Server;
 
+use haddowg\JsonApi\Exception\AbstractJsonApiException;
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
@@ -15,6 +16,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Tests\Double\RecordingOperationHandler;
+use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -30,6 +32,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 #[CoversClass(\haddowg\JsonApi\Server\ResourceRegistry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Entry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Internal\MiddlewareDecorator::class)]
+#[CoversClass(\haddowg\JsonApi\Negotiation\StrictQueryParameterValidator::class)]
+#[CoversClass(\haddowg\JsonApi\Operation\Psr7ToOperationHandlerAdapter::class)]
 #[CoversClass(NoResourceRegistered::class)]
 #[Group('spec:crud')]
 final class ServerTest extends TestCase
@@ -58,6 +62,39 @@ final class ServerTest extends TestCase
         self::assertNotSame($base, $configured);
         self::assertSame('', $base->baseUri());
         self::assertSame('https://example.com', $configured->baseUri());
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function withRelationshipPaginationThreadsIntoTheResolverAndSurvivesFurtherWithers(): void
+    {
+        $resolver = new \haddowg\JsonApi\Tests\Double\FakeRelationshipPagination(null);
+
+        $base = Server::make();
+        self::assertNull($base->relationshipPagination());
+        self::assertNull($base->resources()->relationshipPagination());
+
+        $configured = $base->withRelationshipPagination($resolver);
+
+        // Immutable, threaded into the registry (the resolver relations consult).
+        self::assertNull($base->relationshipPagination());
+        self::assertSame($resolver, $configured->relationshipPagination());
+        self::assertSame($resolver, $configured->resources()->relationshipPagination());
+
+        // A subsequent unrelated wither re-pushes the resolver into the new registry.
+        $rebased = $configured->withBaseUri('https://api.example.com');
+        self::assertSame($resolver, $rebased->resources()->relationshipPagination());
+    }
+
+    #[Test]
+    public function maxIncludeDepthIsUnlimitedByDefaultAndSettable(): void
+    {
+        $base = Server::make();
+        self::assertNull($base->maxIncludeDepth());
+
+        $configured = $base->withMaxIncludeDepth(3);
+        self::assertNull($base->maxIncludeDepth());
+        self::assertSame(3, $configured->maxIncludeDepth());
     }
 
     #[Test]
@@ -272,6 +309,271 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    public function withServingIsImmutableAndAppends(): void
+    {
+        $base = Server::make();
+        self::assertSame([], $base->serving());
+
+        $first = static function (JsonApiRequestInterface $request): void {};
+        $second = static function (JsonApiRequestInterface $request): void {};
+
+        $withOne = $base->withServing($first);
+        $withTwo = $withOne->withServing($second);
+
+        // Each wither is immutable and does not leak into the source instance.
+        self::assertNotSame($base, $withOne);
+        self::assertNotSame($withOne, $withTwo);
+        self::assertSame([], $base->serving());
+        self::assertSame([$first], $withOne->serving());
+        self::assertSame([$first, $second], $withTwo->serving());
+    }
+
+    #[Test]
+    public function servingHandlerFiresOnceBeforeTheOperationHandler(): void
+    {
+        $order = [];
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta(['ok' => true]));
+        $request = StubJsonApiRequest::create();
+
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $received) use (&$order, $request): void {
+                self::assertSame($request, $received);
+                $order[] = 'serving';
+            });
+
+        // The operation handler records itself only when it runs.
+        $operation = $this->stubOperation($request);
+        $result = $server->dispatch($operation);
+
+        self::assertSame(['serving'], $order);
+        self::assertSame($operation, $handler->received);
+        self::assertInstanceOf(MetaResponse::class, $result);
+    }
+
+    #[Test]
+    public function multipleServingHandlersFireInRegistrationOrder(): void
+    {
+        $order = [];
+        $server = Server::make()
+            ->withHandler(new RecordingOperationHandler(MetaResponse::fromMeta([])))
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$order): void {
+                $order[] = 'a';
+            })
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$order): void {
+                $order[] = 'b';
+            });
+
+        $server->dispatch($this->stubOperation(StubJsonApiRequest::create()));
+
+        self::assertSame(['a', 'b'], $order);
+    }
+
+    #[Test]
+    public function aThrowingServingHandlerAbortsBeforeTheOperationHandler(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $request): void {
+                throw new ServingDenied();
+            });
+
+        try {
+            $server->dispatch($this->stubOperation(StubJsonApiRequest::create()));
+            self::fail('Expected the serving handler to abort dispatch.');
+        } catch (ServingDenied $e) {
+            // The JSON:API exception propagates out of dispatch() unchanged.
+            self::assertSame(403, $e->getStatusCode());
+        }
+
+        // The operation handler never ran.
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    public function servingDoesNotFireForAProgrammaticDispatchWithNoHttpRequest(): void
+    {
+        $fired = false;
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withServing(static function (JsonApiRequestInterface $request) use (&$fired): void {
+                $fired = true;
+            });
+
+        // No HTTP message backs the operation, so there is no request to gate.
+        $operation = $this->stubOperation();
+        $server->dispatch($operation);
+
+        self::assertFalse($fired);
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function strictQueryParametersIsOnByDefaultAndFluent(): void
+    {
+        $server = Server::make();
+        self::assertTrue($server->strictQueryParameters());
+        self::assertSame([], $server->customQueryParameters());
+
+        $relaxed = $server->withStrictQueryParameters(false);
+        self::assertFalse($relaxed->strictQueryParameters());
+        // Immutable: the source is untouched.
+        self::assertTrue($server->strictQueryParameters());
+
+        $withCustom = $server->withCustomQueryParameter('withTrashed', 'myFilter');
+        self::assertSame(['withTrashed', 'myFilter'], $withCustom->customQueryParameters());
+        self::assertSame([], $server->customQueryParameters());
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchRejectsAnUnrecognizedQueryParameterByDefault(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()->withHandler($handler);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['bogus' => '1']));
+
+        try {
+            $server->dispatch($operation);
+            self::fail('Expected the unrecognized query parameter to be rejected.');
+        } catch (\haddowg\JsonApi\Exception\QueryParamUnrecognized $e) {
+            self::assertSame('bogus', $e->unrecognizedQueryParam);
+            self::assertSame(400, $e->getStatusCode());
+        }
+
+        // The 400 fires before the operation handler runs.
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchIgnoresAnUnrecognizedQueryParameterWhenRelaxed(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta(['ok' => true]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withStrictQueryParameters(false);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['bogus' => '1']));
+        $result = $server->dispatch($operation);
+
+        // Tolerant: the param is ignored and the operation runs as before.
+        self::assertInstanceOf(MetaResponse::class, $result);
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsTheReservedFamiliesAndWithCount(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()->withHandler($handler);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title'],
+            'include' => 'author',
+            'sort' => '-title',
+            'page' => ['number' => '1'],
+            'filter' => ['draft' => '0'],
+            'withCount' => 'comments',
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsAHostRegisteredCustomQueryParameter(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withCustomQueryParameter('withTrashed');
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create(['withTrashed' => '1']));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchRejectsAProfileFamilyWhenTheProfileIsNotNegotiated(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile());
+
+        // No Accept profile negotiated -> the relatedQuery family is unrecognized.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'relatedQuery' => ['author' => ['sort' => 'name']],
+        ]));
+
+        $this->expectException(\haddowg\JsonApi\Exception\QueryParamUnrecognized::class);
+
+        $server->dispatch($operation);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function dispatchAllowsAProfileFamilyWhenTheProfileIsNegotiated(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile());
+
+        $request = (new \haddowg\JsonApi\Request\JsonApiRequest(
+            (new ServerRequest('GET', '/'))
+                ->withHeader(
+                    'accept',
+                    'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile::URI . '"',
+                )
+                ->withQueryParams(['relatedQuery' => ['author' => ['sort' => 'name']]]),
+        ));
+
+        $operation = $this->stubOperation($request);
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:fetching-data')]
+    public function thePsr15HandlePathEnforcesStrictQueryParametersToo(): void
+    {
+        // An OperationHandler is wrapped in the adapter, which the server hands the
+        // strict-validation hook — so handle() rejects an unrecognized family too.
+        $psr17 = new Psr17Factory();
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withPsr17($psr17, $psr17)
+            ->withHandler($handler);
+
+        $request = (new ServerRequest('GET', '/api/posts?bogus=1'))
+            ->withQueryParams(['bogus' => '1'])
+            ->withAttribute(\haddowg\JsonApi\Operation\Target::class, new \haddowg\JsonApi\Operation\Target('posts'));
+
+        try {
+            $server->handle($request);
+            self::fail('Expected the PSR-15 handle() path to reject the unrecognized param.');
+        } catch (\haddowg\JsonApi\Exception\QueryParamUnrecognized $e) {
+            self::assertSame('bogus', $e->unrecognizedQueryParam);
+        }
+
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
     public function handleRunsTheMiddlewareChainInOrder(): void
     {
         $psr17 = new Psr17Factory();
@@ -334,9 +636,11 @@ final class ServerTest extends TestCase
         };
     }
 
-    private function stubOperation(): \haddowg\JsonApi\Operation\JsonApiOperationInterface
+    private function stubOperation(?ServerRequestInterface $httpRequest = null): \haddowg\JsonApi\Operation\JsonApiOperationInterface
     {
-        return new class implements \haddowg\JsonApi\Operation\JsonApiOperationInterface {
+        return new class ($httpRequest) implements \haddowg\JsonApi\Operation\JsonApiOperationInterface {
+            public function __construct(private readonly ?ServerRequestInterface $httpRequest) {}
+
             public function target(): \haddowg\JsonApi\Operation\Target
             {
                 return new \haddowg\JsonApi\Operation\Target('posts');
@@ -351,6 +655,7 @@ final class ServerTest extends TestCase
             {
                 return new \haddowg\JsonApi\Operation\OperationContext(
                     new \haddowg\JsonApi\Tests\Double\StubServer(),
+                    $this->httpRequest,
                 );
             }
         };
@@ -515,5 +820,23 @@ final class ArrayContainer implements \Psr\Container\ContainerInterface
     public function has(string $id): bool
     {
         return isset($this->instances[$id]);
+    }
+}
+
+/**
+ * A 403 JSON:API exception a `serving` handler throws to abort the request,
+ * modelling an authorization gate. It propagates out of {@see Server::dispatch()}
+ * unchanged.
+ */
+final class ServingDenied extends AbstractJsonApiException
+{
+    public function __construct()
+    {
+        parent::__construct('Serving denied.', 403);
+    }
+
+    public function getErrors(): array
+    {
+        return [];
     }
 }

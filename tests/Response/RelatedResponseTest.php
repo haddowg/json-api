@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Pagination\PageBasedPage;
+use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
@@ -11,6 +13,7 @@ use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
 use haddowg\JsonApi\Tests\Double\StubServer;
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -24,8 +27,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('author', '42', attributes: ['name' => static fn(): string => 'Ada']);
 
         $response = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );
@@ -40,8 +41,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '42',
+                    'links' => ['self' => '/author/42'],
                     'attributes' => ['name' => 'Ada'],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -101,8 +104,6 @@ final class RelatedResponseTest extends TestCase
         };
 
         $response = RelatedResponse::fromCollection(
-            parent: new \stdClass(),
-            relationshipName: 'comments',
             related: [$item1, $item2],
             relatedResource: $relatedResource,
         );
@@ -115,9 +116,10 @@ final class RelatedResponseTest extends TestCase
             [
                 'jsonapi' => ['version' => '1.1'],
                 'data' => [
-                    ['type' => 'comment', 'id' => '10'],
-                    ['type' => 'comment', 'id' => '20'],
+                    ['type' => 'comment', 'id' => '10', 'links' => ['self' => '/comment/10']],
+                    ['type' => 'comment', 'id' => '20', 'links' => ['self' => '/comment/20']],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -129,8 +131,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('comment', '1');
 
         $response = RelatedResponse::fromCollection(
-            parent: new \stdClass(),
-            relationshipName: 'comments',
             related: [],
             relatedResource: $relatedResource,
         );
@@ -144,13 +144,54 @@ final class RelatedResponseTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:pagination')]
+    public function fromPageEmitsPaginationLinksScopedToTheRelatedCollectionUrlAndMeta(): void
+    {
+        // The client hit /articles/1/comments — the page links must be scoped to
+        // THAT related-collection path (with its query string), not a primary
+        // /comments collection, mirroring DataResponse::fromPage's behaviour.
+        $relatedResource = new StubResource('comment', '1');
+        $page = new PageBasedPage([new \stdClass()], totalItems: 50, page: 2, size: 10);
+
+        $request = new JsonApiRequest(new ServerRequest(
+            'GET',
+            'https://api.test/articles/1/comments?page[number]=2&page[size]=10',
+        ));
+
+        $psr = RelatedResponse::fromPage(
+            page: $page,
+            relatedSerializer: $relatedResource,
+        )->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
+
+        $body = $this->decode($psr->getBody()->getContents());
+
+        $links = $body['links'];
+        self::assertIsArray($links);
+        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=2&page%5Bsize%5D=10', $links['self']);
+        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['first']);
+        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['prev']);
+        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=3&page%5Bsize%5D=10', $links['next']);
+        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=5&page%5Bsize%5D=10', $links['last']);
+
+        $meta = $body['meta'];
+        self::assertIsArray($meta);
+        self::assertSame(
+            ['currentPage' => 2, 'perPage' => 10, 'from' => 11, 'to' => 20, 'total' => 50, 'lastPage' => 5],
+            $meta['page'],
+        );
+
+        self::assertSame(
+            [['type' => 'comment', 'id' => '1', 'links' => ['self' => 'https://api.test/comment/1']]],
+            $body['data'],
+        );
+    }
+
+    #[Test]
     public function withMetaReturnsNewInstanceWithMetaInOutput(): void
     {
         $relatedResource = new StubResource('author', '1');
 
         $base = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );
@@ -178,8 +219,6 @@ final class RelatedResponseTest extends TestCase
         $relatedResource = new StubResource('author', '7', attributes: ['name' => static fn(): string => 'Lovelace']);
 
         $response = RelatedResponse::fromResource(
-            parent: new \stdClass(),
-            relationshipName: 'author',
             related: new \stdClass(),
             relatedResource: $relatedResource,
         );
@@ -190,8 +229,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '7',
+                    'links' => ['self' => '/author/7'],
                     'attributes' => ['name' => 'Lovelace'],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode(
                 $response->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),

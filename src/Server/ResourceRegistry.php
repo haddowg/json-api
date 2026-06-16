@@ -6,7 +6,9 @@ namespace haddowg\JsonApi\Server;
 
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
+use haddowg\JsonApi\Hydrator\HydratorResolverInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
@@ -26,8 +28,13 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * object` or a PSR-11 container, normalised to a `\Closure`); with no resolver the
  * registry falls back to plain `new $class()`. Registering two resources with the
  * same type is a configuration error.
+ *
+ * @internal package-internal registry; consumers register via the fluent
+ *           {@see Server::register()} / {@see Server::registerSerializerHydrator()}
+ *           and resolve a type via {@see Server::resourceFor()},
+ *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface
 {
     /**
      * @var array<string, Entry>
@@ -67,6 +74,23 @@ final class ResourceRegistry implements SerializerResolverInterface
     private ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState = null;
 
     /**
+     * The storage-aware resolver that supplies a countable relation's cardinality
+     * (`meta.total`), or null when none is injected (standalone core emits no
+     * count). Threaded down from the {@see Server}, the same way the lazy
+     * {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
+
+    /**
+     * The storage-aware resolver that supplies a to-many relation's page-1
+     * pagination state (the relationship-object pagination links) under the
+     * Relationship Queries profile, or null when none is injected (standalone core
+     * emits no such links). Threaded down from the {@see Server}, the same way the
+     * lazy {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -90,6 +114,35 @@ final class ResourceRegistry implements SerializerResolverInterface
     public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
     {
         return $this->relationshipLoadState;
+    }
+
+    /**
+     * Sets (or clears) the relationship-count resolver consulted for a relation
+     * that is {@see \haddowg\JsonApi\Resource\Field\RelationInterface::isCountable()}
+     * and named in the request's `?withCount`.
+     */
+    public function setRelationshipCount(?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount): void
+    {
+        $this->relationshipCount = $relationshipCount;
+    }
+
+    public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
+    {
+        return $this->relationshipCount;
+    }
+
+    /**
+     * Sets (or clears) the relationship-pagination resolver consulted for a
+     * to-many relation when the Relationship Queries profile is negotiated.
+     */
+    public function setRelationshipPagination(?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination): void
+    {
+        $this->relationshipPagination = $relationshipPagination;
+    }
+
+    public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
+    {
+        return $this->relationshipPagination;
     }
 
     /**
@@ -147,6 +200,18 @@ final class ResourceRegistry implements SerializerResolverInterface
         return isset($this->entries[$type]);
     }
 
+    /**
+     * Whether `$type` has a Resource class (vs a bare serializer/hydrator pair).
+     * The presence-check mirror of {@see resourceFor()}, so a caller can branch on
+     * a standalone-registered type without catching {@see NoResourceRegistered}.
+     */
+    public function hasResourceFor(string $type): bool
+    {
+        $entry = $this->entries[$type] ?? null;
+
+        return $entry !== null && $entry->resource !== null;
+    }
+
     public function hasSerializerFor(string $type): bool
     {
         $entry = $this->entries[$type] ?? null;
@@ -168,10 +233,7 @@ final class ResourceRegistry implements SerializerResolverInterface
             throw new NoResourceRegistered($type);
         }
 
-        $resource = $this->resourceInstances[$type] ??= $this->makeResource($entry->resource);
-        $resource->setSerializerResolver($this);
-
-        return $resource;
+        return $this->resourceInstances[$type] ??= $this->makeResource($entry->resource);
     }
 
     /**
@@ -218,6 +280,13 @@ final class ResourceRegistry implements SerializerResolverInterface
         return $this->resourceFor($type);
     }
 
+    public function hasHydratorFor(string $type): bool
+    {
+        $entry = $this->entries[$type] ?? null;
+
+        return $entry !== null && ($entry->resource !== null || $entry->hydrator !== null);
+    }
+
     /**
      * The registered resource types.
      *
@@ -250,6 +319,27 @@ final class ResourceRegistry implements SerializerResolverInterface
     }
 
     /**
+     * Injects this registry (it is the {@see SerializerResolverInterface}) into a
+     * resolved instance that opts in via {@see SerializerResolverAwareInterface},
+     * so it can render relationships. An instance that does not implement the
+     * interface is left untouched.
+     *
+     * @template T of object
+     *
+     * @param T $instance
+     *
+     * @return T
+     */
+    private function injectResolver(object $instance): object
+    {
+        if ($instance instanceof SerializerResolverAwareInterface) {
+            $instance->setSerializerResolver($this);
+        }
+
+        return $instance;
+    }
+
+    /**
      * @param class-string<AbstractResource> $class
      */
     private function makeResource(string $class): AbstractResource
@@ -265,7 +355,7 @@ final class ResourceRegistry implements SerializerResolverInterface
             ));
         }
 
-        return $instance;
+        return $this->injectResolver($instance);
     }
 
     /**
@@ -284,7 +374,7 @@ final class ResourceRegistry implements SerializerResolverInterface
             ));
         }
 
-        return $instance;
+        return $this->injectResolver($instance);
     }
 
     /**

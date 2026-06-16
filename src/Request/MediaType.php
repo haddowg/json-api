@@ -28,7 +28,7 @@ final class MediaType
     public static function isValid(string $header): bool
     {
         foreach (self::split($header) as $mediaType) {
-            if (\stripos($mediaType, 'application/vnd.api+json') === false) {
+            if (!self::isJsonApiMediaType($mediaType)) {
                 continue;
             }
 
@@ -45,6 +45,67 @@ final class MediaType
         }
 
         return true;
+    }
+
+    /**
+     * Whether an `Accept` header is acceptable JSON:API parameter-wise. Unlike
+     * {@see isValid()} — the Content-Type rule, where ANY non-`ext`/`profile`
+     * parameter is unacceptable — the spec requires a `406` only when EVERY
+     * `application/vnd.api+json` instance in `Accept` carries a forbidden media-type
+     * parameter: a single conforming instance makes the header acceptable. A header
+     * asserting no JSON:API instance at all (absent, `*\/*`, …) is acceptable. The
+     * optional `q` weight and any accept-extension parameters following it are not
+     * media-type parameters and are ignored.
+     */
+    public static function accepts(string $header): bool
+    {
+        $sawJsonApi = false;
+        foreach (self::split($header) as $mediaType) {
+            if (!self::isJsonApiMediaType($mediaType)) {
+                continue;
+            }
+
+            $sawJsonApi = true;
+            if (self::instanceConforms($mediaType)) {
+                return true;
+            }
+        }
+
+        return $sawJsonApi === false;
+    }
+
+    /**
+     * Whether one `application/vnd.api+json` Accept instance carries only `ext`
+     * and/or `profile` media-type parameters. Media-type parameters precede the `q`
+     * weight; the weight and any trailing accept-extension parameters are ignored.
+     */
+    private static function instanceConforms(string $mediaType): bool
+    {
+        $beforeWeight = \preg_split('/;\s*q\s*=/i', $mediaType, 2)[0] ?? $mediaType;
+
+        if (\preg_match_all('/;\s*([A-Za-z0-9.+-]+)\s*=/', $beforeWeight, $matches) === 0) {
+            return true;
+        }
+
+        foreach ($matches[1] as $name) {
+            $name = \strtolower($name);
+            if ($name !== 'ext' && $name !== 'profile') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether a media-type instance *is* the JSON:API media type — matched at the
+     * type/subtype boundary (the token before any parameter), not as a substring,
+     * so a different `+json` subtype (e.g. `application/vnd.api+json-patch+json`) is
+     * not mistaken for JSON:API and have its parameters policed.
+     */
+    private static function isJsonApiMediaType(string $mediaType): bool
+    {
+        return \strtolower(\trim(\explode(';', $mediaType, 2)[0])) === 'application/vnd.api+json';
     }
 
     /**

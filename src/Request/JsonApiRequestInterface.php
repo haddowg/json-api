@@ -81,12 +81,72 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function getIncludedRelationships(string $baseRelationshipPath): array;
 
     /**
+     * Returns every requested full dotted include path (e.g. `a`, `a.b`, `a.b.c`
+     * for `?include=a.b.c`), so include depth and allowed-path checks can be
+     * evaluated against the complete requested set.
+     *
+     * @return list<string>
+     */
+    public function getIncludePaths(): array;
+
+    /**
      * Determines if a given relationship name that is a child of the $baseRelationshipPath should be included
      * in the response.
      *
      * @param array<string, mixed> $defaultRelationships
      */
     public function isIncludedRelationship(string $baseRelationshipPath, string $relationshipName, array $defaultRelationships): bool;
+
+    /**
+     * The relationship names requested for counting via the `?withCount` query
+     * parameter — a flat, comma-separated list (e.g. `?withCount=comments,tags`),
+     * like `?include` but never dotted. Each names a relationship whose
+     * cardinality the client wants exposed as `meta.total` on the relationship
+     * object. The list is the raw requested set; whether a given name is actually
+     * countable (and to-many) is validated against the resource, and a count is
+     * only emitted when a {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface}
+     * supplies one.
+     *
+     * @return list<string>
+     */
+    public function getCountedRelationships(): array;
+
+    /**
+     * Whether the request named `$relationship` in `?withCount` — the flat,
+     * position-independent membership test the serializer consults when deciding
+     * to render a relationship's `meta.total`.
+     */
+    public function countsRelationship(string $relationship): bool;
+
+    /**
+     * The Relationship Queries profile's per-relationship sort + filter for the
+     * relationship at `$path` (its include path, e.g. `comments` or
+     * `albums.tracks`), parsed from the `relatedQuery` / `rQ` family of the
+     * primary request.
+     *
+     * Opt-in: an empty {@see RelatedQuery} unless the client negotiated
+     * {@see \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile::URI}. On a
+     * per-`[path][op]` conflict between the families the canonical `relatedQuery`
+     * wins. The returned values are raw client input — the host validates the
+     * sort/filter keys against the relationship's vocabulary (the related-
+     * collection endpoint's vocabulary), rejecting an unknown key with a `400`.
+     */
+    public function getRelatedQuery(string $path): RelatedQuery;
+
+    /**
+     * Whether any `relatedQuery` / `rQ` params target the relationship at `$path`
+     * (and the profile was negotiated). `false` for an empty default path.
+     */
+    public function hasRelatedQuery(string $path): bool;
+
+    /**
+     * The relationship (include) paths the `relatedQuery` / `rQ` family targets,
+     * for up-front validation against the resource's relationships. Empty unless
+     * the profile was negotiated.
+     *
+     * @return list<string>
+     */
+    public function getRelatedQueryPaths(): array;
 
     /**
      * Returns the "sort[]" query parameters.

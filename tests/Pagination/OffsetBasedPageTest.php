@@ -63,6 +63,40 @@ final class OffsetBasedPageTest extends TestCase
         );
     }
 
+    #[Test]
+    public function countFreeMiddleWindowOmitsLastAndEmitsNextFromHasMore(): void
+    {
+        $page = new OffsetBasedPage([], totalItems: null, offset: 10, limit: 10, hasMore: true);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertSame(self::URI . '?page%5Boffset%5D=10&page%5Blimit%5D=10', $this->href($links['self']));
+        self::assertSame(self::URI . '?page%5Boffset%5D=0&page%5Blimit%5D=10', $this->href($links['first']));
+        self::assertSame(self::URI . '?page%5Boffset%5D=0&page%5Blimit%5D=10', $this->href($links['prev']));
+        self::assertSame(self::URI . '?page%5Boffset%5D=20&page%5Blimit%5D=10', $this->href($links['next']));
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreeWindowOmitsNextWhenNoMore(): void
+    {
+        $page = new OffsetBasedPage([], totalItems: null, offset: 10, limit: 10, hasMore: false);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertNotNull($links['prev']);
+        self::assertNull($links['next']);
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreePageMetaOmitsTotalAndTo(): void
+    {
+        $page = new OffsetBasedPage([], totalItems: null, offset: 10, limit: 10, hasMore: true);
+
+        self::assertSame(['offset' => 10, 'limit' => 10, 'from' => 11], $page->pageMeta());
+    }
+
     /**
      * @param Link|null $link
      */

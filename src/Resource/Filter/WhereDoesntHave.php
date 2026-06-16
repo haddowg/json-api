@@ -24,4 +24,15 @@ final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter
     {
         return $this->key;
     }
+
+    /**
+     * A presence-only filter ignores its request value, so there is nothing to
+     * validate.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
+     */
+    public function constraints(): array
+    {
+        return [];
+    }
 }

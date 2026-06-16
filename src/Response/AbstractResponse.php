@@ -264,6 +264,39 @@ abstract class AbstractResponse
     }
 
     /**
+     * Merges the spec-recommended top-level `links.self` — the URI that produced
+     * the document (`{server.baseUri}{request.path}` plus the query string when
+     * present) — into the rendered body, for the data/resource documents that
+     * call it (single, collection, related, relationship, meta). Error documents
+     * do not call it. The URI derivation mirrors {@see AppliesPaginationTrait}
+     * exactly. An existing top-level `self` (hand-set via {@see withLinks()}, or a
+     * paginator's) wins; the merge preserves the pagination links alongside it.
+     *
+     * @param array<string, mixed> $result
+     *
+     * @return array<string, mixed>
+     */
+    protected function applyTopLevelSelf(array $result, ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        /** @var array<string, mixed> $links */
+        $links = $result['links'] ?? [];
+        if (isset($links['self'])) {
+            return $result;
+        }
+
+        $self = $server->baseUri() . $request->getUri()->getPath();
+        $queryString = $request->getUri()->getQuery();
+        if ($queryString !== '') {
+            $self .= '?' . $queryString;
+        }
+
+        $links['self'] = $self;
+        $result['links'] = $links;
+
+        return $result;
+    }
+
+    /**
      * Builds the JSON:API document body and the HTTP status for this response.
      */
     abstract protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument;

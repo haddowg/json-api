@@ -8,8 +8,13 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches a column against none of a set of values (the negation of
  * {@see WhereIn}).
  */
-final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
+final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular
 {
+    use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints declared value constraints
+     */
     public function __construct(
         public string $key,
         public string $column,
@@ -17,6 +22,7 @@ final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\Filt
         public bool $singular = false,
         public mixed $default = null,
         public bool $hasDefault = false,
+        public array $constraints = [],
     ) {}
 
     public static function make(string $key, ?string $column = null): self
@@ -31,12 +37,22 @@ final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\Filt
 
     public function delimiter(string $delimiter): self
     {
-        return new self($this->key, $this->column, $delimiter, $this->singular, $this->default, $this->hasDefault);
+        return new self($this->key, $this->column, $delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints);
     }
 
+    /**
+     * Marks this filter as yielding a zero-to-one result: when the client applies
+     * it, the collection renders as a single resource object or `null`, not an
+     * array. See {@see SupportsSingular}.
+     */
     public function singular(): self
     {
-        return new self($this->key, $this->column, $this->delimiter, true, $this->default, $this->hasDefault);
+        return new self($this->key, $this->column, $this->delimiter, true, $this->default, $this->hasDefault, $this->constraints);
+    }
+
+    public function isSingular(): bool
+    {
+        return $this->singular;
     }
 
     /**
@@ -47,7 +63,7 @@ final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\Filt
      */
     public function default(mixed $value): self
     {
-        return new self($this->key, $this->column, $this->delimiter, $this->singular, $value, true);
+        return new self($this->key, $this->column, $this->delimiter, $this->singular, $value, true, $this->constraints);
     }
 
     public function hasDefault(): bool
@@ -58,5 +74,13 @@ final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\Filt
     public function defaultValue(): mixed
     {
         return $this->default;
+    }
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
+     */
+    protected function withConstraints(array $constraints): static
+    {
+        return new self($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $constraints);
     }
 }

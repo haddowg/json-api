@@ -19,6 +19,7 @@ use haddowg\JsonApi\Resource\Constraint\MinLength;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\SlugFormat;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
@@ -40,6 +41,7 @@ use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Field\Uuid;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -112,6 +114,36 @@ final class FieldTest extends TestCase
         self::assertFalse(Str::make('a')->readOnlyOnCreate()->isReadOnly(false));
         self::assertFalse(Str::make('a')->readOnlyOnUpdate()->isReadOnly(true));
         self::assertTrue(Str::make('a')->readOnlyOnUpdate()->isReadOnly(false));
+    }
+
+    #[Test]
+    public function writeOnlyDefaultsFalseAndIsTheInverseOfReadOnly(): void
+    {
+        self::assertFalse(Str::make('a')->isWriteOnly());
+        self::assertTrue(Str::make('password')->writeOnly()->isWriteOnly());
+
+        // Write-only is not read-only: it is still hydrated on both contexts.
+        $field = Str::make('password')->writeOnly();
+        self::assertFalse($field->isReadOnly(true));
+        self::assertFalse($field->isReadOnly(false));
+    }
+
+    #[Test]
+    public function writeOnlyAfterReadOnlyThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('cannot be both write-only and read-only');
+
+        Str::make('secret')->readOnly()->writeOnly();
+    }
+
+    #[Test]
+    public function readOnlyAfterWriteOnlyThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('cannot be both read-only and write-only');
+
+        Str::make('secret')->writeOnly()->readOnly();
     }
 
     #[Test]
@@ -383,7 +415,7 @@ final class FieldTest extends TestCase
 
         self::assertSame(5, $field->serialize(['count' => '5'], $this->request(), 'count'));
 
-        $model = $field->hydrate(['count' => 0], '9', [], $this->request());
+        $model = $field->hydrate(['count' => 0], '9', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame(9, $model['count']);
     }
@@ -395,7 +427,7 @@ final class FieldTest extends TestCase
 
         self::assertSame(1.5, $field->serialize(['price' => '1.5'], $this->request(), 'price'));
 
-        $model = $field->hydrate(['price' => 0], '2', [], $this->request());
+        $model = $field->hydrate(['price' => 0], '2', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame(2.0, $model['price']);
     }
@@ -407,7 +439,7 @@ final class FieldTest extends TestCase
 
         self::assertTrue($field->serialize(['active' => 1], $this->request(), 'active'));
 
-        $model = $field->hydrate(['active' => true], 0, [], $this->request());
+        $model = $field->hydrate(['active' => true], 0, [], $this->request(), true);
         self::assertIsArray($model);
         self::assertFalse($model['active']);
     }
@@ -420,7 +452,7 @@ final class FieldTest extends TestCase
 
         self::assertSame('2020-01-02T03:04:05+00:00', $field->serialize(['publishedAt' => $date], $this->request(), 'publishedAt'));
 
-        $model = $field->hydrate(['publishedAt' => null], '2021-06-07T08:09:10+00:00', [], $this->request());
+        $model = $field->hydrate(['publishedAt' => null], '2021-06-07T08:09:10+00:00', [], $this->request(), true);
         self::assertIsArray($model);
         $hydrated = $model['publishedAt'];
         self::assertInstanceOf(\DateTimeImmutable::class, $hydrated);
@@ -496,10 +528,64 @@ final class FieldTest extends TestCase
             ['street' => '2 Low St', 'city' => 'Leeds'],
             [],
             $this->request(),
+            true,
         );
         self::assertIsArray($model);
         self::assertSame('2 Low St', $model['street']);
         self::assertSame('Leeds', $model['city']);
+    }
+
+    #[Test]
+    public function mapGatesReadOnlyChildrenOnHydrate(): void
+    {
+        // A read-only child must not be writable through the nested object — the
+        // Map gates it the same way the resource gates a top-level field.
+        $field = Map::make('settings')->fields(
+            Str::make('name'),
+            Str::make('role')->readOnly(),
+        );
+
+        $model = $field->hydrate(
+            ['name' => 'old', 'role' => 'user'],
+            ['name' => 'new', 'role' => 'admin'],
+            [],
+            $this->request(),
+            true,
+        );
+
+        self::assertIsArray($model);
+        self::assertSame('new', $model['name']);
+        self::assertSame('user', $model['role'], 'a read-only Map child must not be overwritten');
+    }
+
+    #[Test]
+    public function mapSkipsWriteOnlyChildrenOnSerialize(): void
+    {
+        // A write-only child is accepted on write but never rendered — the Map
+        // skips it the same way the resource skips a top-level write-only field.
+        $field = Map::make('credentials')->fields(
+            Str::make('username'),
+            Str::make('secret')->writeOnly(),
+        );
+
+        $nested = $field->serialize(
+            ['username' => 'ada', 'secret' => 's3cr3t'],
+            $this->request(),
+            'credentials',
+        );
+
+        self::assertSame(['username' => 'ada'], $nested);
+
+        // But it is still hydrated through the nested object.
+        $model = $field->hydrate(
+            ['username' => 'old', 'secret' => 'old'],
+            ['username' => 'new', 'secret' => 'new'],
+            [],
+            $this->request(),
+            true,
+        );
+        self::assertIsArray($model);
+        self::assertSame('new', $model['secret'], 'a write-only Map child is still hydrated');
     }
 
     #[Test]
@@ -515,7 +601,64 @@ final class FieldTest extends TestCase
     public function idFormatShortcuts(): void
     {
         self::assertInstanceOf(UuidFormat::class, Id::make()->uuid()->constraints()[0]);
+        self::assertInstanceOf(UlidFormat::class, Id::make()->ulid()->constraints()[0]);
         self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, Id::make()->numeric()->constraints()[0]);
+    }
+
+    #[Test]
+    public function idFormatShortcutsAlsoSetTheRoutePattern(): void
+    {
+        self::assertNull(Id::make()->routePattern());
+        self::assertSame(Id::UUID_FORMAT_PATTERN, Id::make()->uuid()->routePattern());
+        self::assertSame(Id::ULID_FORMAT_PATTERN, Id::make()->ulid()->routePattern());
+        self::assertSame(Id::NUMERIC_FORMAT_PATTERN, Id::make()->numeric()->routePattern());
+    }
+
+    #[Test]
+    public function idPatternStripsAnchorsForTheRoutePatternButKeepsTheAnchoredConstraint(): void
+    {
+        $field = Id::make()->pattern('^[a-z0-9]+$');
+
+        self::assertSame('[a-z0-9]+', $field->routePattern());
+        self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, $field->constraints()[0]);
+        self::assertSame('^[a-z0-9]+$', $field->constraints()[0]->regex);
+    }
+
+    #[Test]
+    public function idMatchAsSetsTheRoutePatternWithoutAConstraint(): void
+    {
+        $field = Id::make()->matchAs('\d+');
+
+        self::assertSame('\d+', $field->routePattern());
+        self::assertSame([], $field->constraints());
+    }
+
+    #[Test]
+    public function idUlidPatternMatchesAValidUlidCaseInsensitively(): void
+    {
+        $pattern = '/^' . Id::ULID_FORMAT_PATTERN . '$/';
+
+        self::assertSame(1, \preg_match($pattern, '01ARZ3NDEKTSV4RRFFQ69G5FAV'));
+        self::assertSame(1, \preg_match($pattern, \strtolower('01ARZ3NDEKTSV4RRFFQ69G5FAV')));
+        self::assertSame(0, \preg_match($pattern, 'not-a-ulid'));
+    }
+
+    #[Test]
+    public function idEncoderRoundTripsOnSerialize(): void
+    {
+        $field = Id::make()->encodeUsing(new ReversingIdEncoder());
+
+        self::assertSame($field->encoder(), $field->encoder());
+        self::assertNotNull($field->encoder());
+        // The domain object holds the storage key; serialize emits the wire id.
+        self::assertSame('54321', $field->serializeWithoutRequest(['id' => '12345']));
+    }
+
+    #[Test]
+    public function idWithoutAnEncoderSerializesTheRawId(): void
+    {
+        self::assertNull(Id::make()->encoder());
+        self::assertSame('42', Id::make()->serializeWithoutRequest(['id' => 42]));
     }
 
     #[Test]
@@ -549,7 +692,7 @@ final class FieldTest extends TestCase
             },
         );
 
-        $model = $field->hydrate(['name' => ''], 'bob', [], $this->request());
+        $model = $field->hydrate(['name' => ''], 'bob', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame('BOB', $model['name']);
     }
@@ -563,7 +706,7 @@ final class FieldTest extends TestCase
             return \trim($v);
         });
 
-        $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request());
+        $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request(), true);
         self::assertIsArray($model);
         self::assertSame('bob', $model['name']);
     }
@@ -574,7 +717,7 @@ final class FieldTest extends TestCase
         $field = Str::make('preview')->computed();
         $model = ['preview' => 'original'];
 
-        self::assertSame($model, $field->hydrate($model, 'new', [], $this->request()));
+        self::assertSame($model, $field->hydrate($model, 'new', [], $this->request(), true));
     }
 
     private function request(): StubJsonApiRequest

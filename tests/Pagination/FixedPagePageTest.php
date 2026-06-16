@@ -37,6 +37,40 @@ final class FixedPagePageTest extends TestCase
         self::assertSame(['currentPage' => 2, 'total' => 50, 'lastPage' => 5], $page->pageMeta());
     }
 
+    #[Test]
+    public function countFreeMiddlePageOmitsLastAndEmitsNextFromHasMore(): void
+    {
+        $page = new FixedPagePage([], totalItems: null, page: 2, size: 10, hasMore: true);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertSame(self::URI . '?page%5Bnumber%5D=2', $this->href($links['self']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=1', $this->href($links['first']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=1', $this->href($links['prev']));
+        self::assertSame(self::URI . '?page%5Bnumber%5D=3', $this->href($links['next']));
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreeLastPageOmitsNextWhenNoMore(): void
+    {
+        $page = new FixedPagePage([], totalItems: null, page: 2, size: 10, hasMore: false);
+
+        $links = $page->linkSet(self::URI, '');
+
+        self::assertNotNull($links['prev']);
+        self::assertNull($links['next']);
+        self::assertNull($links['last']);
+    }
+
+    #[Test]
+    public function countFreePageMetaOmitsTotalAndLastPage(): void
+    {
+        $page = new FixedPagePage([], totalItems: null, page: 2, size: 10, hasMore: true);
+
+        self::assertSame(['currentPage' => 2], $page->pageMeta());
+    }
+
     /**
      * @param Link|null $link
      */

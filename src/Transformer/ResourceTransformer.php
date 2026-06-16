@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Transformer;
 
+use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
  * Transforms a single domain object into a JSON:API resource object, resource
@@ -71,7 +76,7 @@ final class ResourceTransformer
             throw new RelationshipNotExists($transformation->requestedRelationshipName);
         }
 
-        $defaultRelationships = \array_flip($transformation->resource->getDefaultIncludedRelationships($transformation->object));
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
 
         $transformation->result = $this->transformRelationshipObject(
             $transformation,
@@ -112,9 +117,62 @@ final class ResourceTransformer
 
         $links = $transformation->resource->getLinks($transformation->object, $transformation->request);
 
-        if ($links !== null) {
-            $transformation->result['links'] = $links->transform();
+        $transformed = $links !== null ? $links->transform() : [];
+
+        // The spec RECOMMENDS a resource carry a by-convention `self` link
+        // (`{baseUri}/{uriType}/{id}`). It is emitted for every serializer unless
+        // it opts out via SelfLinkAwareInterface, the id is empty (a not-yet-
+        // persisted resource has no self), or getLinks() already supplied a self
+        // (a hand-written self wins). Built here, the only layer that knows the
+        // resolved type + id and the configured base URI.
+        if (isset($transformed['self']) === false) {
+            $self = $this->conventionSelfLink($transformation);
+            if ($self !== null) {
+                $transformed['self'] = $self;
+            }
         }
+
+        // Emit `links` when getLinks() supplied a (possibly empty) container, as
+        // before, or when the convention self was added.
+        if ($links !== null || $transformed !== []) {
+            $transformation->result['links'] = $transformed;
+        }
+    }
+
+    /**
+     * Builds the by-convention resource `self` URL (`{baseUri}/{uriType}/{id}`),
+     * or `null` when the resource opted out or has no id. The path segment is the
+     * serializer's URI type (so a resource whose JSON:API type differs from its
+     * URL segment links correctly); a serializer that is not URI-type-aware falls
+     * back to its JSON:API type, mirroring {@see AbstractRelationship::conventionLinks()}.
+     */
+    private function conventionSelfLink(ResourceTransformation $transformation): ?string
+    {
+        $resource = $transformation->resource;
+        if ($resource === null) {
+            return null;
+        }
+
+        if ($resource instanceof SelfLinkAwareInterface && $resource->emitsSelfLink() === false) {
+            return null;
+        }
+
+        $id = $resource->getId($transformation->object);
+        if ($id === '') {
+            return null;
+        }
+
+        $uriType = $resource instanceof UriTypeAwareInterface
+            ? $resource->uriType()
+            : $resource->getType($transformation->object);
+        if ($uriType === '') {
+            $uriType = $transformation->resourceType;
+        }
+        if ($uriType === '') {
+            return null;
+        }
+
+        return $transformation->baseUri . '/' . $uriType . '/' . $id;
     }
 
     private function transformAttributesObject(ResourceTransformation $transformation): void
@@ -144,7 +202,7 @@ final class ResourceTransformer
         }
 
         $relationships = $transformation->resource->getRelationships($transformation->object, $transformation->request);
-        $defaultRelationships = \array_flip($transformation->resource->getDefaultIncludedRelationships($transformation->object));
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
 
         $this->validateRelationships($transformation, $relationships);
 
@@ -206,10 +264,51 @@ final class ResourceTransformer
         $nonExistentRelationships = \array_diff($requestedRelationships, \array_keys($relationships));
         if ($nonExistentRelationships !== []) {
             foreach ($nonExistentRelationships as $key => $relationship) {
-                $nonExistentRelationships[$key] = ($transformation->basePath !== '' ? $transformation->basePath . '.' : '') . $relationship;
+                $nonExistentRelationships[$key] = $this->prefixBasePath($transformation->basePath, $relationship);
             }
 
             throw new InclusionUnrecognized(\array_values($nonExistentRelationships));
         }
+
+        // A requested relationship that exists but has opted out of inclusion
+        // (Capability A) — evaluated per-resource-level so it covers a relation
+        // reached at any path. Capability C (the root allow-list) is checked once,
+        // up front, against the primary resource.
+        $resource = $transformation->resource;
+        if ($resource instanceof IncludeControlsInterface) {
+            $nonIncludable = $resource->getNonIncludableRelationships($transformation->object);
+            $offending = \array_values(\array_intersect($requestedRelationships, $nonIncludable));
+            if ($offending !== []) {
+                throw new InclusionNotAllowed(
+                    \array_map(fn(string $name): string => $this->prefixBasePath($transformation->basePath, $name), $offending),
+                );
+            }
+        }
+    }
+
+    /**
+     * The resource's default-included relationship names, flipped to a set, with
+     * any non-includable relation (Capability A) removed so the default cascade
+     * never auto-includes a relation that has opted out of inclusion.
+     *
+     * @return array<string, int>
+     */
+    private function defaultIncludedRelationships(SerializerInterface $resource, mixed $object): array
+    {
+        $defaults = $resource->getDefaultIncludedRelationships($object);
+
+        if ($resource instanceof IncludeControlsInterface) {
+            $nonIncludable = $resource->getNonIncludableRelationships($object);
+            if ($nonIncludable !== []) {
+                $defaults = \array_values(\array_diff($defaults, $nonIncludable));
+            }
+        }
+
+        return \array_flip($defaults);
+    }
+
+    private function prefixBasePath(string $basePath, string $name): string
+    {
+        return ($basePath !== '' ? $basePath . '.' : '') . $name;
     }
 }

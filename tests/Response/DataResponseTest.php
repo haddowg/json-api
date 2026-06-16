@@ -36,8 +36,10 @@ final class DataResponseTest extends TestCase
                 'data' => [
                     'type' => 'user',
                     'id' => '1',
+                    'links' => ['self' => '/user/1'],
                     'attributes' => ['name' => 'Vader'],
                 ],
+                'links' => ['self' => '/'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -56,7 +58,8 @@ final class DataResponseTest extends TestCase
 
         self::assertSame(200, $psr->getStatusCode());
         self::assertArrayHasKey('data', $body);
-        self::assertSame([['type' => 'user', 'id' => '1']], $body['data']);
+        self::assertSame([['type' => 'user', 'id' => '1', 'links' => ['self' => '/user/1']]], $body['data']);
+        self::assertSame(['self' => '/'], $body['links']);
     }
 
     #[Test]
@@ -92,6 +95,7 @@ final class DataResponseTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
+                'links' => ['self' => '/user/1'],
                 'attributes' => ['name' => 'Vader'],
                 'relationships' => [
                     'father' => ['data' => ['type' => 'user', 'id' => '2']],
@@ -100,7 +104,12 @@ final class DataResponseTest extends TestCase
             $body['data'],
         );
         self::assertSame(
-            [['type' => 'user', 'id' => '2', 'attributes' => ['name' => 'Grandfather']]],
+            [[
+                'type' => 'user',
+                'id' => '2',
+                'links' => ['self' => '/user/2'],
+                'attributes' => ['name' => 'Grandfather'],
+            ]],
             $body['included'],
         );
     }
@@ -124,12 +133,13 @@ final class DataResponseTest extends TestCase
         self::assertNotSame($base, $withJsonApi);
         self::assertNotSame($base, $withHeader);
 
-        // Original is unchanged: no meta/links and default jsonapi.
+        // Original is unchanged: no meta, no hand-set links (only the by-convention
+        // top-level self the document always carries), and default jsonapi.
         $original = $this->decode(
             $base->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),
         );
         self::assertArrayNotHasKey('meta', $original);
-        self::assertArrayNotHasKey('links', $original);
+        self::assertSame(['self' => '/'], $original['links']);
         self::assertSame(['version' => '1.1'], $original['jsonapi']);
     }
 

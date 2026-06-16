@@ -50,13 +50,19 @@ final class Map extends AbstractField
 
         $nested = [];
         foreach ($this->children as $child) {
+            // Skip a write-only child the same way the resource skips a write-only
+            // top-level field: it is accepted on write but never rendered.
+            if ($child->isWriteOnly()) {
+                continue;
+            }
+
             $nested[$child->name()] = $child->serialize($model, $request, $child->name());
         }
 
         return $nested;
     }
 
-    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request): mixed
+    public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->fillUsing !== null) {
             $result = ($this->fillUsing)($model, $value, $data, $this->name);
@@ -69,8 +75,15 @@ final class Map extends AbstractField
         }
 
         foreach ($this->children as $child) {
+            // Gate read-only children the same way the resource gates top-level
+            // fields, so a child the author marked readOnly() can't be written
+            // through the nested object.
+            if ($child->isReadOnly($creating)) {
+                continue;
+            }
+
             if (\array_key_exists($child->name(), $value)) {
-                $model = $child->hydrate($model, $value[$child->name()], $data, $request);
+                $model = $child->hydrate($model, $value[$child->name()], $data, $request, $creating);
             }
         }
 
