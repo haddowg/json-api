@@ -18,9 +18,8 @@ no router and no ORM baked in.
 
 The library exists to do four things well:
 
-- **Verifiable JSON:API 1.1 compliance.** The spec's MUST/SHOULD rules are tracked
-  against a [compliance ledger](spec-compliance.md), and the example app's test
-  suite asserts every response is spec-compliant.
+- **Verifiable JSON:API 1.1 compliance.** The spec's MUST/SHOULD rules are tracked,
+  and the example app's test suite asserts every response is spec-compliant.
 - **First-class server-side profiles.** [Profiles](profiles.md) are a built-in
   extension point, not an afterthought — you register them on the server and they
   participate in content negotiation.
@@ -161,4 +160,4 @@ the reference pages as you need them:
 - **Cross-cutting** — [adapters](adapters.md),
   [schema validation](schema-validation.md), [profiles](profiles.md),
   [links and meta](links-and-meta.md), [security](security.md),
-  [testing](testing.md), [spec compliance](spec-compliance.md).
+  [testing](testing.md).

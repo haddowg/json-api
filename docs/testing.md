@@ -346,9 +346,7 @@ The check is backed by the optional [`opis/json-schema`](schema-validation.md)
 package (through `DocumentValidator`), so install it in your test environment; it
 defaults to the bundled `VendoredSchemaProvider`, and you can pass a custom
 `DocumentValidator` to compose extra schemas. See
-[schema validation](schema-validation.md) for that machinery and
-[spec compliance](spec-compliance.md) for the per-section conformance ledger this
-assertion underpins.
+[schema validation](schema-validation.md) for that machinery.
 
 ## Next / see also
 
@@ -356,5 +354,4 @@ assertion underpins.
 - [Responses](responses.md) — the value objects the assertion wrappers render.
 - [Operations](operations.md) — the `Target` and operation value objects the builders produce.
 - [Schema validation](schema-validation.md) — `DocumentValidator` behind `assertJsonApiSpecCompliant()`.
-- [Spec compliance](spec-compliance.md) — the 1.1 conformance ledger.
 - [Getting started](getting-started.md) — a full request round-trip to test against.
