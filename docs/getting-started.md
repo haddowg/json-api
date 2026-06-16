@@ -10,8 +10,7 @@ example app — the single source of truth for every snippet in these docs. Each
 outcome below is asserted by a CI-run test
 ([`GettingStartedTest`](../examples/music-catalog/tests/GettingStartedTest.php)),
 so the example cannot drift from the code. If you are still evaluating, start at the
-[documentation index](index.md) — it covers install, requirements, and the pre-1.0
-caveat.
+[documentation index](index.md) — it covers install and requirements.
 
 ## The pieces you provide
 

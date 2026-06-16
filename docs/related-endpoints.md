@@ -12,8 +12,7 @@ album point at". You choose between them by URL, and the library renders each
 through a different response value object.
 
 > New here? Start with [getting-started](getting-started.md) and
-> [relations](relations.md). The pre-1.0 and install caveats live in
-> [index.md](index.md).
+> [relations](relations.md). Installation is covered in [index.md](index.md).
 
 ## Two endpoints, two operations, two responses
 

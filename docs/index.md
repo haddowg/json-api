@@ -7,13 +7,6 @@ the library handles negotiation, body parsing, sparse fieldsets, includes, error
 rendering, and encoding. You stay in plain PHP value objects throughout — there is
 no router and no ORM baked in.
 
-> **Pre-1.0 — expect breaking changes.** This library is still `0.x`. Breaking
-> changes can land between `0.x` minor releases and are recorded in the
-> [changelog](https://github.com/haddowg/json-api/releases). Pin a version you have tested against, and read the
-> changelog before upgrading. The instability warning and the install caveat below
-> are stated once, here; every other page links back to this one rather than
-> repeating them.
-
 ## What it does
 
 The library exists to do four things well:
@@ -43,12 +36,8 @@ This is a **server-side** library. The following are deliberately out of scope:
 ## Install
 
 ```bash
-composer require haddowg/json-api
+composer require haddowg/json-api:dev-main
 ```
-
-> **Not yet on Packagist.** Until the first stable release ships to Packagist you
-> install from the Git repository — add it as a VCS repository in your
-> `composer.json` and require `dev-main`. This caveat is stated once, here.
 
 The library depends on a [PSR-7](https://www.php-fig.org/psr/psr-7/) HTTP message
 implementation and a [PSR-17](https://www.php-fig.org/psr/psr-17/) factory; it does

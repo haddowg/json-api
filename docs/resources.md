@@ -14,7 +14,7 @@ by pointing you at the composed model — overriding just one concern, or skippi
 the Resource class entirely.
 
 > New here? See [Getting started](getting-started.md) and [Concepts](concepts.md)
-> first; the install and pre-1.0 caveats live in [index](index.md).
+> first; installation is covered in [index](index.md).
 
 ## The minimal Resource class
 

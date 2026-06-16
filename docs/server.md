@@ -8,8 +8,7 @@ framework or call directly. This page covers how that value is assembled, how it
 resolves a type's serializer and hydrator, and the two ways to drive it.
 
 If this is your first server, read [getting started](getting-started.md) first —
-it walks the whole wiring in context. (For the pre-1.0 and install caveats, see
-[the index](index.md).)
+it walks the whole wiring in context. (See [the index](index.md) for installation.)
 
 ## An immutable configuration root
 

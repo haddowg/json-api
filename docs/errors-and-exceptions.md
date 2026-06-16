@@ -359,5 +359,4 @@ through the error handler unchanged. The handler's one job is to catch what is
   the wider model.
 - [Content negotiation](content-negotiation.md) — the `415`/`406` asymmetry in
   full.
-- [Documentation index](index.md) — the full page list (and the pre-1.0 / install
-  caveats).
+- [Documentation index](index.md) — the full page list.
