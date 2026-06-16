@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Examples\MusicCatalog\Tests;
 
+use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryStore;
+use haddowg\JsonApi\Examples\MusicCatalog\Domain\User;
+use haddowg\JsonApi\Examples\MusicCatalog\Seed;
 use haddowg\JsonApi\Testing\AssertsSpecCompliance;
 use haddowg\JsonApi\Testing\JsonApiDocument;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
+
+use function haddowg\JsonApi\Examples\MusicCatalog\bootstrapWithRepository;
 
 /**
  * The runnable backing for the write-status-code and write-safety claims in
@@ -23,7 +28,10 @@ use Psr\Http\Message\ResponseInterface;
  *    ignored (the hydrator only iterates declared `attributeFields()`), so a client
  *    cannot smuggle arbitrary state in;
  *  - **read-only drop**: a `readOnly()` field present in the body is skipped during
- *    hydration (e.g. the server-computed `averageRating`).
+ *    hydration (e.g. the server-computed `averageRating`);
+ *  - **write-only**: a `writeOnly()` field (the users `password`) is hydrated and
+ *    validated on write but never rendered — absent from every response, not null —
+ *    so its hydration is witnessed against the store.
  *
  * The `PATCH` absence-is-no-change semantics (a member omitted from a `PATCH` body
  * leaves the stored value untouched) is witnessed too. The create-side status
@@ -155,6 +163,74 @@ final class WritesTest extends MusicCatalogTestCase
         $attributes = $this->attributes($response);
         self::assertArrayHasKey('averageRating', $attributes);
         self::assertNull($attributes['averageRating'], 'a readOnly field never accepts a client value');
+    }
+
+    #[Test]
+    public function aWriteOnlyAttributeIsHydratedButNeverRendered(): void
+    {
+        // users declares Str::make('password')->writeOnly(): accepted and validated
+        // on write, but never serialized — the member is dropped from the rendered
+        // attributes (absent, not null). Ada is seeded at id 1, so the store mints
+        // id 2 for this create.
+        $response = $this->post('/users', [
+            'data' => [
+                'type' => 'users',
+                'attributes' => [
+                    'email' => 'grace@example.com',
+                    'displayName' => 'Grace',
+                    'password' => 's3cret-pass',
+                ],
+            ],
+        ]);
+
+        self::assertSame(201, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        // Absent — not null — from the created resource's attributes.
+        $created = $this->attributes($response);
+        self::assertArrayNotHasKey('password', $created, 'a write-only field is never rendered');
+        self::assertArrayHasKey('email', $created, 'other attributes still render');
+
+        // ...and still absent on a subsequent GET of the same resource.
+        $read = $this->attributes($this->get('/users/2'));
+        self::assertArrayNotHasKey('password', $read, 'a write-only field is absent on read');
+        self::assertSame('Grace', $read['displayName'] ?? null);
+    }
+
+    #[Test]
+    public function aWriteOnlyAttributeStillHydratesIntoTheStoredEntity(): void
+    {
+        // The write-only `password` is dropped from every response, so its hydration
+        // is invisible over the wire — assert it directly against the shared store:
+        // the created User carries the posted password (the write took).
+        $store = new InMemoryStore();
+        Seed::into($store);
+        [$server] = bootstrapWithRepository($store);
+
+        $response = $server->handle(new ServerRequest(
+            'POST',
+            'https://music.example/users',
+            [
+                'Accept' => 'application/vnd.api+json',
+                'Content-Type' => 'application/vnd.api+json',
+            ],
+            (string) \json_encode([
+                'data' => [
+                    'type' => 'users',
+                    'attributes' => [
+                        'email' => 'grace@example.com',
+                        'displayName' => 'Grace',
+                        'password' => 's3cret-pass',
+                    ],
+                ],
+            ]),
+        ));
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $stored = $store->find('users', '2');
+        self::assertInstanceOf(User::class, $stored);
+        self::assertSame('s3cret-pass', $stored->password, 'the write-only value hydrated onto the entity');
     }
 
     /**

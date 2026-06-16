@@ -201,8 +201,12 @@ return DataResponse::fromResource($entity, $serializer)
 ```
 
 `withStatus(int)` and `withHeader(string, string)` are immutable withers on every
-response VO — each returns a new instance. With no client id supplied, the server
-[generates one](ids.md) (an RFC-4122 v4 UUID by default); `Location` echoes it.
+response VO — each returns a new instance. With no client id supplied, the default
+is **store-provided** — core sets nothing and the persister/DB assigns the id. A
+field that declares `generated()` over a `uuid()`/`ulid()` format makes the
+*application* mint one instead — `AlbumResource` does exactly this
+([ids](ids.md)), so the created album carries an app-minted UUID and `Location`
+echoes it.
 
 ## Step 4 — the router
 

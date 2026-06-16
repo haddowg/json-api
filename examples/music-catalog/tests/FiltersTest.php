@@ -23,8 +23,9 @@ use Psr\Http\Message\ResponseInterface;
  *
  * Witnesses: a `like` text search, a boolean filter with a real default + the
  * presence-override of that default, a set membership (`WhereIn`), a
- * relationship-existence filter (`WhereHas`), a singular `slug` filter, and the
- * silent pass-through of an undeclared filter key.
+ * relationship-existence filter (`WhereHas`), a dotted-path traversal filter
+ * (`WhereThrough` over `artist.name`), a singular `slug` filter, and the silent
+ * pass-through of an undeclared filter key.
  */
 #[Group('spec:filtering')]
 final class FiltersTest extends MusicCatalogTestCase
@@ -148,6 +149,40 @@ final class FiltersTest extends MusicCatalogTestCase
         $this->assertJsonApiSpecCompliant($response);
 
         self::assertCount(2, $this->collection($response));
+    }
+
+    #[Test]
+    public function whereThroughTraversesADottedPathToTheRelatedAttribute(): void
+    {
+        // albums declares WhereThrough::make('artist.name'): a dotted-path
+        // EXISTS-ANY semi-join over album->artist->name. "Radiohead" owns only
+        // "OK Computer" (album 1) in the seed; "Dummy" (album 2) belongs to
+        // Portishead, so it is excluded.
+        $response = $this->get('/albums?filter[artist.name]=Radiohead');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        $data = $this->collection($response);
+        self::assertCount(1, $data);
+        self::assertSame('1', $data[0]['id'] ?? null);
+        self::assertSame('OK Computer', $this->attribute($data[0], 'title'));
+    }
+
+    #[Test]
+    public function whereThroughNarrowsToADifferentArtistsAlbums(): void
+    {
+        // The same traversal against the other seeded artist keeps only "Dummy"
+        // (album 2), Portishead's sole album — proving the path discriminates.
+        $response = $this->get('/albums?filter[artist.name]=Portishead');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        $data = $this->collection($response);
+        self::assertCount(1, $data);
+        self::assertSame('2', $data[0]['id'] ?? null);
+        self::assertSame('Dummy', $this->attribute($data[0], 'title'));
     }
 
     #[Test]

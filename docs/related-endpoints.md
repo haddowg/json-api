@@ -290,6 +290,16 @@ JsonApiDocument::of($response)
 See [sparse-fieldsets-and-includes](sparse-fieldsets-and-includes.md) for the
 full inclusion and sparse-fieldset rules.
 
+## Filtering a relationship's linkage from the primary request
+
+These endpoints filter and sort their related collection with the plain
+`filter[…]` / `sort=` parameters. To filter or sort a relationship's *linkage*
+from a **primary** request instead — whether it renders via `?include`, as
+links-only linkage, or at its own endpoint — negotiate the
+**relationship-queries profile**: `relatedQuery[<path>][filter][<key>]=…` /
+`[sort]=…` (shorthand `rQ`), keyed by the relationship's include path. See
+[profiles](profiles.md#the-bundled-relationship-queries-profile).
+
 ## Next / See also
 
 - [relations](relations.md) — declaring relations, linkage rendering, and

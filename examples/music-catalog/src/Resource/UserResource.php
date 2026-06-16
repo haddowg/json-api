@@ -19,8 +19,9 @@ use haddowg\JsonApi\Resource\Field\Str;
 
 /**
  * The `users` resource. Demonstrates several format-subtype fields ({@see Email},
- * {@see Ip}), a dynamic-key {@see ArrayHash}, a write-only `password` (rendered as
- * null but still hydrated), and the validation-composition trio on
+ * {@see Ip}), a dynamic-key {@see ArrayHash}, a write-only `password` (accepted and
+ * validated on write but never rendered — absent, not null), and the
+ * validation-composition trio on
  * `passwordConfirm`: an {@see \haddowg\JsonApi\Resource\Constraint\AtLeastOneOf}
  * of two alternatives, a conditional {@see \haddowg\JsonApi\Resource\Constraint\When}
  * rule, and a **non-directional** equality
@@ -46,10 +47,11 @@ final class UserResource extends AbstractResource
             // on serialization for a stable wire shape.
             ArrayHash::make('preferences')->minProperties(0)->maxProperties(20)->sortKeys(),
             Ip::make('lastSeenIp')->nullable(),
-            // Write-only: a null read hook renders nothing on serialize while the
-            // field still hydrates from the request (so it is NOT hidden(), which
-            // would exclude it from hydration too).
-            Str::make('password')->serializeUsing(fn(): ?string => null),
+            // Write-only: accepted and validated on write, but NEVER rendered —
+            // the member is dropped before sparse fieldsets, so it is absent (not
+            // null) from every response. Contrast hidden(), which would also
+            // exclude it from hydration; a write-only field still hydrates.
+            Str::make('password')->writeOnly(),
             // Computed (no backing column): validated but never persisted. Carries
             // the composition demos — an AtLeastOneOf alternative, a When rule, and
             // the equality CompareField against `password`.

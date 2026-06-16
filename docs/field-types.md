@@ -173,6 +173,11 @@ violation surfaces as a nested
 `/data/attributes/releaseInfo/<child>` source pointer (so a bad `catalogueNumber`
 points at `/data/attributes/releaseInfo/catalogueNumber`, not at the map).
 
+A read-only child is skipped on hydration per the operation context, exactly as a
+top-level field is — a `readOnly()` child can't be written through the nested
+object on create or update, and `readOnlyOnCreate()`/`readOnlyOnUpdate()` each gate
+only their own context.
+
 > `Map::on($relation)` — spreading children across a **related** model rather than
 > the same one — is out of scope for core 1.0.
 

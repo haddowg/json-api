@@ -141,12 +141,40 @@ public function writablePivotFields(bool $creating): array  // list<FieldInterfa
 
 One declaration drives every pivot concern:
 
-- **render** — the field's value cast applies to the raw pivot column before it
-  emits as relationship meta;
+- **render** — the field's value cast applies to the raw pivot column, and the
+  typed values render on each linkage member's `meta` under a `pivot` key (see
+  below);
 - **filter / sort** — the field's name + column become a `filter[…]` / `sort=`
   key on the related-collection endpoint;
 - **write / validate** — the field's constraints validate the incoming `meta`,
   resolved by the operation's create vs update context exactly as for an attribute.
+
+### Rendering pivot fields — the `meta.pivot` linkage shape
+
+On read, each linkage member carries its pivot values under a **`pivot`** key in
+the member's `meta` — namespaced so they never collide with the related
+resource's own intrinsic meta, and so a client can tell pivot data from member
+meta. The values are the field-cast pivot column values, keyed by pivot field
+name. `GET /playlists/1/relationships/tracks` (a `BelongsToMany`) renders linkage
+members shaped like:
+
+```json
+{
+  "data": [
+    {
+      "type": "tracks", "id": "7",
+      "meta": { "pivot": { "position": 3, "addedAt": "2026-01-01T00:00:00+00:00" } }
+    }
+  ]
+}
+```
+
+The same `meta.pivot` rides the full related resource on the related read
+(`GET /playlists/1/tracks`) — the pivot values sit in the member resource's
+top-level `meta`, alongside any intrinsic meta the type's serializer emits. Core
+stays storage-agnostic: it carries the field definitions, and the host adapter
+(the Symfony bundle's Doctrine adapter) reads the join row and supplies the typed
+values it renders under `pivot`.
 
 ### Writing pivot fields — the linkage `meta` convention
 
@@ -401,6 +429,60 @@ server default**: a relation-level paginator wins, otherwise the related
 resource's default, otherwise the server's. A to-one relation has no collection
 and ignores it. See [pagination](pagination.md) for the paginators.
 
+## Countable relations and `?withCount`
+
+A to-many relation can expose its cardinality as `meta.total` on the relationship
+object — the same `total` semantic endpoint pagination uses. Opt a relation in
+with `countable()`; read it back with `isCountable()`:
+
+```php
+// src/Resource/AlbumResource.php
+HasMany::make('tracks')
+    ->type('tracks')
+    ->paginate(PagePaginator::make()->withDefaultPerPage(2))
+    ->linkageOnlyWhenLoaded()
+    ->countable(),
+```
+
+A client opts into the count per request with the flat, comma-separated
+`?withCount` query parameter — `?withCount=tracks` (several relations:
+`?withCount=tracks,playlists`). It is never dotted (a primary-request parameter,
+like `?include` but un-nested) and carries an uppercase letter, so it is a valid
+implementation-specific query parameter and is not rejected by strict
+query-parameter validation. When the request names a countable relation —
+`GET /albums/1?withCount=tracks` — its relationship object gains a `meta.total`:
+
+```json
+{
+  "links": { "self": "…/albums/1/relationships/tracks", "related": "…/albums/1/tracks" },
+  "meta": { "total": 3 },
+  "data": [ { "type": "tracks", "id": "1" }, { "type": "tracks", "id": "2" }, { "type": "tracks", "id": "3" } ]
+}
+```
+
+With **no** `?withCount` (or none naming this relation) the relationship object
+carries no `meta` key at all. The meta key is exactly **`total`** — the same key
+the count-based pages emit, so a relationship-object total and an endpoint
+pagination total are one consistent semantic.
+
+`countable()` is the single universal **count gate**, validated up front and
+root-scoped: a `?withCount` naming a relation that is **not** `countable()` — or
+naming a to-one relation, which has no cardinality — is a
+`400 RelationshipCountNotAllowed` (`source.parameter: withCount`), mirroring
+`InclusionNotAllowed`. A resource that declares no countable relations rejects any
+`?withCount` against it; counting is opt-in.
+
+Core never computes the count — it is storage-specific (a pushed-down `COUNT`, a
+counted in-memory collection) and batched across a fetched page of parents to
+avoid an N+1. The host supplies it through an injected
+[`RelationshipCountInterface`](../src/Serializer/RelationshipCountInterface.php)
+(`countRelationship($model, $relation): ?int`); with **no** resolver injected
+(standalone core) no `meta.total` is emitted even for a countable,
+`?withCount`-named relation. The countable flag also drives the related-collection
+endpoint's pagination total (a non-countable relation's endpoint paginates
+count-free — no `total`, no `last`). See [ADR
+0057](adr/0057-countable-relations-and-count-free-pages.md) for the full design.
+
 ## Relation-scoped filters and sorts
 
 A to-many relation can declare extra `filter`/`sort` keys that apply **only** to
@@ -442,6 +524,11 @@ A key in *neither* set still `400`s as an unrecognized parameter.
 > custom `FilterHandler` / `SortHandler` you supply — the seam allows it, but the
 > framework does not auto-wire join-table columns. Declare the metadata here and
 > point it at your handler.
+
+These vocabularies also drive the **relationship-queries profile**: a client that
+negotiates it can filter and sort a relationship's *linkage* from the primary
+request — `relatedQuery[<path>][filter][<key>]=…` / `[sort]=…` (shorthand `rQ`) —
+against the same filter/sort keys declared here. See [profiles](profiles.md#the-bundled-relationship-queries-profile).
 
 ## Custom relation hooks
 

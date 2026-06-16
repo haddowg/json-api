@@ -53,9 +53,9 @@ the whole list.
 
 ## The two-method contract
 
-A count-based strategy implements
-[`PaginatorInterface`](../src/Pagination/PaginatorInterface.php), which has two
-methods that run at different points in your fetch loop:
+Every strategy implements
+[`PaginatorInterface`](../src/Pagination/PaginatorInterface.php). Two of its methods
+do the count-based work, running at different points in your fetch loop:
 
 ```php
 public function window(JsonApiRequestInterface $request): WindowInterface;
@@ -68,7 +68,9 @@ that down to a query. `paginate()` runs **last**: it wraps the items you already
 fetched for that window plus the separately-computed total of the whole filtered
 collection. Pages never slice — `paginate()` trusts that `$items` is exactly the
 window — so the two methods share one derivation and always agree, even on
-garbage input.
+garbage input. (The interface's third method,
+[`paginateWithoutCount()`](#count-free-pages), is the no-`COUNT` variant of
+`paginate()`.)
 
 The [`InMemoryRepository`](../examples/music-catalog/src/Data/InMemoryRepository.php)
 runs the canonical window → slice → count → paginate loop:
@@ -123,16 +125,46 @@ final readonly class OffsetWindow implements WindowInterface
 Because the values are pre-normalised, your data layer hands them straight to
 `LIMIT`/`OFFSET` (or `array_slice`) without re-validating. Garbage `page[…]` input
 therefore yields a sane (possibly empty) window, never a `400` — `?page[number]=-5&page[size]=abc`
-clamps to a valid slice and still returns `200`. A data layer narrows on the
-concrete window type it knows how to execute; the interface keeps the seam open
-for a future cursor-shaped window.
+clamps to a valid slice and still returns `200`. `WindowInterface` is the open seam:
+a data layer narrows on the concrete window type it knows how to execute — the three
+count-based strategies all produce an `OffsetWindow`, while
+[cursor pagination](#cursor-pagination) produces a
+[`CursorWindow`](../src/Pagination/CursorWindow.php) (a limit plus the decoded
+`after`/`before` boundaries) that a keyset-capable layer executes instead.
+
+### The shared window executor
+
+The window → count → slice loop above is the same in every store, so the library
+ships it as a storage-agnostic core seam:
+[`WindowExecutor`](../src/Collection/WindowExecutor.php). It references only
+core/PHP types and takes the store-specific work — materialize the whole filtered
+set, count it, fetch a windowed page, probe one item past a page — as **closures**,
+so a Doctrine layer passes `LIMIT`/`OFFSET`/`COUNT` push-down closures, an in-memory
+layer passes `array_slice`/`count` closures, and both get the identical branch
+logic:
+
+- **no window** → the whole filtered set, no count;
+- **a counted page** → count the pre-window total, fetch the window;
+- **a count-free page** → no `COUNT`; probe `limit + 1` and a surplus item proves a
+  further page (see the [count-free note](#count-free-pages) below);
+- **a `CursorWindow`** → its own entry point `runCursor()` (keyset, count-free).
+
+`run()` returns a [`CollectionResult`](../src/Collection/CollectionResult.php) —
+the materialized items plus the pre-window total (non-null only on a counted page),
+a `windowed` flag, and a `hasMore` flag for the count-free branch. The handler then
+narrows on it to build the right `Page`. (A keyset fetch returns the
+[`CursorCollectionResult`](../src/Collection/CursorCollectionResult.php) subtype,
+which additionally carries the minted boundary cursors.) The
+[`InMemoryRepository`](../examples/music-catalog/src/Data/InMemoryRepository.php) in
+the worked example runs the loop inline for clarity; a real provider hands the four
+closures to `WindowExecutor` once and gets every branch for free.
 
 ## The four strategies
 
-All three count-based strategies are `final readonly`, built with a `make()` named
-constructor and refined with immutable `with…()` helpers. An absent or non-numeric
-`page[…]` value falls back to the configured default (matching the request-side
-parsing rule — it never throws).
+All four strategies are `final readonly`, built with a `make()` named constructor
+and refined with immutable `with…()` helpers. An absent or non-numeric `page[…]`
+value falls back to the configured default (matching the request-side parsing rule
+— it never throws).
 
 | Strategy | Reads | Defaults (keys / values) |
 |---|---|---|
@@ -141,10 +173,14 @@ parsing rule — it never throws).
 | [`FixedPagePaginator`](../src/Pagination/FixedPagePaginator.php) | `page[number]` only | `number`, page `1`, fixed `size` `15` (server-set, never echoed) |
 | [`CursorPaginator`](../src/Pagination/CursorPaginator.php) | `page[size]` / `page[after]` / `page[before]` | `size`, default size `15`, max-per-page `100` |
 
-Three are count-based and share the two-method `PaginatorInterface` contract above;
-the fourth, [`CursorPaginator`](#cursor-pagination), has a different shape and is
-covered separately under [Cursor pagination](#cursor-pagination) below. The three
-client-size-controlled strategies cap `page[size]`/`page[limit]` — see
+All four implement the same `PaginatorInterface` seam — `window()` returns the
+fetch window a data layer pushes down. The first three are count-based: their
+window is an [`OffsetWindow`](#the-fetch-window) and `paginate()` builds a page from
+the windowed items and a separately-computed total. The fourth,
+[`CursorPaginator`](#cursor-pagination), is **count-free**: its window is a
+`CursorWindow` and its render path is `fromBoundaries()` rather than `paginate()` —
+it is covered separately under [Cursor pagination](#cursor-pagination) below. The
+three client-size-controlled strategies cap `page[size]`/`page[limit]` — see
 [Capping the page size](#capping-the-page-size).
 
 ### PagePaginator — the baseline
@@ -182,6 +218,25 @@ The configured `size` (default `15`) is used solely to compute the last page —
 is **never** echoed in the emitted links. Refine with `withSize()`, `withPageKey()`
 and `withDefaultPage()`. It has no page-size cap because the client never controls
 its size.
+
+### Count-free pages
+
+A `COUNT(*)` over the whole filtered collection is often the most expensive part of
+a paginated fetch, and some collections cannot be counted at all (a non-countable
+related to-many — see [countable relations](related-endpoints.md)). The three
+count-based strategies therefore expose a **count-free mode** alongside `paginate()`:
+
+```php
+public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): PageInterface;
+```
+
+`paginateWithoutCount()` builds the page **without a total**: it omits
+`meta.page.total` and the `last` link, keeps `self`/`first`/`prev`, and derives
+`next` from `$hasMore` rather than from the total. Your store learns `$hasMore`
+without a `COUNT` by fetching **one item past the window** (`limit + 1`) — a surplus
+row proves a further page follows. This is exactly the
+[`WindowExecutor`](#the-shared-window-executor) count-free branch, and the same
+count-free shape [cursor pagination](#cursor-pagination) is built on.
 
 ## Capping the page size
 
@@ -226,44 +281,73 @@ paginator at `50` to witness the clamp; `page[size]=1000000` there returns at mo
 
 ## Cursor pagination
 
-Cursor pagination has a different shape, so
-[`CursorPaginator`](../src/Pagination/CursorPaginator.php) is a **standalone**
-fluent strategy that does **not** implement `PaginatorInterface`. A cursor page has
-no total count by design — computing one would defeat the purpose of cursors — so
-it has no `window()` and emits no `last` link. Its `prev`/`next` boundaries are the
-cursors of the returned items, which only you can extract from the domain data, so
-`paginate()` takes those cursors and the has-next / has-previous flags directly
-rather than a total:
+Cursor (keyset) pagination has a different *shape* — no total, opaque boundary
+tokens — but it lives under the **same seam** as the count-based strategies:
+[`CursorPaginator`](../src/Pagination/CursorPaginator.php) *implements*
+`PaginatorInterface`, so it is a drop-in default for a resource, a relation or the
+server. Its `window()` returns a [`CursorWindow`](../src/Pagination/CursorWindow.php)
+(the resolved size plus the decoded `page[after]` / `page[before]` boundaries) that
+a keyset-capable data layer executes exactly as it narrows on the
+[`OffsetWindow`](#the-fetch-window) — see [the fetch window](#the-fetch-window).
+A cursor page has **no total count by design** (computing one would defeat the
+purpose of cursors), so it is inherently count-free and emits no `last` link.
+
+Its `prev`/`next` boundaries are the cursors of the returned items, which only the
+executing provider can mint (it owns the row → boundary-value reader). So the
+**cursor render path is not the count-based `paginate()`** — it is the dedicated
+`fromBoundaries()`, which takes the minted boundary cursors and the
+has-next / has-previous flags directly rather than a total:
 
 ```php
-public function paginate(
+public function fromBoundaries(
     JsonApiRequestInterface $request,
     iterable $items,
-    int|string $cursorBefore,  // cursor of the first returned item (for `prev`)
-    int|string $cursorAfter,   // cursor of the last returned item (for `next`)
+    int|string $cursorBefore,    // cursor of the first returned item (for `prev`)
+    int|string $cursorAfter,     // cursor of the last returned item (for `next`)
     bool $hasNext,
     bool $hasPrevious,
+    int|string|null $from = null, // id of the first row (for `meta.page.from`)
+    int|string|null $to = null,   // id of the last row (for `meta.page.to`)
 ): CursorBasedPage;
 ```
 
 ```php
 use haddowg\JsonApi\Pagination\CursorPaginator;
 
+$window = $paginator->window($request);            // CursorWindow: size + boundaries
+// … the provider runs the keyset fetch for $window, returning the page items
+//    plus the boundary cursors it minted for the first and last rows …
+
 $page = CursorPaginator::make()
     ->withDefaultSize(20)
-    ->paginate($request, $items, $firstCursor, $lastCursor, $hasNext, $hasPrevious);
+    ->fromBoundaries($request, $items, $firstCursor, $lastCursor, $hasNext, $hasPrevious);
 
 return DataResponse::fromPage($page, $server->serializerFor('tracks'));
 ```
 
+The two interface methods — `paginate($request, $items, $totalItems)` and
+`paginateWithoutCount($request, $items, $hasMore)` — are present only for
+`PaginatorInterface` conformance: a cursor strategy never derives a total, so the
+`$totalItems` argument is ignored and both build a page **without** boundary cursors
+(no `prev`/`next`). Use `fromBoundaries()` for a real keyset page.
+
 `CursorPaginator` reads `page[size]` (rekey with `withSizeKey()`) and emits
-`page[after]` / `page[before]` cursors. The produced `CursorBasedPage` carries the
-published [cursor-pagination profile](profiles.md) (`CursorPaginationProfile`, URI
+`page[after]` / `page[before]` cursors; the size is [capped](#capping-the-page-size)
+at `100` by default like the other client-controlled strategies. The produced
+`CursorBasedPage` carries the published
+[cursor-pagination profile](profiles.md) (`CursorPaginationProfile`, URI
 `https://jsonapi.org/profiles/ethanresnick/cursor-pagination/`), so a
 cursor-paginated response advertises the profile on its `Content-Type` and in
 `links.profile` — **provided** the [server](server.md) has registered it with
 `withProfile(new CursorPaginationProfile())`. The catalog registers it in
 [`bootstrap.php`](../examples/music-catalog/src/bootstrap.php) for exactly this.
+
+Its `meta.page` carries `perPage` and a `hasMore` flag (plus `from`/`to` ids when
+the page is non-empty) — never a `total`, since there is none:
+
+```json
+{ "page": { "perPage": 20, "from": "4", "to": "23", "hasMore": true } }
+```
 
 ## The `Page` value object
 
@@ -302,7 +386,7 @@ The four pages side by side — which links they emit and what `meta.page` carri
 | `PageBasedPage` | `self`, `first`, `prev`, `next`, `last` | `currentPage`, `perPage`, `from`, `to`, `total`, `lastPage` |
 | `OffsetBasedPage` | `self`, `first`, `prev`, `next`, `last` | `offset`, `limit`, `from`, `to`, `total` |
 | `FixedPagePage` | `self`, `first`, `prev`, `next`, `last` | `currentPage`, `total`, `lastPage` (no `perPage` — size is server-fixed) |
-| `CursorBasedPage` | `first`, `prev`, `next` (**no `self` or `last`** by design) | `perPage`, `hasMore` |
+| `CursorBasedPage` | `first`, `prev`, `next` (**no `self` or `last`** by design) | `perPage`, `hasMore` (+ `from`, `to` on a non-empty page; **never `total`**) |
 
 Two defensive behaviours apply to the count-based pages:
 

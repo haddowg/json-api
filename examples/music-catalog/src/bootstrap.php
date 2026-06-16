@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Examples\MusicCatalog;
 
 use haddowg\JsonApi\Examples\MusicCatalog\Data\CriteriaApplier;
+use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryRelationshipCount;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryRepository;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryStore;
 use haddowg\JsonApi\Examples\MusicCatalog\Handler\MusicCatalogHandler;
@@ -89,6 +90,11 @@ function assemble(InMemoryStore $store, bool $debug): array
         // clamped to the cap, not honoured. PagePaginator caps at 100 out of the
         // box; withMaxPerPage(0) would disable the cap entirely.
         ->withDefaultPaginator(PagePaginator::make()->withDefaultPerPage(10)->withMaxPerPage(50))
+        // The count seam: supplies the `meta.total` core renders on a relationship
+        // object when a request names a countable() to-many relation in `?withCount`
+        // (e.g. GET /albums/1?withCount=tracks). With none injected, no count is
+        // emitted even for a countable relation.
+        ->withRelationshipCount(new InMemoryRelationshipCount())
         ->withProfile(new TimestampProfile())
         ->withProfile(new CursorPaginationProfile())
         // Step 2: register the seven Resources by CLASS-STRING key. Two carry an

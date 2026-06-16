@@ -126,6 +126,16 @@ final class InMemoryRepository
         $this->store->put($type, $id, $entity);
     }
 
+    /**
+     * A fresh store-provided id for a type — the store acting as the auto-increment
+     * source for a resource whose `Id::make()` is neither `generated()` nor
+     * client-supplied (e.g. `users`).
+     */
+    public function nextId(string $type): string
+    {
+        return $this->store->nextId($type);
+    }
+
     public function update(string $type, object $entity, string $id): void
     {
         $this->store->put($type, $id, $entity);

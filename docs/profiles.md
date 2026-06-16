@@ -213,7 +213,7 @@ host (e.g. the Doctrine bundle) does the page-1 windowing:
   page 1 (ordered/filtered) and returns a
   `Schema\Relationship\RelationshipPagination` (page + plain-form query string).
   Core attaches it so the relationship object emits `first`/`prev`/`next`
-  (+ `last` only when the relation is [`countable()`](relations.md)) links — in
+  (+ `last` only when the relation is [`countable()`](relations.md#countable-relations-and-withcount)) links — in
   the spec's plain-form against the relationship-linkage endpoint, never the
   profile's `relatedQuery[…]` form (which only addresses a relationship from a
   parent request). With no resolver injected (standalone core) no

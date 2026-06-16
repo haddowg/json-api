@@ -57,6 +57,10 @@ return DataResponse::fromCollection($models, $serializer);
 
 Both take the domain value(s) plus the [serializer](serializers.md) that renders
 them — resolve it from the [server](server.md) with `$server->serializerFor($type)`.
+A collection endpoint can still render a *zero-to-one* response — a single resource
+or `null` in `data` — when a [singular filter](filters.md#singular-filters) is
+applied: the handler chooses `fromResource` rather than `fromCollection`, so the
+shape comes from the constructor you pick, never from the VO inferring it.
 The third constructor, `fromPage()`, renders a [paginated](pagination.md)
 collection: the page supplies the `data`, and the document gains the pagination
 `links.{first,prev,next,last}` and `meta.page` automatically. A page that

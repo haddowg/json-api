@@ -65,8 +65,10 @@ parameter, so the header has a conforming way to be satisfied:
 Accept: application/vnd.api+json; charset=utf-8, application/vnd.api+json
 ```
 
-The optional `q` weight is not a media-type parameter and is ignored on `Accept`.
-A header that does not assert the JSON:API media type at all (absent, `*/*`, a
+The optional `q` weight is not a media-type parameter and is ignored on `Accept`,
+and so are any accept-extension parameters that follow it — neither participates in
+the JSON:API media-type check. A header that does not assert the JSON:API media type
+at all (absent, `*/*`, a
 different subtype), or asserts it with no parameters, is acceptable — negotiation
 only polices the JSON:API media type's own parameters. The parser is quote-aware,
 so a comma inside a quoted `profile` / `ext` value never splits one media-type

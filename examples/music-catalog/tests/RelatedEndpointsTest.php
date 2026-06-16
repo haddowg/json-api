@@ -19,7 +19,8 @@ use Psr\Http\Message\ResponseInterface;
  * linkage read (`GET /{type}/{id}/relationships/{rel}` → identifiers only). This
  * suite walks each relation shape — `belongsTo`, `hasOne`, `hasMany`,
  * `belongsToMany` — for both endpoints, plus the per-relation paginated related
- * collection and the empty-to-one `data: null`. The polymorphic
+ * collection, the `?withCount` `meta.total` on a countable to-many relationship
+ * object, and the empty-to-one `data: null`. The polymorphic
  * (`MorphTo`/`MorphToMany`) cases live in {@see PolymorphicTest}.
  */
 #[Group('spec:fetching-relationships')]
@@ -87,6 +88,45 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
             self::assertSame('tracks', $identifier['type'] ?? null);
             self::assertArrayNotHasKey('attributes', $identifier);
         }
+    }
+
+    #[Test]
+    public function withCountAddsTotalMetaToACountableRelationshipObject(): void
+    {
+        // album→tracks declares countable(); naming it in ?withCount adds
+        // meta.total (the related-collection cardinality) to the relationship
+        // object. Album 1 has three tracks.
+        $response = $this->get('/albums/1?withCount=tracks');
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        self::assertSame(3, $this->relationshipMeta($response, 'tracks')['total'] ?? null);
+    }
+
+    #[Test]
+    public function withCountReflectsADifferentParentsCardinality(): void
+    {
+        // Album 2 (Dummy) has a single track (Mysterons), so its tracks
+        // relationship object reports meta.total = 1.
+        $response = $this->get('/albums/2?withCount=tracks');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        self::assertSame(1, $this->relationshipMeta($response, 'tracks')['total'] ?? null);
+    }
+
+    #[Test]
+    public function withoutWithCountNoTotalMetaIsEmitted(): void
+    {
+        // The count is opt-in per request: with no ?withCount the tracks
+        // relationship object carries no meta at all.
+        $response = $this->get('/albums/1');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $tracks = $this->relationship($response, 'tracks');
+        self::assertArrayNotHasKey('meta', $tracks, 'no count without ?withCount');
     }
 
     #[Test]
@@ -204,6 +244,37 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
         }
 
         return $rows;
+    }
+
+    /**
+     * The relationship object for `$name` on the primary (single) resource.
+     *
+     * @return array<string, mixed>
+     */
+    private function relationship(ResponseInterface $response, string $name): array
+    {
+        $data = $this->single($response);
+        $relationships = $data['relationships'] ?? null;
+        self::assertIsArray($relationships);
+        $relationship = $relationships[$name] ?? null;
+        self::assertIsArray($relationship);
+
+        /** @var array<string, mixed> $relationship */
+        return $relationship;
+    }
+
+    /**
+     * The `meta` of the relationship object for `$name`.
+     *
+     * @return array<string, mixed>
+     */
+    private function relationshipMeta(ResponseInterface $response, string $name): array
+    {
+        $meta = $this->relationship($response, $name)['meta'] ?? null;
+        self::assertIsArray($meta);
+
+        /** @var array<string, mixed> $meta */
+        return $meta;
     }
 
     private function href(mixed $link): string

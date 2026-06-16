@@ -114,9 +114,11 @@ its target column (or relationship) to the filter key when you omit it.
 | `WhereNotNull` | `make(string $key, ?string $column = null)` | a column | column is not null (presence-only) |
 | `WhereHas` | `make(string $key, ?string $relationship = null)` | a relationship | has a related record (presence-only) |
 | `WhereDoesntHave` | `make(string $key, ?string $relationship = null)` | a relationship | negation of `WhereHas` (presence-only) |
+| `WhereThrough` | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
 
 `Where` carries the comparison operator as its third `make()` argument — `=`
-(the default), `like`, `>`, `>=`, `<`, `<=`, `!=`, `===`. The reference
+(the default), `like`, `>`, `>=`, `<`, `<=`, `!=` (with `<>` as an alias), `===`.
+The reference
 [`ArrayFilterHandler`](adapters.md#the-reference-handlers) maps each to a PHP
 comparison (`like` is a case-insensitive `stripos`, matching what a SQL
 `LIKE '%…%'` gives on common backends); a database adapter translates the same
@@ -342,6 +344,79 @@ alone decides), and a Doctrine adapter renders an `EXISTS` / `NOT EXISTS`
 subquery over the same relationship. See [Adapters](adapters.md#the-reference-handlers) for the
 handler side.
 
+## Traversing a relationship path
+
+`WhereThrough` filters on a value reached by walking a **dotted relationship
+path** — `artist.name` keeps a row whose artist's name matches, `comments.body`
+keeps a row that has *some* comment whose body matches, `author.company.name`
+chains the hops. Every intermediate segment is a relationship (to-one or to-many
+— both read identically as "there exists a … whose …") and the final segment is
+the compared attribute. It is an **EXISTS-ANY semi-join**: a database adapter
+interprets the path as a correlated `EXISTS` subquery, never a fetch-join, so it
+neither hydrates the relation nor multiplies rows. The
+[`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)
+exposes albums by their artist's name:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereHas;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
+
+public function filters(): array
+{
+    return [
+        WhereHas::make('tracks'),
+        // EXISTS-ANY over album->artist->name; no fetch-join (the Doctrine
+        // reference renders a correlated EXISTS).
+        WhereThrough::make('artist.name'),
+    ];
+}
+```
+
+```
+GET /albums?filter[artist.name]=Radiohead   →  one album: id 1 "OK Computer"
+GET /albums?filter[artist.name]=Portishead  →  one album: id 2 "Dummy"
+```
+
+The single-argument form uses the dotted path as **both the wire key and the
+traversal path** — `WhereThrough::make('artist.name')` responds to
+`filter[artist.name]`. Supply a second argument to decouple them, exposing a
+clean wire key over a deeper path:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
+
+// filter[topArtist]=Radiohead, traversing album->artist->name
+WhereThrough::make('topArtist', 'artist.name');
+```
+
+Both positional slots are taken by the key and the path, so the comparison
+operator is the fluent `operator()` setter rather than a `make()` argument
+(default `=`). It draws the same vocabulary as [`Where`](#the-built-in-catalogue)
+— `=`, `!=` (alias `<>`), `>`, `>=`, `<`, `<=`, `like` — applied at the leaf
+segment:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
+
+WhereThrough::make('artist.foundedYear')->operator('>=');
+```
+
+`WhereThrough` carries [value constraints](#validating-filter-values) the same
+way the column filters do — `constrain(...)` or the type shortcuts
+(`integer()`, `numeric()`, `uuid()`, `boolean()`, `pattern()`) append the matching
+constraint so a mistyped value is a clean `400` before the filter reaches the data
+layer — and a `deserializeUsing()` transformer applied before comparison, exactly
+as on `Where`.
+
+`WhereHas` and `WhereDoesntHave` are the **degenerate length-1 case** of this same
+traversal: a single relationship segment with no leaf comparison, where presence
+alone (a non-empty related collection or a non-null to-one) decides the match. The
+reference `ArrayFilterHandler` folds both onto the one `WhereThrough` traversal
+walk — `WhereHas` is "the path reaches at least one present value", and a Doctrine
+adapter renders all three as the same `EXISTS` shape. The
+[`FiltersTest`](../examples/music-catalog/tests/FiltersTest.php) witnesses the
+`artist.name` traversal narrowing albums to each artist's catalogue.
+
 ## List and set values
 
 A set filter (`WhereIn`, `WhereNotIn`, the id variants) treats its incoming
@@ -415,6 +490,14 @@ silently ignored. The library never auto-applies filters, and a handler only
 dispatches the declared VOs it is handed — so `GET /artists?filter[withinRadius]=51.5`
 against a resource that doesn't declare `withinRadius` returns the full
 collection, unnarrowed.
+
+That silent-ignore is **key-level** — an unrecognized key *inside* the `filter`
+family. The `filter` **family** itself is always recognized, so it never trips the
+[strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
+that `Server` runs by default: an unrecognized query-parameter *family* (a
+misspelled `?fitler[...]`, an unregistered custom parameter) is a `400`
+`QueryParamUnrecognized`, distinct from this key-level tolerance within a
+recognized family.
 
 ## Reading requested filters off the operation
 

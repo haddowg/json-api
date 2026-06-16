@@ -36,6 +36,7 @@ use haddowg\JsonApi\Pagination\PageInterface;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Response\DataResponse;
@@ -291,7 +292,16 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
 
         $this->applyBodyRelationships($entity, $relationships);
 
+        // A store-provided id (the resource's `Id::make()` is neither `generated()`
+        // nor client-supplied, e.g. `users`) is empty after hydration: the store
+        // mints one, the way a database auto-increment column would, and it is set
+        // on the entity so the rendered resource and the `Location` carry it.
         $id = $serializer->getId($entity);
+        if ($id === '') {
+            $id = $this->repository->nextId($type);
+            Accessor::set($entity, 'id', $id);
+        }
+
         $this->repository->create($type, $entity, $id);
 
         $uriType = $server->resourceFor($type)->uriType();

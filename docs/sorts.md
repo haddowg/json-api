@@ -271,6 +271,13 @@ $sorted = $this->sorts->apply($directives, $rows);
 A `sort` key matching no declared or derived sort is ignored — the applier skips
 it and leaves the order untouched, rather than rejecting the request.
 
+That silent-ignore is **key-level** — an unrecognized key *inside* the `sort`
+family. The `sort` **family** itself is always recognized, so it never trips the
+[strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
+`Server` runs by default: an unrecognized query-parameter *family* (a misspelled
+`?srot=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`,
+distinct from this key-level tolerance within a recognized family.
+
 ### The reference `ArraySortHandler`
 
 Core ships
@@ -335,3 +342,4 @@ gap on the server side.
 - [Filters](filters.md) — the same metadata/handler split for the `filter` parameter.
 - [Pagination](pagination.md) — windowing the ordered collection.
 - [Resource classes](resources.md) — `sorts()`, `allSorts()`, and the derivation rule.
+- [Relations](relations.md#relation-scoped-filters-and-sorts) — scoping sorts (and filters) to a related to-many collection with `withSorts()` / `withFilters()`.

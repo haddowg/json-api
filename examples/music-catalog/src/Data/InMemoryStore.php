@@ -47,4 +47,20 @@ final class InMemoryStore
     {
         return isset($this->items[$type][$id]);
     }
+
+    /**
+     * Mints a fresh store-provided id for a type — the smallest integer (as a
+     * string) not already used — so a resource whose `Id::make()` is store-provided
+     * (neither `generated()` nor `allowClientId()`, e.g. `users`) gets an id the way
+     * a database auto-increment column would. Deterministic per store.
+     */
+    public function nextId(string $type): string
+    {
+        $next = 1;
+        while (isset($this->items[$type][(string) $next])) {
+            ++$next;
+        }
+
+        return (string) $next;
+    }
 }

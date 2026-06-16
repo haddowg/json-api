@@ -18,6 +18,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\WhereHas;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Resource\Sort\SortDirective;
 
@@ -80,17 +81,26 @@ final class AlbumResource extends AbstractResource
             HasMany::make('tracks')
                 ->type('tracks')
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-                ->linkageOnlyWhenLoaded(),
+                ->linkageOnlyWhenLoaded()
+                // Countable: when a request names `tracks` in `?withCount`, the
+                // relationship object carries `meta.total` (the related-collection
+                // cardinality) — e.g. GET /albums/1?withCount=tracks → 3.
+                ->countable(),
         ];
     }
 
     public function filters(): array
     {
-        // WhereHas('tracks'): albums that have at least one related track. The
-        // relationship key reads $album->tracks directly (the Doctrine reference
-        // would render an EXISTS subquery over the same relation).
         return [
+            // WhereHas('tracks'): albums that have at least one related track. The
+            // relationship key reads $album->tracks directly (the Doctrine reference
+            // would render an EXISTS subquery over the same relation).
             WhereHas::make('tracks'),
+            // WhereThrough('artist.name'): a dotted-path EXISTS-ANY semi-join —
+            // keeps albums whose artist's name matches. Responds to
+            // `filter[artist.name]=Radiohead`; traverses album->artist->name without
+            // a fetch-join (the Doctrine reference renders a correlated EXISTS).
+            WhereThrough::make('artist.name'),
         ];
     }
 

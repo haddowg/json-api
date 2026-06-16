@@ -75,17 +75,38 @@ field's `extractUsing()` / `fillUsing()` hooks (below), not by this helper.
 | Method | Effect |
 |---|---|
 | `hidden()` | Drops the field from output **and** from hydration entirely. |
+| `writeOnly()` | The inverse direction: accepted on write but **never rendered** (see below). |
 | `notSparseField()` | Exempts the field from sparse-fieldset (`?fields[type]=…`) filtering, so it is always emitted. |
 | `sortable()` | Marks the field as sortable; the resource's `allSorts()` derives a [`SortByField`](sorts.md) for it. |
 
-`hidden()` removes the member from both directions. To render a member but never
-serialize its value — a write-only `password`, say — keep the field visible to
-hydration and null its read instead (see [the hooks](#the-four-hooks) below):
+`hidden()` removes the member from both directions. For the opposite asymmetry — a
+member a client *sets* but the server never *echoes back*, a `password` or an API
+token — reach for `writeOnly()`, covered next.
+
+### Write-only members
+
+`writeOnly()` marks a field write-only: it is **accepted on write** — hydrated on
+both create and update, and still [validated](constraints.md) — but **never
+rendered**. The member is dropped exactly where sparse-fieldset filtering happens,
+so it appears on no read (single, collection, included, related) and is **absent,
+not null**: a `fields[type]` parameter that names it cannot resurrect it.
+
+[`UserResource`](../examples/music-catalog/src/Resource/UserResource.php)'s
+`password` is the worked example:
 
 ```php
-// users: rendered as null but still hydrated — NOT hidden().
-Str::make('password')->serializeUsing(fn(): ?string => null),
+// users: accepted + validated on write, never rendered — absent, not null.
+Str::make('password')->writeOnly(),
 ```
+
+A POST carrying `password` hydrates it into the stored object, but the `201`
+response (and every later `GET`) omits the member entirely — no `"password"` key.
+
+`writeOnly()` and `readOnly()` are the two opposite asymmetries and **cannot
+combine**: a field that is neither readable nor writable is contradictory, so
+declaring both throws a `\LogicException`. Inside a [`Map`](field-types.md#map), a
+write-only child is skipped on render just like a top-level write-only field, so it
+too is absent from the nested object.
 
 ## Read-only scoping (gates hydration)
 
@@ -242,7 +263,10 @@ customise writing — reach for them before dropping to a whole-resource custom
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting
 finish the job, while `serializeUsing` owns the value outright (it is the place to
-render a write-only member as `null`).
+null a computed transient on read, as `passwordConfirm` above does). To suppress a
+*stored* member from output entirely, prefer
+[`writeOnly()`](#write-only-members) — it drops the member rather than rendering it
+as `null`.
 
 ### Worked example: a computed read and a renamed column
 

@@ -141,14 +141,20 @@ the reference pages as you need them:
 - **Defining resources** — [resources](resources.md), [fields](fields.md),
   [field types](field-types.md), [ids](ids.md), [relations](relations.md),
   [constraints](constraints.md).
-- **Querying** — [filters](filters.md), [sorts](sorts.md),
-  [pagination](pagination.md),
+- **Querying** — [filters](filters.md) (including
+  [related-attribute traversal with `WhereThrough`](filters.md#traversing-a-relationship-path)),
+  [sorts](sorts.md),
+  [pagination](pagination.md) (page/offset/[cursor](pagination.md#cursor-pagination)
+  strategies, with a [default page-size cap](pagination.md#capping-the-page-size)),
   [sparse fieldsets and includes](sparse-fieldsets-and-includes.md).
 - **Serialization & hydration control** — [serializers](serializers.md),
   [hydrators](hydrators.md),
   [capability composition](capability-composition.md).
-- **Request/response lifecycle** — [server](server.md), [operations](operations.md),
-  [related endpoints](related-endpoints.md),
+- **Request/response lifecycle** — [server](server.md) (including the
+  [`serving` pre-operation hook](server.md#serving-a-pre-operation-hook)),
+  [operations](operations.md),
+  [related endpoints](related-endpoints.md) (with countable relations and
+  `?withCount` — see [relations](relations.md)),
   [relationship mutation](relationship-mutation.md), [responses](responses.md),
   [content negotiation](content-negotiation.md),
   [errors and exceptions](errors-and-exceptions.md), [middleware](middleware.md).

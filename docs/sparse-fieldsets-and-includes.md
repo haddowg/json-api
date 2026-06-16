@@ -234,6 +234,16 @@ reads these off the operation when it builds a response. Malformed values are
 tolerated and skipped during parsing — well-formedness of the request itself is
 the negotiation layer's job, not this projection's.
 
+That tolerance is **key-level** — a bad value or unknown member *inside* the
+`fields` / `include` families. The families themselves are always recognized, so
+they never trip the
+[strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
+`Server` runs by default: an unrecognized query-parameter *family* (a misspelled
+`?inclde=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`,
+distinct from this key-level tolerance within a recognized family. (An `include`
+*path* naming an unknown relationship is its own `400 InclusionUnrecognized`,
+covered in [Spec errors](#spec-errors) below.)
+
 ## Spec errors
 
 | Exception | Status | When |

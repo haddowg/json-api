@@ -223,6 +223,11 @@ $server = Server::make()
     });
 ```
 
+The hook fires on the [`dispatch()`](#dispatch-the-no-psr-7-path) path only — so a
+framework integration that dispatches operations directly gets it, but the bare
+PSR-15 [`handle()`](#handling-a-request) path (the operations adapter calls the
+inner handler directly, never through `dispatch()`) does **not**.
+
 The handler is a `\Closure(JsonApiRequestInterface): void`. The request is resolved
 from the operation's [context](operations.md) (`context()->httpRequest()`); a
 **programmatic `dispatch()` with no HTTP message** has no request to gate, so firing
