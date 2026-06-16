@@ -347,3 +347,7 @@ middleware encodes it. The body is a spec-compliant errors document.
 - [Operations](operations.md) and [Responses](responses.md) — the handler's input and output.
 - [Server](server.md) and [Middleware](middleware.md) — wiring an API and the PSR-15 suite.
 - [Documentation index](index.md) — the full page map.
+
+Prefer to poke at a running API? The example app
+[serves itself over FrankenPHP](../examples/music-catalog/README.md#serving-it-live):
+`docker compose up` in `examples/music-catalog/` and `curl http://localhost:8080/albums`.

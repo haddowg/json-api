@@ -24,6 +24,7 @@ serializer with no Resource**, witnessing the capability-composition thesis.
 | `src/Profile/`, `src/Exception/` | A `TimestampProfile` and a custom `PaymentRequired` exception. |
 | `src/bootstrap.php`, `src/Seed.php` | The single `bootstrap()` entry point and the deterministic seed fixtures. |
 | `tests/` | The CI-run suite — one file per docs page. |
+| `public/index.php`, `Dockerfile`, `compose.yaml` | An HTTP front controller and a minimal FrankenPHP container that serve the app live (see *Serving it live* below). |
 
 ## Running the tests
 
@@ -44,3 +45,25 @@ vendor/bin/phpunit examples/music-catalog/tests
 It depends only on the library plus a PSR-7/PSR-17 implementation
 (`nyholm/psr7`, already a `require-dev` of core) — no database, no extra
 dependencies.
+
+## Serving it live
+
+The app ships an HTTP front controller (`public/index.php`) and a minimal
+[FrankenPHP](https://frankenphp.dev) container, so you can drive the real API from
+a browser or `curl`. From this directory:
+
+```bash
+docker compose up        # then open http://localhost:8080/albums
+```
+
+Or build and run it directly from the repository root:
+
+```bash
+docker build -f examples/music-catalog/Dockerfile -t json-api-example .
+docker run --rm -p 8080:80 json-api-example
+curl -H 'Accept: application/vnd.api+json' http://localhost:8080/albums
+curl -H 'Accept: application/vnd.api+json' 'http://localhost:8080/albums?filter[artist.name]=Radiohead'
+```
+
+Each request boots a freshly-seeded in-memory store, so writes do not persist
+between requests — it is a live demo of the library, not a database-backed service.

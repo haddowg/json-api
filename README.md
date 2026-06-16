@@ -91,6 +91,11 @@ Full documentation lives under [`docs/`](docs/index.md). Start with
 [Getting started](docs/getting-started.md) for an end-to-end walkthrough, or
 browse the [documentation index](docs/index.md) for the reference pages.
 
+The [worked music-catalog example](examples/music-catalog/) is the single source
+of truth for every documentation snippet — and it serves itself. Run
+`docker compose up` in [`examples/music-catalog/`](examples/music-catalog/README.md#serving-it-live)
+and browse the live API at `http://localhost:8080/albums`.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). This project uses

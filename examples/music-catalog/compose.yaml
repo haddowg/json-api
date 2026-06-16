@@ -1,0 +1,10 @@
+# Run the worked example live:
+#   docker compose up        # then browse http://localhost:8080/albums
+services:
+  music-catalog:
+    build:
+      # Build context is the repository root so the whole library is available.
+      context: ../..
+      dockerfile: examples/music-catalog/Dockerfile
+    ports:
+      - "8080:80"
