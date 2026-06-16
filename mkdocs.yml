@@ -1,0 +1,119 @@
+site_name: haddowg/json-api
+site_description: A modern, server-side JSON:API 1.1 library for PHP 8.3+.
+site_url: https://haddowg.github.io/json-api/
+repo_url: https://github.com/haddowg/json-api
+repo_name: haddowg/json-api
+edit_uri: edit/main/docs/
+copyright: Released under the MIT Licence.
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-flavoured heading slugs so anchors match the source links (which
+      # also render on GitHub).
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+hooks:
+  - mkdocs_hooks.py
+
+validation:
+  nav:
+    # The ADRs are built (docs link to them by file) but deliberately not in the nav.
+    omitted_files: ignore
+  links:
+    anchors: warn
+
+# Working/analysis docs kept in the repo but not part of the published site.
+exclude_docs: |
+  IA-PLAN.md
+  v1-readiness-review.md
+  v1-security-negotiation-review.md
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started.md
+      - concepts.md
+      - architecture.md
+  - The type model:
+      - resources.md
+      - fields.md
+      - field-types.md
+      - ids.md
+      - relations.md
+      - capability-composition.md
+  - Querying:
+      - filters.md
+      - sorts.md
+      - pagination.md
+      - sparse-fieldsets-and-includes.md
+  - Writing & validation:
+      - hydrators.md
+      - constraints.md
+  - Serialization & responses:
+      - serializers.md
+      - responses.md
+      - links-and-meta.md
+  - Relationships:
+      - related-endpoints.md
+      - relationship-mutation.md
+      - profiles.md
+  - Server & lifecycle:
+      - server.md
+      - operations.md
+      - middleware.md
+      - content-negotiation.md
+      - errors-and-exceptions.md
+      - security.md
+      - testing.md
+  - Reference:
+      - spec-compliance.md
+      - schema-validation.md
+      - adapters.md
+      - release-readiness.md

@@ -33,3 +33,4 @@ Thumbs.db
 phpunit.xml
 phpstan.neon
 .php-cs-fixer.php
+site/
