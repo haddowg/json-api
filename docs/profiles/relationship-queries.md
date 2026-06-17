@@ -2,35 +2,36 @@
 
 ## Introduction
 
-This is the specification of a [profile](https://jsonapi.org/format/1.1/#profiles)
-for the JSON:API specification. The URL for this profile is
+This is the specification of a
+[profile](https://jsonapi.org/format/1.1/#profiles) for the JSON:API
+specification. The URL for this profile is
 `https://haddowg.github.io/json-api/profiles/relationship-queries/`.
 
 A JSON:API server can expose a related resource collection at its own endpoint
-(`GET /articles/1/comments`) and let the client `sort`, `filter`, and `page` it
-there. But the same collection also appears as a **relationship** of a *primary*
-resource — as full linkage under `?include`, as links-only linkage, or in a
-compound document — and the base specification gives the client no way to order or
-narrow that linkage from the primary request. A client that wants "the article,
-with only its *approved* comments, newest first" must therefore issue a second,
-separate request against the relationship endpoint and correlate the two responses
-itself.
+(for example `GET /articles/1/comments`) and let the client
+[sort](https://jsonapi.org/format/1.1/#fetching-sorting),
+[filter](https://jsonapi.org/format/1.1/#fetching-filtering), and
+[paginate](https://jsonapi.org/format/1.1/#fetching-pagination) it there. The
+same collection also appears as a **relationship** of a *primary* resource — as
+linkage in a relationship object, including when that relationship is requested
+with [`include`](https://jsonapi.org/format/1.1/#fetching-includes) — but the base
+specification provides no way to order or narrow that linkage from the request for
+the primary resource. A client that wants "article 1, with only its *approved*
+comments, newest first" must issue a second request against the relationship's
+endpoint and correlate the two responses itself.
 
-This profile closes that gap. It defines a single query-parameter family,
-`relatedQuery` (with a shorthand alias `rQ`), that lets a client **sort and filter
-a relationship's linkage from the primary request**, addressing the relationship by
-its include path. The relationship's sort and filter vocabulary is exactly the one
-its own related-collection endpoint already exposes — this profile only changes
-*where* the client may apply it, not *what* may be applied.
+This profile defines a single query-parameter family, `relatedQuery` (with a
+shorthand alias `rQ`), that lets a client **sort and filter a relationship's
+linkage from the request for the primary resource**, addressing the relationship
+by its include path. For example:
 
-For example, under this profile the request
-
-```
+```http
 GET /articles/1?include=comments&relatedQuery[comments][filter][approved]=true&relatedQuery[comments][sort]=-createdAt
+Accept: application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-queries/"
 ```
 
-returns article `1` with its `comments` linkage (and the corresponding `included`
-resources) restricted to approved comments, newest first — in one round trip.
+returns article 1 with its `comments` linkage — and the corresponding `included`
+resources — restricted to approved comments, newest first, in one request.
 
 ## Conventions
 
@@ -41,130 +42,183 @@ and only when, they appear in all capitals, as shown here. This is the same
 interpretation the JSON:API specification applies to these key words; see its
 [conventions](https://jsonapi.org/format/#conventions).
 
-## The `relatedQuery` family
+## Specification
 
-The profile reserves two query-parameter family bases with identical semantics:
+### Concepts
 
-| Base | Role |
+#### Addressing a relationship
+
+A relationship is addressed by its **include path**: the path the client would
+use with the [`include`](https://jsonapi.org/format/1.1/#fetching-includes) query
+parameter to request that relationship in a compound document. A path is a single
+relationship name (for example `comments`), or a dotted path that reaches a
+relationship of an included resource (for example `author.articles`).
+
+A server **MUST** support addressing a relationship of the primary resource (a
+single-segment path). A server **MAY** support addressing a relationship of an
+included resource (a multi-segment path). A path the server does not support, or
+that does not resolve to a relationship of the addressed resource, is an
+[Unaddressable Path Error](#unaddressable-path-error).
+
+#### Borrowed sort and filter vocabulary
+
+This profile does not define a sort or filter vocabulary. The value of a `[sort]`
+member is interpreted exactly as a [`sort`](https://jsonapi.org/format/1.1/#fetching-sorting)
+query parameter on the addressed relationship's related resource collection, and a
+`[filter]` member exactly as that collection's
+[`filter`](https://jsonapi.org/format/1.1/#fetching-filtering) family. A field or
+key the relationship's own endpoint would not accept is equally unacceptable here
+(see [Error Cases](#error-cases)). The profile changes only *where* the client may
+apply that vocabulary — from the primary request — not *what* may be applied.
+
+### Query Parameters
+
+This profile reserves two
+[implementation-specific query-parameter families](https://jsonapi.org/format/1.1/#query-parameters-custom):
+
+| Family base | Role |
 | --- | --- |
 | `relatedQuery` | canonical |
 | `rQ` | shorthand alias |
 
-Both bases are legal JSON:API implementation-specific query parameters: the base
-specification reserves all-lowercase family names for current and future standard
-use and requires an implementation-specific family to contain **at least one
-non `a-z` character** — each base here carries an uppercase `Q`, so both satisfy
-that rule.
-
-A member of the family addresses a relationship by **path** and names an
-**operation** on it:
+Members use the bracketed
+[query-parameter family](https://jsonapi.org/format/1.1/#query-parameters-families)
+grammar, keyed by relationship path and operation:
 
 ```
-relatedQuery[<relationship-path>][sort]   = <sort-fields>
-relatedQuery[<relationship-path>][filter][<key>] = <value>
+relatedQuery[<path>][sort]            = <sort-fields>
+relatedQuery[<path>][filter][<key>]   = <value>
 ```
 
-- **`<relationship-path>`** is the relationship's **include path** as used by the
-  `include` query parameter — the relationship *name*, or a dotted path that
-  reaches a relationship of an included resource (e.g.
-  `relatedQuery[author.articles][sort]=-title`). The path is a single bracket
-  segment; the dot is part of the key, consistent with the `include` grammar. The
-  path MUST resolve, from the primary resource, to a relationship the server can
-  address; if it does not, the server MUST respond according to the rules for the
-  [invalid query parameter error](#errors).
-- **`[sort]`** takes the same comma-separated, optionally `-`-prefixed sort-field
-  list as the relationship's related-collection endpoint. It MAY only be applied to
-  a **to-many** relationship (see [To-one relationships](#to-one-relationships)).
-- **`[filter]`** is itself a family: `[filter][<key>]=<value>` carries the same
-  filter keys the relationship's related-collection endpoint accepts.
+#### `relatedQuery[<path>][sort]`
 
-The `rQ` alias is interchangeable with `relatedQuery` member for member. A server
-MUST treat `rQ[comments][sort]=-createdAt` exactly as
-`relatedQuery[comments][sort]=-createdAt`.
+The value, if present, **MUST** be a string in the form of a
+[`sort`](https://jsonapi.org/format/1.1/#fetching-sorting) query parameter — a
+comma-separated list of sort fields, each optionally prefixed with `-` for
+descending order. A `[sort]` member **MUST** address a to-many relationship; on a
+to-one path it is a [To-One Sort Error](#to-one-sort-error). A `[sort]` value that
+is not a string is a [Malformed Parameter Error](#malformed-parameter-error).
 
-### `page` is not part of this profile
+#### `relatedQuery[<path>][filter]`
 
-The profile deliberately reserves **no** `page` operation. An addressed
-relationship always renders **page 1** of its (ordered, filtered) linkage. A client
-navigates the remaining pages through the **relationship object's own pagination
-links** (`first`/`prev`/`next`, and `last` when the relationship is countable),
-which the server emits in the response in the base specification's plain query form
-against the relationship's own endpoint — never in this profile's `relatedQuery`
-form. The `relatedQuery` form addresses a relationship only *from a primary
-request*; the pagination links address the relationship *directly*, so they use the
-form that endpoint understands.
+The `[filter]` member is itself a family: `[filter][<key>]=<value>` carries the
+filter keys and values the addressed relationship's related resource collection
+accepts under [`filter`](https://jsonapi.org/format/1.1/#fetching-filtering). A
+`[filter]` member whose value is not itself a family (bracketed) member is a
+[Malformed Parameter Error](#malformed-parameter-error).
 
-This keeps a compound document bounded: an `?include` that fans out across a page
-of parents windows each parent's relationship to one page rather than materialising
-every related resource.
+#### The `rQ` shorthand and conflicts
 
-### To-one relationships
+`rQ` is an alias for `relatedQuery` with identical semantics. A server **MUST**
+treat `rQ[<path>][<op>]` exactly as `relatedQuery[<path>][<op>]`. When both
+families carry a member for the **same** `[<path>][<op>]`, the canonical
+`relatedQuery` member **MUST** take precedence and the `rQ` member for that target
+**MUST** be ignored; this **MUST NOT** be treated as an error. Members targeting
+different paths or operations from the two families are combined.
 
-`[sort]` and `page` have no meaning for a to-one relationship — its linkage is a
-single resource identifier, not a list. On a to-one path:
+#### Pagination is out of scope
 
-- `[filter]` is permitted. A `relatedQuery[<toOne>][filter]` whose constraints
-  **exclude** the related resource renders the linkage as `data: null` and omits
-  the resource from `included`. (The relationship resolves to *the related resource
-  if it matches the filter, otherwise nothing*.)
-- `[sort]` MUST be rejected according to the rules for the
-  [invalid query parameter error](#errors).
+This profile reserves no `page` operation; a `[page]` member is undefined. A
+relationship addressed by this profile **MUST** be rendered as the **first page**
+of its ordered, filtered linkage. A client navigates the remaining pages through
+the relationship object's own pagination links (see
+[Document Structure](#document-structure)), not through this family.
 
-## Negotiation
+### Processing
 
-This profile is **advisory** and **opt-in**, like every JSON:API profile. A server
-MUST parse and apply the `relatedQuery` / `rQ` families **only** when the client has
-negotiated this profile's URI — that is, when the URI appears in the `profile`
-parameter of the request's `Accept` media type:
+#### Profile negotiation
 
-```
-Accept: application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-queries/"
-```
+This profile is advisory and opt-in. A server **MUST** parse and apply the
+`relatedQuery` and `rQ` families **only** when the client has negotiated this
+profile — that is, when this profile's URI appears in the `profile` parameter of
+the request `Accept` media type, per
+[content negotiation for profiles](https://jsonapi.org/format/1.1/#profiles). When
+the profile is not negotiated, a server **MUST NOT** apply the families and
+**MUST NOT** reject a request on their account; the parameters are ignored.
 
-When the profile is not negotiated, the server MUST ignore the families entirely
-(neither applying nor rejecting them). This is what makes the custom family safe:
-a relationship, filter key, or member literally named `relatedQuery` can never
-collide with the profile, because outside negotiation the family carries no special
-meaning.
+#### To-many relationships
 
-A server that applies the profile to a response MUST advertise it as the base
-specification requires for an applied profile: the URI is echoed in the response's
-`Content-Type` `profile` parameter and listed in the document's top-level
-`links.profile`, and the response sets `Vary: Accept`.
+For a negotiated to-many relationship, the server **MUST** apply the addressed
+`[sort]` and `[filter]` to that relationship's linkage and render the first page
+of the result. The members the server includes in `included` for that
+relationship (when it is requested with `include`) **MUST** correspond to the
+linkage the server renders.
 
-## Conflict resolution
+#### To-one relationships
 
-A request MAY carry both family bases. When the canonical `relatedQuery` and the
-shorthand `rQ` target the **same** `[path][operation]`, the canonical
-`relatedQuery` **wins** and the `rQ` member is discarded for that target — this is
-not an error. Members targeting different paths or operations are merged.
+A to-one relationship's linkage is a single resource identifier, not a list.
 
-## Errors
+- A `[sort]` member on a to-one path is a [To-One Sort Error](#to-one-sort-error).
+- A `[filter]` member **MAY** be applied. When the filter excludes the related
+  resource, the server **MUST** render the relationship's linkage as `data: null`
+  and **MUST** omit that resource from `included`.
 
-This profile distinguishes a **structural** error in the family itself from a
-**semantic** error in the addressed sort/filter vocabulary.
+#### Advertising an applied profile
 
-- A **structurally malformed** member under a negotiated profile — a non-array
-  family value, a non-string `[sort]`, or a non-array `[filter]` — is a `400 Bad
-  Request`. The error's `source.parameter` MUST identify the offending parameter.
-- A **semantically invalid** member — a `[sort]` field or `[filter]` key the
-  addressed relationship does not expose, a path that does not resolve or does not
-  address a relationship, or a `[sort]`/`page` on a to-one path — MUST be rejected
-  exactly as the relationship's own related-collection endpoint would reject the
-  equivalent plain `sort`/`filter` parameter, producing the same `400`. The profile
-  reuses the relationship's existing vocabulary and validation rather than defining
-  its own.
+When a server applies this profile to a response, it **MUST** advertise the
+profile as the base specification requires: the profile URI **MUST** be present in
+the `profile` parameter of the response `Content-Type` media type and in the
+document's top-level `links.profile`.
 
-The "invalid query parameter error" referenced above is the base specification's
-`400 Bad Request` for an unrecognised or malformed query parameter.
+### Document Structure
+
+This profile reserves no document members and adds nothing to the response body.
+
+A relationship addressed by this profile is rendered using the relationship object
+the base specification already defines. For a to-many relationship rendered with
+more than one page of linkage, the server **SHOULD** include
+[pagination links](https://jsonapi.org/format/1.1/#fetching-pagination) (`first`,
+`prev`, `next`, and `last` where the total is known) in that relationship object's
+`links`, so the remaining pages are reachable. These links **MUST** be expressed
+in the base specification's plain query form against the relationship's own
+endpoint (for example `?sort=-createdAt&page[number]=2`), **NOT** in this
+profile's `relatedQuery` form, which addresses a relationship only from a request
+for a primary resource.
+
+### Error Cases
+
+Every error defined by this profile is reported as a `400 Bad Request`, following
+the base specification's rules for
+[processing errors](https://jsonapi.org/format/1.1/#errors-processing). Each
+response document **MUST** contain an
+[error object](https://jsonapi.org/format/1.1/#error-objects) whose `source`
+member identifies the offending query parameter (a `source.parameter` naming the
+canonical `relatedQuery[...]` form of the member).
+
+#### Malformed Parameter Error
+
+A member that is structurally malformed under a negotiated profile — a
+`relatedQuery` / `rQ` value that is not a family (bracketed) member, a `[sort]`
+value that is not a string, or a `[filter]` value that is not itself a family —
+is a `400 Bad Request`.
+
+#### Unsupported Sort or Filter Error
+
+A `[sort]` field or `[filter]` key the addressed relationship's related resource
+collection does not accept is a `400 Bad Request` — the same response the server
+would produce for the equivalent plain
+[`sort`](https://jsonapi.org/format/1.1/#fetching-sorting) /
+[`filter`](https://jsonapi.org/format/1.1/#fetching-filtering) parameter on that
+relationship's own endpoint.
+
+#### Unaddressable Path Error
+
+A `<path>` that does not resolve to a relationship of the addressed resource, or
+that the server does not support addressing (see
+[Addressing a relationship](#addressing-a-relationship)), is a `400 Bad Request`.
+
+#### To-One Sort Error
+
+A `[sort]` member on a path that resolves to a to-one relationship is a
+`400 Bad Request`.
 
 ## Notes
 
-- The profile reserves the query-parameter names `relatedQuery` and `rQ`. It
-  reserves no document members and adds nothing to the response body beyond the
-  relationship pagination links already described, which are part of the base
-  specification's relationship object.
-- `relatedQuery[<path>]` is equivalent to applying the bracketed `sort`/`filter` to
-  the request `GET /<primary>/<id>/<path>` (the relationship's related-collection
-  endpoint) and folding page 1 of that result into the primary response as linkage.
-  A server MAY implement the profile as exactly that translation.
+- `relatedQuery[<path>]` is equivalent to applying the bracketed `sort` and
+  `filter` to the request `GET /<primary>/<id>/<path>` — the addressed
+  relationship's related resource collection — and folding the first page of that
+  result into the primary response as that relationship's linkage. A server **MAY**
+  implement the profile as exactly that translation.
+- Because the families are ignored unless the profile is negotiated, a
+  relationship, filter key, or member literally named `relatedQuery` or `rQ` never
+  collides with this profile.
