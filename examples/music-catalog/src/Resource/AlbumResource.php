@@ -81,7 +81,7 @@ final class AlbumResource extends AbstractResource
             HasMany::make('tracks')
                 ->type('tracks')
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-                ->linkageOnlyWhenLoaded()
+                ->dataOnlyWhenLoaded()
                 // Countable: when a request names `tracks` in `?withCount`, the
                 // relationship object carries `meta.total` (the related-collection
                 // cardinality) — e.g. GET /albums/1?withCount=tracks → 3.

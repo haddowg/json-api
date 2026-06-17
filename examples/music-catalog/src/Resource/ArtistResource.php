@@ -49,7 +49,7 @@ final class ArtistResource extends AbstractResource
             // Default relation reader: `featuredAlbum` reads $artist->featuredAlbum
             // (an Album, or null) and `albums` reads $artist->albums (a list<Album>).
             HasOne::make('featuredAlbum')->type('albums'),
-            HasMany::make('albums')->type('albums')->linkageOnlyWhenLoaded(),
+            HasMany::make('albums')->type('albums')->dataOnlyWhenLoaded(),
         ];
     }
 

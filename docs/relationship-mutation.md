@@ -110,8 +110,8 @@ self::assertSame(['4', '2'], $this->linkageIds($read));
 
 The body of a relationship request is a *linkage* document — resource identifiers
 (`type` + `id`), never full resources. Core parses it for you off the request:
-`getRelationshipLinkageToMany($name)` yields a `ToManyRelationship`,
-`getRelationshipLinkageToOne($name)` a `ToOneRelationship`. These read the
+`getRelationshipDataToMany($name)` yields a `ToManyRelationship`,
+`getRelationshipDataToOne($name)` a `ToOneRelationship`. These read the
 **top-level** `data` of a relationship-endpoint body (where `data` *is* the
 linkage); they are distinct from `getToManyRelationship($name)` /
 `getToOneRelationship($name)`, the pair a whole-resource write uses to read a

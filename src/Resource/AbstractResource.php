@@ -387,7 +387,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         JsonApiRequestInterface $request,
         mixed $domainObject,
     ): mixed {
-        $linkage = $request->getRelationshipLinkageToOne($relationship);
+        $linkage = $request->getRelationshipDataToOne($relationship);
 
         if ($linkage->isEmpty()) {
             if ($relation->allowsRemove() === false) {
@@ -432,7 +432,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             throw new RemovalProhibited($relationship);
         }
 
-        $linkage = $request->getRelationshipLinkageToMany($relationship);
+        $linkage = $request->getRelationshipDataToMany($relationship);
 
         return $relation->applyToMany($domainObject, $linkage, $mode);
     }

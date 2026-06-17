@@ -6,7 +6,7 @@ shape from the whole-resource POST/PATCH body the existing
 `getToOneRelationship()` / `getToManyRelationship()` read (those reach into
 `data.relationships.{name}.data`). Reusing the whole-resource parsers here would
 look in the wrong place, so `JsonApiRequest` gained
-`getRelationshipLinkageToOne()` / `getRelationshipLinkageToMany()` that read the
+`getRelationshipDataToOne()` / `getRelationshipDataToMany()` that read the
 top-level `data` member directly and produce the same `ToOneRelationship` /
 `ToManyRelationship` value objects.
 

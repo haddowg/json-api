@@ -131,7 +131,7 @@ the domain object so the set can vary per record.
 
 A relationship's linkage policy interacts with includes. By default a relation
 renders its linkage (`data`) on every response. A relation marked
-`linkageOnlyWhenLoaded()` — as `tracks` is on `AlbumResource` — emits linkage only
+`dataOnlyWhenLoaded()` — as `tracks` is on `AlbumResource` — emits linkage only
 when the related data is already loaded, to avoid forcing a fetch. When that
 relation is *explicitly included*, the include wins: the resources are fetched and
 both the linkage and the `included` entries appear. See
@@ -260,6 +260,6 @@ full exception catalogue.
 ## Next / see also
 
 - [fields](fields.md) — the shared field surface, including `notSparseField()`.
-- [relations](relations.md) — linkage policy and `linkageOnlyWhenLoaded()`.
+- [relations](relations.md) — linkage policy and `dataOnlyWhenLoaded()`.
 - [pagination](pagination.md) — windowing the primary collection and related to-many collections.
 - [errors and exceptions](errors-and-exceptions.md) — `InclusionUnrecognized` / `InclusionNotAllowed` / `InclusionDepthExceeded` / `InclusionUnsupported` and the rest of the catalogue.

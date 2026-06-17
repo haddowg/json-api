@@ -1,7 +1,7 @@
-# Per-relation `linkageOnlyWhenLoaded()` policy + storage-aware load-state seam
+# Per-relation `dataOnlyWhenLoaded()` policy + storage-aware load-state seam
 
 A relation may now opt into load-aware linkage via
-`AbstractRelation::linkageOnlyWhenLoaded()` (off by default; `emitsLinkageOnlyWhenLoaded()`
+`AbstractRelation::dataOnlyWhenLoaded()` (off by default; `emitsDataOnlyWhenLoaded()`
 exposes it on `RelationInterface`): when its related value is not already in
 memory, the relationship emits its `links` only and omits the `data` member
 rather than triggering a lazy storage load purely to serialize identifiers. The

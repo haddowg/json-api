@@ -21,7 +21,7 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  * cheaply.
  *
  * Consulted only when a relation has opted in via
- * {@see RelationInterface::linkageOnlyWhenLoaded()}.
+ * {@see RelationInterface::dataOnlyWhenLoaded()}.
  */
 interface RelationshipLoadStateInterface
 {

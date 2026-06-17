@@ -81,7 +81,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withCustomQueryParameter(string ...$names)` | Registers host [custom query-parameter families](content-negotiation.md#strict-query-parameter-validation-on-by-default) the server recognizes (so strict mode does not reject them). |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `withContainer(ContainerInterface\|callable)` | The [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
-| `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) relations consult for `linkageOnlyWhenLoaded()`. |
+| `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) relations consult for `dataOnlyWhenLoaded()`. |
 | `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) for its declared `$type`, with optional serializer/hydrator [overrides](capability-composition.md). |
 | `registerSerializerHydrator(string $type, ?string $serializer, ?string $hydrator)` | Registers a [bare serializer + hydrator pair](capability-composition.md) under an explicit `$type`, no Resource. |
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
@@ -284,7 +284,7 @@ server.
 ## Relationship load state
 
 `withRelationshipLoadState()` injects the storage-aware predicate relations consult
-when they opt in via `RelationInterface::linkageOnlyWhenLoaded()` — it decides
+when they opt in via `RelationInterface::dataOnlyWhenLoaded()` — it decides
 whether a relation's linkage is already loaded and so cheap to emit, letting a lazy
 to-many render links-only without forcing a fetch. Passing `null` (the default)
 restores the standalone behaviour: every relation is treated as loaded and its

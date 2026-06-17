@@ -884,18 +884,18 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
-    public function linkageOnlyWhenLoadedOffByDefaultAndOptsIn(): void
+    public function dataOnlyWhenLoadedOffByDefaultAndOptsIn(): void
     {
-        self::assertFalse(BelongsTo::make('author')->type('users')->emitsLinkageOnlyWhenLoaded());
-        self::assertTrue(BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded()->emitsLinkageOnlyWhenLoaded());
+        self::assertFalse(BelongsTo::make('author')->type('users')->emitsDataOnlyWhenLoaded());
+        self::assertTrue(BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded()->emitsDataOnlyWhenLoaded());
     }
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function linkageOnlyWhenLoadedOmitsDataWhenNotLoadedAndNotIncluded(): void
+    public function dataOnlyWhenLoadedOmitsDataWhenNotLoadedAndNotIncluded(): void
     {
         // (1) policy ON + predicate=false + not included + has links => data omitted, links present.
-        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
         $loadState = new FakeRelationshipLoadState(false);
 
         $relationshipObject = $this->buildAndTransform($relation, $loadState);
@@ -907,10 +907,10 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function linkageOnlyWhenLoadedEmitsDataWhenLoaded(): void
+    public function dataOnlyWhenLoadedEmitsDataWhenLoaded(): void
     {
         // (2) policy ON + predicate=true => data present.
-        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(true));
 
@@ -919,10 +919,10 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function linkageOnlyWhenLoadedEmitsDataWhenIncludedDespiteNotLoaded(): void
+    public function dataOnlyWhenLoadedEmitsDataWhenIncludedDespiteNotLoaded(): void
     {
         // (3) policy ON + included => data present (include-wins).
-        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded();
+        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
 
         $relationshipObject = $this->buildAndTransform(
             $relation,
@@ -935,10 +935,10 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function linkageOnlyWhenLoadedEmitsDataWithoutLinksDespiteNotLoaded(): void
+    public function dataOnlyWhenLoadedEmitsDataWithoutLinksDespiteNotLoaded(): void
     {
         // (4) policy ON + withoutLinks + predicate=false => data present (validity guard).
-        $relation = BelongsTo::make('author')->type('users')->linkageOnlyWhenLoaded()->withoutLinks();
+        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded()->withoutLinks();
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
 

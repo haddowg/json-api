@@ -504,8 +504,8 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
         }
 
         $linkage = $relation->isToMany()
-            ? $body->getRelationshipLinkageToMany($relationshipName)
-            : $body->getRelationshipLinkageToOne($relationshipName);
+            ? $body->getRelationshipDataToMany($relationshipName)
+            : $body->getRelationshipDataToOne($relationshipName);
 
         $this->guardMutability($relation, $relationshipName, $linkage, $mode);
         $this->applyRelationship($parent, $relation, $linkage, $mode);

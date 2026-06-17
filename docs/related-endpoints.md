@@ -133,7 +133,7 @@ declares a paginator in [`AlbumResource`](../examples/music-catalog/src/Resource
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->linkageOnlyWhenLoaded(),
+    ->dataOnlyWhenLoaded(),
 ```
 
 The handler resolves the paginator with a three-step fallback — the **relation's**

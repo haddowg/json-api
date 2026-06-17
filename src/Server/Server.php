@@ -350,7 +350,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
 
     /**
      * Injects the storage-aware predicate relations consult — when they have
-     * opted in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::linkageOnlyWhenLoaded()}
+     * opted in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::dataOnlyWhenLoaded()}
      * — to decide whether their linkage is already loaded and so cheap to emit.
      * Passing `null` (the default) restores the standalone behaviour: every
      * relation is treated as loaded and its linkage data is emitted as today.

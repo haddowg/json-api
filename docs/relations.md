@@ -74,7 +74,7 @@ declares one:
 ```php
 // src/Resource/ArtistResource.php
 HasOne::make('featuredAlbum')->type('albums'),
-HasMany::make('albums')->type('albums')->linkageOnlyWhenLoaded(),
+HasMany::make('albums')->type('albums')->dataOnlyWhenLoaded(),
 ```
 
 `GET /artists/1/featuredAlbum` returns the featured album; an artist with none
@@ -94,7 +94,7 @@ use haddowg\JsonApi\Pagination\PagePaginator;
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->linkageOnlyWhenLoaded(),
+    ->dataOnlyWhenLoaded(),
 ```
 
 To-many relations add two cardinality bounds, `minItems()` / `maxItems()`, that
@@ -334,11 +334,11 @@ BelongsTo::make('artist')->type('artists')->withUriFieldName('by'),
 Links are gated by **endpoint exposure**: if you suppress a relation's endpoint
 (below), the matching link is omitted so a rendered link never points at a `404`.
 
-## linkageOnlyWhenLoaded
+## dataOnlyWhenLoaded
 
 Linkage normally requires reading the related value to emit identifiers. For a
 lazy storage relation that is an unwanted load just to serialize ids.
-`linkageOnlyWhenLoaded()` opts a relation into a load-aware policy: when the
+`dataOnlyWhenLoaded()` opts a relation into a load-aware policy: when the
 related value is **not** already loaded, emit the relationship object's `links`
 only and omit `data`, rather than triggering a load.
 
@@ -346,7 +346,7 @@ only and omit `data`, rather than triggering a load.
 // src/Resource/AlbumResource.php
 HasMany::make('tracks')
     ->type('tracks')
-    ->linkageOnlyWhenLoaded(),
+    ->dataOnlyWhenLoaded(),
 ```
 
 The policy is off by default and gated by an injected
@@ -440,7 +440,7 @@ with `countable()`; read it back with `isCountable()`:
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->linkageOnlyWhenLoaded()
+    ->dataOnlyWhenLoaded()
     ->countable(),
 ```
 

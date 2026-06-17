@@ -26,7 +26,7 @@ interface SerializerResolverInterface
 
     /**
      * The storage-aware predicate a relation consults — when it has opted in via
-     * {@see \haddowg\JsonApi\Resource\Field\RelationInterface::linkageOnlyWhenLoaded()}
+     * {@see \haddowg\JsonApi\Resource\Field\RelationInterface::dataOnlyWhenLoaded()}
      * — to decide whether its linkage is cheaply emittable, or `null` when no
      * adapter injected one (standalone core: every relation is treated as loaded
      * and linkage data is emitted as today).

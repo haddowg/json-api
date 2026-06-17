@@ -933,7 +933,7 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return new ToManyRelationship($resourceIdentifiers);
     }
 
-    public function getRelationshipLinkageToOne(string $relationship): ToOneRelationship
+    public function getRelationshipDataToOne(string $relationship): ToOneRelationship
     {
         /** @var array<string, mixed> $body */
         $body = (array) $this->getParsedBody();
@@ -960,7 +960,7 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return new ToOneRelationship(ResourceIdentifier::fromArray($data));
     }
 
-    public function getRelationshipLinkageToMany(string $relationship): ToManyRelationship
+    public function getRelationshipDataToMany(string $relationship): ToManyRelationship
     {
         /** @var array<string, mixed> $body */
         $body = (array) $this->getParsedBody();

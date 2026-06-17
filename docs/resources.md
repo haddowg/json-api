@@ -260,7 +260,7 @@ BelongsTo::make('artist')->type('artists'),
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->linkageOnlyWhenLoaded(),
+    ->dataOnlyWhenLoaded(),
 ```
 
 That is the whole teaser — `BelongsTo`/`HasOne`/`HasMany`/`BelongsToMany`/

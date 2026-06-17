@@ -104,7 +104,7 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
 
     /**
      * Sets (or clears) the relationship load-state predicate consulted when a
-     * relation opts in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::linkageOnlyWhenLoaded()}.
+     * relation opts in via {@see \haddowg\JsonApi\Resource\Field\RelationInterface::dataOnlyWhenLoaded()}.
      */
     public function setRelationshipLoadState(?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState): void
     {

@@ -41,7 +41,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $includesLinks = true;
 
-    protected bool $linkageOnlyWhenLoaded = false;
+    protected bool $dataOnlyWhenLoaded = false;
 
     protected bool $allowsReplace = true;
 
@@ -139,16 +139,18 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      * Opts this relation into load-aware linkage: when the related value is not
      * already loaded, emit the relationship object's `links` only and omit the
      * `data` member rather than triggering a (lazy) storage load just to render
-     * identifiers. Off by default. Gated by the injected
+     * identifiers. Here `data` is the relationship's linkage (its resource
+     * identifier(s)), distinct from the relationship's `self`/`related` links.
+     * Off by default. Gated by the injected
      * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}: an
      * included relationship still emits data (include-wins), and a relation with
      * no links always emits data (never an empty relationship object).
      *
      * @return static
      */
-    public function linkageOnlyWhenLoaded(): static
+    public function dataOnlyWhenLoaded(): static
     {
-        $this->linkageOnlyWhenLoaded = true;
+        $this->dataOnlyWhenLoaded = true;
 
         return $this;
     }
@@ -386,9 +388,14 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this->includesLinks;
     }
 
-    public function emitsLinkageOnlyWhenLoaded(): bool
+    /**
+     * Whether this relation emits its linkage `data` (its resource identifier(s),
+     * distinct from the `self`/`related` links) only when the related value is
+     * already loaded. See {@see dataOnlyWhenLoaded()}.
+     */
+    public function emitsDataOnlyWhenLoaded(): bool
     {
-        return $this->linkageOnlyWhenLoaded;
+        return $this->dataOnlyWhenLoaded;
     }
 
     public function resolveSerializer(mixed $related, SerializerResolverInterface $resolver): ?SerializerInterface
@@ -540,7 +547,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     /**
      * Builds a to-one output relationship for `$model`.
      *
-     * When this relation has opted into {@see linkageOnlyWhenLoaded()} and the
+     * When this relation has opted into {@see dataOnlyWhenLoaded()} and the
      * injected load-state predicate reports the related value is *not* loaded,
      * the linkage data read is deferred behind a callable and the relationship is
      * flagged {@see AbstractRelationship::omitDataWhenNotIncluded()}: the
@@ -706,7 +713,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     /**
      * Whether the linkage data read for this relation should be deferred and the
      * data member omitted-unless-included, per the load-aware policy. True only
-     * when the relation opted into {@see linkageOnlyWhenLoaded()}, it carries the
+     * when the relation opted into {@see dataOnlyWhenLoaded()}, it carries the
      * convention links (so omitting data never yields an empty relationship
      * object — the validity guard), an injected
      * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface} is
@@ -718,7 +725,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         mixed $model,
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): bool {
-        if ($this->linkageOnlyWhenLoaded === false || $this->includesLinks === false) {
+        if ($this->dataOnlyWhenLoaded === false || $this->includesLinks === false) {
             return false;
         }
 
