@@ -96,8 +96,9 @@ The value, if present, **MUST** be a string in the form of a
 [`sort`](https://jsonapi.org/format/1.1/#fetching-sorting) query parameter — a
 comma-separated list of sort fields, each optionally prefixed with `-` for
 descending order. A `[sort]` member **MUST** address a to-many relationship; on a
-to-one path it is a [To-One Sort Error](#to-one-sort-error). A `[sort]` value that
-is not a string is a [Malformed Parameter Error](#malformed-parameter-error).
+to-one path it is a [To-One Sort or Page Error](#to-one-sort-or-page-error). A
+`[sort]` value that is not a string is a
+[Malformed Parameter Error](#malformed-parameter-error).
 
 #### `relatedQuery[<path>][filter]`
 
@@ -118,10 +119,12 @@ different paths or operations from the two families are combined.
 
 #### Pagination is out of scope
 
-This profile reserves no `page` operation; a `[page]` member is undefined. A
-relationship addressed by this profile **MUST** be rendered as the **first page**
-of its ordered, filtered linkage. A client navigates the remaining pages through
-the relationship object's own pagination links (see
+This profile reserves no `page` operation. A relationship addressed by this
+profile **MUST** be rendered as the **first page** of its ordered, filtered
+linkage. A `[page]` member is undefined: on a to-many path a server **MUST**
+ignore it (the first page is rendered regardless), and on a to-one path it is a
+[To-One Sort or Page Error](#to-one-sort-or-page-error). A client navigates the
+remaining pages through the relationship object's own pagination links (see
 [Document Structure](#document-structure)), not through this family.
 
 ### Processing
@@ -148,7 +151,8 @@ linkage the server renders.
 
 A to-one relationship's linkage is a single resource identifier, not a list.
 
-- A `[sort]` member on a to-one path is a [To-One Sort Error](#to-one-sort-error).
+- A `[sort]` or `[page]` member on a to-one path is a
+  [To-One Sort or Page Error](#to-one-sort-or-page-error).
 - A `[filter]` member **MAY** be applied. When the filter excludes the related
   resource, the server **MUST** render the relationship's linkage as `data: null`
   and **MUST** omit that resource from `included`.
@@ -182,8 +186,7 @@ the base specification's rules for
 [processing errors](https://jsonapi.org/format/1.1/#errors-processing). Each
 response document **MUST** contain an
 [error object](https://jsonapi.org/format/1.1/#error-objects) whose `source`
-member identifies the offending query parameter (a `source.parameter` naming the
-canonical `relatedQuery[...]` form of the member).
+member identifies the offending query parameter in its `source.parameter`.
 
 #### Malformed Parameter Error
 
@@ -207,10 +210,10 @@ A `<path>` that does not resolve to a relationship of the addressed resource, or
 that the server does not support addressing (see
 [Addressing a relationship](#addressing-a-relationship)), is a `400 Bad Request`.
 
-#### To-One Sort Error
+#### To-One Sort or Page Error
 
-A `[sort]` member on a path that resolves to a to-one relationship is a
-`400 Bad Request`.
+A `[sort]` or `[page]` member on a path that resolves to a to-one relationship is
+a `400 Bad Request`; a single resource identifier has nothing to order or page.
 
 ## Notes
 
