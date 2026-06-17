@@ -32,6 +32,15 @@ GET /articles/1?include=comments&relatedQuery[comments][filter][approved]=true&r
 returns article `1` with its `comments` linkage (and the corresponding `included`
 resources) restricted to approved comments, newest first — in one round trip.
 
+## Conventions
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when,
+and only when, they appear in all capitals, as shown here. This is the same
+interpretation the JSON:API specification applies to these key words; see its
+[conventions](https://jsonapi.org/format/#conventions).
+
 ## The `relatedQuery` family
 
 The profile reserves two query-parameter family bases with identical semantics:
@@ -159,12 +168,3 @@ The "invalid query parameter error" referenced above is the base specification's
   the request `GET /<primary>/<id>/<path>` (the relationship's related-collection
   endpoint) and folding page 1 of that result into the primary response as linkage.
   A server MAY implement the profile as exactly that translation.
-
-## See also
-
-This library ships the profile as
-[`Schema\Profile\RelationshipQueriesProfile`](https://github.com/haddowg/json-api/blob/main/src/Schema/Profile/RelationshipQueriesProfile.php);
-[Profiles](../profiles.md#the-bundled-relationship-queries-profile) covers
-registering it on a `Server` and the render seam that windows each relationship,
-and [Relations](../relations.md) documents the per-relationship sort/filter
-vocabulary the profile addresses.
