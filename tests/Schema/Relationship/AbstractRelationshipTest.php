@@ -187,8 +187,13 @@ final class AbstractRelationshipTest extends TestCase
     }
 
     #[Test]
-    public function transformWithEmptyOmittedData(): void
+    #[Group('spec:document-resource-object-relationships')]
+    public function transformForcesDataWhenOmittedButNoLinksOrMeta(): void
     {
+        // The validity guard: a relationship that omits its data when not included but
+        // would render neither links nor meta must still emit `data`, since a
+        // relationship object can never be empty `{}` (JSON:API requires at least one
+        // of links / meta / data).
         $relationship = $this->createRelationship()
             ->omitDataWhenNotIncluded();
 
@@ -199,7 +204,7 @@ final class AbstractRelationshipTest extends TestCase
             [],
         );
 
-        self::assertEquals([], $relationshipObject);
+        self::assertEquals(['data' => []], $relationshipObject);
     }
 
     #[Test]

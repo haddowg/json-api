@@ -16,6 +16,12 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 final class MorphTo extends AbstractRelation
 {
     /**
+     * Eager by default: the morph id/type sit on the owning model, so resolving the
+     * linkage identifier is free (no query). {@see AbstractRelation::$dataOnlyWhenLoaded}.
+     */
+    protected bool $dataOnlyWhenLoaded = false;
+
+    /**
      * Declares the allowed inverse types.
      *
      * @return static

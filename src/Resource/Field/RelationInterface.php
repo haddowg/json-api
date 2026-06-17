@@ -52,12 +52,14 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Whether this relation only emits linkage `data` (its resource
      * identifier(s), distinct from the `self`/`related` links) when the related
      * value is already loaded (a load-aware policy: emit links-only rather than
-     * trigger a lazy storage load just to serialize identifiers). Off by default; enabled
-     * by {@see AbstractRelation::dataOnlyWhenLoaded()}. The policy is
+     * trigger a lazy storage load just to serialize identifiers). The default is
+     * **per relation type** — lazy (`true`) for the to-many relations and `HasOne`,
+     * eager (`false`) for the owner-side to-ones `BelongsTo`/`MorphTo`; override a
+     * lazy relation to eager with {@see AbstractRelation::withData()}. The policy is
      * advisory and gated by an injected
      * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}; an
-     * included relationship always emits data, and a relation with no links
-     * always emits data (never an empty relationship object).
+     * included relationship always emits data, and a relation that would render no
+     * links and no meta always emits data (never an empty relationship object).
      */
     public function emitsDataOnlyWhenLoaded(): bool;
 

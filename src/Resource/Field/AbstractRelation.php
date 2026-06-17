@@ -41,7 +41,22 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $includesLinks = true;
 
-    protected bool $dataOnlyWhenLoaded = false;
+    /**
+     * Whether this relation emits its linkage `data` (its resource identifier(s),
+     * distinct from the `self`/`related` links) only when the related value is
+     * already loaded/included — emitting links-only otherwise, never forcing a
+     * storage load just to render identifiers.
+     *
+     * The default is **per relation type**, keyed on whether resolving the linkage
+     * is free (the identifier is on the owning side): `false` (eager — data always
+     * rendered, no query) for {@see BelongsTo} and {@see MorphTo} (the FK / morph-id
+     * sits on the owner); `true` (lazy — links-only until loaded/included) for the
+     * to-many relations and {@see HasOne} (their identifier is on the *related* side,
+     * so resolving it is a query). Override a lazy relation to eager with
+     * {@see withData()}. Eager is always safe for an owner-side to-one; the lazy
+     * default exists to avoid an N+1 across a collection.
+     */
+    protected bool $dataOnlyWhenLoaded = true;
 
     protected bool $allowsReplace = true;
 
@@ -136,21 +151,27 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
-     * Opts this relation into load-aware linkage: when the related value is not
-     * already loaded, emit the relationship object's `links` only and omit the
-     * `data` member rather than triggering a (lazy) storage load just to render
-     * identifiers. Here `data` is the relationship's linkage (its resource
-     * identifier(s)), distinct from the relationship's `self`/`related` links.
-     * Off by default. Gated by the injected
-     * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}: an
-     * included relationship still emits data (include-wins), and a relation with
-     * no links always emits data (never an empty relationship object).
+     * Opts this relation into **eager** linkage: always render the relationship
+     * object's `data` member (its resource identifier(s)), even when the related
+     * value is not already loaded. Use it to override the lazy default on a to-many
+     * relation or a {@see HasOne} when rendering identifiers is acceptable (or the
+     * value is reliably preloaded). It is the inverse of the lazy default; an
+     * owner-side to-one ({@see BelongsTo} / {@see MorphTo}) is eager already, so
+     * calling this on one is a harmless no-op.
+     *
+     * Here `data` is the relationship's linkage (its resource identifier(s)),
+     * distinct from the relationship's `self`/`related` links. The lazy default it
+     * overrides is gated by the injected
+     * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}: a lazy
+     * relation that *is* loaded or included still emits data, and a relation that
+     * would render no links and no meta always emits data (never an empty
+     * relationship object — see {@see AbstractRelationship::transform()}).
      *
      * @return static
      */
-    public function dataOnlyWhenLoaded(): static
+    public function withData(): static
     {
-        $this->dataOnlyWhenLoaded = true;
+        $this->dataOnlyWhenLoaded = false;
 
         return $this;
     }
@@ -391,7 +412,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     /**
      * Whether this relation emits its linkage `data` (its resource identifier(s),
      * distinct from the `self`/`related` links) only when the related value is
-     * already loaded. See {@see dataOnlyWhenLoaded()}.
+     * already loaded — the per-type default ({@see $dataOnlyWhenLoaded}), which
+     * {@see withData()} overrides to eager. Read by the load-state seam.
      */
     public function emitsDataOnlyWhenLoaded(): bool
     {
@@ -547,8 +569,9 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     /**
      * Builds a to-one output relationship for `$model`.
      *
-     * When this relation has opted into {@see dataOnlyWhenLoaded()} and the
-     * injected load-state predicate reports the related value is *not* loaded,
+     * When this relation is lazy (the per-type default, not overridden by
+     * {@see withData()}) and the injected load-state predicate reports the related
+     * value is *not* loaded,
      * the linkage data read is deferred behind a callable and the relationship is
      * flagged {@see AbstractRelationship::omitDataWhenNotIncluded()}: the
      * transformer omits the `data` member (emitting links only) unless the
@@ -713,9 +736,9 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     /**
      * Whether the linkage data read for this relation should be deferred and the
      * data member omitted-unless-included, per the load-aware policy. True only
-     * when the relation opted into {@see dataOnlyWhenLoaded()}, it carries the
-     * convention links (so omitting data never yields an empty relationship
-     * object — the validity guard), an injected
+     * when the relation is lazy (the per-type default, not overridden by
+     * {@see withData()}), it carries the convention links (so omitting data never
+     * yields an empty relationship object — the validity guard), an injected
      * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface} is
      * present, and that predicate reports the related value is *not* loaded.
      * With no predicate injected the relation is treated as loaded (standalone

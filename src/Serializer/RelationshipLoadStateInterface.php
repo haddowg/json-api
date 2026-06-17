@@ -20,8 +20,9 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  * uninitialised proxy, an unhydrated foreign key — and reports the answer
  * cheaply.
  *
- * Consulted only when a relation has opted in via
- * {@see RelationInterface::dataOnlyWhenLoaded()}.
+ * Consulted only for a lazy relation
+ * ({@see RelationInterface::emitsDataOnlyWhenLoaded()} — the per-type default, not
+ * overridden by {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::withData()}).
  */
 interface RelationshipLoadStateInterface
 {

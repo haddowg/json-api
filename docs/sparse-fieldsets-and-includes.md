@@ -129,12 +129,12 @@ the domain object so the set can vary per record.
 
 ## How a relation participates in `included`
 
-A relationship's linkage policy interacts with includes. By default a relation
-renders its linkage (`data`) on every response. A relation marked
-`dataOnlyWhenLoaded()` — as `tracks` is on `AlbumResource` — emits linkage only
-when the related data is already loaded, to avoid forcing a fetch. When that
-relation is *explicitly included*, the include wins: the resources are fetched and
-both the linkage and the `included` entries appear. See
+A relationship's linkage policy interacts with includes. An owner-side to-one
+(`BelongsTo`/`MorphTo`) renders its linkage (`data`) on every response. A **lazy**
+relation — the default for a to-many and `HasOne`, as `tracks` is on `AlbumResource` —
+emits linkage only when the related data is already loaded, to avoid forcing a fetch.
+When that relation is *explicitly included*, the include wins: the resources are
+fetched and both the linkage and the `included` entries appear. See
 [relations](relations.md) for the full linkage and `links` policy.
 
 ## Constraining includes: the safeguards
@@ -260,6 +260,6 @@ full exception catalogue.
 ## Next / see also
 
 - [fields](fields.md) — the shared field surface, including `notSparseField()`.
-- [relations](relations.md) — linkage policy and `dataOnlyWhenLoaded()`.
+- [relations](relations.md) — linkage policy and `withData()`.
 - [pagination](pagination.md) — windowing the primary collection and related to-many collections.
 - [errors and exceptions](errors-and-exceptions.md) — `InclusionUnrecognized` / `InclusionNotAllowed` / `InclusionDepthExceeded` / `InclusionUnsupported` and the rest of the catalogue.

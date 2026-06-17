@@ -132,8 +132,7 @@ declares a paginator in [`AlbumResource`](../examples/music-catalog/src/Resource
 ```php
 HasMany::make('tracks')
     ->type('tracks')
-    ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->dataOnlyWhenLoaded(),
+    ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
 The handler resolves the paginator with a three-step fallback — the **relation's**

@@ -259,8 +259,7 @@ A relationship is just another `fields()` entry. Declare the related type with
 BelongsTo::make('artist')->type('artists'),
 HasMany::make('tracks')
     ->type('tracks')
-    ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->dataOnlyWhenLoaded(),
+    ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
 That is the whole teaser — `BelongsTo`/`HasOne`/`HasMany`/`BelongsToMany`/

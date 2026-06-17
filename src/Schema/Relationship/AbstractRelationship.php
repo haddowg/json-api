@@ -280,10 +280,26 @@ abstract class AbstractRelationship
             return null;
         }
 
+        // Resolve the rendered links and meta up front: a relationship object MUST
+        // contain at least one of `links` / `meta` / `data` (JSON:API), so whether it
+        // would otherwise render any links or meta decides whether the (lazy) linkage
+        // data must be forced to avoid an empty `{}` object.
+        $links = $this->links ?? $this->conventionLinks($transformation);
+        $renderedLinks = $links?->transform() ?? [];
+        $hasRenderedLinks = $renderedLinks !== [];
+        $hasMeta = $this->meta !== [];
+
+        // Force the linkage data when the relationship would render neither links nor
+        // meta — overriding omitDataWhenNotIncluded so the object is never empty. This
+        // is the validity guard behind the lazy default: a relation with suppressed
+        // links (`withoutLinks()`, or both endpoints unexposed) and no meta always
+        // emits its data, accepting the load because there is no other valid member.
+        $mustEmitData = $hasRenderedLinks === false && $hasMeta === false;
+
         // Transform the relationship data
         $dataMember = false;
         if (
-            ($isCurrentRelationship === true || $isIncludedRelationship === true || $this->omitDataWhenNotIncluded === false) &&
+            ($isCurrentRelationship === true || $isIncludedRelationship === true || $this->omitDataWhenNotIncluded === false || $mustEmitData === true) &&
             ($isCurrentRelationship === true || $requestedRelationshipName === '')
         ) {
             $dataMember = $this->transformData($transformation, $resourceTransformer, $data, $defaultRelationships);
@@ -297,12 +313,11 @@ abstract class AbstractRelationship
         // Transform the relationship link because the relationship field is included
         $relationshipObject = [];
 
-        $links = $this->links ?? $this->conventionLinks($transformation);
         if ($links !== null) {
-            $relationshipObject['links'] = $links->transform();
+            $relationshipObject['links'] = $renderedLinks;
         }
 
-        if ($this->meta !== []) {
+        if ($hasMeta === true) {
             $relationshipObject['meta'] = $this->meta;
         }
 

@@ -1,5 +1,7 @@
 # Per-relation `dataOnlyWhenLoaded()` policy + storage-aware load-state seam
 
+> Status: the opt-in surface is **superseded by [ADR 0067](0067-relationship-data-is-lazy-by-default-per-type.md)** — lazy is now the per-type default and `dataOnlyWhenLoaded()` is replaced by its inverse `withData()`. The load-state seam this ADR introduced is retained unchanged.
+
 A relation may now opt into load-aware linkage via
 `AbstractRelation::dataOnlyWhenLoaded()` (off by default; `emitsDataOnlyWhenLoaded()`
 exposes it on `RelationInterface`): when its related value is not already in

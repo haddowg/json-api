@@ -414,8 +414,7 @@ an album's tracks two-per-page:
 ```php
 HasMany::make('tracks')
     ->type('tracks')
-    ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->dataOnlyWhenLoaded(),
+    ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
 [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)

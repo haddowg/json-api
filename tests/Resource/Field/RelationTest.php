@@ -884,18 +884,23 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
-    public function dataOnlyWhenLoadedOffByDefaultAndOptsIn(): void
+    public function dataLoadedPolicyDefaultsPerTypeAndWithDataOptsOut(): void
     {
+        // Owner-side to-one (FK on the owner) is eager by default; HasOne (FK on the
+        // related model) is lazy by default. withData() forces a lazy relation eager.
         self::assertFalse(BelongsTo::make('author')->type('users')->emitsDataOnlyWhenLoaded());
-        self::assertTrue(BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded()->emitsDataOnlyWhenLoaded());
+        self::assertFalse(MorphTo::make('owner')->types('users')->emitsDataOnlyWhenLoaded());
+        self::assertTrue(HasOne::make('profile')->type('profiles')->emitsDataOnlyWhenLoaded());
+        self::assertTrue(HasMany::make('comments')->type('comments')->emitsDataOnlyWhenLoaded());
+        self::assertFalse(HasOne::make('profile')->type('profiles')->withData()->emitsDataOnlyWhenLoaded());
     }
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function dataOnlyWhenLoadedOmitsDataWhenNotLoadedAndNotIncluded(): void
+    public function lazyRelationOmitsDataWhenNotLoadedAndNotIncluded(): void
     {
-        // (1) policy ON + predicate=false + not included + has links => data omitted, links present.
-        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
+        // (1) lazy + predicate=false + not included + has links => data omitted, links present.
+        $relation = HasOne::make('author')->type('users');
         $loadState = new FakeRelationshipLoadState(false);
 
         $relationshipObject = $this->buildAndTransform($relation, $loadState);
@@ -907,10 +912,10 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function dataOnlyWhenLoadedEmitsDataWhenLoaded(): void
+    public function lazyRelationEmitsDataWhenLoaded(): void
     {
-        // (2) policy ON + predicate=true => data present.
-        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
+        // (2) lazy + predicate=true => data present.
+        $relation = HasOne::make('author')->type('users');
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(true));
 
@@ -919,10 +924,10 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function dataOnlyWhenLoadedEmitsDataWhenIncludedDespiteNotLoaded(): void
+    public function lazyRelationEmitsDataWhenIncludedDespiteNotLoaded(): void
     {
-        // (3) policy ON + included => data present (include-wins).
-        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded();
+        // (3) lazy + included => data present (include-wins).
+        $relation = HasOne::make('author')->type('users');
 
         $relationshipObject = $this->buildAndTransform(
             $relation,
@@ -935,10 +940,11 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function dataOnlyWhenLoadedEmitsDataWithoutLinksDespiteNotLoaded(): void
+    public function lazyRelationEmitsDataWithoutLinksDespiteNotLoaded(): void
     {
-        // (4) policy ON + withoutLinks + predicate=false => data present (validity guard).
-        $relation = BelongsTo::make('author')->type('users')->dataOnlyWhenLoaded()->withoutLinks();
+        // (4) lazy + withoutLinks + predicate=false => data present (validity guard:
+        // no links and no meta would otherwise be an empty relationship object).
+        $relation = HasOne::make('author')->type('users')->withoutLinks();
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
 
@@ -950,7 +956,8 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-object-relationships')]
     public function policyOffEmitsDataRegardlessOfPredicate(): void
     {
-        // (5) policy OFF => data always present regardless of predicate.
+        // (5) eager (the owner-side to-one default) => data always present regardless
+        // of predicate, without consulting the load-state.
         $relation = BelongsTo::make('author')->type('users');
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));

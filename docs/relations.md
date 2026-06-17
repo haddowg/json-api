@@ -74,7 +74,7 @@ declares one:
 ```php
 // src/Resource/ArtistResource.php
 HasOne::make('featuredAlbum')->type('albums'),
-HasMany::make('albums')->type('albums')->dataOnlyWhenLoaded(),
+HasMany::make('albums')->type('albums'),
 ```
 
 `GET /artists/1/featuredAlbum` returns the featured album; an artist with none
@@ -93,8 +93,7 @@ use haddowg\JsonApi\Pagination\PagePaginator;
 
 HasMany::make('tracks')
     ->type('tracks')
-    ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->dataOnlyWhenLoaded(),
+    ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
 To-many relations add two cardinality bounds, `minItems()` / `maxItems()`, that
@@ -334,30 +333,37 @@ BelongsTo::make('artist')->type('artists')->withUriFieldName('by'),
 Links are gated by **endpoint exposure**: if you suppress a relation's endpoint
 (below), the matching link is omitted so a rendered link never points at a `404`.
 
-## dataOnlyWhenLoaded
+## Lazy linkage and `withData()`
 
 Linkage normally requires reading the related value to emit identifiers. For a
-lazy storage relation that is an unwanted load just to serialize ids.
-`dataOnlyWhenLoaded()` opts a relation into a load-aware policy: when the
-related value is **not** already loaded, emit the relationship object's `links`
-only and omit `data`, rather than triggering a load.
+lazy storage relation that is an unwanted load just to serialize ids, so a relation
+is **lazy by default**: when the related value is **not** already loaded, it emits
+the relationship object's `links` only and omits `data`, rather than triggering a
+load.
+
+The default is **per relation type**, keyed on whether resolving the linkage is
+free (the identifier is already on the owning side):
+
+| Relation | Default | Why |
+| --- | --- | --- |
+| `BelongsTo`, `MorphTo` | **eager** (data always rendered) | the foreign key / morph id is on the owning model — the id is already in hand |
+| `HasOne`, `HasMany`, `BelongsToMany`, `MorphToMany` | **lazy** (links-only until loaded/included) | the key is on the *related* model, so resolving it is a query (the N+1 risk across a collection) |
+
+Override a lazy relation to **eager** with `withData()` — when rendering
+identifiers is acceptable, or the related value is reliably preloaded:
 
 ```php
-// src/Resource/AlbumResource.php
-HasMany::make('tracks')
-    ->type('tracks')
-    ->dataOnlyWhenLoaded(),
+HasMany::make('tracks')->type('tracks')->withData(),
 ```
 
-The policy is off by default and gated by an injected
-`RelationshipLoadStateInterface` (the storage adapter reports load state). Three
-override rules keep the output valid:
+The lazy policy is gated by an injected `RelationshipLoadStateInterface` (the
+storage adapter reports load state). Three rules keep the output valid:
 
 - **Included wins.** An `?include`d relationship always emits `data` (it has been
   loaded to be included).
-- **`withoutLinks()` always emits data.** A relation with no links cannot omit
-  `data` too, or it would render an empty relationship object — so it always emits
-  linkage.
+- **No links and no meta always emits data.** A relation that would render neither
+  links (suppressed via `withoutLinks()`, or both endpoints unexposed) nor meta
+  always emits linkage — a relationship object can never be empty `{}`.
 - **No load-state injected = treated as loaded.** With no
   `RelationshipLoadStateInterface` present (the standalone default), the relation
   emits data as normal.
@@ -440,7 +446,6 @@ with `countable()`; read it back with `isCountable()`:
 HasMany::make('tracks')
     ->type('tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
-    ->dataOnlyWhenLoaded()
     ->countable(),
 ```
 
