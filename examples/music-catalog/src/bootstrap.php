@@ -26,6 +26,7 @@ use haddowg\JsonApi\Middleware\ErrorHandlerMiddleware;
 use haddowg\JsonApi\Middleware\RequestBodyParsingMiddleware;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Pagination\PagePaginator;
+use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
 use haddowg\JsonApi\Server\Server;
 use Nyholm\Psr7\Factory\Psr17Factory;
 
@@ -97,6 +98,7 @@ function assemble(InMemoryStore $store, bool $debug): array
         ->withRelationshipCount(new InMemoryRelationshipCount())
         ->withProfile(new TimestampProfile())
         ->withProfile(new CursorPaginationProfile())
+        ->withProfile(new RelationshipCountsProfile())
         // Step 2: register the seven Resources by CLASS-STRING key. Two carry an
         // override: tracks override the *serializer* (a request-aware TrackSerializer
         // wins for reads; TrackResource still hydrates), playlists override the

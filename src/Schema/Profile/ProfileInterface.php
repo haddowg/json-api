@@ -21,7 +21,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 interface ProfileInterface
 {
     /**
-     * The profile's canonical URI — the value advertised in `links.profile` and
+     * The profile's canonical URI — the value advertised in `jsonapi.profile` and
      * echoed in the response `Content-Type` `profile` parameter.
      */
     public function uri(): string;

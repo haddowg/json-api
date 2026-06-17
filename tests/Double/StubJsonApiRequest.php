@@ -14,20 +14,24 @@ use Nyholm\Psr7\ServerRequest;
 final class StubJsonApiRequest extends JsonApiRequest
 {
     /**
-     * @param array<string, mixed> $queryParams
+     * @param array<string, mixed>  $queryParams
+     * @param array<string, string> $headers      e.g. an `Accept` carrying a
+     *                                             negotiated `profile` parameter
      */
-    public static function create(array $queryParams = []): self
+    public static function create(array $queryParams = [], array $headers = []): self
     {
-        return new self($queryParams);
+        return new self($queryParams, $headers);
     }
 
     /**
-     * @param array<string, mixed> $queryParams
+     * @param array<string, mixed>  $queryParams
+     * @param array<string, string> $headers      e.g. an `Accept` carrying a
+     *                                             negotiated `profile` parameter
      */
-    public function __construct(array $queryParams = [])
+    public function __construct(array $queryParams = [], array $headers = [])
     {
         parent::__construct(
-            (new ServerRequest('GET', '/'))->withQueryParams($queryParams),
+            (new ServerRequest('GET', '/', $headers))->withQueryParams($queryParams),
         );
     }
 }

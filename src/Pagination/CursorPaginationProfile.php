@@ -12,7 +12,7 @@ use haddowg\JsonApi\Schema\Profile\AbstractProfile;
  * Reserves the `page[size]`, `page[after]` and `page[before]` query parameters
  * and the `page` meta members the profile defines. {@see CursorBasedPage}
  * activates it so cursor-paginated responses advertise the profile URI on the
- * `Content-Type` and in `links.profile`.
+ * `Content-Type` and in `jsonapi.profile`.
  *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */

@@ -313,7 +313,7 @@ $psrResponse = DataResponse::fromResource($model, $serializer)
 ```
 
 `toPsrResponse()` runs the transformer to build the body array, applies any
-in-scope [profiles](profiles.md) (recording them in `links.profile` and the
+in-scope [profiles](profiles.md) (recording them in `jsonapi.profile` and the
 `Content-Type` `profile` parameter, and varying on `Accept`), `json_encode`s the
 body with `JSON_THROW_ON_ERROR` and the resolved encode options, and returns a
 PSR-7 response with `Content-Type: application/vnd.api+json`. The status is the

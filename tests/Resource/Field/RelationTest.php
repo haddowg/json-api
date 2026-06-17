@@ -21,6 +21,7 @@ use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
 use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
@@ -48,6 +49,14 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MorphToMany::class)]
 final class RelationTest extends TestCase
 {
+    /**
+     * `?withCount` is gated behind the Relationship Counts profile, so a request that
+     * exercises a count negotiates the profile URI in its `Accept`.
+     *
+     * @var array<string, string>
+     */
+    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . RelationshipCountsProfile::URI . '"'];
+
     #[Test]
     public function belongsToIsToOneAndBuildsToOneRelationship(): void
     {
@@ -643,14 +652,14 @@ final class RelationTest extends TestCase
         $count = new FakeRelationshipCount(5);
 
         $resolver = (new StubSerializerResolver())->withRelationshipCount($count);
-        $built = $relation->buildRelationship($model, new StubJsonApiRequest(['withCount' => 'items']), $resolver);
+        $built = $relation->buildRelationship($model, new StubJsonApiRequest(['withCount' => 'items'], self::COUNTS_ACCEPT), $resolver);
 
         $relationshipObject = (array) $built->transform(
             new ResourceTransformation(
                 new StubResource('articles', '42'),
                 $model,
                 'articles',
-                new StubJsonApiRequest(['withCount' => 'items']),
+                new StubJsonApiRequest(['withCount' => 'items'], self::COUNTS_ACCEPT),
                 '',
                 '',
                 'items',
@@ -999,7 +1008,7 @@ final class RelationTest extends TestCase
 
         $relationshipObject = $this->buildToManyAndTransform(
             $relation,
-            new StubJsonApiRequest(['withCount' => 'comments']),
+            new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT),
             $count,
         );
 
@@ -1036,7 +1045,7 @@ final class RelationTest extends TestCase
 
         $relationshipObject = $this->buildToManyAndTransform(
             $relation,
-            new StubJsonApiRequest(['withCount' => 'comments']),
+            new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT),
             $count,
         );
 
@@ -1053,7 +1062,7 @@ final class RelationTest extends TestCase
 
         $relationshipObject = $this->buildToManyAndTransform(
             $relation,
-            new StubJsonApiRequest(['withCount' => 'comments']),
+            new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT),
             null,
         );
 
@@ -1071,7 +1080,7 @@ final class RelationTest extends TestCase
 
         $relationshipObject = $this->buildToManyAndTransform(
             $relation,
-            new StubJsonApiRequest(['withCount' => 'comments']),
+            new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT),
             $count,
         );
 

@@ -36,9 +36,10 @@ final class ProfileApplicationTest extends TestCase
         // (a) advertised on Content-Type, (c) Vary set
         self::assertStringContainsString('profile="' . self::URI . '"', $psr->getHeaderLine('Content-Type'));
         self::assertSame('Accept', $psr->getHeaderLine('Vary'));
-        // (b) links.profile carries it
-        self::assertIsArray($body['links']);
-        self::assertSame([self::URI], $body['links']['profile']);
+        // (b) jsonapi.profile carries it (per JSON:API 1.1, applied profiles live on
+        // the `jsonapi` object's `profile` array, not in `links`)
+        self::assertIsArray($body['jsonapi']);
+        self::assertSame([self::URI], $body['jsonapi']['profile']);
         // (d) finalizeDocument hook ran
         self::assertSame(['appliedBy' => 'timestamps'], $body['meta']);
     }
@@ -57,7 +58,7 @@ final class ProfileApplicationTest extends TestCase
 
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame('', $psr->getHeaderLine('Vary'));
-        // No profile applied, so no links.profile — but the document still carries
+        // No profile applied, so no jsonapi.profile — but the document still carries
         // the by-convention top-level self link.
         self::assertSame(['self' => '/users/1'], $body['links']);
     }

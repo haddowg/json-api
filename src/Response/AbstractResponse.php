@@ -206,7 +206,9 @@ abstract class AbstractResponse
 
     /**
      * Runs each applied profile's finalisation hook over the body and records the
-     * applied profile URIs in the top-level `links.profile` member.
+     * applied profile URIs in the top-level `jsonapi.profile` member — the location
+     * JSON:API 1.1 defines for advertising applied profiles (an array of URIs on the
+     * `jsonapi` object), not a `links.profile` member.
      *
      * @param array<string, mixed>   $body
      * @param list<ProfileInterface> $profiles
@@ -223,16 +225,16 @@ abstract class AbstractResponse
             $body = $profile->finalizeDocument($body, $request);
         }
 
-        $links = $body['links'] ?? [];
-        $links = \is_array($links) ? $links : [];
+        $jsonapi = $body['jsonapi'] ?? [];
+        $jsonapi = \is_array($jsonapi) ? $jsonapi : [];
 
-        $existing = $links['profile'] ?? [];
+        $existing = $jsonapi['profile'] ?? [];
         $existing = \is_array($existing) ? \array_values(\array_filter($existing, '\is_string')) : [];
 
         $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
 
-        $links['profile'] = \array_values(\array_unique([...$existing, ...$uris]));
-        $body['links'] = $links;
+        $jsonapi['profile'] = \array_values(\array_unique([...$existing, ...$uris]));
+        $body['jsonapi'] = $jsonapi;
 
         return $body;
     }

@@ -188,7 +188,7 @@ The `profile` and `ext` parameters look alike but negotiate very differently.
 profile it does not recognize. So an unrecognized profile is **never** a `406` or
 `415` — it flows through untouched at this layer, and the response layer applies
 only the profiles the server has actually registered. Profile *emission* (echoing
-applied profiles on the response `Content-Type`, `links.profile`, and
+applied profiles on the response `Content-Type`, `jsonapi.profile`, and
 `Vary: Accept`) is owned by the response layer, not by negotiation — see
 [profiles](profiles.md) and [responses](responses.md).
 

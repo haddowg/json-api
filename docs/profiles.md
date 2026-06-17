@@ -39,7 +39,7 @@ interface ProfileInterface
 
 - **`uri()`** is the profile's canonical URI. It is the value matched against the
   negotiated `profile` media-type parameter, advertised in top-level
-  `links.profile`, and echoed in the response `Content-Type` `profile` parameter.
+  `jsonapi.profile`, and echoed in the response `Content-Type` `profile` parameter.
 - **`keywords()`** lists the member, link-relation, and query-parameter names the
   profile reserves. It is for documentation and introspection (and future schema
   validation); it does **not** gate negotiation. A request that asks for a profile
@@ -223,6 +223,30 @@ host (e.g. the Doctrine bundle) does the page-1 windowing:
   parent request). With no resolver injected (standalone core) no
   relationship-object pagination links are emitted.
 
+## The bundled relationship-counts profile
+
+The library also ships `Schema\Profile\RelationshipCountsProfile`, whose canonical
+URI is
+[`https://haddowg.github.io/json-api/profiles/relationship-counts/`](profiles/relationship-counts.md)
+— and that URI **resolves to the profile's specification** (see the
+[Relationship Counts profile spec](profiles/relationship-counts.md)). The profile
+lets a client ask for **the size of a relationship's set** alongside the primary
+resource, naming the relationships to count through a single flat query-parameter
+family, `withCount` (spec-compliant because its base carries an uppercase `C`):
+
+```
+withCount=comments,tags
+```
+
+`withCount` is the same flat, comma-separated shape as `?include`; each named
+to-many relationship the server has made [`countable()`](relations.md#countable-relations-and-withcount)
+gets a `total` member on its relationship object's `meta` when the resource is
+rendered. Like every profile it is **opt-in by negotiation**: the family is parsed
+only when the client negotiated the profile URI, and is otherwise ignored. Naming a
+non-countable relation, a to-one, or an unknown relationship is a `400` with
+`source.parameter` `withCount`. The count reflects the relation's *filtered* set, so
+it agrees with the total the relationship's own related-collection endpoint reports.
+
 ## Registering profiles
 
 A profile becomes active once registered on a [`Server`](server.md). Every
@@ -270,7 +294,7 @@ intersecting the URIs the request requested/required with the profiles the serve
 has registered — unrecognized URIs are dropped — and then:
 
 - runs each applied profile's `finalizeDocument()` over the body;
-- records the applied URIs in top-level `links.profile`;
+- records the applied URIs in top-level `jsonapi.profile`;
 - echoes them in the response `Content-Type` `profile` parameter;
 - sets `Vary: Accept`.
 

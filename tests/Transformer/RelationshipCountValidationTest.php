@@ -9,6 +9,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
+use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -28,12 +29,20 @@ use PHPUnit\Framework\TestCase;
 #[Group('spec:fetching-data')]
 final class RelationshipCountValidationTest extends TestCase
 {
+    /**
+     * `?withCount` is gated behind the Relationship Counts profile, so every request
+     * that exercises it negotiates the profile URI in its `Accept`.
+     *
+     * @var array<string, string>
+     */
+    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . RelationshipCountsProfile::URI . '"'];
+
     #[Test]
     public function aCountableRelationNamedInWithCountIsPermitted(): void
     {
         $serializer = new CountableSerializer('posts', '1', countable: ['comments']);
 
-        $result = $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments']));
+        $result = $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT));
 
         self::assertSame('posts', $this->primaryType($result));
     }
@@ -46,7 +55,7 @@ final class RelationshipCountValidationTest extends TestCase
 
         $this->expectException(RelationshipCountNotAllowed::class);
 
-        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments']));
+        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT));
     }
 
     #[Test]
@@ -58,7 +67,7 @@ final class RelationshipCountValidationTest extends TestCase
 
         $this->expectException(RelationshipCountNotAllowed::class);
 
-        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'author']));
+        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'author'], self::COUNTS_ACCEPT));
     }
 
     #[Test]
@@ -70,7 +79,7 @@ final class RelationshipCountValidationTest extends TestCase
 
         $this->expectException(RelationshipCountNotAllowed::class);
 
-        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments']));
+        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT));
     }
 
     #[Test]
@@ -92,7 +101,7 @@ final class RelationshipCountValidationTest extends TestCase
 
         $this->expectException(RelationshipCountNotAllowed::class);
 
-        $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'comments']));
+        $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT));
     }
 
     /**

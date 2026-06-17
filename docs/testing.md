@@ -79,7 +79,7 @@ The full single-resource assertion surface:
 | `assertExactMeta(array $expected)` | the whole `meta` member equals `$expected` |
 | `assertHasLink(string $rel, ?string $expectedHref = null)` | top-level link present; href matches if given |
 | `assertExactLinks(array $expected)` | the whole `links` member equals `$expected` |
-| `assertProfileApplied(string $uri)` | `links.profile` advertises the profile |
+| `assertProfileApplied(string $uri)` | `jsonapi.profile` advertises the profile |
 
 The value-optional behaviour is exact: `assertHasAttribute` distinguishes
 *present* from *equal to* by argument count (`\func_num_args()`), so passing

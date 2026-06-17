@@ -1619,7 +1619,7 @@ final class JsonApiRequestTest extends TestCase
     #[Group('spec:fetching-data')]
     public function parsesWithCountIntoAFlatRelationshipNameList(): void
     {
-        $request = $this->createRequestWithQueryParams(['withCount' => 'comments,tags']);
+        $request = $this->createRelationshipCountsRequest(['withCount' => 'comments,tags']);
 
         self::assertSame(['comments', 'tags'], $request->getCountedRelationships());
         self::assertTrue($request->countsRelationship('comments'));
@@ -1631,7 +1631,7 @@ final class JsonApiRequestTest extends TestCase
     #[Group('spec:fetching-data')]
     public function withCountTrimsAndDeduplicatesNames(): void
     {
-        $request = $this->createRequestWithQueryParams(['withCount' => ' comments , comments , ']);
+        $request = $this->createRelationshipCountsRequest(['withCount' => ' comments , comments , ']);
 
         self::assertSame(['comments'], $request->getCountedRelationships());
     }
@@ -1640,16 +1640,27 @@ final class JsonApiRequestTest extends TestCase
     #[Group('spec:fetching-data')]
     public function absentOrBlankWithCountCountsNothing(): void
     {
-        self::assertSame([], $this->createRequest()->getCountedRelationships());
-        self::assertSame([], $this->createRequestWithQueryParams(['withCount' => ''])->getCountedRelationships());
-        self::assertFalse($this->createRequest()->countsRelationship('comments'));
+        self::assertSame([], $this->createRelationshipCountsRequest([])->getCountedRelationships());
+        self::assertSame([], $this->createRelationshipCountsRequest(['withCount' => ''])->getCountedRelationships());
+        self::assertFalse($this->createRelationshipCountsRequest([])->countsRelationship('comments'));
+    }
+
+    #[Test]
+    #[Group('spec:extensions-and-profiles')]
+    public function withCountIsIgnoredWhenTheProfileIsNotNegotiated(): void
+    {
+        // No Accept profile negotiated: the withCount family is ignored entirely.
+        $request = $this->createRequestWithQueryParams(['withCount' => 'comments,tags']);
+
+        self::assertSame([], $request->getCountedRelationships());
+        self::assertFalse($request->countsRelationship('comments'));
     }
 
     #[Test]
     #[Group('spec:fetching-data')]
     public function nonStringWithCountIsMalformed(): void
     {
-        $request = $this->createRequestWithQueryParams(['withCount' => ['comments']]);
+        $request = $this->createRelationshipCountsRequest(['withCount' => ['comments']]);
 
         $this->expectException(QueryParamMalformed::class);
 
@@ -1861,6 +1872,23 @@ final class JsonApiRequestTest extends TestCase
             'GET',
             '/',
             ['accept' => 'application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-queries/"'],
+        ))->withQueryParams($queryParams);
+
+        return new JsonApiRequest($psrRequest);
+    }
+
+    /**
+     * A request that has negotiated the Relationship Counts profile via the
+     * Accept `profile` media-type parameter, carrying the given query params.
+     *
+     * @param array<string, mixed> $queryParams
+     */
+    private function createRelationshipCountsRequest(array $queryParams): JsonApiRequest
+    {
+        $psrRequest = (new ServerRequest(
+            'GET',
+            '/',
+            ['accept' => 'application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-counts/"'],
         ))->withQueryParams($queryParams);
 
         return new JsonApiRequest($psrRequest);

@@ -57,7 +57,8 @@ final class TestingUtilitiesTest extends TestCase
                 ['type' => 'people', 'id' => '9', 'attributes' => ['name' => 'Dan']],
             ],
             'meta' => ['count' => 1],
-            'links' => ['self' => 'https://example.com/articles/1', 'profile' => ['https://example.com/p']],
+            'links' => ['self' => 'https://example.com/articles/1'],
+            'jsonapi' => ['profile' => ['https://example.com/p']],
         ];
     }
 
@@ -321,7 +322,6 @@ final class TestingUtilitiesTest extends TestCase
             ->assertExactMeta(['count' => 1])
             ->assertExactLinks([
                 'self' => 'https://example.com/articles/1',
-                'profile' => ['https://example.com/p'],
             ]);
     }
 

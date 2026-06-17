@@ -162,7 +162,7 @@ A to-one relationship's linkage is a single resource identifier, not a list.
 When a server applies this profile to a response, it **MUST** advertise the
 profile as the base specification requires: the profile URI **MUST** be present in
 the `profile` parameter of the response `Content-Type` media type and in the
-document's top-level `links.profile`.
+document's top-level `jsonapi.profile`.
 
 ### Document Structure
 

@@ -28,6 +28,12 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
 {
     use AssertsSpecCompliance;
 
+    /**
+     * `?withCount` is gated behind the Relationship Counts profile, so a request that
+     * exercises it negotiates the profile URI in its `Accept`.
+     */
+    private const string COUNTS_ACCEPT = 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile::URI . '"';
+
     #[Test]
     public function relatedReadReturnsTheFullToOneResource(): void
     {
@@ -96,7 +102,7 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
         // album→tracks declares countable(); naming it in ?withCount adds
         // meta.total (the related-collection cardinality) to the relationship
         // object. Album 1 has three tracks.
-        $response = $this->get('/albums/1?withCount=tracks');
+        $response = $this->get('/albums/1?withCount=tracks', self::COUNTS_ACCEPT);
 
         self::assertSame(200, $response->getStatusCode());
         $this->assertJsonApiSpecCompliant($response);
@@ -109,7 +115,7 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
     {
         // Album 2 (Dummy) has a single track (Mysterons), so its tracks
         // relationship object reports meta.total = 1.
-        $response = $this->get('/albums/2?withCount=tracks');
+        $response = $this->get('/albums/2?withCount=tracks', self::COUNTS_ACCEPT);
 
         self::assertSame(200, $response->getStatusCode());
 
@@ -288,10 +294,10 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
         return \is_string($link) ? $link : '';
     }
 
-    private function get(string $path): ResponseInterface
+    private function get(string $path, ?string $accept = null): ResponseInterface
     {
         return $this->server()->handle(new ServerRequest('GET', 'https://music.example' . $path, [
-            'Accept' => 'application/vnd.api+json',
+            'Accept' => $accept ?? 'application/vnd.api+json',
         ]));
     }
 }

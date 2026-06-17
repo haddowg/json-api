@@ -434,7 +434,7 @@ final class JsonApiDocument
 
     public function assertProfileApplied(string $uri): self
     {
-        $profile = $this->links()['profile'] ?? [];
+        $profile = $this->jsonapi()['profile'] ?? [];
         $applied = \is_array($profile) ? $profile : [$profile];
         Assert::assertContains($uri, $applied, "Profile '{$uri}' is not applied.");
 
@@ -517,6 +517,19 @@ final class JsonApiDocument
         $links = $this->document['links'] ?? [];
 
         return \is_array($links) ? $links : [];
+    }
+
+    /**
+     * The top-level `jsonapi` member (where applied profiles are advertised under
+     * its `profile` array).
+     *
+     * @return array<string, mixed>
+     */
+    public function jsonapi(): array
+    {
+        $jsonapi = $this->document['jsonapi'] ?? [];
+
+        return \is_array($jsonapi) ? $jsonapi : [];
     }
 
     /**

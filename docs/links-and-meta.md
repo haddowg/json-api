@@ -260,7 +260,7 @@ A profile is the structured way to stamp meta onto *every* document a server
 emits, rather than per response. The worked
 [`TimestampProfile`](../examples/music-catalog/src/Profile/TimestampProfile.php)
 adds a top-level `meta.generatedAt` in its `finalizeDocument()` hook, and the
-applied profile URI is echoed in `links.profile` automatically. Reach for a
+applied profile URI is echoed in `jsonapi.profile` automatically. Reach for a
 profile over `withMeta()` when the enrichment is cross-cutting and
 negotiation-driven; reach for `withMeta()` when it's specific to one response.
 Profiles are covered in [profiles](profiles.md).

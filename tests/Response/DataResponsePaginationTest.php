@@ -69,9 +69,10 @@ final class DataResponsePaginationTest extends TestCase
         self::assertIsArray($links);
         self::assertArrayHasKey('next', $links);
         self::assertArrayNotHasKey('last', $links, 'cursor pagination must not emit a last link');
+        self::assertIsArray($body['jsonapi']);
         self::assertSame(
             ['https://jsonapi.org/profiles/ethanresnick/cursor-pagination/'],
-            $links['profile'],
+            $body['jsonapi']['profile'],
         );
 
         self::assertStringContainsString(
@@ -98,7 +99,8 @@ final class DataResponsePaginationTest extends TestCase
         $links = $body['links'];
         self::assertIsArray($links);
         self::assertArrayHasKey('next', $links, 'pagination links are still emitted');
-        self::assertArrayNotHasKey('profile', $links);
+        $jsonapi = $body['jsonapi'] ?? [];
+        self::assertArrayNotHasKey('profile', \is_array($jsonapi) ? $jsonapi : []);
 
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame('', $psr->getHeaderLine('Vary'));

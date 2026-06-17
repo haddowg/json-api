@@ -107,6 +107,7 @@ nav:
       - relationship-mutation.md
       - profiles.md
       - Relationship Queries profile: profiles/relationship-queries.md
+      - Relationship Counts profile: profiles/relationship-counts.md
   - Server & lifecycle:
       - server.md
       - operations.md

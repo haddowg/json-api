@@ -468,11 +468,15 @@ final class ServerTest extends TestCase
 
     #[Test]
     #[Group('spec:fetching-data')]
-    public function dispatchAllowsTheReservedFamiliesAndWithCount(): void
+    public function dispatchAllowsTheReservedFamiliesAndTheNegotiatedWithCountProfile(): void
     {
         $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
-        $server = Server::make()->withHandler($handler);
+        $server = Server::make()
+            ->withHandler($handler)
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile());
 
+        // `withCount` is recognized only when the Relationship Counts profile it
+        // belongs to is registered and negotiated in the Accept `profile` parameter.
         $operation = $this->stubOperation(StubJsonApiRequest::create([
             'fields' => ['posts' => 'title'],
             'include' => 'author',
@@ -480,6 +484,8 @@ final class ServerTest extends TestCase
             'page' => ['number' => '1'],
             'filter' => ['draft' => '0'],
             'withCount' => 'comments',
+        ], [
+            'Accept' => 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile::URI . '"',
         ]));
 
         $server->dispatch($operation);

@@ -447,10 +447,13 @@ HasMany::make('tracks')
 A client opts into the count per request with the flat, comma-separated
 `?withCount` query parameter — `?withCount=tracks` (several relations:
 `?withCount=tracks,playlists`). It is never dotted (a primary-request parameter,
-like `?include` but un-nested) and carries an uppercase letter, so it is a valid
-implementation-specific query parameter and is not rejected by strict
-query-parameter validation. When the request names a countable relation —
-`GET /albums/1?withCount=tracks` — its relationship object gains a `meta.total`:
+like `?include` but un-nested). `withCount` is the
+[**Relationship Counts profile**](profiles/relationship-counts.md)'s family, so it
+is parsed (and recognized by strict query-parameter validation) **only** when the
+client negotiates that profile's URI in the `Accept` `profile` parameter; otherwise
+it is ignored. When a request that negotiates the profile names a countable
+relation — `GET /albums/1?withCount=tracks` — its relationship object gains a
+`meta.total`:
 
 ```json
 {

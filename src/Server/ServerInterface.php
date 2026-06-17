@@ -54,7 +54,7 @@ interface ServerInterface
     /**
      * The profiles this server recognizes. The response layer applies the
      * registered profiles a request asks for (echoing them on the `Content-Type`
-     * and in `links.profile`) and ignores any it does not recognize.
+     * and in `jsonapi.profile`) and ignores any it does not recognize.
      */
     public function profiles(): ProfileRegistry;
 

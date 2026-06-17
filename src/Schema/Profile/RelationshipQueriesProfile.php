@@ -23,7 +23,7 @@ namespace haddowg\JsonApi\Schema\Profile;
  * the client negotiated this URI in the `Accept` `profile` media-type parameter,
  * and are otherwise ignored. A server that recognizes the profile applies it and
  * advertises the URI on the response `Content-Type` `profile` parameter and in
- * `links.profile` (the existing profile infrastructure). `page` is deliberately
+ * `jsonapi.profile` (the existing profile infrastructure). `page` is deliberately
  * not part of this profile: an addressed relationship always renders page 1 from
  * the primary request and is navigated via its own relationship-object
  * pagination links.

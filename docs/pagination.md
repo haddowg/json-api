@@ -338,7 +338,7 @@ at `100` by default like the other client-controlled strategies. The produced
 [cursor-pagination profile](profiles.md) (`CursorPaginationProfile`, URI
 `https://jsonapi.org/profiles/ethanresnick/cursor-pagination/`), so a
 cursor-paginated response advertises the profile on its `Content-Type` and in
-`links.profile` — **provided** the [server](server.md) has registered it with
+`jsonapi.profile` — **provided** the [server](server.md) has registered it with
 `withProfile(new CursorPaginationProfile())`. The catalog registers it in
 [`bootstrap.php`](../examples/music-catalog/src/bootstrap.php) for exactly this.
 
