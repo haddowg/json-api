@@ -33,7 +33,7 @@ namespace haddowg\JsonApi\Schema\Profile;
  */
 final class RelationshipQueriesProfile extends AbstractProfile
 {
-    public const string URI = 'https://haddowg.dev/profiles/relationship-queries';
+    public const string URI = 'https://haddowg.github.io/json-api/profiles/relationship-queries/';
 
     /**
      * The canonical query-parameter family base.

@@ -528,7 +528,8 @@ A key in *neither* set still `400`s as an unrecognized parameter.
 These vocabularies also drive the **relationship-queries profile**: a client that
 negotiates it can filter and sort a relationship's *linkage* from the primary
 request — `relatedQuery[<path>][filter][<key>]=…` / `[sort]=…` (shorthand `rQ`) —
-against the same filter/sort keys declared here. See [profiles](profiles.md#the-bundled-relationship-queries-profile).
+against the same filter/sort keys declared here. See [profiles](profiles.md#the-bundled-relationship-queries-profile)
+and the [profile specification](profiles/relationship-queries.md).
 
 ## Custom relation hooks
 

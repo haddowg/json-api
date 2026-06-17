@@ -106,6 +106,7 @@ nav:
       - related-endpoints.md
       - relationship-mutation.md
       - profiles.md
+      - Relationship Queries profile: profiles/relationship-queries.md
   - Server & lifecycle:
       - server.md
       - operations.md

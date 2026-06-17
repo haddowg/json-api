@@ -4,7 +4,8 @@ A client can now filter and sort a **relationship's** linkage from the primary
 request — whether the relationship is rendered as `?include` linkage, as
 links-only linkage, or at its own endpoint — through a negotiated JSON:API
 **profile**, `RelationshipQueriesProfile`
-(`https://haddowg.dev/profiles/relationship-queries`). This is slice 2 of
+(`https://haddowg.github.io/json-api/profiles/relationship-queries/`; the URI was
+finalised to its published spec URL in ADR 0064). This is slice 2 of
 relationship counting/pagination, building on slice 1's countable relations,
 count-free paginators, and the relationship render hook (ADR 0057).
 

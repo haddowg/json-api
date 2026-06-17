@@ -172,11 +172,15 @@ profile.
 
 ## The bundled relationship-queries profile
 
-The library also ships `Schema\Profile\RelationshipQueriesProfile`
-(`https://haddowg.dev/profiles/relationship-queries`), which lets a client
-**filter and sort a relationship's linkage from the primary request** — whether
-the relationship is rendered via `?include`, as links-only linkage, or at its
-endpoint. It reserves two query-parameter families, both spec-compliant because
+The library also ships `Schema\Profile\RelationshipQueriesProfile`, whose canonical
+URI is
+[`https://haddowg.github.io/json-api/profiles/relationship-queries/`](profiles/relationship-queries.md)
+— and that URI **resolves to the profile's specification**, written in the same
+register as the cursor-pagination profile it sits beside (see the
+[Relationship Queries profile spec](profiles/relationship-queries.md)). The profile
+lets a client **filter and sort a relationship's linkage from the primary request**
+— whether the relationship is rendered via `?include`, as links-only linkage, or at
+its endpoint. It reserves two query-parameter families, both spec-compliant because
 their base names each carry a non a-z character (a capital `Q`):
 
 ```

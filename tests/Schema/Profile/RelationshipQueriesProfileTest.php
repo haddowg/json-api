@@ -18,7 +18,7 @@ final class RelationshipQueriesProfileTest extends TestCase
     {
         $profile = new RelationshipQueriesProfile();
 
-        self::assertSame('https://haddowg.dev/profiles/relationship-queries', $profile->uri());
+        self::assertSame('https://haddowg.github.io/json-api/profiles/relationship-queries/', $profile->uri());
         self::assertSame(RelationshipQueriesProfile::URI, $profile->uri());
     }
 

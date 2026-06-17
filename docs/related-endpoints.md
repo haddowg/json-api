@@ -297,7 +297,8 @@ from a **primary** request instead — whether it renders via `?include`, as
 links-only linkage, or at its own endpoint — negotiate the
 **relationship-queries profile**: `relatedQuery[<path>][filter][<key>]=…` /
 `[sort]=…` (shorthand `rQ`), keyed by the relationship's include path. See
-[profiles](profiles.md#the-bundled-relationship-queries-profile).
+[profiles](profiles.md#the-bundled-relationship-queries-profile) and the
+[profile specification](profiles/relationship-queries.md).
 
 ## Next / See also
 

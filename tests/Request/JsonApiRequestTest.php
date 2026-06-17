@@ -1860,7 +1860,7 @@ final class JsonApiRequestTest extends TestCase
         $psrRequest = (new ServerRequest(
             'GET',
             '/',
-            ['accept' => 'application/vnd.api+json;profile="https://haddowg.dev/profiles/relationship-queries"'],
+            ['accept' => 'application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-queries/"'],
         ))->withQueryParams($queryParams);
 
         return new JsonApiRequest($psrRequest);
