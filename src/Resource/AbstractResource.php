@@ -46,7 +46,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, SelfLinkAwareInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface
 {
     use RendersRelationsTrait;
 
@@ -69,6 +69,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @var list<\haddowg\JsonApi\Resource\Field\FieldInterface>|null
      */
     private ?array $fieldCache = null;
+
+    /**
+     * Whether the primary collection is client-countable via `?withCount=_self_`,
+     * set by {@see countable()}. Off by default — counting is opt-in.
+     */
+    private bool $isCountable = false;
 
     /**
      * The resource's field inventory (attributes + relationships).
@@ -126,13 +132,46 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
-     * The pagination strategy for this resource's collections, or `null` for no
-     * pagination (the {@see \haddowg\JsonApi\Server\Server} default applies when
-     * this returns null).
+     * The pagination strategy for this resource's collections. The return value is
+     * the **single source of truth** — used verbatim, with `null` meaning *no
+     * pagination* (the collection is fetched whole). The base implementation returns
+     * the `$serverDefault` argument (the {@see \haddowg\JsonApi\Server\Server}'s
+     * resolved default paginator, or `null` when the server has none), so a resource
+     * inherits the server default unless it overrides this:
+     *
+     * - return `$serverDefault` (or don't override) → inherit the server default;
+     * - return a paginator → pin that strategy for this resource;
+     * - return `null` → no pagination, fetch-all (renders `meta.total` unconditionally).
      */
-    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $serverDefault): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
-        return null;
+        return $serverDefault;
+    }
+
+    /**
+     * Declares this resource's primary collection **countable**: a client may then
+     * request its total via `?withCount=_self_` (under the negotiated Countable
+     * profile), which renders `meta.total` (and, when paginated, `meta.page.total`
+     * + the `last` link). Off by default — counting is opt-in; an unrequested
+     * collection paginates count-free. Mirrors {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}
+     * for relations. Fluent: returns `$this`.
+     *
+     * @return static
+     */
+    public function countable(): static
+    {
+        $this->isCountable = true;
+
+        return $this;
+    }
+
+    /**
+     * Whether this resource's primary collection is countable via
+     * `?withCount=_self_` (see {@see countable()}). Off by default.
+     */
+    public function isCountable(): bool
+    {
+        return $this->isCountable;
     }
 
     /**
@@ -637,13 +676,30 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
-     * The cached field inventory.
+     * The cached field inventory. Guards the reserved `?withCount` token `_self_`
+     * at build time: a relation literally named `_self_` would be ambiguous with the
+     * token naming the primary collection, so it is rejected here (the single point
+     * where every field is first indexed) rather than letting the token silently win.
      *
      * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     final protected function allFields(): array
     {
-        return $this->fieldCache ??= \array_values($this->fields());
+        if ($this->fieldCache === null) {
+            $this->fieldCache = \array_values($this->fields());
+            foreach ($this->fieldCache as $field) {
+                if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface
+                    && $field->name() === \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN) {
+                    throw new \LogicException(\sprintf(
+                        'Relationship "%s" uses the reserved "?withCount" token; a relation cannot be named "%s".',
+                        \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
+                        \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
+                    ));
+                }
+            }
+        }
+
+        return $this->fieldCache;
     }
 
     /**

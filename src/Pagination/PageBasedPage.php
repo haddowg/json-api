@@ -12,10 +12,11 @@ use haddowg\JsonApi\Schema\Link\Link;
  * With a known `$totalItems`, emits the full `first`/`prev`/`next`/`last` set
  * computed from `ceil(totalItems / size)` plus `meta.page.total`. In **count-free
  * mode** (`$totalItems === null`) the total is unknown: `last` and
- * `meta.page.{total,lastPage,to}` are omitted, and "there is a next page" is
+ * `meta.page.{total,lastPage}` are omitted, and "there is a next page" is
  * signalled by `$hasMore` (the data layer fetching one item past the window)
  * rather than derived from a count — the page/offset analogue of the count-free
- * shape {@see CursorBasedPage} already models.
+ * shape {@see CursorBasedPage} already models. `meta.page.to` is still emitted,
+ * derived from the rendered item count (the upper bound needs no total).
  *
  * @template T
  *
@@ -62,11 +63,20 @@ final readonly class PageBasedPage extends AbstractPage
     public function pageMeta(): array
     {
         if ($this->totalItems === null) {
-            return [
+            $from = ($this->page - 1) * $this->size + 1;
+            $meta = [
                 'currentPage' => $this->page,
                 'perPage' => $this->size,
-                'from' => ($this->page - 1) * $this->size + 1,
+                'from' => $from,
             ];
+            // The window's upper bound is known from the rendered item count even
+            // without a total (`to = from + count - 1`); omitted for an empty page.
+            $count = $this->renderedCount();
+            if ($count !== null && $count > 0) {
+                $meta['to'] = $from + $count - 1;
+            }
+
+            return $meta;
         }
 
         return [

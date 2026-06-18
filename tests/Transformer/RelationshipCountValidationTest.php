@@ -9,9 +9,10 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Document\CollectionDocument;
 use haddowg\JsonApi\Schema\Document\SingleResourceDocument;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
+use haddowg\JsonApi\Serializer\CountableSelfInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
@@ -30,12 +31,12 @@ use PHPUnit\Framework\TestCase;
 final class RelationshipCountValidationTest extends TestCase
 {
     /**
-     * `?withCount` is gated behind the Relationship Counts profile, so every request
+     * `?withCount` is gated behind the Countable profile, so every request
      * that exercises it negotiates the profile URI in its `Accept`.
      *
      * @var array<string, string>
      */
-    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . RelationshipCountsProfile::URI . '"'];
+    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . CountableProfile::URI . '"'];
 
     #[Test]
     public function aCountableRelationNamedInWithCountIsPermitted(): void
@@ -93,6 +94,104 @@ final class RelationshipCountValidationTest extends TestCase
     }
 
     #[Test]
+    public function theSelfTokenIsPermittedOnACountableSelfSerializer(): void
+    {
+        $serializer = new CountableSelfSerializer('posts', '1', selfCountable: true);
+
+        $result = $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT));
+
+        self::assertSame('posts', $this->primaryType($result));
+    }
+
+    #[Test]
+    public function theSelfTokenIs400OnANonCountableSelfSerializer(): void
+    {
+        // The resource is CountableSelfInterface but isCountable() is false: _self_
+        // counting is opt-in, so the token is rejected.
+        $serializer = new CountableSelfSerializer('posts', '1', selfCountable: false);
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT));
+    }
+
+    #[Test]
+    public function theSelfTokenIs400OnABareSerializerLackingTheCapability(): void
+    {
+        // A serializer that is not CountableSelfInterface is not _self_-countable —
+        // the safe default (counting is opt-in).
+        $serializer = new PlainSerializer('posts', '1');
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $this->render($serializer, ['id' => '1'], new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT));
+    }
+
+    #[Test]
+    public function theSelfTokenAndACountableRelationCompose(): void
+    {
+        $serializer = new CountableSelfSerializer('posts', '1', selfCountable: true, countable: ['comments']);
+
+        $result = $this->render(
+            $serializer,
+            ['id' => '1'],
+            new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN . ',comments'], self::COUNTS_ACCEPT),
+        );
+
+        self::assertSame('posts', $this->primaryType($result));
+    }
+
+    #[Test]
+    public function theSelfTokenComposedWithANonCountableRelationStill400s(): void
+    {
+        $serializer = new CountableSelfSerializer('posts', '1', selfCountable: true, countable: []);
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $this->render(
+            $serializer,
+            ['id' => '1'],
+            new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN . ',comments'], self::COUNTS_ACCEPT),
+        );
+    }
+
+    #[Test]
+    public function theSelfTokenOverrideGatesOnTheOverrideNotThePrimarySerializer(): void
+    {
+        // A related-collection render supplies the owning relation's countable() as the
+        // override: `_self_` is then permitted even though the primary (related-type)
+        // serializer is NOT itself _self_-countable — the relation, whose endpoint this
+        // is, governs the gate (core ADR 0068).
+        $serializer = new PlainSerializer('posts', '1');
+
+        $result = $this->render(
+            $serializer,
+            ['id' => '1'],
+            new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT),
+            countableSelfOverride: true,
+        );
+
+        self::assertSame('posts', $this->primaryType($result));
+    }
+
+    #[Test]
+    public function theSelfTokenOverrideFalseRejectsEvenACountableSelfPrimary(): void
+    {
+        // The inverse: a `false` override (the owning relation is not countable) rejects
+        // `_self_` even when the primary serializer would itself be _self_-countable.
+        $serializer = new CountableSelfSerializer('posts', '1', selfCountable: true);
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $this->render(
+            $serializer,
+            ['id' => '1'],
+            new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT),
+            countableSelfOverride: false,
+        );
+    }
+
+    #[Test]
     public function theValidationAlsoRunsOnTheCollectionRoot(): void
     {
         // The collection path wires the up-front root validation through a distinct
@@ -126,6 +225,7 @@ final class RelationshipCountValidationTest extends TestCase
         SerializerInterface $serializer,
         mixed $object,
         ?JsonApiRequestInterface $request = null,
+        ?bool $countableSelfOverride = null,
     ): array {
         $document = new SingleResourceDocument($serializer, null, [], null);
 
@@ -138,6 +238,7 @@ final class RelationshipCountValidationTest extends TestCase
             [],
             '',
             null,
+            $countableSelfOverride,
         );
 
         return (new DocumentTransformer())->transformResourceDocument($transformation)->result;
@@ -222,6 +323,68 @@ final class CountableSerializer extends AbstractSerializer implements CountableC
     public function getCountableRelationships(mixed $object): array
     {
         return $this->countable;
+    }
+}
+
+/**
+ * A serializer declaring its primary collection countable via the `_self_` token
+ * (and optionally its countable relationships), proving the resource-level gate.
+ */
+final class CountableSelfSerializer extends AbstractSerializer implements CountableControlsInterface, CountableSelfInterface
+{
+    /**
+     * @param list<string> $countable
+     */
+    public function __construct(
+        private readonly string $type,
+        private readonly string $id,
+        private readonly bool $selfCountable = false,
+        private readonly array $countable = [],
+    ) {}
+
+    public function getType(mixed $object): string
+    {
+        return $this->type;
+    }
+
+    public function getId(mixed $object): string
+    {
+        return $this->id;
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return null;
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return [];
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getCountableRelationships(mixed $object): array
+    {
+        return $this->countable;
+    }
+
+    public function isCountable(): bool
+    {
+        return $this->selfCountable;
     }
 }
 

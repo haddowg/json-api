@@ -27,6 +27,7 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
         public int $defaultOffset = 0,
         public int $defaultLimit = 15,
         public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
+        public bool $wantsCount = false,
     ) {}
 
     public static function make(): self
@@ -36,22 +37,22 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
 
     public function withOffsetKey(string $offsetKey): self
     {
-        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage);
+        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withLimitKey(string $limitKey): self
     {
-        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage);
+        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withDefaultOffset(int $defaultOffset): self
     {
-        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage);
+        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withDefaultLimit(int $defaultLimit): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage, $this->wantsCount);
     }
 
     /**
@@ -61,7 +62,23 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max));
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max), $this->wantsCount);
+    }
+
+    /**
+     * Opts this paginator into counting: it runs the `COUNT` on **every** paged
+     * request, so `meta.page.total` and the `last` link are always present. The
+     * author-always counterpart of the client's `?withCount=_self_`; no profile or
+     * param needed. Count-free remains the default (omit this).
+     */
+    public function withCount(): self
+    {
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, true);
+    }
+
+    public function wantsCount(): bool
+    {
+        return $this->wantsCount;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

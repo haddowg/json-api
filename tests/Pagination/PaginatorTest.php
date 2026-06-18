@@ -93,7 +93,25 @@ final class PaginatorTest extends TestCase
         self::assertTrue($page->hasMore);
         self::assertSame(2, $page->page);
         self::assertSame(20, $page->size);
-        self::assertArrayNotHasKey('total', $page->pageMeta());
+        $meta = $page->pageMeta();
+        self::assertArrayNotHasKey('total', $meta);
+        self::assertArrayNotHasKey('lastPage', $meta);
+        // §3a: the upper bound is derived from the rendered item count even without a
+        // total — page 2 of size 20 starts at from=21; one item ⇒ to=21.
+        self::assertSame(21, $meta['from'] ?? null);
+        self::assertSame(21, $meta['to'] ?? null);
+    }
+
+    #[Test]
+    public function aCountFreePageOmitsToForAnEmptyWindow(): void
+    {
+        // §3a: an empty page has no upper bound, so `to` is omitted (not from-1).
+        $request = StubJsonApiRequest::create(['page' => ['number' => '3', 'size' => '10']]);
+
+        $meta = PagePaginator::make()->paginateWithoutCount($request, [], hasMore: false)->pageMeta();
+
+        self::assertSame(21, $meta['from'] ?? null);
+        self::assertArrayNotHasKey('to', $meta);
     }
 
     #[Test]
@@ -101,13 +119,17 @@ final class PaginatorTest extends TestCase
     {
         $request = StubJsonApiRequest::create(['page' => ['offset' => '40', 'limit' => '20']]);
 
-        $page = OffsetPaginator::make()->paginateWithoutCount($request, [], hasMore: false);
+        $page = OffsetPaginator::make()->paginateWithoutCount($request, ['a', 'b'], hasMore: false);
 
         self::assertInstanceOf(OffsetBasedPage::class, $page);
         self::assertNull($page->totalItems);
         self::assertFalse($page->hasMore);
         self::assertSame(40, $page->offset);
-        self::assertArrayNotHasKey('total', $page->pageMeta());
+        $meta = $page->pageMeta();
+        self::assertArrayNotHasKey('total', $meta);
+        // §3a: offset 40 ⇒ from=41; two items ⇒ to=42.
+        self::assertSame(41, $meta['from'] ?? null);
+        self::assertSame(42, $meta['to'] ?? null);
     }
 
     #[Test]
@@ -357,5 +379,69 @@ final class PaginatorTest extends TestCase
         \sort($emittedParams);
 
         self::assertSame($reservedPageParams, $emittedParams);
+    }
+
+    #[Test]
+    public function countBasedPaginatorsAreCountFreeByDefault(): void
+    {
+        self::assertFalse(PagePaginator::make()->wantsCount());
+        self::assertFalse(OffsetPaginator::make()->wantsCount());
+        self::assertFalse(FixedPagePaginator::make()->wantsCount());
+    }
+
+    #[Test]
+    public function withCountFlipsTheCountFlagOnEachCountBasedPaginator(): void
+    {
+        self::assertTrue(PagePaginator::make()->withCount()->wantsCount());
+        self::assertTrue(OffsetPaginator::make()->withCount()->wantsCount());
+        self::assertTrue(FixedPagePaginator::make()->withCount()->wantsCount());
+
+        // withCount() is immutable: it returns a new instance, leaving the original
+        // count-free.
+        $base = PagePaginator::make();
+        self::assertFalse($base->wantsCount());
+        self::assertNotSame($base, $base->withCount());
+    }
+
+    #[Test]
+    public function everyPagePaginatorCloneKeepsTheCountFlag(): void
+    {
+        $counted = PagePaginator::make()->withCount();
+
+        self::assertTrue($counted->withPageKey('p')->wantsCount());
+        self::assertTrue($counted->withPerPageKey('per')->wantsCount());
+        self::assertTrue($counted->withDefaultPage(2)->wantsCount());
+        self::assertTrue($counted->withDefaultPerPage(30)->wantsCount());
+        self::assertTrue($counted->withMaxPerPage(50)->wantsCount());
+    }
+
+    #[Test]
+    public function everyOffsetPaginatorCloneKeepsTheCountFlag(): void
+    {
+        $counted = OffsetPaginator::make()->withCount();
+
+        self::assertTrue($counted->withOffsetKey('o')->wantsCount());
+        self::assertTrue($counted->withLimitKey('l')->wantsCount());
+        self::assertTrue($counted->withDefaultOffset(10)->wantsCount());
+        self::assertTrue($counted->withDefaultLimit(30)->wantsCount());
+        self::assertTrue($counted->withMaxPerPage(50)->wantsCount());
+    }
+
+    #[Test]
+    public function everyFixedPagePaginatorCloneKeepsTheCountFlag(): void
+    {
+        $counted = FixedPagePaginator::make()->withCount();
+
+        self::assertTrue($counted->withSize(20)->wantsCount());
+        self::assertTrue($counted->withPageKey('p')->wantsCount());
+        self::assertTrue($counted->withDefaultPage(2)->wantsCount());
+    }
+
+    #[Test]
+    public function cursorPaginatorIsAlwaysCountFree(): void
+    {
+        // The cursor strategy never counts (and, by design, has no withCount()
+        // counterpart — verified by the static type checker, not at runtime).
+        self::assertFalse(CursorPaginator::make()->wantsCount());
     }
 }

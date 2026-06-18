@@ -644,7 +644,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      * recognized set, when strict mode is on. The recognized set is assembled per
      * the resolved primary resource's vocabulary: the reserved JSON:API families,
      * the host-registered custom params, and the reserved keywords of every
-     * registered profile this request negotiated (including the Relationship Counts
+     * registered profile this request negotiated (including the Countable
      * profile's `withCount`). An unrecognized family
      * base name throws {@see \haddowg\JsonApi\Exception\QueryParamUnrecognized}
      * (`400`). Shared by the programmatic {@see dispatch()} path and the PSR-15
@@ -670,7 +670,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      * server recognizes for the given request: the host-registered
      * {@see withCustomQueryParameter()} names, and the reserved keywords of every
      * registered profile the client negotiated (so a profile's families — the
-     * Relationship Queries `relatedQuery`/`rQ` and the Relationship Counts
+     * Relationship Queries `relatedQuery`/`rQ` and the Countable
      * `withCount` — are recognized only when its URI is requested, mirroring the gate
      * the profile's own parsers use).
      *

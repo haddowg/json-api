@@ -174,14 +174,26 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function isCountable(): bool;
 
     /**
-     * This relation's declared default paginator for its related-collection
-     * endpoint (`GET /{type}/{id}/{rel}`), or `null` for none. Set via
-     * {@see AbstractRelation::paginate()}. It is the to-many related-endpoint
-     * paginator — a to-one relation has no collection and ignores it; the host
-     * resolves the effective strategy as relation → related-resource → server
-     * default.
+     * The effective paginator for this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`), resolved against `$fallback` (the already-resolved
+     * related-resource-or-server default). Returns this relation's own paginator
+     * ({@see AbstractRelation::paginate()}) when set, else `$fallback` — unless
+     * {@see withoutPagination()} disabled it, in which case `null` (fetch-all)
+     * regardless of `$fallback`. The host resolves the chain as
+     * relation → related resource → server default; a to-one relation has no
+     * collection and ignores this.
      */
-    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface;
+    public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $fallback): ?\haddowg\JsonApi\Pagination\PaginatorInterface;
+
+    /**
+     * Explicitly opts this relation's related-collection endpoint out of pagination
+     * (fetch-all): {@see pagination()} then returns `null` regardless of the
+     * resolved fallback, so the related collection is fetched whole and renders
+     * `meta.total` unconditionally (no `page` meta). Returns `$this` (fluent).
+     *
+     * @return static
+     */
+    public function withoutPagination(): static;
 
     /**
      * Extra filters this relation exposes **only** on its related-collection

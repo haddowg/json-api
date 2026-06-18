@@ -1,5 +1,11 @@
 # `?withCount` is gated behind a Relationship Counts profile
 
+> **Status:** the profile gate stands, but the profile was renamed *Relationship
+> Counts → Countable* (class `Schema\Profile\CountableProfile`, URI slug
+> `/profiles/countable/`) and `?withCount` grew the `_self_` token for the primary
+> collection — see ADR 0068. The "is gated behind a profile" decision below is
+> unchanged; only the profile's name/URI/scope moved.
+
 The `withCount` query parameter — the flat, comma-separated relationship-count
 request that adds a `total` member to a named relationship object's `meta` — is now
 a JSON:API **profile**, `Schema\Profile\RelationshipCountsProfile`

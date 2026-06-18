@@ -163,6 +163,16 @@ final readonly class CursorPaginator implements PaginatorInterface
     }
 
     /**
+     * A cursor (keyset) strategy is inherently count-free — it never derives a
+     * total — so it never runs a `COUNT`. Always `false`; there is no `withCount()`
+     * counterpart (the cursor takes neither {@see withCount()} nor `?withCount`).
+     */
+    public function wantsCount(): bool
+    {
+        return false;
+    }
+
+    /**
      * The normalised page size for the request — floored to `>= 1` (a keyset
      * fetch always returns at least one row, so `page[size]=0`/negative is
      * treated as one) and then capped at {@see $maxPerPage} (when the cap is

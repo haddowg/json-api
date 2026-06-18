@@ -128,7 +128,7 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
 
         $resource = $server->resourceFor($type);
         $request = $this->request($operation->context());
-        $paginator = $resource->pagination() ?? $server->defaultPaginator();
+        $paginator = $resource->pagination($server->defaultPaginator());
 
         $result = $this->repository->fetchCollection(
             $type,
@@ -201,9 +201,9 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
                 }
             }
 
-            $paginator = $relation->pagination()
-                ?? $relatedResource?->pagination()
+            $fallback = $relatedResource?->pagination($server->defaultPaginator())
                 ?? $server->defaultPaginator();
+            $paginator = $relation->pagination($fallback);
 
             /** @var iterable<object> $related */
             $result = $this->repository->fetchRelatedCollection(

@@ -433,7 +433,11 @@ HasMany::make('tracks')
 The host resolves the effective strategy as **relation → related resource →
 server default**: a relation-level paginator wins, otherwise the related
 resource's default, otherwise the server's. A to-one relation has no collection
-and ignores it. See [pagination](pagination.md) for the paginators.
+and ignores it. Opt a relation **out** of pagination entirely with
+`withoutPagination()` — its related collection is then fetched whole (and renders
+`meta.total` unconditionally, see [pagination](pagination.md#counting-and-totals)),
+regardless of any resolved fallback. See [pagination](pagination.md) for the
+paginators.
 
 ## Countable relations and `?withCount`
 
@@ -451,14 +455,14 @@ HasMany::make('tracks')
 
 A client opts into the count per request with the flat, comma-separated
 `?withCount` query parameter — `?withCount=tracks` (several relations:
-`?withCount=tracks,playlists`). It is never dotted (a primary-request parameter,
-like `?include` but un-nested). `withCount` is the
-[**Relationship Counts profile**](profiles/relationship-counts.md)'s family, so it
-is parsed (and recognized by strict query-parameter validation) **only** when the
-client negotiates that profile's URI in the `Accept` `profile` parameter; otherwise
-it is ignored. When a request that negotiates the profile names a countable
-relation — `GET /albums/1?withCount=tracks` — its relationship object gains a
-`meta.total`:
+`?withCount=tracks,playlists`; the reserved `_self_` token also counts the **primary
+collection** — see [pagination](pagination.md#counting-and-totals)). It is never
+dotted (a primary-request parameter, like `?include` but un-nested). `withCount` is
+the [**Countable profile**](profiles/countable.md)'s family, so it is parsed (and
+recognized by strict query-parameter validation) **only** when the client negotiates
+that profile's URI in the `Accept` `profile` parameter; otherwise it is ignored. When
+a request that negotiates the profile names a countable relation —
+`GET /albums/1?withCount=tracks` — its relationship object gains a `meta.total`:
 
 ```json
 {

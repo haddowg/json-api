@@ -136,28 +136,37 @@ HasMany::make('tracks')
 ```
 
 The handler resolves the paginator with a three-step fallback — the **relation's**
-paginator, else the **related resource's**, else the **server** default — and
-renders with [`RelatedResponse::fromPage()`](../src/Response/RelatedResponse.php):
+paginator, else the **related resource's**, else the **server** default — threaded
+through `pagination()` (the resolved fallback is passed in; the relation can also opt
+out with `withoutPagination()`) — and renders with
+[`RelatedResponse::fromPage()`](../src/Response/RelatedResponse.php):
 
 ```php
-$paginator = $relation->pagination()
-    ?? $relatedResource?->pagination()
+$fallback = $relatedResource?->pagination($server->defaultPaginator())
     ?? $server->defaultPaginator();
+$paginator = $relation->pagination($fallback);
 // …
 if ($result instanceof PageInterface) {
     return RelatedResponse::fromPage($result, $serializer);
 }
 ```
 
-Album 1 has three tracks, so `GET /albums/1/tracks` returns a first page of two,
-with `meta.page.total` of three and `next`/`last` links scoped to
-`/albums/1/tracks`:
+Album 1 has three tracks, so this example's repository (which counts its in-memory
+slice) returns a first page of two, with `meta.page.total` of three and
+`next`/`last` links scoped to `/albums/1/tracks`:
 
 ```php
 self::assertCount(2, $this->collection($response));
 self::assertSame(3, $page['total'] ?? null);
 self::assertStringContainsString('/albums/1/tracks', $this->href($links['next']));
 ```
+
+> Counting is opt-in: a count-based paginator is **count-free by default** (no
+> `meta.page.total`, no `last`, `next` via `hasMore`, zero `COUNT`), and a total is
+> emitted only when the relation's paginator is `->withCount()` or the client requests
+> the relation's countable total — see [Counting and totals](pagination.md#counting-and-totals).
+> This example's repository computes the count eagerly, so its related endpoint always
+> carries the page total.
 
 `fromPage()` paginates the related collection exactly as
 [`DataResponse::fromPage()`](responses.md) paginates a primary collection — same

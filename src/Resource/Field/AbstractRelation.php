@@ -75,6 +75,13 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
+     * Whether this relation explicitly opts out of pagination (fetch-all), set by
+     * {@see withoutPagination()}. When `true`, {@see pagination()} returns `null`
+     * regardless of the resolved fallback. Off by default.
+     */
+    private bool $paginationDisabled = false;
+
+    /**
      * Extra filters scoped to this relation's related-collection endpoint.
      *
      * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
@@ -305,14 +312,35 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     }
 
     /**
-     * This relation's declared default paginator, or `null` for none. It is the
-     * to-many related-endpoint paginator (a to-one relation ignores it); the host
-     * resolves the effective strategy as relation → related-resource → server
-     * default.
+     * Explicitly opts this relation's related-collection endpoint out of pagination
+     * (fetch-all): {@see pagination()} then returns `null` regardless of the
+     * resolved fallback, so the whole collection is fetched and rendered with
+     * `meta.total` unconditionally (no `page` meta). The level-explicit counterpart
+     * of a `null`-returning resource `pagination()`. Fluent: returns `$this`.
+     *
+     * @return static
      */
-    public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    public function withoutPagination(): static
     {
-        return $this->relationPaginator;
+        $this->paginationDisabled = true;
+
+        return $this;
+    }
+
+    /**
+     * The effective paginator for this relation's related-collection endpoint
+     * (`GET /{type}/{id}/{rel}`). When {@see withoutPagination()} disabled it,
+     * returns `null` (fetch-all) regardless of `$fallback` — the opt-out
+     * short-circuits *before* the fallback so the fallback can never override it.
+     * Otherwise returns this relation's own paginator ({@see paginate()}) when set,
+     * else `$fallback` (the already-resolved related-resource-or-server default).
+     * The chain stays *relation → related resource → server default*, but every
+     * level can now also say "no pagination". A to-one relation has no collection
+     * and ignores this.
+     */
+    public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $fallback): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    {
+        return $this->paginationDisabled ? null : ($this->relationPaginator ?? $fallback);
     }
 
     /**

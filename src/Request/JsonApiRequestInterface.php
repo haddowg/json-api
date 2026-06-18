@@ -98,14 +98,19 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function isIncludedRelationship(string $baseRelationshipPath, string $relationshipName, array $defaultRelationships): bool;
 
     /**
-     * The relationship names requested for counting via the `?withCount` query
-     * parameter — a flat, comma-separated list (e.g. `?withCount=comments,tags`),
-     * like `?include` but never dotted. Each names a relationship whose
+     * The targets requested for counting via the `?withCount` query parameter — a
+     * flat, comma-separated list (e.g. `?withCount=_self_,comments,tags`), like
+     * `?include` but never dotted. Each entry is either a relationship name (whose
      * cardinality the client wants exposed as `meta.total` on the relationship
-     * object. The list is the raw requested set; whether a given name is actually
-     * countable (and to-many) is validated against the resource, and a count is
+     * object) or the reserved token `_self_`, which names the **primary
+     * collection/resource** (its `meta.total` top-level). The list is the raw
+     * requested set; whether a given target is actually countable is validated
+     * against the resource — a relation must be
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()} (and
+     * to-many), `_self_` requires the resource be
+     * {@see \haddowg\JsonApi\Resource\AbstractResource::countable()} — and a count is
      * only emitted when a {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface}
-     * supplies one.
+     * (relation) or the handler (`_self_`) supplies one.
      *
      * @return list<string>
      */
@@ -113,8 +118,9 @@ interface JsonApiRequestInterface extends ServerRequestInterface
 
     /**
      * Whether the request named `$relationship` in `?withCount` — the flat,
-     * position-independent membership test the serializer consults when deciding
-     * to render a relationship's `meta.total`.
+     * position-independent membership test the serializer (for a relationship's
+     * `meta.total`) and the handler (for `_self_`, the primary collection's total)
+     * consult. Pass the reserved token `_self_` to test the primary collection.
      */
     public function countsRelationship(string $relationship): bool;
 

@@ -64,11 +64,20 @@ final readonly class OffsetBasedPage extends AbstractPage
     public function pageMeta(): array
     {
         if ($this->totalItems === null) {
-            return [
+            $from = $this->offset + 1;
+            $meta = [
                 'offset' => $this->offset,
                 'limit' => $this->limit,
-                'from' => $this->offset + 1,
+                'from' => $from,
             ];
+            // The window's upper bound is known from the rendered item count even
+            // without a total (`to = from + count - 1`); omitted for an empty page.
+            $count = $this->renderedCount();
+            if ($count !== null && $count > 0) {
+                $meta['to'] = $from + $count - 1;
+            }
+
+            return $meta;
         }
 
         return [

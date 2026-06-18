@@ -34,6 +34,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
         public int $defaultPage = 1,
         public int $defaultPerPage = 15,
         public int $maxPerPage = self::DEFAULT_MAX_PER_PAGE,
+        public bool $wantsCount = false,
     ) {}
 
     public static function make(): self
@@ -43,22 +44,22 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage);
+        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withPerPageKey(string $perPageKey): self
     {
-        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage);
+        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage);
+        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
     }
 
     public function withDefaultPerPage(int $defaultPerPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage, $this->wantsCount);
     }
 
     /**
@@ -68,7 +69,23 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max));
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max), $this->wantsCount);
+    }
+
+    /**
+     * Opts this paginator into counting: it runs the `COUNT` on **every** paged
+     * request, so `meta.page.total` and the `last` link are always present. The
+     * author-always counterpart of the client's `?withCount=_self_`; no profile or
+     * param needed. Count-free remains the default (omit this).
+     */
+    public function withCount(): self
+    {
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, true);
+    }
+
+    public function wantsCount(): bool
+    {
+        return $this->wantsCount;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

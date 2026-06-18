@@ -15,7 +15,7 @@ use haddowg\JsonApi\Exception\TopLevelMemberNotAllowed;
 use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship;
-use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Schema\ResourceIdentifier;
 use Psr\Http\Message\ServerRequestInterface;
@@ -528,16 +528,22 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
      * name → name map (deduplicated, empty names dropped). A blank or absent
      * parameter yields an empty map.
      *
-     * Opt-in: an empty map unless the client negotiated the Relationship Counts
-     * profile (its URI in the `Accept` `profile` parameter), so `?withCount` carries
-     * no special meaning — and a relationship literally named after the family never
-     * collides — outside the profile.
+     * Each member is either a relationship name (its `meta.total` on the relationship
+     * object) or the reserved {@see CountableProfile::SELF_TOKEN} `_self_`, which
+     * names the primary collection/resource (its `meta.total` top-level). The map
+     * carries `_self_` through verbatim — no special parsing — and the countability
+     * gate is enforced downstream.
+     *
+     * Opt-in: an empty map unless the client negotiated the Countable profile (its
+     * URI in the `Accept` `profile` parameter), so `?withCount` carries no special
+     * meaning — and a relationship literally named after the family never collides —
+     * outside the profile.
      *
      * @return array<string, string>
      */
     protected function parseCountedRelationships(): array
     {
-        if ($this->isProfileRequested(RelationshipCountsProfile::URI) === false) {
+        if ($this->isProfileRequested(CountableProfile::URI) === false) {
             return [];
         }
 

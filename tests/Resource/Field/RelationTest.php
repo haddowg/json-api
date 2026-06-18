@@ -21,7 +21,7 @@ use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
-use haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship as OutputToOne;
@@ -50,12 +50,12 @@ use PHPUnit\Framework\TestCase;
 final class RelationTest extends TestCase
 {
     /**
-     * `?withCount` is gated behind the Relationship Counts profile, so a request that
+     * `?withCount` is gated behind the Countable profile, so a request that
      * exercises a count negotiates the profile URI in its `Accept`.
      *
      * @var array<string, string>
      */
-    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . RelationshipCountsProfile::URI . '"'];
+    private const array COUNTS_ACCEPT = ['Accept' => 'application/vnd.api+json;profile="' . CountableProfile::URI . '"'];
 
     #[Test]
     public function belongsToIsToOneAndBuildsToOneRelationship(): void
@@ -812,17 +812,39 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:pagination')]
-    public function paginationDefaultsToNullAndPaginateSetsIt(): void
+    public function paginationDefaultsToTheFallbackAndPaginateSetsIt(): void
     {
         $relation = HasMany::make('comments')->type('comments');
-        self::assertNull($relation->pagination());
+
+        // No own paginator and no fallback → null; a fallback is returned verbatim.
+        self::assertNull($relation->pagination(null));
+        $fallback = \haddowg\JsonApi\Pagination\PagePaginator::make()->withDefaultPerPage(9);
+        self::assertSame($fallback, $relation->pagination($fallback));
 
         $paginator = \haddowg\JsonApi\Pagination\PagePaginator::make();
         $returned = $relation->paginate($paginator);
 
-        // paginate() mutates and returns the same builder (not a clone).
+        // paginate() mutates and returns the same builder (not a clone), and its own
+        // paginator now wins over any fallback.
         self::assertSame($relation, $returned);
-        self::assertSame($paginator, $relation->pagination());
+        self::assertSame($paginator, $relation->pagination(null));
+        self::assertSame($paginator, $relation->pagination($fallback));
+    }
+
+    #[Test]
+    #[Group('spec:pagination')]
+    public function withoutPaginationReturnsNullRegardlessOfTheFallback(): void
+    {
+        $fallback = \haddowg\JsonApi\Pagination\PagePaginator::make();
+
+        // withoutPagination() short-circuits before the fallback: the opt-out wins
+        // even over a relation's own paginator and any resolved fallback.
+        $relation = HasMany::make('comments')->type('comments')
+            ->paginate(\haddowg\JsonApi\Pagination\OffsetPaginator::make())
+            ->withoutPagination();
+
+        self::assertNull($relation->pagination($fallback));
+        self::assertNull($relation->pagination(null));
     }
 
     #[Test]

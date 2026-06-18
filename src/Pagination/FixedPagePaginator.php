@@ -19,6 +19,7 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
         public int $size = 15,
         public string $pageKey = 'number',
         public int $defaultPage = 1,
+        public bool $wantsCount = false,
     ) {}
 
     public static function make(int $size = 15): self
@@ -28,17 +29,33 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
 
     public function withSize(int $size): self
     {
-        return new self($size, $this->pageKey, $this->defaultPage);
+        return new self($size, $this->pageKey, $this->defaultPage, $this->wantsCount);
     }
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($this->size, $pageKey, $this->defaultPage);
+        return new self($this->size, $pageKey, $this->defaultPage, $this->wantsCount);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->size, $this->pageKey, $defaultPage);
+        return new self($this->size, $this->pageKey, $defaultPage, $this->wantsCount);
+    }
+
+    /**
+     * Opts this paginator into counting: it runs the `COUNT` on **every** paged
+     * request, so `meta.page.total` and the `last` link are always present. The
+     * author-always counterpart of the client's `?withCount=_self_`; no profile or
+     * param needed. Count-free remains the default (omit this).
+     */
+    public function withCount(): self
+    {
+        return new self($this->size, $this->pageKey, $this->defaultPage, true);
+    }
+
+    public function wantsCount(): bool
+    {
+        return $this->wantsCount;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

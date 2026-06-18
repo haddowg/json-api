@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource;
 
 use haddowg\JsonApi\Hydrator\HydratorInterface as HydratorContract;
+use haddowg\JsonApi\Pagination\OffsetPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Resource\AbstractResource;
@@ -183,7 +184,54 @@ final class AbstractResourceTest extends TestCase
 
         self::assertCount(1, $resource->filters());
         self::assertSame('status', $resource->filters()[0]->key());
-        self::assertInstanceOf(PagePaginator::class, $resource->pagination());
+        self::assertInstanceOf(PagePaginator::class, $resource->pagination(null));
+    }
+
+    #[Test]
+    public function paginationInheritsTheServerDefaultByDefault(): void
+    {
+        $resource = new SegmentedResource();
+        $serverDefault = PagePaginator::make()->withDefaultPerPage(7);
+
+        // The base implementation returns the resolved server-default argument
+        // verbatim, so a non-overriding resource inherits it.
+        self::assertSame($serverDefault, $resource->pagination($serverDefault));
+        self::assertNull($resource->pagination(null));
+    }
+
+    #[Test]
+    public function paginationOverrideIsUsedVerbatim(): void
+    {
+        $resource = new PostResource();
+
+        // The override pins its own strategy regardless of the passed default.
+        self::assertInstanceOf(
+            PagePaginator::class,
+            $resource->pagination(OffsetPaginator::make()),
+        );
+    }
+
+    #[Test]
+    public function resourceIsNotCountableByDefaultThenOptsIn(): void
+    {
+        $resource = new SegmentedResource();
+
+        self::assertFalse($resource->isCountable());
+        self::assertSame($resource, $resource->countable());
+        self::assertTrue($resource->isCountable());
+    }
+
+    #[Test]
+    public function aRelationNamedSelfTokenIsRejectedAtBuild(): void
+    {
+        // `_self_` is the reserved ?withCount token for the primary collection, so a
+        // relation literally named `_self_` is ambiguous and rejected when the field
+        // inventory is first indexed.
+        $resource = new SelfTokenRelationResource();
+
+        $this->expectException(\LogicException::class);
+
+        $resource->relationNamed('_self_');
     }
 
     #[Test]
@@ -777,7 +825,7 @@ final class PostResource extends AbstractResource
         ];
     }
 
-    public function pagination(): \haddowg\JsonApi\Pagination\PaginatorInterface
+    public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $serverDefault): \haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return PagePaginator::make()->withDefaultPerPage(15);
     }
@@ -797,6 +845,23 @@ final class SegmentedResource extends AbstractResource
     {
         return [
             Id::make(),
+        ];
+    }
+}
+
+/**
+ * A resource declaring a relation literally named `_self_`, exercising the
+ * build-time collision guard against the reserved `?withCount` token.
+ */
+final class SelfTokenRelationResource extends AbstractResource
+{
+    public static string $type = 'collisions';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            HasMany::make('_self_')->type('others'),
         ];
     }
 }

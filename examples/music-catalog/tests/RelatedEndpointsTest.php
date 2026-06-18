@@ -29,10 +29,10 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
     use AssertsSpecCompliance;
 
     /**
-     * `?withCount` is gated behind the Relationship Counts profile, so a request that
+     * `?withCount` is gated behind the Countable profile, so a request that
      * exercises it negotiates the profile URI in its `Accept`.
      */
-    private const string COUNTS_ACCEPT = 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile::URI . '"';
+    private const string COUNTS_ACCEPT = 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\CountableProfile::URI . '"';
 
     #[Test]
     public function relatedReadReturnsTheFullToOneResource(): void

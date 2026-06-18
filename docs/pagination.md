@@ -40,16 +40,24 @@ page size of ten, unless a resource or relation declares its own. A
 [Resource](resources.md) overrides the default by implementing `pagination()`:
 
 ```php
-public function pagination(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $serverDefault): ?\haddowg\JsonApi\Pagination\PaginatorInterface
 {
     return PagePaginator::make()->withDefaultPerPage(25);
 }
 ```
 
-Returning `null` (the default on `AbstractResource`) defers to the server's
-default paginator. Pass `null` to `withDefaultPaginator()` and a collection with
-no per-resource override is unpaginated — `DataResponse::fromCollection()` serves
-the whole list.
+`pagination()` receives the **resolved server-default paginator** and its return is
+the single source of truth — used verbatim:
+
+- return `$serverDefault` (or don't override `pagination()` — that's the base) to
+  **inherit** the server default;
+- return a paginator to **pin** that strategy for this resource;
+- return `null` to **disable** pagination — the collection is fetched whole and
+  `DataResponse::fromCollection()` serves the entire list (with `meta.total`, see
+  [Counting and totals](#counting-and-totals)).
+
+(Pass `null` to `withDefaultPaginator()` and the server has no default, so a
+non-overriding resource is unpaginated too.)
 
 ## The two-method contract
 
@@ -93,7 +101,7 @@ the strategy (`resource → server default`) and hands the resulting `Page` to
 [`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php):
 
 ```php
-$paginator = $resource->pagination() ?? $server->defaultPaginator();
+$paginator = $resource->pagination($server->defaultPaginator());
 
 $result = $this->repository->fetchCollection(/* … */ $paginator);
 
@@ -237,6 +245,57 @@ without a `COUNT` by fetching **one item past the window** (`limit + 1`) — a s
 row proves a further page follows. This is exactly the
 [`WindowExecutor`](#the-shared-window-executor) count-free branch, and the same
 count-free shape [cursor pagination](#cursor-pagination) is built on.
+
+**Count-free is the default.** A paginator never asks to run the `COUNT` unless told
+to: `PaginatorInterface::wantsCount()` is `false` until an author flips it. A handler
+that honours the flag renders a plain `GET /articles?page[size]=2` count-free — no
+`meta.page.total`, no `last` link, `next` driven by `hasMore`, zero `COUNT` queries.
+(This example's repository counts its in-memory slice eagerly, so its pages always
+carry the total; a store where `COUNT` is expensive reads `wantsCount()` and calls
+`paginateWithoutCount()` instead.) See [Counting and totals](#counting-and-totals)
+for how to turn counting on.
+
+## Counting and totals
+
+Counting is **opt-in**, and a total — wherever it appears — is computed once and
+rendered consistently. A paginator advertises whether it wants the `COUNT` via
+`wantsCount()` (default `false`), which a host's handler reads to choose `paginate()`
+vs `paginateWithoutCount()`. There are two levers to turn counting on:
+
+- **`withCount()`** on a count-based paginator (author-always): the paginator runs
+  the `COUNT` on **every** paged request, so `meta.page.total` and the `last` link are
+  always present. No profile or param needed.
+
+  ```php
+  public function pagination(?PaginatorInterface $serverDefault): ?PaginatorInterface
+  {
+      return PagePaginator::make()->withDefaultPerPage(25)->withCount();
+  }
+  ```
+
+- **`countable()`** on the resource (client-on-demand): the resource declares its
+  primary collection countable, and a client requests the total per request with the
+  reserved [`?withCount=_self_`](profiles/countable.md) token (under the negotiated
+  Countable profile). A `?withCount=_self_` against a resource that is **not**
+  `countable()` is a `400`.
+
+  ```php
+  // The resource opts in once …
+  (new ArticleResource())->countable();
+  // … then a client asks per request:
+  // GET /articles?page[size]=2&withCount=_self_
+  ```
+
+When a total is computed — for either reason — the same number is written to the
+**top-level `meta.total`** (the universal cardinality slot) and, additionally, to
+**`meta.page.total`** when the collection is paginated; never counted twice. The
+cursor strategy is inherently count-free and takes neither lever.
+
+**No paginator ⇒ free total.** If the resolved paginator is `null` (no server
+default, none on the resource, or `withoutPagination()` on a relation), the collection
+is fetched whole — so its size is already known and counting is free. In that case
+`meta.total` is rendered **unconditionally** (even unrequested); there is no
+`meta.page.total` (no pagination).
 
 ## Capping the page size
 
@@ -419,16 +478,19 @@ HasMany::make('tracks')
 
 [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)
 does the same for its `tracks` relation. A to-one relation has no collection and
-ignores `paginate()`.
+ignores `paginate()`. Opt a relation out of pagination entirely with
+`withoutPagination()` — its related collection is then fetched whole (and renders
+`meta.total` unconditionally, see [Counting and totals](#counting-and-totals)).
 
 The effective strategy for a related collection resolves through a three-step
 fallback chain — **relation → related resource → server default** — which the
-handler reads off the relation:
+handler threads through `pagination()`: the resolved fallback is passed in, and the
+relation returns its own paginator over it (or `null`, via `withoutPagination()`):
 
 ```php
-$paginator = $relation->pagination()
-    ?? $relatedResource?->pagination()
+$fallback = $relatedResource?->pagination($server->defaultPaginator())
     ?? $server->defaultPaginator();
+$paginator = $relation->pagination($fallback);
 ```
 
 The related slice then renders through

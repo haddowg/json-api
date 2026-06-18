@@ -45,6 +45,17 @@ abstract readonly class AbstractPage implements \haddowg\JsonApi\Pagination\Page
         return [];
     }
 
+    /**
+     * The number of items rendered on this page, or `null` when the items are not
+     * cheaply countable (a non-`Countable` `Traversable`). Used to derive the
+     * count-free `meta.page.to` (`from + count - 1`) — the window's upper bound is
+     * known from what was fetched, without a total.
+     */
+    protected function renderedCount(): ?int
+    {
+        return \is_array($this->items) || $this->items instanceof \Countable ? \count($this->items) : null;
+    }
+
     public function profile(): ?ProfileInterface
     {
         return null;

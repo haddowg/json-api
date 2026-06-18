@@ -32,34 +32,52 @@ final class RelatedResponse extends AbstractResponse
 
     /**
      * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
+     * @param bool|null                                            $selfCountable the owning relation's
+     *                                                                            `countable()`, gating
+     *                                                                            `?withCount=_self_` on this
+     *                                                                            related collection (the
+     *                                                                            relation, not the related
+     *                                                                            resource); `null` defers to
+     *                                                                            the related serializer
      */
     private function __construct(
         private readonly mixed $related,
         private readonly SerializerInterface $relatedResource,
         private readonly bool $isCollection,
         private readonly ?\haddowg\JsonApi\Pagination\PageInterface $page = null,
+        private readonly ?bool $selfCountable = null,
     ) {}
 
     /**
      * A single related-resource response whose `data` is the related object.
+     *
+     * A to-one related endpoint has no collection, so `?withCount=_self_` is always
+     * invalid here — the response carries `selfCountable: false` so core's document
+     * gate rejects `_self_` (400) regardless of the related resource's own
+     * countability.
      */
     public static function fromResource(
         mixed $related,
         SerializerInterface $relatedResource,
     ): self {
-        return new self($related, $relatedResource, false);
+        return new self($related, $relatedResource, false, null, false);
     }
 
     /**
      * A related-collection response whose `data` is a list of related objects.
+     *
+     * `$selfCountable` is the owning relation's `countable()` — when supplied it gates
+     * `?withCount=_self_` on this collection against the relation (whose endpoint this
+     * is) rather than the related resource.
      *
      * @param iterable<mixed> $related
      */
     public static function fromCollection(
         iterable $related,
         SerializerInterface $relatedResource,
+        ?bool $selfCountable = null,
     ): self {
-        return new self($related, $relatedResource, true);
+        return new self($related, $relatedResource, true, null, $selfCountable);
     }
 
     /**
@@ -71,6 +89,9 @@ final class RelatedResponse extends AbstractResponse
      * collection. A page that activates a profile (e.g. cursor pagination) causes
      * the response to advertise it.
      *
+     * `$selfCountable` is the owning relation's `countable()`, gating
+     * `?withCount=_self_` on this collection against the relation.
+     *
      * @template T
      *
      * @param \haddowg\JsonApi\Pagination\PageInterface<T> $page
@@ -78,8 +99,9 @@ final class RelatedResponse extends AbstractResponse
     public static function fromPage(
         \haddowg\JsonApi\Pagination\PageInterface $page,
         SerializerInterface $relatedSerializer,
+        ?bool $selfCountable = null,
     ): self {
-        return new self($page, $relatedSerializer, true, $page);
+        return new self($page, $relatedSerializer, true, $page, $selfCountable);
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
@@ -97,6 +119,7 @@ final class RelatedResponse extends AbstractResponse
             [],
             $server->baseUri(),
             $server->maxIncludeDepth(),
+            $this->selfCountable,
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

@@ -473,9 +473,9 @@ final class ServerTest extends TestCase
         $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
         $server = Server::make()
             ->withHandler($handler)
-            ->withProfile(new \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile());
+            ->withProfile(new \haddowg\JsonApi\Schema\Profile\CountableProfile());
 
-        // `withCount` is recognized only when the Relationship Counts profile it
+        // `withCount` is recognized only when the Countable profile it
         // belongs to is registered and negotiated in the Accept `profile` parameter.
         $operation = $this->stubOperation(StubJsonApiRequest::create([
             'fields' => ['posts' => 'title'],
@@ -485,7 +485,7 @@ final class ServerTest extends TestCase
             'filter' => ['draft' => '0'],
             'withCount' => 'comments',
         ], [
-            'Accept' => 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\RelationshipCountsProfile::URI . '"',
+            'Accept' => 'application/vnd.api+json;profile="' . \haddowg\JsonApi\Schema\Profile\CountableProfile::URI . '"',
         ]));
 
         $server->dispatch($operation);

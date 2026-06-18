@@ -94,14 +94,24 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
 
     /**
      * Validates the request's flat `?withCount` against the primary resource's
-     * countable relationships, up front (root-scoped, like the include allow-list).
-     * A named relationship the primary serializer does not declare countable —
-     * because it is not {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()},
-     * or it is to-one — is rejected with {@see RelationshipCountNotAllowed} (400).
+     * countable targets, up front (root-scoped, like the include allow-list).
      *
-     * A serializer that is not {@see CountableControlsInterface} declares no
-     * countable relationships, so any `?withCount` against it is rejected — counting
-     * is opt-in. An empty `?withCount` (or none) is a no-op.
+     * The reserved `_self_` token (the primary collection's total) is split out and
+     * validated against the resource-level
+     * {@see \haddowg\JsonApi\Serializer\CountableSelfInterface::isCountable()}: a
+     * `?withCount=_self_` against a serializer that is not
+     * {@see CountableSelfInterface} — or whose {@see CountableSelfInterface::isCountable()}
+     * is `false` — is rejected. The remaining (relation) names are validated against
+     * the resource's declared countable relationships: a name the primary serializer
+     * does not declare countable — because it is not
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}, or it is
+     * to-one — is rejected. Either offence raises {@see RelationshipCountNotAllowed}
+     * (400).
+     *
+     * A serializer that is not {@see CountableControlsInterface} declares no countable
+     * relationships, and one that is not {@see CountableSelfInterface} is not
+     * `_self_`-countable, so any `?withCount` against a bare serializer is rejected —
+     * counting is opt-in. An empty `?withCount` (or none) is a no-op.
      */
     private function validateCountedRelationships(
         ResourceDocumentTransformation $transformation,
@@ -112,11 +122,32 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
             return;
         }
 
+        $offending = [];
+
+        $selfRequested = \in_array(\haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN, $requested, true);
+        if ($selfRequested) {
+            // A related-collection render supplies the owning relation's `countable()`
+            // as the override, so `_self_` is gated by the *relation* (whose endpoint
+            // this is), not the related resource that happens to be the primary
+            // serializer. Absent an override, `_self_` is gated by the primary
+            // serializer's own resource-level countability.
+            $selfCountable = $transformation->countableSelfOverride
+                ?? ($primary instanceof \haddowg\JsonApi\Serializer\CountableSelfInterface && $primary->isCountable());
+            if ($selfCountable === false) {
+                $offending[] = \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN;
+            }
+        }
+
+        $relationNames = \array_values(\array_filter(
+            $requested,
+            static fn(string $name): bool => $name !== \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
+        ));
+
         $countable = $primary instanceof CountableControlsInterface
             ? $primary->getCountableRelationships($transformation->object)
             : [];
 
-        $offending = \array_values(\array_diff($requested, $countable));
+        $offending = [...$offending, ...\array_values(\array_diff($relationNames, $countable))];
         if ($offending !== []) {
             throw new RelationshipCountNotAllowed($offending);
         }

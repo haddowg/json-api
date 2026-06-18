@@ -66,4 +66,14 @@ interface PaginatorInterface
      * @return \haddowg\JsonApi\Pagination\PageInterface<mixed>
      */
     public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): \haddowg\JsonApi\Pagination\PageInterface;
+
+    /**
+     * Whether this strategy runs the `COUNT` on every paged request (the author
+     * opt-in: count-free by default, `true` only when {@see PagePaginator::withCount()}
+     * (or its sibling on the other count-based strategies) flipped it; the cursor
+     * strategy is inherently count-free and returns `false`). The bundle handler
+     * reads this to decide {@see paginate()} vs {@see paginateWithoutCount()} and
+     * whether to issue the `COUNT`.
+     */
+    public function wantsCount(): bool;
 }

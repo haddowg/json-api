@@ -22,6 +22,18 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
     /**
      * @param array<string, mixed> $additionalMeta
      */
+    /**
+     * @param bool|null $countableSelfOverride when non-null, the `?withCount=_self_`
+     *                                         countability for this document, supplied
+     *                                         by the caller instead of read from the
+     *                                         primary serializer — a related-collection
+     *                                         render ({@see \haddowg\JsonApi\Response\RelatedResponse})
+     *                                         passes the owning relation's `countable()`
+     *                                         so `_self_` is gated by the *relation*, not
+     *                                         the related resource. `null` (the default)
+     *                                         falls back to the primary serializer's own
+     *                                         {@see \haddowg\JsonApi\Serializer\CountableSelfInterface::isCountable()}.
+     */
     public function __construct(
         ResourceDocumentInterface $document,
         public mixed $object,
@@ -31,6 +43,7 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
         array $additionalMeta,
         public string $baseUri = '',
         public ?int $maxIncludeDepth = null,
+        public ?bool $countableSelfOverride = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

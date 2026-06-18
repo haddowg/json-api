@@ -1878,7 +1878,7 @@ final class JsonApiRequestTest extends TestCase
     }
 
     /**
-     * A request that has negotiated the Relationship Counts profile via the
+     * A request that has negotiated the Countable profile via the
      * Accept `profile` media-type parameter, carrying the given query params.
      *
      * @param array<string, mixed> $queryParams
@@ -1888,7 +1888,7 @@ final class JsonApiRequestTest extends TestCase
         $psrRequest = (new ServerRequest(
             'GET',
             '/',
-            ['accept' => 'application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/relationship-counts/"'],
+            ['accept' => 'application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/countable/"'],
         ))->withQueryParams($queryParams);
 
         return new JsonApiRequest($psrRequest);

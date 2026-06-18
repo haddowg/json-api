@@ -223,29 +223,33 @@ host (e.g. the Doctrine bundle) does the page-1 windowing:
   parent request). With no resolver injected (standalone core) no
   relationship-object pagination links are emitted.
 
-## The bundled relationship-counts profile
+## The bundled Countable profile
 
-The library also ships `Schema\Profile\RelationshipCountsProfile`, whose canonical
+The library also ships `Schema\Profile\CountableProfile`, whose canonical
 URI is
-[`https://haddowg.github.io/json-api/profiles/relationship-counts/`](profiles/relationship-counts.md)
+[`https://haddowg.github.io/json-api/profiles/countable/`](profiles/countable.md)
 — and that URI **resolves to the profile's specification** (see the
-[Relationship Counts profile spec](profiles/relationship-counts.md)). The profile
-lets a client ask for **the size of a relationship's set** alongside the primary
-resource, naming the relationships to count through a single flat query-parameter
-family, `withCount` (spec-compliant because its base carries an uppercase `C`):
+[Countable profile spec](profiles/countable.md)). The profile lets a client ask for
+**the size of a countable collection** alongside the primary resource — a named
+relationship's set and/or the **primary collection itself** via the reserved
+`_self_` token — through a single flat query-parameter family, `withCount`
+(spec-compliant because its base carries an uppercase `C`):
 
 ```
-withCount=comments,tags
+withCount=_self_,comments,tags
 ```
 
-`withCount` is the same flat, comma-separated shape as `?include`; each named
+`withCount` is the same flat, comma-separated shape as `?include`. Each named
 to-many relationship the server has made [`countable()`](relations.md#countable-relations-and-withcount)
-gets a `total` member on its relationship object's `meta` when the resource is
-rendered. Like every profile it is **opt-in by negotiation**: the family is parsed
-only when the client negotiated the profile URI, and is otherwise ignored. Naming a
-non-countable relation, a to-one, or an unknown relationship is a `400` with
-`source.parameter` `withCount`. The count reflects the relation's *filtered* set, so
-it agrees with the total the relationship's own related-collection endpoint reports.
+gets a `total` member on its relationship object's `meta`; the reserved `_self_`
+token counts the primary collection (a [`countable()`](pagination.md#counting-and-totals)
+resource) onto the top-level `meta.total` — and `meta.page.total` when the collection
+is paginated, from a single count. Like every profile it is **opt-in by
+negotiation**: the family is parsed only when the client negotiated the profile URI,
+and is otherwise ignored. Naming a non-countable relation, a to-one, an unknown
+relationship, or `_self_` against a non-countable resource is a `400` with
+`source.parameter` `withCount`. The count reflects the *filtered* set, so it agrees
+with the total the collection's own endpoint reports.
 
 ## Registering profiles
 
