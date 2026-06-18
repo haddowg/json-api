@@ -94,6 +94,46 @@ final class RequestValidatorTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:content-negotiation')]
+    public function negotiateSkipsTheContentTypeAssertionWhenNotRequired(): void
+    {
+        // A request body that would normally fail the Content-Type assertion (here a
+        // JSON:API media type carrying a disallowed `charset` parameter — the same
+        // body a raw-input custom action might send) passes once the assertion is
+        // relaxed, while Accept negotiation stays intact.
+        $request = $this->createRequest('application/vnd.api+json; charset=utf-8', 'application/vnd.api+json');
+        $validator = new RequestValidator();
+
+        $validator->negotiate($request, requireJsonApiContentType: false);
+
+        self::addToAssertionCount(1);
+    }
+
+    #[Test]
+    #[Group('spec:content-negotiation')]
+    public function negotiateStillEnforcesAcceptWhenContentTypeIsNotRequired(): void
+    {
+        $request = $this->createRequest('application/vnd.api+json; charset=utf-8', 'application/vnd.api+json; charset=utf-8');
+        $validator = new RequestValidator();
+
+        $this->expectException(MediaTypeUnacceptable::class);
+
+        $validator->negotiate($request, requireJsonApiContentType: false);
+    }
+
+    #[Test]
+    #[Group('spec:content-negotiation')]
+    public function negotiateStillEnforcesContentTypeByDefault(): void
+    {
+        $request = $this->createRequest('application/vnd.api+json; charset=utf-8', 'application/vnd.api+json');
+        $validator = new RequestValidator();
+
+        $this->expectException(MediaTypeUnsupported::class);
+
+        $validator->negotiate($request);
+    }
+
+    #[Test]
     #[Group('spec:query-parameters')]
     public function validateQueryParamsWhenValid(): void
     {

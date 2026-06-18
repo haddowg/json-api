@@ -50,12 +50,19 @@ final class RequestValidator
      * negotiation: an unsupported `ext` on `Content-Type` yields `415`, and an
      * unsupported `ext` on `Accept` yields `406`.
      *
+     * Pass `$requireJsonApiContentType` as `false` to skip *only* the request-body
+     * `Content-Type` assertion (Accept negotiation and extension support are
+     * unchanged) — for endpoints that accept a non-JSON:API request body, such as a
+     * custom action declaring a raw/multipart input.
+     *
      * @throws MediaTypeUnsupported
      * @throws MediaTypeUnacceptable
      */
-    public function negotiate(JsonApiRequestInterface $request): void
+    public function negotiate(JsonApiRequestInterface $request, bool $requireJsonApiContentType = true): void
     {
-        $request->validateContentTypeHeader();
+        if ($requireJsonApiContentType) {
+            $request->validateContentTypeHeader();
+        }
         $request->validateAcceptHeader();
         $this->negotiateExtensions($request);
     }
