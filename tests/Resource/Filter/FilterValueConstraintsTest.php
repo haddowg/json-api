@@ -118,13 +118,13 @@ final class FilterValueConstraintsTest extends TestCase
 
     #[Test]
     #[DataProvider('valueCarryingFilters')]
-    public function booleanShortcutAppendsATrueFalseOneZeroPattern(Where|WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter): void
+    public function booleanShortcutAppendsTheFilterValidateBooleanVocabularyPattern(Where|WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter): void
     {
         $constraints = $filter->boolean()->constraints();
 
         self::assertCount(1, $constraints);
         self::assertInstanceOf(Pattern::class, $constraints[0]);
-        self::assertSame('^(?:true|false|1|0)$', $constraints[0]->regex);
+        self::assertSame('^\s*(?i:true|false|1|0|on|off|yes|no)\s*$|^\s*$', $constraints[0]->regex);
     }
 
     #[Test]

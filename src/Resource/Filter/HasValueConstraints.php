@@ -127,11 +127,16 @@ trait HasValueConstraints
     }
 
     /**
-     * The value must be a boolean wire form: `true`, `false`, `1` or `0`.
+     * The value must be a boolean wire form accepted by `FILTER_VALIDATE_BOOLEAN`:
+     * `1`/`true`/`on`/`yes` (truthy) or `0`/`false`/`off`/`no`/`''` (falsy),
+     * case-insensitively and with optional surrounding whitespace — exactly the
+     * vocabulary {@see Where::asBoolean()} coerces, so the {@see Boolean} filter's
+     * coercion, validation and OpenAPI value schema all accept the same set (they
+     * must not drift apart).
      */
     public function boolean(): static
     {
-        return $this->constrain(new Pattern('^(?:true|false|1|0)$'));
+        return $this->constrain(new Pattern('^\s*(?i:true|false|1|0|on|off|yes|no)\s*$|^\s*$'));
     }
 
     /**

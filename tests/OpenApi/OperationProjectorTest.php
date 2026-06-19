@@ -13,6 +13,8 @@ use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Filter\DateRange;
+use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -61,6 +63,8 @@ final class OperationProjectorTest extends TestCase
             filters: [
                 Where::make('status')->describedAs('Filter by status.'),
                 Where::make('wordCount')->integer(),
+                Range::make('rating'),
+                DateRange::make('published'),
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             includablePaths: ['author', 'tags', 'author.company'],
@@ -128,6 +132,34 @@ final class OperationProjectorTest extends TestCase
         // A presence-only/described filter still carries its description.
         $status = $this->parameterNamed($get, 'filter[status]');
         self::assertSame('Filter the collection by `status`.', $this->strAt($status, 'description'));
+    }
+
+    #[Test]
+    public function aRangeFilterParameterCarriesAnObjectValueSchemaWithMinAndMaxBounds(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        // Range projects an object value schema (ADR 0076), not the scalar numeric
+        // string its per-bound constraint would otherwise yield: the nested
+        // filter[rating][min]/[max] wire shape is documented as {min, max}.
+        $rating = $this->parameterNamed($get, 'filter[rating]');
+        self::assertSame('object', $this->strAt($rating, 'schema', 'type'));
+        self::assertSame('^-?[0-9]+(?:\.[0-9]+)?$', $this->strAt($rating, 'schema', 'properties', 'min', 'pattern'));
+        self::assertSame('^-?[0-9]+(?:\.[0-9]+)?$', $this->strAt($rating, 'schema', 'properties', 'max', 'pattern'));
+    }
+
+    #[Test]
+    public function aDateRangeFilterParameterCarriesDateTimeBoundsInItsObjectValueSchema(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        // DateRange bounds are string/date-time (spec §6).
+        $published = $this->parameterNamed($get, 'filter[published]');
+        self::assertSame('object', $this->strAt($published, 'schema', 'type'));
+        self::assertSame('string', $this->strAt($published, 'schema', 'properties', 'min', 'type'));
+        self::assertSame('date-time', $this->strAt($published, 'schema', 'properties', 'min', 'format'));
+        self::assertSame('string', $this->strAt($published, 'schema', 'properties', 'max', 'type'));
+        self::assertSame('date-time', $this->strAt($published, 'schema', 'properties', 'max', 'format'));
     }
 
     #[Test]
