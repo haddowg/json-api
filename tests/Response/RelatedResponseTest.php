@@ -37,7 +37,6 @@ final class RelatedResponseTest extends TestCase
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame(
             [
-                'jsonapi' => ['version' => '1.1'],
                 'data' => [
                     'type' => 'author',
                     'id' => '42',
@@ -45,6 +44,7 @@ final class RelatedResponseTest extends TestCase
                     'attributes' => ['name' => 'Ada'],
                 ],
                 'links' => ['self' => '/'],
+                'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -114,12 +114,12 @@ final class RelatedResponseTest extends TestCase
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame(
             [
-                'jsonapi' => ['version' => '1.1'],
                 'data' => [
                     ['type' => 'comment', 'id' => '10', 'links' => ['self' => '/comment/10']],
                     ['type' => 'comment', 'id' => '20', 'links' => ['self' => '/comment/20']],
                 ],
                 'links' => ['self' => '/'],
+                'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -225,7 +225,6 @@ final class RelatedResponseTest extends TestCase
 
         self::assertSame(
             [
-                'jsonapi' => ['version' => '1.1'],
                 'data' => [
                     'type' => 'author',
                     'id' => '7',
@@ -233,6 +232,7 @@ final class RelatedResponseTest extends TestCase
                     'attributes' => ['name' => 'Lovelace'],
                 ],
                 'links' => ['self' => '/'],
+                'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode(
                 $response->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),

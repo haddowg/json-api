@@ -32,7 +32,6 @@ final class DataResponseTest extends TestCase
         self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
         self::assertSame(
             [
-                'jsonapi' => ['version' => '1.1'],
                 'data' => [
                     'type' => 'user',
                     'id' => '1',
@@ -40,6 +39,7 @@ final class DataResponseTest extends TestCase
                     'attributes' => ['name' => 'Vader'],
                 ],
                 'links' => ['self' => '/'],
+                'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
         );
@@ -157,6 +157,10 @@ final class DataResponseTest extends TestCase
 
         $body = $this->decode($psr->getBody()->getContents());
 
+        // Top-level members are always serialized in the canonical order: data
+        // first, jsonapi last (TopLevelMembers::ORDER), regardless of the order they
+        // were set on the response.
+        self::assertSame(['data', 'links', 'meta', 'jsonapi'], \array_keys($body));
         self::assertSame('yes', $psr->getHeaderLine('X-Test'));
         self::assertSame(['page' => 1], $body['meta']);
         self::assertSame(['self' => '/users/1'], $body['links']);

@@ -155,6 +155,27 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function documentEnvelopesOrderTopLevelMembersCanonically(): void
+    {
+        $schemas = $this->schemas();
+
+        // The envelope schemas mirror the wire's canonical top-level member order
+        // (TopLevelMembers::ORDER): data/errors first, jsonapi last.
+        self::assertSame(
+            ['data', 'included', 'links', 'meta', 'jsonapi'],
+            \array_keys($this->arrAt($schemas, 'ArticlesDocument', 'properties')),
+        );
+        self::assertSame(
+            ['data', 'included', 'links', 'meta', 'jsonapi'],
+            \array_keys($this->arrAt($schemas, 'ArticlesCollection', 'properties')),
+        );
+        self::assertSame(
+            ['errors', 'links', 'meta', 'jsonapi'],
+            \array_keys($this->arrAt($schemas, 'ErrorDocument', 'properties')),
+        );
+    }
+
+    #[Test]
     public function itGivesAStandaloneTypeAPermissiveResourceObjectWithoutAttributesOrRequests(): void
     {
         $schemas = $this->schemas();

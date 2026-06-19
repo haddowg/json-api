@@ -403,10 +403,10 @@ final class OpenApiProjector
     private function relationshipDocumentSchema(RelationMetadataInterface $relation): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('data', $this->linkageData($relation))
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
@@ -420,11 +420,11 @@ final class OpenApiProjector
     private function relatedToOneDocumentSchema(RelationMetadataInterface $relation): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)))
             ->withProperty('included', $this->includedSchema())
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
@@ -438,11 +438,11 @@ final class OpenApiProjector
     private function polymorphicRelatedCollectionSchema(RelationMetadataInterface $relation): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)))
             ->withProperty('included', $this->includedSchema())
             ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
@@ -528,11 +528,11 @@ final class OpenApiProjector
     private function singleDocumentSchema(string $base): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource'))
             ->withProperty('included', $this->includedSchema())
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
@@ -543,11 +543,11 @@ final class OpenApiProjector
     private function collectionDocumentSchema(string $base): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withProperty('data', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/' . $base . 'Resource')))
             ->withProperty('included', $this->includedSchema())
             ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
@@ -640,10 +640,10 @@ final class OpenApiProjector
     private function errorDocumentSchema(): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withProperty('errors', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/Error'))->withMinItems(1))
-            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['errors']);
     }
 
