@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Resource\Constraint\ExclusiveMax;
 use haddowg\JsonApi\Resource\Constraint\ExclusiveMin;
-use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\Max;
 use haddowg\JsonApi\Resource\Constraint\Min;
 use haddowg\JsonApi\Resource\Constraint\MultipleOf;
@@ -57,12 +56,16 @@ final class Integer extends AbstractField
     }
 
     /**
-     * @param list<int> $values
+     * Restricts the value to an enumerated set of integers. Members may be plain
+     * integers or **int-backed-enum cases** (normalized to their backing value),
+     * matching {@see AbstractField::in()}.
+     *
+     * @param list<int|\BackedEnum> $values
      * @return static
      */
     public function in(array $values): static
     {
-        return $this->addConstraint(new In($values, $this->currentContext()));
+        return parent::in($values);
     }
 
     protected function serializeValue(mixed $raw): mixed

@@ -33,6 +33,9 @@ final readonly class WithinRadius implements FilterInterface
         public string $latColumn,
         public string $lngColumn,
         public array $constraints = [],
+        public ?string $description = null,
+        public bool $hasExample = false,
+        public mixed $example = null,
     ) {}
 
     public static function make(string $key, string $latColumn = 'latitude', string $lngColumn = 'longitude'): self
@@ -50,6 +53,11 @@ final readonly class WithinRadius implements FilterInterface
      */
     protected function withConstraints(array $constraints): static
     {
-        return new self($this->key, $this->latColumn, $this->lngColumn, $constraints);
+        return new self($this->key, $this->latColumn, $this->lngColumn, $constraints, $this->description, $this->hasExample, $this->example);
+    }
+
+    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
+    {
+        return new self($this->key, $this->latColumn, $this->lngColumn, $this->constraints, $description, $hasExample, $example);
     }
 }

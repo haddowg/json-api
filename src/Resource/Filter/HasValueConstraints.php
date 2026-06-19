@@ -26,9 +26,18 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * the existing `singular()` / `default()` / `deserializeUsing()` refinements. The
  * host filter supplies {@see withConstraints()} (it alone knows its constructor).
  *
+ * It also carries the **description / example** authoring metadata the OpenAPI
+ * generator reads when projecting this filter's `filter[<key>]` query parameter
+ * (forward use — the filter→parameter projection lands in a later slice). Both are
+ * immutable withers like {@see constrain()}, backed by the host's
+ * {@see withDescriptionAndExample()} seam.
+ *
  * @phpstan-require-implements FilterInterface
  *
  * @property-read list<ConstraintInterface> $constraints
+ * @property-read ?string                   $description
+ * @property-read bool                      $hasExample
+ * @property-read mixed                     $example
  */
 trait HasValueConstraints
 {
@@ -40,6 +49,48 @@ trait HasValueConstraints
     public function constraints(): array
     {
         return $this->constraints;
+    }
+
+    /**
+     * Sets a human-readable description surfaced by the OpenAPI generator.
+     * Immutable: returns a new instance.
+     */
+    public function describedAs(string $description): static
+    {
+        return $this->withDescriptionAndExample($description, $this->hasExample, $this->example);
+    }
+
+    /**
+     * Sets an example value surfaced by the OpenAPI generator. A declared `null`
+     * is honoured (distinct from "no example"). Immutable: returns a new instance.
+     */
+    public function example(mixed $example): static
+    {
+        return $this->withDescriptionAndExample($this->description, true, $example);
+    }
+
+    /**
+     * The declared description surfaced by the OpenAPI generator, or `null`.
+     */
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    /**
+     * Whether an example value was declared (distinct from a declared `null`).
+     */
+    public function hasExample(): bool
+    {
+        return $this->hasExample;
+    }
+
+    /**
+     * The declared example value; only meaningful when {@see hasExample()} is true.
+     */
+    public function getExample(): mixed
+    {
+        return $this->example;
     }
 
     /**
@@ -98,4 +149,11 @@ trait HasValueConstraints
      * @param list<ConstraintInterface> $constraints
      */
     abstract protected function withConstraints(array $constraints): static;
+
+    /**
+     * Rebuilds the host filter with the given description / example metadata. The
+     * host alone knows its constructor shape, so each value-carrying filter
+     * implements this.
+     */
+    abstract protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static;
 }

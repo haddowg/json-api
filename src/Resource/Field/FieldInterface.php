@@ -66,6 +66,24 @@ interface FieldInterface
     public function isSortable(): bool;
 
     /**
+     * The human-readable description surfaced by the OpenAPI generator, or `null`
+     * when none was declared.
+     */
+    public function getDescription(): ?string;
+
+    /**
+     * Whether an example value was declared (distinct from a declared `null`
+     * example), surfaced by the OpenAPI generator.
+     */
+    public function hasExample(): bool;
+
+    /**
+     * The example value surfaced by the OpenAPI generator; only meaningful when
+     * {@see hasExample()} is true.
+     */
+    public function getExample(): mixed;
+
+    /**
      * The validation constraints declared on this field.
      *
      * @return list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>

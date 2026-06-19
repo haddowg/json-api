@@ -23,6 +23,9 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
         public mixed $default = null,
         public bool $hasDefault = false,
         public array $constraints = [],
+        public ?string $description = null,
+        public bool $hasExample = false,
+        public mixed $example = null,
     ) {}
 
     public static function make(string $key = 'id', string $column = 'id'): self
@@ -37,7 +40,7 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
 
     public function delimiter(string $delimiter): self
     {
-        return new self($this->key, $this->column, $delimiter, $this->default, $this->hasDefault, $this->constraints);
+        return new self($this->key, $this->column, $delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     /**
@@ -48,7 +51,7 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
      */
     public function default(mixed $value): self
     {
-        return new self($this->key, $this->column, $this->delimiter, $value, true, $this->constraints);
+        return new self($this->key, $this->column, $this->delimiter, $value, true, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     public function hasDefault(): bool
@@ -66,6 +69,11 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Filte
      */
     protected function withConstraints(array $constraints): static
     {
-        return new self($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $constraints);
+        return new self($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $constraints, $this->description, $this->hasExample, $this->example);
+    }
+
+    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
+    {
+        return new self($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $description, $hasExample, $example);
     }
 }

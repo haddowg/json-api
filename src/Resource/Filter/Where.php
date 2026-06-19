@@ -24,6 +24,9 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
         public mixed $default = null,
         public bool $hasDefault = false,
         public array $constraints = [],
+        public ?string $description = null,
+        public bool $hasExample = false,
+        public mixed $example = null,
     ) {}
 
     public static function make(string $key, ?string $column = null, string $operator = '='): self
@@ -43,7 +46,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     public function singular(): self
     {
-        return new self($this->key, $this->column, $this->operator, $this->deserialize, true, $this->default, $this->hasDefault, $this->constraints);
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, true, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     public function isSingular(): bool
@@ -56,7 +59,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     public function deserializeUsing(\Closure $deserialize): self
     {
-        return new self($this->key, $this->column, $this->operator, $deserialize, $this->singular, $this->default, $this->hasDefault, $this->constraints);
+        return new self($this->key, $this->column, $this->operator, $deserialize, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     /**
@@ -73,7 +76,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     public function default(mixed $value): self
     {
-        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $value, true, $this->constraints);
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $value, true, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     public function hasDefault(): bool
@@ -91,6 +94,11 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInt
      */
     protected function withConstraints(array $constraints): static
     {
-        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $this->default, $this->hasDefault, $constraints);
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $this->default, $this->hasDefault, $constraints, $this->description, $this->hasExample, $this->example);
+    }
+
+    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
+    {
+        return new self($this->key, $this->column, $this->operator, $this->deserialize, $this->singular, $this->default, $this->hasDefault, $this->constraints, $description, $hasExample, $example);
     }
 }

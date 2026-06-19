@@ -37,6 +37,9 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\Fi
         public string $operator = '=',
         public ?\Closure $deserialize = null,
         public array $constraints = [],
+        public ?string $description = null,
+        public bool $hasExample = false,
+        public mixed $example = null,
     ) {}
 
     /**
@@ -60,7 +63,7 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\Fi
      */
     public function operator(string $operator): self
     {
-        return new self($this->key, $this->path, $operator, $this->deserialize, $this->constraints);
+        return new self($this->key, $this->path, $operator, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     /**
@@ -68,7 +71,7 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\Fi
      */
     public function deserializeUsing(\Closure $deserialize): self
     {
-        return new self($this->key, $this->path, $this->operator, $deserialize, $this->constraints);
+        return new self($this->key, $this->path, $this->operator, $deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
     }
 
     /**
@@ -76,6 +79,11 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\Fi
      */
     protected function withConstraints(array $constraints): static
     {
-        return new self($this->key, $this->path, $this->operator, $this->deserialize, $constraints);
+        return new self($this->key, $this->path, $this->operator, $this->deserialize, $constraints, $this->description, $this->hasExample, $this->example);
+    }
+
+    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
+    {
+        return new self($this->key, $this->path, $this->operator, $this->deserialize, $this->constraints, $description, $hasExample, $example);
     }
 }

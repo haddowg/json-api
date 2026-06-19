@@ -52,6 +52,22 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected array $constraints = [];
 
     /**
+     * Human-readable description surfaced by the OpenAPI generator. `null` = none.
+     */
+    protected ?string $description = null;
+
+    /**
+     * Whether an example value has been declared (distinct from a declared `null`
+     * example, which {@see $example} alone cannot represent).
+     */
+    protected bool $hasExample = false;
+
+    /**
+     * The declared example value surfaced by the OpenAPI generator.
+     */
+    protected mixed $example = null;
+
+    /**
      * @var \Closure(mixed, JsonApiRequestInterface, string): mixed|null
      */
     protected ?\Closure $serializeUsing = null;
@@ -312,12 +328,36 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     }
 
     /**
+     * Restricts the value to an enumerated set. Members may be plain scalars or
+     * **backed-enum cases**; cases are normalized to their backing scalar value
+     * (so the stored {@see In} always carries plain scalars). When every member
+     * is a case of one backed enum, that enum's class-string is retained on the
+     * {@see In} so the OpenAPI generator can emit richer enum metadata.
+     *
      * @param list<mixed> $values
      * @return static
      */
     public function in(array $values): static
     {
-        return $this->addConstraint(new In($values, $this->currentContext()));
+        [$scalars, $enumClass] = self::normalizeEnumValues($values);
+
+        return $this->addConstraint(new In($scalars, $this->currentContext(), $enumClass));
+    }
+
+    /**
+     * Restricts the value to the backing scalars of a backed enum's cases. The
+     * field's schema type follows the enum's backing type (string or integer),
+     * and the enum class-string is retained on the {@see In} for the OpenAPI
+     * generator (var-names, per-value descriptions, a reusable component).
+     *
+     * @param class-string<\BackedEnum> $enum
+     * @return static
+     */
+    public function enum(string $enum): static
+    {
+        $values = \array_map(static fn(\BackedEnum $case): int|string => $case->value, $enum::cases());
+
+        return $this->addConstraint(new In(\array_values($values), $this->currentContext(), $enum));
     }
 
     /**
@@ -326,7 +366,35 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     public function notIn(array $values): static
     {
-        return $this->addConstraint(new NotIn($values, $this->currentContext()));
+        [$scalars] = self::normalizeEnumValues($values);
+
+        return $this->addConstraint(new NotIn($scalars, $this->currentContext()));
+    }
+
+    /**
+     * Sets a human-readable description surfaced by the OpenAPI generator.
+     *
+     * @return static
+     */
+    public function description(string $description): static
+    {
+        $this->description = $description;
+
+        return $this;
+    }
+
+    /**
+     * Sets an example value surfaced by the OpenAPI generator. A declared `null`
+     * is honoured (distinct from "no example").
+     *
+     * @return static
+     */
+    public function example(mixed $example): static
+    {
+        $this->hasExample = true;
+        $this->example = $example;
+
+        return $this;
     }
 
     /**
@@ -459,6 +527,21 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->sortable;
     }
 
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function hasExample(): bool
+    {
+        return $this->hasExample;
+    }
+
+    public function getExample(): mixed
+    {
+        return $this->example;
+    }
+
     public function constraints(): array
     {
         return $this->constraints;
@@ -554,6 +637,45 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected function currentContext(): Context
     {
         return $this->contextOverride ?? Context::always();
+    }
+
+    /**
+     * Normalizes an enumerated-set list: each {@see \BackedEnum} case is reduced
+     * to its backing scalar value, plain values pass through unchanged. When every
+     * member is a case of one single backed enum, that enum's class-string is
+     * returned alongside (so {@see In} can retain it); otherwise the class is
+     * `null`. A pure {@see \UnitEnum} has no backing value and is left untouched.
+     *
+     * @param list<mixed> $values
+     * @return array{0: list<mixed>, 1: class-string<\BackedEnum>|null}
+     */
+    private static function normalizeEnumValues(array $values): array
+    {
+        $scalars = [];
+        $enumClass = null;
+        $singleEnum = true;
+        $sawEnum = false;
+
+        foreach ($values as $value) {
+            if ($value instanceof \BackedEnum) {
+                $scalars[] = $value->value;
+                if (!$sawEnum) {
+                    $enumClass = $value::class;
+                    $sawEnum = true;
+                } elseif ($enumClass !== $value::class) {
+                    $singleEnum = false;
+                }
+
+                continue;
+            }
+
+            // A non-enum (or pure UnitEnum) member means the set is not a single
+            // backed enum's case list.
+            $scalars[] = $value;
+            $singleEnum = false;
+        }
+
+        return [$scalars, $singleEnum && $sawEnum ? $enumClass : null];
     }
 
     /**
