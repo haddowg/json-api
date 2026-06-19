@@ -84,8 +84,14 @@ final class SchemaProjector
      * Projects one attribute field to a JSON Schema node. `$creating` selects the
      * create (POST) or update (PATCH) constraint context; the default `false`
      * projects the canonical read representation (all always-on constraints).
+     *
+     * Pass an {@see EnumComponentCollector} when projecting **into a document**: a
+     * backed-enum schema is then hoisted into the collector as a reusable named
+     * component (`#/components/schemas/<Enum>`) and replaced inline by a `$ref`
+     * (§4.8). Omit it (the default) for standalone projection, where the enum is
+     * emitted inline unchanged.
      */
-    public function projectField(FieldInterface $field, bool $creating = false): Schema
+    public function projectField(FieldInterface $field, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
     {
         $schema = $this->typeSchema($field);
 
@@ -96,7 +102,7 @@ final class SchemaProjector
                 if ($child->isHidden()) {
                     continue;
                 }
-                $properties[$child->name()] = $this->projectField($child, $creating);
+                $properties[$child->name()] = $this->projectField($child, $creating, $collector);
                 // Mirror the top-level attributes projection: a required child
                 // populates the Map object's `required` only in the create context
                 // (on update an absent member means "no change").
@@ -112,7 +118,7 @@ final class SchemaProjector
             if (!$constraint->context()->appliesTo($creating)) {
                 continue;
             }
-            $schema = $this->applyConstraint($schema, $constraint, $creating, $notes);
+            $schema = $this->applyConstraint($schema, $constraint, $creating, $notes, $collector);
         }
 
         $schema = $this->applyNullable($schema, $field, $creating);
@@ -129,7 +135,7 @@ final class SchemaProjector
      *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectAttributes(iterable $fields, bool $creating = false): Schema
+    public function projectAttributes(iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
     {
         $properties = [];
         $required = [];
@@ -139,7 +145,7 @@ final class SchemaProjector
                 continue;
             }
 
-            $properties[$field->name()] = $this->projectField($field, $creating);
+            $properties[$field->name()] = $this->projectField($field, $creating, $collector);
             if ($creating && $this->isRequired($field, $creating)) {
                 $required[] = $field->name();
             }
@@ -156,16 +162,22 @@ final class SchemaProjector
      * relationship schemas are a later slice), and the conventional `links`/`meta`
      * containers.
      *
+     * This is the **response** resource object (the `data` of the read single /
+     * collection envelopes), so it requires both `type` *and* `id` — JSON:API 1.1
+     * §7.2 mandates an `id` on every resource object returned from the server (the
+     * client-id-on-create policy is modelled separately by the create / update
+     * request schemas).
+     *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectResourceObject(string $type, iterable $fields, bool $creating = false): Schema
+    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
     {
         $fields = \is_array($fields) ? $fields : \iterator_to_array($fields, false);
 
         $properties = [
             'type' => Schema::ofType('string')->withConst($type),
             'id' => $this->projectId($fields),
-            'attributes' => $this->projectAttributes($fields, $creating),
+            'attributes' => $this->projectAttributes($fields, $creating, $collector),
             'relationships' => Schema::ofType('object'),
             'links' => Schema::ofType('object'),
             'meta' => Schema::ofType('object'),
@@ -173,7 +185,7 @@ final class SchemaProjector
 
         return Schema::ofType('object')
             ->withProperties($properties)
-            ->withRequired(['type']);
+            ->withRequired(['type', 'id']);
     }
 
     /**
@@ -241,7 +253,7 @@ final class SchemaProjector
      *
      * @param list<string> $notes
      */
-    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes): Schema
+    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null): Schema
     {
         switch (true) {
             case $constraint instanceof MinLength: return $schema->withMinLength($constraint->value);
@@ -259,15 +271,15 @@ final class SchemaProjector
             case $constraint instanceof Pattern: return $schema->withPattern($constraint->regex);
             case $constraint instanceof SlugFormat: return $schema->withPattern($constraint->regex);
             case $constraint instanceof UlidFormat: return $schema->withPattern(Id::ULID_FORMAT_PATTERN);
-            case $constraint instanceof In: return $this->applyEnum($schema, $constraint, $notes);
+            case $constraint instanceof In: return $this->applyEnum($schema, $constraint, $notes, $collector);
             case $constraint instanceof NotIn: return $schema->withNot(Schema::create()->withEnum($constraint->values));
             case $constraint instanceof EmailFormat: return $schema->withFormat('email');
             case $constraint instanceof UrlFormat: return $schema->withFormat('uri');
             case $constraint instanceof UuidFormat: return $schema->withFormat('uuid');
             case $constraint instanceof IpFormat: return $schema->withFormat($constraint->version === 6 ? 'ipv6' : 'ipv4');
-            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating));
-            case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $creating));
-            case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $creating, $notes);
+            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating, $collector));
+            case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $creating, $collector));
+            case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $creating, $notes, $collector);
             case $constraint instanceof Before: return $this->applyDateBound($schema, $constraint->bound, 'must be before', $notes);
             case $constraint instanceof After: return $this->applyDateBound($schema, $constraint->bound, 'must be after', $notes);
             case $constraint instanceof Between:
@@ -287,13 +299,24 @@ final class SchemaProjector
     }
 
     /**
-     * Emits the `enum` keyword and, when the {@see In} retains a backed-enum
-     * class-string, the var-names / descriptions metadata per {@see $enumDescriptionMode}.
+     * Applies an {@see In} constraint's `enum`.
+     *
+     * Without a `$collector` (standalone field projection) the enum is emitted
+     * **inline** on the field schema: the `enum` keyword, plus — when the {@see In}
+     * retains a backed-enum class-string — the var-names / descriptions metadata per
+     * {@see $enumDescriptionMode}, the markdown `value → description` table being
+     * appended to the field's `$notes`.
+     *
+     * With a `$collector` and a backed-enum class-string, the enum schema is instead
+     * **hoisted** into a reusable named component (`#/components/schemas/<Enum>`,
+     * deduped on the class-string) carrying its own table-in-`description`, and the
+     * field schema becomes a `$ref` to it (§4.8). A non-backed-enum `In` (no
+     * class-string) is always inline regardless of the collector.
      *
      * @param In<int|string> $constraint
      * @param list<string>   $notes
      */
-    private function applyEnum(Schema $schema, In $constraint, array &$notes): Schema
+    private function applyEnum(Schema $schema, In $constraint, array &$notes, ?EnumComponentCollector $collector = null): Schema
     {
         // An empty value set cannot be expressed as a valid `enum` (2020-12 requires
         // a non-empty array), so emit nothing rather than an invalid `enum: []`.
@@ -301,13 +324,40 @@ final class SchemaProjector
             return $schema;
         }
 
-        $schema = $schema->withEnum($constraint->values);
-
         $enumClass = $constraint->enumClass;
+
+        // A non-backed-enum `In` (or no collector) stays inline on the field schema.
         if ($enumClass === null) {
-            return $schema;
+            return $schema->withEnum($constraint->values);
         }
 
+        if ($collector === null) {
+            return $this->buildEnumSchema($schema->withEnum($constraint->values), $constraint, $enumClass, $notes);
+        }
+
+        // Hoist a self-contained component (its own description carries the table) and
+        // reference it; the field schema becomes a `$ref`.
+        $componentNotes = [];
+        $body = $this->buildEnumSchema(Schema::create()->withEnum($constraint->values), $constraint, $enumClass, $componentNotes);
+        $body = $this->withNotes($body, $componentNotes);
+
+        $name = $collector->register($enumClass, $body);
+
+        return $collector->reference($name);
+    }
+
+    /**
+     * Builds the backed-enum schema body: the `x-enum-varnames` / `x-enum-descriptions`
+     * extensions (per {@see $enumDescriptionMode}) on `$schema`, appending the markdown
+     * `value → description` table to `$notes` when the mode emits descriptions. The
+     * `enum` keyword is assumed already set on `$schema` by the caller.
+     *
+     * @param In<int|string> $constraint
+     * @param class-string<\BackedEnum> $enumClass
+     * @param list<string>   $notes
+     */
+    private function buildEnumSchema(Schema $schema, In $constraint, string $enumClass, array &$notes): Schema
+    {
         // Var-names (case names) are free for any backed enum, aligned to `values`.
         $varNames = [];
         $byValue = [];
@@ -383,13 +433,13 @@ final class SchemaProjector
         return false;
     }
 
-    private function eachSchema(Each $each, bool $creating): Schema
+    private function eachSchema(Each $each, bool $creating, ?EnumComponentCollector $collector = null): Schema
     {
         $items = Schema::create();
         $notes = [];
         foreach ($each->constraints as $constraint) {
             if ($constraint->context()->appliesTo($creating)) {
-                $items = $this->applyConstraint($items, $constraint, $creating, $notes);
+                $items = $this->applyConstraint($items, $constraint, $creating, $notes, $collector);
             }
         }
 
@@ -399,7 +449,7 @@ final class SchemaProjector
     /**
      * @return list<Schema>
      */
-    private function atLeastOneOfSchema(AtLeastOneOf $constraint, bool $creating): array
+    private function atLeastOneOfSchema(AtLeastOneOf $constraint, bool $creating, ?EnumComponentCollector $collector = null): array
     {
         $alternatives = [];
         foreach ($constraint->constraints as $alternative) {
@@ -407,7 +457,7 @@ final class SchemaProjector
                 continue;
             }
             $notes = [];
-            $alternatives[] = $this->withNotes($this->applyConstraint(Schema::create(), $alternative, $creating, $notes), $notes);
+            $alternatives[] = $this->withNotes($this->applyConstraint(Schema::create(), $alternative, $creating, $notes, $collector), $notes);
         }
 
         return $alternatives;
@@ -419,11 +469,11 @@ final class SchemaProjector
      *
      * @param list<string> $notes
      */
-    private function applySequentially(Schema $schema, Sequentially $constraint, bool $creating, array &$notes): Schema
+    private function applySequentially(Schema $schema, Sequentially $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null): Schema
     {
         foreach ($constraint->constraints as $inner) {
             if ($inner->context()->appliesTo($creating)) {
-                $schema = $this->applyConstraint($schema, $inner, $creating, $notes);
+                $schema = $this->applyConstraint($schema, $inner, $creating, $notes, $collector);
             }
         }
 
@@ -461,8 +511,17 @@ final class SchemaProjector
     private function applyNullable(Schema $schema, FieldInterface $field, bool $creating): Schema
     {
         foreach ($field->constraints() as $constraint) {
-            if ($constraint instanceof Nullable && $constraint->context()->appliesTo($creating) && $schema->hasScalarType()) {
+            if (!($constraint instanceof Nullable) || !$constraint->context()->appliesTo($creating)) {
+                continue;
+            }
+            if ($schema->hasScalarType()) {
                 return $this->allowNullInEnum($schema->asNullable());
+            }
+            // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
+            // widen; the OAS-3.1 way to make a referenced schema nullable is to
+            // union it with the null type.
+            if (\is_string($schema->get('$ref'))) {
+                return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
             }
         }
 

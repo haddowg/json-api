@@ -129,4 +129,17 @@ final class SchemaTest extends TestCase
 
         self::assertSame('{"type":"array","items":{}}', $json);
     }
+
+    #[Test]
+    public function refIsEmittedFirstAndRoundTrips(): void
+    {
+        $schema = Schema::ref('#/components/schemas/Status')->withDescription('A status.');
+
+        self::assertSame(['$ref', 'description'], \array_keys($schema->toArray()));
+        self::assertSame('#/components/schemas/Status', $schema->toArray()['$ref']);
+        self::assertSame('#/components/schemas/Status', $schema->get('$ref'));
+
+        $json = \json_encode($schema->toJson(), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES);
+        self::assertSame('{"$ref":"#/components/schemas/Status","description":"A status."}', $json);
+    }
 }

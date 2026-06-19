@@ -53,6 +53,17 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * A `$ref` node pointing at a component (e.g. `#/components/schemas/Status`).
+     * In OpenAPI 3.1 / JSON Schema 2020-12 a Schema Object *is* a 2020-12 schema,
+     * so a reference is simply `{"$ref": "<pointer>"}`; it may carry sibling
+     * keywords (a `description` override) via the standard withers.
+     */
+    public static function ref(string $pointer): self
+    {
+        return self::create()->with('$ref', $pointer);
+    }
+
+    /**
      * A node whose `type` is the given primitive widened to allow JSON `null`
      * (the 2020-12 `["<type>", "null"]` union).
      */
@@ -311,6 +322,7 @@ final class Schema implements \JsonSerializable
     public function toArray(): array
     {
         $order = [
+            '$ref',
             'type', 'format', 'title', 'description',
             'enum', 'const',
             'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',

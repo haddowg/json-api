@@ -515,7 +515,8 @@ final class SchemaProjectorTest extends TestCase
 
         self::assertSame('object', $this->at($schema, 'type'));
         self::assertSame(['type' => 'string', 'const' => 'articles'], $this->at($schema, 'properties', 'type'));
-        self::assertSame(['type'], $this->at($schema, 'required'));
+        // A response resource object requires both `type` and `id` (JSON:API §7.2).
+        self::assertSame(['type', 'id'], $this->at($schema, 'required'));
         self::assertSame('string', $this->at($schema, 'properties', 'id', 'type'));
         self::assertSame('object', $this->at($schema, 'properties', 'attributes', 'type'));
 
