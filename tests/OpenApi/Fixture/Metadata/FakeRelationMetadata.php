@@ -19,6 +19,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface
      * @param list<string>          $relatedTypes
      * @param list<FilterInterface> $filters
      * @param list<SortInterface>   $sorts
+     * @param list<string>          $relatedIncludablePaths
      */
     public function __construct(
         private readonly string $name,
@@ -35,6 +36,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         private readonly PaginatorKind $paginatorKind = PaginatorKind::None,
         private readonly array $filters = [],
         private readonly array $sorts = [],
+        private readonly array $relatedIncludablePaths = [],
     ) {}
 
     /**
@@ -121,5 +123,10 @@ final class FakeRelationMetadata implements RelationMetadataInterface
     public function sorts(): array
     {
         return $this->sorts;
+    }
+
+    public function relatedIncludablePaths(): array
+    {
+        return $this->relatedIncludablePaths;
     }
 }

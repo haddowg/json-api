@@ -122,8 +122,10 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame([['bearer' => []]], $this->at($array, 'security'));
         self::assertSame('Articles', $this->strAt($array, 'tags', '0', 'name'));
 
-        // Slice 2 is path-less.
-        self::assertArrayNotHasKey('paths', $array);
+        // Slice 3 (stage A) now projects CRUD paths from the operation allow-list.
+        self::assertArrayHasKey('paths', $array);
+        self::assertArrayHasKey('/articles', $this->arrAt($array, 'paths'));
+        self::assertArrayHasKey('/articles/{id}', $this->arrAt($array, 'paths'));
 
         self::assertSame('http', $this->strAt($array, 'components', 'securitySchemes', 'bearer', 'type'));
     }

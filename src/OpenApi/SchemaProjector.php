@@ -128,6 +128,38 @@ final class SchemaProjector
     }
 
     /**
+     * Projects a standalone list of value constraints to a JSON Schema node — the
+     * entry point the OpenAPI path projection (Slice 3) uses to build a
+     * `filter[<key>]` query-parameter's value schema from the filter's declared
+     * {@see \haddowg\JsonApi\Resource\Filter\FilterInterface::constraints()}.
+     *
+     * Unlike {@see projectField()} there is no owning field (no base type, no
+     * nullable/description/example), so the schema starts from a permissive node and
+     * is narrowed purely by the constraints; a lossy constraint's degradation note is
+     * appended to the resulting `description` exactly as for a field. An empty
+     * constraint list yields a permissive `{}` (a filter value of any shape).
+     *
+     * Always projects in the **read** context (a `filter[]` value is a query input,
+     * never a create/update body member), so create/update-only constraint contexts
+     * that do not apply to a read are skipped.
+     *
+     * @param iterable<ConstraintInterface> $constraints
+     */
+    public function projectConstraints(iterable $constraints): Schema
+    {
+        $schema = Schema::create();
+        $notes = [];
+        foreach ($constraints as $constraint) {
+            if (!$constraint->context()->appliesTo(false)) {
+                continue;
+            }
+            $schema = $this->applyConstraint($schema, $constraint, false, $notes);
+        }
+
+        return $this->withNotes($schema, $notes);
+    }
+
+    /**
      * Projects a type's **attributes** object schema: a `{type: object,
      * properties: {…}}` over the non-id, non-relationship, non-hidden fields.
      * Write-only fields are excluded from a read projection (`$creating === false`);

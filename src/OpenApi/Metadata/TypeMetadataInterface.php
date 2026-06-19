@@ -70,6 +70,23 @@ interface TypeMetadataInterface
     public function operations(): array;
 
     /**
+     * The subset of {@see operations()} that carry a security expression — i.e. the
+     * operations the projector emits with the configured per-operation security
+     * requirement (the document-level {@see ServerMetadataInterface::defaultSecurity()},
+     * per design §4.6 / D8). The contract carries only the **intent** (which
+     * operations are secured); the *requirement* VOs themselves come from the
+     * document default, never from parsing the authz expression. Mirrors
+     * {@see ActionMetadataInterface::isSecured()} for custom actions.
+     *
+     * An operation absent from this list inherits the document-level default (the
+     * projector emits no per-operation `security`); an operation present in it but
+     * absent from {@see operations()} is ignored (it has no path to attach to).
+     *
+     * @return list<OperationType>
+     */
+    public function securedOperations(): array;
+
+    /**
      * Whether a client may supply the resource `id` on create (`POST`) — gates
      * whether the create request schema includes (and may require) `id`.
      */

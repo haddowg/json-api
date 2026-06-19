@@ -115,4 +115,17 @@ interface RelationMetadataInterface
      * @return list<SortInterface>
      */
     public function sorts(): array;
+
+    /**
+     * The `?include` paths valid on this relation's **related** endpoint
+     * (`GET /{type}/{id}/{rel}`), as dotted paths relative to the **related** type —
+     * not the parent's. That endpoint returns the related resource(s) as primary data,
+     * so a valid `?include` enumerates the related type's includable relationships
+     * (respecting its own include safeguards). Empty when nothing is includable there
+     * (e.g. a polymorphic relation whose members share no include vocabulary).
+     * Consumed by the Slice-3 related-endpoint `include` parameter projection.
+     *
+     * @return list<string>
+     */
+    public function relatedIncludablePaths(): array;
 }

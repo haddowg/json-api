@@ -41,5 +41,13 @@ is what the tests register; `schema.upstream.json` is the pristine copy for diff
    (`securityScheme`, `mediaType`) are left untouched — their `allOf` conditionals
    do not trip opis.
 
+   **This relaxation is benign for generated documents.** The projector emits a
+   parameter/header *only* through the typed `Parameter` / `Header` value objects,
+   whose serialization is a **closed shape** — they can emit only the members the OAS
+   Parameter/Header Objects define and no other, so an unknown member (the very thing
+   the relaxed `unevaluatedProperties` would no longer catch) cannot be produced.
+   `ParameterClosedShapeTest` pins that closed shape, so a VO-model regression is
+   caught there independently of the relaxed meta-schema.
+
 To refresh: re-fetch upstream into `schema.upstream.json`, re-apply the two edits to
 produce `schema.json`, and re-run `OpenApiMetaValidationTest`.

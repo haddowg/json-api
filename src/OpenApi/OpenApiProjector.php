@@ -29,6 +29,7 @@ final class OpenApiProjector
 {
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
+        private readonly OperationProjector $operationProjector = new OperationProjector(),
     ) {}
 
     /**
@@ -48,13 +49,14 @@ final class OpenApiProjector
             $this->addTypeComponents($schemas, $type, $collector);
         }
 
-        // Linkage `$ref`s a `<RelatedType>ResourceIdentifier` for every relation's
-        // related type, but a related type need not itself be a registered type
-        // (the contract does not require it). Emit a minimal identifier component for
-        // any referenced-but-unregistered related type so the document carries no
-        // dangling internal reference (the OAS meta-schema treats Schema Objects as
-        // opaque and cannot catch one).
-        $this->addUnregisteredRelatedIdentifiers($schemas, $server);
+        // Linkage `$ref`s a `<RelatedType>ResourceIdentifier` (and an exposed related
+        // endpoint `$ref`s its `Resource`/`Collection`) for every relation's related
+        // type, but a related type need not itself be a registered type (the contract
+        // does not require it). Emit minimal components for any referenced-but-
+        // unregistered related type so the document carries no dangling internal
+        // reference (the OAS meta-schema treats Schema Objects as opaque and cannot
+        // catch one).
+        $this->addUnregisteredRelatedComponents($schemas, $server);
 
         // The hoisted enum components are known only after every type is projected.
         // The collector was seeded with the shared names and dedupes its own enums, so
@@ -78,7 +80,7 @@ final class OpenApiProjector
             securitySchemes: $server->securitySchemes(),
         );
 
-        return new OpenApi(
+        $document = new OpenApi(
             info: $this->info($server),
             components: $components,
             servers: $server->servers(),
@@ -86,6 +88,28 @@ final class OpenApiProjector
             tags: $server->tags(),
             externalDocs: $server->externalDocs(),
         );
+
+        $paths = $this->paths($server);
+
+        return $paths->isEmpty() ? $document : $document->withPaths($paths);
+    }
+
+    /**
+     * Assembles the document {@see Paths} by projecting each type's allowed CRUD
+     * operations (stage A) into {@see PathItem}s, grouped by URL template. A path
+     * already produced by an earlier type cannot collide (uriTypes are unique), so a
+     * simple `with()` accumulation is correct.
+     */
+    private function paths(ServerMetadataInterface $server): Paths
+    {
+        $paths = new Paths();
+        foreach ($server->types() as $type) {
+            foreach ($this->operationProjector->projectType($type, $server) as $path => $item) {
+                $paths = $paths->with($path, $item);
+            }
+        }
+
+        return $paths;
     }
 
     private function info(ServerMetadataInterface $server): Info
@@ -152,9 +176,36 @@ final class OpenApiProjector
             $schemas[$name . 'UpdateRequest'] = $this->updateRequestSchema($type, $collector);
         }
 
-        // Per-relationship relationship-object schemas.
+        // Per-relationship relationship-object schemas + the relationship/related
+        // document envelopes the relationship & related endpoints (path projection)
+        // respond with.
         foreach ($type->relations() as $relation) {
-            $schemas[$name . $this->componentBase($relation->name()) . 'Relationship'] = $this->relationshipObjectSchema($relation);
+            $relBase = $name . $this->componentBase($relation->name());
+            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation);
+
+            // The relationship-linkage endpoint's document envelope — emitted whenever
+            // the relationship endpoint is exposed (the path projection $ref's it).
+            if ($relation->exposesRelationshipEndpoint()) {
+                $schemas[$relBase . 'RelationshipDocument'] = $this->relationshipDocumentSchema($relation);
+            }
+
+            // The to-one related endpoint renders `data: <Resource> | null` (an empty
+            // to-one is `data: null`), so it needs a per-relation nullable related
+            // document — but only when that endpoint is actually exposed (a monomorphic
+            // to-many related endpoint reuses the related type's collection envelope
+            // instead).
+            if (!$relation->isToMany() && $relation->exposesRelatedEndpoint()) {
+                $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation);
+            }
+
+            // A **polymorphic** to-many related endpoint cannot reuse a single member's
+            // collection (its members span types), so it gets a per-relation related
+            // collection whose `data.items` is the `anyOf` of every member resource —
+            // mirroring the to-one polymorphic related document. Emitted only when the
+            // endpoint is exposed (so component emission tracks path emission exactly).
+            if ($relation->isToMany() && $relation->exposesRelatedEndpoint() && \count($relation->relatedTypes()) > 1) {
+                $schemas[$relBase . 'RelatedCollection'] = $this->polymorphicRelatedCollectionSchema($relation);
+            }
         }
 
         // Document envelopes.
@@ -163,16 +214,21 @@ final class OpenApiProjector
     }
 
     /**
-     * Emits a minimal `<RelatedType>ResourceIdentifier` for every related type
-     * referenced by a relation but not registered as a server type (so its own
-     * `addTypeComponents()` never ran). A registered related type already has a
-     * concrete identifier component; an unregistered one would otherwise leave a
-     * dangling `$ref`. The synthesized component is a permissive identifier shape
-     * (a `type` const + a string `id`) — enough to resolve and self-describe.
+     * Emits minimal components for every related type referenced by a relation but not
+     * registered as a server type (so its own `addTypeComponents()` never ran), so the
+     * document carries no dangling `$ref`:
+     *
+     * - a `<RelatedType>ResourceIdentifier` (linkage target) — always, since every
+     *   relationship object `$ref`s it;
+     * - a `<RelatedType>Resource` + `<RelatedType>Collection` — only when a relation
+     *   exposing its **related** endpoint targets the type, since the path projection
+     *   (stage B) then `$ref`s those for the to-one related document / to-many related
+     *   collection. The synthesized shapes are permissive (enough to resolve and
+     *   self-describe); a registered related type already has concrete ones.
      *
      * @param array<string, Schema> $schemas
      */
-    private function addUnregisteredRelatedIdentifiers(array &$schemas, ServerMetadataInterface $server): void
+    private function addUnregisteredRelatedComponents(array &$schemas, ServerMetadataInterface $server): void
     {
         $registered = [];
         foreach ($server->types() as $type) {
@@ -185,11 +241,25 @@ final class OpenApiProjector
                     if (isset($registered[$relatedType])) {
                         continue;
                     }
-                    $component = $this->componentBase($relatedType) . 'ResourceIdentifier';
-                    if (isset($schemas[$component])) {
+                    $relName = $this->componentBase($relatedType);
+
+                    $identifier = $relName . 'ResourceIdentifier';
+                    if (!isset($schemas[$identifier])) {
+                        $schemas[$identifier] = $this->resourceIdentifierSchema($relatedType);
+                    }
+
+                    if (!$relation->exposesRelatedEndpoint()) {
                         continue;
                     }
-                    $schemas[$component] = $this->resourceIdentifierSchema($relatedType);
+
+                    $resource = $relName . 'Resource';
+                    if (!isset($schemas[$resource])) {
+                        $schemas[$resource] = $this->permissiveResourceObject($relatedType);
+                    }
+                    $collection = $relName . 'Collection';
+                    if (!isset($schemas[$collection])) {
+                        $schemas[$collection] = $this->collectionDocumentSchema($relName);
+                    }
                 }
             }
         }
@@ -301,20 +371,104 @@ final class OpenApiProjector
      */
     private function relationshipObjectSchema(RelationMetadataInterface $relation): Schema
     {
-        $identifier = $this->linkageIdentifierSchema($relation);
-
-        $data = $relation->isToMany()
-            ? Schema::ofType('array')->withItems($identifier)
-            : $this->nullable($identifier);
-
         $schema = Schema::ofType('object')
             ->withProperty('links', Schema::ofType('object'))
-            ->withProperty('data', $data)
+            ->withProperty('data', $this->linkageData($relation))
             ->withProperty('meta', Schema::ofType('object'));
 
         $description = $relation->description();
 
         return $description !== null && $description !== '' ? $schema->withDescription($description) : $schema;
+    }
+
+    /**
+     * The linkage `data` member for a relation: an array of identifiers for a to-many,
+     * a single nullable identifier for a to-one (the empty to-one is `data: null`).
+     */
+    private function linkageData(RelationMetadataInterface $relation): Schema
+    {
+        $identifier = $this->linkageIdentifierSchema($relation);
+
+        return $relation->isToMany()
+            ? Schema::ofType('array')->withItems($identifier)
+            : $this->nullable($identifier);
+    }
+
+    /**
+     * The **relationship document** envelope a relationship endpoint
+     * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`) responds with:
+     * `{jsonapi?, links?, data: <linkage>, meta?}` — the top-level document around the
+     * bare linkage (`data` is the array / nullable-identifier of {@see linkageData()}).
+     */
+    private function relationshipDocumentSchema(RelationMetadataInterface $relation): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('data', $this->linkageData($relation))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['data']);
+    }
+
+    /**
+     * The **related document** envelope a to-one related endpoint
+     * (`GET /{type}/{id}/{rel}`) responds with: like the single-resource document but
+     * with a **nullable** `data` (an empty to-one renders `data: null`). A monomorphic
+     * relation `$ref`s the related type's resource component; a polymorphic one unions
+     * each member's resource (`anyOf`); either way widened with `null`.
+     */
+    private function relatedToOneDocumentSchema(RelationMetadataInterface $relation): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)))
+            ->withProperty('included', $this->includedSchema())
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['data']);
+    }
+
+    /**
+     * The **related collection** envelope a **polymorphic** to-many related endpoint
+     * (`GET /{type}/{id}/{rel}`) responds with: like the resource-collection document
+     * but with `data.items` the `anyOf` of every member type's resource (a real
+     * response may mix members), so each member validates. A monomorphic to-many reuses
+     * the related type's plain `<RelatedType>Collection` instead and never reaches here.
+     */
+    private function polymorphicRelatedCollectionSchema(RelationMetadataInterface $relation): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)))
+            ->withProperty('included', $this->includedSchema())
+            ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['data']);
+    }
+
+    /**
+     * A relation's related **resource** schema (not linkage): a `$ref` to the single
+     * related type's resource component for a monomorphic relation, a `oneOf` of every
+     * member's resource for a polymorphic one, and a permissive object for a relation
+     * declaring no related types.
+     */
+    private function relatedResourceSchema(RelationMetadataInterface $relation): Schema
+    {
+        $types = $relation->relatedTypes();
+        if ($types === []) {
+            return Schema::ofType('object');
+        }
+
+        if (\count($types) === 1) {
+            return Schema::ref('#/components/schemas/' . $this->componentBase($types[0]) . 'Resource');
+        }
+
+        $members = [];
+        foreach ($types as $relatedType) {
+            $members[] = Schema::ref('#/components/schemas/' . $this->componentBase($relatedType) . 'Resource');
+        }
+
+        return Schema::create()->withAnyOf($members);
     }
 
     /**
@@ -364,12 +518,18 @@ final class OpenApiProjector
     /**
      * The single-resource document: `{data: <Resource>, included?, links?, meta?,
      * jsonapi?}`.
+     *
+     * The `data` member is a **non-nullable** resource reference: this envelope
+     * describes a primary single-resource fetch (`GET /{type}/{id}`), where JSON:API
+     * mandates a present resource object (a `null` primary `data` is only valid for an
+     * empty to-one *related* endpoint, which is described separately by the
+     * relationship-object schema). (Design recon 5b.)
      */
     private function singleDocumentSchema(string $base): Schema
     {
         return Schema::ofType('object')
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
-            ->withProperty('data', $this->nullable(Schema::ref('#/components/schemas/' . $base . 'Resource')))
+            ->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource'))
             ->withProperty('included', $this->includedSchema())
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
@@ -521,19 +681,11 @@ final class OpenApiProjector
     /**
      * A PascalCase component-name base from a JSON:API type/member name (e.g.
      * `blog-post` → `BlogPost`, `author` → `Author`), so component names are stable
-     * and idiomatic. Non-alphanumeric separators (`-`, `_`, space) split words.
+     * and idiomatic. Delegates to the shared {@see ComponentNaming} so the path
+     * projection names the identical components.
      */
     private function componentBase(string $name): string
     {
-        $words = \preg_split('/[^A-Za-z0-9]+/', $name) ?: [];
-        $base = '';
-        foreach ($words as $word) {
-            if ($word === '') {
-                continue;
-            }
-            $base .= \ucfirst($word);
-        }
-
-        return $base === '' ? 'Resource' : $base;
+        return ComponentNaming::base($name);
     }
 }

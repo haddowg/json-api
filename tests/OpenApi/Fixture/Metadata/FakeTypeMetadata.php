@@ -25,6 +25,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<FieldInterface>            $fields
      * @param list<RelationMetadataInterface> $relations
      * @param list<OperationType>             $operations
+     * @param list<OperationType>             $securedOperations
      * @param list<FilterInterface>           $filters
      * @param list<SortInterface>             $sorts
      * @param list<ActionMetadataInterface>   $actions
@@ -47,12 +48,19 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $tags = [],
         private readonly ?string $description = null,
         private readonly array $includablePaths = [],
+        private readonly array $securedOperations = [],
     ) {}
 
     /**
      * @param list<FieldInterface>            $fields
      * @param list<RelationMetadataInterface> $relations
      * @param list<string>                    $tags
+     * @param list<OperationType>|null        $operations        the per-type allow-list; `null` = all five
+     * @param list<OperationType>             $securedOperations the subset of operations carrying a security expression
+     * @param list<FilterInterface>           $filters
+     * @param list<SortInterface>             $sorts
+     * @param list<ActionMetadataInterface>   $actions
+     * @param list<string>                    $includablePaths
      */
     public static function resource(
         string $type,
@@ -62,6 +70,14 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         array $tags = [],
         bool $allowsClientId = false,
         ?string $description = null,
+        ?array $operations = null,
+        array $securedOperations = [],
+        PaginatorKind $paginatorKind = PaginatorKind::Page,
+        bool $countable = false,
+        array $filters = [],
+        array $sorts = [],
+        array $actions = [],
+        array $includablePaths = [],
     ): self {
         return new self(
             type: $type,
@@ -69,7 +85,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             hasFields: true,
             fields: $fields,
             relations: $relations,
-            operations: [
+            operations: $operations ?? [
                 OperationType::FetchCollection,
                 OperationType::FetchOne,
                 OperationType::Create,
@@ -77,8 +93,15 @@ final class FakeTypeMetadata implements TypeMetadataInterface
                 OperationType::Delete,
             ],
             allowsClientId: $allowsClientId,
+            paginatorKind: $paginatorKind,
+            countable: $countable,
+            filters: $filters,
+            sorts: $sorts,
+            actions: $actions,
             tags: $tags,
             description: $description,
+            includablePaths: $includablePaths,
+            securedOperations: $securedOperations,
         );
     }
 
@@ -127,6 +150,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function operations(): array
     {
         return $this->operations;
+    }
+
+    public function securedOperations(): array
+    {
+        return $this->securedOperations;
     }
 
     public function allowsClientId(): bool
