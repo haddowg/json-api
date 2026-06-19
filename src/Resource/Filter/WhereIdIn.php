@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see WhereIn} targeting the id column; ships as a dedicated type because
  * id filtering is the most common case.
  */
-final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
+final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
 {
     use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 

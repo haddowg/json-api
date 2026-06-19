@@ -454,6 +454,30 @@ final class ConvenienceFilterTest extends TestCase
     }
 
     #[Test]
+    public function dateRangeSkipsACalendarInvalidBoundRatherThanComparingLexically(): void
+    {
+        // `1997-13-99` (month 13, day 99) passes the lenient ISO-8601 shape Pattern
+        // but does not parse, so toDateTime() does not coerce it to a
+        // \DateTimeImmutable. A framework adapter rejects such a bound as a clean 400
+        // BEFORE the provider, but the handler must not, in its absence, compare a
+        // \DateTimeImmutable column against the raw string — PHP would silently make
+        // that a lexical string compare and keep EVERY row (a divergence from a
+        // database adapter binding a non-date string). Instead the bound is skipped
+        // (treated as open/absent), so a min-only calendar-invalid value is a no-op,
+        // not a full-set match.
+        $filter = DateRange::make('published');
+        $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), ['min' => '1997-13-99']);
+
+        self::assertSame(['1', '2', '3'], $this->ids($result));
+
+        // The mirror case: a max-only calendar-invalid bound is likewise a no-op (not
+        // the empty set a lexical `\DateTimeImmutable <= '1997-13-99'` would give).
+        $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), ['max' => '1997-13-99']);
+
+        self::assertSame(['1', '2', '3'], $this->ids($result));
+    }
+
+    #[Test]
     public function eachScalarConveniencePresetsItsValueConstraint(): void
     {
         // The numeric conveniences preset a numeric Pattern so the OpenAPI
@@ -480,6 +504,26 @@ final class ConvenienceFilterTest extends TestCase
 
         self::assertCount(1, $filter->constraints());
         self::assertInstanceOf(Pattern::class, $filter->constraints()[0]);
+    }
+
+    #[Test]
+    public function dateRangePresetsAnIso8601BoundConstraint(): void
+    {
+        // DateRange presets an ISO-8601 Pattern (not the numeric one) so a framework
+        // validator rejects a malformed bound before the filter reaches the data layer.
+        $filter = DateRange::make('published');
+
+        self::assertCount(1, $filter->constraints());
+        $constraint = $filter->constraints()[0];
+        self::assertInstanceOf(Pattern::class, $constraint);
+
+        // The preset pattern accepts a bare date and a zoned date-time, rejects junk.
+        $regex = '/' . $constraint->regex . '/';
+        self::assertSame(1, \preg_match($regex, '1995-01-01'));
+        self::assertSame(1, \preg_match($regex, '1997-05-21T12:30:00Z'));
+        self::assertSame(1, \preg_match($regex, '1997-05-21T12:30:00+01:00'));
+        self::assertSame(0, \preg_match($regex, 'banana'));
+        self::assertSame(0, \preg_match($regex, '21/05/1997'));
     }
 
     #[Test]

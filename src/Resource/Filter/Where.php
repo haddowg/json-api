@@ -19,7 +19,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  *
  * @phpstan-consistent-constructor
  */
-readonly class Where implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular
+readonly class Where implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular
 {
     use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 

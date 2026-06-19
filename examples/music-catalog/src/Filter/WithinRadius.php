@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Examples\MusicCatalog\Filter;
 
 use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
+use haddowg\JsonApi\Resource\Filter\DescribedFilter;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 
@@ -21,7 +22,7 @@ use haddowg\JsonApi\Resource\Filter\HasValueConstraints;
  * {@see HasValueConstraints} shows a custom filter inherits the same `constrain()`
  * / type-shortcut value-constraint vocabulary as the built-ins.
  */
-final readonly class WithinRadius implements FilterInterface
+final readonly class WithinRadius implements DescribedFilter
 {
     use HasValueConstraints;
 

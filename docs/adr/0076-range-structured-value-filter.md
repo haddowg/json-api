@@ -27,3 +27,14 @@ lexically**, so a bare string range wrongly excludes the boundary; coercing to
 returned unchanged (so a constraint-rejected value reaches the validator as-sent
 rather than throwing in the filter). Database adapters translate a `Range` into
 two push-down `andWhere` predicates (the adapter slice).
+
+The `DateRange` shape `Pattern` is deliberately lenient on the calendar (a regex
+cannot reject `1997-13-99` — month 13, day 99), so a framework adapter's
+pre-provider validation additionally rejects a present bound that does not coerce to
+`\DateTimeInterface` as a clean `400`. As a fallback when that validation is absent,
+the reference `ArrayFilterHandler::range()` **skips** a `DateRange` bound that did
+not coerce to `\DateTimeInterface` (treats it as open) rather than comparing a
+`\DateTimeImmutable` column against the raw string — which PHP would silently make a
+lexical compare, diverging from a database adapter. So a calendar-invalid bound
+degrades identically on every provider instead of selecting a divergent full/empty
+set.

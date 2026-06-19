@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\Header;
 use haddowg\JsonApi\OpenApi\Parameter;
 use haddowg\JsonApi\OpenApi\ParameterLocation;
+use haddowg\JsonApi\OpenApi\ParameterStyle;
 use haddowg\JsonApi\OpenApi\Schema;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -24,9 +25,9 @@ use PHPUnit\Framework\TestCase;
  * parameter/header only through the typed {@see Parameter} / {@see Header} value
  * objects, whose serialization is a **closed shape** — it can only emit the members
  * the OAS Parameter/Header Objects define (`name`, `in`, `description`, `required`,
- * `deprecated`, `schema`), and no other. This test pins that closed shape, so an
- * unevaluated-property regression in the VO model is caught here even though the
- * relaxed meta-schema would let it pass.
+ * `deprecated`, `schema`, `style`, `explode`), and no other. This test pins that
+ * closed shape, so an unevaluated-property regression in the VO model is caught here
+ * even though the relaxed meta-schema would let it pass.
  */
 #[CoversClass(Parameter::class)]
 #[CoversClass(Header::class)]
@@ -39,7 +40,7 @@ final class ParameterClosedShapeTest extends TestCase
      *
      * @var list<string>
      */
-    private const PARAMETER_MEMBERS = ['name', 'in', 'description', 'required', 'deprecated', 'schema'];
+    private const PARAMETER_MEMBERS = ['name', 'in', 'description', 'required', 'deprecated', 'schema', 'style', 'explode'];
 
     /**
      * The only members an OAS 3.1 Header Object may carry in the schema-style form.
@@ -62,6 +63,28 @@ final class ParameterClosedShapeTest extends TestCase
 
         $this->assertOnlyMembers(self::PARAMETER_MEMBERS, $parameter->toArray());
         $this->assertOnlyMembers(self::PARAMETER_MEMBERS, (array) $parameter->toJson());
+    }
+
+    #[Test]
+    public function aDeepObjectQueryParameterEmitsItsStyleAndExplodeMembers(): void
+    {
+        $parameter = Parameter::query(
+            'filter[rating]',
+            Schema::ofType('object'),
+            'Filter by rating range.',
+            style: ParameterStyle::DeepObject,
+            explode: true,
+        );
+
+        $array = $parameter->toArray();
+        $this->assertOnlyMembers(self::PARAMETER_MEMBERS, $array);
+        self::assertSame('deepObject', $array['style']);
+        self::assertTrue($array['explode']);
+
+        // style/explode survive the JSON serialization too.
+        $json = (array) $parameter->toJson();
+        self::assertSame('deepObject', $json['style']);
+        self::assertTrue($json['explode']);
     }
 
     #[Test]

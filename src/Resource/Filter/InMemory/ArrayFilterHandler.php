@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Filter\InMemory;
 
 use haddowg\JsonApi\Resource\Field\Accessor;
+use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\Range;
@@ -102,13 +103,23 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * `<=`. A value that is not an array, or that supplies neither bound, is a
      * no-op (keeps every row).
      *
+     * A {@see DateRange} bound whose value is shape-valid ISO-8601 but
+     * calendar-invalid (`1997-13-99` — passes the lenient shape `Pattern` but not
+     * `\DateTimeImmutable`) does not coerce to a `\DateTimeInterface`; the
+     * framework adapter's pre-provider validation rejects it as a clean `400`, but
+     * when that validation is absent this handler **skips** such a bound (treats it
+     * as open/absent) rather than comparing a `\DateTimeImmutable` column against a
+     * raw string — which PHP would silently coerce to a lexical compare, diverging
+     * from a database adapter. {@see bound()} applies this guard, so both bounds and
+     * both providers degrade identically.
+     *
      * @return \Closure(mixed): bool
      */
     private function range(Range $filter, mixed $value): \Closure
     {
         $bounds = \is_array($value) ? $value : [];
-        $min = $this->bound($bounds, 'min', $filter->deserialize);
-        $max = $this->bound($bounds, 'max', $filter->deserialize);
+        $min = $this->bound($filter, $bounds, 'min');
+        $max = $this->bound($filter, $bounds, 'max');
 
         return function (mixed $row) use ($filter, $min, $max): bool {
             if ($min === null && $max === null) {
@@ -130,10 +141,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * Extracts and coerces one range bound: returns the deserialized bound value,
      * or `null` when the bound is absent or blank (so an open-ended range works).
      *
-     * @param array<array-key, mixed>     $bounds
-     * @param (\Closure(mixed): mixed)|null $deserialize
+     * For a {@see DateRange} a coercion that did not yield a `\DateTimeInterface`
+     * (a shape-valid but unparseable ISO-8601 string such as `1997-13-99`) is also
+     * treated as absent, so the comparison never crosses a `\DateTimeImmutable`
+     * column against a raw string — see {@see range()}.
+     *
+     * @param array<array-key, mixed> $bounds
      */
-    private function bound(array $bounds, string $key, ?\Closure $deserialize): mixed
+    private function bound(Range $filter, array $bounds, string $key): mixed
     {
         if (!\array_key_exists($key, $bounds)) {
             return null;
@@ -144,7 +159,13 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             return null;
         }
 
-        return $deserialize !== null ? $deserialize($value) : $value;
+        $value = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
+
+        if ($filter instanceof DateRange && !$value instanceof \DateTimeInterface) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**

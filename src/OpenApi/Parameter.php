@@ -12,6 +12,12 @@ namespace haddowg\JsonApi\OpenApi;
  * The value is described by a `schema` (a {@see Schema} or a {@see Reference}); the
  * mutually-exclusive `content` form is not modelled (JSON:API query params are all
  * simple-style schema params).
+ *
+ * An optional `style` / `explode` pair documents the serialization of a structured
+ * value: a {@see \haddowg\JsonApi\Resource\Filter\Range} filter's nested
+ * `filter[<key>][min]`/`[max]` value renders as a `deepObject` parameter
+ * (`style: deepObject, explode: true`). Both default to "absent" so every existing
+ * parameter (a plain scalar query/path param) serializes exactly as before.
  */
 final readonly class Parameter implements \JsonSerializable
 {
@@ -22,15 +28,18 @@ final readonly class Parameter implements \JsonSerializable
         public ?bool $required = null,
         public ?bool $deprecated = null,
         public Schema|Reference|null $schema = null,
+        public ?ParameterStyle $style = null,
+        public ?bool $explode = null,
     ) {}
 
     /**
      * A `query` parameter (the JSON:API case: `filter[…]`, `sort`, `include`,
-     * `fields[…]`, `page[…]`).
+     * `fields[…]`, `page[…]`). An optional `style`/`explode` documents a structured
+     * value (a `Range` filter's nested `min`/`max` as a `deepObject`).
      */
-    public static function query(string $name, Schema|Reference|null $schema = null, ?string $description = null): self
+    public static function query(string $name, Schema|Reference|null $schema = null, ?string $description = null, ?ParameterStyle $style = null, ?bool $explode = null): self
     {
-        return new self($name, ParameterLocation::Query, $description, schema: $schema);
+        return new self($name, ParameterLocation::Query, $description, schema: $schema, style: $style, explode: $explode);
     }
 
     /**
@@ -61,6 +70,12 @@ final readonly class Parameter implements \JsonSerializable
         }
         if ($this->schema !== null) {
             $out['schema'] = $this->schema->toArray();
+        }
+        if ($this->style !== null) {
+            $out['style'] = $this->style->value;
+        }
+        if ($this->explode !== null) {
+            $out['explode'] = $this->explode;
         }
 
         return $out;

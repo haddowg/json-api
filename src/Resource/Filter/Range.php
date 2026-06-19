@@ -29,7 +29,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  *
  * @phpstan-consistent-constructor
  */
-readonly class Range implements \haddowg\JsonApi\Resource\Filter\FilterInterface
+readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
 {
     use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 

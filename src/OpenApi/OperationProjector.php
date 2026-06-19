@@ -613,14 +613,40 @@ final class OperationProjector
     {
         $parameters = [];
         foreach ($filters as $filter) {
+            $isRange = $filter instanceof \haddowg\JsonApi\Resource\Filter\Range;
+
             $parameters[] = Parameter::query(
                 'filter[' . $filter->key() . ']',
                 $this->filterValueSchema($filter),
-                'Filter the collection by `' . $filter->key() . '`.',
+                $this->filterDescription($filter),
+                // A structured Range's nested filter[<key>][min]/[max] value is an
+                // OAS `deepObject` parameter (ADR 0077); a scalar filter has no style.
+                style: $isRange ? ParameterStyle::DeepObject : null,
+                explode: $isRange ? true : null,
             );
         }
 
         return $parameters;
+    }
+
+    /**
+     * The description for one filter's `filter[<key>]` parameter: the author's own
+     * declared description ({@see \haddowg\JsonApi\Resource\Filter\DescribedFilter},
+     * which the convenience filters preset — "Matches values containing the given
+     * substring.", "Matches values within the given inclusive numeric range…") when
+     * present, else a generic per-key fallback. Read through the `DescribedFilter`
+     * interface so it stays type-safe over the bare {@see \haddowg\JsonApi\Resource\Filter\FilterInterface}.
+     */
+    private function filterDescription(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): string
+    {
+        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\DescribedFilter) {
+            $declared = $filter->getDescription();
+            if ($declared !== null && $declared !== '') {
+                return $declared;
+            }
+        }
+
+        return 'Filter the collection by `' . $filter->key() . '`.';
     }
 
     /**

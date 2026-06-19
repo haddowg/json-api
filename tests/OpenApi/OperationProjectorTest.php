@@ -129,9 +129,44 @@ final class OperationProjectorTest extends TestCase
         // The integer() builder declares a Pattern → emitted as the value schema.
         self::assertSame('^-?[0-9]+$', $this->strAt($wordCount, 'schema', 'pattern'));
 
-        // A presence-only/described filter still carries its description.
+        // A filter's own declared description is surfaced (not the generic fallback).
         $status = $this->parameterNamed($get, 'filter[status]');
-        self::assertSame('Filter the collection by `status`.', $this->strAt($status, 'description'));
+        self::assertSame('Filter by status.', $this->strAt($status, 'description'));
+    }
+
+    #[Test]
+    public function aFilterWithNoDeclaredDescriptionFallsBackToTheGenericLabel(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        // wordCount is a bare integer() Where with no describedAs() — generic fallback.
+        $wordCount = $this->parameterNamed($get, 'filter[wordCount]');
+        self::assertSame('Filter the collection by `wordCount`.', $this->strAt($wordCount, 'description'));
+    }
+
+    #[Test]
+    public function aRangeFilterParameterIsADeepObjectAndCarriesItsStrategyDescription(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        // A structured Range renders as a deepObject parameter (ADR 0077) and surfaces
+        // the strategy's preset description.
+        $rating = $this->parameterNamed($get, 'filter[rating]');
+        self::assertSame('deepObject', $this->strAt($rating, 'style'));
+        self::assertTrue($this->at($rating, 'explode'));
+        self::assertSame(
+            'Matches values within the given inclusive numeric range (min/max, either optional).',
+            $this->strAt($rating, 'description'),
+        );
+
+        $published = $this->parameterNamed($get, 'filter[published]');
+        self::assertSame('deepObject', $this->strAt($published, 'style'));
+        self::assertTrue($this->at($published, 'explode'));
+
+        // A scalar filter carries no style/explode.
+        $wordCount = $this->parameterNamed($get, 'filter[wordCount]');
+        self::assertArrayNotHasKey('style', $wordCount);
+        self::assertArrayNotHasKey('explode', $wordCount);
     }
 
     #[Test]

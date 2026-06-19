@@ -32,7 +32,7 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * immutable withers like {@see constrain()}, backed by the host's
  * {@see withDescriptionAndExample()} seam.
  *
- * @phpstan-require-implements FilterInterface
+ * @phpstan-require-implements DescribedFilter
  *
  * @property-read list<ConstraintInterface> $constraints
  * @property-read ?string                   $description
