@@ -68,7 +68,9 @@ trait DescribesEnumCases
      * Reads the {@see EnumCaseDescription} declared on the named case, or `null`
      * when the case is absent or carries none.
      *
-     * @param \ReflectionEnum<\UnitEnum> $reflection
+     * @template T of \UnitEnum
+     *
+     * @param \ReflectionEnum<T> $reflection
      */
     private static function reflectCaseDescription(\ReflectionEnum $reflection, string $caseName): ?string
     {
