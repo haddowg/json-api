@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
 use haddowg\JsonApi\Exception\DataMemberMissing;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
+use haddowg\JsonApi\Exception\RelatedAttributeOwnerMissing;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RemovalProhibited;
@@ -46,7 +47,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface
 {
     use RendersRelationsTrait;
 
@@ -250,6 +251,29 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         ));
     }
 
+    /**
+     * The dedup set of every flattened (`on()`) attribute's backing relation chain
+     * — the to-one relation paths a host eager-loads before serializing this
+     * resource. Load-not-render: never expanded into `included`. Order is preserved
+     * (field-declared `on()` paths, in field order), deduplicated. Each entry is a
+     * `.`-separated chain of declared to-one relations (`'author'` or
+     * `'publisher.country'`).
+     *
+     * @return list<string>
+     */
+    public function eagerLoadRelationshipPaths(): array
+    {
+        $paths = [];
+        foreach ($this->allFields() as $field) {
+            $relatedVia = $field->relatedVia();
+            if ($relatedVia !== null && !\in_array($relatedVia, $paths, true)) {
+                $paths[] = $relatedVia;
+            }
+        }
+
+        return $paths;
+    }
+
     public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
@@ -283,6 +307,23 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // *unconditionally* hidden, so a conditionally-hidden field flows here
             // and isHiddenFor() gates it against the request + model).
             if ($field->isWriteOnlyFor($request) || $field->isHiddenFor($request, $object)) {
+                continue;
+            }
+
+            // A flattened attribute (`on('publisher.country')`) reads its backing
+            // member off the FINAL related model in a to-one chain, not the owning
+            // one: walk the chain hop by hop (each hop honouring its relation's
+            // column()/storedAs()) and hand the final related object to the field's
+            // serialize() — any intermediate null short-circuits the whole chain to a
+            // null value.
+            $relatedVia = $field->relatedVia();
+            if ($relatedVia !== null) {
+                $attributes[$field->name()] = function (mixed $model, JsonApiRequestInterface $request, string $fieldName) use ($field, $relatedVia): mixed {
+                    $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $model, $request);
+
+                    return $owner === null ? null : $field->serialize($owner, $request, $fieldName);
+                };
+
                 continue;
             }
 
@@ -552,8 +593,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
         $domainObject = $this->hydrateId($domainObject, $data);
         $domainObject = $this->hydrateAttributes($domainObject, $data, $request, true);
+        $domainObject = $this->hydrateRelationships($domainObject, $request, true);
 
-        return $this->hydrateRelationships($domainObject, $request, true);
+        // Flattened (`on()`) attributes hydrate LAST: a relation associated in this
+        // same request body must be visible so the value can be written onto the
+        // freshly resolved related model.
+        return $this->hydrateRelatedAttributes($domainObject, $data, $request, true);
     }
 
     /**
@@ -575,8 +620,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $this->validateType($data);
 
         $domainObject = $this->hydrateAttributes($domainObject, $data, $request, false);
+        $domainObject = $this->hydrateRelationships($domainObject, $request, false);
 
-        return $this->hydrateRelationships($domainObject, $request, false);
+        // Flattened (`on()`) attributes hydrate LAST (see hydrateForCreate()).
+        return $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
     }
 
     /**
@@ -666,6 +713,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         foreach ($this->attributeFields() as $field) {
+            // Flattened (`on()`) attributes hydrate in a later pass, after
+            // relationships — see hydrateRelatedAttributes().
+            if ($field->relatedVia() !== null) {
+                continue;
+            }
+
             if ($field->isReadOnlyFor($creating, $request)) {
                 continue;
             }
@@ -678,6 +731,178 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         return $domainObject;
+    }
+
+    /**
+     * Hydrates the flattened (`on()`) attributes — those whose value lives on the
+     * final related model of a declared, to-one relation chain. Runs **after**
+     * {@see hydrateRelationships()} so a relation associated in the same request
+     * body is visible. For each present, writable flattened attribute it walks the
+     * chain to its final related model (each hop honouring the relation's
+     * `column()`/`storedAs()`) and writes the deserialized value onto it (the
+     * related entity is mutated in place — Doctrine's UoW persists the dirty loaded
+     * entity on flush, the in-memory store shares the reference; no related-persister
+     * change). Any null hop in the chain is a 422
+     * ({@see RelatedAttributeOwnerMissing}, require-exists): a flattened attribute
+     * never auto-instantiates a related model.
+     *
+     * @param mixed $domainObject
+     * @param array<string, mixed> $data
+     * @return mixed
+     *
+     * @throws RelatedAttributeOwnerMissing
+     */
+    protected function hydrateRelatedAttributes(mixed $domainObject, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $attributes = $data['attributes'] ?? null;
+        if (!\is_array($attributes)) {
+            return $domainObject;
+        }
+
+        foreach ($this->attributeFields() as $field) {
+            $relatedVia = $field->relatedVia();
+            if ($relatedVia === null) {
+                continue;
+            }
+
+            if ($field->isReadOnlyFor($creating, $request)) {
+                continue;
+            }
+
+            if (!\array_key_exists($field->name(), $attributes)) {
+                continue;
+            }
+
+            $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $domainObject, $request);
+            if ($owner === null) {
+                throw new RelatedAttributeOwnerMissing($field->name(), $relatedVia);
+            }
+
+            // The field writes its own backing member (column() ?? name()) onto the
+            // final related model and returns it; the parent's association to that
+            // related model is unchanged, so we keep $domainObject (only $owner is
+            // mutated).
+            $field->hydrate($owner, $attributes[$field->name()], $data, $request, $creating);
+        }
+
+        return $domainObject;
+    }
+
+    /**
+     * Walks a flattened (`on()`) attribute's to-one relation chain `model -> seg1
+     * -> … -> segN`, returning the **final** related model (the object whose
+     * `column() ?? name()` the field reads/writes) or `null` when any intermediate
+     * hop is null (short-circuit). Each segment is resolved against the owning
+     * type's **hidden-inclusive** relation set (a flattened attribute may back onto
+     * a {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::hidden()} relation —
+     * the idiomatic internal association) and read via its `readValue()` (honouring
+     * its `column()`/`storedAs()`); each successive segment is resolved on the prior
+     * segment's related type's serializer, resolved through the injected
+     * {@see SerializerResolverInterface}.
+     *
+     * Every segment must be a declared, to-one relation — enforced fail-loud at
+     * boot / container warm-up by the host's eager-load validator. This runtime walk
+     * enforces the same invariants as a defence-in-depth `\LogicException` (an
+     * unknown segment, a to-many segment, or a chain that cannot be followed because
+     * a related serializer is unresolvable), so a misconfiguration never silently
+     * mis-reads.
+     *
+     * @return mixed the final related model, or `null` on any intermediate-null hop
+     *
+     * @throws \LogicException when a segment is undeclared, to-many, or its related
+     *                         type cannot be resolved to continue the walk
+     */
+    private function resolveRelatedChain(string $attribute, string $path, mixed $model, JsonApiRequestInterface $request): mixed
+    {
+        $segments = \explode('.', $path);
+        $current = $model;
+        $currentSerializer = $this;
+
+        foreach ($segments as $index => $segment) {
+            $relation = $currentSerializer->relationNamedIncludingHidden($segment);
+            if ($relation === null) {
+                throw new \LogicException(\sprintf(
+                    'Attribute "%s" is flattened via on("%s"), but segment "%s" names no '
+                    . 'declared relation.',
+                    $attribute,
+                    $path,
+                    $segment,
+                ));
+            }
+
+            if ($relation->isToMany()) {
+                throw new \LogicException(\sprintf(
+                    'Attribute "%s" is flattened via on("%s"), but segment "%s" is '
+                    . 'to-many; on() flattens a scalar from a to-one chain — a to-many '
+                    . 'is not flattenable, use ?include.',
+                    $attribute,
+                    $path,
+                    $segment,
+                ));
+            }
+
+            $current = $relation->readValue($current, $request);
+            if ($current === null) {
+                return null;
+            }
+
+            // Past the final segment there is nothing further to resolve; the
+            // current related model is the object the field reads/writes.
+            if ($index === \count($segments) - 1) {
+                break;
+            }
+
+            $currentSerializer = $this->serializerForRelatedChain($attribute, $path, $segment, $relation);
+        }
+
+        return $current;
+    }
+
+    /**
+     * Resolves the serializer for the next hop of an `on()` chain: the single
+     * declared related type of `$relation`, looked up through the injected
+     * {@see SerializerResolverInterface}. The resolved serializer must itself
+     * declare a relation inventory (an {@see AbstractResource}, in practice) so the
+     * remaining segments can be resolved on it.
+     *
+     * @throws \LogicException when the relation's related type cannot be resolved to
+     *                         a relation-declaring serializer (unregistered, bare, or
+     *                         polymorphic — none of which can back an `on()` chain)
+     */
+    private function serializerForRelatedChain(
+        string $attribute,
+        string $path,
+        string $segment,
+        RelationInterface $relation,
+    ): \haddowg\JsonApi\Serializer\DeclaresRelationsInterface {
+        $resolver = $this->serializerResolver;
+        $relatedTypes = $relation->relatedTypes();
+        $nextType = $relatedTypes[0] ?? null;
+
+        if ($resolver === null || $nextType === null || \count($relatedTypes) !== 1 || !$resolver->hasSerializerFor($nextType)) {
+            throw new \LogicException(\sprintf(
+                'Attribute "%s" is flattened via on("%s"), but segment "%s"\'s related '
+                . 'type cannot be resolved to continue the chain (a polymorphic or '
+                . 'unregistered relation cannot back an on() chain).',
+                $attribute,
+                $path,
+                $segment,
+            ));
+        }
+
+        $next = $resolver->serializerFor($nextType);
+        if (!$next instanceof \haddowg\JsonApi\Serializer\DeclaresRelationsInterface) {
+            throw new \LogicException(\sprintf(
+                'Attribute "%s" is flattened via on("%s"), but segment "%s"\'s related '
+                . 'type "%s" declares no relation inventory to continue the chain.',
+                $attribute,
+                $path,
+                $segment,
+                $nextType,
+            ));
+        }
+
+        return $next;
     }
 
     /**
@@ -766,6 +991,23 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         foreach ($this->relationFields() as $relation) {
             if ($relation->name() === $name) {
                 return $relation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The declared relation named `$name` **including hidden relations** — the
+     * hidden-inclusive twin of {@see relationNamed()} (which filters hidden out).
+     * A flattened (`on()`) attribute idiomatically names a `hidden()` "internal
+     * association", so the eager-load walk and its validation must still find it.
+     */
+    public function relationNamedIncludingHidden(string $name): ?\haddowg\JsonApi\Resource\Field\RelationInterface
+    {
+        foreach ($this->allFields() as $field) {
+            if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface && $field->name() === $name) {
+                return $field;
             }
         }
 

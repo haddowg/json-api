@@ -79,6 +79,19 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected bool $sortable = false;
 
     /**
+     * When non-null, this attribute is **flattened from a chain of declared,
+     * to-one relations' related model** rather than read/written on the owning
+     * model directly: a `.`-separated path (`'author'` single-hop, or
+     * `'publisher.country'` multi-hop) is walked relation by relation (each
+     * honouring its own `column()`/`storedAs()`), and the field's own
+     * `column() ?? name()` is read off / written onto the *final* related object
+     * in the chain. Set by {@see on()}; read by {@see relatedVia()}. Mutually
+     * exclusive with {@see $extractUsing} and a computed value closure (a
+     * flattened attribute has a concrete backing member).
+     */
+    protected ?string $relatedVia = null;
+
+    /**
      * @var list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
      */
     protected array $constraints = [];
@@ -159,6 +172,11 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->column;
     }
 
+    public function relatedVia(): ?string
+    {
+        return $this->relatedVia;
+    }
+
     /**
      * Stores the value in a different domain-object member than the JSON:API
      * member name.
@@ -181,6 +199,72 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     public function computed(): static
     {
         $this->column = null;
+
+        return $this;
+    }
+
+    /**
+     * Declares a **derived, read-only** attribute: the value is produced by
+     * `$callback` on read and the field is read-only on both create and update
+     * (a derived value has nothing to write back). Sugar over the lower-level
+     * primitives — {@see computed()} (no backing column) + {@see extractUsing()}
+     * (the value hook) + {@see readOnly()} — and the documented attribute API for
+     * a computed member. The callback receives the domain model, the request, and
+     * the field name, and owns the serialized output (no {@see serializeValue()}
+     * cast is applied). Mutually exclusive with {@see on()}.
+     *
+     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * @return static
+     */
+    public function computedUsing(\Closure $callback): static
+    {
+        if ($this->relatedVia !== null) {
+            throw new \LogicException(\sprintf(
+                'Field "%s" cannot be both computedUsing() and on(): a computed value '
+                . 'and a flattened related attribute are mutually exclusive.',
+                $this->name,
+            ));
+        }
+
+        $this->computed();
+        $this->extractUsing = $callback;
+
+        return $this->readOnly();
+    }
+
+    /**
+     * Flattens this scalar attribute from a **chain of declared, to-one
+     * relations**' related model: `$path` is a `.`-separated chain of relation
+     * names — `'author'` (single hop) or `'publisher.country'` (multi-hop) — and
+     * the value is read from / written onto the **final** related object in the
+     * chain, honouring the field's own `column()`/`storedAs()`. Every segment must
+     * be a declared {@see RelationInterface} and **to-one** — enforced fail-loud at
+     * boot / container warm-up by the host's eager-load validator (an unknown
+     * segment, or a to-many segment, is a developer-facing `\LogicException`). A
+     * segment MAY be {@see hidden()} (the idiomatic "internal association" backing a
+     * flattened attribute that never renders as a relationship).
+     *
+     * On read, any intermediate null short-circuits the chain → a null attribute
+     * value; on write, any null hop is a 422 (require-exists — no auto-instantiate).
+     * The normal {@see serializeValue()} / {@see deserializeValue()} cast still
+     * applies. Mutually exclusive with {@see computedUsing()} and
+     * {@see extractUsing()} (a flattened attribute reads its own backing member off
+     * the related object, so a value hook would have nothing to act on).
+     *
+     * @return static
+     */
+    public function on(string $path): static
+    {
+        if ($this->extractUsing !== null) {
+            throw new \LogicException(\sprintf(
+                'Field "%s" cannot combine on() with extractUsing()/computedUsing(): a '
+                . 'flattened related attribute reads its own backing member off the '
+                . 'related object.',
+                $this->name,
+            ));
+        }
+
+        $this->relatedVia = $path;
 
         return $this;
     }
@@ -361,6 +445,15 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      */
     public function extractUsing(\Closure $callback): static
     {
+        if ($this->relatedVia !== null) {
+            throw new \LogicException(\sprintf(
+                'Field "%s" cannot combine extractUsing()/computedUsing() with on(): a '
+                . 'flattened related attribute reads its own backing member off the '
+                . 'related object.',
+                $this->name,
+            ));
+        }
+
         $this->extractUsing = $callback;
 
         return $this;

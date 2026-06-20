@@ -409,6 +409,112 @@ final class FieldTest extends TestCase
     }
 
     #[Test]
+    public function computedUsingIsComputedReadOnlyAndDerivesItsValue(): void
+    {
+        $field = Str::make('displayName')->computedUsing(
+            static function (mixed $model, mixed $request, string $name): string {
+                self::assertIsArray($model);
+                self::assertSame('displayName', $name);
+                $first = $model['first'];
+                $last = $model['last'];
+                self::assertIsString($first);
+                self::assertIsString($last);
+
+                return $first . ' ' . $last;
+            },
+        );
+
+        // Sugar = computed() (no backing column) + the value closure + read-only on
+        // BOTH create and update.
+        self::assertNull($field->column());
+        self::assertTrue($field->isReadOnly(true));
+        self::assertTrue($field->isReadOnly(false));
+        self::assertSame(
+            'Ada Lovelace',
+            $field->serialize(['first' => 'Ada', 'last' => 'Lovelace'], $this->request(), 'displayName'),
+        );
+    }
+
+    #[Test]
+    public function computedUsingFieldDoesNotHydrate(): void
+    {
+        $field = Str::make('displayName')->computedUsing(static fn(): string => 'x');
+        $model = ['displayName' => 'original'];
+
+        // computed() => no backing column => hydrate is a no-op (and the field is
+        // read-only anyway, so the resource never even reaches its hydrate()).
+        self::assertSame($model, $field->hydrate($model, 'new', [], $this->request(), true));
+    }
+
+    #[Test]
+    public function onRecordsTheBackingRelationAndKeepsTheBackingColumn(): void
+    {
+        $field = Str::make('authorName')->on('author');
+
+        self::assertSame('author', $field->relatedVia());
+        // A flattened attribute still has its own backing member on the related model.
+        self::assertSame('authorName', $field->column());
+    }
+
+    #[Test]
+    public function onHonoursStoredAsForTheBackingColumn(): void
+    {
+        $field = Str::make('authorName')->on('author')->storedAs('name');
+
+        self::assertSame('author', $field->relatedVia());
+        self::assertSame('name', $field->column());
+    }
+
+    #[Test]
+    public function onAcceptsAMultiHopDotPath(): void
+    {
+        // A multi-hop chain is recorded verbatim; the backing member is still the
+        // field's own column() on the FINAL related model.
+        $field = Str::make('countryName')->on('publisher.country')->storedAs('name');
+
+        self::assertSame('publisher.country', $field->relatedVia());
+        self::assertSame('name', $field->column());
+    }
+
+    #[Test]
+    public function plainAttributeReportsNoRelatedVia(): void
+    {
+        self::assertNull(Str::make('title')->relatedVia());
+    }
+
+    #[Test]
+    public function onThenComputedUsingThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Str::make('authorName')->on('author')->computedUsing(static fn(): string => 'x');
+    }
+
+    #[Test]
+    public function computedUsingThenOnThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Str::make('authorName')->computedUsing(static fn(): string => 'x')->on('author');
+    }
+
+    #[Test]
+    public function onThenExtractUsingThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Str::make('authorName')->on('author')->extractUsing(static fn(): string => 'x');
+    }
+
+    #[Test]
+    public function extractUsingThenOnThrows(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        Str::make('authorName')->extractUsing(static fn(): string => 'x')->on('author');
+    }
+
+    #[Test]
     public function integerCastsOnSerializeAndHydrate(): void
     {
         $field = Integer::make('count');

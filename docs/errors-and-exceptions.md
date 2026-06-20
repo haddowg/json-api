@@ -281,6 +281,7 @@ error object's `code` member; the **source** column names the error object's
 | `FullReplacementProhibited` | 403 | `FULL_REPLACEMENT_PROHIBITED` | pointer | A full replacement of a relationship that forbids it is attempted. |
 | `AdditionProhibited` | 403 | `ADDITION_PROHIBITED` | pointer | An addition to a relationship that forbids it is attempted. |
 | `RemovalProhibited` | 403 | `REMOVAL_PROHIBITED` | pointer | A removal from a relationship that forbids it is attempted. |
+| `RelatedAttributeOwnerMissing` | 422 | `RELATED_ATTRIBUTE_OWNER_MISSING` | pointer (`/data/attributes/<name>`) | A write targets an attribute flattened `on()` a to-one relation whose related model is absent (require-exists — no auto-instantiate). |
 | `ResourceTypeUnacceptable` | 409 | `RESOURCE_TYPE_UNACCEPTABLE` | pointer | A resource `type` is not a string or is rejected by the hydrator. |
 
 ### Query parameters

@@ -33,6 +33,17 @@ interface FieldInterface
     public function column(): ?string;
 
     /**
+     * The `.`-separated chain of declared, to-one relations this attribute is
+     * **flattened from** ({@see AbstractField::on()}) — `'author'` (single hop) or
+     * `'publisher.country'` (multi-hop) — or `null` for a plain attribute. When
+     * non-null, the owning resource walks the chain to its final related object and
+     * the field reads its `column() ?? name()` off / writes it onto *that* object,
+     * rather than the owning model. The chain participates in the resource's
+     * eager-load set ({@see \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface}).
+     */
+    public function relatedVia(): ?string;
+
+    /**
      * Whether the field is **unconditionally** read-only in the given request
      * context, and so must not be hydrated. A field whose read-only state is a
      * request predicate ({@see AbstractField::readOnly()} with a closure) reports

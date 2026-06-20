@@ -740,6 +740,264 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function onAttributeFlattensTheRelatedModelOnRead(): void
+    {
+        $resource = new FlattenedResource();
+        $request = new StubJsonApiRequest();
+
+        $author = (object) ['name' => 'Ada', 'displayName' => 'Ada L.'];
+        $book = ['id' => '1', 'title' => 'T', 'author' => $author];
+
+        $attributes = $resource->getAttributes($book, $request);
+
+        self::assertArrayHasKey('authorName', $attributes);
+        self::assertArrayHasKey('authorDisplay', $attributes);
+        // authorName reads the related model's `name` (via storedAs); authorDisplay
+        // reads its `displayName` (the default column == name).
+        self::assertSame('Ada', $attributes['authorName']($book, $request, 'authorName'));
+        self::assertSame('Ada L.', $attributes['authorDisplay']($book, $request, 'authorDisplay'));
+    }
+
+    #[Test]
+    public function onAttributeIsNullWhenTheRelatedModelIsAbsentOnRead(): void
+    {
+        $resource = new FlattenedResource();
+        $request = new StubJsonApiRequest();
+
+        $book = ['id' => '1', 'title' => 'T', 'author' => null];
+        $attributes = $resource->getAttributes($book, $request);
+
+        self::assertNull($attributes['authorName']($book, $request, 'authorName'));
+    }
+
+    #[Test]
+    public function onAttributeDoesNotRenderItsBackingRelationshipWhenHidden(): void
+    {
+        // The backing `author` relation is hidden(), so it is not a rendered
+        // relationship even though the flattened attribute is rendered.
+        $resource = new FlattenedResource();
+        $resource->setSerializerResolver($this->resolver());
+        $request = new StubJsonApiRequest();
+
+        $book = ['id' => '1', 'title' => 'T', 'author' => (object) ['name' => 'Ada', 'displayName' => 'Ada L.']];
+
+        self::assertArrayNotHasKey('author', $resource->getRelationships($book, $request));
+        self::assertArrayHasKey('authorName', $resource->getAttributes($book, $request));
+    }
+
+    #[Test]
+    public function onAttributeWritesOntoTheExistingRelatedModelOnUpdate(): void
+    {
+        $resource = new FlattenedResource();
+        $author = (object) ['name' => 'Ada', 'displayName' => 'Ada L.'];
+        $book = (object) ['id' => '1', 'title' => 'T', 'author' => $author];
+
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'books',
+                'id' => '1',
+                'attributes' => ['authorName' => 'Grace'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, $book);
+
+        // The parent's association is unchanged; the related model is mutated in place.
+        self::assertSame($book, $model);
+        self::assertSame('Grace', $author->name);
+    }
+
+    #[Test]
+    public function onAttributeWritesAgainstARelationAssociatedInTheSameCreateBody(): void
+    {
+        // The `author` relation is associated in this same POST body; the flattened
+        // `authorName` must hydrate AFTER relationships so it sees the new related
+        // model. Here the relation's fillUsing materialises the related object.
+        $resource = new FlattenedWithSettableRelationResource();
+        $request = $this->createRequest('POST', [
+            'data' => [
+                'type' => 'books',
+                'attributes' => ['title' => 'T', 'authorName' => 'Grace'],
+                'relationships' => [
+                    'author' => ['data' => ['type' => 'authors', 'id' => '9']],
+                ],
+            ],
+        ]);
+
+        $book = (object) ['title' => null, 'author' => null];
+        $model = $resource->hydrate($request, $book);
+
+        self::assertSame($book, $model);
+        self::assertIsObject($book->author);
+        self::assertSame('9', $book->author->id);
+        // The flattened write landed on the freshly associated related model.
+        self::assertSame('Grace', $book->author->name);
+    }
+
+    #[Test]
+    public function onAttributeWriteWith422WhenTheRelatedModelIsAbsent(): void
+    {
+        $resource = new FlattenedResource();
+        $book = (object) ['id' => '1', 'title' => 'T', 'author' => null];
+
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'books',
+                'id' => '1',
+                'attributes' => ['authorName' => 'Grace'],
+            ],
+        ]);
+
+        try {
+            $resource->hydrate($request, $book);
+            self::fail('Expected RelatedAttributeOwnerMissing.');
+        } catch (\haddowg\JsonApi\Exception\RelatedAttributeOwnerMissing $exception) {
+            self::assertSame(422, $exception->getStatusCode());
+            self::assertSame('authorName', $exception->attribute);
+            self::assertSame('author', $exception->relation);
+            self::assertSame(
+                '/data/attributes/authorName',
+                $exception->getErrors()[0]->source?->pointer,
+            );
+        }
+    }
+
+    #[Test]
+    public function onAttributeAgainstAToManyRelationIsAnAuthorError(): void
+    {
+        $resource = new FlattenedToManyResource();
+        $request = $this->createRequest('PATCH', [
+            'data' => ['type' => 'books', 'id' => '1', 'attributes' => ['tagName' => 'x']],
+        ]);
+
+        $this->expectException(\LogicException::class);
+        $resource->hydrate($request, (object) ['tags' => []]);
+    }
+
+    #[Test]
+    public function eagerLoadRelationshipPathsIsTheDedupSetOfEveryOnPath(): void
+    {
+        // The dedup set of every on() chain in field order — single-hop `author`
+        // (shared by authorName + authorDisplay, deduped) then multi-hop
+        // `publisher.country`. No alwaysLoadRelationships() arm exists.
+        self::assertSame(
+            ['author', 'publisher.country'],
+            (new MultiHopFlattenedResource())->eagerLoadRelationshipPaths(),
+        );
+    }
+
+    #[Test]
+    public function eagerLoadRelationshipPathsIsEmptyForAResourceWithoutOn(): void
+    {
+        self::assertSame([], (new PostResource())->eagerLoadRelationshipPaths());
+    }
+
+    #[Test]
+    public function onAttributeFlattensAMultiHopToOneChainOnRead(): void
+    {
+        // publisher.country: walk model -> publisher -> country, read the country's
+        // `name`. The chain walk past hop 0 needs the serializer resolver to find the
+        // intermediate `publishers` type's relation inventory.
+        $resource = new MultiHopFlattenedResource();
+        $resource->setSerializerResolver($this->chainResolver());
+        $request = new StubJsonApiRequest();
+
+        $country = (object) ['name' => 'France'];
+        $publisher = (object) ['country' => $country];
+        $book = ['id' => '1', 'title' => 'T', 'author' => null, 'publisher' => $publisher];
+
+        $attributes = $resource->getAttributes($book, $request);
+        self::assertArrayHasKey('countryName', $attributes);
+        self::assertSame('France', $attributes['countryName']($book, $request, 'countryName'));
+    }
+
+    #[Test]
+    public function onAttributeShortCircuitsToNullOnAnIntermediateNullHop(): void
+    {
+        // publisher is null: the chain short-circuits to null without touching country.
+        $resource = new MultiHopFlattenedResource();
+        $resource->setSerializerResolver($this->chainResolver());
+        $request = new StubJsonApiRequest();
+
+        $book = ['id' => '1', 'title' => 'T', 'author' => null, 'publisher' => null];
+
+        $attributes = $resource->getAttributes($book, $request);
+        self::assertNull($attributes['countryName']($book, $request, 'countryName'));
+    }
+
+    #[Test]
+    public function onAttributeHonoursAStoredAsIntermediateRelationOnRead(): void
+    {
+        // The `publisher` relation is storedAs('imprint'): the chain reads the
+        // intermediate hop from the `imprint` member, then the country's `name`.
+        $resource = new StoredAsHopFlattenedResource();
+        $resource->setSerializerResolver($this->chainResolver());
+        $request = new StubJsonApiRequest();
+
+        $country = (object) ['name' => 'Spain'];
+        $book = ['id' => '1', 'imprint' => (object) ['country' => $country]];
+
+        $attributes = $resource->getAttributes($book, $request);
+        self::assertSame('Spain', $attributes['countryName']($book, $request, 'countryName'));
+    }
+
+    #[Test]
+    public function onAttributeWritesOntoTheFinalRelatedModelOfAMultiHopChainOnUpdate(): void
+    {
+        // publisher.country: a PATCH of `countryName` writes onto the final country.
+        $resource = new MultiHopFlattenedResource();
+        $resource->setSerializerResolver($this->chainResolver());
+
+        $country = (object) ['name' => 'France'];
+        $book = (object) ['id' => '1', 'author' => null, 'publisher' => (object) ['country' => $country]];
+
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'books',
+                'id' => '1',
+                'attributes' => ['countryName' => 'Germany'],
+            ],
+        ]);
+
+        $model = $resource->hydrate($request, $book);
+
+        // The parent's association is unchanged; the final related model is mutated.
+        self::assertSame($book, $model);
+        self::assertSame('Germany', $country->name);
+    }
+
+    #[Test]
+    public function onAttributeWriteWith422WhenAnIntermediateHopIsNull(): void
+    {
+        // publisher is null: the chain has no owner for the final write -> 422.
+        $resource = new MultiHopFlattenedResource();
+        $resource->setSerializerResolver($this->chainResolver());
+
+        $book = (object) ['id' => '1', 'author' => null, 'publisher' => null];
+
+        $request = $this->createRequest('PATCH', [
+            'data' => [
+                'type' => 'books',
+                'id' => '1',
+                'attributes' => ['countryName' => 'Germany'],
+            ],
+        ]);
+
+        try {
+            $resource->hydrate($request, $book);
+            self::fail('Expected RelatedAttributeOwnerMissing.');
+        } catch (\haddowg\JsonApi\Exception\RelatedAttributeOwnerMissing $exception) {
+            self::assertSame(422, $exception->getStatusCode());
+            self::assertSame('countryName', $exception->attribute);
+            self::assertSame('publisher.country', $exception->relation);
+            self::assertSame(
+                '/data/attributes/countryName',
+                $exception->getErrors()[0]->source?->pointer,
+            );
+        }
+    }
+
+    #[Test]
     public function nonIncludableRelationshipsAreDerivedFromCannotBeIncluded(): void
     {
         $resource = new IncludeControlledResource();
@@ -937,6 +1195,50 @@ final class AbstractResourceTest extends TestCase
     {
         return new StubSerializerResolver();
     }
+
+    /**
+     * A resolver mapping the intermediate `publishers` type of an `on()` chain to a
+     * real {@see AbstractResource} declaring the `country` to-one relation, so the
+     * multi-hop chain walk can resolve hop 1 (`country`) off the publisher type.
+     */
+    private function chainResolver(): \haddowg\JsonApi\Resource\SerializerResolverInterface
+    {
+        return new class implements \haddowg\JsonApi\Resource\SerializerResolverInterface {
+            private PublisherChainResource $publisher;
+
+            public function __construct()
+            {
+                $this->publisher = new PublisherChainResource();
+            }
+
+            public function serializerFor(string $type): SerializerInterface
+            {
+                return $type === 'publishers'
+                    ? $this->publisher
+                    : throw new \haddowg\JsonApi\Exception\ResourceNotFound();
+            }
+
+            public function hasSerializerFor(string $type): bool
+            {
+                return $type === 'publishers';
+            }
+
+            public function relationshipLoadState(): ?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface
+            {
+                return null;
+            }
+
+            public function relationshipCount(): ?\haddowg\JsonApi\Serializer\RelationshipCountInterface
+            {
+                return null;
+            }
+
+            public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
+            {
+                return null;
+            }
+        };
+    }
 }
 
 /**
@@ -978,6 +1280,138 @@ final class PostResource extends AbstractResource
     public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $serverDefault): \haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return PagePaginator::make()->withDefaultPerPage(15);
+    }
+}
+
+/**
+ * A resource flattening scalar attributes from a hidden, to-one `author` relation
+ * via {@see \haddowg\JsonApi\Resource\Field\AbstractField::on()}.
+ */
+final class FlattenedResource extends AbstractResource
+{
+    public static string $type = 'books';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title'),
+            // Reads/writes the related author's `name` (storedAs) and `displayName`.
+            Str::make('authorName')->on('author')->storedAs('name'),
+            Str::make('authorDisplay')->on('author')->storedAs('displayName'),
+            // The backing relation is hidden: never rendered as a relationship.
+            BelongsTo::make('author')->type('authors')->hidden(),
+        ];
+    }
+}
+
+/**
+ * A resource flattening attributes through a multi-hop to-one chain
+ * (`publisher.country`) as well as a single-hop one (`author`), exercising the
+ * dedup eager-load set and the chain walk.
+ */
+final class MultiHopFlattenedResource extends AbstractResource
+{
+    public static string $type = 'books';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title'),
+            // Single-hop, deduped across both attributes -> one `author` eager path.
+            Str::make('authorName')->on('author')->storedAs('name'),
+            Str::make('authorDisplay')->on('author')->storedAs('displayName'),
+            // Multi-hop: book -> publisher -> country, reads the country's `name`.
+            Str::make('countryName')->on('publisher.country')->storedAs('name'),
+            BelongsTo::make('author')->type('authors')->hidden(),
+            BelongsTo::make('publisher')->type('publishers')->hidden(),
+        ];
+    }
+}
+
+/**
+ * Like {@see MultiHopFlattenedResource} but its intermediate `publisher` relation
+ * is {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::storedAs()} a different
+ * member (`imprint`), proving the chain walk honours each hop's column().
+ */
+final class StoredAsHopFlattenedResource extends AbstractResource
+{
+    public static string $type = 'books';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('countryName')->on('publisher.country')->storedAs('name'),
+            BelongsTo::make('publisher')->type('publishers')->storedAs('imprint')->hidden(),
+        ];
+    }
+}
+
+/**
+ * The intermediate type of an `on('publisher.country')` chain: declares the
+ * `country` to-one relation the chain walk follows on hop 1.
+ */
+final class PublisherChainResource extends AbstractResource
+{
+    public static string $type = 'publishers';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('country')->type('countries')->hidden(),
+        ];
+    }
+}
+
+/**
+ * Like {@see FlattenedResource} but its `author` relation materialises a real
+ * related object on hydrate (via `fillUsing`), so a flattened write in the same
+ * create body lands on the freshly associated model.
+ */
+final class FlattenedWithSettableRelationResource extends AbstractResource
+{
+    public static string $type = 'books';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title'),
+            Str::make('authorName')->on('author')->storedAs('name'),
+            BelongsTo::make('author')->type('authors')->fillUsing(
+                static function (mixed $model, mixed $relationship): mixed {
+                    $id = $relationship instanceof \haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship
+                        ? $relationship->resourceIdentifier?->id
+                        : null;
+                    if ($model instanceof \stdClass) {
+                        $model->author = (object) ['id' => $id, 'name' => null];
+                    }
+
+                    return $model;
+                },
+            ),
+        ];
+    }
+}
+
+/**
+ * A resource declaring an `on()` attribute against a to-many relation — an author
+ * error surfaced at first use (on() requires a to-one relation).
+ */
+final class FlattenedToManyResource extends AbstractResource
+{
+    public static string $type = 'books';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('tagName')->on('tags'),
+            HasMany::make('tags')->type('tags')->hidden(),
+        ];
     }
 }
 
