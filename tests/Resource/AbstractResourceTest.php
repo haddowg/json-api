@@ -26,6 +26,7 @@ use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -64,6 +65,19 @@ final class AbstractResourceTest extends TestCase
         // The JSON:API type stays singular; only the URI segment differs.
         self::assertSame('segment', SegmentedResource::$type);
         self::assertSame('segments', (new SegmentedResource())->uriType());
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function declaredFieldNamesExposesTheFullUnfilteredMemberNamespace(): void
+    {
+        // Every declared field name, request-independent and UNFILTERED by
+        // visibility: attributes (incl. the hidden `secret` and write-only
+        // `password`), relationships, and `id`.
+        self::assertSame(
+            ['id', 'title', 'viewCount', 'published', 'publishedAt', 'secret', 'password', 'author', 'comments'],
+            (new PostResource())->declaredFieldNames(),
+        );
     }
 
     #[Test]

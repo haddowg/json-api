@@ -46,7 +46,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface
 {
     use RendersRelationsTrait;
 
@@ -230,6 +230,24 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $value = $idField->serializeWithoutRequest($object);
 
         return \is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
+     * Every declared field name (the full member namespace) for strict
+     * `fields[type]` sparse-fieldset member validation: every name from the field
+     * inventory — attributes AND relationships, request-independent and
+     * **unfiltered** by visibility, so hidden / write-only / conditionally-hidden
+     * / non-sparse fields and `id` are all included. A `fields[type]` member is
+     * therefore "unknown" only when it names no declared field at all.
+     *
+     * @return list<string>
+     */
+    public function declaredFieldNames(): array
+    {
+        return \array_values(\array_map(
+            static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $field): string => $field->name(),
+            $this->allFields(),
+        ));
     }
 
     public function getMeta(mixed $object, JsonApiRequestInterface $request): array

@@ -33,6 +33,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 #[CoversClass(\haddowg\JsonApi\Server\Entry::class)]
 #[CoversClass(\haddowg\JsonApi\Server\Internal\MiddlewareDecorator::class)]
 #[CoversClass(\haddowg\JsonApi\Negotiation\StrictQueryParameterValidator::class)]
+#[CoversClass(\haddowg\JsonApi\Exception\FieldsetMemberUnrecognized::class)]
 #[CoversClass(\haddowg\JsonApi\Operation\Psr7ToOperationHandlerAdapter::class)]
 #[CoversClass(NoResourceRegistered::class)]
 #[Group('spec:crud')]
@@ -554,6 +555,212 @@ final class ServerTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchRejectsAnUnknownSparseFieldsetMemberByDefault(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title,bogus'],
+        ]));
+
+        try {
+            $server->dispatch($operation);
+            self::fail('Expected the unknown sparse-fieldset member to be rejected.');
+        } catch (\haddowg\JsonApi\Exception\FieldsetMemberUnrecognized $e) {
+            self::assertSame('posts', $e->type);
+            self::assertSame(['bogus'], $e->unrecognizedMembers);
+            self::assertSame(400, $e->getStatusCode());
+            self::assertSame('fields', $e->getErrors()[0]->source?->parameter);
+            self::assertSame('FIELDSET_MEMBER_UNRECOGNIZED', $e->getErrors()[0]->code);
+        }
+
+        // The 400 fires before the operation handler runs.
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesAnUnknownSparseFieldsetMemberWhenRelaxed(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta(['ok' => true]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class)
+            ->withStrictQueryParameters(false);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title,bogus'],
+        ]));
+        $result = $server->dispatch($operation);
+
+        self::assertInstanceOf(MetaResponse::class, $result);
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesHiddenWriteOnlyNonSparseIdAndRelationMembers(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        // Every declared field name is tolerated: a hidden attribute, a write-only
+        // attribute, a conditionally-hidden attribute, a non-sparse attribute, the
+        // id, and both relationship names.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title,secret,password,draftNote,slug,id,author,comments'],
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesAnEmptySparseFieldset(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        // `?fields[posts]=` is a valid request meaning "render no fields of this
+        // type" — the empty-string sentinel member is not an unknown member.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => ''],
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesATrailingCommaInASparseFieldset(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        // A trailing/leading/double comma yields an empty-string sentinel member
+        // alongside the real ones; the sentinel must not be flagged as unknown.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['posts' => 'title,'],
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesASparseFieldsetForAnUnregisteredType(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        // An unknown TYPE key is out of scope for member validation — tolerated.
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['bogusType' => 'anything,at,all'],
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchToleratesASparseFieldsetForABareSerializerWithNoFieldInventory(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class)
+            ->registerSerializerHydrator('widgets', serializer: CustomWidgetSerializer::class);
+
+        // The widgets serializer declares no field namespace, so its members are
+        // tolerated (no DeclaresFieldNamesInterface).
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'fields' => ['widgets' => 'whatever'],
+        ]));
+
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function dispatchValidatesASparseFieldsetForAnIncludedTypeEvenWhenThePrimaryIsEmpty(): void
+    {
+        // The validation is registry-based and runs pre-render, so a fields[type]
+        // for a SECONDARY (included) type is validated regardless of whether the
+        // primary collection returns any rows — the target type here is not even
+        // the dispatched `posts`.
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class)
+            ->register(FieldsetAuthorResource::class);
+
+        $operation = $this->stubOperation(StubJsonApiRequest::create([
+            'include' => 'author',
+            'fields' => ['posts' => 'title', 'authors' => 'name,bogus'],
+        ]));
+
+        try {
+            $server->dispatch($operation);
+            self::fail('Expected the unknown member on the included type to be rejected.');
+        } catch (\haddowg\JsonApi\Exception\FieldsetMemberUnrecognized $e) {
+            self::assertSame('authors', $e->type);
+            self::assertSame(['bogus'], $e->unrecognizedMembers);
+        }
+
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function thePsr15HandlePathEnforcesStrictSparseFieldsetMembersToo(): void
+    {
+        // The adapter runs the same strict-validation hook on the handle() path, so
+        // an unknown sparse-fieldset member is rejected there too.
+        $psr17 = new Psr17Factory();
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = Server::make()
+            ->withPsr17($psr17, $psr17)
+            ->withHandler($handler)
+            ->register(FieldsetPostResource::class);
+
+        $request = (new ServerRequest('GET', '/api/posts?fields[posts]=title,bogus'))
+            ->withQueryParams(['fields' => ['posts' => 'title,bogus']])
+            ->withAttribute(\haddowg\JsonApi\Operation\Target::class, new \haddowg\JsonApi\Operation\Target('posts'));
+
+        try {
+            $server->handle($request);
+            self::fail('Expected the PSR-15 path to reject the unknown member.');
+        } catch (\haddowg\JsonApi\Exception\FieldsetMemberUnrecognized $e) {
+            self::assertSame('posts', $e->type);
+            self::assertSame(['bogus'], $e->unrecognizedMembers);
+        }
+
+        self::assertNull($handler->received);
+    }
+
+    #[Test]
     #[Group('spec:fetching-data')]
     public function thePsr15HandlePathEnforcesStrictQueryParametersToo(): void
     {
@@ -695,6 +902,45 @@ final class PostResource extends AbstractResource
         return [
             Id::make(),
             Str::make('title'),
+        ];
+    }
+}
+
+/**
+ * A resource exercising every member-namespace edge case for strict
+ * sparse-fieldset member validation: a plain attribute, a hidden attribute, a
+ * write-only attribute, a conditionally-hidden attribute, a non-sparse
+ * attribute, a to-one relationship and a to-many relationship — all of which are
+ * declared field names and therefore TOLERATED as `fields[type]` members.
+ */
+final class FieldsetPostResource extends AbstractResource
+{
+    public static string $type = 'posts';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title'),
+            Str::make('secret')->hidden(),
+            Str::make('password')->writeOnly(),
+            Str::make('draftNote')->hidden(static fn(JsonApiRequestInterface $request, mixed $model): bool => true),
+            Str::make('slug')->notSparseField(),
+            \haddowg\JsonApi\Resource\Field\BelongsTo::make('author')->type('authors'),
+            \haddowg\JsonApi\Resource\Field\HasMany::make('comments')->type('comments'),
+        ];
+    }
+}
+
+final class FieldsetAuthorResource extends AbstractResource
+{
+    public static string $type = 'authors';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('name'),
         ];
     }
 }

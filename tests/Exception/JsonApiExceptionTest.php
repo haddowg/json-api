@@ -10,6 +10,7 @@ use haddowg\JsonApi\Exception\ClientGeneratedIdAlreadyExists;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
 use haddowg\JsonApi\Exception\DataMemberMissing;
+use haddowg\JsonApi\Exception\FieldsetMemberUnrecognized;
 use haddowg\JsonApi\Exception\FilterParamUnrecognized;
 use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
@@ -62,6 +63,7 @@ final class JsonApiExceptionTest extends TestCase
         yield 'ClientGeneratedIdNotSupported' => [new ClientGeneratedIdNotSupported('1'), 403, '403', 'CLIENT_GENERATED_ID_NOT_SUPPORTED', 'Client generated ID is not supported'];
         yield 'ClientGeneratedIdRequired' => [new ClientGeneratedIdRequired(), 403, '403', 'CLIENT_GENERATED_ID_REQUIRED', 'Required client generated ID'];
         yield 'DataMemberMissing' => [new DataMemberMissing(), 400, '400', 'DATA_MEMBER_MISSING', "Missing `data` member at the document's top level"];
+        yield 'FieldsetMemberUnrecognized' => [new FieldsetMemberUnrecognized('articles', ['bogus']), 400, '400', 'FIELDSET_MEMBER_UNRECOGNIZED', 'Fieldset member is unrecognized'];
         yield 'FilterParamUnrecognized' => [new FilterParamUnrecognized('foo'), 400, '400', 'FILTERING_UNRECOGNIZED', 'Filtering parameter is unrecognized'];
         yield 'FilterValueInvalid' => [new FilterValueInvalid('age', ['must be numeric']), 400, '400', 'FILTER_VALUE_INVALID', 'Filter value is invalid'];
         yield 'FullReplacementProhibited' => [new FullReplacementProhibited('rel'), 403, '403', 'FULL_REPLACEMENT_PROHIBITED', 'Full replacement is prohibited'];

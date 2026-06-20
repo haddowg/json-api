@@ -64,6 +64,18 @@ interface JsonApiRequestInterface extends ServerRequestInterface
     public function getIncludedFields(string $resourceType): array;
 
     /**
+     * The resource types named in the request's `fields[...]` sparse-fieldset
+     * parameter — the keys of the parsed fields map (e.g. `['articles', 'people']`
+     * for `?fields[articles]=...&fields[people]=...`). Empty when no `fields`
+     * parameter is present. Pair with {@see getIncludedFields()} to enumerate, per
+     * type, the members the client requested — the input strict sparse-fieldset
+     * member validation iterates.
+     *
+     * @return list<string>
+     */
+    public function requestedFieldsetTypes(): array;
+
+    /**
      * Determines if a given field for a given resource type should be present in the response or not.
      */
     public function isIncludedField(string $resourceType, string $field): bool;

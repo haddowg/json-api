@@ -651,6 +651,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      * {@see handle()} path (via the adapter hook).
      *
      * @throws \haddowg\JsonApi\Exception\QueryParamUnrecognized
+     * @throws \haddowg\JsonApi\Exception\FieldsetMemberUnrecognized
      */
     private function validateStrictQueryParametersOf(
         \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
@@ -663,6 +664,68 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
             $this->recognizedCustomQueryParameters($request),
         );
         $validator->validate($request);
+
+        $this->validateStrictFieldsetMembers($request);
+    }
+
+    /**
+     * Rejects an unrecognized `fields[type]` sparse-fieldset MEMBER under the same
+     * strict gate as the family validation above. For each type named in the
+     * request's `fields[...]` map that the registry can resolve to a serializer
+     * declaring its field namespace ({@see \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface}),
+     * every requested member must be a declared field name; the first type with an
+     * unrecognized member throws {@see \haddowg\JsonApi\Exception\FieldsetMemberUnrecognized}
+     * (`400`).
+     *
+     * The known-member set is the resource's FULL declared namespace
+     * (request-independent) — attributes and relationships, including hidden /
+     * write-only / conditionally-hidden / non-sparse fields and `id` — so a member
+     * is unknown only when it names no declared field at all (a hidden field name
+     * and a bogus one are indistinguishable, no info leak).
+     *
+     * Two cases are deliberately TOLERATED (skipped): a `fields[type]` for an
+     * unregistered / unresolvable type (out of scope — only members of KNOWN types
+     * are validated), and a type whose serializer does NOT declare its field names
+     * (a standalone bare serializer with no field inventory). The check runs from
+     * the registry pre-render, independent of the transformed result, so a
+     * `fields[type]` for an INCLUDED type — or any requested type even when the
+     * primary result is empty — is still validated.
+     *
+     * @throws \haddowg\JsonApi\Exception\FieldsetMemberUnrecognized
+     */
+    private function validateStrictFieldsetMembers(
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+    ): void {
+        foreach ($request->requestedFieldsetTypes() as $type) {
+            if (!$this->resources->hasSerializerFor($type)) {
+                continue;
+            }
+
+            $serializer = $this->resources->serializerFor($type);
+            if (!$serializer instanceof \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface) {
+                continue;
+            }
+
+            $declared = \array_flip($serializer->declaredFieldNames());
+            $unrecognized = [];
+            foreach ($request->getIncludedFields($type) as $member) {
+                // The empty-string sentinel means "render no fields of this type"
+                // (a valid `?fields[type]=` request, also produced by a leading/
+                // trailing/double comma) — it is not an unknown member. See
+                // {@see JsonApiRequest::isIncludedField()}, which guards it likewise.
+                if ($member === '') {
+                    continue;
+                }
+
+                if (!isset($declared[$member])) {
+                    $unrecognized[] = $member;
+                }
+            }
+
+            if ($unrecognized !== []) {
+                throw new \haddowg\JsonApi\Exception\FieldsetMemberUnrecognized($type, $unrecognized);
+            }
+        }
     }
 
     /**

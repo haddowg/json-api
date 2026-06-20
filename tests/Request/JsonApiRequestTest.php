@@ -401,6 +401,31 @@ final class JsonApiRequestTest extends TestCase
 
     #[Test]
     #[Group('spec:sparse-fieldsets')]
+    public function requestedFieldsetTypesEnumeratesTheFieldsMapKeys(): void
+    {
+        $request = $this->createRequestWithQueryParams(
+            [
+                'fields' => [
+                    'book' => 'title,pages',
+                    'author' => 'name',
+                ],
+            ],
+        );
+
+        self::assertEquals(['book', 'author'], $request->requestedFieldsetTypes());
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
+    public function requestedFieldsetTypesIsEmptyWithoutAFieldsParameter(): void
+    {
+        $request = $this->createRequestWithQueryParams([]);
+
+        self::assertEquals([], $request->requestedFieldsetTypes());
+    }
+
+    #[Test]
+    #[Group('spec:sparse-fieldsets')]
     public function getIncludedFieldWhenMalformed(): void
     {
         $request = $this->createRequestWithQueryParams(

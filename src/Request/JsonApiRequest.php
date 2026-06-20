@@ -386,6 +386,15 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return isset($this->includedFields[$resourceType]) ? \array_keys($this->includedFields[$resourceType]) : [];
     }
 
+    public function requestedFieldsetTypes(): array
+    {
+        if ($this->includedFields === null) {
+            $this->includedFields = $this->parseIncludedFields();
+        }
+
+        return \array_keys($this->includedFields);
+    }
+
     /**
      * Determines if a given field for a given resource type should be present in the response or not.
      */
