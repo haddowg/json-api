@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Filter;
 
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterArmInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -370,5 +371,72 @@ final class ArrayFilterHandlerTest extends TestCase
             self::assertSame($filter, $e->filter);
             self::assertCount(1, $e->getErrors());
         }
+    }
+
+    #[Test]
+    public function customFilterRunsThroughARegisteredArm(): void
+    {
+        $filter = $this->bespokeFilter('minViews');
+        $arm = new class implements ArrayFilterArmInterface {
+            public function supports(FilterInterface $filter): bool
+            {
+                return $filter->key() === 'minViews';
+            }
+
+            public function predicate(FilterInterface $filter, mixed $value): \Closure
+            {
+                $min = \is_string($value) ? (int) $value : 0;
+
+                return static function (mixed $row) use ($min): bool {
+                    if (!\is_array($row)) {
+                        return false;
+                    }
+                    $views = $row['views'] ?? null;
+
+                    return \is_int($views) && $views >= $min;
+                };
+            }
+        };
+
+        $result = (new ArrayFilterHandler([$arm]))->apply($filter, $this->data(), '10');
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function aFilterNoBuiltInOrArmRecognisesStillThrows(): void
+    {
+        $arm = new class implements ArrayFilterArmInterface {
+            public function supports(FilterInterface $filter): bool
+            {
+                return false;
+            }
+
+            public function predicate(FilterInterface $filter, mixed $value): \Closure
+            {
+                return static fn(): bool => true;
+            }
+        };
+
+        $this->expectException(UnsupportedFilter::class);
+
+        (new ArrayFilterHandler([$arm]))->apply($this->bespokeFilter('nope'), $this->data(), '1');
+    }
+
+    private function bespokeFilter(string $key): FilterInterface
+    {
+        return new class ($key) implements FilterInterface {
+            public function __construct(private readonly string $key) {}
+
+            public function key(): string
+            {
+                return $this->key;
+            }
+
+            public function constraints(): array
+            {
+                return [];
+            }
+        };
     }
 }

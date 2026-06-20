@@ -28,10 +28,29 @@ use haddowg\JsonApi\Resource\Filter\WhereThrough;
  * filters in memory with no indexing; a real adapter pushes the predicate down
  * to its data store.
  *
+ * A custom {@see FilterInterface} the built-ins do not recognise is delegated to a
+ * registered {@see ArrayFilterArmInterface} (constructor-injected, first
+ * {@see ArrayFilterArmInterface::supports()} match wins) before
+ * {@see UnsupportedFilter} is raised — the in-memory half of the framework's
+ * extensible-handler seam.
+ *
  * @implements FilterHandlerInterface<list<mixed>>
  */
 final class ArrayFilterHandler implements FilterHandlerInterface
 {
+    /**
+     * @var list<ArrayFilterArmInterface>
+     */
+    private readonly array $arms;
+
+    /**
+     * @param iterable<ArrayFilterArmInterface> $arms author arms for custom filter types, consulted in order
+     */
+    public function __construct(iterable $arms = [])
+    {
+        $this->arms = \is_array($arms) ? \array_values($arms) : \iterator_to_array($arms, false);
+    }
+
     public function apply(FilterInterface $filter, mixed $query, mixed $value): mixed
     {
         if (!\is_array($query)) {
@@ -61,8 +80,26 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof Range => $this->range($filter, $value),
             $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
             $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
-            default => throw new UnsupportedFilter($filter),
+            default => $this->armPredicate($filter, $value),
         };
+    }
+
+    /**
+     * The predicate for a custom {@see FilterInterface} from the first registered
+     * arm that {@see ArrayFilterArmInterface::supports()} it; {@see UnsupportedFilter}
+     * when none does (the same signal the built-in default arm gave).
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function armPredicate(FilterInterface $filter, mixed $value): \Closure
+    {
+        foreach ($this->arms as $arm) {
+            if ($arm->supports($filter)) {
+                return $arm->predicate($filter, $value);
+            }
+        }
+
+        throw new UnsupportedFilter($filter);
     }
 
     /**
