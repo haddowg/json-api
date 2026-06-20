@@ -102,6 +102,18 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $isCountable = false;
 
+    /**
+     * The per-relation resolver that contributes `meta` to each linkage identifier
+     * object this relation renders, set by {@see identifierMeta()}. Parent-aware:
+     * unlike the related resource's own {@see SerializerInterface::getMeta()} (which
+     * sees only the related object), this receives the owning model too, so the meta
+     * can describe the *link* (e.g. when the relationship was established). `null`
+     * when the relation declares none.
+     *
+     * @var (\Closure(mixed $parent, mixed $related, JsonApiRequestInterface $request): array<string, mixed>)|null
+     */
+    protected ?\Closure $identifierMetaResolver = null;
+
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
@@ -363,6 +375,37 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function countable(): static
     {
         $this->isCountable = true;
+
+        return $this;
+    }
+
+    /**
+     * Declares per-relation `meta` for the **resource identifier objects** this
+     * relation renders in its linkage — the `{type, id, meta}` form that appears
+     * under a relationship's `data`, on every member of a to-many and on a to-one's
+     * single identifier (and at the `/relationships/{name}` endpoint).
+     *
+     * The resolver is parent-aware: it receives the owning `$parent` model, the
+     * `$related` object the identifier points at, and the request, and returns the
+     * meta to attach. This is what distinguishes it from the related resource's own
+     * {@see SerializerInterface::getMeta()} — that meta describes the resource and
+     * is identical wherever the resource appears, whereas this describes the *link*
+     * from this parent (e.g. the role a member plays, or when the association was
+     * formed) and so can only be expressed here, on the owning relation.
+     *
+     * The returned meta is merged onto whatever the identifier already carries (the
+     * related resource's own meta, including a `belongsToMany` pivot's `meta.pivot`),
+     * with this resolver winning on a top-level key collision. Returning `[]` emits
+     * no `meta` member. It does not affect the related resource object rendered into
+     * `included` — only the identifier in the linkage.
+     *
+     * @param \Closure(mixed $parent, mixed $related, JsonApiRequestInterface $request): array<string, mixed> $resolver
+     *
+     * @return static
+     */
+    public function identifierMeta(\Closure $resolver): static
+    {
+        $this->identifierMetaResolver = $resolver;
 
         return $this;
     }
@@ -750,6 +793,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             );
         }
 
+        $this->applyIdentifierMeta($relationship, $model, $request);
+
         return $relationship;
     }
 
@@ -802,6 +847,8 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         if ($meta !== []) {
             $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
         }
+
+        $this->applyIdentifierMeta($relationship, $model, $request);
 
         $pagination = $this->resolvePagination($model, $request, $resolver);
         if ($pagination !== null) {
@@ -878,6 +925,30 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         }
 
         return $meta;
+    }
+
+    /**
+     * Attaches this relation's {@see identifierMeta()} resolver (if any) onto a
+     * freshly built relationship, bound to the owning `$model` and `$request`, so
+     * every resource identifier the relationship renders in its linkage is
+     * augmented with the parent-aware meta. A no-op when no resolver was declared.
+     * Called from each build path ({@see buildToOne()}, {@see buildToMany()}, and
+     * the polymorphic builders) — mirroring how {@see relationshipMeta()} is wired
+     * at each site — so it applies uniformly across every relation type.
+     */
+    protected function applyIdentifierMeta(
+        AbstractRelationship $relationship,
+        mixed $model,
+        JsonApiRequestInterface $request,
+    ): void {
+        $resolver = $this->identifierMetaResolver;
+        if ($resolver === null) {
+            return;
+        }
+
+        $relationship->withIdentifierMeta(
+            static fn(mixed $related): array => $resolver($model, $related, $request),
+        );
     }
 
     /**

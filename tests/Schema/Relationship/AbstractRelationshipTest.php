@@ -8,6 +8,8 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
+use haddowg\JsonApi\Schema\Relationship\ToManyRelationship;
+use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
 use haddowg\JsonApi\Tests\Double\DummyData;
 use haddowg\JsonApi\Tests\Double\FakeRelationship;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -477,6 +479,191 @@ final class AbstractRelationshipTest extends TestCase
             ['self' => '/custom/self'],
             $relationshipObject['links'] ?? null,
         );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function identifierMetaIsMergedOntoAToOneLinkageIdentifier(): void
+    {
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7', ['intrinsic' => 'kept']))
+            ->withIdentifierMeta(static fn(mixed $related): array => ['role' => 'lead']);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7', 'meta' => ['intrinsic' => 'kept', 'role' => 'lead']],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function identifierMetaIsResolvedPerMemberOfAToManyLinkage(): void
+    {
+        $relationship = ToManyRelationship::create()
+            ->setData(
+                [['domain' => 'a'], ['domain' => 'b']],
+                new StubResource('comment', '7'),
+            )
+            ->withIdentifierMeta(static fn(mixed $related): array => ['domain' => \is_array($related) ? $related['domain'] : null]);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                ['type' => 'comment', 'id' => '7', 'meta' => ['domain' => 'a']],
+                ['type' => 'comment', 'id' => '7', 'meta' => ['domain' => 'b']],
+            ],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function identifierMetaWinsOnAKeyCollisionWithTheResourceMeta(): void
+    {
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7', ['shared' => 'resource']))
+            ->withIdentifierMeta(static fn(mixed $related): array => ['shared' => 'link']);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7', 'meta' => ['shared' => 'link']],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function identifierMetaComposesWithAPivotStyleResourceMeta(): void
+    {
+        // A belongsToMany pivot renders its values as `meta.pivot` through the
+        // related serializer's getMeta() (a decorator); identifierMeta merges on top.
+        // A non-colliding key coexists with the whole `pivot` block.
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7', ['pivot' => ['position' => 3]]))
+            ->withIdentifierMeta(static fn(mixed $related): array => ['role' => 'lead']);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7', 'meta' => ['pivot' => ['position' => 3], 'role' => 'lead']],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function aResolverPivotKeyReplacesThePivotBlockWholesale(): void
+    {
+        // The merge is a shallow top-level spread, so a resolver returning `pivot`
+        // replaces the entire pivot block rather than deep-merging — the documented
+        // resolver-wins precedence applied to the `pivot` key specifically.
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7', ['pivot' => ['position' => 3]]))
+            ->withIdentifierMeta(static fn(mixed $related): array => ['pivot' => ['overridden' => true]]);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7', 'meta' => ['pivot' => ['overridden' => true]]],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function anEmptyIdentifierMetaContributionLeavesTheIdentifierUntouched(): void
+    {
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7'))
+            ->withIdentifierMeta(static fn(mixed $related): array => []);
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7'],
+            $relationshipObject['data'] ?? null,
+        );
+        self::assertArrayNotHasKey('meta', (array) ($relationshipObject['data'] ?? []));
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function noIdentifierMetaResolverLeavesTheLinkageUnchanged(): void
+    {
+        $relationship = ToOneRelationship::create()
+            ->setData(['id' => 7], new StubResource('comment', '7', ['intrinsic' => 'kept']));
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'comment', 'id' => '7', 'meta' => ['intrinsic' => 'kept']],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function theIdentifierMetaResolverIsNotInvokedForAnEmptyToOne(): void
+    {
+        $invoked = false;
+        $relationship = ToOneRelationship::create()
+            ->setData(null, new StubResource('comment', '7'))
+            ->withIdentifierMeta(static function (mixed $related) use (&$invoked): array {
+                $invoked = true;
+
+                return ['role' => 'lead'];
+            });
+
+        $relationshipObject = $relationship->transform(
+            $this->createTransformation(),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        $relationshipObject = (array) $relationshipObject;
+        self::assertFalse($invoked);
+        self::assertArrayHasKey('data', $relationshipObject);
+        self::assertNull($relationshipObject['data']);
     }
 
     private function createTransformation(): ResourceTransformation

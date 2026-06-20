@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\Resource\Field;
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Pagination\PageBasedPage;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
 use haddowg\JsonApi\Resource\Constraint\Required;
@@ -636,6 +637,147 @@ final class RelationTest extends TestCase
             [
                 ['type' => 'posts', 'id' => '1'],
                 ['type' => 'videos', 'id' => '2'],
+            ],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function belongsToIdentifierMetaIsBoundToTheParentRelatedAndRequest(): void
+    {
+        $captured = null;
+        $relation = BelongsTo::make('author')->type('users')
+            ->identifierMeta(static function (mixed $parent, mixed $related, JsonApiRequestInterface $request) use (&$captured): array {
+                $captured = ['parent' => $parent, 'related' => $related, 'request' => $request];
+
+                return [
+                    'parentId' => \is_array($parent) ? $parent['id'] : null,
+                    'relatedId' => \is_array($related) ? $related['id'] : null,
+                ];
+            });
+        $model = ['id' => '42', 'author' => ['id' => '7']];
+        $request = $this->request();
+
+        $relationshipObject = (array) $relation->buildRelationship($model, $request, $this->resolver())->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $request,
+                '',
+                '',
+                'author',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'users', 'id' => '7', 'meta' => ['parentId' => '42', 'relatedId' => '7']],
+            $relationshipObject['data'] ?? null,
+        );
+        self::assertSame($model, $captured['parent'] ?? null, 'the owning model is passed as the parent');
+        self::assertSame(['id' => '7'], $captured['related'] ?? null, 'the related object is passed');
+        self::assertSame($request, $captured['request'] ?? null, 'the request is threaded through');
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function hasManyIdentifierMetaIsResolvedPerMember(): void
+    {
+        $relation = HasMany::make('comments')->type('comments')
+            ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => [
+                'relatedId' => \is_array($related) ? $related['id'] : null,
+                'parentId' => \is_array($parent) ? $parent['id'] : null,
+            ]);
+        $model = ['id' => '42', 'comments' => [['id' => '1'], ['id' => '2']]];
+
+        $relationshipObject = (array) $relation->buildRelationship($model, $this->request(), $this->resolver())->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $this->request(),
+                '',
+                '',
+                'comments',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                ['type' => 'comments', 'id' => '1', 'meta' => ['relatedId' => '1', 'parentId' => '42']],
+                ['type' => 'comments', 'id' => '2', 'meta' => ['relatedId' => '2', 'parentId' => '42']],
+            ],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function morphToIdentifierMetaIsApplied(): void
+    {
+        $relation = MorphTo::make('owner')->types('users', 'posts')
+            ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => ['via' => 'morphTo']);
+        $model = ['id' => '42', 'owner' => ['kind' => 'users', 'id' => '9']];
+
+        $relationshipObject = (array) $relation->buildRelationship($model, $this->request(), $this->resolver())->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $this->request(),
+                '',
+                '',
+                'owner',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            ['type' => 'users', 'id' => '9', 'meta' => ['via' => 'morphTo']],
+            $relationshipObject['data'] ?? null,
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-identifier-objects')]
+    public function morphToManyIdentifierMetaIsResolvedPerMixedMember(): void
+    {
+        $relation = MorphToMany::make('items')->types('posts', 'videos')
+            ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => ['kind' => \is_array($related) ? $related['kind'] : null]);
+        $model = ['id' => '42', 'items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
+
+        $relationshipObject = (array) $relation->buildRelationship($model, $this->request(), $this->resolver())->transform(
+            new ResourceTransformation(
+                new StubResource('articles', '42'),
+                $model,
+                'articles',
+                $this->request(),
+                '',
+                '',
+                'items',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(
+            [
+                ['type' => 'posts', 'id' => '1', 'meta' => ['kind' => 'posts']],
+                ['type' => 'videos', 'id' => '2', 'meta' => ['kind' => 'videos']],
             ],
             $relationshipObject['data'] ?? null,
         );

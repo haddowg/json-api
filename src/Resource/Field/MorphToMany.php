@@ -87,6 +87,8 @@ final class MorphToMany extends AbstractRelation
             $relationship->withPagination($pagination);
         }
 
+        $this->applyIdentifierMeta($relationship, $model, $request);
+
         return $relationship;
     }
 }

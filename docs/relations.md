@@ -313,6 +313,48 @@ adapters:
 | `inverseType(string $name)` | Records the inverse relationship name on the related type. **Advisory** — metadata for adapters / OpenAPI generation. |
 | `cannotEagerLoad()` | Hints that a data-layer adapter should not eager-load this relation. **Advisory** — core ships metadata only. |
 
+## Identifier meta — parent-aware per-relation meta
+
+A resource identifier object may carry `meta` (`{ "type": …, "id": …, "meta": … }`).
+The related resource's own serializer can already contribute meta through its
+`getMeta()`, but that meta describes the *resource* and renders identically wherever
+the resource appears — it has no access to the parent, so it cannot describe the
+*link*: the role a member plays, when an association was formed, an ordering position.
+
+`identifierMeta()` is the parent-aware hook for exactly that. It declares a resolver
+that receives the owning `$parent` model, the `$related` object the identifier points
+at, and the request, and returns the meta to attach to **that** identifier — on every
+member of a to-many, on a to-one's single identifier, and at the
+`/relationships/{name}` endpoint:
+
+```php
+HasMany::make('members')->type('users')
+    ->identifierMeta(fn(object $team, object $member, $request): array => [
+        'role' => $team->roleOf($member),
+        'joinedAt' => $team->joinedAt($member)->format(\DATE_ATOM),
+    ]),
+```
+
+```json
+{
+  "data": [
+    { "type": "users", "id": "7", "meta": { "role": "captain", "joinedAt": "2026-01-01T00:00:00+00:00" } },
+    { "type": "users", "id": "9", "meta": { "role": "member",  "joinedAt": "2026-02-01T00:00:00+00:00" } }
+  ]
+}
+```
+
+The contribution is **merged onto** whatever the identifier already carries — the
+related resource's own meta, including a `belongsToMany` pivot's `meta.pivot` — with
+the resolver winning on a top-level key collision. Returning `[]` emits no `meta`. It
+is linkage-only: the related resource object expanded into `included` is untouched.
+
+This is distinct from the relationship object's own `meta` (the `meta` sibling of
+`data`/`links`, e.g. a countable relation's `meta.total`) — that describes the
+relationship as a whole, whereas `identifierMeta()` describes each identifier within
+it. A `belongsToMany` pivot is a specialised, automatic form of identifier meta; reach
+for `identifierMeta()` when the per-link data is not a pivot column.
+
 ## Conventional links
 
 By default every relation emits the spec's conventional `self` and `related`

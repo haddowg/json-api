@@ -78,6 +78,18 @@ abstract class AbstractRelationship
     protected ?RelationshipPagination $pagination = null;
 
     /**
+     * A per-relation resolver contributing `meta` to each resource identifier this
+     * relationship renders in its linkage, bound by the owning relation to the
+     * parent model + request so it need only receive the related object. `null`
+     * when the owning relation declared no identifier meta. {@see transformResourceIdentifier()}
+     * merges its result onto the built identifier, the resolver winning on a
+     * top-level key collision with the related resource's own meta.
+     *
+     * @var (\Closure(mixed $related): array<string, mixed>)|null
+     */
+    protected ?\Closure $identifierMeta = null;
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -216,6 +228,28 @@ abstract class AbstractRelationship
     public function withPagination(RelationshipPagination $pagination): static
     {
         $this->pagination = $pagination;
+
+        return $this;
+    }
+
+    /**
+     * Registers a resolver that contributes `meta` to each resource identifier this
+     * relationship renders in its linkage — the parent-aware per-relation hook set
+     * by {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::identifierMeta()}.
+     * The resolver receives the related object (the parent and request are already
+     * bound) and returns the meta to merge onto that identifier; see
+     * {@see transformResourceIdentifier()} for the merge.
+     *
+     * @internal The author-facing builder is `AbstractRelation::identifierMeta()`;
+     *           the owning relation wires the pre-bound resolver here at build time.
+     *
+     * @param \Closure(mixed $related): array<string, mixed> $resolver
+     *
+     * @return $this
+     */
+    public function withIdentifierMeta(\Closure $resolver): static
+    {
+        $this->identifierMeta = $resolver;
 
         return $this;
     }
@@ -462,6 +496,23 @@ abstract class AbstractRelationship
             }
         }
 
-        return $resourceTransformer->transformToResourceIdentifier($relationshipTransformation);
+        $identifier = $resourceTransformer->transformToResourceIdentifier($relationshipTransformation);
+
+        // Merge the owning relation's parent-aware identifier meta (see
+        // AbstractRelation::identifierMeta()) onto the built identifier. It is bound
+        // to the parent + request, so it need only receive the related object. The
+        // resolver wins on a top-level key collision with the related resource's own
+        // meta (which may include a belongsToMany pivot's `meta.pivot`); an empty
+        // contribution leaves the identifier — and its `meta` member — untouched.
+        if ($identifier !== null && $this->identifierMeta !== null) {
+            $contributed = ($this->identifierMeta)($object);
+            if ($contributed !== []) {
+                /** @var array<string, mixed> $existing */
+                $existing = $identifier['meta'] ?? [];
+                $identifier['meta'] = [...$existing, ...$contributed];
+            }
+        }
+
+        return $identifier;
     }
 }

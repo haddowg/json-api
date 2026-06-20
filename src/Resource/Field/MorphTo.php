@@ -82,6 +82,8 @@ final class MorphTo extends AbstractRelation
             );
         }
 
+        $this->applyIdentifierMeta($relationship, $model, $request);
+
         return $relationship;
     }
 }
