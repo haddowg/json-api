@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Serializer;
 
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+
 /**
  * An opt-in capability a {@see SerializerInterface} MAY implement to constrain
  * how its resources participate in compound documents. The transformer and
@@ -28,12 +30,14 @@ interface IncludeControlsInterface
      * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400), and they are
      * excluded from the default-include cascade. Evaluated per-resource-level
      * during the transformer's recursion (a relation's own includability), so it
-     * receives the domain `$object`. Return an empty list to keep every
-     * relationship includable.
+     * receives the `$request` and the domain `$object` — a relation may declare
+     * its includability as a request predicate
+     * ({@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}
+     * with a closure). Return an empty list to keep every relationship includable.
      *
      * @return list<string>
      */
-    public function getNonIncludableRelationships(mixed $object): array;
+    public function getNonIncludableRelationships(JsonApiRequestInterface $request, mixed $object): array;
 
     /**
      * This resource's maximum include depth override (number of relationship hops

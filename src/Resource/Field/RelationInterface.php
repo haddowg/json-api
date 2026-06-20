@@ -106,21 +106,44 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function hydrateRelationship(mixed $model, object $relationship): mixed;
 
     /**
-     * Whether full replacement of this relationship is permitted (a `PATCH` to the
-     * relationship endpoint, or a `data` member for this relation in a
-     * whole-resource body). On by default; opt out via
+     * Whether full replacement of this relationship is **unconditionally**
+     * permitted (a `PATCH` to the relationship endpoint, or a `data` member for
+     * this relation in a whole-resource body). On by default; opt out via
      * {@see AbstractRelation::cannotReplace()}. A prohibited replacement is a
-     * {@see \haddowg\JsonApi\Exception\FullReplacementProhibited} (403).
+     * {@see \haddowg\JsonApi\Exception\FullReplacementProhibited} (403). A relation
+     * whose replace gate is a request predicate still reports `true` here (it is
+     * not unconditionally prohibited); the mutation path consults
+     * {@see allowsReplaceFor()}.
      */
     public function allowsReplace(): bool;
 
     /**
-     * Whether removal from this relationship is permitted — `DELETE` to a to-many
-     * relationship endpoint, or clearing a to-one (`data: null`). On by default;
-     * opt out via {@see AbstractRelation::cannotRemove()}. A prohibited removal is
-     * a {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403).
+     * Whether full replacement is permitted **for this request** — the
+     * unconditional flag ({@see allowsReplace()}) AND, if a replace predicate was
+     * declared, its negation against the request and the domain `$model`. This is
+     * the gate the relationship-mutation path consults; the OpenAPI path uses the
+     * unconditional {@see allowsReplace()} (which documents the superset).
+     */
+    public function allowsReplaceFor(JsonApiRequestInterface $request, mixed $model): bool;
+
+    /**
+     * Whether removal from this relationship is **unconditionally** permitted —
+     * `DELETE` to a to-many relationship endpoint, or clearing a to-one
+     * (`data: null`). On by default; opt out via
+     * {@see AbstractRelation::cannotRemove()}. A prohibited removal is a
+     * {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403). A relation whose
+     * remove gate is a request predicate still reports `true` here; the mutation
+     * path consults {@see allowsRemoveFor()}.
      */
     public function allowsRemove(): bool;
+
+    /**
+     * Whether removal is permitted **for this request** — the unconditional flag
+     * ({@see allowsRemove()}) AND, if a remove predicate was declared, its negation
+     * against the request and the domain `$model`. This is the gate the
+     * relationship-mutation path consults.
+     */
+    public function allowsRemoveFor(JsonApiRequestInterface $request, mixed $model): bool;
 
     /**
      * Whether this relation's related HTTP endpoint (`GET /{type}/{id}/{rel}`) is
@@ -141,24 +164,45 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function exposesRelationshipEndpoint(): bool;
 
     /**
-     * Whether additions to this (to-many) relationship are permitted — a `POST` to
-     * its relationship endpoint. On by default; opt out via
-     * {@see AbstractRelation::cannotAdd()}. A prohibited addition is an
-     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403).
+     * Whether additions to this (to-many) relationship are **unconditionally**
+     * permitted — a `POST` to its relationship endpoint. On by default; opt out
+     * via {@see AbstractRelation::cannotAdd()}. A prohibited addition is an
+     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). A relation whose
+     * add gate is a request predicate still reports `true` here; the mutation path
+     * consults {@see allowsAddFor()}.
      */
     public function allowsAdd(): bool;
 
     /**
-     * Whether this relationship may be included in a compound document — fetched
-     * via `?include` and expanded into `included`, and auto-included when it is a
-     * default-include. On by default; opt out via
+     * Whether additions are permitted **for this request** — the unconditional flag
+     * ({@see allowsAdd()}) AND, if an add predicate was declared, its negation
+     * against the request and the domain `$model`. This is the gate the
+     * relationship-mutation path consults.
+     */
+    public function allowsAddFor(JsonApiRequestInterface $request, mixed $model): bool;
+
+    /**
+     * Whether this relationship may **unconditionally** be included in a compound
+     * document — fetched via `?include` and expanded into `included`, and
+     * auto-included when it is a default-include. On by default; opt out via
      * {@see AbstractRelation::cannotBeIncluded()}. A `?include` naming a
      * non-includable relation is an
      * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400); a non-includable
      * relation is also excluded from the default-include cascade. Linkage and
-     * `self` / `related` links are unaffected.
+     * `self` / `related` links are unaffected. A relation whose includability is a
+     * request predicate still reports `true` here; the include path consults
+     * {@see isIncludableFor()}.
      */
     public function isIncludable(): bool;
+
+    /**
+     * Whether this relationship may be included **for this request** — the
+     * unconditional flag ({@see isIncludable()}) AND, if an includability predicate
+     * was declared, its negation against the request and the domain `$model`. This
+     * is the gate the include / default-cascade path consults; the OpenAPI path
+     * uses the unconditional {@see isIncludable()} (which documents the superset).
+     */
+    public function isIncludableFor(JsonApiRequestInterface $request, mixed $model): bool;
 
     /**
      * Whether this (to-many) relation is **countable**: its cardinality may be

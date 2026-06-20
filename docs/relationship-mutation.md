@@ -212,10 +212,13 @@ with `data: null` clears the relationship — and clearing is a *removal* (gated
 `cannotRemove()`). So a to-one with `cannotRemove()` rejects `data: null` with
 `RemovalProhibited`, while still accepting a re-point.
 
-These gates are not specific to the relationship endpoints. Core applies the same
-check inside [`AbstractResource::hydrateRelationship()`](../src/Resource/AbstractResource.php),
-so if you drive mutation through the resource rather than owning the object-graph
-write yourself, the `403`s come for free — see [hydrators](hydrators.md).
+These gates are applied by [`AbstractResource::hydrateRelationship()`](../src/Resource/AbstractResource.php) —
+the single-named-relationship path the relationship endpoints drive — so if you mutate
+through it rather than owning the object-graph write yourself, those `403`s come for
+free. Note the scope: a relationship **embedded in a whole-resource write**
+(`hydrateRelationships()`) applies only the read-only skip, **not** the replace/add/remove
+gate, so re-gating an embedded full replacement is the framework adapter's job — the
+Symfony bundle enforces `cannotReplace()` on an embedded `PATCH`. See [hydrators](hydrators.md).
 
 ## Cardinality enforcement
 

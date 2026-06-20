@@ -20,7 +20,14 @@ final readonly class When implements \haddowg\JsonApi\Resource\Constraint\Constr
     public array $constraints;
 
     /**
-     * @param \Closure(mixed): bool $condition
+     * The condition receives the value first and the request second (nullable —
+     * `null` for a context that carries no request, e.g. entity-level or
+     * filter-side validation), so an existing `fn($value)` closure keeps binding
+     * unchanged. `When` is metadata only here (the bundle's constraint translator
+     * is the sole execution site), so this is a documentation widening with no
+     * runtime change.
+     *
+     * @param \Closure(mixed, \haddowg\JsonApi\Request\JsonApiRequestInterface|null): bool $condition
      * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
      */
     public function __construct(

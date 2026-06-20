@@ -60,12 +60,12 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
         return $this->for($object)->getRelationships($object, $request);
     }
 
-    public function getNonIncludableRelationships(mixed $object): array
+    public function getNonIncludableRelationships(JsonApiRequestInterface $request, mixed $object): array
     {
         $serializer = $this->for($object);
 
         return $serializer instanceof IncludeControlsInterface
-            ? $serializer->getNonIncludableRelationships($object)
+            ? $serializer->getNonIncludableRelationships($request, $object)
             : [];
     }
 

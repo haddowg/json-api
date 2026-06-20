@@ -33,25 +33,60 @@ interface FieldInterface
     public function column(): ?string;
 
     /**
-     * Whether the field is read-only in the given request context, and so must
-     * not be hydrated.
+     * Whether the field is **unconditionally** read-only in the given request
+     * context, and so must not be hydrated. A field whose read-only state is a
+     * request predicate ({@see AbstractField::readOnly()} with a closure) reports
+     * `false` here (it is not unconditionally restricted) — the request-aware
+     * {@see isReadOnlyFor()} is the gate the hydrate/validate paths consult.
      *
      * @param bool $creating true for a create (POST) request, false for update (PATCH)
      */
     public function isReadOnly(bool $creating): bool;
 
     /**
-     * Whether the field is write-only — accepted on write (hydrated on both
-     * create and update, and still validated) but never serialized into the
-     * resource `attributes`, so it appears on no read and a sparse fieldset
-     * naming it cannot resurrect it. The inverse of {@see isReadOnly()}.
+     * Whether the field is read-only **for this request** in the given context.
+     * Resolves the unconditional flag ({@see isReadOnly()}) OR the read-only
+     * predicate (if one was declared) against the request. This is the gate the
+     * hydration and validation paths consult; build-time / schema paths use the
+     * unconditional {@see isReadOnly()} (which documents the superset).
+     *
+     * @param bool $creating true for a create (POST) request, false for update (PATCH)
+     */
+    public function isReadOnlyFor(bool $creating, JsonApiRequestInterface $request): bool;
+
+    /**
+     * Whether the field is **unconditionally** write-only — accepted on write
+     * (hydrated on both create and update, and still validated) but never
+     * serialized into the resource `attributes`, so it appears on no read and a
+     * sparse fieldset naming it cannot resurrect it. The inverse of
+     * {@see isReadOnly()}. A field whose write-only state is a request predicate
+     * reports `false` here; the render path consults {@see isWriteOnlyFor()}.
      */
     public function isWriteOnly(): bool;
 
     /**
-     * Whether the field is hidden from serialization entirely.
+     * Whether the field is write-only **for this request** — the unconditional
+     * flag ({@see isWriteOnly()}) OR the write-only predicate (if declared)
+     * resolved against the request. This is the gate the render path consults;
+     * the OpenAPI/schema paths use the unconditional {@see isWriteOnly()}.
+     */
+    public function isWriteOnlyFor(JsonApiRequestInterface $request): bool;
+
+    /**
+     * Whether the field is **unconditionally** hidden from serialization
+     * entirely. A field whose hidden state is a request predicate reports `false`
+     * here; the render path consults {@see isHiddenFor()}.
      */
     public function isHidden(): bool;
+
+    /**
+     * Whether the field is hidden from serialization **for this request** — the
+     * unconditional flag ({@see isHidden()}) OR the hidden predicate (if declared)
+     * resolved against the request and the domain `$model`. This is the gate the
+     * render path consults; build-time / schema paths use the unconditional
+     * {@see isHidden()} (which documents the superset).
+     */
+    public function isHiddenFor(JsonApiRequestInterface $request, mixed $model): bool;
 
     /**
      * Whether the field participates in sparse-fieldset filtering. A field that

@@ -70,6 +70,36 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
 
     protected bool $isIncludable = true;
 
+    /**
+     * Request + model predicate prohibiting replacement: when set, replacement is
+     * prohibited **for this request** iff the closure returns `true`. Independent
+     * of {@see $allowsReplace} (the unconditional flag).
+     *
+     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     */
+    protected ?\Closure $cannotReplaceWhen = null;
+
+    /**
+     * Request + model predicate prohibiting removal.
+     *
+     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     */
+    protected ?\Closure $cannotRemoveWhen = null;
+
+    /**
+     * Request + model predicate prohibiting addition.
+     *
+     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     */
+    protected ?\Closure $cannotAddWhen = null;
+
+    /**
+     * Request + model predicate prohibiting inclusion.
+     *
+     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     */
+    protected ?\Closure $cannotBeIncludedWhen = null;
+
     protected bool $isCountable = false;
 
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
@@ -189,11 +219,24 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      * removal) is rejected with {@see \haddowg\JsonApi\Exception\FullReplacementProhibited}.
      * Both replace and remove are allowed by default.
      *
+     * Pass a closure to make the decision request-aware (replacement prohibited
+     * **for this request** iff the closure returns `true`, receiving the request
+     * and the domain model) — lightweight per-caller authorization. A request-aware
+     * prohibition is not *unconditional*, so the superset OpenAPI still exposes the
+     * verb.
+     *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
      * @return static
      */
-    public function cannotReplace(): static
+    public function cannotReplace(?\Closure $when = null): static
     {
-        $this->allowsReplace = false;
+        if ($when === null) {
+            $this->allowsReplace = false;
+
+            return $this;
+        }
+
+        $this->cannotReplaceWhen = $when;
 
         return $this;
     }
@@ -202,13 +245,21 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      * Prohibits removal from this relationship: a `DELETE` to its (to-many)
      * relationship endpoint, or clearing a to-one (`data: null`), is rejected with
      * {@see \haddowg\JsonApi\Exception\RemovalProhibited}. Both replace and remove
-     * are allowed by default.
+     * are allowed by default. Pass a closure to gate the prohibition on the request
+     * and the domain model (see {@see cannotReplace()}).
      *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
      * @return static
      */
-    public function cannotRemove(): static
+    public function cannotRemove(?\Closure $when = null): static
     {
-        $this->allowsRemove = false;
+        if ($when === null) {
+            $this->allowsRemove = false;
+
+            return $this;
+        }
+
+        $this->cannotRemoveWhen = $when;
 
         return $this;
     }
@@ -247,13 +298,22 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      * Prohibits additions to this (to-many) relationship: a `POST` to its
      * relationship endpoint is rejected with
      * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). Additions are
-     * allowed by default, completing the replace / add / remove gate trio.
+     * allowed by default, completing the replace / add / remove gate trio. Pass a
+     * closure to gate the prohibition on the request and the domain model (see
+     * {@see cannotReplace()}).
      *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
      * @return static
      */
-    public function cannotAdd(): static
+    public function cannotAdd(?\Closure $when = null): static
     {
-        $this->allowsAdd = false;
+        if ($when === null) {
+            $this->allowsAdd = false;
+
+            return $this;
+        }
+
+        $this->cannotAddWhen = $when;
 
         return $this;
     }
@@ -266,11 +326,23 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      * `self` / `related` links are unaffected — only the compound `included`
      * expansion is suppressed. Includable by default.
      *
+     * Pass a closure to make the decision request-aware (inclusion prohibited
+     * **for this request** iff the closure returns `true`, receiving the request
+     * and the domain model). A request-aware prohibition is not *unconditional*, so
+     * the superset OpenAPI still lists the relation among the includable paths.
+     *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
      * @return static
      */
-    public function cannotBeIncluded(): static
+    public function cannotBeIncluded(?\Closure $when = null): static
     {
-        $this->isIncludable = false;
+        if ($when === null) {
+            $this->isIncludable = false;
+
+            return $this;
+        }
+
+        $this->cannotBeIncludedWhen = $when;
 
         return $this;
     }
@@ -392,9 +464,19 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this->allowsReplace;
     }
 
+    public function allowsReplaceFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->resolveAllows($this->allowsReplace, $this->cannotReplaceWhen, $request, $model);
+    }
+
     public function allowsRemove(): bool
     {
         return $this->allowsRemove;
+    }
+
+    public function allowsRemoveFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->resolveAllows($this->allowsRemove, $this->cannotRemoveWhen, $request, $model);
     }
 
     public function exposesRelatedEndpoint(): bool
@@ -412,9 +494,36 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         return $this->allowsAdd;
     }
 
+    public function allowsAddFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->resolveAllows($this->allowsAdd, $this->cannotAddWhen, $request, $model);
+    }
+
     public function isIncludable(): bool
     {
         return $this->isIncludable;
+    }
+
+    public function isIncludableFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->resolveAllows($this->isIncludable, $this->cannotBeIncludedWhen, $request, $model);
+    }
+
+    /**
+     * Resolves a `cannotX` gate for this request: an unconditional prohibition
+     * (`$allows === false`) always denies; otherwise the request predicate (if
+     * declared) denies when it returns `true` ("restricted when predicate true").
+     * Returns whether the operation is *allowed*.
+     *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $predicate
+     */
+    private function resolveAllows(bool $allows, ?\Closure $predicate, JsonApiRequestInterface $request, mixed $model): bool
+    {
+        if ($allows === false) {
+            return false;
+        }
+
+        return $predicate === null || !$predicate($request, $model);
     }
 
     public function isCountable(): bool

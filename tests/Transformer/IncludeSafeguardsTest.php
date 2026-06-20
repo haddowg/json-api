@@ -72,6 +72,38 @@ final class IncludeSafeguardsTest extends TestCase
     }
 
     #[Test]
+    public function aRequestAwareNonIncludableRelationIs400ForAGuestButExpandsForAnAdmin(): void
+    {
+        // The serializer reports `secret` non-includable ONLY when the request is
+        // not from an admin — proving the request threads through the transformer
+        // to getNonIncludableRelationships().
+        $build = static fn(): RoleAwareControllableSerializer => new RoleAwareControllableSerializer(
+            type: 'posts',
+            id: '1',
+            relationships: ['secret' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '9'], new ControllableSerializer('secrets', '9'))],
+        );
+
+        // Guest: rejected.
+        try {
+            $this->render($build(), ['post'], StubJsonApiRequest::create(['include' => 'secret']));
+            self::fail('expected InclusionNotAllowed for a guest');
+        } catch (InclusionNotAllowed) {
+            $this->addToAssertionCount(1);
+        }
+
+        // Admin: the same include expands into `included`.
+        $result = $this->render(
+            $build(),
+            ['post'],
+            StubJsonApiRequest::create(['include' => 'secret'], ['X-Role' => 'admin']),
+        );
+        self::assertSame(
+            [['type' => 'secrets', 'id' => '9', 'links' => ['self' => '/secrets/9']]],
+            $this->included($result),
+        );
+    }
+
+    #[Test]
     public function aRequestedIncludeDeeperThanTheServerCapIs400(): void
     {
         $serializer = $this->chainOfDepth(4);
@@ -473,7 +505,7 @@ final class ControllableSerializer extends AbstractSerializer implements Include
         return $this->relationships;
     }
 
-    public function getNonIncludableRelationships(mixed $object): array
+    public function getNonIncludableRelationships(JsonApiRequestInterface $request, mixed $object): array
     {
         return $this->nonIncludable;
     }
@@ -486,5 +518,72 @@ final class ControllableSerializer extends AbstractSerializer implements Include
     public function getAllowedIncludePaths(): ?array
     {
         return $this->allowedIncludePaths;
+    }
+}
+
+/**
+ * A {@see ControllableSerializer} whose `secret` relationship is non-includable
+ * **only** for a non-admin caller, proving the request threads end-to-end through
+ * the transformer into {@see IncludeControlsInterface::getNonIncludableRelationships()}.
+ */
+final class RoleAwareControllableSerializer extends AbstractSerializer implements IncludeControlsInterface
+{
+    /**
+     * @param array<string, callable(mixed, JsonApiRequestInterface, string): \haddowg\JsonApi\Schema\Relationship\AbstractRelationship> $relationships
+     */
+    public function __construct(
+        private readonly string $type,
+        private readonly string $id,
+        private readonly array $relationships = [],
+    ) {}
+
+    public function getType(mixed $object): string
+    {
+        return $this->type;
+    }
+
+    public function getId(mixed $object): string
+    {
+        return $this->id;
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return null;
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return [];
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return $this->relationships;
+    }
+
+    public function getNonIncludableRelationships(JsonApiRequestInterface $request, mixed $object): array
+    {
+        return $request->getHeaderLine('X-Role') === 'admin' ? [] : ['secret'];
+    }
+
+    public function maxIncludeDepth(): ?int
+    {
+        return null;
+    }
+
+    public function getAllowedIncludePaths(): ?array
+    {
+        return null;
     }
 }

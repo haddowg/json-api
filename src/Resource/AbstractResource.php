@@ -260,7 +260,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // A write-only field is accepted on write but never rendered: skip it
             // here, alongside the sparse-fieldset filtering, so it appears on no
             // read and a fields[type] parameter naming it cannot resurrect it.
-            if ($field->isWriteOnly()) {
+            // The request-aware resolver also skips a field whose write-only state
+            // is a per-request predicate (attributeFields() filters only the
+            // *unconditionally* hidden, so a conditionally-hidden field flows here
+            // and isHiddenFor() gates it against the request + model).
+            if ($field->isWriteOnlyFor($request) || $field->isHiddenFor($request, $object)) {
                 continue;
             }
 
@@ -283,11 +287,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      *
      * @return list<string>
      */
-    public function getNonIncludableRelationships(mixed $object): array
+    public function getNonIncludableRelationships(JsonApiRequestInterface $request, mixed $object): array
     {
         $names = [];
         foreach ($this->relationFields() as $relation) {
-            if ($relation->isIncludable() === false) {
+            if ($relation->isIncludableFor($request, $object) === false) {
                 $names[] = $relation->name();
             }
         }
@@ -344,7 +348,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return [];
         }
 
-        return self::relationshipCallables($this->relationFields(), $resolver);
+        // relationFields() filters only the *unconditionally* hidden relations, so
+        // a relation whose hidden state is a per-request predicate still backs the
+        // build-time relationNamed() lookup (a conditionally-hidden relation must
+        // resolve, else a cannotReplaceFor 403 would degrade to a 404). It is
+        // excluded from the *rendered* relationships here, against the request.
+        $visible = \array_values(\array_filter(
+            $this->relationFields(),
+            fn(RelationInterface $relation): bool => !$relation->isHiddenFor($request, $object),
+        ));
+
+        return self::relationshipCallables($visible, $resolver);
     }
 
     public function hydrate(JsonApiRequestInterface $request, mixed $domainObject): mixed
@@ -429,10 +443,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $linkage = $request->getRelationshipDataToOne($relationship);
 
         if ($linkage->isEmpty()) {
-            if ($relation->allowsRemove() === false) {
+            if ($relation->allowsRemoveFor($request, $domainObject) === false) {
                 throw new RemovalProhibited($relationship);
             }
-        } elseif ($relation->allowsReplace() === false) {
+        } elseif ($relation->allowsReplaceFor($request, $domainObject) === false) {
             throw new FullReplacementProhibited($relationship);
         }
 
@@ -459,15 +473,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         mixed $domainObject,
         Mode $mode,
     ): mixed {
-        if ($mode === Mode::Replace && $relation->allowsReplace() === false) {
+        if ($mode === Mode::Replace && $relation->allowsReplaceFor($request, $domainObject) === false) {
             throw new FullReplacementProhibited($relationship);
         }
 
-        if ($mode === Mode::Add && $relation->allowsAdd() === false) {
+        if ($mode === Mode::Add && $relation->allowsAddFor($request, $domainObject) === false) {
             throw new AdditionProhibited($relationship);
         }
 
-        if ($mode === Mode::Remove && $relation->allowsRemove() === false) {
+        if ($mode === Mode::Remove && $relation->allowsRemoveFor($request, $domainObject) === false) {
             throw new RemovalProhibited($relationship);
         }
 
@@ -634,7 +648,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         foreach ($this->attributeFields() as $field) {
-            if ($field->isReadOnly($creating)) {
+            if ($field->isReadOnlyFor($creating, $request)) {
                 continue;
             }
 
@@ -655,7 +669,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     protected function hydrateRelationships(mixed $domainObject, JsonApiRequestInterface $request, bool $creating): mixed
     {
         foreach ($this->relationFields() as $relation) {
-            if ($relation->isReadOnly($creating)) {
+            if ($relation->isReadOnlyFor($creating, $request)) {
                 continue;
             }
 

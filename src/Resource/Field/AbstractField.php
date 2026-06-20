@@ -42,6 +42,38 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
 
     protected bool $hidden = false;
 
+    /**
+     * Request predicate gating read-only-on-create: when set, the field is
+     * read-only for a create request iff the closure returns `true`. Independent
+     * of {@see $readOnlyOnCreate} (the unconditional flag).
+     *
+     * @var \Closure(JsonApiRequestInterface): bool|null
+     */
+    protected ?\Closure $readOnlyOnCreateWhen = null;
+
+    /**
+     * Request predicate gating read-only-on-update.
+     *
+     * @var \Closure(JsonApiRequestInterface): bool|null
+     */
+    protected ?\Closure $readOnlyOnUpdateWhen = null;
+
+    /**
+     * Request predicate gating write-only: when set, the field is write-only for
+     * a request iff the closure returns `true`.
+     *
+     * @var \Closure(JsonApiRequestInterface): bool|null
+     */
+    protected ?\Closure $writeOnlyWhen = null;
+
+    /**
+     * Request + model predicate gating hidden: when set, the field is hidden for
+     * a request iff the closure returns `true`.
+     *
+     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     */
+    protected ?\Closure $hiddenWhen = null;
+
     protected bool $sparseField = true;
 
     protected bool $sortable = false;
@@ -154,35 +186,69 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     }
 
     /**
+     * Marks the field read-only on both create and update. Pass a closure to make
+     * the decision request-aware (read-only **for this request** iff the closure
+     * returns `true`) — e.g. `readOnly(fn($req) => !$req->getHeaderLine('X-Role'))`.
+     * A request-aware read-only field is not *unconditionally* read-only, so the
+     * superset schema still places it in the request body.
+     *
+     * @param \Closure(JsonApiRequestInterface): bool|null $when
      * @return static
      */
-    public function readOnly(): static
+    public function readOnly(?\Closure $when = null): static
     {
         $this->guardNotWriteOnly('readOnly');
-        $this->readOnlyOnCreate = true;
-        $this->readOnlyOnUpdate = true;
+        if ($when === null) {
+            $this->readOnlyOnCreate = true;
+            $this->readOnlyOnUpdate = true;
+
+            return $this;
+        }
+
+        $this->readOnlyOnCreateWhen = $when;
+        $this->readOnlyOnUpdateWhen = $when;
 
         return $this;
     }
 
     /**
+     * Marks the field read-only on create (POST) only. Pass a closure to gate it
+     * on the request (see {@see readOnly()}).
+     *
+     * @param \Closure(JsonApiRequestInterface): bool|null $when
      * @return static
      */
-    public function readOnlyOnCreate(): static
+    public function readOnlyOnCreate(?\Closure $when = null): static
     {
         $this->guardNotWriteOnly('readOnlyOnCreate');
-        $this->readOnlyOnCreate = true;
+        if ($when === null) {
+            $this->readOnlyOnCreate = true;
+
+            return $this;
+        }
+
+        $this->readOnlyOnCreateWhen = $when;
 
         return $this;
     }
 
     /**
+     * Marks the field read-only on update (PATCH) only. Pass a closure to gate it
+     * on the request (see {@see readOnly()}).
+     *
+     * @param \Closure(JsonApiRequestInterface): bool|null $when
      * @return static
      */
-    public function readOnlyOnUpdate(): static
+    public function readOnlyOnUpdate(?\Closure $when = null): static
     {
         $this->guardNotWriteOnly('readOnlyOnUpdate');
-        $this->readOnlyOnUpdate = true;
+        if ($when === null) {
+            $this->readOnlyOnUpdate = true;
+
+            return $this;
+        }
+
+        $this->readOnlyOnUpdateWhen = $when;
 
         return $this;
     }
@@ -201,28 +267,59 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      * A future OpenAPI generator reads {@see isWriteOnly()} to place the member in
      * the request schema only.
      *
+     * Pass a closure to make the decision request-aware (write-only **for this
+     * request** iff the closure returns `true`). The contradiction guard only
+     * trips for the *unconditional × unconditional* case: declaring a field
+     * `writeOnly(fn)` and `readOnly(fn)` (or one of each) is coherent — each
+     * resolver is individually sound and the decision is deferred to request time.
+     *
+     * @param \Closure(JsonApiRequestInterface): bool|null $when
      * @return static
      */
-    public function writeOnly(): static
+    public function writeOnly(?\Closure $when = null): static
     {
-        if ($this->readOnlyOnCreate || $this->readOnlyOnUpdate) {
-            throw new \LogicException(\sprintf(
-                'Field "%s" cannot be both write-only and read-only.',
-                $this->name,
-            ));
+        if ($when === null) {
+            // Unconditional write-only contradicts an unconditional read-only only.
+            // A read-only *predicate* defers to request time, so it does not trip
+            // the guard (the resolvers stay individually coherent).
+            if ($this->readOnlyOnCreate || $this->readOnlyOnUpdate) {
+                throw new \LogicException(\sprintf(
+                    'Field "%s" cannot be both write-only and read-only.',
+                    $this->name,
+                ));
+            }
+
+            $this->writeOnly = true;
+
+            return $this;
         }
 
-        $this->writeOnly = true;
+        $this->writeOnlyWhen = $when;
 
         return $this;
     }
 
     /**
+     * Hides the field from serialization. Pass a closure to make the decision
+     * request-aware (hidden **for this request** iff the closure returns `true`,
+     * receiving the request and the domain model) — e.g.
+     * `hidden(fn($req, $model) => !$req->getHeaderLine('X-Role'))`. A
+     * request-aware hidden field is not *unconditionally* hidden, so it still
+     * flows to the render loop (where {@see isHiddenFor()} resolves it) and the
+     * superset schema still documents it.
+     *
+     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
      * @return static
      */
-    public function hidden(): static
+    public function hidden(?\Closure $when = null): static
     {
-        $this->hidden = true;
+        if ($when === null) {
+            $this->hidden = true;
+
+            return $this;
+        }
+
+        $this->hiddenWhen = $when;
 
         return $this;
     }
@@ -449,7 +546,14 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      * The condition is opaque PHP, so it is not round-tripped to JSON Schema;
      * framework adapters that execute validation evaluate it.
      *
-     * @param \Closure(mixed): bool $condition
+     * The condition receives the value first and the request second (nullable —
+     * `null` for a context with no request, e.g. entity-level or filter-side
+     * validation), so a `fn($value)` closure keeps binding unchanged while a
+     * `fn($value, $request)` closure can also branch on the caller. `When` is
+     * metadata here — the bundle's constraint translator is the only execution
+     * site — so widening the signature is documentation only.
+     *
+     * @param \Closure(mixed, JsonApiRequestInterface|null): bool $condition
      * @param \Closure(static): void $builder
      * @return static
      */
@@ -507,14 +611,35 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $creating ? $this->readOnlyOnCreate : $this->readOnlyOnUpdate;
     }
 
+    public function isReadOnlyFor(bool $creating, JsonApiRequestInterface $request): bool
+    {
+        if ($this->isReadOnly($creating)) {
+            return true;
+        }
+
+        $predicate = $creating ? $this->readOnlyOnCreateWhen : $this->readOnlyOnUpdateWhen;
+
+        return $predicate !== null && $predicate($request);
+    }
+
     public function isWriteOnly(): bool
     {
         return $this->writeOnly;
     }
 
+    public function isWriteOnlyFor(JsonApiRequestInterface $request): bool
+    {
+        return $this->writeOnly || ($this->writeOnlyWhen !== null && ($this->writeOnlyWhen)($request));
+    }
+
     public function isHidden(): bool
     {
         return $this->hidden;
+    }
+
+    public function isHiddenFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->hidden || ($this->hiddenWhen !== null && ($this->hiddenWhen)($request, $model));
     }
 
     public function isSparseField(): bool

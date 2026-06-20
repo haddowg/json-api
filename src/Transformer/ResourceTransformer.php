@@ -76,7 +76,7 @@ final class ResourceTransformer
             throw new RelationshipNotExists($transformation->requestedRelationshipName);
         }
 
-        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->request, $transformation->object);
 
         $transformation->result = $this->transformRelationshipObject(
             $transformation,
@@ -202,7 +202,7 @@ final class ResourceTransformer
         }
 
         $relationships = $transformation->resource->getRelationships($transformation->object, $transformation->request);
-        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->object);
+        $defaultRelationships = $this->defaultIncludedRelationships($transformation->resource, $transformation->request, $transformation->object);
 
         $this->validateRelationships($transformation, $relationships);
 
@@ -276,7 +276,7 @@ final class ResourceTransformer
         // up front, against the primary resource.
         $resource = $transformation->resource;
         if ($resource instanceof IncludeControlsInterface) {
-            $nonIncludable = $resource->getNonIncludableRelationships($transformation->object);
+            $nonIncludable = $resource->getNonIncludableRelationships($transformation->request, $transformation->object);
             $offending = \array_values(\array_intersect($requestedRelationships, $nonIncludable));
             if ($offending !== []) {
                 throw new InclusionNotAllowed(
@@ -289,16 +289,21 @@ final class ResourceTransformer
     /**
      * The resource's default-included relationship names, flipped to a set, with
      * any non-includable relation (Capability A) removed so the default cascade
-     * never auto-includes a relation that has opted out of inclusion.
+     * never auto-includes a relation that has opted out of inclusion. The
+     * non-includable set is resolved against the request, so a relation that is
+     * non-includable only for this caller is dropped from the default cascade too.
      *
      * @return array<string, int>
      */
-    private function defaultIncludedRelationships(SerializerInterface $resource, mixed $object): array
-    {
+    private function defaultIncludedRelationships(
+        SerializerInterface $resource,
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+        mixed $object,
+    ): array {
         $defaults = $resource->getDefaultIncludedRelationships($object);
 
         if ($resource instanceof IncludeControlsInterface) {
-            $nonIncludable = $resource->getNonIncludableRelationships($object);
+            $nonIncludable = $resource->getNonIncludableRelationships($request, $object);
             if ($nonIncludable !== []) {
                 $defaults = \array_values(\array_diff($defaults, $nonIncludable));
             }

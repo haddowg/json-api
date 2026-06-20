@@ -8,6 +8,7 @@ use haddowg\JsonApi\Hydrator\HydratorInterface as HydratorContract;
 use haddowg\JsonApi\Pagination\OffsetPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Request\JsonApiRequest;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -730,7 +731,7 @@ final class AbstractResourceTest extends TestCase
         $resource = new IncludeControlledResource();
 
         // 'secret' opted out via cannotBeIncluded(); 'author' did not.
-        self::assertSame(['secret'], $resource->getNonIncludableRelationships([]));
+        self::assertSame(['secret'], $resource->getNonIncludableRelationships(new StubJsonApiRequest(), []));
     }
 
     #[Test]
@@ -742,7 +743,7 @@ final class AbstractResourceTest extends TestCase
         // so every AbstractResource subclass is unrestricted without any edit.
         self::assertNull($resource->maxIncludeDepth());
         self::assertNull($resource->getAllowedIncludePaths());
-        self::assertSame([], $resource->getNonIncludableRelationships([]));
+        self::assertSame([], $resource->getNonIncludableRelationships(new StubJsonApiRequest(), []));
     }
 
     #[Test]
@@ -752,6 +753,135 @@ final class AbstractResourceTest extends TestCase
 
         self::assertSame(2, $resource->maxIncludeDepth());
         self::assertSame(['author'], $resource->getAllowedIncludePaths());
+    }
+
+    // ---- request-aware predicates wired into AbstractResource ---------------
+
+    #[Test]
+    public function aRequestAwareHiddenAttributeIsRenderedForAdminAndSkippedOtherwise(): void
+    {
+        $resource = new RoleAwareResource();
+        $model = ['id' => '1', 'title' => 'T', 'secret' => 's', 'token' => 'x', 'locked' => 'L'];
+
+        $forAdmin = $resource->getAttributes($model, $this->roleRequest('admin'));
+        self::assertArrayHasKey('secret', $forAdmin, 'admin sees the conditionally-hidden attribute');
+
+        $forGuest = $resource->getAttributes($model, $this->roleRequest(null));
+        self::assertArrayNotHasKey('secret', $forGuest, 'a non-admin does not');
+    }
+
+    #[Test]
+    public function aRequestAwareWriteOnlyAttributeIsNeverRenderedForANonAdmin(): void
+    {
+        $resource = new RoleAwareResource();
+        $model = ['id' => '1', 'title' => 'T', 'token' => 'x'];
+
+        $forGuest = $resource->getAttributes($model, $this->roleRequest(null));
+        self::assertArrayNotHasKey('token', $forGuest, 'write-only-for-guest is not echoed');
+
+        $forAdmin = $resource->getAttributes($model, $this->roleRequest('admin'));
+        self::assertArrayHasKey('token', $forAdmin, 'an admin (not write-only) sees it');
+    }
+
+    #[Test]
+    public function aRequestAwareReadOnlyOnUpdateAttributeIsIgnoredForANonAdmin(): void
+    {
+        $resource = new RoleAwareResource();
+
+        // A non-admin PATCH of `locked` is silently dropped (read-only for them).
+        $guestModel = $resource->hydrate(
+            $this->createRequest('PATCH', [
+                'data' => ['type' => 'role_aware', 'id' => '1', 'attributes' => ['locked' => 'changed']],
+            ]),
+            ['locked' => 'original'],
+        );
+        self::assertIsArray($guestModel);
+        self::assertSame('original', $guestModel['locked']);
+
+        // The same PATCH from an admin lands.
+        $adminModel = $resource->hydrate(
+            $this->createRequest('PATCH', [
+                'data' => ['type' => 'role_aware', 'id' => '1', 'attributes' => ['locked' => 'changed']],
+            ], ['X-Role' => 'admin']),
+            ['locked' => 'original'],
+        );
+        self::assertIsArray($adminModel);
+        self::assertSame('changed', $adminModel['locked']);
+    }
+
+    #[Test]
+    public function aRequestAwareCannotReplaceRelationshipIs403ForANonAdminOnly(): void
+    {
+        $resource = new RoleAwareResource();
+
+        // A non-admin PATCH replacing `owner` is prohibited.
+        $guest = $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']]);
+        try {
+            $resource->hydrateRelationship('owner', $guest, ['owner' => '1']);
+            self::fail('expected FullReplacementProhibited for a non-admin');
+        } catch (\haddowg\JsonApi\Exception\FullReplacementProhibited) {
+            $this->addToAssertionCount(1);
+        }
+
+        // An admin's identical replacement succeeds (no throw).
+        $admin = $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']], ['X-Role' => 'admin']);
+        $model = $resource->hydrateRelationship('owner', $admin, ['owner' => '1']);
+        self::assertIsArray($model);
+        self::assertSame('9', $model['owner']);
+    }
+
+    #[Test]
+    public function aRequestAwareNonIncludableRelationIsReportedPerRequest(): void
+    {
+        $resource = new RoleAwareResource();
+
+        // For a non-admin, `audit` is non-includable; for an admin it is includable.
+        self::assertSame(['audit'], $resource->getNonIncludableRelationships($this->roleRequest(null), []));
+        self::assertSame([], $resource->getNonIncludableRelationships($this->roleRequest('admin'), []));
+    }
+
+    #[Test]
+    public function aConditionallyHiddenRelationStillResolvesForTheMutationLookup(): void
+    {
+        // A relation gated only by a request predicate must still resolve via
+        // relationNamed() so a cannotReplaceFor 403 never degrades to a 404. The
+        // RoleAwareResource's `owner` carries a cannotReplace predicate (not hidden),
+        // but the lookup contract is the same: the relation is present regardless of
+        // any conditional gate.
+        $resource = new RoleAwareResource();
+
+        self::assertNotNull($resource->relationNamed('owner'));
+        self::assertNotNull($resource->relationNamed('audit'));
+    }
+
+    #[Test]
+    public function getRelationshipsExcludesAConditionallyHiddenRelationFromTheRender(): void
+    {
+        // A relation hidden only for this caller is excluded from the rendered
+        // relationship callables, while the static relationFields()/relationNamed()
+        // lookup still finds it (proven above).
+        $resource = new ConditionallyHiddenRelationResource();
+        $resource->setSerializerResolver(new StubSerializerResolver('users'));
+
+        $forGuest = $resource->getRelationships(['id' => '1'], $this->roleRequest(null));
+        self::assertArrayNotHasKey('owner', $forGuest);
+
+        $forAdmin = $resource->getRelationships(['id' => '1'], $this->roleRequest('admin'));
+        self::assertArrayHasKey('owner', $forAdmin);
+
+        // The build-time lookup resolves it for either caller.
+        self::assertNotNull($resource->relationNamed('owner'));
+    }
+
+    /**
+     * Builds a GET request optionally carrying `X-Role: admin`, for the read /
+     * include sites that consult the request without a body.
+     */
+    private function roleRequest(?string $role): JsonApiRequest
+    {
+        $headers = $role !== null ? ['X-Role' => $role] : [];
+
+        return new JsonApiRequest(new ServerRequest('GET', '/api/role_aware', $headers));
     }
 
     /**
@@ -772,13 +902,19 @@ final class AbstractResourceTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $body
+     * @param array<string, mixed>  $body
+     * @param array<string, string> $headers extra request headers (e.g. `X-Role`
+     *                                        consumed by a request-aware predicate)
      */
-    private function createRequest(string $method, array $body): JsonApiRequest
+    private function createRequest(string $method, array $body, array $headers = []): JsonApiRequest
     {
         $psr = (new ServerRequest($method, '/api/posts'))
             ->withParsedBody($body)
             ->withHeader('Content-Type', 'application/vnd.api+json');
+
+        foreach ($headers as $name => $value) {
+            $psr = $psr->withHeader($name, $value);
+        }
 
         return new JsonApiRequest($psr);
     }
@@ -1070,5 +1206,69 @@ final class IncludeControlledResource extends AbstractResource
     public function getAllowedIncludePaths(): array
     {
         return ['author'];
+    }
+}
+
+/**
+ * A resource declaring **every** request-aware predicate, each gated on whether
+ * the request carries `X-Role: admin`, so a single fixture exercises the render /
+ * hydrate / mutate / include sites against a privileged vs an ordinary caller.
+ */
+final class RoleAwareResource extends AbstractResource
+{
+    public static string $type = 'role_aware';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('title'),
+            // Hidden from a non-admin caller, rendered for an admin.
+            Str::make('secret')->hidden(
+                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+            ),
+            // Write-only for a non-admin caller (accepted but never echoed).
+            Str::make('token')->writeOnly(
+                static fn(JsonApiRequestInterface $request): bool => self::nonAdmin($request),
+            ),
+            // Read-only on update for a non-admin caller (their PATCH is ignored).
+            Str::make('locked')->readOnlyOnUpdate(
+                static fn(JsonApiRequestInterface $request): bool => self::nonAdmin($request),
+            ),
+            // Replacement prohibited for a non-admin caller.
+            BelongsTo::make('owner')->type('users')->cannotReplace(
+                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+            ),
+            // Inclusion prohibited for a non-admin caller.
+            BelongsTo::make('audit')->type('audits')->cannotBeIncluded(
+                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+            ),
+        ];
+    }
+
+    private static function nonAdmin(JsonApiRequestInterface $request): bool
+    {
+        return $request->getHeaderLine('X-Role') !== 'admin';
+    }
+}
+
+/**
+ * A resource whose `owner` relation is hidden only for a non-admin caller,
+ * exercising the build-time-static / render-request-aware split in
+ * {@see AbstractResource::getRelationships()} (excluded from the render) vs
+ * {@see AbstractResource::relationNamed()} (still resolvable for the 403 path).
+ */
+final class ConditionallyHiddenRelationResource extends AbstractResource
+{
+    public static string $type = 'conditionally_hidden';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('owner')->type('users')->hidden(
+                static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            ),
+        ];
     }
 }
