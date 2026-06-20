@@ -116,4 +116,9 @@ final class StubServer implements ResolvingServerInterface
     {
         return null;
     }
+
+    public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
+    {
+        return null;
+    }
 }

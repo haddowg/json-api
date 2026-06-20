@@ -768,7 +768,17 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         $type = $this->relatedTypes[0] ?? null;
         if ($type !== null && $resolver->hasSerializerFor($type)) {
             $serializer = $resolver->serializerFor($type);
-            if ($this->shouldDeferLinkage($model, $resolver)) {
+
+            // Out-of-band linkage: a host (the Relationship Queries profile's window)
+            // may supply this relation's page-1 linkage data per (parent, relation) so
+            // it need not write that page back onto the parent's backing property — a
+            // write that would corrupt any SIBLING relation sharing the column. When a
+            // page is supplied it is used eagerly (always emitting a `data` member),
+            // never deferred; the parent property is left untouched for its bystanders.
+            $linkage = $this->relationshipLinkage($model, $request, $resolver);
+            if ($linkage !== null) {
+                $relationship->setData($linkage->data, $serializer);
+            } elseif ($this->shouldDeferLinkage($model, $resolver)) {
                 $relationship
                     ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
                     ->omitDataWhenNotIncluded();
@@ -817,6 +827,25 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
     ): ?\haddowg\JsonApi\Schema\Relationship\RelationshipPagination {
         return $resolver->relationshipPagination()?->paginateRelationship($model, $this, $request);
+    }
+
+    /**
+     * Resolves the out-of-band linkage `data` for this to-many relation on `$model`
+     * under the Relationship Queries profile — the windowed page a host supplies per
+     * (parent, relation) so the page need not be written back onto the parent's
+     * backing property (which would corrupt a sibling relation sharing the column) —
+     * or `null` when none is supplied: no
+     * {@see \haddowg\JsonApi\Serializer\RelationshipLinkageInterface} was injected, or
+     * the resolver returned `null` for this (parent, relation), in which case linkage
+     * is read off the model as before. The injected resolver owns the windowing; core
+     * only reads the supplied page back.
+     */
+    protected function relationshipLinkage(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+    ): ?\haddowg\JsonApi\Schema\Relationship\RelationshipLinkage {
+        return $resolver->relationshipLinkage()?->linkageFor($model, $this, $request);
     }
 
     /**

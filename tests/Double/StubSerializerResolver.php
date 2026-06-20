@@ -25,6 +25,8 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
 
     private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
 
+    private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
+
     public function __construct(string ...$types)
     {
         if ($types === []) {
@@ -80,5 +82,17 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
     public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
     {
         return $this->relationshipPagination;
+    }
+
+    public function withRelationshipLinkage(?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage): self
+    {
+        $this->relationshipLinkage = $relationshipLinkage;
+
+        return $this;
+    }
+
+    public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
+    {
+        return $this->relationshipLinkage;
     }
 }

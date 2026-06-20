@@ -132,6 +132,15 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
 
     /**
+     * The storage-aware resolver that supplies a rendered to-many relation's linkage
+     * `data` out-of-band (the windowed page), so core renders it without the host
+     * writing it back onto the parent's shared backing property, or null for the
+     * standalone default (linkage read off the model). Pushed into the
+     * {@see ResourceRegistry} the same way the pagination resolver is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
+
+    /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
      * null to fall back to plain `new`. Server is the single source of truth and
      * pushes it into the cloned registry on every clone.
@@ -296,6 +305,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
         $self->resources->register($resource, $serializer, $hydrator);
 
         return $self;
@@ -318,6 +328,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
         $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
 
         return $self;
@@ -344,6 +355,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
 
         return $self;
     }
@@ -364,6 +376,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
 
         return $self;
     }
@@ -386,6 +399,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
 
         return $self;
     }
@@ -408,6 +422,28 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipLoadState($self->relationshipLoadState);
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+
+        return $self;
+    }
+
+    /**
+     * Injects the storage-aware resolver a rendered to-many relation consults for its
+     * linkage `data` supplied OUT-OF-BAND — the Relationship Queries profile's windowed
+     * page, supplied per (parent, relation) so core renders it WITHOUT the host writing
+     * it back onto (and corrupting) the parent's shared backing property. Passing `null`
+     * (the default) restores the standalone behaviour: linkage is read off the model.
+     */
+    public function withRelationshipLinkage(?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage): self
+    {
+        $self = clone $this;
+        $self->relationshipLinkage = $relationshipLinkage;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
 
         return $self;
     }
@@ -580,6 +616,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
     {
         return $this->relationshipPagination;
+    }
+
+    public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
+    {
+        return $this->relationshipLinkage;
     }
 
     public function hydratorFor(string $type): HydratorInterface

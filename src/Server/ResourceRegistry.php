@@ -91,6 +91,15 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
 
     /**
+     * The storage-aware resolver that supplies a rendered to-many relation's linkage
+     * `data` out-of-band (the windowed page) so core renders it without the host
+     * writing it back onto the parent's shared backing property, or null when none is
+     * injected (standalone core reads linkage off the model). Threaded down from the
+     * {@see Server}, the same way the lazy {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -143,6 +152,20 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface
     {
         return $this->relationshipPagination;
+    }
+
+    /**
+     * Sets (or clears) the relationship-linkage resolver consulted for a rendered
+     * to-many relation to supply its linkage `data` out-of-band (the windowed page).
+     */
+    public function setRelationshipLinkage(?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage): void
+    {
+        $this->relationshipLinkage = $relationshipLinkage;
+    }
+
+    public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
+    {
+        return $this->relationshipLinkage;
     }
 
     /**

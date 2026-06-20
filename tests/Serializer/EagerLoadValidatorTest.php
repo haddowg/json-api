@@ -71,6 +71,11 @@ final class EagerLoadValidatorTest extends TestCase
             {
                 return null;
             }
+
+            public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
+            {
+                return null;
+            }
         };
     }
 

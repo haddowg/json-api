@@ -50,4 +50,14 @@ interface SerializerResolverInterface
      * relationship-object pagination links are emitted).
      */
     public function relationshipPagination(): ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface;
+
+    /**
+     * The storage-aware resolver a rendered to-many relation consults for its linkage
+     * `data` supplied OUT-OF-BAND — the Relationship Queries profile's windowed page,
+     * supplied per (parent, relation) so core renders it WITHOUT the host writing it
+     * back onto (and corrupting) the parent's shared backing property. `null` when no
+     * adapter injected one (standalone core: linkage is always read off the model, as
+     * before this seam existed).
+     */
+    public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface;
 }
