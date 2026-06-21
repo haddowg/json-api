@@ -111,6 +111,7 @@ nav:
   - Server & lifecycle:
       - server.md
       - operations.md
+      - atomic-operations.md
       - middleware.md
       - content-negotiation.md
       - errors-and-exceptions.md
