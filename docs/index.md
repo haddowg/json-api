@@ -36,7 +36,7 @@ This is a **server-side** library. The following are deliberately out of scope:
 ## Install
 
 ```bash
-composer require haddowg/json-api:dev-main
+composer require haddowg/json-api
 ```
 
 The library depends on a [PSR-7](https://www.php-fig.org/psr/psr-7/) HTTP message

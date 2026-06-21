@@ -17,7 +17,7 @@ are the better starting point — this ledger is the backstop they all point at.
 > normative MUST/SHOULD requirements of the media type and document structure,
 > and how the library satisfies them. It is **not** an OpenAPI document and must
 > not be conflated with OpenAPI schema generation (a separate concern, out of
-> scope here). For the pre-1.0 stability caveat and install instructions, see
+> scope here). For requirements and install instructions, see
 > [index.md](index.md).
 
 ## Status legend

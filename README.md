@@ -4,11 +4,6 @@ A modern, server-side [JSON:API 1.1](https://jsonapi.org/format/1.1/) library fo
 
 [![CI](https://github.com/haddowg/json-api/actions/workflows/ci.yml/badge.svg)](https://github.com/haddowg/json-api/actions/workflows/ci.yml)
 
-> [!WARNING]
-> **Pre-1.0 — under active development.** The public API is not yet stable and
-> **breaking changes may occur between `0.x` minor versions**. Each such change
-> is recorded in the changelog. Wait for `1.0.0` if you need a stable surface.
-
 ## About
 
 `haddowg/json-api` is a server-side library for building [JSON:API 1.1](https://jsonapi.org/format/1.1/)
@@ -38,8 +33,6 @@ scope for the core package.
 - PHP 8.3, 8.4, or 8.5
 
 ## Installation
-
-> Not yet published to Packagist. Once the first `0.x` release is cut:
 
 ```bash
 composer require haddowg/json-api
