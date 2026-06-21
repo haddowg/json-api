@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\License;
+use haddowg\JsonApi\OpenApi\MediaType;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
@@ -15,6 +17,7 @@ use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -105,6 +108,32 @@ final class OpenApiProjectorTest extends TestCase
             tags: [new Tag('Articles', 'Blog articles'), new Tag('People')],
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
+        );
+    }
+
+    /**
+     * The same server as {@see server()} but with the Atomic Operations extension
+     * enabled, mounted at `/operations`, tagged `Atomic Operations`, secured by the
+     * bearer scheme.
+     */
+    private function serverWithAtomic(): FakeServerMetadata
+    {
+        $base = $this->server();
+
+        return new FakeServerMetadata(
+            title: 'Music API',
+            version: '1.2.0',
+            types: $base->types(),
+            description: 'A JSON:API surface.',
+            servers: [new Server('https://api.example.com', 'Production')],
+            tags: [new Tag('Articles', 'Blog articles'), new Tag('People')],
+            securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
+            defaultSecurity: [SecurityRequirement::scheme('bearer')],
+            atomicOperations: new FakeAtomicOperationsMetadata(
+                path: '/operations',
+                tag: 'Atomic Operations',
+                security: [SecurityRequirement::scheme('bearer')],
+            ),
         );
     }
 
@@ -337,6 +366,218 @@ final class OpenApiProjectorTest extends TestCase
         // The synthesized identifier is exactly what keeps the unregistered-related
         // case free of a dangling reference (the scenario the meta-schema cannot catch).
         $this->assertNoDanglingSchemaRefs($array);
+    }
+
+    #[Test]
+    public function itProjectsTheAtomicOperationsEndpointWhenEnabled(): void
+    {
+        $array = $this->projector()->project($this->serverWithAtomic())->toArray();
+        $paths = $this->arrAt($array, 'paths');
+
+        // The atomic POST is mounted at the configured path.
+        self::assertArrayHasKey('/operations', $paths);
+        $post = $this->arrAt($paths, '/operations', 'post');
+
+        self::assertSame('atomic.operations', $this->strAt($post, 'operationId'));
+        self::assertSame(['Atomic Operations'], $this->listAt($post, 'tags'));
+        self::assertSame([['bearer' => []]], $this->at($post, 'security'));
+
+        // Request + 200 response are carried under the extension-qualified media type.
+        $extMediaType = MediaType::JSON_API . '; ext="' . AtomicExtension::URI . '"';
+        self::assertSame(
+            '#/components/schemas/AtomicOperationsRequest',
+            $this->strAt($post, 'requestBody', 'content', $extMediaType, 'schema', '$ref'),
+        );
+        self::assertTrue($this->at($post, 'requestBody', 'required'));
+        self::assertSame(
+            '#/components/schemas/AtomicResultsResponse',
+            $this->strAt($post, 'responses', '200', 'content', $extMediaType, 'schema', '$ref'),
+        );
+
+        // The enumerated error responses each reference the shared error document.
+        foreach (['400', '403', '404', '406', '409', '415', '422', '500'] as $status) {
+            self::assertSame(
+                '#/components/schemas/ErrorDocument',
+                $this->strAt($post, 'responses', $status, 'content', MediaType::JSON_API, 'schema', '$ref'),
+                "missing/incorrect error response {$status}",
+            );
+        }
+    }
+
+    #[Test]
+    public function itEmitsTheAtomicComponentsReferencingTheResourceSchemas(): void
+    {
+        $schemas = $this->arrAt(
+            $this->projector()->project($this->serverWithAtomic())->toArray(),
+            'components',
+            'schemas',
+        );
+
+        foreach (['AtomicOperationsRequest', 'AtomicOperation', 'AtomicResultsResponse', 'AtomicResult'] as $component) {
+            self::assertArrayHasKey($component, $schemas, "missing atomic component {$component}");
+        }
+
+        // The request document requires the `atomic:operations` array (minItems 1) of
+        // AtomicOperation.
+        self::assertSame([AtomicExtension::OPERATIONS_MEMBER], $this->listAt($schemas, 'AtomicOperationsRequest', 'required'));
+        $operations = $this->arrAt($schemas, 'AtomicOperationsRequest', 'properties', AtomicExtension::OPERATIONS_MEMBER);
+        self::assertSame('array', $this->strAt($operations, 'type'));
+        self::assertSame(1, $this->at($operations, 'minItems'));
+        self::assertSame('#/components/schemas/AtomicOperation', $this->strAt($operations, 'items', '$ref'));
+
+        // The operation object: op enum + ref/href/data; op required.
+        self::assertSame(['add', 'update', 'remove'], $this->listAt($schemas, 'AtomicOperation', 'properties', 'op', 'enum'));
+        self::assertContains('op', $this->listAt($schemas, 'AtomicOperation', 'required'));
+        self::assertSame(['type'], $this->listAt($schemas, 'AtomicOperation', 'properties', 'ref', 'required'));
+
+        // The operation `data` anyOf references the participating types' **write**
+        // resource components (faithful and write-shaped, not the id-requiring read
+        // shape). Each `<Type>AtomicWrite` requires only `type`, so a no-id / local-id
+        // create validates (see itValidatesRealAtomicWriteWireShapes()).
+        $operationData = $this->listAt($schemas, 'AtomicOperation', 'properties', 'data', 'anyOf');
+        $refs = $this->refsIn($operationData);
+        self::assertContains('#/components/schemas/ArticlesAtomicWrite', $refs);
+        self::assertContains('#/components/schemas/PeopleAtomicWrite', $refs);
+        self::assertNotContains('#/components/schemas/ArticlesResource', $refs);
+
+        // The write component itself: an object requiring only `type` (id/lid/
+        // attributes/relationships all optional).
+        self::assertArrayHasKey('ArticlesAtomicWrite', $schemas);
+        self::assertSame(['type'], $this->listAt($schemas, 'ArticlesAtomicWrite', 'required'));
+        self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicWrite', 'properties'));
+
+        // The results document requires the `atomic:results` array of AtomicResult.
+        self::assertSame([AtomicExtension::RESULTS_MEMBER], $this->listAt($schemas, 'AtomicResultsResponse', 'required'));
+        self::assertSame(
+            '#/components/schemas/AtomicResult',
+            $this->strAt($schemas, 'AtomicResultsResponse', 'properties', AtomicExtension::RESULTS_MEMBER, 'items', '$ref'),
+        );
+
+        // An AtomicResult is an object with optional data/meta — no `required` member,
+        // so an empty `{}` validates. Its `data` anyOf references the resource schemas.
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'AtomicResult'));
+        $resultData = $this->listAt($schemas, 'AtomicResult', 'properties', 'data', 'anyOf');
+        self::assertContains('#/components/schemas/ArticlesResource', $this->refsIn($resultData));
+    }
+
+    /**
+     * The projected `AtomicOperation.data` schema must accept the real atomic-write
+     * wire shapes — a no-id create (the only valid create body for a type with
+     * `allowsClientId=false`, like the example app's `playlists`), a local-id (`lid`)
+     * create, and a single to-one relationship identifier referenced by `lid` — and
+     * still reject a body with no `type`. This is the inverse of the probe that
+     * surfaced the original defect (the read-shape `<Type>Resource` required `id`, so
+     * every id-less write was wrongly rejected).
+     */
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function itValidatesRealAtomicWriteWireShapes(): void
+    {
+        $schemas = $this->arrAt(
+            $this->projector()->project($this->serverWithAtomic())->toArray(),
+            'components',
+            'schemas',
+        );
+
+        $validator = $this->json2020Validator();
+        $resolver = $validator->resolver();
+        self::assertNotNull($resolver);
+
+        $doc = \json_decode((string) \json_encode(['components' => ['schemas' => $schemas]]));
+        self::assertInstanceOf(\stdClass::class, $doc);
+        $resolver->registerRaw($doc, 'urn:atomic-doc');
+
+        $dataSchema = \json_decode((string) \json_encode(['$ref' => 'urn:atomic-doc#/components/schemas/AtomicOperation/properties/data']));
+        self::assertInstanceOf(\stdClass::class, $dataSchema);
+
+        // The instance is decoded to its JSON value (object/array/null) before
+        // validation; opis validates the data argument as-is (it only decodes a
+        // string *schema*, never the data).
+        $isValid = function (mixed $instance) use ($validator, $dataSchema): bool {
+            return $validator->validate(\json_decode((string) \json_encode($instance)), $dataSchema)->isValid();
+        };
+
+        // The headline cases the read-shape schema wrongly rejected.
+        self::assertTrue($isValid(['type' => 'articles', 'attributes' => ['title' => 'x']]), 'create (no id)');
+        self::assertTrue($isValid(['type' => 'articles', 'lid' => 'a1', 'attributes' => ['title' => 'x']]), 'create (lid)');
+        self::assertTrue($isValid(['type' => 'articles', 'lid' => 'a1']), 'to-one identifier (lid)');
+        // Already-accepted shapes still validate.
+        self::assertTrue($isValid(['type' => 'articles', 'id' => '1', 'attributes' => ['title' => 'x']]), 'update (id)');
+        self::assertTrue($isValid(['type' => 'articles', 'id' => '1']), 'to-one identifier (id)');
+        self::assertTrue($isValid([['type' => 'articles', 'lid' => 'a1']]), 'to-many array');
+        self::assertTrue($isValid(null), 'to-one cleared (null)');
+
+        // A body with no `type` is still rejected (the union has no all-permissive arm).
+        self::assertFalse($isValid(['attributes' => ['title' => 'x']]), 'a type-less operation data must be rejected');
+    }
+
+    #[Test]
+    public function itDefinesTheAtomicTagAtTheDocumentRoot(): void
+    {
+        $array = $this->projector()->project($this->serverWithAtomic())->toArray();
+
+        $tagNames = [];
+        foreach ($this->listAt($array, 'tags') as $tag) {
+            self::assertIsArray($tag);
+            self::assertArrayHasKey('name', $tag);
+            $tagNames[] = $tag['name'];
+        }
+
+        self::assertContains('Atomic Operations', $tagNames);
+    }
+
+    #[Test]
+    public function itOmitsTheAtomicEndpointAndComponentsWhenNotEnabled(): void
+    {
+        // The plain server() does not enable the extension.
+        $array = $this->projector()->project($this->server())->toArray();
+
+        self::assertArrayNotHasKey('/operations', $this->arrAt($array, 'paths'));
+
+        $schemas = $this->arrAt($array, 'components', 'schemas');
+        foreach (['AtomicOperationsRequest', 'AtomicOperation', 'AtomicResultsResponse', 'AtomicResult'] as $component) {
+            self::assertArrayNotHasKey($component, $schemas, "unexpected atomic component {$component}");
+        }
+
+        $tagNames = [];
+        foreach ($this->listAt($array, 'tags') as $tag) {
+            self::assertIsArray($tag);
+            $tagNames[] = $tag['name'] ?? null;
+        }
+        self::assertNotContains('Atomic Operations', $tagNames);
+    }
+
+    #[Test]
+    public function theAtomicEnabledDocumentValidatesAndCarriesNoDanglingReference(): void
+    {
+        $document = $this->projector()->project($this->serverWithAtomic());
+
+        $result = $this->oasValidator()->validate($document->toJson(), self::OAS_SCHEMA_ID);
+        self::assertTrue(
+            $result->isValid(),
+            'Atomic-enabled document is not a valid OpenAPI 3.1 document: ' . $document->toJsonString(true),
+        );
+
+        $this->assertNoDanglingSchemaRefs($document->toArray());
+    }
+
+    /**
+     * Collects the `$ref` strings present at the top level of each member of an
+     * `anyOf` list (a member may be a `$ref` node or an inline schema).
+     *
+     * @param list<mixed> $members
+     * @return list<string>
+     */
+    private function refsIn(array $members): array
+    {
+        $refs = [];
+        foreach ($members as $member) {
+            if (\is_array($member) && isset($member['$ref']) && \is_string($member['$ref'])) {
+                $refs[] = $member['$ref'];
+            }
+        }
+
+        return $refs;
     }
 
     /**

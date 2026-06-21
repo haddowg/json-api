@@ -105,4 +105,12 @@ interface ServerMetadataInterface
      * @return list<TypeMetadataInterface>
      */
     public function types(): array;
+
+    /**
+     * The Atomic Operations extension endpoint metadata for this server, or `null`
+     * when the extension is not enabled. When non-`null`, the projector emits the
+     * atomic `POST` path (at {@see AtomicOperationsMetadataInterface::path()}), its
+     * request/response components, and unions its tag into the document-root set.
+     */
+    public function atomicOperations(): ?AtomicOperationsMetadataInterface;
 }

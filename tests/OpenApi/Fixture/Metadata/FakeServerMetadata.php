@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
+use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -40,6 +41,7 @@ final class FakeServerMetadata implements ServerMetadataInterface
         private readonly array $securitySchemes = [],
         private readonly array $defaultSecurity = [],
         private readonly ?ExternalDocumentation $externalDocs = null,
+        private readonly ?AtomicOperationsMetadataInterface $atomicOperations = null,
     ) {}
 
     public function title(): string
@@ -100,5 +102,10 @@ final class FakeServerMetadata implements ServerMetadataInterface
     public function types(): array
     {
         return $this->types;
+    }
+
+    public function atomicOperations(): ?AtomicOperationsMetadataInterface
+    {
+        return $this->atomicOperations;
     }
 }

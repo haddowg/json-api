@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\Atomic\AtomicExtension;
+use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -58,6 +60,14 @@ final class OpenApiProjector
         // catch one).
         $this->addUnregisteredRelatedComponents($schemas, $server);
 
+        // The Atomic Operations extension (opt-in): when enabled, its request/result
+        // document components join the schema set (and its path joins the document
+        // below). The polymorphic operation/result `data` schemas reference the
+        // participating types' resource components already emitted above.
+        if ($server->atomicOperations() !== null) {
+            $this->addAtomicComponents($schemas, $server);
+        }
+
         // The hoisted enum components are known only after every type is projected.
         // The collector was seeded with the shared names and dedupes its own enums, so
         // the only remaining way `$name` is already taken is a collision with a
@@ -85,7 +95,7 @@ final class OpenApiProjector
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
-            tags: $server->tags(),
+            tags: $this->tags($server),
             externalDocs: $server->externalDocs(),
         );
 
@@ -109,7 +119,42 @@ final class OpenApiProjector
             }
         }
 
+        // The Atomic Operations extension endpoint (when enabled) — a single
+        // batch-write path, projected after the per-type CRUD paths.
+        $atomic = $server->atomicOperations();
+        if ($atomic !== null) {
+            $paths = $paths->with($atomic->path(), $this->atomicPathItem($atomic));
+        }
+
         return $paths;
+    }
+
+    /**
+     * The document-root tag list, with the Atomic Operations tag unioned in (and
+     * defined) when the extension is enabled and the configured tags do not already
+     * declare it — so the atomic operation's `tags` always resolves to a defined
+     * document-root tag.
+     *
+     * @return list<Tag>
+     */
+    private function tags(ServerMetadataInterface $server): array
+    {
+        $tags = $server->tags();
+
+        $atomic = $server->atomicOperations();
+        if ($atomic === null) {
+            return $tags;
+        }
+
+        foreach ($tags as $tag) {
+            if ($tag->name === $atomic->tag()) {
+                return $tags;
+            }
+        }
+
+        $tags[] = new Tag($atomic->tag(), 'The JSON:API Atomic Operations extension (transactional batch writes).');
+
+        return $tags;
     }
 
     private function info(ServerMetadataInterface $server): Info
@@ -263,6 +308,327 @@ final class OpenApiProjector
                 }
             }
         }
+    }
+
+    // ---- Atomic Operations extension --------------------------------------------
+
+    /**
+     * Adds the Atomic Operations extension's request/result document component
+     * schemas (the extension is opt-in; only emitted when
+     * {@see ServerMetadataInterface::atomicOperations()} is non-`null`):
+     *
+     * - `AtomicOperationsRequest` — the request document (`{atomic:operations: […],
+     *   jsonapi?, meta?}`).
+     * - `AtomicOperation` — one operation object (`op` / `ref` / `href` / `data`).
+     * - `AtomicResultsResponse` — the response document (`{atomic:results: […],
+     *   jsonapi?, meta?, links?}`).
+     * - `AtomicResult` — one result fragment (`{data?, meta?}`; an empty `{}` is
+     *   valid).
+     *
+     * The polymorphic `data` schemas (the resource a write operation carries, and
+     * the resource/identifier a result returns) `anyOf` over the participating types'
+     * already-emitted resource components, so an author sees the concrete shapes
+     * rather than an opaque object.
+     *
+     * @param array<string, Schema> $schemas
+     */
+    private function addAtomicComponents(array &$schemas, ServerMetadataInterface $server): void
+    {
+        // A per-type **write** resource object the operation `data` carries for an
+        // `add`/`update` (require only `type`; id/lid/attributes/relationships
+        // optional) — distinct from the read-shape `<Type>Resource` (which requires
+        // `id`), so the projected request schema accepts the real create wire
+        // (no-id and local-id creates).
+        foreach ($server->types() as $type) {
+            $schemas[$this->componentBase($type->type()) . 'AtomicWrite'] = $this->atomicWriteSchema($type);
+        }
+
+        $schemas['AtomicOperation'] = $this->atomicOperationSchema($server);
+        $schemas['AtomicOperationsRequest'] = $this->atomicOperationsRequestSchema();
+        $schemas['AtomicResult'] = $this->atomicResultSchema($server);
+        $schemas['AtomicResultsResponse'] = $this->atomicResultsResponseSchema();
+    }
+
+    /**
+     * The write resource object an atomic `add`/`update` operation carries for a
+     * given type: `type` (const) plus the **optional** `id`, `lid`, `attributes`
+     * (create-context projection, so every writable attribute is offered) and
+     * `relationships`. Unlike the response-shape `<Type>Resource`, only `type` is
+     * required — so a no-id create (`{type, attributes}`, the valid wire for a type
+     * with `allowsClientId=false`), a local-id create (`{type, lid, attributes}`)
+     * and a client-id create all validate.
+     */
+    private function atomicWriteSchema(TypeMetadataInterface $type): Schema
+    {
+        $resource = Schema::ofType('object')
+            ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id assigned to a resource created in this batch, referenceable by later operations.'))
+            ->withProperty('attributes', $type->hasFields()
+                ? $this->schemaProjector->projectAttributes($type->fields(), true, null)
+                : Schema::ofType('object'))
+            ->withProperty('relationships', Schema::ofType('object'))
+            ->withRequired(['type']);
+
+        return $resource->withDescription('The resource object an `add` or `update` operation writes. Carries `type` and an id by `id` (a client- or path-supplied id) or `lid` (a local id), plus the `attributes` / `relationships` being written.');
+    }
+
+    /**
+     * The `AtomicOperationsRequest` document: a required `atomic:operations` array
+     * (`minItems: 1`) of {@see atomicOperationSchema()}, plus the optional `jsonapi`
+     * and `meta` top-level members.
+     */
+    private function atomicOperationsRequestSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('The Atomic Operations extension request document: an ordered, all-or-nothing batch of write operations.')
+            ->withProperty(AtomicExtension::OPERATIONS_MEMBER, Schema::ofType('array')
+                ->withDescription('The ordered list of operations to apply. Applied in array order, all-or-nothing within one transaction.')
+                ->withItems(Schema::ref('#/components/schemas/AtomicOperation'))
+                ->withMinItems(1))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired([AtomicExtension::OPERATIONS_MEMBER]);
+    }
+
+    /**
+     * The `AtomicOperation` object: the operation `op` (the required `add`/`update`/
+     * `remove` code), the target (`ref` **or** `href` — exactly one), and the `data`
+     * payload (modelled as an `anyOf` over the participating types' `<Type>AtomicWrite`
+     * shapes and a resource-identifier shape; absent for a `remove`). The id-vs-lid and
+     * ref-vs-href exclusivities are runtime constraints described in prose (OAS cannot
+     * express "exactly one of these optional members").
+     */
+    private function atomicOperationSchema(ServerMetadataInterface $server): Schema
+    {
+        $ref = Schema::ofType('object')
+            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; an optional `relationship` narrows the target to that relationship.')
+            ->withProperty('type', Schema::ofType('string'))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id referencing a resource created earlier in the same batch.'))
+            ->withProperty('relationship', Schema::ofType('string'))
+            ->withRequired(['type']);
+
+        return Schema::ofType('object')
+            ->withDescription('One operation in the batch. The target is given by exactly one of `ref` or `href`.')
+            ->withProperty('op', Schema::ofType('string')
+                ->withDescription('The operation code.')
+                ->withEnum(['add', 'update', 'remove']))
+            ->withProperty('ref', $ref)
+            ->withProperty('href', Schema::ofType('string')
+                ->withFormat('uri-reference')
+                ->withDescription('A URI reference to the operation\'s target (an alternative to `ref`).'))
+            ->withProperty('data', $this->atomicOperationDataSchema($server))
+            ->withRequired(['op']);
+    }
+
+    /**
+     * The `AtomicResult` object: one entry of the `atomic:results` array. Per the
+     * extension a result object carries only `data` and/or `meta` (never `links` or
+     * `included`), and an empty result `{}` is valid (a `remove`, or an `update` the
+     * server fully applied). The `data` is an `anyOf` over the participating types'
+     * resource and resource-identifier shapes.
+     */
+    private function atomicResultSchema(ServerMetadataInterface $server): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('The result fragment of one operation. Carries `data` and/or `meta` only; an empty object `{}` is valid (e.g. a `remove`).')
+            ->withProperty('data', $this->atomicResultDataSchema($server))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
+    }
+
+    /**
+     * The `AtomicResultsResponse` document: a required `atomic:results` array of
+     * {@see atomicResultSchema()}, plus the optional `jsonapi` / `meta` / `links`
+     * top-level members.
+     */
+    private function atomicResultsResponseSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('The Atomic Operations extension response document: one result fragment per applied operation, in batch order.')
+            ->withProperty(AtomicExtension::RESULTS_MEMBER, Schema::ofType('array')
+                ->withDescription('The result of each operation, in batch order.')
+                ->withItems(Schema::ref('#/components/schemas/AtomicResult')))
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withRequired([AtomicExtension::RESULTS_MEMBER]);
+    }
+
+    /**
+     * The `data` payload of an atomic **operation**: an `anyOf` of the participating
+     * types' **write**-resource shapes (each type's `<Type>AtomicWrite`, requiring only
+     * `type` so a no-id / local-id create validates) for an `add`/`update`, plus the
+     * relationship-linkage payload shapes a relationship operation carries — a single
+     * identifier (to-one; id or lid), `null` (a to-one cleared), and an array of
+     * identifiers (to-many). When the server registers no types, a generic JSON:API
+     * resource stands in.
+     */
+    private function atomicOperationDataSchema(ServerMetadataInterface $server): Schema
+    {
+        $members = [];
+        foreach ($server->types() as $type) {
+            // The write resource object an `add`/`update` carries (the per-type
+            // write shape, requiring only `type`).
+            $members[] = Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'AtomicWrite');
+        }
+
+        if ($members === []) {
+            $members[] = $this->genericResourceObjectSchema();
+        }
+
+        // The relationship-linkage payload shapes: a single identifier (a to-one
+        // relationship target, by `id` or `lid`), `null` (a to-one cleared) and an
+        // array of identifiers (a to-many). Each references the generic identifier
+        // (requiring only `type`) so the union stays valid however many concrete
+        // types participate and a `lid`-only identifier validates.
+        $members[] = $this->genericResourceIdentifierSchema();
+        $members[] = Schema::ofType('null');
+        $members[] = Schema::ofType('array')->withItems($this->genericResourceIdentifierSchema());
+
+        return Schema::create()
+            ->withDescription('The operation payload. Its shape depends on `op` and the target: a resource object for an `add`/`update`; a resource identifier (or `null`) for a to-one relationship; an array of resource identifiers for a to-many relationship; absent for a resource `remove`.')
+            ->withAnyOf($members);
+    }
+
+    /**
+     * The `data` of an atomic **result**: an `anyOf` of every participating type's
+     * resource component (the created/updated resource a result echoes) and its
+     * resource-identifier (a relationship result), with a generic fallback when the
+     * server has no field-bearing types.
+     */
+    private function atomicResultDataSchema(ServerMetadataInterface $server): Schema
+    {
+        $members = [];
+        foreach ($server->types() as $type) {
+            $base = $this->componentBase($type->type());
+            $members[] = Schema::ref('#/components/schemas/' . $base . 'Resource');
+            $members[] = Schema::ref('#/components/schemas/' . $base . 'ResourceIdentifier');
+        }
+
+        if ($members === []) {
+            $members[] = $this->genericResourceObjectSchema();
+            $members[] = $this->genericResourceIdentifierSchema();
+        }
+
+        return Schema::create()
+            ->withDescription('The created or updated resource (or its identifier) the operation returns.')
+            ->withAnyOf($members);
+    }
+
+    /**
+     * A generic JSON:API resource object shape (`type` + `id` + open attributes /
+     * relationships / meta), for the fallback when no participating type carries a
+     * concrete resource component.
+     */
+    private function genericResourceObjectSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('type', Schema::ofType('string'))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string'))
+            ->withProperty('attributes', Schema::ofType('object'))
+            ->withProperty('relationships', Schema::ofType('object'))
+            ->withProperty('meta', Schema::ofType('object'))
+            ->withRequired(['type']);
+    }
+
+    /**
+     * A generic JSON:API resource-identifier shape (`type` + an id by `id` or `lid`),
+     * for the fallback linkage payload.
+     */
+    private function genericResourceIdentifierSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('type', Schema::ofType('string'))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string'))
+            ->withProperty('meta', Schema::ofType('object'))
+            ->withRequired(['type']);
+    }
+
+    /**
+     * The Atomic Operations {@see PathItem}: a single `POST` that consumes an
+     * `AtomicOperationsRequest` and returns an `AtomicResultsResponse`, both under the
+     * extension-qualified JSON:API media type (`application/vnd.api+json; ext="<URI>"`).
+     * Carries the configured atomic tag + security and the standard error responses.
+     */
+    private function atomicPathItem(AtomicOperationsMetadataInterface $atomic): PathItem
+    {
+        return (new PathItem())->withOperation('post', $this->atomicOperation($atomic));
+    }
+
+    /**
+     * The single atomic `POST` operation: an extension-qualified request body
+     * ($ref `AtomicOperationsRequest`), a `200` carrying `AtomicResultsResponse` under
+     * the same extension media type, the standard error responses, the atomic tag and
+     * the configured security.
+     */
+    private function atomicOperation(AtomicOperationsMetadataInterface $atomic): Operation
+    {
+        $mediaType = $this->atomicMediaType();
+
+        $requestBody = new RequestBody(
+            content: [$mediaType => MediaType::ofSchema(Schema::ref('#/components/schemas/AtomicOperationsRequest'))],
+            description: 'The batch of operations. Sent under the extension-qualified `' . MediaType::JSON_API . '; ext="' . AtomicExtension::URI . '"` media type.',
+            required: true,
+        );
+
+        $responses = (new Responses())
+            ->with('200', new Response(
+                'The result of each operation, in batch order.',
+                content: [$mediaType => MediaType::ofSchema(Schema::ref('#/components/schemas/AtomicResultsResponse'))],
+            ));
+        $responses = $this->withAtomicErrorResponses($responses);
+
+        $security = $atomic->security();
+
+        return new Operation(
+            responses: $responses,
+            tags: [$atomic->tag()],
+            summary: 'Apply a batch of atomic operations',
+            description: 'Applies an ordered batch of write operations all-or-nothing within a single transaction (the JSON:API Atomic Operations extension). '
+                . 'Negotiated via the `ext="' . AtomicExtension::URI . '"` media-type parameter on both the request `Content-Type` and the `Accept` header. '
+                . 'Either every operation is committed or none is; a failure rolls the whole batch back. The batch commits through a single transactional persister.',
+            operationId: 'atomic.operations',
+            requestBody: $requestBody,
+            security: $security === [] ? null : $security,
+        );
+    }
+
+    /**
+     * The extension-qualified JSON:API media-type key
+     * (`application/vnd.api+json; ext="<AtomicExtension::URI>"`) the atomic request and
+     * response are carried under.
+     */
+    private function atomicMediaType(): string
+    {
+        return MediaType::JSON_API . '; ext="' . AtomicExtension::URI . '"';
+    }
+
+    /**
+     * Adds the atomic endpoint's standard error responses (each `$ref`ing the shared
+     * `ErrorDocument`): `400`/`403`/`404`/`406`/`409`/`415`/`500`, plus `422` for a
+     * validation failure within the batch.
+     */
+    private function withAtomicErrorResponses(Responses $responses): Responses
+    {
+        $errorRef = Reference::to('schemas', 'ErrorDocument');
+        $statuses = [
+            '400' => 'Bad Request — the operations document was malformed.',
+            '403' => 'Forbidden — the request is not authorised.',
+            '404' => 'Not Found — an operation targets a resource that does not exist.',
+            '406' => 'Not Acceptable — the `Accept` header did not request the atomic extension.',
+            '409' => 'Conflict — an operation conflicts with the resource state (e.g. a type or id mismatch).',
+            '415' => 'Unsupported Media Type — the `Content-Type` did not carry the atomic `ext` parameter.',
+            '422' => 'Unprocessable Entity — an operation in the batch failed validation. The whole batch is rolled back.',
+            '500' => 'Internal Server Error.',
+        ];
+        foreach ($statuses as $status => $description) {
+            $responses = $responses->with((string) $status, Response::ofSchema($description, $errorRef));
+        }
+
+        return $responses;
     }
 
     // ---- Resource-level schemas -------------------------------------------------
