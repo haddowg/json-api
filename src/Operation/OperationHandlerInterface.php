@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Operation;
 
+use haddowg\JsonApi\Response\AtomicResultsResponse;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
@@ -25,5 +26,5 @@ interface OperationHandlerInterface
 {
     public function handle(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse;
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|AtomicResultsResponse|ErrorResponse;
 }

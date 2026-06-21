@@ -652,7 +652,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      */
     public function dispatch(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse {
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|\haddowg\JsonApi\Response\AtomicResultsResponse|ErrorResponse {
         $handler = $this->handler;
         if (!$handler instanceof \haddowg\JsonApi\Operation\OperationHandlerInterface) {
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');

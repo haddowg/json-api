@@ -52,6 +52,15 @@ abstract class AbstractResponse
     protected ?int $status = null;
 
     /**
+     * Extension URIs advertised in the response `ext` media-type parameter, set by
+     * {@see withExtensions()} and merged with any a subclass hard-codes in
+     * {@see extensions()}.
+     *
+     * @var list<string>
+     */
+    protected array $appliedExtensions = [];
+
+    /**
      * @param array<string, mixed> $meta
      */
     public function withMeta(array $meta): static
@@ -101,6 +110,24 @@ abstract class AbstractResponse
     {
         $self = clone $this;
         $self->encodeOptions = $encodeOptions;
+
+        return $self;
+    }
+
+    /**
+     * Advertises one or more JSON:API extensions on this response's `Content-Type`
+     * `ext` media-type parameter. A document produced by applied extension
+     * processing MUST declare those extensions — e.g. an error response rolled back
+     * from an Atomic Operations batch carries the atomic extension URI. The given
+     * URIs are merged (de-duplicated) with any a subclass hard-codes in
+     * {@see extensions()}.
+     *
+     * @param list<string> $extensions
+     */
+    public function withExtensions(array $extensions): static
+    {
+        $self = clone $this;
+        $self->appliedExtensions = $extensions;
 
         return $self;
     }
@@ -267,19 +294,40 @@ abstract class AbstractResponse
 
     /**
      * The response `Content-Type`, echoing the applied profile URIs in the
-     * `profile` media-type parameter when any profiles are applied.
+     * `profile` media-type parameter when any profiles are applied, and the
+     * applied extension URIs in the `ext` media-type parameter when a response
+     * type advertises any (see {@see extensions()}).
      *
      * @param list<ProfileInterface> $profiles
      */
     private function contentType(array $profiles): string
     {
-        if ($profiles === []) {
-            return 'application/vnd.api+json';
+        $type = 'application/vnd.api+json';
+
+        $extensions = \array_values(\array_unique([...$this->extensions(), ...$this->appliedExtensions]));
+        if ($extensions !== []) {
+            $type .= '; ext="' . \implode(' ', $extensions) . '"';
         }
 
-        $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
+        if ($profiles !== []) {
+            $uris = \array_map(static fn(ProfileInterface $profile): string => $profile->uri(), $profiles);
+            $type .= '; profile="' . \implode(' ', $uris) . '"';
+        }
 
-        return 'application/vnd.api+json; profile="' . \implode(' ', $uris) . '"';
+        return $type;
+    }
+
+    /**
+     * The JSON:API extension URIs this response advertises in the `ext` media-type
+     * parameter of its `Content-Type`. The base advertises none; a response that
+     * applies an extension (e.g. the Atomic Operations response) overrides this to
+     * return that extension's URI.
+     *
+     * @return list<string>
+     */
+    protected function extensions(): array
+    {
+        return [];
     }
 
     /**

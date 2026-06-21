@@ -1,4 +1,12 @@
+---
+status: superseded by ADR-0086
+---
+
 # Atomic Operations deferred, but its seams are already in place
+
+> **Superseded by [ADR-0086](0086-atomic-operations-framework-agnostic-core-foundation.md):**
+> Atomic Operations is now folded **into** 1.0; the deferred seams below — cross-document
+> `lid` resolution and extension dispatch — are being built.
 
 The JSON:API Atomic Operations extension is out of scope for 1.0. The design,
 however, leaves the seams it will need: local IDs (`lid`) are modelled on resource
