@@ -44,8 +44,12 @@ final class AtomicResultsResponse extends AbstractResponse
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
     {
+        // An empty result must serialize as a JSON object `{}` (a result object),
+        // not a JSON array `[]`: `json_encode([])` emits `[]`, so an empty fragment
+        // is mapped to a `\stdClass` (encoded as `{}`). Content-bearing fragments
+        // carry string keys and already encode as objects.
         $fragments = \array_map(
-            static fn(AtomicResult $result): array => $result->fragment,
+            static fn(AtomicResult $result): array|\stdClass => $result->hasContent() ? $result->fragment : new \stdClass(),
             $this->results,
         );
 

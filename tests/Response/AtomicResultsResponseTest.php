@@ -33,6 +33,15 @@ final class AtomicResultsResponseTest extends TestCase
             $psr->getHeaderLine('Content-Type'),
         );
 
+        $body = $psr->getBody()->getContents();
+
+        // Pin the wire JSON type: an empty result is a result object `{}`, never the
+        // JSON array `[]` an associative decode collapses it to.
+        self::assertStringContainsString(
+            '"atomic:results":[{"data":{"type":"articles","id":"1"}},{}]',
+            $body,
+        );
+
         self::assertSame(
             [
                 'atomic:results' => [
@@ -41,7 +50,7 @@ final class AtomicResultsResponseTest extends TestCase
                 ],
                 'jsonapi' => ['version' => '1.1'],
             ],
-            $this->decode($psr->getBody()->getContents()),
+            $this->decode($body),
         );
     }
 
