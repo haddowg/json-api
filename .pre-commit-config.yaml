@@ -1,0 +1,17 @@
+# pre-commit hooks for this repository — https://pre-commit.com
+# Enable locally once with: pre-commit install
+#
+# Builds the documentation in strict mode whenever a docs source file (or the
+# MkDocs config) is staged, so a broken cross-link, a missing nav target or a bad
+# anchor fails the commit instead of slipping onto the published site. Requires the
+# docs toolchain on PATH (`pip install mkdocs-material`); skip ad hoc with
+# `SKIP=mkdocs-build git commit ...`.
+repos:
+  - repo: local
+    hooks:
+      - id: mkdocs-build
+        name: mkdocs build (strict)
+        entry: mkdocs build --strict
+        language: system
+        files: ^(docs/.*|mkdocs\.yml)$
+        pass_filenames: false
