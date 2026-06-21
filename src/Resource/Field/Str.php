@@ -18,6 +18,9 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * `ip()` shortcuts append the same format constraint the dedicated field types
  * carry, so `Str::make('contact')->email()` and `Email::make('contact')`
  * produce identical metadata.
+ *
+ * Non-final by design: the format-preset string types ({@see Email}, {@see Url},
+ * {@see Uuid}, {@see Slug}, {@see Ip}) extend it.
  */
 class Str extends AbstractField
 {

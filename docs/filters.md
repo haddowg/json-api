@@ -213,7 +213,11 @@ WhereIn::make('tags')->default('new,featured');        // shaped as the request 
 A default is a **convenience the client can override, never a constraint it
 cannot**: a requested key always wins, and it wins by *presence*
 (`array_key_exists`) — an explicit empty or null value (`filter[explicit]=`)
-still overrides the default. Anything the client must not be able to undo
+still overrides the default. An empty value is **not** a no-op: under an
+`asBoolean()` / `boolean()` filter the empty string coerces through
+`FILTER_VALIDATE_BOOLEAN` to boolean `false` (and passes the `boolean()` value
+constraint, so it is never a `400`), so `filter[active]=` matches the falsy rows
+— this is deliberate and frozen. Anything the client must not be able to undo
 (soft-delete exclusion, tenant scoping) belongs in your data layer, not the
 filter vocabulary. Shape a set filter's default exactly as the request would
 carry it — an array or a delimited string honouring the filter's `delimiter()`.
@@ -263,7 +267,7 @@ public function filters(): array
     return [
         Where::make('year')->integer(),                 // ^-?[0-9]+$
         Where::make('rating')->numeric(),               // integer or decimal
-        Where::make('active')->boolean(),               // true | false | 1 | 0
+        Where::make('active')->boolean(),               // 1/0, true/false, on/off, yes/no, ''
         Where::make('isrc')->pattern('^[A-Z]{2}.{10}$'),// any ECMA-262 regex
         WhereIdIn::make()->uuid(4),                      // a UUIDv4 id set
         Where::make('listens')->constrain(new Min(0)),   // any core ConstraintInterface
@@ -276,7 +280,7 @@ public function filters(): array
 | `numeric()` | `Pattern('^-?[0-9]+(?:\.[0-9]+)?$')` | an integer or decimal |
 | `integer()` | `Pattern('^-?[0-9]+$')` | an integer |
 | `uuid(?int $version = null)` | `UuidFormat($version)` | a UUID (optionally a specific version) |
-| `boolean()` | `Pattern('^(?:true\|false\|1\|0)$')` | `true`, `false`, `1` or `0` |
+| `boolean()` | `Pattern('^\s*(?i:true\|false\|1\|0\|on\|off\|yes\|no)\s*$\|^\s*$')` | the `FILTER_VALIDATE_BOOLEAN` set: `1`/`0`, `true`/`false`, `on`/`off`, `yes`/`no`, or the empty string — case-insensitive, surrounding whitespace tolerated |
 | `pattern(string $regex)` | `Pattern($regex)` | a value matching the ECMA-262 regex |
 | `constrain(ConstraintInterface ...)` | the given constraints | as the constraint describes |
 

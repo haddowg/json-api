@@ -8,9 +8,15 @@ the closure returns `true` when the restriction applies (`hidden(fn => true)` �
 hidden; `cannotReplace(fn => true)` ⇒ cannot replace). This closes the Laravel-
 parity cluster (per-caller field hiding / writability and relationship
 authorization) without a security framework: read-hiding and relationship-authz
-predicates receive `(JsonApiRequestInterface $request, mixed $model)`, while the
-write-gating predicates (`readOnly`/`writeOnly`) receive only `($request)` because
-a create has no persisted model yet.
+predicates receive `(mixed $model, JsonApiRequestInterface $request)` — **model
+first**, uniform with every other author closure on a field/relation
+(`serializeUsing`/`extractUsing`/`computedUsing` and the relation `identifierMeta`
+resolver), so an author never swaps argument order between adjacent closures —
+while the write-gating predicates (`readOnly`/`writeOnly`) receive only
+`($request)` because a create has no persisted model yet. (An earlier iteration
+ordered these `($request, $model)`; they were aligned to model-first at the v1
+freeze for cross-closure consistency. The internal `*For(...)` resolver *methods*
+stay `($request, $model)` — they are not author closures.)
 
 The existing **static getters** (`isHidden()`, `isReadOnly(bool)`,
 `isWriteOnly()`, `allowsReplace/Remove/Add()`, `isIncludable()`) are kept,

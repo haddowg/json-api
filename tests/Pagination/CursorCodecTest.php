@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Pagination;
 
-use haddowg\JsonApi\Exception\MalformedCursor;
+use haddowg\JsonApi\Exception\CursorMalformed;
 use haddowg\JsonApi\Pagination\CursorBoundary;
 use haddowg\JsonApi\Pagination\CursorCodec;
 use PHPUnit\Framework\Attributes\Group;
@@ -104,7 +104,7 @@ final class CursorCodecTest extends TestCase
     #[Test]
     public function rejectsANonBase64Token(): void
     {
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         (new CursorCodec())->decode('not valid base64!!', 'page[after]');
     }
@@ -115,7 +115,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
         $notJson = \rtrim(\strtr(\base64_encode('this is not json'), '+/', '-_'), '=');
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($notJson, 'page[before]');
     }
@@ -126,7 +126,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
         $token = $this->base64url((string) \json_encode(['id' => 1]));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -138,7 +138,7 @@ final class CursorCodecTest extends TestCase
         // A JSON list has no string keys / no direction flag — not a boundary shape.
         $token = $this->base64url((string) \json_encode([1, 2, 3]));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -149,7 +149,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
         $token = $this->base64url((string) \json_encode(['nested' => ['a' => 1], '_pointsToNextItems' => true, '_d' => []]));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -162,7 +162,7 @@ final class CursorCodecTest extends TestCase
         // a directionless (pre-fix) token can no longer be decoded.
         $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true]));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -173,7 +173,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
         $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true, '_d' => ['id' => 'yes']]));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -184,7 +184,7 @@ final class CursorCodecTest extends TestCase
         $codec = new CursorCodec();
         $token = $this->base64url((string) \json_encode(['id' => 1, '_pointsToNextItems' => true, '_d' => 'nope']));
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         $codec->decode($token, 'page[after]');
     }
@@ -215,8 +215,8 @@ final class CursorCodecTest extends TestCase
     {
         try {
             (new CursorCodec())->decode('not base64!!', 'page[before]');
-            self::fail('expected a MalformedCursor');
-        } catch (MalformedCursor $e) {
+            self::fail('expected a CursorMalformed');
+        } catch (CursorMalformed $e) {
             self::assertSame('page[before]', $e->parameter);
             self::assertSame(400, $e->getStatusCode());
             self::assertSame('page[before]', $e->getErrors()[0]->source?->parameter);

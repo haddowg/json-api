@@ -198,22 +198,33 @@ final class OperationProjectorTest extends TestCase
     }
 
     #[Test]
-    public function theSortParameterEnumeratesAscAndDescTokens(): void
+    public function theSortParameterIsACommaDelimitedListEnumeratingAscAndDescTokens(): void
     {
         $sort = $this->parameterNamed($this->arrAt($this->paths(), '/articles', 'get'), 'sort');
 
+        // A single parameter carrying a comma-separated list: OAS form/explode:false
+        // over an array schema whose items enumerate the allowed tokens.
+        self::assertSame('form', $this->strAt($sort, 'style'));
+        self::assertFalse($this->at($sort, 'explode'));
+        self::assertSame('array', $this->strAt($sort, 'schema', 'type'));
         self::assertSame(
             ['title', '-title', 'wordCount', '-wordCount'],
-            $this->listAt($sort, 'schema', 'enum'),
+            $this->listAt($sort, 'schema', 'items', 'enum'),
         );
     }
 
     #[Test]
-    public function theIncludeParameterEnumeratesTheIncludablePaths(): void
+    public function theIncludeParameterIsACommaDelimitedListEnumeratingTheIncludablePaths(): void
     {
         $include = $this->parameterNamed($this->arrAt($this->paths(), '/articles', 'get'), 'include');
 
-        self::assertSame(['author', 'tags', 'author.company'], $this->listAt($include, 'schema', 'enum'));
+        self::assertSame('form', $this->strAt($include, 'style'));
+        self::assertFalse($this->at($include, 'explode'));
+        self::assertSame('array', $this->strAt($include, 'schema', 'type'));
+        self::assertSame(
+            ['author', 'tags', 'author.company'],
+            $this->listAt($include, 'schema', 'items', 'enum'),
+        );
     }
 
     #[Test]

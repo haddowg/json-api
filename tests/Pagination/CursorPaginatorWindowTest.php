@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Pagination;
 
-use haddowg\JsonApi\Exception\MalformedCursor;
+use haddowg\JsonApi\Exception\CursorMalformed;
 use haddowg\JsonApi\Pagination\CursorBoundary;
 use haddowg\JsonApi\Pagination\CursorCodec;
 use haddowg\JsonApi\Pagination\CursorPaginator;
@@ -110,11 +110,11 @@ final class CursorPaginatorWindowTest extends TestCase
     {
         $request = StubJsonApiRequest::create(['page' => ['after' => 'not valid base64!!']]);
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         try {
             CursorPaginator::make()->window($request);
-        } catch (MalformedCursor $e) {
+        } catch (CursorMalformed $e) {
             self::assertSame('page[after]', $e->parameter);
 
             throw $e;
@@ -126,11 +126,11 @@ final class CursorPaginatorWindowTest extends TestCase
     {
         $request = StubJsonApiRequest::create(['page' => ['before' => 'not valid base64!!']]);
 
-        $this->expectException(MalformedCursor::class);
+        $this->expectException(CursorMalformed::class);
 
         try {
             CursorPaginator::make()->window($request);
-        } catch (MalformedCursor $e) {
+        } catch (CursorMalformed $e) {
             self::assertSame('page[before]', $e->parameter);
 
             throw $e;

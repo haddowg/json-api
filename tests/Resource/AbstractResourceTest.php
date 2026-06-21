@@ -1678,7 +1678,7 @@ final class RoleAwareResource extends AbstractResource
             Str::make('title'),
             // Hidden from a non-admin caller, rendered for an admin.
             Str::make('secret')->hidden(
-                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+                static fn(mixed $model, JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
             // Write-only for a non-admin caller (accepted but never echoed).
             Str::make('token')->writeOnly(
@@ -1690,11 +1690,11 @@ final class RoleAwareResource extends AbstractResource
             ),
             // Replacement prohibited for a non-admin caller.
             BelongsTo::make('owner')->type('users')->cannotReplace(
-                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+                static fn(mixed $model, JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
             // Inclusion prohibited for a non-admin caller.
             BelongsTo::make('audit')->type('audits')->cannotBeIncluded(
-                static fn(JsonApiRequestInterface $request, mixed $model): bool => self::nonAdmin($request),
+                static fn(mixed $model, JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
         ];
     }
@@ -1720,7 +1720,7 @@ final class ConditionallyHiddenRelationResource extends AbstractResource
         return [
             Id::make(),
             BelongsTo::make('owner')->type('users')->hidden(
-                static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+                static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
             ),
         ];
     }

@@ -15,7 +15,7 @@ namespace haddowg\JsonApi\Pagination;
  * {@see \haddowg\JsonApi\Collection\CollectionCriteria}, and the executing
  * provider (C2/C3) resolves it to keyset columns there, checks the cursor's
  * columns against it (throwing
- * {@see \haddowg\JsonApi\Exception\StaleCursor} on a mismatch), and runs the
+ * {@see \haddowg\JsonApi\Exception\CursorStale} on a mismatch), and runs the
  * keyset WHERE. C1 only shapes the window.
  *
  * At most one boundary is set on a request: `page[before]` wins over

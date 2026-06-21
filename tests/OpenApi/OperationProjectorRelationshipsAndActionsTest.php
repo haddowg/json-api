@@ -175,7 +175,8 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $get = $this->arrAt($this->paths(), '/articles/{id}/tags', 'get');
         $include = $this->parameterNamed($get, 'include');
 
-        self::assertSame(['articles'], $this->listAt($include, 'schema', 'enum'));
+        self::assertSame('array', $this->strAt($include, 'schema', 'type'));
+        self::assertSame(['articles'], $this->listAt($include, 'schema', 'items', 'enum'));
     }
 
     #[Test]

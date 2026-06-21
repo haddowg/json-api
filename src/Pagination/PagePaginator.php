@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
+use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -19,7 +20,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * items with `200`, in keeping with the clamp-don't-`400` pagination stance. Pass
  * `0` to {@see withMaxPerPage()} to disable the cap (unlimited).
  */
-final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
+final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
 {
     /**
      * The default page-size cap, applied unless overridden with
@@ -86,6 +87,11 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    public function paginatorKind(): PaginatorKind
+    {
+        return PaginatorKind::Page;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

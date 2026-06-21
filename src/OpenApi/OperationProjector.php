@@ -674,9 +674,12 @@ final class OperationProjector
     }
 
     /**
-     * The single `sort` parameter: a comma-separated string whose enumerable tokens
-     * are each sortable key and its `-`-prefixed descending form (§4.4). Returns
-     * `null` when the type declares no sorts.
+     * The single `sort` parameter: a comma-separated **list** of sort fields, each
+     * a sortable key or its `-`-prefixed descending form (§4.4). JSON:API carries
+     * the list in one parameter, so this is an OAS `form`/`explode: false` array
+     * parameter (the standard comma-delimited shape); the allowed tokens are
+     * preserved as the array `items` enum. Returns `null` when the type declares no
+     * sorts.
      *
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface> $sorts
      */
@@ -692,19 +695,25 @@ final class OperationProjector
             $tokens[] = '-' . $sort->key();
         }
 
-        $schema = Schema::ofType('string')->withEnum($tokens);
+        $schema = Schema::ofType('array')
+            ->withItems(Schema::ofType('string')->withEnum($tokens));
 
         return Parameter::query(
             'sort',
             $schema,
             'A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `'
             . \implode('`, `', $tokens) . '`.',
+            style: ParameterStyle::Form,
+            explode: false,
         );
     }
 
     /**
-     * The single `include` parameter: a comma-separated string of the type's allowed
-     * includable relationship paths (§4.4). Returns `null` when nothing is includable.
+     * The single `include` parameter: a comma-separated **list** of the type's allowed
+     * includable relationship paths (§4.4). JSON:API carries the list in one parameter,
+     * so this is an OAS `form`/`explode: false` array parameter (the standard
+     * comma-delimited shape); the allowed paths are preserved as the array `items`
+     * enum. Returns `null` when nothing is includable.
      *
      * @param list<string> $includablePaths
      */
@@ -714,13 +723,16 @@ final class OperationProjector
             return null;
         }
 
-        $schema = Schema::ofType('string')->withEnum($includablePaths);
+        $schema = Schema::ofType('array')
+            ->withItems(Schema::ofType('string')->withEnum($includablePaths));
 
         return Parameter::query(
             'include',
             $schema,
             'A comma-separated list of relationship paths to include in a compound document. Allowed paths: `'
             . \implode('`, `', $includablePaths) . '`.',
+            style: ParameterStyle::Form,
+            explode: false,
         );
     }
 

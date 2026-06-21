@@ -17,17 +17,17 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
 enum OperationType: string
 {
     /** `GET /{type}` — fetch the resource collection. */
-    case FetchCollection = 'fetchCollection';
+    case FetchCollection = 'FetchCollection';
 
     /** `GET /{type}/{id}` — fetch one resource. */
-    case FetchOne = 'fetchOne';
+    case FetchOne = 'FetchOne';
 
     /** `POST /{type}` — create a resource. */
-    case Create = 'create';
+    case Create = 'Create';
 
     /** `PATCH /{type}/{id}` — update a resource. */
-    case Update = 'update';
+    case Update = 'Update';
 
     /** `DELETE /{type}/{id}` — delete a resource. */
-    case Delete = 'delete';
+    case Delete = 'Delete';
 }

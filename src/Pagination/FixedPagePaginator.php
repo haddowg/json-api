@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
+use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -13,7 +14,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * The configured {@see $size} is the server's fixed page size, used to compute
  * the last page; it is never echoed in the emitted links. Fluent and immutable.
  */
-final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
+final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
 {
     public function __construct(
         public int $size = 15,
@@ -56,6 +57,11 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    public function paginatorKind(): PaginatorKind
+    {
+        return PaginatorKind::Page;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

@@ -10,6 +10,8 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 /**
  * A to-one relationship backed by a foreign key on the owning model
  * (`belongsTo`).
+ *
+ * Non-final by design: {@see HasOne} extends it.
  */
 class BelongsTo extends AbstractRelation
 {

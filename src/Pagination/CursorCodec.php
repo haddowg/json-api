@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
-use haddowg\JsonApi\Exception\MalformedCursor;
+use haddowg\JsonApi\Exception\CursorMalformed;
 
 /**
  * Storage-agnostic base64url codec for cursor tokens.
@@ -20,7 +20,7 @@ use haddowg\JsonApi\Exception\MalformedCursor;
  * The codec is **scalar-only**: the caller (the executing provider) passes
  * already-JSON-safe scalars — dates stringified, ids as scalars — and the codec
  * neither inspects domain types nor resolves the active sort. {@see decode()}
- * validates the wire shape and throws {@see MalformedCursor} on anything that is
+ * validates the wire shape and throws {@see CursorMalformed} on anything that is
  * not a base64url-encoded JSON object of scalars carrying the direction flag.
  *
  * @internal
@@ -65,20 +65,20 @@ final class CursorCodec
      * @param string $token     the base64url cursor token
      * @param string $parameter the cursor parameter the token came from (e.g. `page[after]`), used for the error source
      *
-     * @throws MalformedCursor when the token is not base64url, not JSON, not an object, missing either reserved key, or carries a non-scalar value or malformed direction map
+     * @throws CursorMalformed when the token is not base64url, not JSON, not an object, missing either reserved key, or carries a non-scalar value or malformed direction map
      */
     public function decode(string $token, string $parameter): CursorBoundary
     {
         $binary = \base64_decode(\strtr($token, '-_', '+/'), true);
         if ($binary === false) {
-            throw new MalformedCursor($parameter);
+            throw new CursorMalformed($parameter);
         }
 
         try {
             /** @var mixed $decoded */
             $decoded = \json_decode($binary, true, 512, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            throw new MalformedCursor($parameter);
+            throw new CursorMalformed($parameter);
         }
 
         if (
@@ -86,12 +86,12 @@ final class CursorCodec
             || !\array_key_exists(self::DIRECTION_KEY, $decoded)
             || !\array_key_exists(self::DIRECTIONS_KEY, $decoded)
         ) {
-            throw new MalformedCursor($parameter);
+            throw new CursorMalformed($parameter);
         }
 
         $pointsToNextItems = $decoded[self::DIRECTION_KEY];
         if (!\is_bool($pointsToNextItems)) {
-            throw new MalformedCursor($parameter);
+            throw new CursorMalformed($parameter);
         }
         unset($decoded[self::DIRECTION_KEY]);
 
@@ -103,7 +103,7 @@ final class CursorCodec
             // A JSON object decodes to a string-keyed array; a JSON array (list)
             // would yield int keys, which is not a column => value boundary.
             if (!\is_string($column) || (!\is_scalar($value) && $value !== null)) {
-                throw new MalformedCursor($parameter);
+                throw new CursorMalformed($parameter);
             }
             $values[$column] = $value;
         }
@@ -118,18 +118,18 @@ final class CursorCodec
      *
      * @return array<string, bool>
      *
-     * @throws MalformedCursor when the value is not a map of column => bool
+     * @throws CursorMalformed when the value is not a map of column => bool
      */
     private function decodeDirections(mixed $raw, string $parameter): array
     {
         if (!\is_array($raw)) {
-            throw new MalformedCursor($parameter);
+            throw new CursorMalformed($parameter);
         }
 
         $descending = [];
         foreach ($raw as $column => $value) {
             if (!\is_string($column) || !\is_bool($value)) {
-                throw new MalformedCursor($parameter);
+                throw new CursorMalformed($parameter);
             }
             $descending[$column] = $value;
         }

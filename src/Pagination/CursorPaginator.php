@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
-use haddowg\JsonApi\Exception\MalformedCursor;
+use haddowg\JsonApi\Exception\CursorMalformed;
+use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 
@@ -33,7 +34,7 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */
-final readonly class CursorPaginator implements PaginatorInterface
+final readonly class CursorPaginator implements PaginatorInterface, DescribesPaginatorKindInterface
 {
     /**
      * The `page[…]` keys reserved for the cursor tokens; their wire form is
@@ -83,7 +84,7 @@ final readonly class CursorPaginator implements PaginatorInterface
      * keyset fetch. The window deliberately carries no resolved sort — the
      * provider resolves the active sort off the request when executing (C2/C3).
      *
-     * @throws MalformedCursor when a supplied cursor token cannot be decoded
+     * @throws CursorMalformed when a supplied cursor token cannot be decoded
      */
     public function window(JsonApiRequestInterface $request): CursorWindow
     {
@@ -172,6 +173,11 @@ final readonly class CursorPaginator implements PaginatorInterface
         return false;
     }
 
+    public function paginatorKind(): PaginatorKind
+    {
+        return PaginatorKind::Cursor;
+    }
+
     /**
      * The normalised page size for the request — floored to `>= 1` (a keyset
      * fetch always returns at least one row, so `page[size]=0`/negative is
@@ -192,7 +198,7 @@ final readonly class CursorPaginator implements PaginatorInterface
     /**
      * Decodes the `page[<key>]` cursor token, if present, into a
      * {@see CursorBoundary}. Absent → null; a present but undecodable token →
-     * {@see MalformedCursor} with the wire `page[<key>]` parameter name.
+     * {@see CursorMalformed} with the wire `page[<key>]` parameter name.
      *
      * @param array<string, mixed> $pagination
      */

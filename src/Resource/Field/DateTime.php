@@ -16,6 +16,8 @@ use haddowg\JsonApi\Resource\Constraint\Between;
  * `before()` / `after()` / `between()` accept a fixed `\DateTimeInterface` or a
  * `\Closure` evaluated at validation time; closure bounds do not round-trip to
  * JSON Schema.
+ *
+ * Non-final by design: {@see Date} and {@see Time} extend it.
  */
 class DateTime extends AbstractField
 {

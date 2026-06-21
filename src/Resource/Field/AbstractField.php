@@ -67,10 +67,10 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     protected ?\Closure $writeOnlyWhen = null;
 
     /**
-     * Request + model predicate gating hidden: when set, the field is hidden for
+     * Model + request predicate gating hidden: when set, the field is hidden for
      * a request iff the closure returns `true`.
      *
-     * @var \Closure(JsonApiRequestInterface, mixed): bool|null
+     * @var \Closure(mixed, JsonApiRequestInterface): bool|null
      */
     protected ?\Closure $hiddenWhen = null;
 
@@ -386,13 +386,13 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     /**
      * Hides the field from serialization. Pass a closure to make the decision
      * request-aware (hidden **for this request** iff the closure returns `true`,
-     * receiving the request and the domain model) — e.g.
-     * `hidden(fn($req, $model) => !$req->getHeaderLine('X-Role'))`. A
+     * receiving the domain model and the request) — e.g.
+     * `hidden(fn($model, $req) => !$req->getHeaderLine('X-Role'))`. A
      * request-aware hidden field is not *unconditionally* hidden, so it still
      * flows to the render loop (where {@see isHiddenFor()} resolves it) and the
      * superset schema still documents it.
      *
-     * @param \Closure(JsonApiRequestInterface, mixed): bool|null $when
+     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function hidden(?\Closure $when = null): static
@@ -732,7 +732,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
 
     public function isHiddenFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->hidden || ($this->hiddenWhen !== null && ($this->hiddenWhen)($request, $model));
+        return $this->hidden || ($this->hiddenWhen !== null && ($this->hiddenWhen)($model, $request));
     }
 
     public function isSparseField(): bool

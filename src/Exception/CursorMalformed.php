@@ -11,10 +11,10 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * A `page[after]` / `page[before]` cursor token could not be decoded — it is not
  * valid base64url, not valid JSON, or does not decode to the expected boundary
  * shape. Surfaced as a `400` with `source.parameter` naming the offending
- * `page[…]` cursor parameter, distinct from a {@see StaleCursor} (a well-formed
+ * `page[…]` cursor parameter, distinct from a {@see CursorStale} (a well-formed
  * token whose columns no longer match the active sort).
  */
-final class MalformedCursor extends AbstractJsonApiException
+final class CursorMalformed extends AbstractJsonApiException
 {
     /**
      * @param string $parameter the cursor parameter that was malformed, e.g. `page[after]` or `page[before]`

@@ -16,9 +16,9 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * provider** (C2/C3), which owns the active-sort → keyset-column resolution and
  * so is the only place the staleness can be detected. Surfaced as a `400` with
  * `source.parameter` naming the offending `page[…]` cursor parameter, distinct
- * from a {@see MalformedCursor} (a token that could not be decoded at all).
+ * from a {@see CursorMalformed} (a token that could not be decoded at all).
  */
-final class StaleCursor extends AbstractJsonApiException
+final class CursorStale extends AbstractJsonApiException
 {
     /**
      * @param string $parameter the cursor parameter that went stale, e.g. `page[after]` or `page[before]`

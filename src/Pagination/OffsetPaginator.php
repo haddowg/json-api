@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
+use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -19,7 +20,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * pagination stance. Pass `0` to {@see withMaxPerPage()} to disable the cap
  * (unlimited).
  */
-final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface
+final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
 {
     public function __construct(
         public string $offsetKey = 'offset',
@@ -79,6 +80,11 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    public function paginatorKind(): PaginatorKind
+    {
+        return PaginatorKind::Offset;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

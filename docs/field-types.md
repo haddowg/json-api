@@ -262,6 +262,17 @@ re-attaches a single `UrlFormat` with the scheme list, and `Ip::make()->v4()`
 narrows to one IPv4 `IpFormat`. So a chain like `->strict()` always leaves exactly
 one format constraint on the field.
 
+## Subclassing and finality
+
+Most concrete field types are `final`. The four intermediates that are **not** —
+`Str`, `DateTime`, `BelongsTo` and `HasMany` — are non-final *by design*, because
+each already has a shipped subclass that extends it: `Str` ← `Email`/`Url`/`Uuid`/
+`Slug`/`Ip`, `DateTime` ← `Date`/`Time`, `BelongsTo` ← `HasOne`, and `HasMany` ←
+`BelongsToMany`. The current finality set is therefore deliberate, not an
+oversight. Dropping `final` from one of the remaining leaf types later to allow a
+custom subclass is a **non-breaking** change (it only widens what callers may do),
+so the surface can grow toward extensibility without a breaking release.
+
 ## Next
 
 - [Fields](fields.md) — the shared fluent surface every type above inherits

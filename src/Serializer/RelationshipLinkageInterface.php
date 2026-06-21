@@ -24,8 +24,12 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
  * default would have omitted). Supplying the page through this seam leaves the
  * column untouched, so a shared-column bystander renders its own membership.
  *
- * Consulted for a to-many relation whose linkage data renders (included, or
- * {@see RelationInterface::emitsDataOnlyWhenLoaded()} is false). When it returns a
+ * Consulted for a **monomorphic** to-many relation whose linkage data renders
+ * (included, or {@see RelationInterface::emitsDataOnlyWhenLoaded()} is false).
+ * Polymorphic {@see \haddowg\JsonApi\Resource\Field\MorphToMany} relations are not
+ * windowed through this seam — their members span resource types with no shared
+ * windowing vocabulary — so it is inert for them (they always read their linkage off
+ * the parent). When it returns a
  * non-null {@see RelationshipLinkage}, that data is used as the relationship's
  * linkage (eagerly, always emitting a `data` member); when it returns `null` the
  * relation falls back to reading the value off the parent as before. Core ships no
@@ -47,7 +51,7 @@ interface RelationshipLinkageInterface
      * and backing column; the `$request` carries the per-relationship sort/filter via
      * {@see JsonApiRequestInterface::getRelatedQuery()}.
      */
-    public function linkageFor(
+    public function linkageForRelationship(
         mixed $model,
         RelationInterface $relation,
         JsonApiRequestInterface $request,

@@ -33,7 +33,7 @@ final class RequestAwarePredicatesTest extends TestCase
     public function hiddenClosureGatesOnTheRequestAndModel(): void
     {
         $field = Str::make('secret')->hidden(
-            static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
         // A closure-declared field is NOT unconditionally hidden, so the static
@@ -199,7 +199,7 @@ final class RequestAwarePredicatesTest extends TestCase
     public function cannotReplaceClosureInvertsAgainstTheRequest(): void
     {
         $relation = BelongsTo::make('owner')->type('users')->cannotReplace(
-            static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
         // Static getter stays permissive (not unconditionally prohibited).
@@ -214,7 +214,7 @@ final class RequestAwarePredicatesTest extends TestCase
     public function cannotRemoveClosureInvertsAgainstTheRequest(): void
     {
         $relation = HasMany::make('tags')->type('tags')->cannotRemove(
-            static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
         self::assertTrue($relation->allowsRemove());
@@ -226,7 +226,7 @@ final class RequestAwarePredicatesTest extends TestCase
     public function cannotAddClosureInvertsAgainstTheRequest(): void
     {
         $relation = HasMany::make('tags')->type('tags')->cannotAdd(
-            static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
         self::assertTrue($relation->allowsAdd());
@@ -238,7 +238,7 @@ final class RequestAwarePredicatesTest extends TestCase
     public function cannotBeIncludedClosureInvertsAgainstTheRequest(): void
     {
         $relation = BelongsTo::make('secret')->type('secrets')->cannotBeIncluded(
-            static fn(JsonApiRequestInterface $request, mixed $model): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
         self::assertTrue($relation->isIncludable());

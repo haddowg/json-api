@@ -191,6 +191,37 @@ and a freshly created album keeps its domain default.
 Decimal::make('averageRating')->readOnly()->nullable(),
 ```
 
+## Request-aware visibility and writability
+
+`hidden()`, `readOnly()`/`readOnlyOnCreate()`/`readOnlyOnUpdate()` and `writeOnly()`
+each also accept an **optional closure** that decides the restriction *per request* —
+lightweight per-caller control without a security framework. The uniform convention:
+the closure returns `true` when the restriction **applies**.
+
+```php
+// Hidden only from a non-admin caller. Model first, request second — the same
+// argument order as every other field closure (extractUsing/computedUsing), so you
+// never swap order between adjacent declarations.
+Str::make('draftNote')->hidden(
+    static fn(mixed $model, JsonApiRequestInterface $request): bool
+        => $request->getHeaderLine('X-Role') !== 'admin',
+),
+
+// Write-gating predicates take only the request — a create has no persisted model.
+Str::make('locked')->readOnlyOnUpdate(
+    static fn(JsonApiRequestInterface $request): bool
+        => $request->getHeaderLine('X-Role') !== 'admin',
+),
+```
+
+A closure-declared field is **not unconditionally** restricted, so the static getters
+(`isHidden()`, `isReadOnly()`, `isWriteOnly()`) report the permissive value and the
+[OpenAPI](openapi.md) schema documents the **superset** (a sometimes-hidden field
+still appears; a sometimes-prohibited verb is still exposed). The relation
+authorization predicates `cannotReplace()`/`cannotRemove()`/`cannotAdd()`/
+`cannotBeIncluded()` take the same `(mixed $model, JsonApiRequestInterface $request)`
+closure — see [relations](relations.md).
+
 ## Presence (gates validation)
 
 The presence helpers declare whether a member must appear, and whether it may be

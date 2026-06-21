@@ -254,6 +254,35 @@ final class ConvenienceFilterTest extends TestCase
         }
     }
 
+    /**
+     * Frozen empty-value semantics (F12): an EMPTY filter value `filter[active]=`
+     * is NOT a no-op and NOT SQL NULL. The `asBoolean()` deserializer coerces the
+     * empty string through `FILTER_VALIDATE_BOOLEAN` to boolean `false`, so an
+     * empty value behaves identically to `false`/`0`/`off`/`no` — it keeps the
+     * falsy rows. It also passes the `boolean()` value constraint (so a
+     * constraint-validating adapter never `400`s it). This is deliberate; the test
+     * pins it so the behaviour cannot drift unnoticed.
+     */
+    #[Test]
+    public function booleanWithAnEmptyValueCoercesToFalseAndMatchesTheFalsyRows(): void
+    {
+        $filter = Boolean::make('active');
+
+        // The coercion itself: '' -> bool false (NOT null, NOT a no-op).
+        self::assertNotNull($filter->deserialize);
+        self::assertFalse(($filter->deserialize)(''));
+
+        // End-to-end through the handler: `filter[active]=` keeps the falsy row,
+        // exactly as `false`/`0`/`off`/`no` would.
+        $result = (new ArrayFilterHandler())->apply($filter, $this->people(), '');
+        self::assertSame(['2'], $this->ids($result));
+
+        // And the empty value passes the declared boolean() constraint (no 400).
+        $constraint = $filter->constraints()[0];
+        self::assertInstanceOf(Pattern::class, $constraint);
+        self::assertSame(1, \preg_match('~' . $constraint->regex . '~', ''));
+    }
+
     #[Test]
     public function booleanFilterReadsABackingColumn(): void
     {

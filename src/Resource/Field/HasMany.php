@@ -11,6 +11,8 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
  * A to-many relationship (`hasMany`): a collection of related models.
+ *
+ * Non-final by design: {@see BelongsToMany} extends it.
  */
 class HasMany extends AbstractRelation
 {
