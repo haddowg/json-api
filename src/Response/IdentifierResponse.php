@@ -58,7 +58,7 @@ final class IdentifierResponse extends AbstractResponse
             '',
             $this->relationshipName,
             [],
-            $server->baseUri(),
+            \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()),
             $server->maxIncludeDepth(),
         );
 

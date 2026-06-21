@@ -117,7 +117,7 @@ final class RelatedResponse extends AbstractResponse
             '',
             '',
             [],
-            $server->baseUri(),
+            \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()),
             $server->maxIncludeDepth(),
             $this->selfCountable,
         );

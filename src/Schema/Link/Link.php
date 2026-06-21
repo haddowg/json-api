@@ -31,7 +31,7 @@ readonly class Link
      */
     public function transform(string $baseUri): string|array
     {
-        $href = $this->href === '' ? $this->href : $baseUri . $this->href;
+        $href = self::prefix($this->href, $baseUri);
 
         if ($this->meta === []) {
             return $href;
@@ -41,5 +41,31 @@ readonly class Link
             'href' => $href,
             'meta' => $this->meta,
         ];
+    }
+
+    /**
+     * Prepends the base URI to a relative href. An empty href is left as-is (an
+     * absent link), and an href that is already absolute — it carries a scheme
+     * (`https://…`) or is protocol-relative (`//host/…`) — is returned untouched, so
+     * an author-supplied absolute URL (a common shape for an error `about`/`type`
+     * documentation link) is never corrupted by a base prefix.
+     *
+     * @internal
+     */
+    protected static function prefix(string $href, string $baseUri): string
+    {
+        if ($href === '' || self::isAbsolute($href)) {
+            return $href;
+        }
+
+        return $baseUri . $href;
+    }
+
+    private static function isAbsolute(string $href): bool
+    {
+        // Protocol-relative (`//host/path`) or a scheme-qualified absolute URL
+        // (`scheme://…` per RFC 3986 §3.1: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )).
+        return \str_starts_with($href, '//')
+            || \preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*://#', $href) === 1;
     }
 }

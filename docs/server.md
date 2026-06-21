@@ -71,7 +71,7 @@ and `withProfile` add to a registry. All of them return a new server.
 
 | Method | Sets |
 |---|---|
-| `withBaseUri(string)` | The base URI prepended to generated [links](links-and-meta.md) (default `''`). |
+| `withBaseUri(string)` | The base URI prepended to generated [links](links-and-meta.md) (default `''`). Empty ⇒ links resolve to the [request origin](#base-uri-and-the-request-origin); a non-empty value pins a fixed canonical host. |
 | `withVersion(string)` | The `jsonapi.version` member (default `1.1`). |
 | `withDefaultMeta(array)` | The default `jsonapi.meta` object. |
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`). |
@@ -121,6 +121,32 @@ $entity = $server->hydratorFor($type)->hydrate(/* … */);
 A handler that only needs resolution (not `resourceFor()` / `defaultPaginator()`)
 can type-hint the `ResolvingServerInterface` and skip the downcast — see
 [operations](operations.md).
+
+## Base URI and the request origin
+
+`withBaseUri()` controls the base every generated [link](links-and-meta.md) is
+prefixed with, and it has two modes:
+
+- **Empty (the default).** Links resolve to the **request origin** —
+  `<scheme>://<authority>` of the request that produced the document (the
+  authority is the host, with port and userinfo when present). So with no
+  `base_uri` configured, a request to `https://music.example/albums/1` renders
+  `links.self` as `https://music.example/albums/1` — an absolute URL — and a
+  deployment that serves several hosts emits the correct absolute links for each
+  with **no configuration**. The request URI is whatever your PSR-7 stack
+  produced (already proxy/forwarded-host aware upstream).
+
+- **Non-empty.** The configured value pins a **fixed canonical host**, used for
+  every link regardless of the request's own host — set this when links must
+  always address one canonical origin. The value is **trailing-slash tolerant**:
+  `https://music.example/` and `/api/` are trimmed before prepending, so a link
+  never double-slashes.
+
+A request with no resolvable origin — a relative or path-only request URI (no
+authority, or an authority with no scheme) — falls back to a host-relative link
+(`/albums/1`) rather than emitting a broken prefix. To force host-relative output,
+leave `base_uri` empty and serve over such a request, or configure a path-only
+`base_uri` (e.g. `/api`).
 
 ## Registering types
 

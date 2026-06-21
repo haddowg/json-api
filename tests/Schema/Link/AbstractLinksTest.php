@@ -68,6 +68,11 @@ final class AbstractLinksTest extends TestCase
      */
     private function createLinks(string $baseUri = '', array $links = []): AbstractLinks
     {
-        return new readonly class ($baseUri, $links) extends AbstractLinks {};
+        return new readonly class ($baseUri, $links) extends AbstractLinks {
+            protected function reboundTo(string $baseUri): static
+            {
+                return new self($baseUri, $this->links);
+            }
+        };
     }
 }

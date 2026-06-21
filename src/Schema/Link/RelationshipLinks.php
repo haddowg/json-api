@@ -36,6 +36,11 @@ final readonly class RelationshipLinks extends AbstractLinks
         return new self($baseUri, $self, $related, $links);
     }
 
+    protected function reboundTo(string $baseUri): static
+    {
+        return new self($baseUri, links: $this->links);
+    }
+
     public function self(): ?Link
     {
         return $this->link('self');

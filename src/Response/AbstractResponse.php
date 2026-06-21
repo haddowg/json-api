@@ -341,8 +341,10 @@ abstract class AbstractResponse
 
     /**
      * Merges the spec-recommended top-level `links.self` — the URI that produced
-     * the document (`{server.baseUri}{request.path}` plus the query string when
-     * present) — into the rendered body, for the data/resource documents that
+     * the document (`{resolvedBase}{request.path}` plus the query string when
+     * present, where `{resolvedBase}` is the configured base URI or, when none is
+     * configured, the request origin — see {@see \haddowg\JsonApi\Server\RequestBaseUri})
+     * — into the rendered body, for the data/resource documents that
      * call it (single, collection, related, relationship, meta). Error documents
      * do not call it. The URI derivation mirrors {@see AppliesPaginationTrait}
      * exactly. An existing top-level `self` (hand-set via {@see withLinks()}, or a
@@ -360,7 +362,7 @@ abstract class AbstractResponse
             return $result;
         }
 
-        $self = $server->baseUri() . $request->getUri()->getPath();
+        $self = \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()) . $request->getUri()->getPath();
         $queryString = $request->getUri()->getQuery();
         if ($queryString !== '') {
             $self .= '?' . $queryString;

@@ -45,6 +45,11 @@ final readonly class ErrorLinks extends AbstractLinks
         return new self($baseUri, $about, $types);
     }
 
+    protected function reboundTo(string $baseUri): static
+    {
+        return new self($baseUri, $this->about(), $this->types);
+    }
+
     public function about(): ?Link
     {
         return $this->link('about');

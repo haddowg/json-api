@@ -277,8 +277,10 @@ stays `204` by construction.
 
 Every data/resource document (single, collection, related, relationship, meta —
 not an error document) also carries a spec-recommended top-level `links.self`: the
-URI that produced it (`{server.baseUri}{request.path}`, including the query string
-on a filtered or sorted request), emitted by convention. A paginated collection's
+URI that produced it (`{base}{request.path}`, including the query string on a
+filtered or sorted request, where `{base}` is the [configured base URI or the
+request origin](server.md#base-uri-and-the-request-origin)), emitted by
+convention. A paginated collection's
 per-page `self`, or a `self` you set with `withLinks()`, takes precedence. See
 [links and meta](links-and-meta.md#auto-emitted-links-you-dont-set-by-hand).
 

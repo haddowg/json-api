@@ -38,7 +38,7 @@ readonly class LinkObject extends Link
     public function transform(string $baseUri): array
     {
         $link = [
-            'href' => $this->href === '' ? $this->href : $baseUri . $this->href,
+            'href' => self::prefix($this->href, $baseUri),
         ];
 
         if ($this->rel !== '') {

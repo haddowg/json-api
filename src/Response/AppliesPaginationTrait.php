@@ -32,7 +32,7 @@ trait AppliesPaginationTrait
      */
     private function applyPagination(array $result, ServerInterface $server, JsonApiRequestInterface $request, \haddowg\JsonApi\Pagination\PageInterface $page): array
     {
-        $uri = $server->baseUri() . $request->getUri()->getPath();
+        $uri = \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()) . $request->getUri()->getPath();
         $queryString = $request->getUri()->getQuery();
 
         /** @var array<string, mixed> $links */

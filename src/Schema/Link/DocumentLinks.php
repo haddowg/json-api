@@ -90,6 +90,11 @@ final readonly class DocumentLinks extends AbstractLinks
         return new self($baseUri, $self, $related, $first, $prev, $next, $last, $profiles, $links);
     }
 
+    protected function reboundTo(string $baseUri): static
+    {
+        return new self($baseUri, links: $this->links, profiles: $this->profiles);
+    }
+
     public function self(): ?Link
     {
         return $this->link('self');

@@ -47,4 +47,24 @@ final class LinkTest extends TestCase
 
         self::assertSame('https://example.com/api/users{/id}', $link->transform(''));
     }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function transformLeavesAnAbsoluteHrefUntouchedEvenWithABase(): void
+    {
+        // An already-absolute href (a scheme-qualified URL) is never prefixed by the
+        // base — so an author-supplied documentation URL is not corrupted.
+        $link = new Link('https://docs.example/errors/404');
+
+        self::assertSame('https://docs.example/errors/404', $link->transform('https://api.example'));
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function transformLeavesAProtocolRelativeHrefUntouchedEvenWithABase(): void
+    {
+        $link = new Link('//cdn.example/asset.png');
+
+        self::assertSame('//cdn.example/asset.png', $link->transform('https://api.example'));
+    }
 }

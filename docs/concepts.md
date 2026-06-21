@@ -179,7 +179,9 @@ the richer forms.
 Links are grouped into keyed containers — `Schema\Link\AbstractLinks` and its
 subclasses `DocumentLinks`, `ResourceLinks`, `RelationshipLinks`, `ErrorLinks`. A
 container holds a `baseUri` that is prepended to each member's `href` at render
-time, so links you build with relative paths come out absolute. The reserved
+time, so links you build with relative paths come out absolute. For the
+auto-emitted links, that base is the [configured base URI or, when none is set,
+the request origin](server.md#base-uri-and-the-request-origin). The reserved
 relations (`self`, `related`, `first` / `prev` / `next` / `last`) have named
 accessors, and arbitrary custom relations are permitted alongside them.
 `DocumentLinks` is the one you attach to a response via `withLinks()`:

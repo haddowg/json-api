@@ -191,8 +191,17 @@ against one base. `new Link('/playlists')` inside a container built with
 - `DocumentLinks::withBaseUri($baseUri, …)` — names the base explicitly.
 - `DocumentLinks::withoutBaseUri(…)` — for fully-qualified `href`s, no prepend.
 
-A `baseUri` of `''` (the default) prepends nothing, so an already-absolute `href`
-passes through untouched.
+An **already-absolute `href`** — a scheme-qualified (`https://…`) or
+protocol-relative (`//host/…`) URL — passes through **untouched**, never prefixed,
+whatever the base. So a fully-qualified link (a common shape for an error
+`about`/`type` documentation URL) is safe even when the container carries a base.
+
+For the auto-emitted links below, the base your container is given is resolved by
+the response layer: when [`Server::withBaseUri()`](server.md#base-uri-and-the-request-origin)
+is empty (the default), it is the **request origin** (`<scheme>://<authority>`),
+so those links render request-absolute; when it is configured, it is that fixed
+canonical host (trailing-slash trimmed). A container you build by hand with an
+explicit `withBaseUri(...)` keeps the base you gave it.
 
 ### Auto-emitted links you don't set by hand
 
@@ -201,7 +210,8 @@ Several families of `links` are populated for you, so you rarely construct a
 spec-recommended (SHOULD) and on by default:
 
 - **Resource `self`** — every resource object carries
-  `links.self` = `{baseUri}/{uriType}/{id}`, the URL to fetch that resource. The
+  `links.self` = `{base}/{uriType}/{id}`, the URL to fetch that resource, where
+  `{base}` is the [configured base URI or the request origin](server.md#base-uri-and-the-request-origin). The
   path segment is the resource's `uriType` (which defaults to its JSON:API
   `type`), so a resource whose type is `book` but lives at `/books` links
   correctly. It is omitted for a resource with an empty id (a not-yet-persisted
@@ -220,9 +230,10 @@ spec-recommended (SHOULD) and on by default:
 - **Top-level document `self`** — every data/resource document (a single
   resource, a collection, a related or relationship document, a meta document —
   but not an error document) carries a top-level `links.self` = the URI that
-  produced it (`{server.baseUri}{request.path}`, including the query string on a
-  filtered or sorted request). A paginated collection's per-page `self` (and a
-  `self` you set with `withLinks()`) takes precedence.
+  produced it (`{base}{request.path}`, including the query string on a filtered or
+  sorted request, where `{base}` is the [configured base URI or the request
+  origin](server.md#base-uri-and-the-request-origin)). A paginated collection's
+  per-page `self` (and a `self` you set with `withLinks()`) takes precedence.
 
 - **Pagination** — `first`/`prev`/`next`/`last` (and the per-page `self`) are
   derived from the `Pagination\Page` when you build a collection response with

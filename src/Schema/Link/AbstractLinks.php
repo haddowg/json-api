@@ -43,6 +43,34 @@ abstract readonly class AbstractLinks
     }
 
     /**
+     * Returns a copy of this link container bound to `$baseUri`, but only when it
+     * carries no base of its own — a container constructed with an explicit base
+     * (a `withBaseUri(...)` author choice or a configured canonical host) is
+     * returned unchanged, so a deliberate base always wins over the request-derived
+     * one. Used by the error-render path to thread the resolved request origin into
+     * author-supplied error links without disturbing the base they already pinned.
+     *
+     * @internal
+     */
+    public function rebasedTo(string $baseUri): static
+    {
+        if ($this->baseUri !== '') {
+            return $this;
+        }
+
+        return $this->reboundTo($baseUri);
+    }
+
+    /**
+     * Reconstructs this container with a new base URI, preserving its links (and any
+     * subclass-specific members). Each concrete container rebuilds itself from its
+     * own public members.
+     *
+     * @internal
+     */
+    abstract protected function reboundTo(string $baseUri): static;
+
+    /**
      * @internal
      *
      * @return array<string, mixed>
