@@ -216,8 +216,8 @@ Str::make('locked')->readOnlyOnUpdate(
 
 A closure-declared field is **not unconditionally** restricted, so the static getters
 (`isHidden()`, `isReadOnly()`, `isWriteOnly()`) report the permissive value and the
-[OpenAPI](openapi.md) schema documents the **superset** (a sometimes-hidden field
-still appears; a sometimes-prohibited verb is still exposed). The relation
+OpenAPI schema documents the **superset** (a sometimes-hidden field still appears;
+a sometimes-prohibited verb is still exposed). The relation
 authorization predicates `cannotReplace()`/`cannotRemove()`/`cannotAdd()`/
 `cannotBeIncluded()` take the same `(mixed $model, JsonApiRequestInterface $request)`
 closure — see [relations](relations.md).
