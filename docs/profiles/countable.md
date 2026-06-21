@@ -34,9 +34,9 @@ GET /articles?page[size]=2&withCount=_self_
 Accept: application/vnd.api+json;profile="https://haddowg.github.io/json-api/profiles/countable/"
 ```
 
-renders page 1 of the articles collection with the top-level `meta.total` (and, since
-the collection is paginated, `meta.page.total` and a `last` link) set to the total
-number of matching articles.
+renders page 1 of the articles collection with the top-level `meta.total` set to the
+total number of matching articles (and, since the collection is paginated, the server
+**MAY** also surface that total as `meta.page.total` in the base pagination meta).
 
 ## Conventions
 
@@ -53,7 +53,7 @@ interpretation the JSON:API specification applies to these key words; see its
 
 #### Countable collections
 
-Counting is a property a server opts a collection into. Two kinds of collection can
+Counting is a property a server makes a collection expose. Two kinds of collection can
 be made countable:
 
 - a **to-many relationship**, named directly (`?withCount=<rel>`). A to-one
@@ -64,8 +64,12 @@ be made countable:
   collection of a `GET /<type>` (or `GET /<type>/<id>/<rel>` related endpoint), gated
   on that resource/relation being countable.
 
-A collection the server has not made countable cannot be counted through this profile
-(see [Error Cases](#error-cases)). The two compose: `?withCount=_self_,comments`.
+Whether any given collection is countable is entirely at the server's discretion; this
+profile does **NOT** require counting to be opt-in. A server **MAY** make every to-many
+relationship and every primary collection countable, or none, or any subset. The
+profile's only obligation is that a `withCount` naming a target the server has not made
+countable is rejected (see [Error Cases](#error-cases)). The two kinds compose:
+`?withCount=_self_,comments`.
 
 #### The count reflects the rendered set
 
@@ -78,12 +82,12 @@ is the total of the filtered primary collection.
 
 #### One count, two slots
 
-When a total is computed — for any reason — it is the **single** cardinality of the
-collection. The server **MUST NOT** count twice: the same number is written to the
-top-level `meta.total` (the universal cardinality slot) and, additionally, to
-`meta.page.total` when the collection is paginated. A paginator that the server has
-configured to always count, and a `_self_` requested under this profile against a
-countable resource, both produce that one number in both slots.
+For a `_self_` count the server **MUST** expose the total as the top-level
+`meta.total` (the universal cardinality slot). When the primary collection is
+paginated, a server **MAY** also surface the same total in the base pagination meta
+(`meta.page.total`); doing so is governed by the base specification's pagination
+rules, not by this profile. When both `meta.total` and `meta.page.total` are present
+for the same collection, they **MUST** be equal.
 
 ### Query Parameters
 
@@ -94,6 +98,11 @@ This profile reserves one
 | --- | --- |
 | `withCount` | canonical |
 
+The family base `withCount` contains a non-`a-z` character (an uppercase letter),
+satisfying the base specification's naming rule for an implementation-specific
+query-parameter family. An implementation of this profile **MUST** use this exact
+family name.
+
 `withCount` is a flat, comma-separated list — the same shape as the
 [`include`](https://jsonapi.org/format/1.1/#fetching-includes) parameter — where each
 member is either a relationship name of the **primary** resource to be counted, or
@@ -102,6 +111,12 @@ the reserved token `_self_` naming the **primary collection** itself:
 ```
 withCount=[_self_,]<relationship-name>[,<relationship-name>…]
 ```
+
+This profile reserves the literal token `_self_` to name the primary collection within
+`withCount`. A server implementing this profile **MUST** interpret a `_self_` member as
+the primary-collection count and **MUST NOT** treat it as a relationship name;
+consequently `_self_` is not a usable relationship name under this profile. A client
+**MUST** spell the primary-collection target exactly `_self_`.
 
 Each named target that the primary resource exposes as countable is counted; order
 is not significant and duplicate names are equivalent to a single mention. A named
@@ -113,14 +128,18 @@ against a resource that is not countable — is an error (see
 
 #### Profile negotiation
 
-This profile is advisory and opt-in. A server **MUST** parse and apply the
-`withCount` family **only** when the client has negotiated this profile — that is,
-when this profile's URI appears in the `profile` parameter of the request `Accept`
-media type, per
-[content negotiation for profiles](https://jsonapi.org/format/1.1/#profiles). When
-the profile is not negotiated, a server **MUST NOT** apply the family; the
-parameter carries no special meaning, so a relationship, member, or parameter
-named `withCount` never collides with this profile.
+This profile is advisory and opt-in. It is negotiated **only** by listing its URI in
+the `profile` media-type parameter of the request `Accept` header, per
+[content negotiation for profiles](https://jsonapi.org/format/1.1/#profiles); this
+profile defines no other negotiation channel (a `profile` query parameter or `Link`
+does not by itself enable `withCount`). A server **MUST** parse and apply the
+`withCount` family **only** when the client has negotiated this profile in that way.
+
+When the profile is **not** negotiated, the server **MUST NOT** ascribe this profile's
+meaning to `withCount`; per the base specification a server **MAY** either ignore the
+parameter **OR** reject it as an unrecognized query parameter (`400 Bad Request`). A
+client therefore **MUST NOT** rely on `withCount` having any effect unless it has
+negotiated the profile.
 
 #### Counting
 
@@ -129,10 +148,10 @@ member to that relationship object's `meta` whenever the relationship object is
 rendered — on a single primary resource, on every member of a primary collection,
 and on a related resource's relationship object. For a negotiated, valid `_self_`,
 the server **MUST** add the total of the primary collection to the document's
-top-level `meta.total` (and `meta.page.total` when the collection is paginated, per
-[One count, two slots](#one-count-two-slots)). A target **not** named in `withCount`
-**MUST NOT** carry a `total`, even when it is countable: the count is gated by the
-request, not emitted by default.
+top-level `meta.total` (and **MAY** additionally surface it as `meta.page.total` when
+the collection is paginated, per [One count, two slots](#one-count-two-slots)). A
+target **not** named in `withCount` **MUST NOT** carry a `total`, even when it is
+countable: the count is gated by the request, not emitted by default.
 
 > A collection a server has **not** paginated is fetched whole, so its size is
 > already known and counting it is free. A server **MAY** render `meta.total` for an
@@ -158,18 +177,18 @@ profile reserves no other document members and adds nothing else to the response
 
 ### Error Cases
 
-Every error defined by this profile is reported as a `400 Bad Request`, following
+A server **MUST** validate the full requested `withCount` set before rendering, and
+**MUST NOT** render a partial document and then fail. If any requested target is
+invalid, the server **MUST** reject the whole request before producing the document.
+
+Each of the following is a client error: a target that **does not exist** on the
+primary resource, a target that is a **to-one** relationship, or a target the server
+has **not declared countable** (including `_self_` against a resource that is not
+countable). For any such case the server **MUST** respond `400 Bad Request`, following
 the base specification's rules for
-[processing errors](https://jsonapi.org/format/1.1/#errors-processing). The
-response document **MUST** contain an
+[processing errors](https://jsonapi.org/format/1.1/#errors-processing), with an
 [error object](https://jsonapi.org/format/1.1/#error-objects) whose `source.parameter`
 is `withCount`.
-
-A `withCount` that names a relationship which is **not countable**, names a
-**to-one** relationship, or names a relationship that **does not exist** on the
-primary resource — or that names `_self_` against a resource that is **not
-countable** — is a `400 Bad Request`. A server validates the named set up front,
-against the targets the primary resource exposes as countable, before rendering.
 
 ## Notes
 
@@ -178,6 +197,7 @@ against the targets the primary resource exposes as countable, before rendering.
   page under the same filtering, folded onto the primary response as
   `relationships.<rel>.meta.total` — without materialising the related collection.
 - `withCount=_self_` reports the total of the primary collection (a `GET /<type>` or a
-  related endpoint), folded onto the top-level `meta.total` (and `meta.page.total`
-  when paginated) — the same number a count-based paginator's `meta.page.total`
-  carries, computed once.
+  related endpoint), folded onto the top-level `meta.total` (and the same total
+  **MAY** also appear as `meta.page.total` when paginated) — for a server that already
+  computes the total for its own pagination, this is the same total it would otherwise
+  expose through the base pagination meta.

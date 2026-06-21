@@ -1,10 +1,18 @@
 # Profiles
 
-A [JSON:API 1.1 profile](https://jsonapi.org/format/1.1/#profiles) is a named set
-of document members and processing rules, reserved for implementors, that a server
-*may* apply to a response. This page shows you how to implement a profile, register
-it on a [`Server`](server.md), and have a response that applies it advertise the
-profile to the client.
+A [JSON:API 1.1 profile](https://jsonapi.org/format/1.1/#profiles) is a named,
+**portable extension to JSON:API's semantics** — additional document members, query
+parameters, link relations, and processing rules — that a client and server agree on
+by negotiating a single thing: the profile's **URI**. A profile is
+**URI-identified** (its identity *is* that URI) and **independently implementable**:
+the same URI-identified contract can be implemented by any server and recognised by
+any client, with no shared code between them. The spec reserves a profile's member
+names *for implementors* only in the sense that the profile's own specification
+governs that namespace — it is not a statement about who profiles are "for".
+
+This page shows you how the concept works as portable behaviour, then how *this
+library* models a profile, registers it on a [`Server`](server.md), and has a
+response that applies it advertise the profile back to the client.
 
 Profiles are **advisory**. A server applies the profiles it recognizes and ignores
 any it does not, so a profile a client asks for but the server has not registered is
@@ -13,9 +21,50 @@ silently dropped rather than rejected. That is the defining contrast with
 client/server agreement (a request asking for an extension the server does not
 support is rejected with a `400`, never silently ignored).
 
-## The profile contract
+## How a profile is negotiated
 
-A profile implements `Schema\Profile\ProfileInterface`:
+Profile negotiation is a behaviour defined by JSON:API itself, independent of any
+implementation. A client asks for a profile by its **URI**, and a server that
+recognises that URI applies the profile and advertises that it did:
+
+- **The client asks.** It names the profile URI in the `profile` parameter of the
+  request `Content-Type` (asserting *the request body* uses the profile) and/or of
+  the `Accept` header (requesting the profile *on the response*), or via the
+  `profile` **query parameter**.
+- **The server applies and advertises.** A server that recognises the URI applies
+  the profile, then advertises it three ways: it lists the URI in the top-level
+  `jsonapi.profile` array, echoes it in the response `Content-Type` `profile`
+  parameter, and sends `Vary: Accept`.
+- **An unrecognised profile is ignored — never an error.** A profile the server does
+  not recognise is silently dropped from the negotiated set; it is never rejected.
+
+That whole exchange is concept, not code: any two conforming peers negotiate a
+profile this way regardless of how either is built. The full mechanism — media-type
+parameters, ordering, and how this contrasts with strict extensions — lives in
+[content negotiation](content-negotiation.md#profiles-flow-through-extensions-can-fail).
+
+## What a profile is
+
+A profile is a **named bundle of extra JSON:API semantics**, identified by a URI and
+defined by a written specification at (or pointed to by) that URI. Depending on what
+the profile specifies, it may introduce additional **document members** (e.g. a new
+`meta` member), additional **query parameters**, additional **link relations**, and
+**processing rules** for how the server applies them. None of this requires shared
+code: a client and server interoperate purely because both honour the same
+published, URI-identified contract.
+
+Everything below this point is about *how this library expresses that concept* — the
+PHP types, hooks, and registration that turn a published profile into a running one.
+Those are implementation mechanisms; the profile itself is the URI-identified
+contract above.
+
+## How this library models a profile
+
+In this library a profile implements `Schema\Profile\ProfileInterface`. Of its three
+methods, **only `uri()` corresponds to anything the JSON:API spec dictates** — it is
+the profile's identity, the URI that is negotiated and advertised. `keywords()` and
+`finalizeDocument()` are *this library's* mechanism for declaring reserved names and
+for contributing document members; they are not concepts the JSON:API spec defines.
 
 ```php
 namespace haddowg\JsonApi\Schema\Profile;
@@ -37,14 +86,17 @@ interface ProfileInterface
 }
 ```
 
-- **`uri()`** is the profile's canonical URI. It is the value matched against the
-  negotiated `profile` media-type parameter, advertised in top-level
-  `jsonapi.profile`, and echoed in the response `Content-Type` `profile` parameter.
-- **`keywords()`** lists the member, link-relation, and query-parameter names the
-  profile reserves. It is for documentation and introspection (and future schema
-  validation); it does **not** gate negotiation. A request that asks for a profile
-  is honoured by URI alone — the reserved keywords are never inspected to decide
-  whether the profile applies.
+- **`uri()`** is the profile's canonical URI — the one method the spec dictates. It
+  is the value matched against the negotiated `profile` media-type parameter,
+  advertised in top-level `jsonapi.profile`, and echoed in the response
+  `Content-Type` `profile` parameter.
+- **`keywords()`** is **inert: it records, it does not reserve.** It lists the
+  member, link-relation, and query-parameter names the profile's *specification*
+  reserves, purely for documentation and introspection (and as a hook for future
+  schema validation). It does **not** itself reserve those names — the base spec's
+  namespacing rule does, via a non-`a-z` character in the base name — and it does
+  **not** gate negotiation. A request that asks for a profile is honoured by URI
+  alone; the keyword list is never inspected to decide whether the profile applies.
 - **`finalizeDocument()`** is a finalisation hook, run **once** for the profile
   after the document body array has been assembled and before it is encoded. It
   receives the body and the active request and returns the (possibly augmented)
@@ -163,12 +215,21 @@ final class CursorPaginationProfile extends AbstractProfile
 }
 ```
 
-It reserves the `page[size]`, `page[after]`, and `page[before]` query parameters but
-overrides no hook — it carries no `finalizeDocument()` body change, only the URI
-advertisement. A `CursorBasedPage` activates it, so cursor-paginated responses
-advertise the profile automatically once the server has registered it. See
-[Pagination](pagination.md) for the cursor paginator and how a page declares its
-profile.
+Its `keywords()` declares the `page[size]`, `page[after]`, and `page[before]` query
+parameters, and it overrides no hook — it carries no `finalizeDocument()` body
+change, only the URI advertisement. A `CursorBasedPage` activates it, so
+cursor-paginated responses advertise the profile automatically once the server has
+registered it. See [Pagination](pagination.md) for the cursor paginator and how a
+page declares its profile.
+
+**This `keywords()` list is not the profile's contract.** It declares only the query
+parameters *this library* reads; it is **not** a restatement of the profile's full
+vocabulary. The profile's normative definition — its complete query-parameter and
+`meta.page` member vocabulary (e.g. `cursor`, `total`, `estimatedTotal`,
+`rangeTruncated`, `maxSize`), its page semantics, and its error behaviour — is
+**Ethan Resnick's published specification**
+([jsonapi.org/profiles/ethanresnick/cursor-pagination](https://jsonapi.org/profiles/ethanresnick/cursor-pagination/)),
+which is the authority. We advertise its URI; we do not re-specify it.
 
 ## The bundled relationship-queries profile
 
@@ -186,20 +247,30 @@ their base names each carry a non a-z character (a capital `Q`):
 ```
 relatedQuery[<relationship-path>][sort]=-field,field
 relatedQuery[<relationship-path>][filter][<key>]=<value>
-rQ[<relationship-path>][sort]=-field            # rQ is the shorthand alias
+rQ[<relationship-path>][sort]=-field            # rQ is an OPTIONAL shorthand alias
 ```
 
 The path is the relationship's **include path** (a dotted path like
 `albums.tracks` is legal in the single bracket), not its type. `relatedQuery` is
-canonical and `rQ` is a shorthand alias with identical semantics; on a conflict
-targeting the same `[path][op]` the canonical `relatedQuery` wins. `page` is
-deliberately **not** part of the profile — an addressed relationship always
-renders **page 1**, navigated via the relationship object's own pagination links.
+canonical and `rQ` is an **optional** shorthand alias with identical semantics — the
+alias is a **MAY** in the relationship-queries spec, so an implementation need not
+support it; on a conflict targeting the same `[path][op]` the canonical
+`relatedQuery` wins. `page` is deliberately **not** part of the profile — where the
+server paginates the addressed relationship, it renders that relationship's **first
+page**, navigated via the relationship object's own pagination links; the page size
+and default ordering are the related collection's own, not the profile's.
 
-Like every profile it is **opt-in by negotiation**: the families are parsed only
-when the client negotiated the profile URI (in the `Accept` `profile` parameter),
-and are otherwise ignored entirely — so a relationship literally named after a
-reserved family never collides. A structurally malformed param under the profile
+Note that the `rQ` alias and the canonical-`relatedQuery`-wins precedence are
+definitions in **this profile's own specification** (the
+[relationship-queries spec](profiles/relationship-queries.md)), not general
+features of "profiles". A different profile would define a different vocabulary.
+
+Like every profile it is **opt-in by negotiation**: the families are parsed and
+applied only when the client negotiated the profile URI (in the `Accept` `profile`
+parameter). Un-negotiated, they carry none of the profile's semantics — a server
+**MAY** ignore them or, under strict query-parameter validation, reject them as an
+unrecognised custom family — so a relationship literally named after a reserved
+family never takes on profile meaning. A structurally malformed param under the profile
 (a non-array family, a non-string `sort`, a non-array `filter`) is a `400`
 `QueryParamMalformed`; semantic validation of the sort/filter keys against the
 relationship's vocabulary (and that the path resolves to a to-many relation) is
@@ -245,17 +316,26 @@ gets a `total` member on its relationship object's `meta`; the reserved `_self_`
 token counts the primary collection (a [`countable()`](pagination.md#counting-and-totals)
 resource) onto the top-level `meta.total` — and `meta.page.total` when the collection
 is paginated, from a single count. Like every profile it is **opt-in by
-negotiation**: the family is parsed only when the client negotiated the profile URI,
-and is otherwise ignored. Naming a non-countable relation, a to-one, an unknown
+negotiation**: the family is parsed and applied only when the client negotiated the
+profile URI; un-negotiated it carries no profile meaning (a server **MAY** ignore it
+or reject it under strict query-parameter validation). Naming a non-countable relation, a to-one, an unknown
 relationship, or `_self_` against a non-countable resource is a `400` with
 `source.parameter` `withCount`. The count reflects the *filtered* set, so it agrees
 with the total the collection's own endpoint reports.
 
+The reserved `_self_` token is a definition in **this profile's own specification**
+(the [Countable profile spec](profiles/countable.md)), not a general feature of
+"profiles" — like the relationship-queries vocabulary above, it is part of *this*
+profile's contract.
+
 ## Registering profiles
 
-A profile becomes active once registered on a [`Server`](server.md). Every
-`with…()` returns a new immutable instance, so registration is part of the same
-fluent assembly that wires base URI, PSR-17 factories, and the default paginator
+A profile becomes active once registered on a [`Server`](server.md). "Recognising" a
+profile is, in JSON:API terms, simply the server choosing to apply it; in this
+library that choice is expressed by registering the profile on the `Server`.
+Registration is *our* mechanism, not a spec concept. Every `with…()` returns a new
+immutable instance, so registration is part of the same fluent assembly that wires
+base URI, PSR-17 factories, and the default paginator
 ([`bootstrap.php`](../examples/music-catalog/src/bootstrap.php)):
 
 ```php

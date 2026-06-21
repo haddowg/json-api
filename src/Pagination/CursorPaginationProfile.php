@@ -9,10 +9,12 @@ use haddowg\JsonApi\Schema\Profile\AbstractProfile;
 /**
  * The published "Cursor Pagination" profile by Ethan Resnick.
  *
- * Reserves the `page[size]`, `page[after]` and `page[before]` query parameters
- * and the `page` meta members the profile defines. {@see CursorBasedPage}
- * activates it so cursor-paginated responses advertise the profile URI on the
- * `Content-Type` and in `jsonapi.profile`.
+ * Advertises the cursor-pagination profile and declares the `page[size]`,
+ * `page[after]` and `page[before]` query parameters this library reads. The
+ * profile's full member vocabulary — including its `meta.page` members — is
+ * defined by the external specification (the authority) the URI points to.
+ * {@see CursorBasedPage} activates it so cursor-paginated responses advertise
+ * the profile URI on the `Content-Type` and in `jsonapi.profile`.
  *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */
