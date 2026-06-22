@@ -72,8 +72,8 @@ final class UserResource extends AbstractResource
 
             // Default relation reader: `playlists` reads $user->playlists (a
             // list<Playlist>) and `library` reads $user->library (a Library, or null).
-            HasMany::make('playlists')->type('playlists'),
-            HasOne::make('library')->type('libraries'),
+            HasMany::make('playlists', 'playlists'),
+            HasOne::make('library', 'libraries'),
         ];
     }
 }

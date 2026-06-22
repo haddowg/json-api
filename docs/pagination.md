@@ -471,8 +471,7 @@ with `paginate()` on the relation builder —
 an album's tracks two-per-page:
 
 ```php
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 

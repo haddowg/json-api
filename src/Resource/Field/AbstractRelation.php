@@ -17,8 +17,10 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 /**
  * Convenience base for {@see RelationInterface} fields. Reuses {@see AbstractField}'s
  * flag / constraint / context machinery and adds the relationship-shaping fluent
- * surface (`type()`, `inverseType()`, `cannotEagerLoad()`, the URI helpers) plus
- * the serialize/hydrate routing relationships use.
+ * surface (`inverseType()`, `cannotEagerLoad()`, the URI helpers) plus the
+ * serialize/hydrate routing relationships use. The related resource type(s) are a
+ * mandatory factory argument (see {@see DeclaresMonomorphicType} /
+ * {@see DeclaresPolymorphicTypes}), not part of the fluent surface.
  *
  * The attribute serialize/hydrate paths are not used for relations — the schema
  * routes through {@see buildRelationship()} / {@see hydrateRelationship()} — so
@@ -138,14 +140,26 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     protected array $relationSorts = [];
 
     /**
-     * Declares the related resource type(s). A single type for a monomorphic
-     * relation; pass several (or call repeatedly) for a polymorphic one.
+     * Records the related resource type(s) for this relation. Internal: the
+     * type is supplied once, as the mandatory factory argument
+     * ({@see DeclaresMonomorphicType::make()} / {@see DeclaresPolymorphicTypes::make()}),
+     * never reset fluently — a relationship is meaningless without a type, so
+     * there is no public setter to omit it.
      *
      * @return static
      */
-    public function type(string ...$types): static
+    protected function withRelatedTypes(string ...$types): static
     {
-        $this->relatedTypes = \array_values(\array_unique([...$this->relatedTypes, ...$types]));
+        $types = \array_values(\array_unique($types));
+
+        if ($types === [] || \in_array('', $types, true)) {
+            throw new \InvalidArgumentException(\sprintf(
+                'Relationship "%s" must declare at least one non-empty related resource type.',
+                $this->name,
+            ));
+        }
+
+        $this->relatedTypes = $types;
 
         return $this;
     }

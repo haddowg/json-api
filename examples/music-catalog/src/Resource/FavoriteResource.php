@@ -31,7 +31,7 @@ final class FavoriteResource extends AbstractResource
             DateTime::make('favoritedAt')->readOnlyOnUpdate(),
 
             // Default relation reader: `user` reads $favorite->user (a User).
-            BelongsTo::make('user')->type('users'),
+            BelongsTo::make('user', 'users'),
             // THE escape hatch (the one and only extractUsing in the example): a
             // custom relation resolver, kept here precisely because a polymorphic
             // to-one is the natural place to need one — when the related value is not
@@ -40,8 +40,7 @@ final class FavoriteResource extends AbstractResource
             // this exact property, but this demonstrates the hook you reach for when
             // it would not. This is the exception, not the norm — every other
             // relation in the example uses the default reader.
-            MorphTo::make('favoritable')
-                ->types('tracks', 'albums', 'artists')
+            MorphTo::make('favoritable', ['tracks', 'albums', 'artists'])
                 ->extractUsing(static fn(mixed $favorite): ?object => $favorite instanceof Favorite ? $favorite->favoritable : null),
         ];
     }

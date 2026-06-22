@@ -233,7 +233,7 @@ final class BookWithNestedOn extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('countryName')->on('author.country')->storedAs('name'),
-            BelongsTo::make('author')->type('authors')->hidden(),
+            BelongsTo::make('author', 'authors')->hidden(),
         ];
     }
 }
@@ -250,7 +250,7 @@ final class AuthorResource extends AbstractResource
         return [
             Id::make(),
             Str::make('name'),
-            BelongsTo::make('country')->type('countries'),
+            BelongsTo::make('country', 'countries'),
         ];
     }
 }
@@ -278,7 +278,7 @@ final class FlattenedBook extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('authorName')->on('author')->storedAs('name'),
-            BelongsTo::make('author')->type('authors')->hidden(),
+            BelongsTo::make('author', 'authors')->hidden(),
         ];
     }
 }
@@ -295,7 +295,7 @@ final class BookOnVisibleToOne extends AbstractResource
         return [
             Id::make(),
             Str::make('authorName')->on('author')->storedAs('name'),
-            BelongsTo::make('author')->type('authors'),
+            BelongsTo::make('author', 'authors'),
         ];
     }
 }
@@ -313,7 +313,7 @@ final class BookOnToMany extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('tagLabel')->on('tags')->storedAs('label'),
-            HasMany::make('tags')->type('tags')->hidden(),
+            HasMany::make('tags', 'tags')->hidden(),
         ];
     }
 }
@@ -331,7 +331,7 @@ final class BookOnToManyAncestor extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('tagCreator')->on('tags.creator')->storedAs('name'),
-            HasMany::make('tags')->type('tags')->hidden(),
+            HasMany::make('tags', 'tags')->hidden(),
         ];
     }
 }
@@ -345,7 +345,7 @@ final class TagResource extends AbstractResource
         return [
             Id::make(),
             Str::make('label'),
-            BelongsTo::make('creator')->type('authors'),
+            BelongsTo::make('creator', 'authors'),
         ];
     }
 }
@@ -374,7 +374,7 @@ final class BookOnNestedUnknown extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('bogusName')->on('author.bogus'),
-            BelongsTo::make('author')->type('authors')->hidden(),
+            BelongsTo::make('author', 'authors')->hidden(),
         ];
     }
 }
@@ -389,7 +389,7 @@ final class BookOnThroughMorph extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('ownerName')->on('owner.anything'),
-            MorphTo::make('owner')->types('authors', 'publishers')->hidden(),
+            MorphTo::make('owner', ['authors', 'publishers'])->hidden(),
         ];
     }
 }

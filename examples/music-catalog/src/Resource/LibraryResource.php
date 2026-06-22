@@ -33,8 +33,8 @@ final class LibraryResource extends AbstractResource
             // `items` reads $library->items (the mixed related list) straight off the
             // object — the polymorphic members are already objects, so no extractor
             // is needed; each renders through its own per-type serializer.
-            BelongsTo::make('owner')->type('users'),
-            MorphToMany::make('items')->types('tracks', 'albums', 'artists'),
+            BelongsTo::make('owner', 'users'),
+            MorphToMany::make('items', ['tracks', 'albums', 'artists']),
         ];
     }
 }

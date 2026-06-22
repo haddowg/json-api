@@ -12,7 +12,7 @@ use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 /**
  * A zero-indexed array attribute (JSON `type: array`).
  */
-final class ArrayList extends AbstractField
+final class ArrayList extends AbstractAttribute
 {
     private bool $sorted = false;
 

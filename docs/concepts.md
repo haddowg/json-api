@@ -164,8 +164,8 @@ When you use a [Resource class](resources.md) you declare relationships as field
 (`BelongsTo`, `HasMany`, `HasOne`, `BelongsToMany`, …) and never touch either
 family directly — the field bridges to both. For example
 [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)
-declares `BelongsTo::make('artist')` (to-one) and `HasMany::make('tracks')`
-(to-many). See [relationships](relations.md).
+declares `BelongsTo::make('artist', 'artists')` (to-one) and
+`HasMany::make('tracks', 'tracks')` (to-many). See [relationships](relations.md).
 
 ## Links
 

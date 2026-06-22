@@ -13,23 +13,15 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * A polymorphic to-many relationship (`morphToMany`): the collection's members
- * may each be one of several declared types. Use {@see types()} to declare the
- * allowed member types; each member's serializer is resolved at runtime by its
- * own `getType()` — the to-many parallel of {@see MorphTo}. The mixed-type
- * members are rendered by binding a {@see PolymorphicSerializer} that resolves
- * and delegates per member.
+ * may each be one of several declared types, passed as the mandatory list to
+ * {@see make()}; each member's serializer is resolved at runtime by its own
+ * `getType()` — the to-many parallel of {@see MorphTo}. The mixed-type members
+ * are rendered by binding a {@see PolymorphicSerializer} that resolves and
+ * delegates per member.
  */
 final class MorphToMany extends AbstractRelation
 {
-    /**
-     * Declares the allowed member types.
-     *
-     * @return static
-     */
-    public function types(string ...$types): static
-    {
-        return $this->type(...$types);
-    }
+    use DeclaresPolymorphicTypes;
 
     public function isToMany(): bool
     {

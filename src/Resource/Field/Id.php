@@ -34,7 +34,7 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  *   one from the declared format ({@see uuid()} / {@see ulid()}); {@see generateUsing()}
  *   takes a closure returning the storage key. Read via {@see generateIdValue()}.
  */
-final class Id extends AbstractField
+final class Id extends AbstractAttribute
 {
     /**
      * The inner regex (no surrounding `^`/`$`) for a UUID route requirement.

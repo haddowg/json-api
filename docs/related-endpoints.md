@@ -130,8 +130,7 @@ A to-many related collection paginates per relation. The album→tracks relation
 declares a paginator in [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php):
 
 ```php
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
@@ -185,8 +184,7 @@ polymorphism is resolved in the **serializer**, not the operation.
 declares `favoritable` as a `MorphTo` over three types:
 
 ```php
-MorphTo::make('favoritable')
-    ->types('tracks', 'albums', 'artists')
+MorphTo::make('favoritable', ['tracks', 'albums', 'artists'])
     ->extractUsing(static fn(mixed $favorite): ?object => $favorite instanceof Favorite ? $favorite->favoritable : null),
 ```
 

@@ -141,9 +141,8 @@ final class TrackSerializer extends AbstractSerializer implements SerializerReso
             // The same default-reader declarations the resource makes: `album` reads
             // $track->album and `playlists` reads $track->playlists straight off the
             // object — no extractor.
-            BelongsTo::make('album')->type('albums'),
-            BelongsToMany::make('playlists')
-                ->type('playlists')
+            BelongsTo::make('album', 'albums'),
+            BelongsToMany::make('playlists', 'playlists')
                 ->fields(
                     Integer::make('position')->min(1),
                     DateTime::make('addedAt')->readOnly(),

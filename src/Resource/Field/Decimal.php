@@ -14,7 +14,7 @@ use haddowg\JsonApi\Resource\Constraint\MultipleOf;
  * A floating-point attribute (JSON `type: number`). Serializes/hydrates as
  * `float`.
  */
-final class Decimal extends AbstractField
+final class Decimal extends AbstractAttribute
 {
     /**
      * @return static

@@ -9,27 +9,18 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
  * A polymorphic to-one relationship (`morphTo`): the related resource may be one
- * of several declared types. Use {@see types()} to declare the allowed inverse
- * types; the related object's serializer is resolved at runtime by its own
- * `getType()`.
+ * of several declared types, passed as the mandatory list to {@see make()}; the
+ * related object's serializer is resolved at runtime by its own `getType()`.
  */
 final class MorphTo extends AbstractRelation
 {
+    use DeclaresPolymorphicTypes;
+
     /**
      * Eager by default: the morph id/type sit on the owning model, so resolving the
      * linkage identifier is free (no query). {@see AbstractRelation::$dataOnlyWhenLoaded}.
      */
     protected bool $dataOnlyWhenLoaded = false;
-
-    /**
-     * Declares the allowed inverse types.
-     *
-     * @return static
-     */
-    public function types(string ...$types): static
-    {
-        return $this->type(...$types);
-    }
 
     public function isToMany(): bool
     {

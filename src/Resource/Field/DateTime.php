@@ -19,7 +19,7 @@ use haddowg\JsonApi\Resource\Constraint\Between;
  *
  * Non-final by design: {@see Date} and {@see Time} extend it.
  */
-class DateTime extends AbstractField
+class DateTime extends AbstractAttribute
 {
     protected string $format = \DateTimeInterface::ATOM;
 

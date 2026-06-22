@@ -116,7 +116,7 @@ type carries which method); construct the VO directly only inside `each()`,
 | `AtLeastOneOf` | any field | `->atLeastOneOf(...$alternatives)` | pass if any one alternative holds |
 | `When` | any field | `->when($condition, $builder)` | conditional set gated by a closure |
 | `CompareField` | any field | `->compareWith($field, $operator)` | cross-field comparison; see the `Comparison` enum |
-| `RelationshipType` | relations | `->type($t)` / `->types($t)` (see [relations](relations.md)) | constrains linkage `type` member(s) |
+| `RelationshipType` | relations | the `make()` type argument (see [relations](relations.md)) | constrains linkage `type` member(s) |
 
 `RelationshipType` is the one relation-facing constraint — it is not an attribute
 rule. It pins a relationship's resource-identifier `type` member(s) to an allowed

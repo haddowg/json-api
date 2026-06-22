@@ -68,14 +68,13 @@ final class TrackResource extends AbstractResource
 
             // Default relation reader: `album` reads $track->album (an Album, or
             // null) straight off the object — no foreign-key column, no extractor.
-            BelongsTo::make('album')->type('albums'),
+            BelongsTo::make('album', 'albums'),
             // A pivot-backed to-many reading $track->playlists (a list<Playlist>).
             // The pivot fields are real field definitions — a writable `position`
             // and a server-owned, read-only `addedAt`; cannotReplace() rejects a
             // PATCH to the relationship endpoint with 403 FullReplacementProhibited
             // (add/remove still allowed).
-            BelongsToMany::make('playlists')
-                ->type('playlists')
+            BelongsToMany::make('playlists', 'playlists')
                 ->fields(
                     Integer::make('position')->min(1),
                     DateTime::make('addedAt')->readOnly(),

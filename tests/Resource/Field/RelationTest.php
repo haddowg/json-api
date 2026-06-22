@@ -61,7 +61,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToIsToOneAndBuildsToOneRelationship(): void
     {
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
         $model = ['author' => ['id' => '7', 'type' => 'users']];
 
         self::assertFalse($relation->isToMany());
@@ -79,7 +79,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hasManyIsToManyAndBuildsToManyRelationship(): void
     {
-        $relation = HasMany::make('comments')->type('comments');
+        $relation = HasMany::make('comments', 'comments');
         $model = ['comments' => [['id' => '1'], ['id' => '2']]];
 
         self::assertTrue($relation->isToMany());
@@ -91,7 +91,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hasOneInheritsBelongsToBehaviour(): void
     {
-        $relation = HasOne::make('profile')->type('profiles');
+        $relation = HasOne::make('profile', 'profiles');
 
         self::assertFalse($relation->isToMany());
         self::assertInstanceOf(OutputToOne::class, $relation->buildRelationship(['profile' => null], $this->request(), $this->resolver()));
@@ -100,7 +100,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function relatedTypeAppendsRelationshipTypeConstraint(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->required();
+        $relation = BelongsTo::make('author', 'users')->required();
         $constraintTypes = \array_map(static fn(object $c): string => $c::class, $relation->constraints());
 
         self::assertContains(RelationshipType::class, $constraintTypes);
@@ -110,7 +110,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hasManyItemConstraints(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->maxItems(5);
+        $relation = HasMany::make('tags', 'tags')->maxItems(5);
         $constraintTypes = \array_map(static fn(object $c): string => $c::class, $relation->constraints());
 
         self::assertContains(MaxItems::class, $constraintTypes);
@@ -119,14 +119,14 @@ final class RelationTest extends TestCase
     #[Test]
     public function cannotEagerLoadTogglesFlag(): void
     {
-        self::assertTrue(HasMany::make('a')->canEagerLoad());
-        self::assertFalse(HasMany::make('a')->cannotEagerLoad()->canEagerLoad());
+        self::assertTrue(HasMany::make('a', 'things')->canEagerLoad());
+        self::assertFalse(HasMany::make('a', 'things')->cannotEagerLoad()->canEagerLoad());
     }
 
     #[Test]
     public function uriFieldNameDefaultsToNameAndCanBeOverridden(): void
     {
-        $relation = BelongsTo::make('author');
+        $relation = BelongsTo::make('author', 'users');
         self::assertSame('author', $relation->uriFieldName());
 
         $relation->withUriFieldName('writer');
@@ -134,19 +134,39 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function monomorphicRelationRejectsAnEmptyType(): void
+    {
+        // The single type is a plain `string`, so an empty one is caught at
+        // construction (the polymorphic list is a `non-empty-list` enforced
+        // statically — passing `[]` there is a static-analysis error).
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('author');
+
+        BelongsTo::make('author', '');
+    }
+
+    #[Test]
+    public function polymorphicRelationDeclaresItsCandidateTypesViaMake(): void
+    {
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
+
+        self::assertSame(['posts', 'videos'], $relation->relatedTypes());
+    }
+
+    #[Test]
     public function includesLinksByDefaultAndWithoutLinksOptsOut(): void
     {
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
         self::assertTrue($relation->includesLinks());
 
-        self::assertFalse(BelongsTo::make('author')->type('users')->withoutLinks()->includesLinks());
+        self::assertFalse(BelongsTo::make('author', 'users')->withoutLinks()->includesLinks());
     }
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
     public function buildRelationshipStampsConventionLinksByDefault(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->withUriFieldName('writer');
+        $relation = BelongsTo::make('author', 'users')->withUriFieldName('writer');
         $model = ['author' => ['id' => '7', 'type' => 'users']];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -180,7 +200,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-object-relationships')]
     public function buildRelationshipOmitsLinksWhenWithoutLinks(): void
     {
-        $relation = HasMany::make('comments')->type('comments')->withoutLinks();
+        $relation = HasMany::make('comments', 'comments')->withoutLinks();
         $model = ['comments' => [['id' => '1', 'type' => 'comments']]];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -207,7 +227,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hydrateToOneStoresRelatedId(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->storedAs('author_id');
+        $relation = BelongsTo::make('author', 'users')->storedAs('author_id');
         $model = ['author_id' => null];
 
         $input = new InputToOne(new ResourceIdentifier('users', '99'));
@@ -220,7 +240,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hydrateToManyStoresRelatedIds(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids');
         $model = ['tag_ids' => []];
 
         $input = new InputToMany([
@@ -236,11 +256,11 @@ final class RelationTest extends TestCase
     #[Test]
     public function mutabilityFlagsDefaultToAllowedAndOptOut(): void
     {
-        $relation = HasMany::make('tags')->type('tags');
+        $relation = HasMany::make('tags', 'tags');
         self::assertTrue($relation->allowsReplace());
         self::assertTrue($relation->allowsRemove());
 
-        $restricted = HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove();
+        $restricted = HasMany::make('tags', 'tags')->cannotReplace()->cannotRemove();
         self::assertFalse($restricted->allowsReplace());
         self::assertFalse($restricted->allowsRemove());
     }
@@ -249,22 +269,22 @@ final class RelationTest extends TestCase
     #[Group('spec:inclusion-of-related-resources')]
     public function includabilityDefaultsToIncludableAndOptsOut(): void
     {
-        $relation = HasMany::make('comments')->type('comments');
+        $relation = HasMany::make('comments', 'comments');
         self::assertTrue($relation->isIncludable());
 
-        $restricted = HasMany::make('comments')->type('comments')->cannotBeIncluded();
+        $restricted = HasMany::make('comments', 'comments')->cannotBeIncluded();
         self::assertFalse($restricted->isIncludable());
     }
 
     #[Test]
     public function endpointExposureFlagsDefaultToExposedAndOptOut(): void
     {
-        $relation = HasMany::make('tags')->type('tags');
+        $relation = HasMany::make('tags', 'tags');
         self::assertTrue($relation->exposesRelatedEndpoint());
         self::assertTrue($relation->exposesRelationshipEndpoint());
         self::assertTrue($relation->allowsAdd());
 
-        $restricted = HasMany::make('tags')->type('tags')
+        $restricted = HasMany::make('tags', 'tags')
             ->withoutRelatedEndpoint()
             ->withoutRelationshipEndpoint()
             ->cannotAdd();
@@ -277,7 +297,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-object-relationships')]
     public function buildRelationshipOmitsSelfLinkWhenRelationshipEndpointSuppressed(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->withoutRelationshipEndpoint();
+        $relation = BelongsTo::make('author', 'users')->withoutRelationshipEndpoint();
         $model = ['author' => ['id' => '7', 'type' => 'users']];
 
         $links = $this->buildLinks($relation, $model);
@@ -292,7 +312,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-object-relationships')]
     public function buildRelationshipOmitsRelatedLinkWhenRelatedEndpointSuppressed(): void
     {
-        $relation = HasMany::make('comments')->type('comments')->withoutRelatedEndpoint();
+        $relation = HasMany::make('comments', 'comments')->withoutRelatedEndpoint();
         $model = ['comments' => [['id' => '1', 'type' => 'comments']]];
 
         $links = $this->buildLinks($relation, $model);
@@ -310,7 +330,7 @@ final class RelationTest extends TestCase
         // Regression: a polymorphic MorphTo must thread its endpoint-exposure flags
         // into its convention links like every sibling relation, so suppressing the
         // related endpoint stops it advertising a link to a host the handler 404s.
-        $relation = MorphTo::make('commentable')->types('posts', 'videos')->withoutRelatedEndpoint();
+        $relation = MorphTo::make('commentable', ['posts', 'videos'])->withoutRelatedEndpoint();
         $model = ['commentable' => ['kind' => 'videos', 'id' => '9']];
 
         $links = $this->buildLinks($relation, $model);
@@ -358,7 +378,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function applyToManyReplaceSetsTheWholeColumn(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids');
         $input = new InputToMany([new ResourceIdentifier('tags', '5'), new ResourceIdentifier('tags', '6')]);
 
         $result = $relation->applyToMany(['tag_ids' => ['1', '2']], $input, \haddowg\JsonApi\Resource\Field\Mode::Replace);
@@ -370,7 +390,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function applyToManyAddAppendsIdsIdempotently(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids');
         $input = new InputToMany([new ResourceIdentifier('tags', '2'), new ResourceIdentifier('tags', '3')]);
 
         $result = $relation->applyToMany(['tag_ids' => ['1', '2']], $input, \haddowg\JsonApi\Resource\Field\Mode::Add);
@@ -382,7 +402,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function applyToManyRemoveSubtractsIds(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->storedAs('tag_ids');
+        $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids');
         $input = new InputToMany([new ResourceIdentifier('tags', '2')]);
 
         $result = $relation->applyToMany(['tag_ids' => ['1', '2', '3']], $input, \haddowg\JsonApi\Resource\Field\Mode::Remove);
@@ -394,7 +414,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function hydrateRelationshipRespectsFillUsing(): void
     {
-        $relation = BelongsTo::make('author')->fillUsing(
+        $relation = BelongsTo::make('author', 'users')->fillUsing(
             static function (mixed $model, mixed $rel): array {
                 self::assertIsArray($model);
                 self::assertInstanceOf(InputToOne::class, $rel);
@@ -415,7 +435,7 @@ final class RelationTest extends TestCase
         $position = Integer::make('position')->required()->min(1);
         $addedAt = DateTimeField::make('addedAt')->readOnly();
 
-        $relation = BelongsToMany::make('roles')->type('roles')->fields($position, $addedAt);
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt);
 
         self::assertTrue($relation->isToMany());
         self::assertSame([$position, $addedAt], $relation->pivotFields());
@@ -424,7 +444,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyHasNoPivotFieldsByDefault(): void
     {
-        $relation = BelongsToMany::make('roles')->type('roles');
+        $relation = BelongsToMany::make('roles', 'roles');
 
         self::assertSame([], $relation->pivotFields());
     }
@@ -434,7 +454,7 @@ final class RelationTest extends TestCase
     {
         $position = Integer::make('position');
 
-        $relation = BelongsToMany::make('roles')->fields($position);
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position);
 
         self::assertSame($position, $relation->pivotField('position'));
         self::assertNull($relation->pivotField('missing'));
@@ -445,7 +465,7 @@ final class RelationTest extends TestCase
     {
         $position = Integer::make('position')->required();
 
-        $relation = BelongsToMany::make('roles')->fields($position);
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position);
 
         $constraints = $relation->pivotFields()[0]->constraints();
         self::assertCount(1, $constraints);
@@ -459,7 +479,7 @@ final class RelationTest extends TestCase
         $addedAt = DateTimeField::make('addedAt')->readOnly();
         $note = Str::make('note')->readOnlyOnUpdate();
 
-        $relation = BelongsToMany::make('roles')->fields($position, $addedAt, $note);
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt, $note);
 
         // On create: position + note are writable, addedAt is read-only.
         self::assertSame([$position, $note], $relation->writablePivotFields(true));
@@ -470,7 +490,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyHasNoPivotThroughByDefault(): void
     {
-        $relation = BelongsToMany::make('roles')->type('roles');
+        $relation = BelongsToMany::make('roles', 'roles');
 
         self::assertNull($relation->pivotThrough());
     }
@@ -478,7 +498,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyNamesPivotThroughAssociationEntity(): void
     {
-        $relation = BelongsToMany::make('roles')->type('roles')->through('App\\Entity\\UserRole');
+        $relation = BelongsToMany::make('roles', 'roles')->through('App\\Entity\\UserRole');
 
         self::assertSame('App\\Entity\\UserRole', $relation->pivotThrough());
     }
@@ -486,7 +506,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyClearsPivotThrough(): void
     {
-        $relation = BelongsToMany::make('roles')->through('App\\Entity\\UserRole')->through(null);
+        $relation = BelongsToMany::make('roles', 'roles')->through('App\\Entity\\UserRole')->through(null);
 
         self::assertNull($relation->pivotThrough());
     }
@@ -494,7 +514,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function readValueReadsToOneRelatedValueWithoutSerializing(): void
     {
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
         $author = ['id' => '7', 'type' => 'users'];
         $model = ['author' => $author];
 
@@ -504,7 +524,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function readValueReadsToManyRelatedValuesWithoutSerializing(): void
     {
-        $relation = HasMany::make('comments')->type('comments');
+        $relation = HasMany::make('comments', 'comments');
         $comments = [['id' => '1'], ['id' => '2']];
         $model = ['comments' => $comments];
 
@@ -514,7 +534,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function readValueHonoursTheBackingColumn(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->storedAs('author_account');
+        $relation = BelongsTo::make('author', 'users')->storedAs('author_account');
         $account = ['id' => '99', 'type' => 'users'];
         $model = ['author_account' => $account];
 
@@ -524,7 +544,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function readValueHonoursACustomExtractor(): void
     {
-        $relation = BelongsTo::make('author')->type('users')->extractUsing(
+        $relation = BelongsTo::make('author', 'users')->extractUsing(
             static fn(): array => ['id' => 'extracted', 'type' => 'users'],
         );
 
@@ -534,7 +554,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function morphToDeclaresMultipleTypes(): void
     {
-        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
 
         self::assertFalse($relation->isToMany());
         self::assertSame(['posts', 'videos'], $relation->relatedTypes());
@@ -543,7 +563,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function morphToResolvesSerializerByRelatedType(): void
     {
-        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
         $model = ['commentable' => ['kind' => 'videos']];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -553,7 +573,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function resolveSerializerReturnsTheSingleRegisteredSerializerForAMonomorphicRelation(): void
     {
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
         $resolver = $this->resolver();
 
         $serializer = $relation->resolveSerializer(['id' => '7'], $resolver);
@@ -564,7 +584,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function resolveSerializerSelectsTheMatchingSerializerForAPolymorphicRelation(): void
     {
-        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
         $resolver = $this->resolver();
         $related = ['kind' => 'videos', 'id' => '9'];
 
@@ -579,7 +599,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function resolveSerializerReturnsTheFirstDeclaredSerializerForANullRelatedValue(): void
     {
-        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
         $resolver = $this->resolver();
 
         $serializer = $relation->resolveSerializer(null, $resolver);
@@ -590,7 +610,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function resolveSerializerReturnsNullWhenNoDeclaredTypeMatchesThePolymorphicObject(): void
     {
-        $relation = MorphTo::make('commentable')->types('posts', 'videos');
+        $relation = MorphTo::make('commentable', ['posts', 'videos']);
 
         $serializer = $relation->resolveSerializer(['kind' => 'tags'], $this->resolver());
 
@@ -600,7 +620,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function morphToManyIsToManyAndDeclaresMultipleTypes(): void
     {
-        $relation = MorphToMany::make('items')->types('posts', 'videos');
+        $relation = MorphToMany::make('items', ['posts', 'videos']);
 
         self::assertTrue($relation->isToMany());
         self::assertSame(['posts', 'videos'], $relation->relatedTypes());
@@ -609,7 +629,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function morphToManyBuildsToManyRelationshipWithPerMemberTypes(): void
     {
-        $relation = MorphToMany::make('items')->types('posts', 'videos');
+        $relation = MorphToMany::make('items', ['posts', 'videos']);
         $model = ['items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -647,7 +667,7 @@ final class RelationTest extends TestCase
     public function belongsToIdentifierMetaIsBoundToTheParentRelatedAndRequest(): void
     {
         $captured = null;
-        $relation = BelongsTo::make('author')->type('users')
+        $relation = BelongsTo::make('author', 'users')
             ->identifierMeta(static function (mixed $parent, mixed $related, JsonApiRequestInterface $request) use (&$captured): array {
                 $captured = ['parent' => $parent, 'related' => $related, 'request' => $request];
 
@@ -688,7 +708,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-identifier-objects')]
     public function hasManyIdentifierMetaIsResolvedPerMember(): void
     {
-        $relation = HasMany::make('comments')->type('comments')
+        $relation = HasMany::make('comments', 'comments')
             ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => [
                 'relatedId' => \is_array($related) ? $related['id'] : null,
                 'parentId' => \is_array($parent) ? $parent['id'] : null,
@@ -724,7 +744,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-identifier-objects')]
     public function morphToIdentifierMetaIsApplied(): void
     {
-        $relation = MorphTo::make('owner')->types('users', 'posts')
+        $relation = MorphTo::make('owner', ['users', 'posts'])
             ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => ['via' => 'morphTo']);
         $model = ['id' => '42', 'owner' => ['kind' => 'users', 'id' => '9']];
 
@@ -754,7 +774,7 @@ final class RelationTest extends TestCase
     #[Group('spec:document-resource-identifier-objects')]
     public function morphToManyIdentifierMetaIsResolvedPerMixedMember(): void
     {
-        $relation = MorphToMany::make('items')->types('posts', 'videos')
+        $relation = MorphToMany::make('items', ['posts', 'videos'])
             ->identifierMeta(static fn(mixed $parent, mixed $related, JsonApiRequestInterface $request): array => ['kind' => \is_array($related) ? $related['kind'] : null]);
         $model = ['id' => '42', 'items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
 
@@ -789,7 +809,7 @@ final class RelationTest extends TestCase
     {
         // The countable seam reaches a polymorphic to-many too: countable() + ?withCount
         // names it + resolver supplies a count => meta.total on the morph relationship.
-        $relation = MorphToMany::make('items')->types('posts', 'videos')->countable();
+        $relation = MorphToMany::make('items', ['posts', 'videos'])->countable();
         $model = ['items' => [['kind' => 'posts', 'id' => '1'], ['kind' => 'videos', 'id' => '2']]];
         $count = new FakeRelationshipCount(5);
 
@@ -823,7 +843,7 @@ final class RelationTest extends TestCase
         // Count-free page 1 of size 2 with a further page (hasMore) — the relation
         // is not countable, so no `last`. The plain-form query string mirrors the
         // client-supplied sort/filter on the relationship's OWN endpoint.
-        $relation = HasMany::make('tracks')->type('tracks');
+        $relation = HasMany::make('tracks', 'tracks');
         $model = ['tracks' => [['id' => '1', 'type' => 'tracks'], ['id' => '2', 'type' => 'tracks']]];
 
         $page = new PageBasedPage($model['tracks'], totalItems: null, page: 1, size: 2, hasMore: true);
@@ -882,7 +902,7 @@ final class RelationTest extends TestCase
     {
         // A counted page (totalItems known) emits `last` — the countable vs
         // count-free distinction from slice 1 carries through to the links.
-        $relation = HasMany::make('tracks')->type('tracks')->countable();
+        $relation = HasMany::make('tracks', 'tracks')->countable();
         $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
 
         $page = new PageBasedPage($model['tracks'], totalItems: 5, page: 1, size: 2);
@@ -922,7 +942,7 @@ final class RelationTest extends TestCase
     {
         // Standalone core (no resolver injected): no relationship-object pagination
         // links, only the convention self/related.
-        $relation = HasMany::make('tracks')->type('tracks');
+        $relation = HasMany::make('tracks', 'tracks');
         $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -956,7 +976,7 @@ final class RelationTest extends TestCase
     #[Group('spec:pagination')]
     public function paginationDefaultsToTheFallbackAndPaginateSetsIt(): void
     {
-        $relation = HasMany::make('comments')->type('comments');
+        $relation = HasMany::make('comments', 'comments');
 
         // No own paginator and no fallback → null; a fallback is returned verbatim.
         self::assertNull($relation->pagination(null));
@@ -981,7 +1001,7 @@ final class RelationTest extends TestCase
 
         // withoutPagination() short-circuits before the fallback: the opt-out wins
         // even over a relation's own paginator and any resolved fallback.
-        $relation = HasMany::make('comments')->type('comments')
+        $relation = HasMany::make('comments', 'comments')
             ->paginate(\haddowg\JsonApi\Pagination\OffsetPaginator::make())
             ->withoutPagination();
 
@@ -993,7 +1013,7 @@ final class RelationTest extends TestCase
     #[Group('spec:fetching-filtering')]
     public function filtersDefaultToEmptyAndWithFiltersDeclaresThem(): void
     {
-        $relation = HasMany::make('tracks')->type('tracks');
+        $relation = HasMany::make('tracks', 'tracks');
         self::assertSame([], $relation->filters());
 
         $byPosition = Where::make('position', 'pivot_position');
@@ -1011,7 +1031,7 @@ final class RelationTest extends TestCase
         $first = Where::make('a');
         $second = Where::make('b');
 
-        $relation = HasMany::make('tracks')->type('tracks')
+        $relation = HasMany::make('tracks', 'tracks')
             ->withFilters($first)
             ->withFilters($second);
 
@@ -1022,7 +1042,7 @@ final class RelationTest extends TestCase
     #[Group('spec:fetching-sorting')]
     public function sortsDefaultToEmptyAndWithSortsDeclaresThem(): void
     {
-        $relation = HasMany::make('tracks')->type('tracks');
+        $relation = HasMany::make('tracks', 'tracks');
         self::assertSame([], $relation->sorts());
 
         $byPosition = SortByField::make('position', 'pivot_position');
@@ -1040,7 +1060,7 @@ final class RelationTest extends TestCase
         $first = SortByField::make('a');
         $second = SortByField::make('b');
 
-        $relation = HasMany::make('tracks')->type('tracks')
+        $relation = HasMany::make('tracks', 'tracks')
             ->withSorts($first)
             ->withSorts($second);
 
@@ -1052,11 +1072,11 @@ final class RelationTest extends TestCase
     {
         // Owner-side to-one (FK on the owner) is eager by default; HasOne (FK on the
         // related model) is lazy by default. withData() forces a lazy relation eager.
-        self::assertFalse(BelongsTo::make('author')->type('users')->emitsDataOnlyWhenLoaded());
-        self::assertFalse(MorphTo::make('owner')->types('users')->emitsDataOnlyWhenLoaded());
-        self::assertTrue(HasOne::make('profile')->type('profiles')->emitsDataOnlyWhenLoaded());
-        self::assertTrue(HasMany::make('comments')->type('comments')->emitsDataOnlyWhenLoaded());
-        self::assertFalse(HasOne::make('profile')->type('profiles')->withData()->emitsDataOnlyWhenLoaded());
+        self::assertFalse(BelongsTo::make('author', 'users')->emitsDataOnlyWhenLoaded());
+        self::assertFalse(MorphTo::make('owner', ['users'])->emitsDataOnlyWhenLoaded());
+        self::assertTrue(HasOne::make('profile', 'profiles')->emitsDataOnlyWhenLoaded());
+        self::assertTrue(HasMany::make('comments', 'comments')->emitsDataOnlyWhenLoaded());
+        self::assertFalse(HasOne::make('profile', 'profiles')->withData()->emitsDataOnlyWhenLoaded());
     }
 
     #[Test]
@@ -1064,7 +1084,7 @@ final class RelationTest extends TestCase
     public function lazyRelationOmitsDataWhenNotLoadedAndNotIncluded(): void
     {
         // (1) lazy + predicate=false + not included + has links => data omitted, links present.
-        $relation = HasOne::make('author')->type('users');
+        $relation = HasOne::make('author', 'users');
         $loadState = new FakeRelationshipLoadState(false);
 
         $relationshipObject = $this->buildAndTransform($relation, $loadState);
@@ -1079,7 +1099,7 @@ final class RelationTest extends TestCase
     public function lazyRelationEmitsDataWhenLoaded(): void
     {
         // (2) lazy + predicate=true => data present.
-        $relation = HasOne::make('author')->type('users');
+        $relation = HasOne::make('author', 'users');
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(true));
 
@@ -1091,7 +1111,7 @@ final class RelationTest extends TestCase
     public function lazyRelationEmitsDataWhenIncludedDespiteNotLoaded(): void
     {
         // (3) lazy + included => data present (include-wins).
-        $relation = HasOne::make('author')->type('users');
+        $relation = HasOne::make('author', 'users');
 
         $relationshipObject = $this->buildAndTransform(
             $relation,
@@ -1108,7 +1128,7 @@ final class RelationTest extends TestCase
     {
         // (4) lazy + withoutLinks + predicate=false => data present (validity guard:
         // no links and no meta would otherwise be an empty relationship object).
-        $relation = HasOne::make('author')->type('users')->withoutLinks();
+        $relation = HasOne::make('author', 'users')->withoutLinks();
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
 
@@ -1122,7 +1142,7 @@ final class RelationTest extends TestCase
     {
         // (5) eager (the owner-side to-one default) => data always present regardless
         // of predicate, without consulting the load-state.
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
 
         $relationshipObject = $this->buildAndTransform($relation, new FakeRelationshipLoadState(false));
 
@@ -1137,7 +1157,7 @@ final class RelationTest extends TestCase
         // relationship carries `data: null` rather than omitting the data member —
         // the precondition the relationship-linkage endpoint relies on to render
         // `data: null` per the spec.
-        $relation = BelongsTo::make('author')->type('users');
+        $relation = BelongsTo::make('author', 'users');
         $model = ['author' => null];
 
         $built = $relation->buildRelationship($model, $this->request(), $this->resolver());
@@ -1165,8 +1185,8 @@ final class RelationTest extends TestCase
     #[Test]
     public function countableOffByDefaultAndOptsIn(): void
     {
-        self::assertFalse(HasMany::make('comments')->type('comments')->isCountable());
-        self::assertTrue(HasMany::make('comments')->type('comments')->countable()->isCountable());
+        self::assertFalse(HasMany::make('comments', 'comments')->isCountable());
+        self::assertTrue(HasMany::make('comments', 'comments')->countable()->isCountable());
     }
 
     #[Test]
@@ -1174,7 +1194,7 @@ final class RelationTest extends TestCase
     public function countableEmitsMetaTotalWhenRequestedAndResolverSupplies(): void
     {
         // countable() + ?withCount names it + resolver supplies a count => meta.total.
-        $relation = HasMany::make('comments')->type('comments')->countable();
+        $relation = HasMany::make('comments', 'comments')->countable();
         $count = new FakeRelationshipCount(7);
 
         $relationshipObject = $this->buildToManyAndTransform(
@@ -1192,7 +1212,7 @@ final class RelationTest extends TestCase
     public function countableOmitsMetaTotalWhenNotNamedInWithCount(): void
     {
         // countable() but ?withCount does not name it => no count, seam not consulted.
-        $relation = HasMany::make('comments')->type('comments')->countable();
+        $relation = HasMany::make('comments', 'comments')->countable();
         $count = new FakeRelationshipCount(7);
 
         $relationshipObject = $this->buildToManyAndTransform(
@@ -1211,7 +1231,7 @@ final class RelationTest extends TestCase
     {
         // Not countable(), yet named in ?withCount => the relation-level gate stays
         // shut (the document-level 400 is the request-validation layer, tested there).
-        $relation = HasMany::make('comments')->type('comments');
+        $relation = HasMany::make('comments', 'comments');
         $count = new FakeRelationshipCount(7);
 
         $relationshipObject = $this->buildToManyAndTransform(
@@ -1229,7 +1249,7 @@ final class RelationTest extends TestCase
     public function countableOmitsMetaTotalWithNoResolverInjected(): void
     {
         // countable() + named, but no count resolver injected (standalone) => no meta.
-        $relation = HasMany::make('comments')->type('comments')->countable();
+        $relation = HasMany::make('comments', 'comments')->countable();
 
         $relationshipObject = $this->buildToManyAndTransform(
             $relation,
@@ -1246,7 +1266,7 @@ final class RelationTest extends TestCase
     {
         // countable() + named + resolver injected but returns null (no count for this
         // parent) => no meta.total emitted (never a guessed/zero value).
-        $relation = HasMany::make('comments')->type('comments')->countable();
+        $relation = HasMany::make('comments', 'comments')->countable();
         $count = new FakeRelationshipCount(null);
 
         $relationshipObject = $this->buildToManyAndTransform(

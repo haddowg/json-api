@@ -47,13 +47,12 @@ final class PlaylistResource extends AbstractResource
 
             // Default relation reader: `owner` reads $playlist->owner (a User) and
             // `tracks` reads $playlist->tracks (a list<Track>).
-            BelongsTo::make('owner')->type('users'),
+            BelongsTo::make('owner', 'users'),
             // A pivot-backed to-many whose related-collection endpoint paginates
             // two-per-page. The pivot fields are real field definitions: a writable
             // `position` and a server-owned, read-only `addedAt` — one declaration
             // drives render, filter/sort and (in the Symfony bundle) write/validate.
-            BelongsToMany::make('tracks')
-                ->type('tracks')
+            BelongsToMany::make('tracks', 'tracks')
                 ->fields(
                     Integer::make('position')->min(1),
                     DateTime::make('addedAt')->readOnly(),

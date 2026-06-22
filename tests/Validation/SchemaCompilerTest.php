@@ -56,7 +56,7 @@ final class SchemaCompilerTest extends TestCase
                     Str::make('code')->sequentially(new MinLength(3), new MaxLength(8)),
                     Str::make('ref')->atLeastOneOf(new MinLength(8), new In(['none'])),
                     Str::make('ulid')->constrain(new UlidFormat()),
-                    BelongsTo::make('team')->type('teams')->required(),
+                    BelongsTo::make('team', 'teams')->required(),
                 ];
             }
         };

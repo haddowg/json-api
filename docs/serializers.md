@@ -360,8 +360,7 @@ The
 declares a `MorphTo` to-one — `favoritable` points at a track, album, or artist:
 
 ```php
-MorphTo::make('favoritable')
-    ->types('tracks', 'albums', 'artists')
+MorphTo::make('favoritable', ['tracks', 'albums', 'artists'])
     ->extractUsing(static fn(mixed $favorite): ?object => $favorite instanceof Favorite ? $favorite->favoritable : null),
 ```
 
@@ -375,7 +374,7 @@ declares a `MorphToMany` to-many — `items` is a mixed collection rendered thro
 `PolymorphicSerializer`:
 
 ```php
-MorphToMany::make('items')->types('tracks', 'albums', 'artists'),
+MorphToMany::make('items', ['tracks', 'albums', 'artists']),
 ```
 
 `GET /libraries/1/items` returns tracks, albums, and artists in one collection,

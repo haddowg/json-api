@@ -13,7 +13,7 @@ use haddowg\JsonApi\Resource\Constraint\MultipleOf;
 /**
  * An integer attribute (JSON `type: integer`). Serializes/hydrates as `int`.
  */
-final class Integer extends AbstractField
+final class Integer extends AbstractAttribute
 {
     /**
      * @return static

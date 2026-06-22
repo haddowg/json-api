@@ -16,6 +16,8 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  */
 class HasMany extends AbstractRelation
 {
+    use DeclaresMonomorphicType;
+
     public function isToMany(): bool
     {
         return true;

@@ -1263,8 +1263,8 @@ final class PostResource extends AbstractResource
             DateTime::make('publishedAt')->sortable(),
             Str::make('secret')->hidden(),
             Str::make('password')->writeOnly()->minLength(8),
-            BelongsTo::make('author')->type('users'),
-            HasMany::make('comments')->type('comments'),
+            BelongsTo::make('author', 'users'),
+            HasMany::make('comments', 'comments'),
         ];
     }
 
@@ -1305,7 +1305,7 @@ final class FlattenedResource extends AbstractResource
             Str::make('authorName')->on('author')->storedAs('name'),
             Str::make('authorDisplay')->on('author')->storedAs('displayName'),
             // The backing relation is hidden: never rendered as a relationship.
-            BelongsTo::make('author')->type('authors')->hidden(),
+            BelongsTo::make('author', 'authors')->hidden(),
         ];
     }
 }
@@ -1329,8 +1329,8 @@ final class MultiHopFlattenedResource extends AbstractResource
             Str::make('authorDisplay')->on('author')->storedAs('displayName'),
             // Multi-hop: book -> publisher -> country, reads the country's `name`.
             Str::make('countryName')->on('publisher.country')->storedAs('name'),
-            BelongsTo::make('author')->type('authors')->hidden(),
-            BelongsTo::make('publisher')->type('publishers')->hidden(),
+            BelongsTo::make('author', 'authors')->hidden(),
+            BelongsTo::make('publisher', 'publishers')->hidden(),
         ];
     }
 }
@@ -1349,7 +1349,7 @@ final class StoredAsHopFlattenedResource extends AbstractResource
         return [
             Id::make(),
             Str::make('countryName')->on('publisher.country')->storedAs('name'),
-            BelongsTo::make('publisher')->type('publishers')->storedAs('imprint')->hidden(),
+            BelongsTo::make('publisher', 'publishers')->storedAs('imprint')->hidden(),
         ];
     }
 }
@@ -1366,7 +1366,7 @@ final class PublisherChainResource extends AbstractResource
     {
         return [
             Id::make(),
-            BelongsTo::make('country')->type('countries')->hidden(),
+            BelongsTo::make('country', 'countries')->hidden(),
         ];
     }
 }
@@ -1386,7 +1386,7 @@ final class FlattenedWithSettableRelationResource extends AbstractResource
             Id::make(),
             Str::make('title'),
             Str::make('authorName')->on('author')->storedAs('name'),
-            BelongsTo::make('author')->type('authors')->fillUsing(
+            BelongsTo::make('author', 'authors')->fillUsing(
                 static function (mixed $model, mixed $relationship): mixed {
                     $id = $relationship instanceof \haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship
                         ? $relationship->resourceIdentifier?->id
@@ -1415,7 +1415,7 @@ final class FlattenedToManyResource extends AbstractResource
         return [
             Id::make(),
             Str::make('tagName')->on('tags'),
-            HasMany::make('tags')->type('tags')->hidden(),
+            HasMany::make('tags', 'tags')->hidden(),
         ];
     }
 }
@@ -1450,7 +1450,7 @@ final class SelfTokenRelationResource extends AbstractResource
     {
         return [
             Id::make(),
-            HasMany::make('_self_')->type('others'),
+            HasMany::make('_self_', 'others'),
         ];
     }
 }
@@ -1620,11 +1620,11 @@ final class RestrictedResource extends AbstractResource
         return [
             Id::make(),
             // A to-many that may be added to but never replaced or removed from.
-            HasMany::make('tags')->type('tags')->cannotReplace()->cannotRemove(),
+            HasMany::make('tags', 'tags')->cannotReplace()->cannotRemove(),
             // A to-many that may be replaced / removed from but never added to.
-            HasMany::make('pinned')->type('tags')->cannotAdd(),
+            HasMany::make('pinned', 'tags')->cannotAdd(),
             // A to-one that may be replaced but never cleared.
-            BelongsTo::make('owner')->type('users')->cannotReplace()->cannotRemove(),
+            BelongsTo::make('owner', 'users')->cannotReplace()->cannotRemove(),
         ];
     }
 }
@@ -1643,8 +1643,8 @@ final class IncludeControlledResource extends AbstractResource
     {
         return [
             Id::make(),
-            BelongsTo::make('author')->type('users'),
-            BelongsTo::make('secret')->type('secrets')->cannotBeIncluded(),
+            BelongsTo::make('author', 'users'),
+            BelongsTo::make('secret', 'secrets')->cannotBeIncluded(),
         ];
     }
 
@@ -1689,11 +1689,11 @@ final class RoleAwareResource extends AbstractResource
                 static fn(JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
             // Replacement prohibited for a non-admin caller.
-            BelongsTo::make('owner')->type('users')->cannotReplace(
+            BelongsTo::make('owner', 'users')->cannotReplace(
                 static fn(mixed $model, JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
             // Inclusion prohibited for a non-admin caller.
-            BelongsTo::make('audit')->type('audits')->cannotBeIncluded(
+            BelongsTo::make('audit', 'audits')->cannotBeIncluded(
                 static fn(mixed $model, JsonApiRequestInterface $request): bool => self::nonAdmin($request),
             ),
         ];
@@ -1719,7 +1719,7 @@ final class ConditionallyHiddenRelationResource extends AbstractResource
     {
         return [
             Id::make(),
-            BelongsTo::make('owner')->type('users')->hidden(
+            BelongsTo::make('owner', 'users')->hidden(
                 static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
             ),
         ];

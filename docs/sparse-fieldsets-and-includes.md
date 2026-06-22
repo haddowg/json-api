@@ -153,7 +153,7 @@ unaffected — only the compound expansion is suppressed.
 
 ```php
 // AlbumResource::fields()
-BelongsTo::make('internalNotes')->type('notes')->cannotBeIncluded(),
+BelongsTo::make('internalNotes', 'notes')->cannotBeIncluded(),
 ```
 
 ### Maximum include depth

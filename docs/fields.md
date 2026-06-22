@@ -90,11 +90,11 @@ relationship:
 // The book's resource exposes `authorName` inline; it lives on the related
 // author. The `author` relation is hidden, so it is not a rendered relationship.
 Str::make('authorName')->on('author')->storedAs('name'),
-BelongsTo::make('author')->type('authors')->hidden(),
+BelongsTo::make('author', 'authors')->hidden(),
 
 // A multi-hop chain: book -> publisher -> country, reading the country's `name`.
 Str::make('countryName')->on('publisher.country')->storedAs('name'),
-BelongsTo::make('publisher')->type('publishers')->hidden(),
+BelongsTo::make('publisher', 'publishers')->hidden(),
 ```
 
 - **Read.** The chain is walked hop by hop (each hop honouring its relation's
@@ -451,8 +451,8 @@ unwalked (skipped), not thrown — matching the include walk.
 A relationship is declared in the same `fields()` list and produces the resource
 object's `relationships` member. Relations inherit this shared surface (presence,
 read-only scoping, context) and add their own linkage-shaped helpers. The
-example's `BelongsTo::make('album')->type('albums')` and
-`HasMany::make('tracks')->type('tracks')` sit alongside the attribute fields
+example's `BelongsTo::make('album', 'albums')` and
+`HasMany::make('tracks', 'tracks')` sit alongside the attribute fields
 above. See [relations](relations.md) for the relation field types and how the
 [server registry](server.md) resolves the related resource.
 

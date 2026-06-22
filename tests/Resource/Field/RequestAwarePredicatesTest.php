@@ -198,7 +198,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function cannotReplaceClosureInvertsAgainstTheRequest(): void
     {
-        $relation = BelongsTo::make('owner')->type('users')->cannotReplace(
+        $relation = BelongsTo::make('owner', 'users')->cannotReplace(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
@@ -213,7 +213,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function cannotRemoveClosureInvertsAgainstTheRequest(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->cannotRemove(
+        $relation = HasMany::make('tags', 'tags')->cannotRemove(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
@@ -225,7 +225,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function cannotAddClosureInvertsAgainstTheRequest(): void
     {
-        $relation = HasMany::make('tags')->type('tags')->cannotAdd(
+        $relation = HasMany::make('tags', 'tags')->cannotAdd(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
@@ -237,7 +237,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function cannotBeIncludedClosureInvertsAgainstTheRequest(): void
     {
-        $relation = BelongsTo::make('secret')->type('secrets')->cannotBeIncluded(
+        $relation = BelongsTo::make('secret', 'secrets')->cannotBeIncluded(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
         );
 
@@ -249,7 +249,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function unconditionalRelationProhibitionPrecedesAnyRequest(): void
     {
-        $relation = BelongsTo::make('owner')->type('users')->cannotReplace();
+        $relation = BelongsTo::make('owner', 'users')->cannotReplace();
 
         self::assertFalse($relation->allowsReplace());
         // Unconditional prohibition denies regardless of the caller.
@@ -260,7 +260,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function relationResolversDefaultPermissiveWithNoDeclaration(): void
     {
-        $relation = HasMany::make('tags')->type('tags');
+        $relation = HasMany::make('tags', 'tags');
 
         self::assertTrue($relation->allowsReplaceFor($this->guest(), null));
         self::assertTrue($relation->allowsRemoveFor($this->guest(), null));

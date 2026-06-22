@@ -327,7 +327,7 @@ final class StandaloneRelationSerializer extends AbstractSerializer implements S
         }
 
         /** @var list<RelationInterface> $relations */
-        $relations = [BelongsTo::make('author')->type('authors')];
+        $relations = [BelongsTo::make('author', 'authors')];
 
         return self::relationshipCallables($relations, $this->resolver);
     }

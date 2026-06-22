@@ -7,7 +7,7 @@ namespace haddowg\JsonApi\Resource\Field;
 /**
  * A boolean attribute. Serializes/hydrates as `bool`.
  */
-final class Boolean extends AbstractField
+final class Boolean extends AbstractAttribute
 {
     protected function serializeValue(mixed $raw): mixed
     {

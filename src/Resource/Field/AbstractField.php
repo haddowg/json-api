@@ -154,14 +154,6 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         $this->column = $column ?? $name;
     }
 
-    /**
-     * @return static
-     */
-    public static function make(string $name): static
-    {
-        return new static($name);
-    }
-
     public function name(): string
     {
         return $this->name;

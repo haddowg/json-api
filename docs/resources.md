@@ -62,7 +62,8 @@ same.
 every resource object of this kind, and it is the **key the resource registers
 under** on a [`Server`](server.md). Relationship linkage and `?include` resolve a
 related type by looking it up under this key, so the `$type` you declare here is
-the same string a relationship field targets with `->type('albums')`.
+the same string a relationship field targets as its `make()` type argument (e.g.
+`BelongsTo::make('album', 'albums')`).
 
 ## `$uriType` — the URL segment, decoupled from the type
 
@@ -251,14 +252,14 @@ can't be linked or included.
 
 ## Relationships are fields too
 
-A relationship is just another `fields()` entry. Declare the related type with
-`->type()`; the related resource serializes through the registry:
+A relationship is just another `fields()` entry. Declare the related type as the
+mandatory second argument to `make()`; the related resource serializes through
+the registry:
 
 ```php
 // examples/music-catalog/src/Resource/AlbumResource.php
-BelongsTo::make('artist')->type('artists'),
-HasMany::make('tracks')
-    ->type('tracks')
+BelongsTo::make('artist', 'artists'),
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 

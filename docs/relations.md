@@ -26,18 +26,23 @@ relationships as a resource member; this page is the working reference.
 There are six relation field classes. The first four are monomorphic (one
 allowed related type); the last two are polymorphic (several).
 
-| Class | Cardinality | Backing | Declared with |
+| Class | Cardinality | Backing | Factory |
 | --- | --- | --- | --- |
-| `BelongsTo` | to-one | FK on the owning model | `->type('artists')` |
-| `HasOne` | to-one | FK on the related model | `->type('albums')` |
-| `HasMany` | to-many | collection of related models | `->type('tracks')` |
-| `BelongsToMany` | to-many | pivot (join) table | `->type('playlists')` |
-| `MorphTo` | to-one | polymorphic FK | `->types('tracks', 'albums', 'artists')` |
-| `MorphToMany` | to-many | polymorphic collection | `->types('tracks', 'albums', 'artists')` |
+| `BelongsTo` | to-one | FK on the owning model | `make('artist', 'artists')` |
+| `HasOne` | to-one | FK on the related model | `make('featuredAlbum', 'albums')` |
+| `HasMany` | to-many | collection of related models | `make('tracks', 'tracks')` |
+| `BelongsToMany` | to-many | pivot (join) table | `make('playlists', 'playlists')` |
+| `MorphTo` | to-one | polymorphic FK | `make('item', ['tracks', 'albums', 'artists'])` |
+| `MorphToMany` | to-many | polymorphic collection | `make('items', ['tracks', 'albums', 'artists'])` |
+
+The related resource type is a **mandatory** second argument to `make()` — a
+single type for a monomorphic relation, a non-empty list for a polymorphic one.
+A relationship cannot be declared without it.
 
 By convention the relationship name is the domain property holding the related
-object(s). `BelongsTo::make('artist')` reads `$album->artist`; `HasMany::make('tracks')`
-reads `$album->tracks`. No foreign-key column, no extractor — the default reader
+object(s). `BelongsTo::make('artist', 'artists')` reads `$album->artist`;
+`HasMany::make('tracks', 'tracks')` reads `$album->tracks`. No foreign-key
+column, no extractor — the default reader
 pulls the related value straight off the parent. You only reach for an override
 when the related value is *derived* rather than stored (see
 [Custom relation hooks](#custom-relation-hooks)).
@@ -49,7 +54,7 @@ declares its artist:
 
 ```php
 // src/Resource/AlbumResource.php
-BelongsTo::make('artist')->type('artists'),
+BelongsTo::make('artist', 'artists'),
 ```
 
 That single line renders `album.relationships.artist` with the artist's
@@ -73,8 +78,8 @@ declares one:
 
 ```php
 // src/Resource/ArtistResource.php
-HasOne::make('featuredAlbum')->type('albums'),
-HasMany::make('albums')->type('albums'),
+HasOne::make('featuredAlbum', 'albums'),
+HasMany::make('albums', 'albums'),
 ```
 
 `GET /artists/1/featuredAlbum` returns the featured album; an artist with none
@@ -91,8 +96,7 @@ is covered [below](#per-relation-pagination)):
 // src/Resource/AlbumResource.php
 use haddowg\JsonApi\Pagination\PagePaginator;
 
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
@@ -100,7 +104,7 @@ To-many relations add two cardinality bounds, `minItems()` / `maxItems()`, that
 produce a `422` when a write supplies too few or too many members:
 
 ```php
-HasMany::make('tracks')->type('tracks')->minItems(1)->maxItems(50),
+HasMany::make('tracks', 'tracks')->minItems(1)->maxItems(50),
 ```
 
 On a to-many mutation the default apply maintains a **deduplicated id set** under
@@ -118,8 +122,7 @@ playlists:
 
 ```php
 // src/Resource/TrackResource.php
-BelongsToMany::make('playlists')
-    ->type('playlists')
+BelongsToMany::make('playlists', 'playlists')
     ->fields(
         Integer::make('position')->min(1),
         DateTime::make('addedAt')->readOnly(),
@@ -238,8 +241,7 @@ public function pivotThrough(): ?string
 ```
 
 ```php
-BelongsToMany::make('tracks')
-    ->type('tracks')
+BelongsToMany::make('tracks', 'tracks')
     ->fields(
         Integer::make('position')->min(1),
         DateTime::make('addedAt')->readOnly(),
@@ -262,8 +264,7 @@ its own `getType()`. [`FavoriteResource`](../examples/music-catalog/src/Resource
 
 ```php
 // src/Resource/FavoriteResource.php
-MorphTo::make('favoritable')
-    ->types('tracks', 'albums', 'artists')
+MorphTo::make('favoritable', ['tracks', 'albums', 'artists'])
     ->extractUsing(static fn(mixed $favorite): ?object => $favorite instanceof Favorite ? $favorite->favoritable : null),
 ```
 
@@ -286,7 +287,7 @@ A to-many collection whose members may each be a different type.
 
 ```php
 // src/Resource/LibraryResource.php
-MorphToMany::make('items')->types('tracks', 'albums', 'artists'),
+MorphToMany::make('items', ['tracks', 'albums', 'artists']),
 ```
 
 The mixed members render through a single
@@ -328,7 +329,7 @@ member of a to-many, on a to-one's single identifier, and at the
 `/relationships/{name}` endpoint:
 
 ```php
-HasMany::make('members')->type('users')
+HasMany::make('members', 'users')
     ->identifierMeta(fn(object $team, object $member, $request): array => [
         'role' => $team->roleOf($member),
         'joinedAt' => $team->joinedAt($member)->format(\DATE_ATOM),
@@ -362,14 +363,14 @@ links, built from the owning resource's type + id and the relation's URI segment
 You opt out per relation with `withoutLinks()`:
 
 ```php
-HasMany::make('tracks')->type('tracks')->withoutLinks(),
+HasMany::make('tracks', 'tracks')->withoutLinks(),
 ```
 
 The URI segment defaults to the relation name; override it with
 `withUriFieldName()` when the endpoint path should differ from the field name:
 
 ```php
-BelongsTo::make('artist')->type('artists')->withUriFieldName('by'),
+BelongsTo::make('artist', 'artists')->withUriFieldName('by'),
 ```
 
 Links are gated by **endpoint exposure**: if you suppress a relation's endpoint
@@ -395,7 +396,7 @@ Override a lazy relation to **eager** with `withData()` — when rendering
 identifiers is acceptable, or the related value is reliably preloaded:
 
 ```php
-HasMany::make('tracks')->type('tracks')->withData(),
+HasMany::make('tracks', 'tracks')->withData(),
 ```
 
 The lazy policy is gated by an injected `RelationshipLoadStateInterface` (the
@@ -437,8 +438,7 @@ replace / add / remove trio):
 
 ```php
 // src/Resource/TrackResource.php
-BelongsToMany::make('playlists')
-    ->type('playlists')
+BelongsToMany::make('playlists', 'playlists')
     ->cannotReplace(),
 ```
 
@@ -454,7 +454,7 @@ A relation is includable in a compound document by default. Opt out with
 linkage and `self` / `related` links are unaffected.
 
 ```php
-BelongsTo::make('internalNotes')->type('notes')->cannotBeIncluded(),
+BelongsTo::make('internalNotes', 'notes')->cannotBeIncluded(),
 ```
 
 This is the per-relation half of the include safeguards; a root-scoped
@@ -467,8 +467,7 @@ A to-many relation paginates its related-collection endpoint with `paginate()`:
 
 ```php
 // src/Resource/AlbumResource.php
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
 ```
 
@@ -489,8 +488,7 @@ with `countable()`; read it back with `isCountable()`:
 
 ```php
 // src/Resource/AlbumResource.php
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->paginate(PagePaginator::make()->withDefaultPerPage(2))
     ->countable(),
 ```
@@ -549,8 +547,7 @@ use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 
 // src/Resource/PlaylistResource.php
-HasMany::make('tracks')
-    ->type('tracks')
+HasMany::make('tracks', 'tracks')
     ->withFilters(Where::make('genre'))
     ->withSorts(SortByField::make('title')),
 ```

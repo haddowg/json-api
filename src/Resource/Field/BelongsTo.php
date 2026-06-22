@@ -15,6 +15,8 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  */
 class BelongsTo extends AbstractRelation
 {
+    use DeclaresMonomorphicType;
+
     /**
      * Eager by default: the foreign key sits on the owning model, so resolving the
      * linkage identifier is free (no query). {@see AbstractRelation::$dataOnlyWhenLoaded}.

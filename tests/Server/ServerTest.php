@@ -926,8 +926,8 @@ final class FieldsetPostResource extends AbstractResource
             Str::make('password')->writeOnly(),
             Str::make('draftNote')->hidden(static fn(mixed $model, JsonApiRequestInterface $request): bool => true),
             Str::make('slug')->notSparseField(),
-            \haddowg\JsonApi\Resource\Field\BelongsTo::make('author')->type('authors'),
-            \haddowg\JsonApi\Resource\Field\HasMany::make('comments')->type('comments'),
+            \haddowg\JsonApi\Resource\Field\BelongsTo::make('author', 'authors'),
+            \haddowg\JsonApi\Resource\Field\HasMany::make('comments', 'comments'),
         ];
     }
 }

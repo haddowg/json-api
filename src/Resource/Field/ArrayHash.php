@@ -11,7 +11,7 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  * A JSON object attribute exposed as a PHP associative array (JSON
  * `type: object`).
  */
-final class ArrayHash extends AbstractField
+final class ArrayHash extends AbstractAttribute
 {
     private bool $sortKeys = false;
 

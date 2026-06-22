@@ -22,7 +22,7 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * Non-final by design: the format-preset string types ({@see Email}, {@see Url},
  * {@see Uuid}, {@see Slug}, {@see Ip}) extend it.
  */
-class Str extends AbstractField
+class Str extends AbstractAttribute
 {
     /**
      * @return static

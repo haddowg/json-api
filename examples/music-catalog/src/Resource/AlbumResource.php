@@ -77,9 +77,8 @@ final class AlbumResource extends AbstractResource
             // property holding the related object(s). `artist` reads $album->artist
             // (an Artist) and `tracks` reads $album->tracks (a list<Track>) — no
             // extractUsing, no foreign-key column. This is the pattern to teach.
-            BelongsTo::make('artist')->type('artists'),
-            HasMany::make('tracks')
-                ->type('tracks')
+            BelongsTo::make('artist', 'artists'),
+            HasMany::make('tracks', 'tracks')
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2))
                 // (A to-many is lazy by default — links-only until loaded/included —
                 // so `tracks` needs no opt-in to defer its linkage.)

@@ -17,7 +17,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * (related-model column spread) is out of scope for core — see the Symfony
  * bundle.
  */
-final class Map extends AbstractField
+final class Map extends AbstractAttribute
 {
     /**
      * @var list<\haddowg\JsonApi\Resource\Field\FieldInterface>
