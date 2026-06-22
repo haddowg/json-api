@@ -102,12 +102,11 @@ span the whole object. It runs after the create and update paths alike.
 This hand-written family sources the id through the `generateId()` /
 `validateClientGeneratedId()` / `setId()` hooks, **not** the declarative `Id`-field
 SOURCE/POLICY model `AbstractResource` reads (`allowClientId()` / `requireClientId()`
-/ `generated()` / store-provided, [ADR 0048](adr/0048-resource-id-source-and-client-id-policy.md)).
+/ `generated()` / store-provided).
 The two create paths are deliberately separate — a hydrator built on this family
 expresses the same choices through its hooks (mint a format in `generateId()`, throw
 from `validateClientGeneratedId()` to require a client id, leave `setId()` a no-op for
-a store-provided id). [ADR 0049](adr/0049-legacy-hydrator-family-sources-ids-through-hooks.md)
-records the decision, pinned by `CreateHydratorTraitTest`.
+a store-provided id). This decision is pinned by `CreateHydratorTraitTest`.
 
 ## Attribute and relationship callables
 

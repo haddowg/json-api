@@ -534,8 +534,7 @@ avoid an N+1. The host supplies it through an injected
 (standalone core) no `meta.total` is emitted even for a countable,
 `?withCount`-named relation. The countable flag also drives the related-collection
 endpoint's pagination total (a non-countable relation's endpoint paginates
-count-free — no `total`, no `last`). See [ADR
-0057](adr/0057-countable-relations-and-count-free-pages.md) for the full design.
+count-free — no `total`, no `last`).
 
 ## Relation-scoped filters and sorts
 
