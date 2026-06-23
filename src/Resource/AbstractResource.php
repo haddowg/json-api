@@ -133,19 +133,42 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * A zero-ceremony default `page[size]` for this resource's primary collection.
+     * When set, the base {@see pagination()} returns a page-based paginator with this
+     * default size (capped by {@see $maxPerPage} when also set) instead of the server
+     * default — the common case without writing a paginator. Leave `null` to inherit
+     * the server default. Overriding {@see pagination()} directly replaces this
+     * shorthand entirely (the explicit strategy wins).
+     */
+    protected ?int $perPage = null;
+
+    /**
+     * The maximum `page[size]` a client may request, applied only when {@see $perPage}
+     * drives the paginator. `null` leaves the paginator's own default cap in place.
+     */
+    protected ?int $maxPerPage = null;
+
+    /**
      * The pagination strategy for this resource's collections. The return value is
      * the **single source of truth** — used verbatim, with `null` meaning *no
-     * pagination* (the collection is fetched whole). The base implementation returns
-     * the `$serverDefault` argument (the {@see \haddowg\JsonApi\Server\Server}'s
-     * resolved default paginator, or `null` when the server has none), so a resource
-     * inherits the server default unless it overrides this:
+     * pagination* (the collection is fetched whole). The base implementation returns a
+     * page-based paginator when {@see $perPage} is set, otherwise the `$serverDefault`
+     * argument (the {@see \haddowg\JsonApi\Server\Server}'s resolved default paginator,
+     * or `null` when the server has none), so a resource:
      *
-     * - return `$serverDefault` (or don't override) → inherit the server default;
-     * - return a paginator → pin that strategy for this resource;
-     * - return `null` → no pagination, fetch-all (renders `meta.total` unconditionally).
+     * - sets `$perPage` → page-based with that default size (and `$maxPerPage` cap);
+     * - returns `$serverDefault` (or don't override, no `$perPage`) → inherit the server default;
+     * - returns a paginator → pin that strategy for this resource;
+     * - returns `null` → no pagination, fetch-all (renders `meta.total` unconditionally).
      */
     public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $serverDefault): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
+        if ($this->perPage !== null) {
+            $paginator = \haddowg\JsonApi\Pagination\PagePaginator::make()->withDefaultPerPage($this->perPage);
+
+            return $this->maxPerPage !== null ? $paginator->withMaxPerPage($this->maxPerPage) : $paginator;
+        }
+
         return $serverDefault;
     }
 
