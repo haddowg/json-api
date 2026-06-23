@@ -67,6 +67,7 @@ final class OpenApiProjectorTest extends TestCase
                 FakeRelationMetadata::toOne('author', ['people'], 'The author.'),
                 FakeRelationMetadata::toMany('tags', ['tags']),
             ],
+            includablePaths: ['author', 'tags'],
             uriType: 'articles',
             tags: ['Articles'],
             allowsClientId: false,
@@ -202,6 +203,18 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame(
             ['errors', 'links', 'meta', 'jsonapi'],
             \array_keys($this->arrAt($schemas, 'ErrorDocument', 'properties')),
+        );
+
+        // A type with no includable relationship path never carries `included` (a
+        // `?include` on it is rejected), so the member is omitted from its envelopes
+        // rather than advertised as an always-empty array. `tags` declares no relations.
+        self::assertSame(
+            ['data', 'links', 'meta', 'jsonapi'],
+            \array_keys($this->arrAt($schemas, 'TagsDocument', 'properties')),
+        );
+        self::assertSame(
+            ['data', 'links', 'meta', 'jsonapi'],
+            \array_keys($this->arrAt($schemas, 'TagsCollection', 'properties')),
         );
     }
 

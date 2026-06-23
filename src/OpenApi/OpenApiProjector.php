@@ -253,9 +253,12 @@ final class OpenApiProjector
             }
         }
 
-        // Document envelopes.
-        $schemas[$name . 'Document'] = $this->singleDocumentSchema($name);
-        $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name);
+        // Document envelopes. `included` is described only when the type exposes an
+        // includable relationship path (else `?include` is rejected and no response
+        // carries `included`).
+        $includable = $type->includablePaths() !== [];
+        $schemas[$name . 'Document'] = $this->singleDocumentSchema($name, $includable);
+        $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name, $includable);
     }
 
     /**
@@ -303,7 +306,7 @@ final class OpenApiProjector
                     }
                     $collection = $relName . 'Collection';
                     if (!isset($schemas[$collection])) {
-                        $schemas[$collection] = $this->collectionDocumentSchema($relName);
+                        $schemas[$collection] = $this->collectionDocumentSchema($relName, $relation->relatedIncludablePaths() !== []);
                     }
                 }
             }
@@ -786,9 +789,16 @@ final class OpenApiProjector
      */
     private function relatedToOneDocumentSchema(RelationMetadataInterface $relation): Schema
     {
-        return Schema::ofType('object')
-            ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)))
-            ->withProperty('included', $this->includedSchema())
+        $schema = Schema::ofType('object')
+            ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)));
+
+        // `included` is described only when the related type exposes an includable path
+        // (else `?include` on the related endpoint is rejected and no response carries it).
+        if ($relation->relatedIncludablePaths() !== []) {
+            $schema = $schema->withProperty('included', $this->includedSchema());
+        }
+
+        return $schema
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -804,9 +814,16 @@ final class OpenApiProjector
      */
     private function polymorphicRelatedCollectionSchema(RelationMetadataInterface $relation): Schema
     {
-        return Schema::ofType('object')
-            ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)))
-            ->withProperty('included', $this->includedSchema())
+        $schema = Schema::ofType('object')
+            ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)));
+
+        // A polymorphic to-many declares no shared related includable path, so `included`
+        // is described only when the relation actually exposes one.
+        if ($relation->relatedIncludablePaths() !== []) {
+            $schema = $schema->withProperty('included', $this->includedSchema());
+        }
+
+        return $schema
             ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -892,11 +909,19 @@ final class OpenApiProjector
      * empty to-one *related* endpoint, which is described separately by the
      * relationship-object schema). (Design recon 5b.)
      */
-    private function singleDocumentSchema(string $base): Schema
+    private function singleDocumentSchema(string $base, bool $includable): Schema
     {
-        return Schema::ofType('object')
-            ->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource'))
-            ->withProperty('included', $this->includedSchema())
+        $schema = Schema::ofType('object')
+            ->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource'));
+
+        // The compound-document `included` member is only describable when the type has
+        // an includable relationship path — otherwise `?include` is rejected and a
+        // response can never carry `included`, so the schema must not advertise it.
+        if ($includable) {
+            $schema = $schema->withProperty('included', $this->includedSchema());
+        }
+
+        return $schema
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -907,11 +932,16 @@ final class OpenApiProjector
      * The resource-collection document: `{data: [<Resource>], included?, links
      * (pagination), meta?, jsonapi?}`.
      */
-    private function collectionDocumentSchema(string $base): Schema
+    private function collectionDocumentSchema(string $base, bool $includable): Schema
     {
-        return Schema::ofType('object')
-            ->withProperty('data', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/' . $base . 'Resource')))
-            ->withProperty('included', $this->includedSchema())
+        $schema = Schema::ofType('object')
+            ->withProperty('data', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/' . $base . 'Resource')));
+
+        if ($includable) {
+            $schema = $schema->withProperty('included', $this->includedSchema());
+        }
+
+        return $schema
             ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))

@@ -157,6 +157,23 @@ final class SchemaProjectorTest extends TestCase
         self::assertSame('string', $this->at($schema, 'type'));
         self::assertArrayHasKey('pattern', $schema);
         $this->missing($schema, 'format');
+
+        // A default slug carries a readable example so a renderer does not synthesise a
+        // gibberish string from the pattern (and the example satisfies the slug shape).
+        self::assertSame('example-slug', $this->at($schema, 'example'));
+        self::assertMatchesRegularExpression('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'example-slug');
+    }
+
+    #[Test]
+    public function slugWithACustomRegexGetsNoDefaultExampleAndAnExplicitOneWins(): void
+    {
+        // A custom slug regex may not match the default example, so no default is preset.
+        $custom = $this->project(Str::make('slug')->slug('^[A-Z]+$'));
+        self::assertArrayNotHasKey('example', $custom);
+
+        // An author-supplied example always wins over the default.
+        $explicit = $this->project(Slug::make('slug')->example('my-mix'));
+        self::assertSame('my-mix', $this->at($explicit, 'example'));
     }
 
     #[Test]

@@ -313,7 +313,7 @@ final class SchemaProjector
             case $constraint instanceof ExclusiveMin: return $schema->withExclusiveMinimum($constraint->value);
             case $constraint instanceof ExclusiveMax: return $schema->withExclusiveMaximum($constraint->value);
             case $constraint instanceof MultipleOf: return $schema->withMultipleOf($constraint->value);
-            case $constraint instanceof Pattern: return $schema->withPattern($constraint->regex);
+            case $constraint instanceof Pattern: return $constraint->documentsAs !== null ? $schema->withType($constraint->documentsAs) : $schema->withPattern($constraint->regex);
             case $constraint instanceof SlugFormat: return $schema->withPattern($constraint->regex);
             case $constraint instanceof UlidFormat: return $schema->withPattern(Id::ULID_FORMAT_PATTERN);
             case $constraint instanceof In: return $this->applyEnum($schema, $constraint, $notes, $collector);

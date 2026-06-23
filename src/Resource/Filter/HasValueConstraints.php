@@ -103,18 +103,20 @@ trait HasValueConstraints
 
     /**
      * The value must be a base-10 number (integer or decimal, optional sign).
+     * Documents as an OpenAPI `number` (the wire string is validated by the regex).
      */
     public function numeric(): static
     {
-        return $this->constrain(new Pattern('^-?[0-9]+(?:\.[0-9]+)?$'));
+        return $this->constrain(new Pattern('^-?[0-9]+(?:\.[0-9]+)?$', documentsAs: 'number'));
     }
 
     /**
      * The value must be a base-10 integer (optional sign, no decimal point).
+     * Documents as an OpenAPI `integer` (the wire string is validated by the regex).
      */
     public function integer(): static
     {
-        return $this->constrain(new Pattern('^-?[0-9]+$'));
+        return $this->constrain(new Pattern('^-?[0-9]+$', documentsAs: 'integer'));
     }
 
     /**
@@ -132,11 +134,12 @@ trait HasValueConstraints
      * case-insensitively and with optional surrounding whitespace — exactly the
      * vocabulary {@see Where::asBoolean()} coerces, so the {@see Boolean} filter's
      * coercion, validation and OpenAPI value schema all accept the same set (they
-     * must not drift apart).
+     * must not drift apart). Documents as an OpenAPI `boolean` (the wire string is
+     * validated by the regex).
      */
     public function boolean(): static
     {
-        return $this->constrain(new Pattern('^\s*(?i:true|false|1|0|on|off|yes|no)\s*$|^\s*$'));
+        return $this->constrain(new Pattern('^\s*(?i:true|false|1|0|on|off|yes|no)\s*$|^\s*$', documentsAs: 'boolean'));
     }
 
     /**

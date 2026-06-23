@@ -79,11 +79,21 @@ class Str extends AbstractAttribute
      */
     public function slug(?string $regex = null): static
     {
-        return $this->addConstraint(
+        $field = $this->addConstraint(
             $regex === null
                 ? new SlugFormat(context: $this->currentContext())
                 : new SlugFormat($regex, $this->currentContext()),
         );
+
+        // Without an explicit example a renderer synthesises a gibberish string from
+        // the slug pattern. Preset a readable one for the default slug shape (a custom
+        // regex may not match it, so only the default form gets a default); an author
+        // `->example(…)` still wins.
+        if ($regex === null && !$field->hasExample()) {
+            $field = $field->example('example-slug');
+        }
+
+        return $field;
     }
 
     /**

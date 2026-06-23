@@ -132,8 +132,10 @@ final class OperationProjectorTest extends TestCase
         $get = $this->arrAt($this->paths(), '/articles', 'get');
         $wordCount = $this->parameterNamed($get, 'filter[wordCount]');
 
-        // The integer() builder declares a Pattern → emitted as the value schema.
-        self::assertSame('^-?[0-9]+$', $this->strAt($wordCount, 'schema', 'pattern'));
+        // The integer() builder documents the value as a numeric type, not the wire
+        // string's validation pattern (a `pattern` is meaningless on a non-string).
+        self::assertSame('integer', $this->strAt($wordCount, 'schema', 'type'));
+        self::assertArrayNotHasKey('pattern', $this->arrAt($wordCount, 'schema'));
 
         // A filter's own declared description is surfaced (not the generic fallback).
         $status = $this->parameterNamed($get, 'filter[status]');
@@ -180,13 +182,14 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // Range projects an object value schema (ADR 0076), not the scalar numeric
-        // string its per-bound constraint would otherwise yield: the nested
-        // filter[rating][min]/[max] wire shape is documented as {min, max}.
+        // Range projects an object value schema (ADR 0076): the nested
+        // filter[rating][min]/[max] wire shape is documented as {min, max}, each bound a
+        // numeric type (not the wire string's validation pattern).
         $rating = $this->parameterNamed($get, 'filter[rating]');
         self::assertSame('object', $this->strAt($rating, 'schema', 'type'));
-        self::assertSame('^-?[0-9]+(?:\.[0-9]+)?$', $this->strAt($rating, 'schema', 'properties', 'min', 'pattern'));
-        self::assertSame('^-?[0-9]+(?:\.[0-9]+)?$', $this->strAt($rating, 'schema', 'properties', 'max', 'pattern'));
+        self::assertSame('number', $this->strAt($rating, 'schema', 'properties', 'min', 'type'));
+        self::assertSame('number', $this->strAt($rating, 'schema', 'properties', 'max', 'type'));
+        self::assertArrayNotHasKey('pattern', $this->arrAt($rating, 'schema', 'properties', 'min'));
     }
 
     #[Test]
