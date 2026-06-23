@@ -234,6 +234,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $this->serializerResolver = $resolver;
     }
 
+    public function serializerResolver(): ?\haddowg\JsonApi\Resource\SerializerResolverInterface
+    {
+        return $this->serializerResolver;
+    }
+
     public function getType(mixed $object): string
     {
         return static::$type;

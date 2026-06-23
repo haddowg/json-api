@@ -141,6 +141,15 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
 
     /**
+     * The out-of-band contributor that supplies extra `links` members merged onto a
+     * rendered resource object (alongside the author's `getLinks()`, author keys
+     * winning), or null for the standalone default (a resource's links are exactly
+     * what its serializer produces). Pushed into the {@see ResourceRegistry} the
+     * same way the linkage resolver is.
+     */
+    private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
+
+    /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
      * null to fall back to plain `new`. Server is the single source of truth and
      * pushes it into the cloned registry on every clone.
@@ -306,6 +315,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
         $self->resources->register($resource, $serializer, $hydrator);
 
         return $self;
@@ -329,6 +339,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
         $self->resources->registerSerializerHydrator($type, $serializer, $hydrator);
 
         return $self;
@@ -356,6 +367,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
 
         return $self;
     }
@@ -377,6 +389,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
 
         return $self;
     }
@@ -400,6 +413,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
 
         return $self;
     }
@@ -423,6 +437,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
 
         return $self;
     }
@@ -444,6 +459,31 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         $self->resources->setRelationshipCount($self->relationshipCount);
         $self->resources->setRelationshipPagination($self->relationshipPagination);
         $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
+
+        return $self;
+    }
+
+    /**
+     * Injects the out-of-band contributor a rendered resource object consults for EXTRA
+     * `links` members — merged ALONGSIDE the author's `getLinks()` (an author-supplied
+     * key wins; the convention `self` is still added when neither supplied one) — so a
+     * framework binding can publish host-owned, router-generated links the author's
+     * resource declaration knows nothing about (and so cannot drop). Passing `null`
+     * (the default) restores the standalone behaviour: a resource's links are exactly
+     * what its serializer's `getLinks()` plus the convention `self` produce.
+     */
+    public function withResourceLinkContributor(?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor): self
+    {
+        $self = clone $this;
+        $self->resourceLinkContributor = $resourceLinkContributor;
+        $self->resources = clone $this->resources;
+        $self->resources->setResolver($self->resolver);
+        $self->resources->setRelationshipLoadState($self->relationshipLoadState);
+        $self->resources->setRelationshipCount($self->relationshipCount);
+        $self->resources->setRelationshipPagination($self->relationshipPagination);
+        $self->resources->setRelationshipLinkage($self->relationshipLinkage);
+        $self->resources->setResourceLinkContributor($self->resourceLinkContributor);
 
         return $self;
     }
@@ -621,6 +661,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
     {
         return $this->relationshipLinkage;
+    }
+
+    public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface
+    {
+        return $this->resourceLinkContributor;
     }
 
     public function hydratorFor(string $type): HydratorInterface

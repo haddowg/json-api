@@ -27,6 +27,8 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
 
     private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
 
+    private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
+
     public function __construct(string ...$types)
     {
         if ($types === []) {
@@ -94,5 +96,17 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
     public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
     {
         return $this->relationshipLinkage;
+    }
+
+    public function withResourceLinkContributor(?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor): self
+    {
+        $this->resourceLinkContributor = $resourceLinkContributor;
+
+        return $this;
+    }
+
+    public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface
+    {
+        return $this->resourceLinkContributor;
     }
 }

@@ -100,6 +100,15 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface $relationshipLinkage = null;
 
     /**
+     * The out-of-band contributor that supplies extra `links` members merged onto a
+     * rendered resource object (alongside the author's `getLinks()`, author keys
+     * winning), or null when none is injected (standalone core: a resource's links
+     * are exactly what its serializer produces). Threaded down from the
+     * {@see Server}, the same way the lazy {@see $resolver} is.
+     */
+    private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -166,6 +175,20 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface
     {
         return $this->relationshipLinkage;
+    }
+
+    /**
+     * Sets (or clears) the resource-link contributor consulted for a rendered
+     * resource object to supply extra `links` members out-of-band (author keys win).
+     */
+    public function setResourceLinkContributor(?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor): void
+    {
+        $this->resourceLinkContributor = $resourceLinkContributor;
+    }
+
+    public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface
+    {
+        return $this->resourceLinkContributor;
     }
 
     /**

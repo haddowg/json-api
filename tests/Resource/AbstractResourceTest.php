@@ -1266,6 +1266,11 @@ final class AbstractResourceTest extends TestCase
             {
                 return null;
             }
+
+            public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface
+            {
+                return null;
+            }
         };
     }
 }

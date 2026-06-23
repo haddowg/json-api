@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Transformer;
 use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
+use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
@@ -119,6 +120,19 @@ final class ResourceTransformer
 
         $transformed = $links !== null ? $links->transform() : [];
 
+        // Merge any out-of-band resource-link contribution (a framework binding's
+        // router-generated links) ALONGSIDE the author's getLinks() — but never
+        // overwriting an author-supplied key (author-wins precedence). Reached off
+        // the rendered resource, which the transformer does not itself receive the
+        // resolver for; a non-resolver-aware resource (a bare serializer that never
+        // opted in) contributes nothing, exactly as for relationships.
+        $contributed = $this->contributedLinks($transformation);
+        foreach ($contributed as $name => $link) {
+            if (isset($transformed[$name]) === false) {
+                $transformed[$name] = $link->transform($transformation->baseUri);
+            }
+        }
+
         // The spec RECOMMENDS a resource carry a by-convention `self` link
         // (`{baseUri}/{uriType}/{id}`). It is emitted for every serializer unless
         // it opts out via SelfLinkAwareInterface, the id is empty (a not-yet-
@@ -133,10 +147,41 @@ final class ResourceTransformer
         }
 
         // Emit `links` when getLinks() supplied a (possibly empty) container, as
-        // before, or when the convention self was added.
+        // before, when a contributor added a link, or when the convention self was
+        // added.
         if ($links !== null || $transformed !== []) {
             $transformation->result['links'] = $transformed;
         }
+    }
+
+    /**
+     * The out-of-band resource-link contribution for the rendered resource, or `[]`
+     * when none applies. The contributor is reached off the rendered resource's
+     * injected {@see \haddowg\JsonApi\Resource\SerializerResolverInterface} (the
+     * transformer is not handed the resolver directly): a resource that is not
+     * {@see SerializerResolverAwareInterface}, has no resolver injected, or whose
+     * resolver carries no {@see \haddowg\JsonApi\Serializer\ResourceLinkContributorInterface}
+     * contributes nothing — exactly as for relationships and the standalone library.
+     *
+     * @return array<string, \haddowg\JsonApi\Schema\Link\Link>
+     */
+    private function contributedLinks(ResourceTransformation $transformation): array
+    {
+        $resource = $transformation->resource;
+        if (!$resource instanceof SerializerResolverAwareInterface) {
+            return [];
+        }
+
+        $contributor = $resource->serializerResolver()?->resourceLinkContributor();
+        if ($contributor === null) {
+            return [];
+        }
+
+        return $contributor->linksFor(
+            $transformation->object,
+            $transformation->resourceType,
+            $transformation->request,
+        );
     }
 
     /**

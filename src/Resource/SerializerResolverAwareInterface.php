@@ -17,4 +17,12 @@ interface SerializerResolverAwareInterface
      * Injects the resolver relationships use to serialize related resources.
      */
     public function setSerializerResolver(SerializerResolverInterface $resolver): void;
+
+    /**
+     * The injected resolver, or `null` when none has been set (standalone use). The
+     * {@see \haddowg\JsonApi\Transformer\ResourceTransformer} reads it off the
+     * rendered resource to reach out-of-band seams it does not itself receive — the
+     * {@see SerializerResolverInterface::resourceLinkContributor()} in particular.
+     */
+    public function serializerResolver(): ?SerializerResolverInterface;
 }

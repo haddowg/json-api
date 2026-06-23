@@ -60,4 +60,13 @@ interface SerializerResolverInterface
      * before this seam existed).
      */
     public function relationshipLinkage(): ?\haddowg\JsonApi\Serializer\RelationshipLinkageInterface;
+
+    /**
+     * The out-of-band contributor a rendered resource object consults for EXTRA
+     * `links` members to merge alongside its author-supplied `getLinks()` (author
+     * keys win), or `null` when no adapter injected one (standalone core: a
+     * resource's links are exactly what its serializer's `getLinks()` plus the
+     * convention `self` produce, as before this seam existed).
+     */
+    public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface;
 }

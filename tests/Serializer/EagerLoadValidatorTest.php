@@ -76,6 +76,11 @@ final class EagerLoadValidatorTest extends TestCase
             {
                 return null;
             }
+
+            public function resourceLinkContributor(): ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface
+            {
+                return null;
+            }
         };
     }
 

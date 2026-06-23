@@ -56,6 +56,11 @@ final class TrackSerializer extends AbstractSerializer implements SerializerReso
         $this->serializerResolver = $resolver;
     }
 
+    public function serializerResolver(): ?SerializerResolverInterface
+    {
+        return $this->serializerResolver;
+    }
+
     public function getType(mixed $object): string
     {
         // Object-aware so a polymorphic resolver (MorphTo/MorphToMany) that probes
