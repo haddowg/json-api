@@ -49,6 +49,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly ?string $description = null,
         private readonly array $includablePaths = [],
         private readonly array $securedOperations = [],
+        private readonly ?string $idPattern = null,
     ) {}
 
     /**
@@ -78,6 +79,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         array $sorts = [],
         array $actions = [],
         array $includablePaths = [],
+        ?string $idPattern = null,
     ): self {
         return new self(
             type: $type,
@@ -102,6 +104,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             description: $description,
             includablePaths: $includablePaths,
             securedOperations: $securedOperations,
+            idPattern: $idPattern,
         );
     }
 
@@ -160,6 +163,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function allowsClientId(): bool
     {
         return $this->allowsClientId;
+    }
+
+    public function idPattern(): ?string
+    {
+        return $this->idPattern;
     }
 
     public function paginatorKind(): PaginatorKind

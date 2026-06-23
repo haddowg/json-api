@@ -93,6 +93,15 @@ interface TypeMetadataInterface
     public function allowsClientId(): bool;
 
     /**
+     * The (un-anchored) regular expression an `id` must match for this type — the
+     * same pattern that constrains the `{id}` route requirement (e.g. an encoded or
+     * ULID id), or `null` when any non-empty string is accepted. Lets the OpenAPI
+     * `{id}` path parameter advertise exactly what the router will accept, so a
+     * documented id and an accepted id can never diverge.
+     */
+    public function idPattern(): ?string;
+
+    /**
      * The pagination strategy for this type's primary collection endpoint
      * (`GET /{type}`), already resolved against the server default by the metadata
      * source. {@see PaginatorKind::None} when the collection is unpaginated.

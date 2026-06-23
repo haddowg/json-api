@@ -68,6 +68,7 @@ final class OperationProjectorTest extends TestCase
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             includablePaths: ['author', 'tags', 'author.company'],
+            idPattern: 'art-[0-9]+',
         );
 
         return new FakeServerMetadata(
@@ -102,6 +103,11 @@ final class OperationProjectorTest extends TestCase
         self::assertSame('id', $this->strAt($resource, 'parameters', '0', 'name'));
         self::assertSame('path', $this->strAt($resource, 'parameters', '0', 'in'));
         self::assertTrue($this->at($resource, 'parameters', '0', 'required'));
+
+        // A type that constrains its id (here `art-[0-9]+`, the same constraint behind
+        // the `{id}` route requirement) advertises it on the parameter schema, fully
+        // anchored — so a documented id and an accepted id cannot diverge.
+        self::assertSame('^(?:art-[0-9]+)$', $this->strAt($resource, 'parameters', '0', 'schema', 'pattern'));
     }
 
     #[Test]

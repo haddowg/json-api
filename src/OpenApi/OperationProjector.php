@@ -926,13 +926,24 @@ final class OperationProjector
     }
 
     /**
-     * The shared `{id}` path parameter for the resource-scoped endpoints.
+     * The shared `{id}` path parameter for the resource-scoped endpoints. When the
+     * type constrains its id (an encoded or ULID id, the same constraint that drives
+     * the `{id}` route requirement), the schema advertises that pattern — fully
+     * anchored, since the router accepts only a complete match — so a documented id
+     * and an accepted id cannot diverge.
      */
     private function idPathParameter(TypeMetadataInterface $type): Parameter
     {
+        $schema = Schema::ofType('string');
+
+        $pattern = $type->idPattern();
+        if ($pattern !== null && $pattern !== '') {
+            $schema = $schema->withPattern('^(?:' . $pattern . ')$');
+        }
+
         return Parameter::path(
             'id',
-            Schema::ofType('string'),
+            $schema,
             'The `' . $type->type() . '` resource identifier.',
         );
     }
