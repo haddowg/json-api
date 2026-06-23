@@ -202,10 +202,16 @@ final class OpenApiProjector
         $fields = $type->fields();
 
         // Attributes + resource object (a fieldless standalone type gets a permissive
-        // object schema, never a broken empty one).
+        // object schema, never a broken empty one). Two shared attributes components
+        // are emitted and `$ref`'d rather than inlined four times: the **read** shape
+        // (`<Type>Attributes`, no `required`) is shared by the resource object and the
+        // update request body; the **write** shape (`<Type>WriteAttributes`, with the
+        // create-context `required`) is shared by the create request and — when the
+        // atomic extension is enabled — the `<Type>AtomicWrite` resource object.
         if ($type->hasFields()) {
             $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, false, $collector);
-            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, false, $collector, $type->description());
+            $schemas[$name . 'WriteAttributes'] = $this->schemaProjector->projectAttributes($fields, true, $collector);
+            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, false, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
         } else {
             $resource = $this->permissiveResourceObject($type->type(), $type->description());
         }
@@ -215,10 +221,11 @@ final class OpenApiProjector
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
 
         // Write request document schemas (create requires/allows id per the policy;
-        // update never carries a writable id beyond the path identifier).
+        // update never carries a writable id beyond the path identifier). Both `$ref`
+        // the shared attributes components above.
         if ($type->hasFields()) {
-            $schemas[$name . 'CreateRequest'] = $this->createRequestSchema($type, $collector);
-            $schemas[$name . 'UpdateRequest'] = $this->updateRequestSchema($type, $collector);
+            $schemas[$name . 'CreateRequest'] = $this->createRequestSchema($type);
+            $schemas[$name . 'UpdateRequest'] = $this->updateRequestSchema($type);
         }
 
         // Per-relationship relationship-object schemas + the relationship/related
@@ -368,10 +375,14 @@ final class OpenApiProjector
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string')->withDescription('A local id assigned to a resource created in this batch, referenceable by later operations.'))
             ->withProperty('attributes', $type->hasFields()
-                ? $this->schemaProjector->projectAttributes($type->fields(), true, null)
+                ? Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'WriteAttributes')
                 : Schema::ofType('object'))
             ->withProperty('relationships', Schema::ofType('object'))
-            ->withRequired(['type']);
+            ->withRequired(['type'])
+            // `id` and `lid` are mutually exclusive — a resource is identified by a
+            // client/path `id`, a local `lid`, or neither (a server-assigned id), never
+            // both.
+            ->withNot(Schema::create()->withRequired(['id', 'lid']));
 
         return $resource->withDescription('The resource object an `add` or `update` operation writes. Carries `type` and an id by `id` (a client- or path-supplied id) or `lid` (a local id), plus the `attributes` / `relationships` being written.');
     }
@@ -547,7 +558,9 @@ final class OpenApiProjector
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string'))
             ->withProperty('meta', Schema::ofType('object'))
-            ->withRequired(['type']);
+            ->withRequired(['type'])
+            // A resource identifier is keyed by `id` or `lid`, never both.
+            ->withNot(Schema::create()->withRequired(['id', 'lid']));
     }
 
     /**
@@ -689,11 +702,11 @@ final class OpenApiProjector
             ->withRequired(['type', 'id']);
     }
 
-    private function createRequestSchema(TypeMetadataInterface $type, EnumComponentCollector $collector): Schema
+    private function createRequestSchema(TypeMetadataInterface $type): Schema
     {
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
-            ->withProperty('attributes', $this->schemaProjector->projectAttributes($type->fields(), true, $collector));
+            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'WriteAttributes'));
 
         if ($type->allowsClientId()) {
             $resource = $resource->withProperty('id', Schema::ofType('string'));
@@ -706,12 +719,12 @@ final class OpenApiProjector
         return $this->writeDocumentEnvelope($resource);
     }
 
-    private function updateRequestSchema(TypeMetadataInterface $type, EnumComponentCollector $collector): Schema
+    private function updateRequestSchema(TypeMetadataInterface $type): Schema
     {
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('attributes', $this->schemaProjector->projectAttributes($type->fields(), false, $collector));
+            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'Attributes'));
 
         if ($type->relations() !== []) {
             $resource = $resource->withProperty('relationships', Schema::ofType('object'));

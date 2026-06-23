@@ -203,16 +203,22 @@ final class SchemaProjector
      * The schema carries a `description`: the type's own ($description) when the
      * author declared one, else a generated default naming the type.
      *
+     * `$attributesRef` (a `#/components/schemas/…` pointer) makes the `attributes`
+     * member a `$ref` to a shared attributes component rather than an inline copy —
+     * the caller emits that component once and the read resource object and the
+     * update request body reference the same node. Omit it to inline (a standalone
+     * projection with no component to share).
+     *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null, ?string $description = null): Schema
+    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null, ?string $description = null, ?string $attributesRef = null): Schema
     {
         $fields = \is_array($fields) ? $fields : \iterator_to_array($fields, false);
 
         $properties = [
             'type' => Schema::ofType('string')->withConst($type),
             'id' => $this->projectId($fields),
-            'attributes' => $this->projectAttributes($fields, $creating, $collector),
+            'attributes' => $attributesRef !== null ? Schema::ref($attributesRef) : $this->projectAttributes($fields, $creating, $collector),
             'relationships' => Schema::ofType('object'),
             'links' => Schema::ofType('object'),
             'meta' => Schema::ofType('object'),

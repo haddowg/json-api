@@ -285,15 +285,19 @@ final class OpenApiProjectorTest extends TestCase
         $create = $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data');
         self::assertArrayNotHasKey('id', $this->arrAt($create, 'properties'));
         self::assertSame(['type'], $this->listAt($create, 'required'));
-        // the create attributes require the declared-required field.
-        self::assertContains('title', $this->listAt($create, 'properties', 'attributes', 'required'));
+        // the create body references the shared write-attributes component, which
+        // requires the declared-required field.
+        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($create, 'properties', 'attributes', '$ref'));
+        self::assertContains('title', $this->listAt($schemas, 'ArticlesWriteAttributes', 'required'));
 
         // update resource requires `id`.
         $update = $this->arrAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data');
         self::assertArrayHasKey('id', $this->arrAt($update, 'properties'));
         self::assertSame(['type', 'id'], $this->listAt($update, 'required'));
-        // update attributes carry no `required` (an absent member means "no change").
-        self::assertArrayNotHasKey('required', $this->arrAt($update, 'properties', 'attributes'));
+        // update references the read-shape attributes component, which carries no
+        // `required` (an absent member means "no change").
+        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($update, 'properties', 'attributes', '$ref'));
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesAttributes'));
 
         // people allows a client id → create resource exposes `id`.
         $peopleCreate = $this->arrAt($schemas, 'PeopleCreateRequest', 'properties', 'data');
@@ -621,6 +625,33 @@ final class OpenApiProjectorTest extends TestCase
 
         // A body with no `type` is still rejected (the union has no all-permissive arm).
         self::assertFalse($isValid(['attributes' => ['title' => 'x']]), 'a type-less operation data must be rejected');
+
+        // `id` and `lid` are mutually exclusive (the oneOf rejects a body carrying both).
+        self::assertFalse($isValid(['type' => 'articles', 'id' => '1', 'lid' => 'a1']), 'id and lid together must be rejected');
+    }
+
+    #[Test]
+    public function itSharesAttributeComponentsAcrossReadAndWriteSchemas(): void
+    {
+        // The read-shape `<Type>Attributes` is referenced (never inlined or orphaned) by
+        // the resource object and the update request; the write-shape
+        // `<Type>WriteAttributes` by the create request and the atomic write object.
+        $schemas = $this->arrAt(
+            $this->projector()->project($this->serverWithAtomic())->toArray(),
+            'components',
+            'schemas',
+        );
+
+        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesResource', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesAtomicWrite', 'properties', 'attributes', '$ref'));
+
+        // The two components carry the real shapes (read has no required; write requires
+        // the declared-required field) and the read one is no longer an inlined duplicate.
+        self::assertArrayHasKey('ArticlesAttributes', $schemas);
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesAttributes'));
+        self::assertContains('title', $this->listAt($schemas, 'ArticlesWriteAttributes', 'required'));
     }
 
     #[Test]
