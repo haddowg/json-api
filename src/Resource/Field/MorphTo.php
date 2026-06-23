@@ -65,15 +65,7 @@ final class MorphTo extends AbstractRelation
             }
         }
 
-        if ($this->includesLinks) {
-            $relationship->withConventionLinks(
-                $this->uriFieldName(),
-                $this->exposesRelationshipEndpoint,
-                $this->exposesRelatedEndpoint,
-            );
-        }
-
-        $this->applyIdentifierMeta($relationship, $model, $request);
+        $this->finalizeToOne($relationship, $model, $request);
 
         return $relationship;
     }

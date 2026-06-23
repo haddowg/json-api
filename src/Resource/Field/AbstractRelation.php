@@ -799,15 +799,7 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             }
         }
 
-        if ($this->includesLinks) {
-            $relationship->withConventionLinks(
-                $this->uriFieldName(),
-                $this->exposesRelationshipEndpoint,
-                $this->exposesRelatedEndpoint,
-            );
-        }
-
-        $this->applyIdentifierMeta($relationship, $model, $request);
+        $this->finalizeToOne($relationship, $model, $request);
 
         return $relationship;
     }
@@ -849,6 +841,17 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
             }
         }
 
+        $this->finalizeToMany($relationship, $model, $request, $resolver);
+
+        return $relationship;
+    }
+
+    /**
+     * Applies the convention `self`/`related` links to a relationship when this
+     * relation emits links — the shared link tail of every relationship builder.
+     */
+    private function applyConventionLinks(AbstractRelationship $relationship): void
+    {
         if ($this->includesLinks) {
             $relationship->withConventionLinks(
                 $this->uriFieldName(),
@@ -856,6 +859,33 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
                 $this->exposesRelatedEndpoint,
             );
         }
+    }
+
+    /**
+     * Finalizes a to-one relationship: convention links + the per-(parent, relation)
+     * identifier meta. The shared tail of {@see buildToOne()} and
+     * {@see \haddowg\JsonApi\Resource\Field\MorphTo}.
+     */
+    protected function finalizeToOne(AbstractRelationship $relationship, mixed $model, JsonApiRequestInterface $request): void
+    {
+        $this->applyConventionLinks($relationship);
+        $this->applyIdentifierMeta($relationship, $model, $request);
+    }
+
+    /**
+     * Finalizes a to-many relationship: convention links, the relationship-meta hook
+     * (e.g. the countable `meta.total`), the per-(parent, relation) identifier meta,
+     * and the pagination links. The shared tail of {@see buildToMany()} and
+     * {@see \haddowg\JsonApi\Resource\Field\MorphToMany} — applied in one order so a
+     * fifth relation type cannot reintroduce an ordering drift.
+     */
+    protected function finalizeToMany(
+        AbstractRelationship $relationship,
+        mixed $model,
+        JsonApiRequestInterface $request,
+        SerializerResolverInterface $resolver,
+    ): void {
+        $this->applyConventionLinks($relationship);
 
         $meta = $this->relationshipMeta($model, $request, $resolver);
         if ($meta !== []) {
@@ -868,8 +898,6 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         if ($pagination !== null) {
             $relationship->withPagination($pagination);
         }
-
-        return $relationship;
     }
 
     /**
