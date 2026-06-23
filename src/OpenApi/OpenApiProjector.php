@@ -379,10 +379,21 @@ final class OpenApiProjector
                 : Schema::ofType('object'))
             ->withProperty('relationships', Schema::ofType('object'))
             ->withRequired(['type'])
-            // `id` and `lid` are mutually exclusive — a resource is identified by a
-            // client/path `id`, a local `lid`, or neither (a server-assigned id), never
-            // both.
-            ->withNot(Schema::create()->withRequired(['id', 'lid']));
+            // A resource is identified exactly one of three ways — never by both `id`
+            // and `lid`. A titled `oneOf` renders the choice in a docs UI; a body with
+            // both `id` and `lid` matches two arms, so the `oneOf` rejects it.
+            ->withOneOf([
+                Schema::create()->withTitle('Server-assigned id')
+                    ->withDescription('Neither `id` nor `lid` — the server assigns the id (a plain `add`).')
+                    ->withNot(Schema::create()->withAnyOf([
+                        Schema::create()->withRequired(['id']),
+                        Schema::create()->withRequired(['lid']),
+                    ])),
+                Schema::create()->withTitle('Client- or path-supplied id')->withRequired(['id']),
+                Schema::create()->withTitle('Local id (lid)')
+                    ->withDescription('A local id, referenceable by later operations in the batch.')
+                    ->withRequired(['lid']),
+            ]);
 
         return $resource->withDescription('The resource object an `add` or `update` operation writes. Carries `type` and an id by `id` (a client- or path-supplied id) or `lid` (a local id), plus the `attributes` / `relationships` being written.');
     }
@@ -559,8 +570,11 @@ final class OpenApiProjector
             ->withProperty('lid', Schema::ofType('string'))
             ->withProperty('meta', Schema::ofType('object'))
             ->withRequired(['type'])
-            // A resource identifier is keyed by `id` or `lid`, never both.
-            ->withNot(Schema::create()->withRequired(['id', 'lid']));
+            // A resource identifier is keyed by exactly one of `id` or `lid`.
+            ->withOneOf([
+                Schema::create()->withTitle('By id')->withRequired(['id']),
+                Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
+            ]);
     }
 
     /**

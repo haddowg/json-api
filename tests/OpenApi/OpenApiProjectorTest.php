@@ -561,6 +561,14 @@ final class OpenApiProjectorTest extends TestCase
         self::assertArrayHasKey('ArticlesAtomicWrite', $schemas);
         self::assertSame(['type'], $this->listAt($schemas, 'ArticlesAtomicWrite', 'required'));
         self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicWrite', 'properties'));
+        // `id`/`lid` exclusivity is a titled three-mode `oneOf` (server-assigned / id /
+        // lid) — a UI-renderable choice rather than an opaque top-level `not`.
+        $modes = $this->listAt($schemas, 'ArticlesAtomicWrite', 'oneOf');
+        self::assertCount(3, $modes);
+        self::assertSame(
+            ['Server-assigned id', 'Client- or path-supplied id', 'Local id (lid)'],
+            \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $modes),
+        );
 
         // The results document requires the `atomic:results` array of AtomicResult.
         self::assertSame([AtomicExtension::RESULTS_MEMBER], $this->listAt($schemas, 'AtomicResultsResponse', 'required'));

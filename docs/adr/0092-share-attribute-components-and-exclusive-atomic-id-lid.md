@@ -25,7 +25,11 @@ create body `$ref`'d it); sharing `<Type>WriteAttributes` makes the two
 consistent.
 
 Separately, an atomic write / resource-identifier object could carry **both**
-`id` and `lid`. A resource is identified by a client/path `id`, a local `lid`, or
-neither (a server-assigned `add`) — never both — so `<Type>AtomicWrite` and the
-generic resource-identifier shape now carry `not: { required: [id, lid] }`
-(rejecting both-present while leaving either-or-neither valid).
+`id` and `lid`. The exclusivity is modelled as a **titled `oneOf`** rather than a
+top-level `not` — a `not` is opaque and renders poorly in docs UIs, whereas a
+`oneOf` of titled sub-schemas renders as a labelled choice. `<Type>AtomicWrite`
+is a three-mode `oneOf` (*Server-assigned id* — neither member; *Client- or
+path-supplied id*; *Local id (lid)*), so a body with both `id` and `lid` matches
+two arms and is rejected while id-only / lid-only / neither (a server-assigned
+`add`) each match exactly one. The generic resource-identifier — which must be
+identified — is a two-mode `oneOf` (*By id* / *By local id*).

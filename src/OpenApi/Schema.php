@@ -121,6 +121,11 @@ final class Schema implements \JsonSerializable
         return $this->with('description', $description);
     }
 
+    public function withTitle(string $title): self
+    {
+        return $this->with('title', $title);
+    }
+
     /**
      * The currently-set description, or `null`.
      */
@@ -292,6 +297,14 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * @param list<self> $schemas
+     */
+    public function withOneOf(array $schemas): self
+    {
+        return $this->with('oneOf', \array_values($schemas));
+    }
+
+    /**
      * Sets a vendor extension keyword. The name is normalized to the `x-` prefix.
      */
     public function withExtension(string $name, mixed $value): self
@@ -329,7 +342,7 @@ final class Schema implements \JsonSerializable
             'minLength', 'maxLength', 'pattern',
             'minItems', 'maxItems', 'uniqueItems', 'items',
             'minProperties', 'maxProperties', 'properties', 'required', 'additionalProperties',
-            'allOf', 'anyOf', 'not',
+            'allOf', 'anyOf', 'oneOf', 'not',
             'example',
         ];
 
