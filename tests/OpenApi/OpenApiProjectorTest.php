@@ -8,6 +8,7 @@ use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\MediaType;
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
@@ -58,8 +59,8 @@ final class OpenApiProjectorTest extends TestCase
             type: 'articles',
             fields: [
                 Id::make(),
-                Str::make('title')->required()->description('The article headline.')->example('Hello'),
-                Str::make('status')->enum(Status::class)->description('Publication status.'),
+                Str::make('title')->required()->describedAs('The article headline.')->example('Hello'),
+                Str::make('status')->enum(Status::class)->describedAs('Publication status.'),
                 Integer::make('wordCount')->nullable(),
             ],
             relations: [
@@ -294,6 +295,104 @@ final class OpenApiProjectorTest extends TestCase
         $relationships = $this->arrAt($schemas, 'ArticlesResource', 'properties', 'relationships', 'properties');
         self::assertSame('#/components/schemas/ArticlesAuthorRelationship', $this->strAt($relationships, 'author', '$ref'));
         self::assertSame('#/components/schemas/ArticlesTagsRelationship', $this->strAt($relationships, 'tags', '$ref'));
+    }
+
+    #[Test]
+    public function theResourceObjectSchemaCarriesADescription(): void
+    {
+        $schemas = $this->schemas();
+
+        // `articles` declared `description: 'A blog article.'` → surfaced verbatim.
+        self::assertSame('A blog article.', $this->strAt($schemas, 'ArticlesResource', 'description'));
+
+        // `tags` declared no description → the generated default naming the type.
+        self::assertSame('An `tags` resource object.', $this->strAt($schemas, 'TagsResource', 'description'));
+
+        // A standalone (fieldless) type's permissive resource object is described too.
+        self::assertSame('An `healthcheck` resource object.', $this->strAt($schemas, 'HealthcheckResource', 'description'));
+    }
+
+    #[Test]
+    public function everyCrudOperationCarriesAGeneratedDescription(): void
+    {
+        $paths = $this->arrAt($this->projector()->project($this->server())->toArray(), 'paths');
+
+        self::assertSame(
+            'Returns a paginated collection of `articles` resources.',
+            $this->strAt($paths, '/articles', 'get', 'description'),
+        );
+        self::assertSame(
+            'Returns a single `articles` resource by its `id`.',
+            $this->strAt($paths, '/articles/{id}', 'get', 'description'),
+        );
+        self::assertSame(
+            'Creates a new `articles` resource from the supplied attributes and relationships.',
+            $this->strAt($paths, '/articles', 'post', 'description'),
+        );
+        self::assertSame(
+            'Updates an existing `articles` resource, applying the supplied attributes and relationships.',
+            $this->strAt($paths, '/articles/{id}', 'patch', 'description'),
+        );
+        self::assertSame(
+            'Deletes the `articles` resource identified by its `id`.',
+            $this->strAt($paths, '/articles/{id}', 'delete', 'description'),
+        );
+    }
+
+    #[Test]
+    public function aDeclaredOperationDescriptionOverridesTheGeneratedDefault(): void
+    {
+        $articles = FakeTypeMetadata::resource(
+            type: 'articles',
+            fields: [Id::make(), Str::make('title')->required()],
+            operationDescriptions: [
+                OperationType::FetchCollection->value => 'Browse the article catalogue.',
+            ],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$articles]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        // The override wins for the one operation it names …
+        self::assertSame('Browse the article catalogue.', $this->strAt($paths, '/articles', 'get', 'description'));
+        // … and the others still get their generated default.
+        self::assertSame(
+            'Returns a single `articles` resource by its `id`.',
+            $this->strAt($paths, '/articles/{id}', 'get', 'description'),
+        );
+    }
+
+    #[Test]
+    public function relatedAndRelationshipOperationsCarryDescriptions(): void
+    {
+        $paths = $this->arrAt($this->projector()->project($this->server())->toArray(), 'paths');
+
+        // `author` declared `'The author.'` → that one description applies to every
+        // endpoint of the relationship (related + relationship + mutations).
+        self::assertSame('The author.', $this->strAt($paths, '/articles/{id}/author', 'get', 'description'));
+        self::assertSame('The author.', $this->strAt($paths, '/articles/{id}/relationships/author', 'get', 'description'));
+        self::assertSame('The author.', $this->strAt($paths, '/articles/{id}/relationships/author', 'patch', 'description'));
+
+        // `tags` declared no description → operation-specific generated defaults.
+        self::assertSame(
+            'Returns the related `tags` resources of a `articles`.',
+            $this->strAt($paths, '/articles/{id}/tags', 'get', 'description'),
+        );
+        self::assertSame(
+            'Returns the `tags` relationship linkage of a `articles`.',
+            $this->strAt($paths, '/articles/{id}/relationships/tags', 'get', 'description'),
+        );
+        self::assertSame(
+            'Fully replaces the `tags` relationship of a `articles` with the supplied linkage.',
+            $this->strAt($paths, '/articles/{id}/relationships/tags', 'patch', 'description'),
+        );
+        self::assertSame(
+            'Adds the supplied members to the `tags` relationship of a `articles`.',
+            $this->strAt($paths, '/articles/{id}/relationships/tags', 'post', 'description'),
+        );
+        self::assertSame(
+            'Removes the supplied members from the `tags` relationship of a `articles`.',
+            $this->strAt($paths, '/articles/{id}/relationships/tags', 'delete', 'description'),
+        );
     }
 
     #[Test]

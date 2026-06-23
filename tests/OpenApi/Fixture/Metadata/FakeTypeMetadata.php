@@ -31,6 +31,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<ActionMetadataInterface>   $actions
      * @param list<string>                    $tags
      * @param list<string>                    $includablePaths
+     * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      */
     public function __construct(
         private readonly string $type,
@@ -50,6 +51,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $includablePaths = [],
         private readonly array $securedOperations = [],
         private readonly ?string $idPattern = null,
+        private readonly array $operationDescriptions = [],
     ) {}
 
     /**
@@ -62,6 +64,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<SortInterface>             $sorts
      * @param list<ActionMetadataInterface>   $actions
      * @param list<string>                    $includablePaths
+     * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      */
     public static function resource(
         string $type,
@@ -80,6 +83,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         array $actions = [],
         array $includablePaths = [],
         ?string $idPattern = null,
+        array $operationDescriptions = [],
     ): self {
         return new self(
             type: $type,
@@ -105,6 +109,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             includablePaths: $includablePaths,
             securedOperations: $securedOperations,
             idPattern: $idPattern,
+            operationDescriptions: $operationDescriptions,
         );
     }
 
@@ -203,6 +208,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function description(): ?string
     {
         return $this->description;
+    }
+
+    public function operationDescription(OperationType $operation): ?string
+    {
+        return $this->operationDescriptions[$operation->value] ?? null;
     }
 
     public function includablePaths(): array

@@ -165,6 +165,7 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'List ' . $type->type(),
+            description: $this->crudOperationDescription($type, OperationType::FetchCollection),
             operationId: 'fetchCollection.' . $type->type(),
             parameters: $parameters,
             security: $this->securityFor($type, OperationType::FetchCollection, $server),
@@ -191,6 +192,7 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'Fetch a ' . $type->type(),
+            description: $this->crudOperationDescription($type, OperationType::FetchOne),
             operationId: 'fetchOne.' . $type->type(),
             parameters: $parameters,
             security: $this->securityFor($type, OperationType::FetchOne, $server),
@@ -224,6 +226,7 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'Create a ' . $type->type(),
+            description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: 'create.' . $type->type(),
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $this->securityFor($type, OperationType::Create, $server),
@@ -249,6 +252,7 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'Update a ' . $type->type(),
+            description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: 'update.' . $type->type(),
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $this->securityFor($type, OperationType::Update, $server),
@@ -265,9 +269,34 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'Delete a ' . $type->type(),
+            description: $this->crudOperationDescription($type, OperationType::Delete),
             operationId: 'delete.' . $type->type(),
             security: $this->securityFor($type, OperationType::Delete, $server),
         );
+    }
+
+    /**
+     * The description for one CRUD operation: the type's declared override (
+     * {@see TypeMetadataInterface::operationDescription()}) when present, else a
+     * generated default describing the operation in terms of the type — fuller than
+     * the terse `summary`.
+     */
+    private function crudOperationDescription(TypeMetadataInterface $type, OperationType $operation): string
+    {
+        $declared = $type->operationDescription($operation);
+        if ($declared !== null) {
+            return $declared;
+        }
+
+        $name = $type->type();
+
+        return match ($operation) {
+            OperationType::FetchCollection => 'Returns a paginated collection of `' . $name . '` resources.',
+            OperationType::FetchOne => 'Returns a single `' . $name . '` resource by its `id`.',
+            OperationType::Create => 'Creates a new `' . $name . '` resource from the supplied attributes and relationships.',
+            OperationType::Update => 'Updates an existing `' . $name . '` resource, applying the supplied attributes and relationships.',
+            OperationType::Delete => 'Deletes the `' . $name . '` resource identified by its `id`.',
+        };
     }
 
     // ---- Relationship & related endpoints (stage B) -----------------------------
@@ -345,6 +374,12 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: 'Fetch the related ' . $relation->name() . ' of a ' . $type->type(),
+            description: $this->relationDescription(
+                $relation,
+                $relation->isToMany()
+                    ? 'Returns the related `' . $relation->name() . '` resources of a `' . $type->type() . '`.'
+                    : 'Returns the related `' . $relation->name() . '` resource of a `' . $type->type() . '` (or `null`).',
+            ),
             operationId: 'fetchRelated.' . $type->type() . '.' . $relation->name(),
             parameters: $parameters,
             // A related read mirrors a fetch — it carries security iff fetch-one does.
@@ -377,6 +412,10 @@ final class OperationProjector
             responses: $this->withErrorResponses($getResponses, ['400', '403', '404', '406', '500']),
             tags: $tags,
             summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
+            description: $this->relationDescription(
+                $relation,
+                'Returns the `' . $relation->name() . '` relationship linkage of a `' . $type->type() . '`.',
+            ),
             operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
             security: $this->securityFor($type, OperationType::FetchOne, $server),
         );
@@ -388,6 +427,7 @@ final class OperationProjector
                 $relation,
                 $server,
                 'Replace the ' . $relation->name() . ' relationship of a ' . $type->type(),
+                'Fully replaces the `' . $relation->name() . '` relationship of a `' . $type->type() . '` with the supplied linkage.',
                 'updateRelationship',
                 $documentRef,
             );
@@ -401,6 +441,7 @@ final class OperationProjector
                     $relation,
                     $server,
                     'Add to the ' . $relation->name() . ' relationship of a ' . $type->type(),
+                    'Adds the supplied members to the `' . $relation->name() . '` relationship of a `' . $type->type() . '`.',
                     'addRelationship',
                     $documentRef,
                 );
@@ -411,6 +452,7 @@ final class OperationProjector
                     $relation,
                     $server,
                     'Remove from the ' . $relation->name() . ' relationship of a ' . $type->type(),
+                    'Removes the supplied members from the `' . $relation->name() . '` relationship of a `' . $type->type() . '`.',
                     'removeRelationship',
                     $documentRef,
                 );
@@ -430,6 +472,7 @@ final class OperationProjector
         RelationMetadataInterface $relation,
         ServerMetadataInterface $server,
         string $summary,
+        string $defaultDescription,
         string $operationPrefix,
         Schema $documentRef,
     ): Operation {
@@ -442,11 +485,23 @@ final class OperationProjector
             responses: $responses,
             tags: $type->tags(),
             summary: $summary,
+            description: $this->relationDescription($relation, $defaultDescription),
             operationId: $operationPrefix . '.' . $type->type() . '.' . $relation->name(),
             requestBody: RequestBody::ofSchema($documentRef),
             // A relationship mutation mirrors an update — secured iff update is.
             security: $this->securityFor($type, OperationType::Update, $server),
         );
+    }
+
+    /**
+     * The description for a relation's related/relationship operation: the relation's
+     * own declared description ({@see RelationMetadataInterface::description()}) when
+     * present — it applies to every endpoint of that relationship — else the
+     * operation-specific generated default.
+     */
+    private function relationDescription(RelationMetadataInterface $relation, string $default): string
+    {
+        return $relation->description() ?? $default;
     }
 
     /**

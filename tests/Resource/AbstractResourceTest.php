@@ -68,6 +68,32 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function theOpenApiDescriptionHooksDefaultToNull(): void
+    {
+        $resource = new PostResource();
+
+        // No declaration → null, letting the OpenAPI generator emit its generated
+        // default for both the resource object and each operation.
+        self::assertNull($resource->getDescription());
+        self::assertNull($resource->describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType::FetchCollection));
+        self::assertNull($resource->describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType::Create));
+    }
+
+    #[Test]
+    public function theOpenApiDescriptionHooksReturnTheOverrideWhenDeclared(): void
+    {
+        $resource = new DescribedResource();
+
+        self::assertSame('A described thing.', $resource->getDescription());
+        self::assertSame(
+            'Browse the things.',
+            $resource->describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType::FetchCollection),
+        );
+        // An operation the override does not name still defers to the generator default.
+        self::assertNull($resource->describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType::Delete));
+    }
+
+    #[Test]
     #[Group('spec:sparse-fieldsets')]
     public function declaredFieldNamesExposesTheFullUnfilteredMemberNamespace(): void
     {
@@ -1464,6 +1490,34 @@ final class SegmentedResource extends AbstractResource
         return [
             Id::make(),
         ];
+    }
+}
+
+/**
+ * A resource overriding the OpenAPI description hooks — exercises that an author's
+ * declared resource-object and per-operation descriptions are returned verbatim.
+ */
+final class DescribedResource extends AbstractResource
+{
+    public static string $type = 'things';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+        ];
+    }
+
+    public function getDescription(): string
+    {
+        return 'A described thing.';
+    }
+
+    public function describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType $op): ?string
+    {
+        return $op === \haddowg\JsonApi\OpenApi\Metadata\OperationType::FetchCollection
+            ? 'Browse the things.'
+            : null;
     }
 }
 

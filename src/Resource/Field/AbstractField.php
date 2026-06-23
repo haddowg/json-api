@@ -558,7 +558,7 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
      *
      * @return static
      */
-    public function description(string $description): static
+    public function describedAs(string $description): static
     {
         $this->description = $description;
 

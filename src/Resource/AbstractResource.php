@@ -249,6 +249,33 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return static::$uriType !== '' ? static::$uriType : static::$type;
     }
 
+    /**
+     * An optional human-readable description for this resource's **resource object**,
+     * surfaced on its OpenAPI component schema. Returning `null` (the default) lets
+     * the generator emit a sensible generated default naming the type. Override to
+     * supply your own.
+     *
+     * Consumed by the bundle's OpenAPI metadata source, not core's projector (core
+     * projects from {@see \haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface}).
+     */
+    public function getDescription(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * An optional human-readable description for one of this resource's CRUD
+     * operations, surfaced on that operation in the generated OpenAPI document.
+     * Returning `null` (the default) lets the generator emit a sensible generated
+     * default describing the operation. Override to supply your own per operation.
+     *
+     * Consumed by the bundle's OpenAPI metadata source, not core's projector.
+     */
+    public function describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType $op): ?string
+    {
+        return null;
+    }
+
     public function getId(mixed $object): string
     {
         $idField = $this->idField();

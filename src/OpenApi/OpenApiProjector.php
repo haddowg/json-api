@@ -205,9 +205,9 @@ final class OpenApiProjector
         // object schema, never a broken empty one).
         if ($type->hasFields()) {
             $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, false, $collector);
-            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, false, $collector);
+            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, false, $collector, $type->description());
         } else {
-            $resource = $this->permissiveResourceObject($type->type());
+            $resource = $this->permissiveResourceObject($type->type(), $type->description());
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
         $schemas[$name . 'Resource'] = $resource;
@@ -640,14 +640,15 @@ final class OpenApiProjector
      * Like the field-backed resource object this is a **response** shape, so it
      * requires both `type` and `id` (JSON:API 1.1 §7.2).
      */
-    private function permissiveResourceObject(string $type): Schema
+    private function permissiveResourceObject(string $type, ?string $description = null): Schema
     {
         return Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type))
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('attributes', Schema::ofType('object'))
             ->withProperty('meta', Schema::ofType('object'))
-            ->withRequired(['type', 'id']);
+            ->withRequired(['type', 'id'])
+            ->withDescription($description ?? SchemaProjector::resourceObjectDescription($type));
     }
 
     /**

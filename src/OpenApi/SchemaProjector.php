@@ -200,9 +200,12 @@ final class SchemaProjector
      * client-id-on-create policy is modelled separately by the create / update
      * request schemas).
      *
+     * The schema carries a `description`: the type's own ($description) when the
+     * author declared one, else a generated default naming the type.
+     *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
+    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null, ?string $description = null): Schema
     {
         $fields = \is_array($fields) ? $fields : \iterator_to_array($fields, false);
 
@@ -217,7 +220,17 @@ final class SchemaProjector
 
         return Schema::ofType('object')
             ->withProperties($properties)
-            ->withRequired(['type', 'id']);
+            ->withRequired(['type', 'id'])
+            ->withDescription($description ?? self::resourceObjectDescription($type));
+    }
+
+    /**
+     * The generated default description for a type's resource object, used when the
+     * author declared none.
+     */
+    public static function resourceObjectDescription(string $type): string
+    {
+        return 'An `' . $type . '` resource object.';
     }
 
     /**

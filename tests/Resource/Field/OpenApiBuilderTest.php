@@ -23,7 +23,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function descriptionAndExampleSurfaceThroughGetters(): void
     {
-        $field = Str::make('name')->description('The display name')->example('Ada');
+        $field = Str::make('name')->describedAs('The display name')->example('Ada');
 
         self::assertSame('The display name', $field->getDescription());
         self::assertTrue($field->hasExample());

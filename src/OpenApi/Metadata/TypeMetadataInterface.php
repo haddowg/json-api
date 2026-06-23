@@ -148,10 +148,20 @@ interface TypeMetadataInterface
     public function tags(): array;
 
     /**
-     * A human-readable description for the type, surfaced on its operations /
-     * resource schema, or `null`.
+     * A human-readable description for the type, surfaced on its resource-object
+     * schema, or `null`. When `null` the projector emits a generated default naming
+     * the type.
      */
     public function description(): ?string;
+
+    /**
+     * A human-readable description for one of this type's CRUD operations, surfaced
+     * on that operation, or `null`. When `null` the projector emits a generated
+     * default describing the operation. Independent of {@see description()} (which
+     * describes the resource object), so a per-operation override never leaks into
+     * the schema and vice versa.
+     */
+    public function operationDescription(OperationType $operation): ?string;
 
     /**
      * The relationship paths a `?include` may request for this type (respecting the

@@ -457,7 +457,7 @@ final class SchemaProjectorTest extends TestCase
     public function authorDescriptionPrecedesDegradationNotes(): void
     {
         $field = Integer::make('end')
-            ->description('The end value.')
+            ->describedAs('The end value.')
             ->compareWith('start', Comparison::GreaterThan);
         $schema = $this->project($field);
 
@@ -471,7 +471,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function descriptionAndExampleSurfaceOnTheSchema(): void
     {
-        $schema = $this->project(Str::make('name')->description('A name')->example('Ada'));
+        $schema = $this->project(Str::make('name')->describedAs('A name')->example('Ada'));
 
         self::assertSame('A name', $this->at($schema, 'description'));
         self::assertSame('Ada', $this->at($schema, 'example'));
@@ -535,6 +535,24 @@ final class SchemaProjectorTest extends TestCase
         $id = $this->at($schema, 'properties', 'id');
         self::assertIsArray($id);
         self::assertArrayHasKey('pattern', $id);
+    }
+
+    #[Test]
+    public function resourceObjectFallsBackToAGeneratedDescriptionWhenNoneIsDeclared(): void
+    {
+        $schema = $this->projector()->projectResourceObject('articles', $this->fields())->toArray();
+
+        self::assertSame('An `articles` resource object.', $this->at($schema, 'description'));
+    }
+
+    #[Test]
+    public function resourceObjectSurfacesTheDeclaredDescription(): void
+    {
+        $schema = $this->projector()
+            ->projectResourceObject('articles', $this->fields(), false, null, 'A blog article.')
+            ->toArray();
+
+        self::assertSame('A blog article.', $this->at($schema, 'description'));
     }
 
     /**
