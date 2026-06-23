@@ -52,34 +52,11 @@ final class MorphToMany extends AbstractRelation
             $relationship->setData($this->relatedValue($model, $request, $this->name), $serializer);
         }
 
-        if ($this->includesLinks) {
-            $relationship->withConventionLinks(
-                $this->uriFieldName(),
-                $this->exposesRelationshipEndpoint,
-                $this->exposesRelatedEndpoint,
-            );
-        }
-
-        // The general relationship-meta hook (its first consumer is the countable
-        // `meta.total`), mirroring AbstractRelation::buildToMany — so a countable
-        // polymorphic to-many named in `?withCount` renders its cardinality too
-        // (core ADR 0057). The count value is supplied per (model, relation) by an
-        // injected RelationshipCountInterface; with none injected this is empty.
-        $meta = $this->relationshipMeta($model, $request, $resolver);
-        if ($meta !== []) {
-            $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
-        }
-
-        // The relationship-object pagination links under the Relationship Queries
-        // profile, mirroring AbstractRelation::buildToMany — supplied per
-        // (model, relation) by an injected RelationshipPaginationInterface; with
-        // none injected this is null and no links are emitted.
-        $pagination = $this->resolvePagination($model, $request, $resolver);
-        if ($pagination !== null) {
-            $relationship->withPagination($pagination);
-        }
-
-        $this->applyIdentifierMeta($relationship, $model, $request);
+        // Convention links, the relationship-meta hook (its first consumer is the
+        // countable `meta.total`, core ADR 0057 — so a countable polymorphic to-many
+        // named in `?withCount` renders its cardinality), identifier meta, and the
+        // Relationship-Queries pagination links — the shared to-many tail.
+        $this->finalizeToMany($relationship, $model, $request, $resolver);
 
         return $relationship;
     }
