@@ -215,6 +215,30 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function perPageShorthandDrivesAPageBasedPaginator(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'sized';
+
+            protected ?int $perPage = 5;
+
+            protected ?int $maxPerPage = 20;
+
+            public function fields(): array
+            {
+                return [Id::make()];
+            }
+        };
+
+        $serverDefault = PagePaginator::make()->withDefaultPerPage(99);
+        $paginator = $resource->pagination($serverDefault);
+
+        // $perPage drives a fresh page-based paginator, NOT the inherited server default.
+        self::assertInstanceOf(PagePaginator::class, $paginator);
+        self::assertNotSame($serverDefault, $paginator);
+    }
+
+    #[Test]
     public function paginationOverrideIsUsedVerbatim(): void
     {
         $resource = new PostResource();
