@@ -35,12 +35,32 @@ final class Schema implements \JsonSerializable
     private array $extensions = [];
 
     /**
+     * Whether this is the boolean `false` schema (see {@see never()}).
+     */
+    private bool $isNever = false;
+
+    /**
      * A bare object node (`{}`) — the permissive default. Use the type factories
      * for a concrete type.
      */
     public static function create(): self
     {
         return new self();
+    }
+
+    /**
+     * The boolean `false` schema (JSON Schema 2020-12 / OpenAPI 3.1): it validates
+     * **nothing**, so as a property value it forbids that property. It serialises to
+     * a bare `false` rather than an object — `{"properties": {"id": false}}` reads as
+     * "the `id` member must be absent". Only meaningful as a sub-schema (a property
+     * value or list member), never a standalone document node.
+     */
+    public static function never(): self
+    {
+        $self = new self();
+        $self->isNever = true;
+
+        return $self;
     }
 
     /**
@@ -405,7 +425,7 @@ final class Schema implements \JsonSerializable
     private static function convertValue(mixed $value): mixed
     {
         if ($value instanceof self) {
-            return $value->toJson();
+            return $value->isNever ? false : $value->toJson();
         }
 
         if (\is_array($value)) {
@@ -430,7 +450,7 @@ final class Schema implements \JsonSerializable
     private static function normalize(mixed $value): mixed
     {
         if ($value instanceof self) {
-            return $value->toArray();
+            return $value->isNever ? false : $value->toArray();
         }
 
         if (\is_array($value)) {

@@ -546,28 +546,37 @@ final class OpenApiProjectorTest extends TestCase
         self::assertContains('op', $this->listAt($schemas, 'AtomicOperation', 'required'));
         self::assertSame(['type'], $this->listAt($schemas, 'AtomicOperation', 'properties', 'ref', 'required'));
 
-        // The operation `data` anyOf references the participating types' **write**
-        // resource components (faithful and write-shaped, not the id-requiring read
-        // shape). Each `<Type>AtomicWrite` requires only `type`, so a no-id / local-id
-        // create validates (see itValidatesRealAtomicWriteWireShapes()).
+        // The operation `data` anyOf references each type's discrete `add` and
+        // `update` resource components (write-shaped, not the id-requiring read shape).
         $operationData = $this->listAt($schemas, 'AtomicOperation', 'properties', 'data', 'anyOf');
         $refs = $this->refsIn($operationData);
-        self::assertContains('#/components/schemas/ArticlesAtomicWrite', $refs);
-        self::assertContains('#/components/schemas/PeopleAtomicWrite', $refs);
+        self::assertContains('#/components/schemas/ArticlesAtomicAdd', $refs);
+        self::assertContains('#/components/schemas/ArticlesAtomicUpdate', $refs);
+        self::assertContains('#/components/schemas/PeopleAtomicAdd', $refs);
+        self::assertContains('#/components/schemas/PeopleAtomicUpdate', $refs);
         self::assertNotContains('#/components/schemas/ArticlesResource', $refs);
 
-        // The write component itself: an object requiring only `type` (id/lid/
-        // attributes/relationships all optional).
-        self::assertArrayHasKey('ArticlesAtomicWrite', $schemas);
-        self::assertSame(['type'], $this->listAt($schemas, 'ArticlesAtomicWrite', 'required'));
-        self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicWrite', 'properties'));
-        // `id`/`lid` exclusivity is a titled three-mode `oneOf` (server-assigned / id /
-        // lid) — a UI-renderable choice rather than an opaque top-level `not`.
-        $modes = $this->listAt($schemas, 'ArticlesAtomicWrite', 'oneOf');
-        self::assertCount(3, $modes);
+        // `articles` forbids a client id, so its **add** forbids `id` (a `false` schema,
+        // server-assigned) and needs no id/lid choice; `lid` stays optional.
+        self::assertSame(['type'], $this->listAt($schemas, 'ArticlesAtomicAdd', 'required'));
+        self::assertFalse($this->at($schemas, 'ArticlesAtomicAdd', 'properties', 'id'));
+        self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicAdd', 'properties'));
+        self::assertArrayNotHasKey('oneOf', $this->arrAt($schemas, 'ArticlesAtomicAdd'));
+
+        // `people` allows a client id, so its **add** offers `id` and a titled three-mode
+        // `oneOf` (client id / local id / server-assigned).
+        self::assertSame('string', $this->strAt($schemas, 'PeopleAtomicAdd', 'properties', 'id', 'type'));
         self::assertSame(
-            ['Server-assigned id', 'Client- or path-supplied id', 'Local id (lid)'],
-            \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $modes),
+            ['Client-supplied id', 'Local id (lid)', 'Server-assigned id'],
+            \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $this->listAt($schemas, 'PeopleAtomicAdd', 'oneOf')),
+        );
+
+        // An **update** is partial (read-shape attributes, no `required`) and identifies
+        // the target by id / lid / ref-or-href — a titled three-mode `oneOf`.
+        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
+        self::assertSame(
+            ['By id', 'By local id (lid)', 'Targeted by ref/href'],
+            \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $this->listAt($schemas, 'ArticlesAtomicUpdate', 'oneOf')),
         );
 
         // The results document requires the `atomic:results` array of AtomicResult.
@@ -642,8 +651,8 @@ final class OpenApiProjectorTest extends TestCase
     public function itSharesAttributeComponentsAcrossReadAndWriteSchemas(): void
     {
         // The read-shape `<Type>Attributes` is referenced (never inlined or orphaned) by
-        // the resource object and the update request; the write-shape
-        // `<Type>WriteAttributes` by the create request and the atomic write object.
+        // the resource object, the update request and the atomic **update**; the
+        // write-shape `<Type>WriteAttributes` by the create request and the atomic **add**.
         $schemas = $this->arrAt(
             $this->projector()->project($this->serverWithAtomic())->toArray(),
             'components',
@@ -652,8 +661,9 @@ final class OpenApiProjectorTest extends TestCase
 
         self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesResource', 'properties', 'attributes', '$ref'));
         self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
         self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesAtomicWrite', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesAtomicAdd', 'properties', 'attributes', '$ref'));
 
         // The two components carry the real shapes (read has no required; write requires
         // the declared-required field) and the read one is no longer an inlined duplicate.

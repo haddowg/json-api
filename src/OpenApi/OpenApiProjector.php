@@ -203,11 +203,11 @@ final class OpenApiProjector
 
         // Attributes + resource object (a fieldless standalone type gets a permissive
         // object schema, never a broken empty one). Two shared attributes components
-        // are emitted and `$ref`'d rather than inlined four times: the **read** shape
-        // (`<Type>Attributes`, no `required`) is shared by the resource object and the
-        // update request body; the **write** shape (`<Type>WriteAttributes`, with the
-        // create-context `required`) is shared by the create request and — when the
-        // atomic extension is enabled — the `<Type>AtomicWrite` resource object.
+        // are emitted and `$ref`'d rather than inlined: the **read** shape
+        // (`<Type>Attributes`, no `required`) is shared by the resource object, the
+        // update request body and the atomic **update**; the **write** shape
+        // (`<Type>WriteAttributes`, with the create-context `required`) by the create
+        // request and the atomic **add**.
         if ($type->hasFields()) {
             $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, false, $collector);
             $schemas[$name . 'WriteAttributes'] = $this->schemaProjector->projectAttributes($fields, true, $collector);
@@ -344,13 +344,16 @@ final class OpenApiProjector
      */
     private function addAtomicComponents(array &$schemas, ServerMetadataInterface $server): void
     {
-        // A per-type **write** resource object the operation `data` carries for an
-        // `add`/`update` (require only `type`; id/lid/attributes/relationships
-        // optional) — distinct from the read-shape `<Type>Resource` (which requires
-        // `id`), so the projected request schema accepts the real create wire
-        // (no-id and local-id creates).
+        // `add` and `update` are **discrete** write shapes — they differ in their
+        // attributes (an `add` offers the create-context attributes with their
+        // `required`; an `update` is partial, no `required`) and in identification (an
+        // `add` may carry a client `id` only where the type allows it; an `update`
+        // identifies an existing resource by `id`/`lid`). One fused `<Type>AtomicWrite`
+        // could express neither precisely, so the two are projected separately.
         foreach ($server->types() as $type) {
-            $schemas[$this->componentBase($type->type()) . 'AtomicWrite'] = $this->atomicWriteSchema($type);
+            $base = $this->componentBase($type->type());
+            $schemas[$base . 'AtomicAdd'] = $this->atomicAddSchema($type);
+            $schemas[$base . 'AtomicUpdate'] = $this->atomicUpdateSchema($type);
         }
 
         $schemas['AtomicOperation'] = $this->atomicOperationSchema($server);
@@ -360,42 +363,78 @@ final class OpenApiProjector
     }
 
     /**
-     * The write resource object an atomic `add`/`update` operation carries for a
-     * given type: `type` (const) plus the **optional** `id`, `lid`, `attributes`
-     * (create-context projection, so every writable attribute is offered) and
-     * `relationships`. Unlike the response-shape `<Type>Resource`, only `type` is
-     * required — so a no-id create (`{type, attributes}`, the valid wire for a type
-     * with `allowsClientId=false`), a local-id create (`{type, lid, attributes}`)
-     * and a client-id create all validate.
+     * The resource object an atomic **`add`** carries: `type` (const), the
+     * create-context `attributes` (`<Type>WriteAttributes`, with their `required`),
+     * `relationships`, and an optional `lid` to reference the created resource later
+     * in the batch. A client `id` is offered **only** where the type allows one
+     * ({@see TypeMetadataInterface::allowsClientId()}); there it is mutually exclusive
+     * with `lid` (a titled `oneOf`: client id / local id / server-assigned). Where a
+     * client id is not allowed, `id` is **forbidden** (a `false` schema) so a server
+     * assigns it — exactly mirroring the standalone `<Type>CreateRequest`.
      */
-    private function atomicWriteSchema(TypeMetadataInterface $type): Schema
+    private function atomicAddSchema(TypeMetadataInterface $type): Schema
     {
+        $base = $this->componentBase($type->type());
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
-            ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id assigned to a resource created in this batch, referenceable by later operations.'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id assigned to the created resource, referenceable by later operations in the batch.'))
             ->withProperty('attributes', $type->hasFields()
-                ? Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'WriteAttributes')
+                ? Schema::ref('#/components/schemas/' . $base . 'WriteAttributes')
                 : Schema::ofType('object'))
             ->withProperty('relationships', Schema::ofType('object'))
             ->withRequired(['type'])
-            // A resource is identified exactly one of three ways — never by both `id`
-            // and `lid`. A titled `oneOf` renders the choice in a docs UI; a body with
-            // both `id` and `lid` matches two arms, so the `oneOf` rejects it.
-            ->withOneOf([
-                Schema::create()->withTitle('Server-assigned id')
-                    ->withDescription('Neither `id` nor `lid` — the server assigns the id (a plain `add`).')
-                    ->withNot(Schema::create()->withAnyOf([
-                        Schema::create()->withRequired(['id']),
-                        Schema::create()->withRequired(['lid']),
-                    ])),
-                Schema::create()->withTitle('Client- or path-supplied id')->withRequired(['id']),
-                Schema::create()->withTitle('Local id (lid)')
-                    ->withDescription('A local id, referenceable by later operations in the batch.')
-                    ->withRequired(['lid']),
-            ]);
+            ->withDescription('The resource object an `add` operation creates.');
 
-        return $resource->withDescription('The resource object an `add` or `update` operation writes. Carries `type` and an id by `id` (a client- or path-supplied id) or `lid` (a local id), plus the `attributes` / `relationships` being written.');
+        if ($type->allowsClientId()) {
+            // A client `id` is permitted: `id`, `lid`, or neither (server-assigned),
+            // never both.
+            return $resource
+                ->withProperty('id', Schema::ofType('string'))
+                ->withOneOf([
+                    Schema::create()->withTitle('Client-supplied id')->withRequired(['id']),
+                    Schema::create()->withTitle('Local id (lid)')->withRequired(['lid']),
+                    Schema::create()->withTitle('Server-assigned id')
+                        ->withProperty('id', Schema::never())
+                        ->withProperty('lid', Schema::never()),
+                ]);
+        }
+
+        // No client id: `id` must be absent (the server assigns it); `lid` stays
+        // optional, so no further choice is needed.
+        return $resource->withProperty('id', Schema::never());
+    }
+
+    /**
+     * The resource object an atomic **`update`** carries: `type` (const), the
+     * **partial** `attributes` (`<Type>Attributes`, no `required` — an absent member
+     * means "no change", as in `<Type>UpdateRequest`), `relationships`, and the target
+     * identification by `id` or `lid` (a resource created earlier in the batch), or
+     * neither when the operation targets via its `ref`/`href` instead. A titled
+     * `oneOf` makes that an explicit choice and rejects a body carrying both `id` and
+     * `lid`.
+     */
+    private function atomicUpdateSchema(TypeMetadataInterface $type): Schema
+    {
+        $base = $this->componentBase($type->type());
+
+        return Schema::ofType('object')
+            ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('The local id of a resource created earlier in the batch.'))
+            ->withProperty('attributes', $type->hasFields()
+                ? Schema::ref('#/components/schemas/' . $base . 'Attributes')
+                : Schema::ofType('object'))
+            ->withProperty('relationships', Schema::ofType('object'))
+            ->withRequired(['type'])
+            ->withDescription('The resource object an `update` operation writes.')
+            ->withOneOf([
+                Schema::create()->withTitle('By id')->withRequired(['id']),
+                Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
+                Schema::create()->withTitle('Targeted by ref/href')
+                    ->withDescription('Neither `id` nor `lid` in `data` — the operation targets the resource by its `ref` or `href`.')
+                    ->withProperty('id', Schema::never())
+                    ->withProperty('lid', Schema::never()),
+            ]);
     }
 
     /**
@@ -419,10 +458,10 @@ final class OpenApiProjector
     /**
      * The `AtomicOperation` object: the operation `op` (the required `add`/`update`/
      * `remove` code), the target (`ref` **or** `href` — exactly one), and the `data`
-     * payload (modelled as an `anyOf` over the participating types' `<Type>AtomicWrite`
-     * shapes and a resource-identifier shape; absent for a `remove`). The id-vs-lid and
-     * ref-vs-href exclusivities are runtime constraints described in prose (OAS cannot
-     * express "exactly one of these optional members").
+     * payload (modelled as an `anyOf` over the participating types' discrete
+     * `<Type>AtomicAdd` / `<Type>AtomicUpdate` shapes and a resource-identifier shape;
+     * absent for a `remove`). The id-vs-lid exclusivity is expressed in those shapes'
+     * `oneOf`; the ref-vs-href exclusivity stays a runtime constraint described in prose.
      */
     private function atomicOperationSchema(ServerMetadataInterface $server): Schema
     {
@@ -482,20 +521,20 @@ final class OpenApiProjector
 
     /**
      * The `data` payload of an atomic **operation**: an `anyOf` of the participating
-     * types' **write**-resource shapes (each type's `<Type>AtomicWrite`, requiring only
-     * `type` so a no-id / local-id create validates) for an `add`/`update`, plus the
-     * relationship-linkage payload shapes a relationship operation carries — a single
-     * identifier (to-one; id or lid), `null` (a to-one cleared), and an array of
-     * identifiers (to-many). When the server registers no types, a generic JSON:API
-     * resource stands in.
+     * types' discrete **`add`** and **`update`** resource shapes (`<Type>AtomicAdd` /
+     * `<Type>AtomicUpdate`), plus the relationship-linkage payload shapes a
+     * relationship operation carries — a single identifier (to-one; id or lid), `null`
+     * (a to-one cleared), and an array of identifiers (to-many). When the server
+     * registers no types, a generic JSON:API resource stands in.
      */
     private function atomicOperationDataSchema(ServerMetadataInterface $server): Schema
     {
         $members = [];
         foreach ($server->types() as $type) {
-            // The write resource object an `add`/`update` carries (the per-type
-            // write shape, requiring only `type`).
-            $members[] = Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'AtomicWrite');
+            // The discrete `add` and `update` resource objects an operation carries.
+            $base = $this->componentBase($type->type());
+            $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicAdd');
+            $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicUpdate');
         }
 
         if ($members === []) {
