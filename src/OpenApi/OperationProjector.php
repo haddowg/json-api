@@ -414,10 +414,17 @@ final class OperationProjector
 
         // GET — read the relationship linkage (mirrors a fetch). A **to-one**
         // relationship endpoint honours the related resource's `filter[]` vocabulary
-        // (a relation filter that excludes the target nulls the linkage); a **to-many**
-        // relationship endpoint returns the whole linkage and takes no query filters.
+        // (a relation filter that excludes the target nulls the linkage). A **to-many**
+        // relationship endpoint is a real queryable, paginated linkage collection at
+        // parity with the related endpoint: `filter[]`/`sort`/`page` scope against the
+        // same merged vocabulary, the page-1 linkage rendering with the relationship
+        // object's pagination links (ADR 0096).
         $getParameters = $relation->isToMany()
-            ? []
+            ? $this->concatParameters(
+                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
+                $this->pageParameters($relation->paginatorKind()),
+            )
             : $this->filterParameters($this->relatedFilterVocabulary($relation, $server));
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));

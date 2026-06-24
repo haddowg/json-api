@@ -196,11 +196,20 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/author', 'get');
         self::assertContains('filter[name]', $this->parameterNames($relationship));
+        self::assertNotContains('sort', $this->parameterNames($relationship));
+        self::assertNotContains('page[number]', $this->parameterNames($relationship));
 
-        // A to-MANY relationship (linkage) endpoint returns the whole linkage and takes
-        // no query filters at all.
+        // A to-MANY relationship (linkage) endpoint is a real queryable, paginated
+        // linkage collection at parity with the related endpoint (ADR 0096): it carries
+        // the merged `filter[]`/`sort`/`page` vocabulary — but not `include`/`fields`,
+        // since a relationship endpoint renders linkage, not the related resources.
         $toManyRel = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'get');
-        self::assertArrayNotHasKey('parameters', $toManyRel);
+        $toManyNames = $this->parameterNames($toManyRel);
+        self::assertContains('filter[color]', $toManyNames);
+        self::assertContains('filter[label]', $toManyNames);
+        self::assertContains('sort', $toManyNames);
+        self::assertContains('page[number]', $toManyNames);
+        self::assertNotContains('include', $toManyNames);
     }
 
     #[Test]
