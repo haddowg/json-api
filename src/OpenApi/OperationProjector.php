@@ -353,8 +353,8 @@ final class OperationProjector
         if ($relation->isToMany()) {
             $responseRef = $this->relatedCollectionResponseRef($relation, $relBase);
             $parameters = $this->concatParameters(
-                $this->filterParameters($relation->filters()),
-                [$this->sortParameter($relation->sorts())],
+                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->paginatorKind()),
@@ -362,7 +362,14 @@ final class OperationProjector
             $successDescription = 'The related ' . $relation->name() . ' collection.';
         } else {
             $responseRef = Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedDocument'));
-            $parameters = $this->concatParameters([$includeParameter], $fieldsParameters);
+            // A to-one related endpoint honours the related resource's `filter[]`
+            // vocabulary (a relation filter that excludes the target nulls the
+            // linkage), but not `sort`/`page` (those `400` on a to-one path).
+            $parameters = $this->concatParameters(
+                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                [$includeParameter],
+                $fieldsParameters,
+            );
             $successDescription = 'The related ' . $relation->name() . ' resource (or `null`).';
         }
 
@@ -405,7 +412,13 @@ final class OperationProjector
 
         $operations = [];
 
-        // GET — read the relationship linkage (mirrors a fetch).
+        // GET — read the relationship linkage (mirrors a fetch). A **to-one**
+        // relationship endpoint honours the related resource's `filter[]` vocabulary
+        // (a relation filter that excludes the target nulls the linkage); a **to-many**
+        // relationship endpoint returns the whole linkage and takes no query filters.
+        $getParameters = $relation->isToMany()
+            ? []
+            : $this->filterParameters($this->relatedFilterVocabulary($relation, $server));
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
         $operations['get'] = new Operation(
@@ -417,6 +430,7 @@ final class OperationProjector
                 'Returns the `' . $relation->name() . '` relationship linkage of a `' . $type->type() . '`.',
             ),
             operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
+            parameters: $getParameters,
             security: $this->securityFor($type, OperationType::FetchOne, $server),
         );
 
@@ -856,6 +870,67 @@ final class OperationProjector
         }
 
         return $parameters;
+    }
+
+    /**
+     * The related metadata for a **monomorphic** relation's single related type, or
+     * `null` (a polymorphic relation has no single related type, so no shared
+     * filter/sort vocabulary).
+     */
+    private function relatedTypeMetadata(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?TypeMetadataInterface
+    {
+        $types = $relation->relatedTypes();
+        if (\count($types) !== 1) {
+            return null;
+        }
+        foreach ($server->types() as $candidate) {
+            if ($candidate->type() === $types[0]) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The filter vocabulary a related / relationship endpoint honours: the **related
+     * resource's own** filters merged with the relation's relation-scoped
+     * ({@see RelationMetadataInterface::filters()}) ones — the relation wins on a key
+     * collision, mirroring the runtime's merged criteria. A polymorphic relation has
+     * no shared vocabulary, so only its own (typically empty) filters apply.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    private function relatedFilterVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    {
+        $byKey = [];
+        foreach ($this->relatedTypeMetadata($relation, $server)?->filters() ?? [] as $filter) {
+            $byKey[$filter->key()] = $filter;
+        }
+        foreach ($relation->filters() as $filter) {
+            $byKey[$filter->key()] = $filter;
+        }
+
+        return \array_values($byKey);
+    }
+
+    /**
+     * The sort vocabulary a related to-many endpoint honours (the related resource's
+     * own sorts merged with the relation's), mirroring {@see relatedFilterVocabulary()}.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
+     */
+    private function relatedSortVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    {
+        $byKey = [];
+        foreach ($this->relatedTypeMetadata($relation, $server)?->sorts() ?? [] as $sort) {
+            $byKey[$sort->key()] = $sort;
+        }
+        foreach ($relation->sorts() as $sort) {
+            $byKey[$sort->key()] = $sort;
+        }
+
+        return \array_values($byKey);
     }
 
     /**

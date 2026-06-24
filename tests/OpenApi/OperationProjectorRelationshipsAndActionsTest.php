@@ -90,6 +90,9 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             fields: [Id::make(), Str::make('name')],
             relations: [new FakeRelationMetadata('company', ['companies'], false)],
             tags: ['People'],
+            // The related resource's own filter — honoured on the `author` to-one's
+            // related and relationship endpoints (proves the to-one filter projection).
+            filters: [Where::make('name')],
         );
         // `tags` declares `articles` as an includable relation so the related-endpoint
         // `?include=articles` and the widened `fields[articles]` both resolve.
@@ -98,6 +101,10 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             fields: [Id::make(), Str::make('label')],
             relations: [new FakeRelationMetadata('articles', ['articles'], true)],
             tags: ['Tags'],
+            // The related resource's OWN filter/sort — merged with the relation's
+            // `label` filter on the `tags` related endpoint (proves the merge).
+            filters: [Where::make('color')],
+            sorts: [SortByField::make('id')],
         );
         $images = FakeTypeMetadata::resource(type: 'images', fields: [Id::make(), Str::make('url')], tags: ['Media']);
         $videos = FakeTypeMetadata::resource(type: 'videos', fields: [Id::make(), Str::make('url')], tags: ['Media']);
@@ -158,13 +165,42 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             $this->strAt($get, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
 
-        // The relation's own filter/sort + the related-scoped include + the relation paginator.
+        // The related endpoint honours the MERGED vocabulary — the related `tags`
+        // resource's own `filter[color]` AND the relation-scoped `filter[label]` — plus
+        // the related-scoped include and the relation paginator.
         $names = $this->parameterNames($get);
+        self::assertContains('filter[color]', $names);
         self::assertContains('filter[label]', $names);
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
         self::assertContains('page[number]', $names);
         self::assertContains('page[size]', $names);
+
+        // The `sort` enum unions the related resource's own (`id`/`-id`) and the
+        // relation's (`label`/`-label`) sortable tokens.
+        $sortTokens = $this->listAt($this->parameterNamed($get, 'sort'), 'schema', 'items', 'enum');
+        self::assertContains('id', $sortTokens);
+        self::assertContains('label', $sortTokens);
+    }
+
+    #[Test]
+    public function aToOneRelatedAndRelationshipEndpointCarryTheRelatedFilterVocabulary(): void
+    {
+        // `GET /articles/{id}/author` and `…/relationships/author` honour a relation
+        // filter that nulls the to-one when it excludes the target — so both project the
+        // related `people` resource's `filter[name]` (but no sort/page on a to-one).
+        $related = $this->arrAt($this->paths(), '/articles/{id}/author', 'get');
+        self::assertContains('filter[name]', $this->parameterNames($related));
+        self::assertNotContains('sort', $this->parameterNames($related));
+        self::assertNotContains('page[number]', $this->parameterNames($related));
+
+        $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/author', 'get');
+        self::assertContains('filter[name]', $this->parameterNames($relationship));
+
+        // A to-MANY relationship (linkage) endpoint returns the whole linkage and takes
+        // no query filters at all.
+        $toManyRel = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'get');
+        self::assertArrayNotHasKey('parameters', $toManyRel);
     }
 
     #[Test]
