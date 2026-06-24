@@ -225,6 +225,68 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     }
 
     #[Test]
+    public function negotiationAndAuthErrorStatusesMatchTheRuntime(): void
+    {
+        $paths = $this->paths();
+
+        // A secured write advertises 401 (unauthenticated) alongside 403, plus 406 (every
+        // verb negotiates the Accept header).
+        $create = $this->arrAt($paths, '/articles', 'post');
+        self::assertArrayHasKey('401', $this->arrAt($create, 'responses'));
+        self::assertArrayHasKey('406', $this->arrAt($create, 'responses'));
+
+        // An UNsecured operation (the collection read — FetchCollection is never secured)
+        // advertises no 401.
+        $list = $this->arrAt($paths, '/articles', 'get');
+        self::assertArrayNotHasKey('401', $this->arrAt($list, 'responses'));
+
+        // A secured `None`-input action: 401 + 406 + 415 (it negotiates content-type).
+        $publish = $this->arrAt($paths, '/articles/{id}/-actions/publish', 'post');
+        self::assertArrayHasKey('401', $this->arrAt($publish, 'responses'));
+        self::assertArrayHasKey('406', $this->arrAt($publish, 'responses'));
+        self::assertArrayHasKey('415', $this->arrAt($publish, 'responses'));
+
+        // A `Raw`-input action relaxes content-type: 406 but no 415; unsecured so no 401.
+        $import = $this->arrAt($paths, '/articles/-actions/import', 'post');
+        self::assertArrayHasKey('406', $this->arrAt($import, 'responses'));
+        self::assertArrayNotHasKey('415', $this->arrAt($import, 'responses'));
+        self::assertArrayNotHasKey('401', $this->arrAt($import, 'responses'));
+    }
+
+    #[Test]
+    public function aRelationshipMutationAdvertisesOnly200NotAnUnreachable204(): void
+    {
+        // The handler always echoes the linkage (`200`); it never returns `204` for these
+        // arms, so the document must not advertise a `204` it cannot produce.
+        $patch = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'patch');
+        $responses = $this->arrAt($patch, 'responses');
+        self::assertArrayHasKey('200', $responses);
+        self::assertArrayNotHasKey('204', $responses);
+        // A relationship mutation is secured iff update is, so it carries 401 + 406.
+        self::assertArrayHasKey('401', $responses);
+        self::assertArrayHasKey('406', $responses);
+    }
+
+    #[Test]
+    public function aCountableEndpointAdvertisesTheWithCountParameter(): void
+    {
+        // `tags` is countable(): its related + relationship to-many endpoints advertise
+        // `?withCount` with the `_self_` token (the Countable profile).
+        $related = $this->arrAt($this->paths(), '/articles/{id}/tags', 'get');
+        self::assertContains('withCount', $this->parameterNames($related));
+        self::assertContains('_self_', $this->listAt($this->parameterNamed($related, 'withCount'), 'schema', 'items', 'enum'));
+
+        $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'get');
+        self::assertContains('withCount', $this->parameterNames($relationship));
+
+        // The primary collection advertises `withCount` with its countable relation token
+        // (`tags`) even though the `articles` type itself is not countable (no `_self_`).
+        $collection = $this->arrAt($this->paths(), '/articles', 'get');
+        self::assertContains('tags', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
+        self::assertNotContains('_self_', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
+    }
+
+    #[Test]
     public function aRelatedEndpointIncludeParameterEnumeratesTheRelatedTypesPathsNotTheParents(): void
     {
         // GET /articles/{id}/tags returns `tags` resources, so its `?include` is the

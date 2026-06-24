@@ -41,6 +41,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $relations = [],
         private readonly array $operations = [],
         private readonly bool $allowsClientId = false,
+        private readonly bool $requiresClientId = false,
         private readonly PaginatorKind $paginatorKind = PaginatorKind::Page,
         private readonly bool $countable = false,
         private readonly array $filters = [],
@@ -73,6 +74,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         ?string $uriType = null,
         array $tags = [],
         bool $allowsClientId = false,
+        bool $requiresClientId = false,
         ?string $description = null,
         ?array $operations = null,
         array $securedOperations = [],
@@ -99,6 +101,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
                 OperationType::Delete,
             ],
             allowsClientId: $allowsClientId,
+            requiresClientId: $requiresClientId,
             paginatorKind: $paginatorKind,
             countable: $countable,
             filters: $filters,
@@ -168,6 +171,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function allowsClientId(): bool
     {
         return $this->allowsClientId;
+    }
+
+    public function requiresClientId(): bool
+    {
+        return $this->requiresClientId;
     }
 
     public function idPattern(): ?string
