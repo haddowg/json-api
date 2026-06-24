@@ -281,9 +281,11 @@ final class OpenApiProjectorTest extends TestCase
     {
         $schemas = $this->schemas();
 
-        // articles: no client id → create resource has no `id` property.
+        // articles: client id FORBIDDEN → the create resource explicitly forbids `id`
+        // (the `false` schema), so a client generated against the spec cannot send an
+        // `id` the runtime would `403` — mirroring the atomic `add` schema.
         $create = $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data');
-        self::assertArrayNotHasKey('id', $this->arrAt($create, 'properties'));
+        self::assertFalse($this->at($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'id'));
         self::assertSame(['type'], $this->listAt($create, 'required'));
         // the create body references the create-context attributes component, which
         // requires the declared-required field.
@@ -299,9 +301,34 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($update, 'properties', 'attributes', '$ref'));
         self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesUpdateAttributes'));
 
-        // people allows a client id → create resource exposes `id`.
+        // people ALLOWS (but does not require) a client id → the create resource exposes a
+        // string `id`, but does not require it (the server assigns one when absent).
         $peopleCreate = $this->arrAt($schemas, 'PeopleCreateRequest', 'properties', 'data');
-        self::assertArrayHasKey('id', $this->arrAt($peopleCreate, 'properties'));
+        self::assertSame('string', $this->strAt($peopleCreate, 'properties', 'id', 'type'));
+        self::assertSame(['type'], $this->listAt($peopleCreate, 'required'));
+    }
+
+    #[Test]
+    public function itMarksTheClientIdRequiredWhenThePolicyRequiresIt(): void
+    {
+        // A type whose id policy REQUIRES a client-supplied id: the create resource makes
+        // `id` present AND required, so a client generated against the spec sends the `id`
+        // a create-without-it would otherwise `403` on.
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(
+                type: 'devices',
+                fields: [Id::make(), Str::make('label')->required()],
+                allowsClientId: true,
+                requiresClientId: true,
+            )],
+        );
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        $create = $this->arrAt($schemas, 'DevicesCreateRequest', 'properties', 'data');
+        self::assertSame('string', $this->strAt($create, 'properties', 'id', 'type'));
+        self::assertSame(['type', 'id'], $this->listAt($create, 'required'));
     }
 
     #[Test]

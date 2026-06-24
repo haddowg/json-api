@@ -93,6 +93,13 @@ interface TypeMetadataInterface
     public function allowsClientId(): bool;
 
     /**
+     * Whether a client MUST supply the resource `id` on create (`POST`) — a create
+     * without it is rejected (`403`). Implies {@see allowsClientId()}. Gates whether the
+     * create request schema marks `id` as `required` (vs merely permitted).
+     */
+    public function requiresClientId(): bool;
+
+    /**
      * The (un-anchored) regular expression an `id` must match for this type — the
      * same pattern that constrains the `{id}` route requirement (e.g. an encoded or
      * ULID id), or `null` when any non-empty string is accepted. Lets the OpenAPI

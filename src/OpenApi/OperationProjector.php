@@ -152,14 +152,17 @@ final class OperationProjector
             [$this->includeParameter($type->includablePaths())],
             $this->fieldsParameters($type, $server, $type->includablePaths()),
             $this->pageParameters($type->paginatorKind()),
+            [$this->withCountParameter($this->collectionWithCountTokens($type))],
         );
+
+        $security = $this->securityFor($type, OperationType::FetchCollection, $server);
 
         $responses = (new Responses())
             ->with('200', Response::ofSchema(
                 'A collection of ' . $type->type() . ' resources.',
                 Schema::ref(ComponentNaming::schemaRef($base . 'Collection')),
             ));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '406', '500']);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '406', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -168,7 +171,7 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::FetchCollection),
             operationId: 'fetchCollection.' . $type->type(),
             parameters: $parameters,
-            security: $this->securityFor($type, OperationType::FetchCollection, $server),
+            security: $security,
         );
     }
 
@@ -181,12 +184,14 @@ final class OperationProjector
             $this->fieldsParameters($type, $server, $type->includablePaths()),
         );
 
+        $security = $this->securityFor($type, OperationType::FetchOne, $server);
+
         $responses = (new Responses())
             ->with('200', Response::ofSchema(
                 'The requested ' . $type->type() . ' resource.',
                 Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
             ));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '406', '500']);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -195,7 +200,7 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::FetchOne),
             operationId: 'fetchOne.' . $type->type(),
             parameters: $parameters,
-            security: $this->securityFor($type, OperationType::FetchOne, $server),
+            security: $security,
         );
     }
 
@@ -220,7 +225,8 @@ final class OperationProjector
                     Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
                 )],
             ));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '409', '415', '422', '500']);
+        $security = $this->securityFor($type, OperationType::Create, $server);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -229,7 +235,7 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: 'create.' . $type->type(),
             requestBody: RequestBody::ofSchema($requestSchema),
-            security: $this->securityFor($type, OperationType::Create, $server),
+            security: $security,
         );
     }
 
@@ -246,7 +252,8 @@ final class OperationProjector
                 'The updated ' . $type->type() . ' resource.',
                 Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
             ));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '409', '415', '422', '500']);
+        $security = $this->securityFor($type, OperationType::Update, $server);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -255,15 +262,17 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: 'update.' . $type->type(),
             requestBody: RequestBody::ofSchema($requestSchema),
-            security: $this->securityFor($type, OperationType::Update, $server),
+            security: $security,
         );
     }
 
     private function deleteOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
     {
+        $security = $this->securityFor($type, OperationType::Delete, $server);
+
         $responses = (new Responses())
             ->with('204', Response::noContent('The resource was deleted.'));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '500']);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -271,7 +280,7 @@ final class OperationProjector
             summary: 'Delete a ' . $type->type(),
             description: $this->crudOperationDescription($type, OperationType::Delete),
             operationId: 'delete.' . $type->type(),
-            security: $this->securityFor($type, OperationType::Delete, $server),
+            security: $security,
         );
     }
 
@@ -358,24 +367,31 @@ final class OperationProjector
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->paginatorKind()),
+                [$this->withCountParameter($this->relatedWithCountTokens($relation, $server))],
             );
             $successDescription = 'The related ' . $relation->name() . ' collection.';
         } else {
             $responseRef = Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedDocument'));
-            // A to-one related endpoint honours the related resource's `filter[]`
-            // vocabulary (a relation filter that excludes the target nulls the
-            // linkage), but not `sort`/`page` (those `400` on a to-one path).
+            // A MONOMORPHIC to-one related endpoint honours the related resource's
+            // `filter[]` vocabulary (a relation filter that excludes the target nulls the
+            // linkage), but not `sort`/`page` (a to-one is not a collection; those are
+            // simply not advertised). A POLYMORPHIC to-one (MorphTo) has no shared filter
+            // vocabulary — any filter `400`s — so it advertises none.
             $parameters = $this->concatParameters(
-                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                \count($relation->relatedTypes()) === 1
+                    ? $this->filterParameters($this->relatedFilterVocabulary($relation, $server))
+                    : [],
                 [$includeParameter],
                 $fieldsParameters,
             );
             $successDescription = 'The related ' . $relation->name() . ' resource (or `null`).';
         }
 
+        $security = $this->securityFor($type, OperationType::FetchOne, $server);
+
         $responses = (new Responses())
             ->with('200', Response::ofSchema($successDescription, $responseRef));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '406', '500']);
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -390,7 +406,7 @@ final class OperationProjector
             operationId: 'fetchRelated.' . $type->type() . '.' . $relation->name(),
             parameters: $parameters,
             // A related read mirrors a fetch — it carries security iff fetch-one does.
-            security: $this->securityFor($type, OperationType::FetchOne, $server),
+            security: $security,
         );
     }
 
@@ -412,31 +428,35 @@ final class OperationProjector
 
         $operations = [];
 
-        // GET — read the relationship linkage (mirrors a fetch). A **to-one**
+        // GET — read the relationship linkage (mirrors a fetch). A **monomorphic to-one**
         // relationship endpoint honours the related resource's `filter[]` vocabulary
         // (a relation filter that excludes the target nulls the linkage). A
         // **monomorphic to-many** relationship endpoint is a real queryable, paginated
         // linkage collection at parity with the related endpoint: `filter[]`/`sort`/
-        // `page` scope against the same merged vocabulary, the page-1 linkage rendering
-        // with the relationship object's pagination links (ADR 0096). A **polymorphic**
-        // to-many (members span types — no single related provider or shared vocabulary)
-        // takes no query parameters: querying its linkage is unsupported (the host
-        // rejects a requested `filter`/`sort`/`page` there with a `400`).
+        // `page` (+`withCount` when countable) scope against the same merged vocabulary,
+        // the page-1 linkage rendering with the relationship object's pagination links
+        // (ADR 0096). A **polymorphic** relationship endpoint (to-one or to-many — members
+        // span types, no single related provider or shared vocabulary) takes no query
+        // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {
-            $getParameters = $this->filterParameters($this->relatedFilterVocabulary($relation, $server));
+            $getParameters = \count($relation->relatedTypes()) === 1
+                ? $this->filterParameters($this->relatedFilterVocabulary($relation, $server))
+                : [];
         } elseif (\count($relation->relatedTypes()) === 1) {
             $getParameters = $this->concatParameters(
                 $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 $this->pageParameters($relation->paginatorKind()),
+                [$this->withCountParameter($this->relationshipWithCountTokens($relation))],
             );
         } else {
             $getParameters = [];
         }
+        $getSecurity = $this->securityFor($type, OperationType::FetchOne, $server);
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
         $operations['get'] = new Operation(
-            responses: $this->withErrorResponses($getResponses, ['400', '403', '404', '406', '500']),
+            responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity)),
             tags: $tags,
             summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
             description: $this->relationDescription(
@@ -445,7 +465,7 @@ final class OperationProjector
             ),
             operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
             parameters: $getParameters,
-            security: $this->securityFor($type, OperationType::FetchOne, $server),
+            security: $getSecurity,
         );
 
         // PATCH — full replacement of the relationship.
@@ -504,10 +524,15 @@ final class OperationProjector
         string $operationPrefix,
         Schema $documentRef,
     ): Operation {
+        // A relationship mutation mirrors an update — secured iff update is.
+        $security = $this->securityFor($type, OperationType::Update, $server);
+
+        // The handler always echoes the linkage (`200`); it never returns `204` for these
+        // arms, so the document advertises only `200` (the spec permits a `204`, but this
+        // implementation does not produce one).
         $responses = (new Responses())
-            ->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef))
-            ->with('204', Response::noContent('The relationship was updated.'));
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '409', '415', '422', '500']);
+            ->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
 
         return new Operation(
             responses: $responses,
@@ -516,8 +541,7 @@ final class OperationProjector
             description: $this->relationDescription($relation, $defaultDescription),
             operationId: $operationPrefix . '.' . $type->type() . '.' . $relation->name(),
             requestBody: RequestBody::ofSchema($documentRef),
-            // A relationship mutation mirrors an update — secured iff update is.
-            security: $this->securityFor($type, OperationType::Update, $server),
+            security: $security,
         );
     }
 
@@ -625,7 +649,16 @@ final class OperationProjector
         } else {
             $responses = $responses->with('204', Response::noContent('The action completed with no content.'));
         }
-        $responses = $this->withErrorResponses($responses, ['400', '403', '404', '422', '500']);
+
+        $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
+
+        // Every action negotiates the `Accept` header (`406`); a `None`/`Document` input
+        // mode also negotiates the `Content-Type` (`415`), while a `Raw` mode relaxes it.
+        $statuses = ['400', '403', '404', '406', '422', '500'];
+        if ($action->inputMode() !== ActionInputMode::Raw) {
+            $statuses[] = '415';
+        }
+        $responses = $this->withErrorResponses($responses, $this->authStatuses($statuses, $security));
 
         return new Operation(
             responses: $responses,
@@ -634,7 +667,7 @@ final class OperationProjector
             description: $action->description(),
             operationId: 'action.' . $type->type() . '.' . $action->path(),
             requestBody: $this->actionRequestBody($action),
-            security: $action->isSecured() ? $this->configuredSecurity($server) : null,
+            security: $security,
         );
     }
 
@@ -1049,6 +1082,100 @@ final class OperationProjector
     }
 
     /**
+     * The `withCount` parameter for an endpoint that honours the Countable profile — a
+     * comma-separated list of count tokens (`_self_` and/or countable relation names),
+     * exactly as `?include` is a comma list (OAS `form`/`explode: false` array). `null`
+     * when no token is valid for the endpoint (nothing countable), so the parameter is
+     * advertised only where the runtime would honour it. Profile-gated: the runtime
+     * recognises `withCount` only when the Countable profile is negotiated.
+     *
+     * @param list<string> $tokens
+     */
+    private function withCountParameter(array $tokens): ?Parameter
+    {
+        if ($tokens === []) {
+            return null;
+        }
+
+        $schema = Schema::ofType('array')
+            ->withItems(Schema::ofType('string')->withEnum($tokens));
+
+        return Parameter::query(
+            'withCount',
+            $schema,
+            'A comma-separated list of relationship-count tokens (the Countable profile). '
+            . '`_self_` counts this collection; a relation name counts that relation per item. '
+            . 'Recognised only when the Countable profile is negotiated. Allowed tokens: `'
+            . \implode('`, `', $tokens) . '`.',
+            style: ParameterStyle::Form,
+            explode: false,
+        );
+    }
+
+    /**
+     * The valid `withCount` tokens for a primary collection `GET /{type}`: `_self_` when
+     * the type is {@see TypeMetadataInterface::isCountable()} (its collection advertises
+     * the count), plus every countable relation of the type (counted per primary item).
+     *
+     * @return list<string>
+     */
+    private function collectionWithCountTokens(TypeMetadataInterface $type): array
+    {
+        $tokens = $type->isCountable() ? ['_self_'] : [];
+
+        return [...$tokens, ...$this->countableRelationNames($type)];
+    }
+
+    /**
+     * The valid `withCount` tokens for a related to-many `GET /{type}/{id}/{rel}`:
+     * `_self_` when the relation is {@see RelationMetadataInterface::isCountable()} (its
+     * related collection advertises the count), plus every countable relation of the
+     * RELATED type (counted per related item across the page).
+     *
+     * @return list<string>
+     */
+    private function relatedWithCountTokens(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    {
+        $tokens = $relation->isCountable() ? ['_self_'] : [];
+
+        $relatedType = $this->relatedTypeMetadata($relation, $server);
+        $relationNames = $relatedType === null ? [] : $this->countableRelationNames($relatedType);
+
+        return [...$tokens, ...$relationNames];
+    }
+
+    /**
+     * The valid `withCount` tokens for a relationship (linkage) `GET …/relationships/{rel}`:
+     * only `_self_` (when the relation is {@see RelationMetadataInterface::isCountable()}),
+     * since the linkage endpoint renders identifiers, not the related resources' own
+     * relationships.
+     *
+     * @return list<string>
+     */
+    private function relationshipWithCountTokens(RelationMetadataInterface $relation): array
+    {
+        return $relation->isCountable() ? ['_self_'] : [];
+    }
+
+    /**
+     * The names of a type's countable to-many relations, in declaration order — the
+     * relation tokens a `?withCount` accepts for that type.
+     *
+     * @return list<string>
+     */
+    private function countableRelationNames(TypeMetadataInterface $type): array
+    {
+        $names = [];
+        foreach ($type->relations() as $relation) {
+            if ($relation->isCountable()) {
+                $names[] = $relation->name();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * Flattens parameter groups into one list, dropping the `null`s a single-or-none
      * helper (`sortParameter`/`includeParameter`) returns when its source is empty.
      *
@@ -1093,6 +1220,27 @@ final class OperationProjector
     }
 
     // ---- Responses / security ---------------------------------------------------
+
+    /**
+     * Appends `401` to an operation's error statuses when the operation carries a
+     * security requirement: an authenticated firewall returns `401` for a missing or
+     * invalid credential (the unauthenticated twin of the `403` a denied-but-authenticated
+     * caller gets), so a secured operation can produce both. An unsecured operation
+     * (`$security === null`) is unaffected.
+     *
+     * @param list<string>                   $statuses
+     * @param list<SecurityRequirement>|null $security
+     *
+     * @return list<string>
+     */
+    private function authStatuses(array $statuses, ?array $security): array
+    {
+        if ($security === null) {
+            return $statuses;
+        }
+
+        return [...$statuses, '401'];
+    }
 
     /**
      * Adds the enumerated standard error responses (D12), each referencing the shared
@@ -1175,6 +1323,7 @@ final class OperationProjector
      */
     private const STATUS_DESCRIPTIONS = [
         '400' => 'Bad Request — the request was malformed (e.g. an invalid query parameter).',
+        '401' => 'Unauthorized — authentication is required and was missing or invalid.',
         '403' => 'Forbidden — the request is not authorised.',
         '404' => 'Not Found — the resource does not exist.',
         '406' => 'Not Acceptable — the `Accept` header could not be satisfied.',

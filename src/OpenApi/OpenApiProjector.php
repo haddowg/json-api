@@ -763,13 +763,26 @@ final class OpenApiProjector
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'CreateAttributes'));
 
-        if ($type->allowsClientId()) {
+        $required = ['type'];
+        if ($type->requiresClientId()) {
+            // The id policy REQUIRES a client-supplied id: a create without it `403`s, so
+            // the schema makes `id` present and required.
             $resource = $resource->withProperty('id', Schema::ofType('string'));
+            $required[] = 'id';
+        } elseif ($type->allowsClientId()) {
+            // A client id is permitted but optional (the server assigns one when absent).
+            $resource = $resource->withProperty('id', Schema::ofType('string'));
+        } else {
+            // No client id: `id` MUST be absent (the server assigns it). Forbid it (as the
+            // atomic `add` schema does) so a client generated against the spec cannot send
+            // an `id` the runtime would `403`.
+            $resource = $resource->withProperty('id', Schema::never());
         }
+
         if ($type->relations() !== []) {
             $resource = $resource->withProperty('relationships', Schema::ofType('object'));
         }
-        $resource = $resource->withRequired(['type']);
+        $resource = $resource->withRequired($required);
 
         return $this->writeDocumentEnvelope($resource);
     }
