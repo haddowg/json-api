@@ -167,18 +167,21 @@ final class SchemaProjector
      *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectAttributes(iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
+    public function projectAttributes(iterable $fields, RepresentationContext $context = RepresentationContext::Read, ?EnumComponentCollector $collector = null): Schema
     {
+        $creating = $context === RepresentationContext::Create;
         $properties = [];
         $required = [];
 
         foreach ($fields as $field) {
-            if (!$this->isAttribute($field) || !$this->appearsInRepresentation($field, $creating)) {
+            if (!$this->isAttribute($field) || !$this->appearsInRepresentation($field, $context)) {
                 continue;
             }
 
             $properties[$field->name()] = $this->projectField($field, $creating, $collector);
-            if ($creating && $this->isRequired($field, $creating)) {
+            // Only a POST body carries `required`; a PATCH is partial (absent = no
+            // change) and a response has no request-required notion.
+            if ($context === RepresentationContext::Create && $this->isRequired($field, true)) {
                 $required[] = $field->name();
             }
         }
@@ -203,22 +206,22 @@ final class SchemaProjector
      * The schema carries a `description`: the type's own ($description) when the
      * author declared one, else a generated default naming the type.
      *
-     * `$attributesRef` (a `#/components/schemas/…` pointer) makes the `attributes`
-     * member a `$ref` to a shared attributes component rather than an inline copy —
-     * the caller emits that component once and the read resource object and the
-     * update request body reference the same node. Omit it to inline (a standalone
-     * projection with no component to share).
+     * This is always the **read** (response) representation, so `attributes` projects
+     * in the {@see RepresentationContext::Read} context. `$attributesRef` (a
+     * `#/components/schemas/…` pointer) makes the `attributes` member a `$ref` to the
+     * shared read-attributes component instead of an inline copy; omit it to inline
+     * (a standalone projection with no component to share).
      *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectResourceObject(string $type, iterable $fields, bool $creating = false, ?EnumComponentCollector $collector = null, ?string $description = null, ?string $attributesRef = null): Schema
+    public function projectResourceObject(string $type, iterable $fields, ?EnumComponentCollector $collector = null, ?string $description = null, ?string $attributesRef = null): Schema
     {
         $fields = \is_array($fields) ? $fields : \iterator_to_array($fields, false);
 
         $properties = [
             'type' => Schema::ofType('string')->withConst($type),
             'id' => $this->projectId($fields),
-            'attributes' => $attributesRef !== null ? Schema::ref($attributesRef) : $this->projectAttributes($fields, $creating, $collector),
+            'attributes' => $attributesRef !== null ? Schema::ref($attributesRef) : $this->projectAttributes($fields, RepresentationContext::Read, $collector),
             'relationships' => Schema::ofType('object'),
             'links' => Schema::ofType('object'),
             'meta' => Schema::ofType('object'),
@@ -648,11 +651,17 @@ final class SchemaProjector
 
     /**
      * Whether the field appears in the representation being projected: a write-only
-     * field is excluded from a read (non-creating) projection.
+     * field is excluded from a read (response) body; a field read-only in the
+     * projected write context is excluded from that request body (a create can differ
+     * from an update via `readOnlyOnCreate()` / `readOnlyOnUpdate()`).
      */
-    private function appearsInRepresentation(FieldInterface $field, bool $creating): bool
+    private function appearsInRepresentation(FieldInterface $field, RepresentationContext $context): bool
     {
-        return $creating || !$field->isWriteOnly();
+        return match ($context) {
+            RepresentationContext::Read => !$field->isWriteOnly(),
+            RepresentationContext::Create => !$field->isReadOnly(true),
+            RepresentationContext::Update => !$field->isReadOnly(false),
+        };
     }
 
     private function isRequired(FieldInterface $field, bool $creating): bool

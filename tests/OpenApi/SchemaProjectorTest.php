@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\EnumDescriptionMode;
+use haddowg\JsonApi\OpenApi\RepresentationContext;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Resource\Constraint\Comparison;
@@ -83,6 +84,20 @@ final class SchemaProjectorTest extends TestCase
         self::assertIsArray($value);
 
         return \array_values($value);
+    }
+
+    /**
+     * Like {@see at()} but asserts (and types) the leaf as an array.
+     *
+     * @param array<string, mixed> $schema
+     * @return array<array-key, mixed>
+     */
+    private function arrAt(array $schema, string ...$keys): array
+    {
+        $value = $this->at($schema, ...$keys);
+        self::assertIsArray($value);
+
+        return $value;
     }
 
     /**
@@ -517,12 +532,47 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function createAttributesProjectionIncludesWriteOnlyAndRequired(): void
     {
-        $schema = $this->projector()->projectAttributes($this->fields(), creating: true)->toArray();
+        $schema = $this->projector()->projectAttributes($this->fields(), RepresentationContext::Create)->toArray();
 
         $properties = $this->at($schema, 'properties');
         self::assertIsArray($properties);
         self::assertArrayHasKey('secret', $properties);
         self::assertContains('name', $this->listAt($schema, 'required'));
+    }
+
+    #[Test]
+    public function writeContextsExcludeReadOnlyAndUpdateCarriesNoRequired(): void
+    {
+        $read = $this->projector()->projectAttributes($this->fields(), RepresentationContext::Read)->toArray();
+        $create = $this->projector()->projectAttributes($this->fields(), RepresentationContext::Create)->toArray();
+        $update = $this->projector()->projectAttributes($this->fields(), RepresentationContext::Update)->toArray();
+
+        // A read-only field is in the read body but neither write body.
+        self::assertArrayHasKey('derived', $this->arrAt($read, 'properties'));
+        self::assertArrayNotHasKey('derived', $this->arrAt($create, 'properties'));
+        self::assertArrayNotHasKey('derived', $this->arrAt($update, 'properties'));
+
+        // A write-only field is writable in create AND update, absent from the read.
+        self::assertArrayHasKey('secret', $this->arrAt($create, 'properties'));
+        self::assertArrayHasKey('secret', $this->arrAt($update, 'properties'));
+        self::assertArrayNotHasKey('secret', $this->arrAt($read, 'properties'));
+
+        // create carries the required set; update is partial (no `required`).
+        self::assertContains('name', $this->listAt($create, 'required'));
+        $this->missing($update, 'required');
+    }
+
+    #[Test]
+    public function readOnlyContextDistinguishesCreateFromUpdate(): void
+    {
+        // `readOnlyOnCreate()` is writable on update but not on create.
+        $fields = [Id::make(), Str::make('name'), Str::make('handle')->readOnlyOnCreate()];
+
+        $create = $this->projector()->projectAttributes($fields, RepresentationContext::Create)->toArray();
+        $update = $this->projector()->projectAttributes($fields, RepresentationContext::Update)->toArray();
+
+        self::assertArrayNotHasKey('handle', $this->arrAt($create, 'properties'));
+        self::assertArrayHasKey('handle', $this->arrAt($update, 'properties'));
     }
 
     #[Test]
@@ -566,7 +616,7 @@ final class SchemaProjectorTest extends TestCase
     public function resourceObjectSurfacesTheDeclaredDescription(): void
     {
         $schema = $this->projector()
-            ->projectResourceObject('articles', $this->fields(), false, null, 'A blog article.')
+            ->projectResourceObject('articles', $this->fields(), null, 'A blog article.')
             ->toArray();
 
         self::assertSame('A blog article.', $this->at($schema, 'description'));
@@ -584,6 +634,7 @@ final class SchemaProjectorTest extends TestCase
             Str::make('name')->required()->maxLength(50),
             Str::make('status')->enum(Status::class),
             Str::make('secret')->writeOnly(),
+            Str::make('derived')->readOnly(),
             Str::make('internal')->hidden(),
         ];
     }

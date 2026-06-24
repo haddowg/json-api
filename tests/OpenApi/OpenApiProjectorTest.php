@@ -285,19 +285,19 @@ final class OpenApiProjectorTest extends TestCase
         $create = $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data');
         self::assertArrayNotHasKey('id', $this->arrAt($create, 'properties'));
         self::assertSame(['type'], $this->listAt($create, 'required'));
-        // the create body references the shared write-attributes component, which
+        // the create body references the create-context attributes component, which
         // requires the declared-required field.
-        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($create, 'properties', 'attributes', '$ref'));
-        self::assertContains('title', $this->listAt($schemas, 'ArticlesWriteAttributes', 'required'));
+        self::assertSame('#/components/schemas/ArticlesCreateAttributes', $this->strAt($create, 'properties', 'attributes', '$ref'));
+        self::assertContains('title', $this->listAt($schemas, 'ArticlesCreateAttributes', 'required'));
 
         // update resource requires `id`.
         $update = $this->arrAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data');
         self::assertArrayHasKey('id', $this->arrAt($update, 'properties'));
         self::assertSame(['type', 'id'], $this->listAt($update, 'required'));
-        // update references the read-shape attributes component, which carries no
-        // `required` (an absent member means "no change").
-        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($update, 'properties', 'attributes', '$ref'));
-        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesAttributes'));
+        // update references the update-context attributes component, which carries no
+        // `required` (a PATCH is partial — an absent member means "no change").
+        self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($update, 'properties', 'attributes', '$ref'));
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesUpdateAttributes'));
 
         // people allows a client id → create resource exposes `id`.
         $peopleCreate = $this->arrAt($schemas, 'PeopleCreateRequest', 'properties', 'data');
@@ -571,9 +571,9 @@ final class OpenApiProjectorTest extends TestCase
             \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $this->listAt($schemas, 'PeopleAtomicAdd', 'oneOf')),
         );
 
-        // An **update** is partial (read-shape attributes, no `required`) and identifies
-        // the target by id / lid / ref-or-href — a titled three-mode `oneOf`.
-        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
+        // An **update** is partial (update-context attributes, no `required`) and
+        // identifies the target by id / lid / ref-or-href — a titled three-mode `oneOf`.
+        self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
         self::assertSame(
             ['By id', 'By local id (lid)', 'Targeted by ref/href'],
             \array_map(fn(mixed $m): mixed => \is_array($m) ? ($m['title'] ?? null) : null, $this->listAt($schemas, 'ArticlesAtomicUpdate', 'oneOf')),
@@ -648,11 +648,11 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function itSharesAttributeComponentsAcrossReadAndWriteSchemas(): void
+    public function itSharesContextCorrectAttributeComponentsAcrossSchemas(): void
     {
-        // The read-shape `<Type>Attributes` is referenced (never inlined or orphaned) by
-        // the resource object, the update request and the atomic **update**; the
-        // write-shape `<Type>WriteAttributes` by the create request and the atomic **add**.
+        // Three context-correct attributes components, each referenced where it belongs:
+        // read by the resource object; create by the create request + atomic add; update
+        // by the update request + atomic update.
         $schemas = $this->arrAt(
             $this->projector()->project($this->serverWithAtomic())->toArray(),
             'components',
@@ -660,16 +660,15 @@ final class OpenApiProjectorTest extends TestCase
         );
 
         self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesResource', 'properties', 'attributes', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesWriteAttributes', $this->strAt($schemas, 'ArticlesAtomicAdd', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesCreateAttributes', $this->strAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesCreateAttributes', $this->strAt($schemas, 'ArticlesAtomicAdd', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
 
-        // The two components carry the real shapes (read has no required; write requires
-        // the declared-required field) and the read one is no longer an inlined duplicate.
-        self::assertArrayHasKey('ArticlesAttributes', $schemas);
+        // Only the create component carries `required` — read and update do not.
         self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesAttributes'));
-        self::assertContains('title', $this->listAt($schemas, 'ArticlesWriteAttributes', 'required'));
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesUpdateAttributes'));
+        self::assertContains('title', $this->listAt($schemas, 'ArticlesCreateAttributes', 'required'));
     }
 
     #[Test]

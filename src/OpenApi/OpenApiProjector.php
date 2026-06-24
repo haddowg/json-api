@@ -202,16 +202,18 @@ final class OpenApiProjector
         $fields = $type->fields();
 
         // Attributes + resource object (a fieldless standalone type gets a permissive
-        // object schema, never a broken empty one). Two shared attributes components
-        // are emitted and `$ref`'d rather than inlined: the **read** shape
-        // (`<Type>Attributes`, no `required`) is shared by the resource object, the
-        // update request body and the atomic **update**; the **write** shape
-        // (`<Type>WriteAttributes`, with the create-context `required`) by the create
-        // request and the atomic **add**.
+        // object schema, never a broken empty one). Three context-correct attributes
+        // components are emitted and `$ref`'d — they cannot share one schema because a
+        // field's visibility (read-only / write-only) and the `required` set differ by
+        // representation:
+        //   - `<Type>Attributes`        (read)   — the resource object.
+        //   - `<Type>CreateAttributes`  (create) — the create request + atomic add.
+        //   - `<Type>UpdateAttributes`  (update) — the update request + atomic update.
         if ($type->hasFields()) {
-            $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, false, $collector);
-            $schemas[$name . 'WriteAttributes'] = $this->schemaProjector->projectAttributes($fields, true, $collector);
-            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, false, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
+            $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Read, $collector);
+            $schemas[$name . 'CreateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Create, $collector);
+            $schemas[$name . 'UpdateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Update, $collector);
+            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
         } else {
             $resource = $this->permissiveResourceObject($type->type(), $type->description());
         }
@@ -364,7 +366,7 @@ final class OpenApiProjector
 
     /**
      * The resource object an atomic **`add`** carries: `type` (const), the
-     * create-context `attributes` (`<Type>WriteAttributes`, with their `required`),
+     * create-context `attributes` (`<Type>CreateAttributes`, with their `required`),
      * `relationships`, and an optional `lid` to reference the created resource later
      * in the batch. A client `id` is offered **only** where the type allows one
      * ({@see TypeMetadataInterface::allowsClientId()}); there it is mutually exclusive
@@ -379,7 +381,7 @@ final class OpenApiProjector
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('lid', Schema::ofType('string')->withDescription('A local id assigned to the created resource, referenceable by later operations in the batch.'))
             ->withProperty('attributes', $type->hasFields()
-                ? Schema::ref('#/components/schemas/' . $base . 'WriteAttributes')
+                ? Schema::ref('#/components/schemas/' . $base . 'CreateAttributes')
                 : Schema::ofType('object'))
             ->withProperty('relationships', Schema::ofType('object'))
             ->withRequired(['type'])
@@ -406,8 +408,8 @@ final class OpenApiProjector
 
     /**
      * The resource object an atomic **`update`** carries: `type` (const), the
-     * **partial** `attributes` (`<Type>Attributes`, no `required` — an absent member
-     * means "no change", as in `<Type>UpdateRequest`), `relationships`, and the target
+     * **partial** `attributes` (`<Type>UpdateAttributes`, no `required` — an absent
+     * member means "no change", as in `<Type>UpdateRequest`), `relationships`, and the target
      * identification by `id` or `lid` (a resource created earlier in the batch), or
      * neither when the operation targets via its `ref`/`href` instead. A titled
      * `oneOf` makes that an explicit choice and rejects a body carrying both `id` and
@@ -422,7 +424,7 @@ final class OpenApiProjector
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string')->withDescription('The local id of a resource created earlier in the batch.'))
             ->withProperty('attributes', $type->hasFields()
-                ? Schema::ref('#/components/schemas/' . $base . 'Attributes')
+                ? Schema::ref('#/components/schemas/' . $base . 'UpdateAttributes')
                 : Schema::ofType('object'))
             ->withProperty('relationships', Schema::ofType('object'))
             ->withRequired(['type'])
@@ -759,7 +761,7 @@ final class OpenApiProjector
     {
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
-            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'WriteAttributes'));
+            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'CreateAttributes'));
 
         if ($type->allowsClientId()) {
             $resource = $resource->withProperty('id', Schema::ofType('string'));
@@ -777,7 +779,7 @@ final class OpenApiProjector
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'Attributes'));
+            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'UpdateAttributes'));
 
         if ($type->relations() !== []) {
             $resource = $resource->withProperty('relationships', Schema::ofType('object'));
