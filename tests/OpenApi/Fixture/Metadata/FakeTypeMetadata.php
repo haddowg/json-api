@@ -32,6 +32,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<string>                    $tags
      * @param list<string>                    $includablePaths
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
+     * @param list<OperationType>             $publicOperations
      */
     public function __construct(
         private readonly string $type,
@@ -53,6 +54,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $securedOperations = [],
         private readonly ?string $idPattern = null,
         private readonly array $operationDescriptions = [],
+        private readonly array $publicOperations = [],
     ) {}
 
     /**
@@ -66,6 +68,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<ActionMetadataInterface>   $actions
      * @param list<string>                    $includablePaths
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
+     * @param list<OperationType>             $publicOperations  the operations explicitly declared public (security: [])
      */
     public static function resource(
         string $type,
@@ -86,6 +89,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         array $includablePaths = [],
         ?string $idPattern = null,
         array $operationDescriptions = [],
+        array $publicOperations = [],
     ): self {
         return new self(
             type: $type,
@@ -113,6 +117,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             securedOperations: $securedOperations,
             idPattern: $idPattern,
             operationDescriptions: $operationDescriptions,
+            publicOperations: $publicOperations,
         );
     }
 
@@ -166,6 +171,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function securedOperations(): array
     {
         return $this->securedOperations;
+    }
+
+    public function publicOperations(): array
+    {
+        return $this->publicOperations;
     }
 
     public function allowsClientId(): bool

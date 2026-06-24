@@ -20,7 +20,7 @@ final readonly class Operation implements \JsonSerializable
     /**
      * @param list<string>                       $tags
      * @param list<Parameter|Reference>          $parameters
-     * @param list<SecurityRequirement>          $security  the OR-ed alternatives ([] = inherit document default; an explicit empty requirement makes auth optional)
+     * @param list<SecurityRequirement>|null     $security  null omits the field (inherit the document default); `[]` emits `security: []` — the OAS operation-level public override (no auth); a non-empty list is the OR-ed alternatives
      */
     public function __construct(
         public Responses $responses,

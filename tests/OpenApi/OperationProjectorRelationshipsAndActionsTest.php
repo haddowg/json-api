@@ -235,10 +235,11 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertArrayHasKey('401', $this->arrAt($create, 'responses'));
         self::assertArrayHasKey('406', $this->arrAt($create, 'responses'));
 
-        // An UNsecured operation (the collection read — FetchCollection is never secured)
-        // advertises no 401.
+        // Tier 1: an operation that only INHERITS the document-level default security (the
+        // collection read — never per-op secured, but this server sets a document default)
+        // still advertises 401, because that default applies to it.
         $list = $this->arrAt($paths, '/articles', 'get');
-        self::assertArrayNotHasKey('401', $this->arrAt($list, 'responses'));
+        self::assertArrayHasKey('401', $this->arrAt($list, 'responses'));
 
         // A secured `None`-input action: 401 + 406 + 415 (it negotiates content-type).
         $publish = $this->arrAt($paths, '/articles/{id}/-actions/publish', 'post');
@@ -246,11 +247,12 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertArrayHasKey('406', $this->arrAt($publish, 'responses'));
         self::assertArrayHasKey('415', $this->arrAt($publish, 'responses'));
 
-        // A `Raw`-input action relaxes content-type: 406 but no 415; unsecured so no 401.
+        // A `Raw`-input action relaxes content-type: 406 but no 415. It inherits the
+        // document default, so it still advertises 401 (Tier 1).
         $import = $this->arrAt($paths, '/articles/-actions/import', 'post');
         self::assertArrayHasKey('406', $this->arrAt($import, 'responses'));
         self::assertArrayNotHasKey('415', $this->arrAt($import, 'responses'));
-        self::assertArrayNotHasKey('401', $this->arrAt($import, 'responses'));
+        self::assertArrayHasKey('401', $this->arrAt($import, 'responses'));
     }
 
     #[Test]
