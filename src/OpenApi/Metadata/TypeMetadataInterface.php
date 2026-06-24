@@ -87,6 +87,17 @@ interface TypeMetadataInterface
     public function securedOperations(): array;
 
     /**
+     * The operations explicitly declared **public** — exempt from the document-level
+     * default security. The projector emits an operation-level `security: []` (the OAS
+     * "no auth" override) and no `401` for them. An operation in neither this set nor
+     * {@see securedOperations()} inherits the document default; the two sets are
+     * disjoint.
+     *
+     * @return list<OperationType>
+     */
+    public function publicOperations(): array;
+
+    /**
      * Whether a client may supply the resource `id` on create (`POST`) — gates
      * whether the create request schema includes (and may require) `id`.
      */

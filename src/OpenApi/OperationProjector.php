@@ -162,7 +162,7 @@ final class OperationProjector
                 'A collection of ' . $type->type() . ' resources.',
                 Schema::ref(ComponentNaming::schemaRef($base . 'Collection')),
             ));
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '406', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -191,7 +191,7 @@ final class OperationProjector
                 'The requested ' . $type->type() . ' resource.',
                 Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
             ));
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -226,7 +226,7 @@ final class OperationProjector
                 )],
             ));
         $security = $this->securityFor($type, OperationType::Create, $server);
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -253,7 +253,7 @@ final class OperationProjector
                 Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
             ));
         $security = $this->securityFor($type, OperationType::Update, $server);
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -272,7 +272,7 @@ final class OperationProjector
 
         $responses = (new Responses())
             ->with('204', Response::noContent('The resource was deleted.'));
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -391,7 +391,7 @@ final class OperationProjector
 
         $responses = (new Responses())
             ->with('200', Response::ofSchema($successDescription, $responseRef));
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -456,7 +456,7 @@ final class OperationProjector
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
         $operations['get'] = new Operation(
-            responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity)),
+            responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
             tags: $tags,
             summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
             description: $this->relationDescription(
@@ -532,7 +532,7 @@ final class OperationProjector
         // implementation does not produce one).
         $responses = (new Responses())
             ->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef));
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -658,7 +658,7 @@ final class OperationProjector
         if ($action->inputMode() !== ActionInputMode::Raw) {
             $statuses[] = '415';
         }
-        $responses = $this->withErrorResponses($responses, $this->authStatuses($statuses, $security));
+        $responses = $this->withErrorResponses($responses, $this->authStatuses($statuses, $security, $server->defaultSecurity()));
 
         return new Operation(
             responses: $responses,
@@ -1229,17 +1229,20 @@ final class OperationProjector
      * (`$security === null`) is unaffected.
      *
      * @param list<string>                   $statuses
-     * @param list<SecurityRequirement>|null $security
+     * @param list<SecurityRequirement>|null $security        the per-operation requirement, or `null` when the operation inherits the document default
+     * @param list<SecurityRequirement>      $defaultSecurity the document-level default
      *
      * @return list<string>
      */
-    private function authStatuses(array $statuses, ?array $security): array
+    private function authStatuses(array $statuses, ?array $security, array $defaultSecurity): array
     {
-        if ($security === null) {
-            return $statuses;
-        }
+        // The operation's EFFECTIVE security: its per-operation requirement when set
+        // (an explicit `[]` is a public override), else the inherited document default.
+        // A non-empty effective requirement means an unauthenticated caller can get a
+        // `401` (the firewall / security layer returns it).
+        $effective = $security ?? $defaultSecurity;
 
-        return [...$statuses, '401'];
+        return $effective === [] ? $statuses : [...$statuses, '401'];
     }
 
     /**
@@ -1274,10 +1277,19 @@ final class OperationProjector
      * default) rather than `security: []`, which in OAS 3.1 actively declares auth
      * *optional* — the opposite of the secured intent.
      *
+     * An operation explicitly declared **public** ({@see TypeMetadataInterface::publicOperations()})
+     * returns an empty requirement (`[]`) — the projector emits the OAS "no auth"
+     * operation override `security: []`, opting it out of the document default
+     * regardless of what that default is.
+     *
      * @return list<SecurityRequirement>|null
      */
     private function securityFor(TypeMetadataInterface $type, OperationType $operation, ServerMetadataInterface $server): ?array
     {
+        if (\in_array($operation, $type->publicOperations(), true)) {
+            return [];
+        }
+
         if (!\in_array($operation, $type->securedOperations(), true)) {
             return null;
         }

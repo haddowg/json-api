@@ -332,6 +332,57 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function itProjectsPerOperationSecurityOverridesAndInheritedAuthStatuses(): void
+    {
+        // A document-level default + a type that secures create, marks the single read
+        // PUBLIC, and leaves the rest to inherit.
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(
+                type: 'widgets',
+                fields: [Id::make(), Str::make('name')->required()],
+                securedOperations: [OperationType::Create],
+                publicOperations: [OperationType::FetchOne],
+            )],
+            securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
+            defaultSecurity: [SecurityRequirement::scheme('bearer')],
+        );
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        // Secured op: a per-operation requirement + 401.
+        $create = $this->arrAt($paths, '/widgets', 'post');
+        self::assertNotSame([], $this->arrAt($create, 'security'));
+        self::assertArrayHasKey('401', $this->arrAt($create, 'responses'));
+
+        // PUBLIC op: an explicit `security: []` (overrides the document default) + NO 401.
+        $read = $this->arrAt($paths, '/widgets/{id}', 'get');
+        self::assertSame([], $this->arrAt($read, 'security'));
+        self::assertArrayNotHasKey('401', $this->arrAt($read, 'responses'));
+
+        // INHERIT op (the collection read): no per-operation `security` block, but 401 —
+        // it inherits the document default (Tier 1).
+        $list = $this->arrAt($paths, '/widgets', 'get');
+        self::assertArrayNotHasKey('security', $list);
+        self::assertArrayHasKey('401', $this->arrAt($list, 'responses'));
+    }
+
+    #[Test]
+    public function itAddsNo401WhenNoSecurityIsDeclaredAtAll(): void
+    {
+        // No document default and no per-operation security: nothing advertises 401.
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(type: 'gadgets', fields: [Id::make(), Str::make('name')])],
+        );
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        self::assertArrayNotHasKey('401', $this->arrAt($paths, '/gadgets', 'get', 'responses'));
+        self::assertArrayNotHasKey('401', $this->arrAt($paths, '/gadgets', 'post', 'responses'));
+    }
+
+    #[Test]
     public function theResourceObjectWiresRelationshipsToTheirComponents(): void
     {
         $schemas = $this->schemas();
