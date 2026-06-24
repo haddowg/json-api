@@ -414,18 +414,25 @@ final class OperationProjector
 
         // GET — read the relationship linkage (mirrors a fetch). A **to-one**
         // relationship endpoint honours the related resource's `filter[]` vocabulary
-        // (a relation filter that excludes the target nulls the linkage). A **to-many**
-        // relationship endpoint is a real queryable, paginated linkage collection at
-        // parity with the related endpoint: `filter[]`/`sort`/`page` scope against the
-        // same merged vocabulary, the page-1 linkage rendering with the relationship
-        // object's pagination links (ADR 0096).
-        $getParameters = $relation->isToMany()
-            ? $this->concatParameters(
+        // (a relation filter that excludes the target nulls the linkage). A
+        // **monomorphic to-many** relationship endpoint is a real queryable, paginated
+        // linkage collection at parity with the related endpoint: `filter[]`/`sort`/
+        // `page` scope against the same merged vocabulary, the page-1 linkage rendering
+        // with the relationship object's pagination links (ADR 0096). A **polymorphic**
+        // to-many (members span types — no single related provider or shared vocabulary)
+        // takes no query parameters: querying its linkage is unsupported (the host
+        // rejects a requested `filter`/`sort`/`page` there with a `400`).
+        if (!$relation->isToMany()) {
+            $getParameters = $this->filterParameters($this->relatedFilterVocabulary($relation, $server));
+        } elseif (\count($relation->relatedTypes()) === 1) {
+            $getParameters = $this->concatParameters(
                 $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 $this->pageParameters($relation->paginatorKind()),
-            )
-            : $this->filterParameters($this->relatedFilterVocabulary($relation, $server));
+            );
+        } else {
+            $getParameters = [];
+        }
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
         $operations['get'] = new Operation(

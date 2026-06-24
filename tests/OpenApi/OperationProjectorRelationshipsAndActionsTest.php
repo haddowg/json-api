@@ -213,6 +213,18 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     }
 
     #[Test]
+    public function aPolymorphicToManyRelationshipEndpointTakesNoQueryParameters(): void
+    {
+        // A polymorphic to-many (`attachments` → images|videos) has no single related
+        // provider or shared vocabulary to window through, so its relationship (linkage)
+        // endpoint takes no query parameters — the host rejects a requested filter/sort/
+        // page there with a 400 (ADR 0096). Contrast the monomorphic to-many `tags`
+        // relationship endpoint above, which carries the full filter/sort/page vocabulary.
+        $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/attachments', 'get');
+        self::assertArrayNotHasKey('parameters', $relationship);
+    }
+
+    #[Test]
     public function aRelatedEndpointIncludeParameterEnumeratesTheRelatedTypesPathsNotTheParents(): void
     {
         // GET /articles/{id}/tags returns `tags` resources, so its `?include` is the
