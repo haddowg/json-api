@@ -387,7 +387,10 @@ final class OperationProjector
             $successDescription = 'The related ' . $relation->name() . ' resource (or `null`).';
         }
 
-        $security = $this->securityFor($type, OperationType::FetchOne, $server);
+        // A related read mirrors a fetch, but the relation's own declared read security
+        // OVERRIDES the parent's (a relation may be more *or* less permissive than the
+        // type it hangs off).
+        $security = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
 
         $responses = (new Responses())
             ->with('200', Response::ofSchema($successDescription, $responseRef));
@@ -452,7 +455,8 @@ final class OperationProjector
         } else {
             $getParameters = [];
         }
-        $getSecurity = $this->securityFor($type, OperationType::FetchOne, $server);
+        // The relation's declared read security overrides the parent's fetch gate.
+        $getSecurity = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
         $operations['get'] = new Operation(
@@ -524,8 +528,9 @@ final class OperationProjector
         string $operationPrefix,
         Schema $documentRef,
     ): Operation {
-        // A relationship mutation mirrors an update — secured iff update is.
-        $security = $this->securityFor($type, OperationType::Update, $server);
+        // A relationship mutation mirrors an update, but the relation's own declared
+        // mutation security OVERRIDES the parent's update gate.
+        $security = $this->relationSecurityFor($relation->securityMutate(), $type, OperationType::Update, $server);
 
         // The handler always echoes the linkage (`200`); it never returns `204` for these
         // arms, so the document advertises only `200` (the spec permits a `204`, but this
@@ -1292,6 +1297,33 @@ final class OperationProjector
 
         if (!\in_array($operation, $type->securedOperations(), true)) {
             return null;
+        }
+
+        return $this->configuredSecurity($server);
+    }
+
+    /**
+     * The security requirement for one of a relation's endpoints, OVERRIDING the
+     * owning type's projected requirement with the relation's own declared security:
+     *
+     * - `false` ⇒ the relation is explicitly public — emit `security: []` (the OAS
+     *   "no auth" override), regardless of the parent.
+     * - a string or `true` ⇒ the relation is secured — emit the configured document
+     *   security (mirrors {@see configuredSecurity()}); the expression itself is a
+     *   runtime concern not projected into the document.
+     * - `null` ⇒ the relation declares no security of its own, so it inherits the
+     *   parent operation's projected requirement ({@see securityFor()}).
+     *
+     * @return list<SecurityRequirement>|null
+     */
+    private function relationSecurityFor(string|bool|null $relationSecurity, TypeMetadataInterface $type, OperationType $parentOperation, ServerMetadataInterface $server): ?array
+    {
+        if ($relationSecurity === false) {
+            return [];
+        }
+
+        if ($relationSecurity === null) {
+            return $this->securityFor($type, $parentOperation, $server);
         }
 
         return $this->configuredSecurity($server);

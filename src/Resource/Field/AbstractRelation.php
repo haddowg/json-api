@@ -102,6 +102,21 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      */
     protected ?\Closure $cannotBeIncludedWhen = null;
 
+    /**
+     * Per-relation security DECLARATIONS for this relation's endpoints, set by
+     * {@see security()}. Each is opaque to core — a host authorization expression
+     * string (enforced + documented secured), the bool `true` (documented secured
+     * only) or `false` (documented public), or `null` (inherit the owning resource's
+     * read/update security). `$securityRead` governs the related + relationship READ
+     * endpoints (`GET …/{rel}`, `GET …/relationships/{rel}`); `$securityMutate`
+     * governs relationship MUTATION (`PATCH`/`POST`/`DELETE …/relationships/{rel}`).
+     * Core only stores and exposes them; the host evaluates an expression and the
+     * OpenAPI projector reads them to override the parent's projected security.
+     */
+    protected string|bool|null $securityRead = null;
+
+    protected string|bool|null $securityMutate = null;
+
     protected bool $isCountable = false;
 
     /**
@@ -371,6 +386,55 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
         $this->cannotBeIncludedWhen = $when;
 
         return $this;
+    }
+
+    /**
+     * Declares per-relation security for this relation's own endpoints, **overriding**
+     * the owning resource's read/update security for them (it falls back to the
+     * resource's security only for whichever of `$read`/`$mutate` is left `null`). The
+     * relationship endpoints are otherwise gated by the *parent* resource's security;
+     * this is the seam to authorize a relationship independently — more *or* less
+     * permissive than its parent.
+     *
+     *  - `$read` governs the related and relationship READ endpoints
+     *    (`GET /{type}/{id}/{rel}` and `GET /{type}/{id}/relationships/{rel}`).
+     *  - `$mutate` governs relationship MUTATION
+     *    (`PATCH`/`POST`/`DELETE /{type}/{id}/relationships/{rel}`).
+     *
+     * Each value is, like the resource's `security`: a host authorization expression
+     * **string** (enforced against the parent + documented secured), **`true`**
+     * (documented secured only — an external firewall enforces it), **`false`**
+     * (documented public), or **`null`** (inherit the resource's read/update). A bool
+     * is documentation-only; only a string is enforced, and only when the host's
+     * authorization layer is installed.
+     *
+     * @return static
+     */
+    public function security(string|bool|null $read = null, string|bool|null $mutate = null): static
+    {
+        $this->securityRead = $read;
+        $this->securityMutate = $mutate;
+
+        return $this;
+    }
+
+    /**
+     * The declared read security for this relation's read endpoints (see
+     * {@see security()}), or `null` to inherit the owning resource's read security.
+     */
+    public function securityRead(): string|bool|null
+    {
+        return $this->securityRead;
+    }
+
+    /**
+     * The declared mutation security for this relation's relationship-mutation
+     * endpoints (see {@see security()}), or `null` to inherit the owning resource's
+     * update security.
+     */
+    public function securityMutate(): string|bool|null
+    {
+        return $this->securityMutate;
     }
 
     /**

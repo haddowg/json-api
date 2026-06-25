@@ -446,6 +446,34 @@ All three are allowed by default. See
 [relationship-mutation](relationship-mutation.md) for how the endpoints map to
 these gates.
 
+## Per-relation security
+
+A relation's endpoints are authorized by the parent resource's security by default.
+`security()` lets a single relationship be gated **independently** — more *or* less
+permissive than the resource it hangs off (a public resource with one privileged
+relationship, or a restricted resource with one openly-readable one):
+
+```php
+// src/Resource/UserResource.php
+BelongsTo::make('billingAccount', 'billing-accounts')
+    ->security(
+        read: "is_granted('VIEW_BILLING', object)",
+        mutate: "is_granted('MANAGE_BILLING', object)",
+    ),
+```
+
+- **`read`** governs the related read (`GET /{type}/{id}/{rel}`) and the relationship
+  linkage read (`GET …/relationships/{rel}`).
+- **`mutate`** governs relationship mutation (`PATCH`/`POST`/`DELETE …/relationships/{rel}`).
+
+Each value mirrors a resource's `security`: an authorization expression **string**
+(enforced + documented secured), **`true`** (documented secured only — an external
+firewall enforces it), **`false`** (documented public), or **`null`** (the default —
+inherit the resource's read/update security). A declared value **replaces** the
+parent's gate for that relation; `null` falls back to it. The expression is evaluated
+by the host's authorization layer; core stores the declaration and the OpenAPI
+projection reflects it. See the bundle's authorization guide for how it is enforced.
+
 ## Includability
 
 A relation is includable in a compound document by default. Opt out with

@@ -37,6 +37,8 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         private readonly array $filters = [],
         private readonly array $sorts = [],
         private readonly array $relatedIncludablePaths = [],
+        private readonly string|bool|null $securityRead = null,
+        private readonly string|bool|null $securityMutate = null,
     ) {}
 
     /**
@@ -108,6 +110,16 @@ final class FakeRelationMetadata implements RelationMetadataInterface
     public function isCountable(): bool
     {
         return $this->countable;
+    }
+
+    public function securityRead(): string|bool|null
+    {
+        return $this->securityRead;
+    }
+
+    public function securityMutate(): string|bool|null
+    {
+        return $this->securityMutate;
     }
 
     public function paginatorKind(): PaginatorKind

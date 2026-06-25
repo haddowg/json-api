@@ -541,6 +541,88 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertArrayNotHasKey('security', $this->arrAt($relationship, 'get'));
     }
 
+    #[Test]
+    public function aRelationDeclaringPublicSecurityOverridesASecuredParentOnAllItsEndpoints(): void
+    {
+        // A parent whose reads AND updates are secured, but a relation declares itself
+        // explicitly public on both read and mutate — its related + relationship GET and
+        // its relationship PATCH all become `security: []` (the OAS no-auth override) and
+        // drop the 401, MORE permissive than the type it hangs off.
+        $type = FakeTypeMetadata::resource(
+            type: 'posts',
+            fields: [Id::make(), Str::make('title')],
+            relations: [
+                new FakeRelationMetadata('open', ['posts'], false, securityRead: false, securityMutate: false),
+                new FakeRelationMetadata('inherits', ['posts'], false),
+            ],
+            securedOperations: [OperationType::FetchOne, OperationType::Update],
+        );
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [$type],
+            securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
+            defaultSecurity: [SecurityRequirement::scheme('bearer')],
+        );
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        // `open` — public on every endpoint: explicit `security: []`, no 401.
+        $related = $this->arrAt($paths, '/posts/{id}/open', 'get');
+        self::assertSame([], $this->at($related, 'security'));
+        self::assertArrayNotHasKey('401', $this->arrAt($related, 'responses'));
+
+        $linkage = $this->arrAt($paths, '/posts/{id}/relationships/open');
+        self::assertSame([], $this->at($linkage, 'get', 'security'));
+        self::assertArrayNotHasKey('401', $this->arrAt($linkage, 'get', 'responses'));
+        self::assertSame([], $this->at($linkage, 'patch', 'security'));
+        self::assertArrayNotHasKey('401', $this->arrAt($linkage, 'patch', 'responses'));
+
+        // `inherits` — declares nothing, so the parent gate still applies: the secured
+        // read/update project the configured requirement and the 401.
+        $inheritsRelated = $this->arrAt($paths, '/posts/{id}/inherits', 'get');
+        self::assertSame([['bearer' => []]], $this->at($inheritsRelated, 'security'));
+        self::assertArrayHasKey('401', $this->arrAt($inheritsRelated, 'responses'));
+        self::assertSame([['bearer' => []]], $this->at($paths, '/posts/{id}/relationships/inherits', 'patch', 'security'));
+    }
+
+    #[Test]
+    public function aRelationDeclaringSecurityOverridesAnInheritingParentWithAnExplicitRequirement(): void
+    {
+        // A parent whose read and update are NOT per-op secured (they merely inherit the
+        // document default), but a relation declares its OWN read and mutate security — so
+        // its endpoints carry an EXPLICIT requirement rather than silently inheriting, the
+        // projector faithfully reflecting that the relation owns its gate.
+        $type = FakeTypeMetadata::resource(
+            type: 'notes',
+            fields: [Id::make(), Str::make('body')],
+            relations: [
+                new FakeRelationMetadata('locked', ['notes'], false, securityRead: "is_granted('VIEW', object)", securityMutate: "is_granted('EDIT', object)"),
+                new FakeRelationMetadata('plain', ['notes'], false),
+            ],
+            securedOperations: [],
+        );
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [$type],
+            securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
+            defaultSecurity: [SecurityRequirement::scheme('bearer')],
+        );
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        // `locked` — its own read/mutate security projects the configured requirement
+        // EXPLICITLY on the related read, the linkage read, and the relationship mutation.
+        self::assertSame([['bearer' => []]], $this->at($paths, '/notes/{id}/locked', 'get', 'security'));
+        self::assertSame([['bearer' => []]], $this->at($paths, '/notes/{id}/relationships/locked', 'get', 'security'));
+        self::assertSame([['bearer' => []]], $this->at($paths, '/notes/{id}/relationships/locked', 'patch', 'security'));
+
+        // `plain` — declares nothing and the parent ops are not secured, so it merely
+        // inherits the document default: no explicit per-operation `security` key.
+        self::assertArrayNotHasKey('security', $this->arrAt($paths, '/notes/{id}/plain', 'get'));
+        self::assertArrayNotHasKey('security', $this->arrAt($paths, '/notes/{id}/relationships/plain', 'get'));
+        self::assertArrayNotHasKey('security', $this->arrAt($paths, '/notes/{id}/relationships/plain', 'patch'));
+    }
+
     // ---- Standalone type with only actions --------------------------------------
 
     #[Test]
