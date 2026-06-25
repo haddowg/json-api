@@ -92,6 +92,22 @@ interface RelationMetadataInterface
     public function isCountable(): bool;
 
     /**
+     * The relation's declared READ security (an expression string, `true`, `false`, or
+     * `null` to inherit the owning type's read security) — the projector uses it to
+     * OVERRIDE the parent's projected `security`/`401` on this relation's related and
+     * relationship GET operations.
+     */
+    public function securityRead(): string|bool|null;
+
+    /**
+     * The relation's declared MUTATION security (an expression string, `true`,
+     * `false`, or `null` to inherit the owning type's update security) — the projector
+     * uses it to override the parent's projected security on this relation's
+     * relationship-mutation operations.
+     */
+    public function securityMutate(): string|bool|null;
+
+    /**
      * The pagination strategy for this relation's related-collection endpoint
      * (already resolved against the related-resource / server fallback by the
      * metadata source). {@see PaginatorKind::None} for a to-one relation or an

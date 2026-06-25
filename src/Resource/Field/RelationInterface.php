@@ -118,6 +118,23 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function allowsReplace(): bool;
 
     /**
+     * The relation's declared READ security (its related + relationship GET
+     * endpoints), set by {@see AbstractRelation::security()}: a host authorization
+     * expression string, `true` (documented secured), `false` (documented public), or
+     * `null` to inherit the owning resource's read security. Opaque to core — the host
+     * evaluates an expression and the OpenAPI projector reads it.
+     */
+    public function securityRead(): string|bool|null;
+
+    /**
+     * The relation's declared MUTATION security (its relationship-mutation
+     * endpoints), set by {@see AbstractRelation::security()}: a host expression
+     * string, `true`/`false`, or `null` to inherit the owning resource's update
+     * security.
+     */
+    public function securityMutate(): string|bool|null;
+
+    /**
      * Whether full replacement is permitted **for this request** — the
      * unconditional flag ({@see allowsReplace()}) AND, if a replace predicate was
      * declared, its negation against the request and the domain `$model`. This is
