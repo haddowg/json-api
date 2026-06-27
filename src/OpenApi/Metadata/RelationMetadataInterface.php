@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
+use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 
@@ -144,4 +145,16 @@ interface RelationMetadataInterface
      * @return list<string>
      */
     public function relatedIncludablePaths(): array;
+
+    /**
+     * The relation's declared **pivot** fields — the per-edge attributes a
+     * `belongsToMany` relation renders under each linkage identifier's `meta.pivot`
+     * (and accepts on a relationship mutation). Empty for any relation without pivot
+     * data (a to-one, a plain to-many, a polymorphic relation). The projector types
+     * the linkage identifier's `meta.pivot` from these, projecting each field with the
+     * same {@see \haddowg\JsonApi\OpenApi\SchemaProjector} the attributes use.
+     *
+     * @return list<FieldInterface>
+     */
+    public function pivotFields(): array;
 }
