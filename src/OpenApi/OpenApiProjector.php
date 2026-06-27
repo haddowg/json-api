@@ -235,12 +235,12 @@ final class OpenApiProjector
         // respond with.
         foreach ($type->relations() as $relation) {
             $relBase = $name . $this->componentBase($relation->name());
-            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation);
+            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $collector);
 
             // The relationship-linkage endpoint's document envelope — emitted whenever
             // the relationship endpoint is exposed (the path projection $ref's it).
             if ($relation->exposesRelationshipEndpoint()) {
-                $schemas[$relBase . 'RelationshipDocument'] = $this->relationshipDocumentSchema($relation);
+                $schemas[$relBase . 'RelationshipDocument'] = $this->relationshipDocumentSchema($relation, $collector);
             }
 
             // The to-one related endpoint renders `data: <Resource> | null` (an empty
@@ -820,11 +820,11 @@ final class OpenApiProjector
      * to-many; a polymorphic relation's identifier is a `oneOf` of its member
      * identifiers.
      */
-    private function relationshipObjectSchema(RelationMetadataInterface $relation): Schema
+    private function relationshipObjectSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
         $schema = Schema::ofType('object')
             ->withProperty('links', Schema::ofType('object'))
-            ->withProperty('data', $this->linkageData($relation))
+            ->withProperty('data', $this->linkageData($relation, $collector))
             ->withProperty('meta', Schema::ofType('object'));
 
         $description = $relation->description();
@@ -836,9 +836,9 @@ final class OpenApiProjector
      * The linkage `data` member for a relation: an array of identifiers for a to-many,
      * a single nullable identifier for a to-one (the empty to-one is `data: null`).
      */
-    private function linkageData(RelationMetadataInterface $relation): Schema
+    private function linkageData(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
-        $identifier = $this->linkageIdentifierSchema($relation);
+        $identifier = $this->linkageIdentifierSchema($relation, $collector);
 
         return $relation->isToMany()
             ? Schema::ofType('array')->withItems($identifier)
@@ -851,10 +851,10 @@ final class OpenApiProjector
      * `{jsonapi?, links?, data: <linkage>, meta?}` — the top-level document around the
      * bare linkage (`data` is the array / nullable-identifier of {@see linkageData()}).
      */
-    private function relationshipDocumentSchema(RelationMetadataInterface $relation): Schema
+    private function relationshipDocumentSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('data', $this->linkageData($relation))
+            ->withProperty('data', $this->linkageData($relation, $collector))
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -942,7 +942,7 @@ final class OpenApiProjector
      * type's identifier for a polymorphic one. A relation declaring no related types
      * degrades to a permissive identifier shape.
      */
-    private function linkageIdentifierSchema(RelationMetadataInterface $relation): Schema
+    private function linkageIdentifierSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
         $types = $relation->relatedTypes();
         if ($types === []) {
@@ -953,7 +953,15 @@ final class OpenApiProjector
         }
 
         if (\count($types) === 1) {
-            return Schema::ref('#/components/schemas/' . $this->componentBase($types[0]) . 'ResourceIdentifier');
+            $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($types[0]) . 'ResourceIdentifier');
+
+            // A pivot-backed (belongsToMany) relation carries typed pivot data in each
+            // linkage identifier's `meta.pivot`. Compose it onto the base identifier via
+            // `allOf` — the `$ref` carries `type`/`id`, the narrowing adds the typed
+            // `meta` (a `$ref` cannot carry sibling property keywords here).
+            $narrowing = $this->pivotMetaNarrowing($relation, $collector);
+
+            return $narrowing === null ? $identifier : Schema::create()->withAllOf([$identifier, $narrowing]);
         }
 
         $members = [];
@@ -962,6 +970,36 @@ final class OpenApiProjector
         }
 
         return Schema::create()->withAnyOf($members);
+    }
+
+    /**
+     * The `meta.pivot` narrowing for a pivot-backed (`belongsToMany`) relation's
+     * linkage identifier: an object whose `meta.pivot` types each declared pivot field
+     * via the same {@see SchemaProjector} the attributes use (so a backed-enum pivot
+     * field hoists into the shared enum component). Returns `null` for any relation
+     * without pivot fields.
+     *
+     * The `meta`, `pivot` and per-field members are deliberately **optional** (no
+     * `required`): this one schema backs both the read linkage (where the runtime
+     * always renders the full pivot) and the relationship-mutation request body (where
+     * the client sends only the pivot fields it sets).
+     */
+    private function pivotMetaNarrowing(RelationMetadataInterface $relation, EnumComponentCollector $collector): ?Schema
+    {
+        $pivotFields = $relation->pivotFields();
+        if ($pivotFields === []) {
+            return null;
+        }
+
+        $properties = [];
+        foreach ($pivotFields as $field) {
+            $properties[$field->name()] = $this->schemaProjector->projectField($field, false, $collector);
+        }
+
+        return Schema::ofType('object')->withProperty(
+            'meta',
+            Schema::ofType('object')->withProperty('pivot', Schema::ofType('object')->withProperties($properties)),
+        );
     }
 
     /**

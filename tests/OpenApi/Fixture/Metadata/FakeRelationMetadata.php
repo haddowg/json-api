@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 
@@ -20,6 +21,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface
      * @param list<FilterInterface> $filters
      * @param list<SortInterface>   $sorts
      * @param list<string>          $relatedIncludablePaths
+     * @param list<FieldInterface>  $pivotFields
      */
     public function __construct(
         private readonly string $name,
@@ -39,6 +41,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         private readonly array $relatedIncludablePaths = [],
         private readonly string|bool|null $securityRead = null,
         private readonly string|bool|null $securityMutate = null,
+        private readonly array $pivotFields = [],
     ) {}
 
     /**
@@ -50,11 +53,12 @@ final class FakeRelationMetadata implements RelationMetadataInterface
     }
 
     /**
-     * @param list<string> $relatedTypes
+     * @param list<string>         $relatedTypes
+     * @param list<FieldInterface> $pivotFields a pivot-backed (belongsToMany) relation's per-edge fields
      */
-    public static function toMany(string $name, array $relatedTypes, ?string $description = null): self
+    public static function toMany(string $name, array $relatedTypes, ?string $description = null, array $pivotFields = []): self
     {
-        return new self($name, $relatedTypes, true, $description, countable: true);
+        return new self($name, $relatedTypes, true, $description, countable: true, pivotFields: $pivotFields);
     }
 
     public function name(): string
@@ -140,5 +144,10 @@ final class FakeRelationMetadata implements RelationMetadataInterface
     public function relatedIncludablePaths(): array
     {
         return $this->relatedIncludablePaths;
+    }
+
+    public function pivotFields(): array
+    {
+        return $this->pivotFields;
     }
 }

@@ -140,6 +140,55 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function itTypesThePivotLinkageMetaForABelongsToManyRelation(): void
+    {
+        $playlists = FakeTypeMetadata::resource(
+            type: 'playlists',
+            fields: [Id::make(), Str::make('name')->required()],
+            relations: [
+                FakeRelationMetadata::toMany('orderedTracks', ['tracks'], 'Tracks in order.', pivotFields: [
+                    Integer::make('position')->describedAs('The track position.'),
+                    Boolean::make('featured')->nullable(),
+                ]),
+                // A plain (non-pivot) to-many keeps a bare `$ref` linkage.
+                FakeRelationMetadata::toMany('tags', ['tags']),
+            ],
+        );
+        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make(), Str::make('title')->required()]);
+        $tags = FakeTypeMetadata::resource(type: 'tags', fields: [Id::make(), Str::make('label')->required()]);
+
+        $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks, $tags]);
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        // The pivot relation's linkage identifier — in BOTH the embedded relationship
+        // object and the relationship-document envelope — is an `allOf` of the base
+        // identifier `$ref` plus a typed, OPTIONAL `meta.pivot`.
+        foreach (['PlaylistsOrderedTracksRelationship', 'PlaylistsOrderedTracksRelationshipDocument'] as $component) {
+            $identifier = $this->arrAt($schemas, $component, 'properties', 'data', 'items');
+            self::assertArrayHasKey('allOf', $identifier, $component);
+
+            $base = $this->arrAt($identifier, 'allOf', '0');
+            self::assertSame('#/components/schemas/TracksResourceIdentifier', $base['$ref'] ?? null, $component);
+
+            $pivot = $this->arrAt($identifier, 'allOf', '1', 'properties', 'meta', 'properties', 'pivot');
+            self::assertSame('object', $pivot['type'] ?? null, $component);
+
+            $position = $this->arrAt($pivot, 'properties', 'position');
+            self::assertSame('integer', $position['type'] ?? null, $component);
+            self::assertSame('The track position.', $position['description'] ?? null, $component);
+
+            self::assertArrayHasKey('featured', $this->arrAt($pivot, 'properties'), $component);
+            // Shared by the read response + the mutation request body, so nothing is required.
+            self::assertArrayNotHasKey('required', $pivot, $component);
+        }
+
+        // A non-pivot to-many keeps the bare `$ref` linkage (no `allOf`, no meta typing).
+        $tagsLinkage = $this->arrAt($schemas, 'PlaylistsTagsRelationship', 'properties', 'data', 'items');
+        self::assertSame('#/components/schemas/TagsResourceIdentifier', $tagsLinkage['$ref'] ?? null);
+        self::assertArrayNotHasKey('allOf', $tagsLinkage);
+    }
+
+    #[Test]
     public function itProjectsTheSkeleton(): void
     {
         $array = $this->projector()->project($this->server())->toArray();
