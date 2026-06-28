@@ -16,6 +16,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
@@ -286,6 +287,11 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $collection = $this->arrAt($this->paths(), '/articles', 'get');
         self::assertContains('tags', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
         self::assertNotContains('_self_', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
+
+        // The parameter is self-describing about its required profile via `x-profile`, so a
+        // generated client knows to negotiate the Countable profile to use it (ADR 0101).
+        self::assertSame(CountableProfile::URI, $this->parameterNamed($collection, 'withCount')['x-profile'] ?? null);
+        self::assertSame(CountableProfile::URI, $this->parameterNamed($related, 'withCount')['x-profile'] ?? null);
     }
 
     #[Test]
