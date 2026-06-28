@@ -30,7 +30,30 @@ final readonly class Parameter implements \JsonSerializable
         public Schema|Reference|null $schema = null,
         public ?ParameterStyle $style = null,
         public ?bool $explode = null,
+        /** @var array<string, mixed> vendor extensions (`x-…`), emitted after the standard keywords */
+        private array $extensions = [],
     ) {}
+
+    /**
+     * Sets a vendor extension keyword (the name is normalized to the `x-` prefix), e.g.
+     * `x-profile` on a parameter recognised only under a negotiated JSON:API profile.
+     */
+    public function withExtension(string $name, mixed $value): self
+    {
+        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+
+        return new self(
+            $this->name,
+            $this->in,
+            $this->description,
+            $this->required,
+            $this->deprecated,
+            $this->schema,
+            $this->style,
+            $this->explode,
+            [...$this->extensions, $key => $value],
+        );
+    }
 
     /**
      * A `query` parameter (the JSON:API case: `filter[…]`, `sort`, `include`,
@@ -76,6 +99,9 @@ final readonly class Parameter implements \JsonSerializable
         }
         if ($this->explode !== null) {
             $out['explode'] = $this->explode;
+        }
+        foreach ($this->extensions as $key => $value) {
+            $out[$key] = $value;
         }
 
         return $out;

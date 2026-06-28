@@ -12,6 +12,7 @@ use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
 /**
  * Projects a type's HTTP surface into OpenAPI {@see PathItem}s (design §4.4–4.6,
@@ -1114,7 +1115,7 @@ final class OperationProjector
             . \implode('`, `', $tokens) . '`.',
             style: ParameterStyle::Form,
             explode: false,
-        );
+        )->withExtension('profile', CountableProfile::URI);
     }
 
     /**
