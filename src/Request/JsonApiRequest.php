@@ -276,6 +276,13 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
     }
 
     /**
+     * The profiles named in the RC-era `?profile=` query parameter.
+     *
+     * @deprecated Profile negotiation is Accept-based (final JSON:API 1.1). The `?profile=`
+     *   query parameter is tolerated (never a strict-validation 400) but no longer negotiates a
+     *   profile or is advertised as applied; use the `Accept` `profile` media-type parameter
+     *   ({@see getRequestedProfiles()}).
+     *
      * @return list<string>
      */
     public function getRequiredProfiles(): array
@@ -287,6 +294,10 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         return \array_keys($this->profiles['profile'] ?? []);
     }
 
+    /**
+     * @deprecated Profile negotiation is Accept-based; the `?profile=` query parameter no longer
+     *   negotiates. Use {@see isProfileRequested()} (the `Accept` `profile` parameter).
+     */
     public function isProfileRequired(string $profile): bool
     {
         if (isset($this->profiles['profile']) === false) {

@@ -206,10 +206,12 @@ abstract class AbstractResponse
 
     /**
      * The profiles applied to this response: the server-registered profiles the
-     * request asked for (via the `Accept` `profile` parameter or the `profile`
-     * query parameter). Unrecognized profiles are ignored, never rejected.
-     * Subclasses extend this (e.g. {@see DataResponse} adds a paginator's
-     * profile).
+     * request negotiated via the `Accept` `profile` media-type parameter. Profile
+     * negotiation is Accept-based (final JSON:API 1.1); the RC-era `?profile=` query
+     * parameter is tolerated but no longer negotiates or is advertised as applied — so
+     * the advertised profiles now match the (Accept-only) behavioural gates. Unrecognized
+     * profiles are ignored, never rejected. Subclasses extend this (e.g.
+     * {@see DataResponse} adds a paginator's profile).
      *
      * @return list<ProfileInterface>
      */
@@ -218,7 +220,7 @@ abstract class AbstractResponse
         $profiles = [];
         $seen = [];
 
-        foreach ([...$request->getRequestedProfiles(), ...$request->getRequiredProfiles()] as $uri) {
+        foreach ($request->getRequestedProfiles() as $uri) {
             if (isset($seen[$uri])) {
                 continue;
             }

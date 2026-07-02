@@ -31,7 +31,9 @@ final class ProfileSchemaCollector
         $fragments = [];
         $seen = [];
 
-        foreach ([...$request->getRequestedProfiles(), ...$request->getRequiredProfiles()] as $uri) {
+        // Accept-based negotiation only (final JSON:API 1.1): the RC-era `?profile=` query
+        // parameter no longer contributes a validation schema, matching the Accept-only gates.
+        foreach ($request->getRequestedProfiles() as $uri) {
             if (isset($seen[$uri])) {
                 continue;
             }
