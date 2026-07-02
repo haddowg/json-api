@@ -63,6 +63,32 @@ final class ProfileApplicationTest extends TestCase
         self::assertSame(['self' => '/users/1'], $body['links']);
     }
 
+    #[Test]
+    public function doesNotNegotiateProfileFromQueryParameter(): void
+    {
+        // A server that DOES register the profile, but the request asks for it via the
+        // RC-era `?profile=` query parameter rather than the Accept media-type parameter.
+        // Final JSON:API 1.1 negotiates profiles on Accept only: the query param is
+        // tolerated (not a strict-validation 400) but no longer negotiates or is advertised.
+        $server = new StubServer(profiles: new ProfileRegistry($this->timestampsProfile()));
+        $request = new JsonApiRequest(
+            new ServerRequest('GET', '/users/1?profile=' . \rawurlencode(self::URI)),
+        );
+
+        $psr = DataResponse::fromResource(new \stdClass(), new StubResource('user', '1'))
+            ->toPsrResponse($server, $request);
+
+        $body = $this->decode((string) $psr->getBody());
+
+        // Not advertised on Content-Type, no Vary, no jsonapi.profile, and the
+        // finalizeDocument hook did NOT run (no injected meta).
+        self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
+        self::assertSame('', $psr->getHeaderLine('Vary'));
+        self::assertIsArray($body['jsonapi']);
+        self::assertArrayNotHasKey('profile', $body['jsonapi']);
+        self::assertArrayNotHasKey('meta', $body);
+    }
+
     private function timestampsProfile(): AbstractProfile
     {
         return new class extends AbstractProfile {
