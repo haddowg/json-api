@@ -100,6 +100,18 @@ interface FieldInterface
     public function isHiddenFor(JsonApiRequestInterface $request, mixed $model): bool;
 
     /**
+     * Whether the field's presence in a **response** is request-conditional — it stays
+     * in the read (superset) schema but may be absent from the wire for some requests,
+     * because it carries a `hidden(when:)` and/or `writeOnly(when:)` predicate. A field
+     * that is unconditionally present in reads reports `false`. Used by the OpenAPI
+     * projection to mark such members optional (omit them from the read schema's
+     * `required` array) so a consumer does not treat a possibly-absent field as
+     * guaranteed. Unconditionally hidden / write-only fields are not in the read schema
+     * at all, so they never reach this check.
+     */
+    public function hasConditionalReadVisibility(): bool;
+
+    /**
      * Whether the field participates in sparse-fieldset filtering. A field that
      * opts out (`notSparseField()`) is always serialized regardless of a
      * `fields[type]` parameter.

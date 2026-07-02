@@ -536,8 +536,32 @@ final class SchemaProjectorTest extends TestCase
         self::assertArrayNotHasKey('id', $properties);
         self::assertArrayNotHasKey('secret', $properties);
         self::assertArrayNotHasKey('internal', $properties);
-        // No required[] on a read projection.
-        $this->missing($schema, 'required');
+        // A read projection lists the guaranteed-present members in required[]: every
+        // read attribute here is unconditionally present.
+        self::assertSame(['name', 'status', 'derived'], $this->listAt($schema, 'required'));
+    }
+
+    #[Test]
+    public function readProjectionOmitsConditionallyVisibleFieldsFromRequired(): void
+    {
+        $fields = [
+            Id::make(),
+            Str::make('name')->required(),
+            // In the read superset schema, but request-conditionally absent from the wire.
+            Str::make('nickname')->hidden(static fn(mixed $model, $request): bool => false),
+            Str::make('token')->writeOnly(static fn($request): bool => false),
+        ];
+
+        $schema = $this->projector()->projectAttributes($fields)->toArray();
+        $properties = $this->at($schema, 'properties');
+        self::assertIsArray($properties);
+
+        // The conditionally-visible members stay in the schema (the superset)…
+        self::assertArrayHasKey('nickname', $properties);
+        self::assertArrayHasKey('token', $properties);
+        // …but are omitted from required so a consumer treats them as possibly absent;
+        // only the unconditionally-present `name` is required.
+        self::assertSame(['name'], $this->listAt($schema, 'required'));
     }
 
     #[Test]

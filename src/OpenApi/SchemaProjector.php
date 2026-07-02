@@ -166,8 +166,17 @@ final class SchemaProjector
     /**
      * Projects a type's **attributes** object schema: a `{type: object,
      * properties: {…}}` over the non-id, non-relationship, non-hidden fields.
-     * Write-only fields are excluded from a read projection (`$creating === false`);
-     * required fields populate `required` only in the create context.
+     * Write-only fields are excluded from a read projection (`$creating === false`).
+     *
+     * The `required` array is populated by context:
+     * - **Create** — the fields a POST body must carry (a PATCH is partial, so an
+     *   update never marks a member required; a response has no request-required notion).
+     * - **Read** — the members **guaranteed present** in a response: every read
+     *   attribute except one whose presence is request-conditional
+     *   ({@see FieldInterface::hasConditionalReadVisibility()} — a `hidden(when:)` /
+     *   `writeOnly(when:)` field stays in this superset schema but may be absent for
+     *   some requests). A consumer then knows a required read member is always there and
+     *   a non-required one may be `undefined`.
      *
      * @param iterable<FieldInterface> $fields
      */
@@ -183,9 +192,12 @@ final class SchemaProjector
             }
 
             $properties[$field->name()] = $this->projectField($field, $creating, $collector);
-            // Only a POST body carries `required`; a PATCH is partial (absent = no
-            // change) and a response has no request-required notion.
-            if ($context === RepresentationContext::Create && $this->isRequired($field, true)) {
+
+            if ($context === RepresentationContext::Create) {
+                if ($this->isRequired($field, true)) {
+                    $required[] = $field->name();
+                }
+            } elseif ($context === RepresentationContext::Read && !$field->hasConditionalReadVisibility()) {
                 $required[] = $field->name();
             }
         }
