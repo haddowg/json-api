@@ -727,6 +727,17 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return $this->hidden || ($this->hiddenWhen !== null && ($this->hiddenWhen)($model, $request));
     }
 
+    public function hasConditionalReadVisibility(): bool
+    {
+        // Unconditionally hidden / write-only fields are absent from reads entirely and
+        // never reach the read-schema projection; among read-visible fields, presence is
+        // request-conditional exactly when a hidden(when:) or writeOnly(when:) predicate
+        // is declared.
+        return !$this->hidden
+            && !$this->writeOnly
+            && ($this->hiddenWhen !== null || $this->writeOnlyWhen !== null);
+    }
+
     public function isSparseField(): bool
     {
         return $this->sparseField;

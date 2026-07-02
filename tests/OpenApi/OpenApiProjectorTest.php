@@ -997,8 +997,10 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'attributes', '$ref'));
         self::assertSame('#/components/schemas/ArticlesUpdateAttributes', $this->strAt($schemas, 'ArticlesAtomicUpdate', 'properties', 'attributes', '$ref'));
 
-        // Only the create component carries `required` — read and update do not.
-        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesAttributes'));
+        // The read component lists its guaranteed-present members in required[] (every
+        // read attribute here is unconditionally present); the create component lists the
+        // create-required members; an update is partial, so it carries no required[].
+        self::assertSame(['title', 'status', 'wordCount'], $this->listAt($schemas, 'ArticlesAttributes', 'required'));
         self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'ArticlesUpdateAttributes'));
         self::assertContains('title', $this->listAt($schemas, 'ArticlesCreateAttributes', 'required'));
     }
