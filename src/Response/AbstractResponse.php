@@ -169,6 +169,7 @@ abstract class AbstractResponse
 
         $profiles = $this->appliedProfiles($server, $jsonApiRequest);
         $body = $this->applyProfiles($rendered->body, $profiles, $jsonApiRequest);
+        $body = $this->applyExtensions($body);
         $body = $this->orderTopLevelMembers($body);
 
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
@@ -295,6 +296,49 @@ abstract class AbstractResponse
     }
 
     /**
+     * The extension URIs applied to this response: the ones a subclass hard-codes in
+     * {@see extensions()} merged (de-duplicated) with any set via {@see withExtensions()}.
+     * Echoed in the `Content-Type` `ext` media-type parameter and advertised in the
+     * top-level `jsonapi.ext` member.
+     *
+     * @return list<string>
+     */
+    private function resolvedExtensions(): array
+    {
+        return \array_values(\array_unique([...$this->extensions(), ...$this->appliedExtensions]));
+    }
+
+    /**
+     * Records the applied extension URIs in the top-level `jsonapi.ext` member — the
+     * location JSON:API 1.1 defines for advertising applied extensions on the `jsonapi`
+     * object (symmetric with `jsonapi.profile`), so a document produced under an applied
+     * extension (e.g. the Atomic Operations response) self-describes it. A no-op when no
+     * extension is applied.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array<string, mixed>
+     */
+    private function applyExtensions(array $body): array
+    {
+        $extensions = $this->resolvedExtensions();
+        if ($extensions === []) {
+            return $body;
+        }
+
+        $jsonapi = $body['jsonapi'] ?? [];
+        $jsonapi = \is_array($jsonapi) ? $jsonapi : [];
+
+        $existing = $jsonapi['ext'] ?? [];
+        $existing = \is_array($existing) ? \array_values(\array_filter($existing, '\is_string')) : [];
+
+        $jsonapi['ext'] = \array_values(\array_unique([...$existing, ...$extensions]));
+        $body['jsonapi'] = $jsonapi;
+
+        return $body;
+    }
+
+    /**
      * The response `Content-Type`, echoing the applied profile URIs in the
      * `profile` media-type parameter when any profiles are applied, and the
      * applied extension URIs in the `ext` media-type parameter when a response
@@ -306,7 +350,7 @@ abstract class AbstractResponse
     {
         $type = 'application/vnd.api+json';
 
-        $extensions = \array_values(\array_unique([...$this->extensions(), ...$this->appliedExtensions]));
+        $extensions = $this->resolvedExtensions();
         if ($extensions !== []) {
             $type .= '; ext="' . \implode(' ', $extensions) . '"';
         }
