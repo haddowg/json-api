@@ -196,8 +196,18 @@ final class SchemaProjectorTest extends TestCase
     {
         $schema = $this->project(ArrayList::make('tags'));
 
+        // Items default to `string` so a list attribute never degrades to `unknown[]`.
         self::assertSame('array', $this->at($schema, 'type'));
-        self::assertSame([], $this->at($schema, 'items'));
+        self::assertSame(['type' => 'string'], $this->at($schema, 'items'));
+    }
+
+    #[Test]
+    public function arrayListElementTypeIsDeclarable(): void
+    {
+        $schema = $this->project(ArrayList::make('scores')->of('integer'));
+
+        self::assertSame('array', $this->at($schema, 'type'));
+        self::assertSame(['type' => 'integer'], $this->at($schema, 'items'));
     }
 
     #[Test]
@@ -264,7 +274,8 @@ final class SchemaProjectorTest extends TestCase
     {
         $schema = $this->project(ArrayList::make('codes')->each(new MinLength(2)));
 
-        self::assertSame(['minLength' => 2], $this->at($schema, 'items'));
+        // The per-item constraints compose on top of the element type (default string).
+        self::assertSame(['type' => 'string', 'minLength' => 2], $this->at($schema, 'items'));
     }
 
     #[Test]
