@@ -40,6 +40,15 @@ abstract class AbstractResponse
 
     protected ?DocumentLinks $links = null;
 
+    /**
+     * A `describedby` top-level link merged into the rendered `links` at render time
+     * ({@see withDescribedby()}), symmetric with the by-convention `self`. Kept off the
+     * `DocumentLinks` value object so a caller (e.g. the Symfony bundle pointing at the
+     * served OpenAPI document) can contribute it without reconstructing whatever links
+     * a handler already set.
+     */
+    protected ?\haddowg\JsonApi\Schema\Link\Link $describedby = null;
+
     protected ?JsonApiObject $jsonApi = null;
 
     /**
@@ -71,10 +80,54 @@ abstract class AbstractResponse
         return $self;
     }
 
+    /**
+     * The document-level `meta` set on this response (via {@see withMeta()} /
+     * {@see withAddedMeta()}), for a consumer that needs to read-modify-write it —
+     * e.g. a `kernel.view` decorator contributing top-level meta alongside a member a
+     * handler already set (`total` under `?withCount`).
+     *
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return $this->meta;
+    }
+
+    /**
+     * Merges the given members into the document-level `meta`, preserving whatever is
+     * already set. {@see withMeta()} replaces the whole `meta`, so a decorator that
+     * wants to *add* a member without clobbering an existing one (e.g. a handler-set
+     * `total`) uses this instead. The given members win on a key collision.
+     *
+     * @param array<string, mixed> $meta
+     */
+    public function withAddedMeta(array $meta): static
+    {
+        $self = clone $this;
+        $self->meta = [...$this->meta, ...$meta];
+
+        return $self;
+    }
+
     public function withLinks(?DocumentLinks $links): static
     {
         $self = clone $this;
         $self->links = $links;
+
+        return $self;
+    }
+
+    /**
+     * Sets the top-level `describedby` link — a link to a description document for the
+     * document, e.g. the served OpenAPI spec (JSON:API 1.1). It is merged into the
+     * rendered top-level `links` at render time (like the by-convention `self`), so it
+     * coexists with a handler's `self`/pagination/custom links without the caller
+     * reconstructing them. An explicit `describedby` already in {@see withLinks()} wins.
+     */
+    public function withDescribedby(?\haddowg\JsonApi\Schema\Link\Link $describedby): static
+    {
+        $self = clone $this;
+        $self->describedby = $describedby;
 
         return $self;
     }
@@ -170,6 +223,7 @@ abstract class AbstractResponse
         $profiles = $this->appliedProfiles($server, $jsonApiRequest);
         $body = $this->applyProfiles($rendered->body, $profiles, $jsonApiRequest);
         $body = $this->applyExtensions($body);
+        $body = $this->applyDescribedby($body);
         $body = $this->orderTopLevelMembers($body);
 
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
@@ -334,6 +388,37 @@ abstract class AbstractResponse
 
         $jsonapi['ext'] = \array_values(\array_unique([...$existing, ...$extensions]));
         $body['jsonapi'] = $jsonapi;
+
+        return $body;
+    }
+
+    /**
+     * Merges the {@see withDescribedby()} `describedby` link into the rendered top-level
+     * `links` — symmetric with {@see applyTopLevelSelf()}. Any `describedby` already in
+     * the body (an author's own, via {@see withLinks()}) wins and is left untouched;
+     * otherwise it is added alongside `self`/pagination/custom links without disturbing
+     * them. A bodiless response never reaches here.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array<string, mixed>
+     */
+    private function applyDescribedby(array $body): array
+    {
+        if ($this->describedby === null) {
+            return $body;
+        }
+
+        /** @var array<string, mixed> $links */
+        $links = $body['links'] ?? [];
+        if (isset($links['describedby'])) {
+            return $body;
+        }
+
+        // The caller supplies a complete href (the served spec URL), so no base is
+        // prepended — mirroring how a profile link renders its own absolute URI.
+        $links['describedby'] = $this->describedby->transform('');
+        $body['links'] = $links;
 
         return $body;
     }

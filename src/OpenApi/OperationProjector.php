@@ -897,13 +897,18 @@ final class OperationProjector
      */
     private function fieldsParameters(TypeMetadataInterface $type, ServerMetadataInterface $server, array $includablePaths): array
     {
+        $byType = [];
+        foreach ($server->types() as $candidate) {
+            $byType[$candidate->type()] = $candidate;
+        }
+
         $parameters = [];
         foreach ($this->reachableFieldTypes($type, $server, $includablePaths) as $reachableType) {
-            $parameters[] = Parameter::query(
-                'fields[' . $reachableType . ']',
-                Schema::ofType('string'),
-                'A comma-separated list of `' . $reachableType . '` fields to return (sparse fieldsets).',
-            );
+            $reachable = $byType[$reachableType] ?? null;
+            if ($reachable === null) {
+                continue;
+            }
+            $parameters[] = $this->fieldsetParameter($reachable);
         }
 
         return $parameters;
@@ -939,15 +944,48 @@ final class OperationProjector
                     continue;
                 }
                 $seen[$reachableType] = true;
-                $parameters[] = Parameter::query(
-                    'fields[' . $reachableType . ']',
-                    Schema::ofType('string'),
-                    'A comma-separated list of `' . $reachableType . '` fields to return (sparse fieldsets).',
-                );
+                $reachable = $byType[$reachableType] ?? null;
+                if ($reachable === null) {
+                    continue;
+                }
+                $parameters[] = $this->fieldsetParameter($reachable);
             }
         }
 
         return $parameters;
+    }
+
+    /**
+     * A single `fields[<type>]` sparse-fieldset parameter. JSON:API carries the selected
+     * members as one comma-separated value, so — mirroring `sort`/`include` — this is an
+     * OAS `form`/`explode: false` array parameter whose `items` enumerate the type's
+     * selectable member vocabulary: its read-representation attribute names
+     * ({@see SchemaProjector::readAttributeNames()}) plus its relation names. The runtime
+     * `400`s (`FieldsetMemberUnrecognized`, strict query params default on) an unknown
+     * member, so the enum lets a client — and a code generator — offer exactly the members
+     * the server accepts. A type with no selectable members (defensive: a field-bearing
+     * type normally has some) falls back to a bare string array with no enum.
+     */
+    private function fieldsetParameter(TypeMetadataInterface $reachable): Parameter
+    {
+        $members = $this->schemaProjector->readAttributeNames($reachable->fields());
+        foreach ($reachable->relations() as $relation) {
+            $members[] = $relation->name();
+        }
+
+        $items = Schema::ofType('string');
+        if ($members !== []) {
+            $items = $items->withEnum($members);
+        }
+
+        return Parameter::query(
+            'fields[' . $reachable->type() . ']',
+            Schema::ofType('array')->withItems($items),
+            'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).'
+            . ($members === [] ? '' : ' Allowed members: `' . \implode('`, `', $members) . '`.'),
+            style: ParameterStyle::Form,
+            explode: false,
+        );
     }
 
     /**

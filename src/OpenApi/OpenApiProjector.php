@@ -283,6 +283,7 @@ final class OpenApiProjector
             $resource = $this->permissiveResourceObject($type->type(), $type->description());
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
+        $resource = $this->withSharedLinksAndMeta($resource);
         $schemas[$name . 'Resource'] = $resource;
 
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
@@ -840,6 +841,25 @@ final class OpenApiProjector
     }
 
     /**
+     * Replaces the resource object's permissive `links`/`meta` placeholders with `$ref`s
+     * to the shared `Links`/`Meta` components — the same components the document-level
+     * `links`/`meta` already `$ref`. A resource object's `links` carry the conventional
+     * `self` (plus any `asLink` action links via the component's open additional
+     * properties), which is exactly `Links`; no pagination appears on a resource object,
+     * so `Links` and not `PaginationLinks` is correct.
+     *
+     * Applied only in the OpenAPI-document path (which owns the shared components); the
+     * standalone `/schemas.json` projection has no components and keeps the inline
+     * permissive objects {@see SchemaProjector::projectResourceObject()} produces.
+     */
+    private function withSharedLinksAndMeta(Schema $resource): Schema
+    {
+        return $resource
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
+    }
+
+    /**
      * The typed `relationships` property for a **write** resource object: a
      * `{type: object, properties}` over the relations settable in that write, each
      * `$ref`-ing the same per-relation relationship-object component the read side uses
@@ -946,13 +966,21 @@ final class OpenApiProjector
      * linkage `data` — a single identifier (or `null`) for a to-one, an array for a
      * to-many; a polymorphic relation's identifier is a `oneOf` of its member
      * identifiers.
+     *
+     * `links` `$ref`s the shared `Links` component (a relationship object carries the
+     * conventional `self`/`related` pair — links-by-convention, default on — which are
+     * exactly what `Links` describes; it never carries pagination, so `Links` and not
+     * `PaginationLinks` is correct). `meta` `$ref`s the shared `Meta` component; it may
+     * carry a `belongsToMany` relation's `pivot` object and any `identifierMeta()`
+     * contribution, both consumer-declared, so the shared permissive `Meta` is the
+     * honest projection.
      */
     private function relationshipObjectSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
         $schema = Schema::ofType('object')
-            ->withProperty('links', Schema::ofType('object'))
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('data', $this->linkageData($relation, $collector))
-            ->withProperty('meta', Schema::ofType('object'));
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
 
         $description = $relation->description();
 

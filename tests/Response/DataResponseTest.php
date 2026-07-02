@@ -168,6 +168,66 @@ final class DataResponseTest extends TestCase
     }
 
     #[Test]
+    public function withAddedMetaMergesInsteadOfReplacingAndTheGetterReadsItBack(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        // A handler set `total`; a decorator adds `generatedAt` without clobbering it —
+        // read-modify-write via meta(), or the merge convenience via withAddedMeta().
+        $response = DataResponse::fromResource(new \stdClass(), $resource)->withMeta(['total' => 3]);
+        self::assertSame(['total' => 3], $response->meta());
+
+        $decorated = $response->withAddedMeta(['generatedAt' => 'now']);
+        self::assertSame(['total' => 3, 'generatedAt' => 'now'], $decorated->meta());
+
+        // The original is untouched (immutability) and the merged member wins on collision.
+        self::assertSame(['total' => 3], $response->meta());
+        self::assertSame(['total' => 9], $response->withAddedMeta(['total' => 9])->meta());
+
+        $body = $this->decode(
+            $decorated->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),
+        );
+        self::assertSame(['total' => 3, 'generatedAt' => 'now'], $body['meta']);
+    }
+
+    #[Test]
+    public function withDescribedbyMergesADescribedbyLinkAlongsideSelf(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        $body = $this->decode(
+            DataResponse::fromResource(new \stdClass(), $resource)
+                ->withDescribedby(new Link('https://api.example.com/openapi.json'))
+                ->toPsrResponse(new StubServer(), StubJsonApiRequest::create())
+                ->getBody()->getContents(),
+        );
+
+        // describedby is merged into the top-level links alongside the by-convention self,
+        // without the caller reconstructing links.
+        self::assertSame(
+            ['self' => '/', 'describedby' => 'https://api.example.com/openapi.json'],
+            $body['links'],
+        );
+    }
+
+    #[Test]
+    public function anAuthorSetDescribedbyWinsOverWithDescribedby(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        $body = $this->decode(
+            DataResponse::fromResource(new \stdClass(), $resource)
+                ->withLinks(new DocumentLinks(describedby: new Link('/author-spec')))
+                ->withDescribedby(new Link('/bundle-spec'))
+                ->toPsrResponse(new StubServer(), StubJsonApiRequest::create())
+                ->getBody()->getContents(),
+        );
+
+        // The author's describedby is left untouched; the by-convention self is still added.
+        self::assertSame(['describedby' => '/author-spec', 'self' => '/'], $body['links']);
+    }
+
+    #[Test]
     public function jsonApiObjectFallsBackToServerDefaults(): void
     {
         $resource = new StubResource('user', '1');

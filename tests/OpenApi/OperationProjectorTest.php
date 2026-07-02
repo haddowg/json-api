@@ -237,6 +237,24 @@ final class OperationProjectorTest extends TestCase
     }
 
     #[Test]
+    public function theFieldsParameterIsACommaDelimitedListEnumeratingTheTypeReadMembers(): void
+    {
+        $fields = $this->parameterNamed($this->arrAt($this->paths(), '/articles', 'get'), 'fields[articles]');
+
+        // Mirrors sort/include: one form/explode:false array parameter whose items
+        // enumerate the selectable member vocabulary — read-visible attributes (id is
+        // never a fieldset member) followed by relation names — so a client and a code
+        // generator offer exactly the members the strict runtime accepts (D20).
+        self::assertSame('form', $this->strAt($fields, 'style'));
+        self::assertFalse($this->at($fields, 'explode'));
+        self::assertSame('array', $this->strAt($fields, 'schema', 'type'));
+        self::assertSame(
+            ['title', 'wordCount', 'author', 'tags'],
+            $this->listAt($fields, 'schema', 'items', 'enum'),
+        );
+    }
+
+    #[Test]
     public function theFetchOneGetCarriesIncludeAndFieldsButNoCollectionParameters(): void
     {
         $names = $this->parameterNames($this->arrAt($this->paths(), '/articles/{id}', 'get'));
