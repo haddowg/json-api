@@ -48,7 +48,9 @@ final class AtomicResultsResponseTest extends TestCase
                     ['data' => ['type' => 'articles', 'id' => '1']],
                     [],
                 ],
-                'jsonapi' => ['version' => '1.1'],
+                // The applied atomic extension is advertised in `jsonapi.ext` (symmetric
+                // with `jsonapi.profile`), not only in the Content-Type `ext` param (D12).
+                'jsonapi' => ['version' => '1.1', 'ext' => ['https://jsonapi.org/ext/atomic']],
             ],
             $this->decode($body),
         );
@@ -61,7 +63,7 @@ final class AtomicResultsResponseTest extends TestCase
             ->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
 
         self::assertSame(
-            ['atomic:results' => [], 'jsonapi' => ['version' => '1.1']],
+            ['atomic:results' => [], 'jsonapi' => ['version' => '1.1', 'ext' => ['https://jsonapi.org/ext/atomic']]],
             $this->decode($psr->getBody()->getContents()),
         );
     }
