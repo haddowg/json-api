@@ -117,12 +117,107 @@ its target column (or relationship) to the filter key when you omit it.
 | `WhereThrough` | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
 
 `Where` carries the comparison operator as its third `make()` argument — `=`
-(the default), `like`, `>`, `>=`, `<`, `<=`, `!=` (with `<>` as an alias), `===`.
-The reference
+(the default), `like`, `starts`, `ends`, `>`, `>=`, `<`, `<=`, `!=` (with `<>` as
+an alias), `===`. The reference
 [`ArrayFilterHandler`](adapters.md#the-reference-handlers) maps each to a PHP
 comparison (`like` is a case-insensitive `stripos`, matching what a SQL
-`LIKE '%…%'` gives on common backends); a database adapter translates the same
-operator strings into its own dialect.
+`LIKE '%…%'` gives on common backends; `starts`/`ends` are the case-insensitive
+prefix/suffix variants, `LIKE '…%'` / `LIKE '%…'`); a database adapter translates
+the same operator strings into its own dialect.
+
+### Convenience filters
+
+Reaching for `Where::make('title', 'title', 'like')` — or wiring the coercion,
+the value constraint and the OpenAPI value schema by hand for a numeric or boolean
+column — is repetitive and easy to get subtly wrong. The library ships a small
+catalogue of **intent-named** filters that name what you mean and bundle the
+matching operator, value coercion, value constraint and OpenAPI description into a
+single declaration. Each lives in `haddowg\JsonApi\Resource\Filter`; each `make()`
+defaults its target column to the filter key.
+
+| Filter | Intent | Presets |
+|---|---|---|
+| `Contains` | substring match | `like` operator |
+| `StartsWith` | prefix match | `starts` operator |
+| `EndsWith` | suffix match | `ends` operator |
+| `Numeric` | numeric equality | `=`, numeric coercion + `numeric()` constraint |
+| `GreaterThan` | strictly greater | `>`, numeric coercion + `numeric()` |
+| `GreaterThanOrEqual` | at least | `>=`, numeric coercion + `numeric()` |
+| `LessThan` | strictly less | `<`, numeric coercion + `numeric()` |
+| `LessThanOrEqual` | at most | `<=`, numeric coercion + `numeric()` |
+| `Boolean` | boolean match | `=`, boolean coercion (`asBoolean()`) + `boolean()` |
+| `Range` | inclusive `min ≤ x ≤ max` | numeric coercion + `numeric()`; **nested** `{min, max}` value |
+| `DateRange` | inclusive date/time range | ISO-8601 → `\DateTimeImmutable` coercion; **nested** `{min, max}` value |
+
+```php
+use haddowg\JsonApi\Resource\Filter\Contains;
+use haddowg\JsonApi\Resource\Filter\GreaterThanOrEqual;
+use haddowg\JsonApi\Resource\Filter\Boolean;
+use haddowg\JsonApi\Resource\Filter\Range;
+
+public function filters(): array
+{
+    return [
+        Contains::make('title'),                       // filter[title]=android
+        GreaterThanOrEqual::make('minYear', 'year'),   // filter[minYear]=1997, compared numerically
+        Boolean::make('explicit'),                     // filter[explicit]=true, coerced to a real bool
+        Range::make('duration'),                        // filter[duration][min]=120&filter[duration][max]=300
+    ];
+}
+```
+
+The scalar convenience filters (`Contains` through `Boolean`) are thin
+`Where` **subclasses**: they preset the operator, a typed value deserializer and
+the matching value constraint, so a handler's existing `instanceof Where` arm
+dispatches them **unchanged** — no new handler arm needed, and both the reference
+`ArrayFilterHandler` and a database adapter run them out of the box. Because they
+*are* a `Where`, they compose with its refinement helpers (`default()`, `singular()`,
+extra `constrain(...)`), and each carries its own OpenAPI value schema and a
+generated description ("Matches values greater than or equal to the given number.",
+…) which you can override with `describedAs()`.
+
+Their operator is fixed — it *is* the filter's identity — so the third `make()`
+argument exists only for signature parity with `Where::make()`, and passing a
+different operator (`GreaterThan::make('age', 'age', '<')`) is a loud
+`\InvalidArgumentException`, never a silently-ignored value.
+
+The value proposition over a bare `Where` is real: `Numeric`/`GreaterThan`/… coerce
+the incoming string to `int`/`float` **before** comparison, so `filter[age]=6`
+keeps `18` but not `5` (a lexical string compare would wrongly keep `5`); `Boolean`
+coerces `1`/`true`/`on`/`yes` → `true` (and `0`/`false`/`off`/`no`/`''` → `false`)
+so a truthy string compares as a real boolean; and each also declares the matching
+value constraint, so a mistyped value (`filter[year]=banana`) is a clean `400`
+before the filter reaches the data layer (see
+[Validating filter values](#validating-filter-values)).
+
+#### Ranges
+
+`Range` and `DateRange` are **genuinely new filter types**, not `Where` presets:
+their wire value is **nested** — `?filter[<key>][min]=…&filter[<key>][max]=…`
+(Symfony parses this into `['min' => '…', 'max' => '…']`) — and an apply runs *two*
+predicates (`min ≤ x` and `x ≤ max`), so a handler needs a dedicated
+`instanceof Range` arm (the reference `ArrayFilterHandler` ships one; an OpenAPI
+projection advertises the bounds as a `deepObject` parameter).
+
+Either bound may be omitted, so an open-ended range works — `min` alone is a `>=`,
+`max` alone a `<=`, and an entirely absent value is a no-op:
+
+```
+GET /tracks?filter[duration][min]=120&filter[duration][max]=300   # 120 ≤ duration ≤ 300
+GET /tracks?filter[duration][min]=120                             # duration ≥ 120
+GET /albums?filter[released][min]=1990-01-01&filter[released][max]=1999-12-31
+```
+
+`Range`'s preset deserializer coerces each bound **and the column value** to a
+number before comparing (so the range is numeric, not lexical); `DateRange` is a
+`Range` whose deserializer coerces each ISO-8601 bound to a `\DateTimeImmutable`
+(and the column value likewise), so `published before/after` reads as one key and
+the comparison is temporal. Each present bound is validated (numeric for `Range`,
+an ISO-8601 shape for `DateRange`), so a malformed bound is a clean `400` rather
+than a silent non-match. Like [`WhereThrough`](#traversing-a-relationship-path)
+these are data-layer-specific: core ships the metadata and the reference in-memory
+apply, and a database adapter translates each into two push-down `andWhere`
+predicates.
 
 ### Refinement helpers
 
@@ -542,3 +637,8 @@ foreach ($requested as $key => $value) {
 - [Pagination](pagination.md) — windowing a filtered, sorted collection.
 - [Resource classes](resources.md) — declaring `filters()` on a resource type.
 - [Validation](constraints.md) — the constraint metadata this pattern mirrors.
+- [OpenAPI generation](openapi.md) — how a filter's value schema and description
+  (including a `Range`/`DateRange` `deepObject` parameter) are projected.
+- The **Symfony bundle**'s data-layer docs cover the Doctrine execution side —
+  how each built-in and convenience filter (including the `EXISTS` relationship
+  filters and the two-predicate ranges) translates to a `QueryBuilder` predicate.
