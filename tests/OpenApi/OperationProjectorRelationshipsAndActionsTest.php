@@ -565,6 +565,25 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         self::assertSame(['Articles'], $this->listAt($publish, 'tags'));
         self::assertSame('Publish the article', $this->strAt($publish, 'summary'));
+        // No declared description → a generated default (never left undescribed, D19).
+        self::assertSame(
+            'Invokes the `publish` custom action on a `articles` resource.',
+            $this->strAt($publish, 'description'),
+        );
+    }
+
+    #[Test]
+    public function anActionWithNoDeclaredSummaryOrDescriptionGetsGeneratedDefaults(): void
+    {
+        // `import` declares neither summary nor description — both fall back to a generated default
+        // rather than being absent (the only operation class that used to have none, D19).
+        $import = $this->arrAt($this->paths(), '/articles/-actions/import', 'post');
+
+        self::assertSame('Invoke the `import` action', $this->strAt($import, 'summary'));
+        self::assertSame(
+            'Invokes the `import` custom action on a `articles` resource.',
+            $this->strAt($import, 'description'),
+        );
     }
 
     // ---- Envelope refinements ---------------------------------------------------
