@@ -1085,7 +1085,8 @@ final class OperationProjector
     /**
      * The paginator-kind-specific `page[…]` parameters: `number`/`size` for
      * {@see PaginatorKind::Page}, `offset`/`limit` for {@see PaginatorKind::Offset},
-     * `cursor`/`size` for {@see PaginatorKind::Cursor}, and none for
+     * `after`/`before`/`size` for {@see PaginatorKind::Cursor} (matching the
+     * {@see \haddowg\JsonApi\Pagination\CursorPaginator} wire form), and none for
      * {@see PaginatorKind::None} (§4.4).
      *
      * @return list<Parameter>
@@ -1102,7 +1103,8 @@ final class OperationProjector
                 Parameter::query('page[limit]', Schema::ofType('integer')->withMinimum(1), 'The maximum number of resources to return.'),
             ],
             PaginatorKind::Cursor => [
-                Parameter::query('page[cursor]', Schema::ofType('string'), 'An opaque cursor marking the page to retrieve.'),
+                Parameter::query('page[after]', Schema::ofType('string'), 'An opaque cursor; returns the page immediately AFTER this position.'),
+                Parameter::query('page[before]', Schema::ofType('string'), 'An opaque cursor; returns the page immediately BEFORE this position.'),
                 Parameter::query('page[size]', Schema::ofType('integer')->withMinimum(1), 'The number of resources per page.'),
             ],
             PaginatorKind::None => [],
