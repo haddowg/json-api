@@ -189,6 +189,43 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function itMarksReadOnlyPivotFieldsReadOnlyAndRequiredPivotFieldsRequired(): void
+    {
+        $playlists = FakeTypeMetadata::resource(
+            type: 'playlists',
+            fields: [Id::make(), Str::make('name')->required()],
+            relations: [
+                FakeRelationMetadata::toMany('orderedTracks', ['tracks'], pivotFields: [
+                    Integer::make('position')->required(),
+                    Str::make('addedAt')->readOnly(),
+                ]),
+            ],
+        );
+        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make(), Str::make('title')]);
+        $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks]);
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        $pivot = $this->arrAt(
+            $schemas,
+            'PlaylistsOrderedTracksRelationship',
+            'properties',
+            'data',
+            'items',
+            'allOf',
+            '1',
+            'properties',
+            'meta',
+            'properties',
+            'pivot',
+        );
+        // A writable, create-required pivot field is required (a new member must carry it) — D18.
+        self::assertSame(['position'], $this->listAt($pivot, 'required'));
+        // A read-only pivot field is marked readOnly (a write client neither sends nor must supply it).
+        self::assertTrue($this->arrAt($pivot, 'properties', 'addedAt')['readOnly'] ?? null);
+        self::assertArrayNotHasKey('readOnly', $this->arrAt($pivot, 'properties', 'position'));
+    }
+
+    #[Test]
     public function itProjectsTheSkeleton(): void
     {
         $array = $this->projector()->project($this->server())->toArray();

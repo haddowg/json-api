@@ -1037,10 +1037,11 @@ final class OpenApiProjector
      * field hoists into the shared enum component). Returns `null` for any relation
      * without pivot fields.
      *
-     * The `meta`, `pivot` and per-field members are deliberately **optional** (no
-     * `required`): this one schema backs both the read linkage (where the runtime
-     * always renders the full pivot) and the relationship-mutation request body (where
-     * the client sends only the pivot fields it sets).
+     * The fused pivot object backs both the read linkage (where the runtime always renders the
+     * full pivot) and the relationship-mutation request body. The read/write asymmetry is carried
+     * by JSON-Schema keywords, not by omission: a read-only pivot field is `readOnly: true` (a
+     * client neither sends nor must supply it), and a writable create-required field is listed in
+     * `required` (a new member must carry it) — see {@see SchemaProjector::projectPivotObject()}.
      */
     private function pivotMetaNarrowing(RelationMetadataInterface $relation, EnumComponentCollector $collector): ?Schema
     {
@@ -1049,14 +1050,9 @@ final class OpenApiProjector
             return null;
         }
 
-        $properties = [];
-        foreach ($pivotFields as $field) {
-            $properties[$field->name()] = $this->schemaProjector->projectField($field, false, $collector);
-        }
-
         return Schema::ofType('object')->withProperty(
             'meta',
-            Schema::ofType('object')->withProperty('pivot', Schema::ofType('object')->withProperties($properties)),
+            Schema::ofType('object')->withProperty('pivot', $this->schemaProjector->projectPivotObject($pivotFields, $collector)),
         );
     }
 
