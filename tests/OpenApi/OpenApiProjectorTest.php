@@ -395,6 +395,58 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function itTypesTheWriteRequestRelationshipsFromTheSettableRelations(): void
+    {
+        // A create may set any declared relation's initial linkage; an update replaces an
+        // existing association, so it lists only the relations whose replacement is
+        // permitted (an unconditionally locked relation is omitted) — D15.
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(
+                type: 'articles',
+                fields: [Id::make(), Str::make('title')->required()],
+                relations: [
+                    FakeRelationMetadata::toOne('author', ['people']),
+                    // A locked to-one: settable on create (initial state) but never replaced.
+                    new FakeRelationMetadata('owner', ['people'], false, allowsReplace: false),
+                ],
+            )],
+        );
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        // Create: both relations, each `$ref`-ing its relationship-object component.
+        $create = $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'relationships', 'properties');
+        self::assertSame(['author', 'owner'], \array_keys($create));
+        self::assertSame('#/components/schemas/ArticlesAuthorRelationship', $this->strAt($create, 'author', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesOwnerRelationship', $this->strAt($create, 'owner', '$ref'));
+
+        // Update: only the replaceable relation.
+        $update = $this->arrAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties', 'relationships', 'properties');
+        self::assertSame(['author'], \array_keys($update));
+    }
+
+    #[Test]
+    public function itOmitsTheWriteRelationshipsPropertyWhenNoRelationIsSettable(): void
+    {
+        // An update where every relation is unconditionally locked emits no `relationships`
+        // property at all (nothing is settable), while the create still lists it.
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(
+                type: 'articles',
+                fields: [Id::make(), Str::make('title')->required()],
+                relations: [new FakeRelationMetadata('owner', ['people'], false, allowsReplace: false)],
+            )],
+        );
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        self::assertArrayHasKey('relationships', $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties'));
+        self::assertArrayNotHasKey('relationships', $this->arrAt($schemas, 'ArticlesUpdateRequest', 'properties', 'data', 'properties'));
+    }
+
+    #[Test]
     public function itMarksTheClientIdRequiredWhenThePolicyRequiresIt(): void
     {
         // A type whose id policy REQUIRES a client-supplied id: the create resource makes
@@ -799,6 +851,12 @@ final class OpenApiProjectorTest extends TestCase
         self::assertFalse($this->at($schemas, 'ArticlesAtomicAdd', 'properties', 'id'));
         self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicAdd', 'properties'));
         self::assertArrayNotHasKey('oneOf', $this->arrAt($schemas, 'ArticlesAtomicAdd'));
+        // Its `relationships` are typed from the settable relations (D15), each `$ref`-ing
+        // the relationship-object component, not a bare `{type: object}`.
+        self::assertSame(
+            ['author', 'tags'],
+            \array_keys($this->arrAt($schemas, 'ArticlesAtomicAdd', 'properties', 'relationships', 'properties')),
+        );
 
         // `people` allows a client id, so its **add** offers `id` and a titled three-mode
         // `oneOf` (client id / local id / server-assigned).
