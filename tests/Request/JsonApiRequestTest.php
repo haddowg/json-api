@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Request;
 
+use haddowg\JsonApi\Exception\LocalIdNotSupported;
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
 use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\QueryParamMalformed;
@@ -348,6 +349,78 @@ final class JsonApiRequestTest extends TestCase
                 'errors' => [],
             ],
         );
+
+        $request->validateTopLevelMembers();
+
+        self::addToAssertionCount(1);
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function validateTopLevelMembersRejectsLidOnThePrimaryResource(): void
+    {
+        // `lid` is an Atomic Operations member; a standalone create carrying one is a 400.
+        $request = $this->createRequestWithJsonBody(
+            ['data' => ['type' => 'articles', 'lid' => 'a1', 'attributes' => ['title' => 'x']]],
+        );
+
+        $this->expectException(LocalIdNotSupported::class);
+
+        $request->validateTopLevelMembers();
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function validateTopLevelMembersRejectsLidInEmbeddedToOneLinkage(): void
+    {
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                'type' => 'articles',
+                'relationships' => ['author' => ['data' => ['type' => 'people', 'lid' => 'p1']]],
+            ],
+        ]);
+
+        $this->expectException(LocalIdNotSupported::class);
+
+        $request->validateTopLevelMembers();
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function validateTopLevelMembersRejectsLidInEmbeddedToManyLinkage(): void
+    {
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                'type' => 'articles',
+                'relationships' => ['tags' => ['data' => [
+                    ['type' => 'tags', 'id' => '1'],
+                    ['type' => 'tags', 'lid' => 't2'],
+                ]]],
+            ],
+        ]);
+
+        $this->expectException(LocalIdNotSupported::class);
+
+        $request->validateTopLevelMembers();
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function validateTopLevelMembersAllowsAnIdIdentifiedResourceAndLinkage(): void
+    {
+        // The same shapes without any `lid` pass — an `id` (or an empty `lid`, treated
+        // as absent) is never rejected.
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                'type' => 'articles',
+                'id' => '1',
+                'lid' => '',
+                'relationships' => [
+                    'author' => ['data' => ['type' => 'people', 'id' => '9']],
+                    'tags' => ['data' => [['type' => 'tags', 'id' => '1']]],
+                ],
+            ],
+        ]);
 
         $request->validateTopLevelMembers();
 
@@ -1501,6 +1574,34 @@ final class JsonApiRequestTest extends TestCase
         $this->expectException(RelationshipTypeInappropriate::class);
 
         $request->getRelationshipDataToOne('owner');
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function getRelationshipDataToOneRejectsLidLinkage(): void
+    {
+        // `lid` in a relationship-endpoint linkage body outside an atomic batch is a 400.
+        $request = $this->createRequestWithJsonBody(['data' => ['type' => 'human', 'lid' => 'h1']]);
+
+        $this->expectException(LocalIdNotSupported::class);
+
+        $request->getRelationshipDataToOne('owner');
+    }
+
+    #[Test]
+    #[Group('spec:atomic-operations')]
+    public function getRelationshipDataToManyRejectsLidLinkage(): void
+    {
+        $request = $this->createRequestWithJsonBody([
+            'data' => [
+                ['type' => 'dog', 'id' => '2'],
+                ['type' => 'dog', 'lid' => 'd3'],
+            ],
+        ]);
+
+        $this->expectException(LocalIdNotSupported::class);
+
+        $request->getRelationshipDataToMany('friends');
     }
 
     #[Test]

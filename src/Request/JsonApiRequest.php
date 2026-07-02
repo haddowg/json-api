@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Request;
 
+use haddowg\JsonApi\Exception\LocalIdNotSupported;
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
 use haddowg\JsonApi\Exception\MediaTypeUnsupported;
 use haddowg\JsonApi\Exception\QueryParamMalformed;
@@ -184,6 +185,82 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
         if (isset($body['data']) === false && isset($body['included'])) {
             throw new TopLevelMemberNotAllowed();
+        }
+
+        if (isset($body['data'])) {
+            $this->rejectLocalIdentifiersInData($body['data']);
+        }
+    }
+
+    /**
+     * Rejects a local id (`lid`) anywhere in a non-atomic request body's `data`. The
+     * `lid` member is defined only by the Atomic Operations extension (it names a
+     * resource created earlier in the same batch), so a standalone request carrying
+     * one is a `400` ({@see LocalIdNotSupported}) rather than a silently ignored
+     * member. It walks the three positions a `lid` can appear:
+     *  - the primary resource object's own `lid` (a resource create/update), which is
+     *    also the shape of a to-one relationship-endpoint linkage identifier;
+     *  - a list of resource-identifier objects (a to-many relationship-endpoint body);
+     *  - the linkage inside each embedded `data.relationships[*].data` (a whole-resource
+     *    write that also sets its relationships).
+     *
+     * Within an atomic batch the local ids are resolved to real ids before the write
+     * handler reads the body, and this validation never runs on the atomic document
+     * (which carries no top-level `data`), so a batch's legitimate `lid`s are unaffected.
+     *
+     * @param mixed $data the decoded top-level `data` member
+     */
+    private function rejectLocalIdentifiersInData(mixed $data): void
+    {
+        if (!\is_array($data)) {
+            return;
+        }
+
+        if (\array_is_list($data)) {
+            foreach ($data as $index => $identifier) {
+                $this->rejectLocalIdentifier($identifier, '/data/' . $index);
+            }
+
+            return;
+        }
+
+        $this->rejectLocalIdentifier($data, '/data');
+
+        $relationships = $data['relationships'] ?? null;
+        if (!\is_array($relationships)) {
+            return;
+        }
+
+        foreach ($relationships as $name => $relationship) {
+            if (!\is_array($relationship) || !\array_key_exists('data', $relationship)) {
+                continue;
+            }
+
+            $linkage = $relationship['data'];
+            $pointer = '/data/relationships/' . $name . '/data';
+
+            if (\is_array($linkage) && \array_is_list($linkage)) {
+                foreach ($linkage as $index => $identifier) {
+                    $this->rejectLocalIdentifier($identifier, $pointer . '/' . $index);
+                }
+            } else {
+                $this->rejectLocalIdentifier($linkage, $pointer);
+            }
+        }
+    }
+
+    /**
+     * Throws {@see LocalIdNotSupported} when a resource-identifier-shaped fragment
+     * carries a non-empty `lid`. Mirrors {@see \haddowg\JsonApi\Schema\ResourceIdentifier}'s
+     * "has lid" rule (a present-but-empty `lid` is treated as absent), so this rejects
+     * exactly the `lid`s that would otherwise be read.
+     *
+     * @param mixed $identifier a decoded resource-identifier / resource-object fragment
+     */
+    private function rejectLocalIdentifier(mixed $identifier, string $pointer): void
+    {
+        if (\is_array($identifier) && isset($identifier['lid']) && $identifier['lid'] !== '') {
+            throw new LocalIdNotSupported($pointer . '/lid');
         }
     }
 
@@ -983,6 +1060,8 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
         }
 
         /** @var array<string, mixed> $data */
+        $this->rejectLocalIdentifier($data, '/data');
+
         return new ToOneRelationship(ResourceIdentifier::fromArray($data));
     }
 
@@ -1007,9 +1086,10 @@ class JsonApiRequest extends AbstractRequest implements JsonApiRequestInterface
 
         $resourceIdentifiers = [];
         /** @var list<mixed> $data */
-        foreach ($data as $item) {
+        foreach ($data as $index => $item) {
             /** @var array<string, mixed> $itemArray */
             $itemArray = (array) $item;
+            $this->rejectLocalIdentifier($itemArray, '/data/' . $index);
             $resourceIdentifiers[] = ResourceIdentifier::fromArray($itemArray);
         }
 
