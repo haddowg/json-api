@@ -192,6 +192,30 @@ final class SchemaProjector
     }
 
     /**
+     * The **read-representation attribute member names** for a type's fields: every
+     * attribute that appears in a response. Excludes `id`, relations, write-only fields
+     * and unconditionally-hidden fields; a *conditionally*-hidden field is **included**
+     * (it belongs to the read superset — it may appear for some requests). This is the
+     * selectable-member vocabulary for a `fields[<type>]` sparse-fieldset parameter, and
+     * mirrors exactly the members {@see projectAttributes()} emits in the Read context.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<string>
+     */
+    public function readAttributeNames(iterable $fields): array
+    {
+        $names = [];
+        foreach ($fields as $field) {
+            if ($this->isAttribute($field) && $this->appearsInRepresentation($field, RepresentationContext::Read)) {
+                $names[] = $field->name();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * Projects a `belongsToMany` relation's `meta.pivot` object schema (a fused schema backing
      * BOTH the read linkage and the relationship-mutation request body). A read-only pivot field
      * (present in responses, ignored in requests) is marked `readOnly: true` so a write client
