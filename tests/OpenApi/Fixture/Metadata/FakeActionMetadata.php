@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 
 /**
@@ -26,6 +27,7 @@ final class FakeActionMetadata implements ActionMetadataInterface
         private readonly ActionInputMode $inputMode = ActionInputMode::None,
         private readonly ?string $inputType = null,
         private readonly ?string $outputType = null,
+        private readonly ?ActionOutputMode $outputMode = null,
         private readonly bool $secured = false,
         private readonly array $tags = [],
         private readonly ?string $summary = null,
@@ -55,6 +57,11 @@ final class FakeActionMetadata implements ActionMetadataInterface
     public function inputType(): ?string
     {
         return $this->inputType;
+    }
+
+    public function outputMode(): ActionOutputMode
+    {
+        return $this->outputMode ?? ($this->outputType !== null ? ActionOutputMode::Document : ActionOutputMode::None);
     }
 
     public function outputType(): ?string

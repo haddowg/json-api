@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
@@ -640,21 +641,24 @@ final class OperationProjector
      * One custom action's operation (§4.5): its input mode → `requestBody`
      * (`None` → none; `Document` → the input type's create-request schema; `Raw` → a
      * permissive binary body under a generic media type with relaxed content-type
-     * negotiation), its output → the output type's document schema or a `204`, its
-     * tags, and the configured security requirement when {@see isSecured()}.
+     * negotiation), its output mode → the success response (`Document` → the output
+     * type's document schema; `Meta` → the shared meta-document schema; `None` → a
+     * `204`), its tags, and the configured security requirement when {@see isSecured()}.
      */
     private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server): Operation
     {
         $responses = new Responses();
-        $outputType = $action->outputType();
-        if ($outputType !== null) {
-            $responses = $responses->with('200', Response::ofSchema(
+        $responses = match ($action->outputMode()) {
+            ActionOutputMode::Document => $responses->with('200', Response::ofSchema(
                 'The action result.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($outputType) . 'Document')),
-            ));
-        } else {
-            $responses = $responses->with('204', Response::noContent('The action completed with no content.'));
-        }
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($this->actionOutputType($action)) . 'Document')),
+            )),
+            ActionOutputMode::Meta => $responses->with('200', Response::ofSchema(
+                'The action result: a meta-only document.',
+                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+            )),
+            ActionOutputMode::None => $responses->with('204', Response::noContent('The action completed with no content.')),
+        };
 
         $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
 
@@ -712,6 +716,24 @@ final class OperationProjector
         return RequestBody::ofSchema(
             Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($inputType) . 'CreateRequest')),
         );
+    }
+
+    /**
+     * The output type of a {@see ActionOutputMode::Document} action — the type whose
+     * document schema is its `200` response. Guarded: a `Document`-mode action with no
+     * declared `outputType` is a contradiction the metadata source must not produce.
+     */
+    private function actionOutputType(ActionMetadataInterface $action): string
+    {
+        $outputType = $action->outputType();
+        if ($outputType === null) {
+            throw new \LogicException(\sprintf(
+                'Action "%s" declares a Document output mode but no output type; a Document action must name the type whose document schema is its response.',
+                $action->path(),
+            ));
+        }
+
+        return $outputType;
     }
 
     // ---- Parameters (reused by the stage-B relationship/action projection) ------

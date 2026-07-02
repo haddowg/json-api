@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
+use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -41,6 +42,15 @@ final class OpenApiProjector
     {
         $schemas = [];
         $this->addSharedComponents($schemas, $server->jsonApiVersion());
+
+        // A meta-output action ({@see ActionOutputMode::Meta}) answers with a document
+        // whose primary content is its top-level `meta`. Emit the shared meta-document
+        // component once, only when some action declares that output mode, and before
+        // seeding the collector so a clashing enum short name is disambiguated rather
+        // than overwriting it.
+        if ($this->hasMetaOutputAction($server)) {
+            $schemas['MetaDocument'] = $this->metaDocumentSchema();
+        }
 
         // Seed the collector with the shared component names already in `$schemas`
         // so a backed enum whose short name clashes with one (`Meta`, `Links`, …) is
@@ -186,6 +196,40 @@ final class OpenApiProjector
         $schemas['ErrorSource'] = $this->errorSourceSchema();
         $schemas['Error'] = $this->errorObjectSchema();
         $schemas['ErrorDocument'] = $this->errorDocumentSchema();
+    }
+
+    /**
+     * Whether any of the server's types declares a custom action whose output mode
+     * is {@see ActionOutputMode::Meta} — the gate for emitting the shared
+     * {@see metaDocumentSchema()} component.
+     */
+    private function hasMetaOutputAction(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                if ($action->outputMode() === ActionOutputMode::Meta) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The shared meta-document schema: a JSON:API document whose primary content is
+     * its top-level `meta` object (the success response for a
+     * {@see ActionOutputMode::Meta} action). It carries no `data`; `meta` is required,
+     * `links` / `jsonapi` are the usual optional top-level members.
+     */
+    private function metaDocumentSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('A JSON:API document whose primary content is its top-level `meta` object (no `data`).')
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withRequired(['meta']);
     }
 
     /**
