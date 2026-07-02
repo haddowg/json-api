@@ -458,7 +458,7 @@ final class OpenApiProjector
             ->withProperty('attributes', $type->hasFields()
                 ? Schema::ref('#/components/schemas/' . $base . 'CreateAttributes')
                 : Schema::ofType('object'))
-            ->withProperty('relationships', Schema::ofType('object'))
+            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
             ->withDescription('The resource object an `add` operation creates.');
 
@@ -501,7 +501,7 @@ final class OpenApiProjector
             ->withProperty('attributes', $type->hasFields()
                 ? Schema::ref('#/components/schemas/' . $base . 'UpdateAttributes')
                 : Schema::ofType('object'))
-            ->withProperty('relationships', Schema::ofType('object'))
+            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: false) ?? Schema::ofType('object'))
             ->withRequired(['type'])
             ->withDescription('The resource object an `update` operation writes.')
             ->withOneOf([
@@ -840,6 +840,36 @@ final class OpenApiProjector
     }
 
     /**
+     * The typed `relationships` property for a **write** resource object: a
+     * `{type: object, properties}` over the relations settable in that write, each
+     * `$ref`-ing the same per-relation relationship-object component the read side uses
+     * (its optional `meta` also carries a pivot write). A **create** may set any declared
+     * relation's initial linkage, so it lists them all; an **update** replaces an existing
+     * association, so it lists only the relations whose replacement is permitted
+     * ({@see RelationMetadataInterface::allowsReplace()} — an unconditionally locked
+     * relation is omitted). Returns `null` when the write exposes no settable relation,
+     * so the caller emits no `relationships` property at all.
+     */
+    private function writeRelationshipsProperty(TypeMetadataInterface $type, bool $creating): ?Schema
+    {
+        $base = $this->componentBase($type->type());
+        $properties = [];
+        foreach ($type->relations() as $relation) {
+            if (!$creating && !$relation->allowsReplace()) {
+                continue;
+            }
+            $component = $base . $this->componentBase($relation->name()) . 'Relationship';
+            $properties[$relation->name()] = Schema::ref('#/components/schemas/' . $component);
+        }
+
+        if ($properties === []) {
+            return null;
+        }
+
+        return Schema::ofType('object')->withProperties($properties);
+    }
+
+    /**
      * The resource-identifier (linkage) schema: `type` (const for a monomorphic
      * relation, free string otherwise) + a string `id`, with an optional `meta`.
      */
@@ -874,8 +904,9 @@ final class OpenApiProjector
             $resource = $resource->withProperty('id', Schema::never());
         }
 
-        if ($type->relations() !== []) {
-            $resource = $resource->withProperty('relationships', Schema::ofType('object'));
+        $relationships = $this->writeRelationshipsProperty($type, creating: true);
+        if ($relationships !== null) {
+            $resource = $resource->withProperty('relationships', $relationships);
         }
         $resource = $resource->withRequired($required);
 
@@ -889,8 +920,9 @@ final class OpenApiProjector
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'UpdateAttributes'));
 
-        if ($type->relations() !== []) {
-            $resource = $resource->withProperty('relationships', Schema::ofType('object'));
+        $relationships = $this->writeRelationshipsProperty($type, creating: false);
+        if ($relationships !== null) {
+            $resource = $resource->withProperty('relationships', $relationships);
         }
         $resource = $resource->withRequired(['type', 'id']);
 
