@@ -191,6 +191,43 @@ final class DataResponseTest extends TestCase
     }
 
     #[Test]
+    public function withDescribedbyMergesADescribedbyLinkAlongsideSelf(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        $body = $this->decode(
+            DataResponse::fromResource(new \stdClass(), $resource)
+                ->withDescribedby(new Link('https://api.example.com/openapi.json'))
+                ->toPsrResponse(new StubServer(), StubJsonApiRequest::create())
+                ->getBody()->getContents(),
+        );
+
+        // describedby is merged into the top-level links alongside the by-convention self,
+        // without the caller reconstructing links.
+        self::assertSame(
+            ['self' => '/', 'describedby' => 'https://api.example.com/openapi.json'],
+            $body['links'],
+        );
+    }
+
+    #[Test]
+    public function anAuthorSetDescribedbyWinsOverWithDescribedby(): void
+    {
+        $resource = new StubResource('user', '1');
+
+        $body = $this->decode(
+            DataResponse::fromResource(new \stdClass(), $resource)
+                ->withLinks(new DocumentLinks(describedby: new Link('/author-spec')))
+                ->withDescribedby(new Link('/bundle-spec'))
+                ->toPsrResponse(new StubServer(), StubJsonApiRequest::create())
+                ->getBody()->getContents(),
+        );
+
+        // The author's describedby is left untouched; the by-convention self is still added.
+        self::assertSame(['describedby' => '/author-spec', 'self' => '/'], $body['links']);
+    }
+
+    #[Test]
     public function jsonApiObjectFallsBackToServerDefaults(): void
     {
         $resource = new StubResource('user', '1');

@@ -49,6 +49,17 @@ final class DocumentLinksTest extends TestCase
     }
 
     #[Test]
+    public function describedbyIsAFirstClassNamedMember(): void
+    {
+        $describedby = new Link('https://example.com/openapi.json');
+
+        // First-class named param + getter (JSON:API 1.1 describedby), null when absent.
+        self::assertSame($describedby, (new DocumentLinks(describedby: $describedby))->describedby());
+        self::assertSame($describedby, DocumentLinks::withoutBaseUri(describedby: $describedby)->describedby());
+        self::assertNull(DocumentLinks::withoutBaseUri()->describedby());
+    }
+
+    #[Test]
     public function paginationLinksAreExposed(): void
     {
         $first = new Link('https://example.com/api/users?page[number]=1');
