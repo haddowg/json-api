@@ -22,7 +22,7 @@ enum PaginatorKind: string
     /** `page[offset]` + `page[limit]`. */
     case Offset = 'offset';
 
-    /** `page[cursor]` + `page[size]` (keyset / cursor pagination). */
+    /** `page[after]` / `page[before]` + `page[size]` (keyset / cursor pagination). */
     case Cursor = 'cursor';
 
     /** No pagination — the collection is fetched whole, no `page[…]` parameters. */

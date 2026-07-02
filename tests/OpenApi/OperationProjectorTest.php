@@ -293,8 +293,10 @@ final class OperationProjectorTest extends TestCase
             ['page[offset]', 'page[limit]'],
             $this->pageParameterNames($this->arrAt($paths, '/offsets', 'get')),
         );
+        // Cursor pagination advertises the CursorPaginator's actual wire params
+        // (page[after]/page[before]/page[size]) — not the mistaken page[cursor] (D44).
         self::assertSame(
-            ['page[cursor]', 'page[size]'],
+            ['page[after]', 'page[before]', 'page[size]'],
             $this->pageParameterNames($this->arrAt($paths, '/cursors', 'get')),
         );
         self::assertSame([], $this->pageParameterNames($this->arrAt($paths, '/unpaged', 'get')));
