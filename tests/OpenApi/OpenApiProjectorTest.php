@@ -705,6 +705,59 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:atomic-operations')]
+    public function aReadOnlyTypeEmitsNoWriteOrAtomicWriteComponents(): void
+    {
+        // A type whose allow-list exposes only reads must emit no write components
+        // (CreateRequest/UpdateRequest and their attributes) and no atomic add/update
+        // shapes, and the atomic `data` union must not reference them (D26).
+        $readOnly = FakeTypeMetadata::resource(
+            type: 'reports',
+            fields: [Id::make(), Str::make('title')],
+            operations: [OperationType::FetchCollection, OperationType::FetchOne],
+        );
+        $writable = FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')]);
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [$readOnly, $writable],
+            atomicOperations: new FakeAtomicOperationsMetadata(path: '/operations', tag: 'Atomic Operations'),
+        );
+        $document = $this->projector()->project($server)->toArray();
+        $schemas = $this->arrAt($document, 'components', 'schemas');
+
+        // The read type keeps its read-side components.
+        self::assertArrayHasKey('ReportsAttributes', $schemas);
+        self::assertArrayHasKey('ReportsResource', $schemas);
+        // …but none of the write / atomic-write ones.
+        foreach ([
+            'ReportsCreateAttributes', 'ReportsUpdateAttributes',
+            'ReportsCreateRequest', 'ReportsUpdateRequest',
+            'ReportsAtomicAdd', 'ReportsAtomicUpdate',
+        ] as $absent) {
+            self::assertArrayNotHasKey($absent, $schemas, "read-only type must not emit {$absent}");
+        }
+
+        // The writable type keeps the full write + atomic-write set.
+        foreach ([
+            'NotesCreateRequest', 'NotesUpdateRequest',
+            'NotesAtomicAdd', 'NotesAtomicUpdate',
+        ] as $present) {
+            self::assertArrayHasKey($present, $schemas, "writable type must emit {$present}");
+        }
+
+        // The atomic operation `data` union references only the writable type's shapes.
+        $refs = $this->refsIn($this->listAt($schemas, 'AtomicOperation', 'properties', 'data', 'anyOf'));
+        self::assertContains('#/components/schemas/NotesAtomicAdd', $refs);
+        self::assertContains('#/components/schemas/NotesAtomicUpdate', $refs);
+        self::assertNotContains('#/components/schemas/ReportsAtomicAdd', $refs);
+        self::assertNotContains('#/components/schemas/ReportsAtomicUpdate', $refs);
+
+        // And nothing dangles as a result of the gating.
+        $this->assertNoDanglingSchemaRefs($document);
+    }
+
+    #[Test]
     public function itEmitsTheAtomicComponentsReferencingTheResourceSchemas(): void
     {
         $schemas = $this->arrAt(

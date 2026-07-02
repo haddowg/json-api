@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -233,6 +234,16 @@ final class OpenApiProjector
     }
 
     /**
+     * Whether the type's per-type operation allow-list exposes the given CRUD
+     * operation — the same gate the path projection uses, applied to component
+     * emission so a read-only type emits no dangling write/atomic-write components.
+     */
+    private function allowsOperation(TypeMetadataInterface $type, OperationType $operation): bool
+    {
+        return \in_array($operation, $type->operations(), true);
+    }
+
+    /**
      * Adds one type's component set: attributes, resource object, resource
      * identifier, create / update request schemas, the per-relationship relationship
      * objects, and the single / collection / relationship / compound document
@@ -246,17 +257,27 @@ final class OpenApiProjector
         $fields = $type->fields();
 
         // Attributes + resource object (a fieldless standalone type gets a permissive
-        // object schema, never a broken empty one). Three context-correct attributes
+        // object schema, never a broken empty one). Context-correct attributes
         // components are emitted and `$ref`'d — they cannot share one schema because a
         // field's visibility (read-only / write-only) and the `required` set differ by
         // representation:
         //   - `<Type>Attributes`        (read)   — the resource object.
         //   - `<Type>CreateAttributes`  (create) — the create request + atomic add.
         //   - `<Type>UpdateAttributes`  (update) — the update request + atomic update.
+        // The create/update attributes are emitted only when the type's operation
+        // allow-list exposes the corresponding write (a read-only type emits no write
+        // components, so nothing dangles), matching the path projection which emits a
+        // Create/Update path only for an allowed operation.
+        $allowsCreate = $this->allowsOperation($type, OperationType::Create);
+        $allowsUpdate = $this->allowsOperation($type, OperationType::Update);
         if ($type->hasFields()) {
             $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Read, $collector);
-            $schemas[$name . 'CreateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Create, $collector);
-            $schemas[$name . 'UpdateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Update, $collector);
+            if ($allowsCreate) {
+                $schemas[$name . 'CreateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Create, $collector);
+            }
+            if ($allowsUpdate) {
+                $schemas[$name . 'UpdateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Update, $collector);
+            }
             $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
         } else {
             $resource = $this->permissiveResourceObject($type->type(), $type->description());
@@ -268,9 +289,12 @@ final class OpenApiProjector
 
         // Write request document schemas (create requires/allows id per the policy;
         // update never carries a writable id beyond the path identifier). Both `$ref`
-        // the shared attributes components above.
-        if ($type->hasFields()) {
+        // the shared attributes components above, and are emitted only when the type
+        // exposes the corresponding write operation.
+        if ($type->hasFields() && $allowsCreate) {
             $schemas[$name . 'CreateRequest'] = $this->createRequestSchema($type);
+        }
+        if ($type->hasFields() && $allowsUpdate) {
             $schemas[$name . 'UpdateRequest'] = $this->updateRequestSchema($type);
         }
 
@@ -395,11 +419,18 @@ final class OpenApiProjector
         // `required`; an `update` is partial, no `required`) and in identification (an
         // `add` may carry a client `id` only where the type allows it; an `update`
         // identifies an existing resource by `id`/`lid`). One fused `<Type>AtomicWrite`
-        // could express neither precisely, so the two are projected separately.
+        // could express neither precisely, so the two are projected separately. Each is
+        // emitted only when the type's operation allow-list exposes the corresponding
+        // write (a read-only type contributes no atomic write shape), so the atomic
+        // `data` union references only shapes that exist.
         foreach ($server->types() as $type) {
             $base = $this->componentBase($type->type());
-            $schemas[$base . 'AtomicAdd'] = $this->atomicAddSchema($type);
-            $schemas[$base . 'AtomicUpdate'] = $this->atomicUpdateSchema($type);
+            if ($this->allowsOperation($type, OperationType::Create)) {
+                $schemas[$base . 'AtomicAdd'] = $this->atomicAddSchema($type);
+            }
+            if ($this->allowsOperation($type, OperationType::Update)) {
+                $schemas[$base . 'AtomicUpdate'] = $this->atomicUpdateSchema($type);
+            }
         }
 
         $schemas['AtomicOperation'] = $this->atomicOperationSchema($server);
@@ -577,10 +608,16 @@ final class OpenApiProjector
     {
         $members = [];
         foreach ($server->types() as $type) {
-            // The discrete `add` and `update` resource objects an operation carries.
+            // The discrete `add` and `update` resource objects an operation carries —
+            // referenced only where the type exposes that write, so the union never
+            // points at a shape addTypeComponents/addAtomicComponents did not emit.
             $base = $this->componentBase($type->type());
-            $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicAdd');
-            $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicUpdate');
+            if ($this->allowsOperation($type, OperationType::Create)) {
+                $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicAdd');
+            }
+            if ($this->allowsOperation($type, OperationType::Update)) {
+                $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicUpdate');
+            }
         }
 
         if ($members === []) {
