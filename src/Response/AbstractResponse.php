@@ -71,6 +71,35 @@ abstract class AbstractResponse
         return $self;
     }
 
+    /**
+     * The document-level `meta` set on this response (via {@see withMeta()} /
+     * {@see withAddedMeta()}), for a consumer that needs to read-modify-write it —
+     * e.g. a `kernel.view` decorator contributing top-level meta alongside a member a
+     * handler already set (`total` under `?withCount`).
+     *
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return $this->meta;
+    }
+
+    /**
+     * Merges the given members into the document-level `meta`, preserving whatever is
+     * already set. {@see withMeta()} replaces the whole `meta`, so a decorator that
+     * wants to *add* a member without clobbering an existing one (e.g. a handler-set
+     * `total`) uses this instead. The given members win on a key collision.
+     *
+     * @param array<string, mixed> $meta
+     */
+    public function withAddedMeta(array $meta): static
+    {
+        $self = clone $this;
+        $self->meta = [...$this->meta, ...$meta];
+
+        return $self;
+    }
+
     public function withLinks(?DocumentLinks $links): static
     {
         $self = clone $this;
