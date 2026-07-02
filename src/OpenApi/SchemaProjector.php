@@ -113,12 +113,16 @@ final class SchemaProjector
             $schema = $schema->withProperties($properties)->withRequired($required);
         }
 
+        // A list's `each()` items compose on top of its declared element type
+        // (default `string`); non-list fields never carry an Each constraint.
+        $itemType = $field instanceof ArrayList ? $field->elementType() : 'string';
+
         $notes = [];
         foreach ($field->constraints() as $constraint) {
             if (!$constraint->context()->appliesTo($creating)) {
                 continue;
             }
-            $schema = $this->applyConstraint($schema, $constraint, $creating, $notes, $collector);
+            $schema = $this->applyConstraint($schema, $constraint, $creating, $notes, $collector, $itemType);
         }
 
         $schema = $this->applyNullable($schema, $field, $creating);
@@ -343,13 +347,14 @@ final class SchemaProjector
             $schema = $schema->withFormat($format);
         }
 
-        // An ArrayHash exposes an open object; an ArrayList's items default to a
-        // permissive schema until an `each()` constraint narrows them.
+        // An ArrayHash exposes an open object; an ArrayList's items carry the declared
+        // element type (default `string`, so a list never degrades to an untyped
+        // `unknown[]`), which any `each()` constraint then narrows further.
         if ($field instanceof ArrayHash) {
             $schema = $schema->withAdditionalProperties(Schema::create());
         }
         if ($field instanceof ArrayList) {
-            $schema = $schema->withItems(Schema::create());
+            $schema = $schema->withItems(Schema::ofType($field->elementType()));
         }
 
         return $schema;
@@ -362,8 +367,11 @@ final class SchemaProjector
      * keyword.
      *
      * @param list<string> $notes
+     * @param string       $itemType the JSON type an {@see Each} constraint's item schema
+     *                                starts from (a list's declared element type; default
+     *                                `string`)
      */
-    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null): Schema
+    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null, string $itemType = 'string'): Schema
     {
         switch (true) {
             case $constraint instanceof MinLength: return $schema->withMinLength($constraint->value);
@@ -387,7 +395,7 @@ final class SchemaProjector
             case $constraint instanceof UrlFormat: return $schema->withFormat('uri');
             case $constraint instanceof UuidFormat: return $schema->withFormat('uuid');
             case $constraint instanceof IpFormat: return $schema->withFormat($constraint->version === 6 ? 'ipv6' : 'ipv4');
-            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating, $collector));
+            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating, $itemType, $collector));
             case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $creating, $collector));
             case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $creating, $notes, $collector);
             case $constraint instanceof Before: return $this->applyDateBound($schema, $constraint->bound, 'must be before', $notes);
@@ -543,9 +551,11 @@ final class SchemaProjector
         return false;
     }
 
-    private function eachSchema(Each $each, bool $creating, ?EnumComponentCollector $collector = null): Schema
+    private function eachSchema(Each $each, bool $creating, string $itemType = 'string', ?EnumComponentCollector $collector = null): Schema
     {
-        $items = Schema::create();
+        // Start from the list's declared element type so items carry a JSON type (never
+        // an untyped `unknown[]`); the per-item constraints narrow it from there.
+        $items = Schema::ofType($itemType);
         $notes = [];
         foreach ($each->constraints as $constraint) {
             if ($constraint->context()->appliesTo($creating)) {
