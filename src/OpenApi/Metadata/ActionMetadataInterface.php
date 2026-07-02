@@ -41,8 +41,14 @@ interface ActionMetadataInterface
     public function inputType(): ?string;
 
     /**
-     * The JSON:API type whose document schema is the action's success response;
-     * `null` when the action returns `204 No Content`.
+     * How the action answers on success — the discriminator for its success
+     * response (a resource document, a meta-only document, or `204 No Content`).
+     */
+    public function outputMode(): ActionOutputMode;
+
+    /**
+     * The JSON:API type whose document schema is the action's success response,
+     * when {@see outputMode()} is {@see ActionOutputMode::Document}; `null` otherwise.
      */
     public function outputType(): ?string;
 

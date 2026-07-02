@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
@@ -84,6 +85,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
                 new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article'),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles']),
+                new FakeActionMetadata('stats', ['POST'], ActionScope::Collection, ActionInputMode::None, outputMode: ActionOutputMode::Meta, tags: ['Articles']),
             ],
         );
         $people = FakeTypeMetadata::resource(
@@ -478,6 +480,51 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             '#/components/schemas/ArticlesCreateRequest',
             $this->strAt($post, 'requestBody', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
+    }
+
+    #[Test]
+    public function aMetaOutputActionReturnsTheSharedMetaDocument(): void
+    {
+        $post = $this->arrAt($this->paths(), '/articles/-actions/stats', 'post');
+
+        // Meta output → a 200 whose body is the shared meta-document (no per-type document).
+        self::assertSame(
+            '#/components/schemas/MetaDocument',
+            $this->strAt($post, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+        );
+        self::assertArrayNotHasKey('204', $this->arrAt($post, 'responses'));
+    }
+
+    #[Test]
+    public function theSharedMetaDocumentComponentIsEmittedWhenAMetaOutputActionExists(): void
+    {
+        $schemas = $this->arrAt($this->document()->toArray(), 'components', 'schemas');
+
+        self::assertArrayHasKey('MetaDocument', $schemas);
+        $metaDocument = $this->arrAt($schemas, 'MetaDocument');
+        self::assertSame('object', $this->strAt($metaDocument, 'type'));
+        self::assertSame(['meta'], $this->listAt($metaDocument, 'required'));
+        self::assertSame('#/components/schemas/Meta', $this->strAt($metaDocument, 'properties', 'meta', '$ref'));
+        self::assertSame('#/components/schemas/Links', $this->strAt($metaDocument, 'properties', 'links', '$ref'));
+        self::assertSame('#/components/schemas/JsonApi', $this->strAt($metaDocument, 'properties', 'jsonapi', '$ref'));
+        // No `data` — a meta document carries no primary resource.
+        self::assertArrayNotHasKey('data', $this->arrAt($metaDocument, 'properties'));
+    }
+
+    #[Test]
+    public function theSharedMetaDocumentComponentIsAbsentWhenNoActionOutputsMeta(): void
+    {
+        // A server whose only action outputs a resource document (no Meta output) must
+        // not carry the shared meta-document component.
+        $type = FakeTypeMetadata::resource(
+            type: 'articles',
+            fields: [Id::make(), Str::make('title')],
+            actions: [new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles')],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        self::assertArrayNotHasKey('MetaDocument', $schemas);
     }
 
     #[Test]
