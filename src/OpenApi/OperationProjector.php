@@ -673,8 +673,11 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $action->tags(),
-            summary: $action->summary(),
-            description: $action->description(),
+            // A custom action carries the author's summary/description when declared, else a
+            // generated default — so an action (the least path-inferable operation) is never the
+            // only operation left undescribed (D19).
+            summary: $action->summary() ?? ('Invoke the `' . $action->path() . '` action'),
+            description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on a `' . $type->type() . '` resource.'),
             operationId: 'action.' . $type->type() . '.' . $action->path(),
             requestBody: $this->actionRequestBody($action),
             security: $security,
