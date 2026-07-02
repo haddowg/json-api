@@ -219,6 +219,15 @@ final class Schema implements \JsonSerializable
         return $this->with('uniqueItems', $value);
     }
 
+    /**
+     * Sets the `readOnly` keyword (JSON Schema 2020-12 / OAS 3.1): the member is
+     * present in responses but MUST NOT be sent in a request — a server-set value.
+     */
+    public function withReadOnly(bool $value = true): self
+    {
+        return $this->with('readOnly', $value);
+    }
+
     public function withMinProperties(int $value): self
     {
         return $this->with('minProperties', $value);

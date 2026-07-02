@@ -192,6 +192,38 @@ final class SchemaProjector
     }
 
     /**
+     * Projects a `belongsToMany` relation's `meta.pivot` object schema (a fused schema backing
+     * BOTH the read linkage and the relationship-mutation request body). A read-only pivot field
+     * (present in responses, ignored in requests) is marked `readOnly: true` so a write client
+     * neither sends nor is required to supply it; a writable, create-required pivot field is listed
+     * in `required` so a new member must carry it (matching the runtime's 422). D18.
+     *
+     * @param iterable<FieldInterface> $fields
+     */
+    public function projectPivotObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    {
+        $properties = [];
+        $required = [];
+
+        foreach ($fields as $field) {
+            $schema = $this->projectField($field, false, $collector);
+            $appearsInCreate = $this->appearsInRepresentation($field, RepresentationContext::Create);
+            $appearsInUpdate = $this->appearsInRepresentation($field, RepresentationContext::Update);
+            if (!$appearsInCreate && !$appearsInUpdate) {
+                $schema = $schema->withReadOnly();
+            }
+            $properties[$field->name()] = $schema;
+            if ($appearsInCreate && $this->isRequired($field, true)) {
+                $required[] = $field->name();
+            }
+        }
+
+        return Schema::ofType('object')
+            ->withProperties($properties)
+            ->withRequired($required);
+    }
+
+    /**
      * Projects a type's **resource object** schema: `type` const, `id`,
      * `attributes` (inline), a permissive `relationships` placeholder (full
      * relationship schemas are a later slice), and the conventional `links`/`meta`
