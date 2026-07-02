@@ -133,7 +133,7 @@ final class OpenApiProjector
         // batch-write path, projected after the per-type CRUD paths.
         $atomic = $server->atomicOperations();
         if ($atomic !== null) {
-            $paths = $paths->with($atomic->path(), $this->atomicPathItem($atomic));
+            $paths = $paths->with($atomic->path(), $this->atomicPathItem($atomic, $server->defaultSecurity()));
         }
 
         return $paths;
@@ -667,10 +667,12 @@ final class OpenApiProjector
      * `AtomicOperationsRequest` and returns an `AtomicResultsResponse`, both under the
      * extension-qualified JSON:API media type (`application/vnd.api+json; ext="<URI>"`).
      * Carries the configured atomic tag + security and the standard error responses.
+     *
+     * @param list<SecurityRequirement> $defaultSecurity the document-level default security
      */
-    private function atomicPathItem(AtomicOperationsMetadataInterface $atomic): PathItem
+    private function atomicPathItem(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity): PathItem
     {
-        return (new PathItem())->withOperation('post', $this->atomicOperation($atomic));
+        return (new PathItem())->withOperation('post', $this->atomicOperation($atomic, $defaultSecurity));
     }
 
     /**
@@ -679,7 +681,10 @@ final class OpenApiProjector
      * the same extension media type, the standard error responses, the atomic tag and
      * the configured security.
      */
-    private function atomicOperation(AtomicOperationsMetadataInterface $atomic): Operation
+    /**
+     * @param list<SecurityRequirement> $defaultSecurity the document-level default security
+     */
+    private function atomicOperation(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity): Operation
     {
         $mediaType = $this->atomicMediaType();
 
@@ -689,14 +694,18 @@ final class OpenApiProjector
             required: true,
         );
 
+        $security = $atomic->security();
+        // Effective security mirrors the CRUD authStatuses rule: an empty per-endpoint security
+        // means "inherit the document default". Advertise 401 whenever that effective security is
+        // non-empty — the invariant core #99 established for every other operation (D17).
+        $effective = $security !== [] ? $security : $defaultSecurity;
+
         $responses = (new Responses())
             ->with('200', new Response(
                 'The result of each operation, in batch order.',
                 content: [$mediaType => MediaType::ofSchema(Schema::ref('#/components/schemas/AtomicResultsResponse'))],
             ));
-        $responses = $this->withAtomicErrorResponses($responses);
-
-        $security = $atomic->security();
+        $responses = $this->withAtomicErrorResponses($responses, $effective !== []);
 
         return new Operation(
             responses: $responses,
@@ -724,9 +733,11 @@ final class OpenApiProjector
     /**
      * Adds the atomic endpoint's standard error responses (each `$ref`ing the shared
      * `ErrorDocument`): `400`/`403`/`404`/`406`/`409`/`415`/`500`, plus `422` for a
-     * validation failure within the batch.
+     * validation failure within the batch, and `401` when the operation is secured
+     * (its effective security is non-empty — the same invariant every CRUD/action
+     * operation carries, D17).
      */
-    private function withAtomicErrorResponses(Responses $responses): Responses
+    private function withAtomicErrorResponses(Responses $responses, bool $secured): Responses
     {
         $errorRef = Reference::to('schemas', 'ErrorDocument');
         $statuses = [
@@ -739,6 +750,9 @@ final class OpenApiProjector
             '422' => 'Unprocessable Entity — an operation in the batch failed validation. The whole batch is rolled back.',
             '500' => 'Internal Server Error.',
         ];
+        if ($secured) {
+            $statuses['401'] = 'Unauthorized — authentication is required and was missing or invalid.';
+        }
         foreach ($statuses as $status => $description) {
             $responses = $responses->with((string) $status, Response::ofSchema($description, $errorRef));
         }

@@ -637,14 +637,34 @@ final class OpenApiProjectorTest extends TestCase
             $this->strAt($post, 'responses', '200', 'content', $extMediaType, 'schema', '$ref'),
         );
 
-        // The enumerated error responses each reference the shared error document.
-        foreach (['400', '403', '404', '406', '409', '415', '422', '500'] as $status) {
+        // The enumerated error responses each reference the shared error document. The atomic op
+        // is secured (bearer default + per-endpoint), so it carries 401 like every other
+        // operation — the effective-security invariant core #99 established (D17).
+        foreach (['400', '401', '403', '404', '406', '409', '415', '422', '500'] as $status) {
             self::assertSame(
                 '#/components/schemas/ErrorDocument',
                 $this->strAt($post, 'responses', $status, 'content', MediaType::JSON_API, 'schema', '$ref'),
                 "missing/incorrect error response {$status}",
             );
         }
+    }
+
+    #[Test]
+    public function theAtomicOperationOmits401WhenNoEffectiveSecurityApplies(): void
+    {
+        // No document default and no per-endpoint security → the atomic op is unsecured, so it
+        // carries no 401 (mirroring the CRUD effective-security rule).
+        $base = $this->server();
+        $server = new FakeServerMetadata(
+            title: 'Public API',
+            version: '1.0.0',
+            types: $base->types(),
+            atomicOperations: new FakeAtomicOperationsMetadata(path: '/operations', tag: 'Atomic Operations'),
+        );
+        $post = $this->arrAt($this->projector()->project($server)->toArray(), 'paths', '/operations', 'post');
+
+        self::assertArrayNotHasKey('401', $this->arrAt($post, 'responses'));
+        self::assertArrayHasKey('403', $this->arrAt($post, 'responses'));
     }
 
     #[Test]
