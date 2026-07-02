@@ -466,3 +466,5 @@ above. See [relations](relations.md) for the relation field types and how the
   walks, id generation, and registration.
 - [Validation](constraints.md) — the constraint vocabulary and the create/update
   context model the presence and composition helpers feed.
+- [OpenAPI generation](openapi.md) — how a field projects to a schema, and the
+  `describedAs()` / `example()` authoring surface that shapes it.

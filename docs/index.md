@@ -138,6 +138,8 @@ the reference pages as you need them:
 - **Serialization & hydration control** — [serializers](serializers.md),
   [hydrators](hydrators.md),
   [capability composition](capability-composition.md).
+- **API documentation** — [OpenAPI generation](openapi.md) (projecting your
+  server's metadata into an OpenAPI 3.1 document).
 - **Request/response lifecycle** — [server](server.md) (including the
   [`serving` pre-operation hook](server.md#serving-a-pre-operation-hook)),
   [operations](operations.md),

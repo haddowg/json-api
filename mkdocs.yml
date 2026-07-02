@@ -102,6 +102,7 @@ nav:
       - serializers.md
       - responses.md
       - links-and-meta.md
+      - openapi.md
   - Relationships:
       - related-endpoints.md
       - relationship-mutation.md

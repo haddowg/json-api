@@ -11,9 +11,11 @@ A relation is a field, so it shares the [field](fields.md) builder surface
 (`storedAs()`, `computed()`, `extractUsing()`, the read/write hooks) and adds a
 relationship-specific surface on top. The related resource always serializes
 through the [serializer](serializers.md) registered for its type, so you declare
-the *allowed* related type(s) with `type()` / `types()` and the registry does the
-rest. Declaring the related type also auto-adds a `RelationshipType` inbound
-constraint, so a write that points the relation at the wrong type is rejected.
+the *allowed* related type(s) as the **mandatory** second argument to `make()`
+(a single type for a monomorphic relation, a non-empty list for a polymorphic
+one) and the registry does the rest. Declaring the related type also auto-adds a
+`RelationshipType` inbound constraint, so a write that points the relation at the
+wrong type is rejected.
 Read the declared set back with the `relatedTypes()` accessor; for a polymorphic
 relation the concrete member serializer is chosen per object at render time (the
 `resolveSerializer` hook covered in [serializers](serializers.md#polymorphic-serialization-the-read-side-of-polymorphism)).
@@ -259,8 +261,9 @@ in [Mutation gates](#mutation-gates).
 ## MorphTo — a polymorphic to-one
 
 A to-one whose related resource may be one of several types. Declare the allowed
-types with `types()`; the related object's serializer is resolved at runtime from
-its own `getType()`. [`FavoriteResource`](../examples/music-catalog/src/Resource/FavoriteResource.php):
+types as the non-empty-list second argument to `make()`; the related object's
+serializer is resolved at runtime from its own `getType()`.
+[`FavoriteResource`](../examples/music-catalog/src/Resource/FavoriteResource.php):
 
 ```php
 // src/Resource/FavoriteResource.php
