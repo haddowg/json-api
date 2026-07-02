@@ -6,9 +6,11 @@ namespace haddowg\JsonApi\Schema\Link;
 
 /**
  * The top-level `links` member of a JSON:API document: an optional `self` and
- * `related` link, the pagination links (`first`/`prev`/`next`/`last`) and zero
- * or more profile links. Construct-only; profile links are de-duplicated by
- * href and emitted as a `profile` array.
+ * `related` link, an optional `describedby` link (a link to a description document
+ * for the document — e.g. the served OpenAPI spec; JSON:API 1.1), the pagination
+ * links (`first`/`prev`/`next`/`last`) and zero or more profile links.
+ * Construct-only; profile links are de-duplicated by href and emitted as a
+ * `profile` array.
  *
  * @see https://jsonapi.org/format/1.1/#document-top-level
  */
@@ -19,7 +21,7 @@ final readonly class DocumentLinks extends AbstractLinks
 
     /**
      * @param list<Link>               $profiles
-     * @param array<string, Link|null> $links    arbitrary additional relations
+     * @param array<string, Link|null> $links       arbitrary additional relations
      */
     public function __construct(
         string $baseUri = '',
@@ -34,6 +36,7 @@ final readonly class DocumentLinks extends AbstractLinks
         ?Link $last = null,
         array $profiles = [],
         array $links = [],
+        ?Link $describedby = null,
     ) {
         $deduped = [];
         foreach ($profiles as $profile) {
@@ -46,6 +49,7 @@ final readonly class DocumentLinks extends AbstractLinks
             [
                 'self' => $self,
                 'related' => $related,
+                'describedby' => $describedby,
                 'first' => $first,
                 'prev' => $prev,
                 'next' => $next,
@@ -68,8 +72,9 @@ final readonly class DocumentLinks extends AbstractLinks
         ?Link $last = null,
         array $profiles = [],
         array $links = [],
+        ?Link $describedby = null,
     ): self {
-        return new self('', $self, $related, $first, $prev, $next, $last, $profiles, $links);
+        return new self('', $self, $related, $first, $prev, $next, $last, $profiles, $links, $describedby);
     }
 
     /**
@@ -86,8 +91,9 @@ final readonly class DocumentLinks extends AbstractLinks
         ?Link $last = null,
         array $profiles = [],
         array $links = [],
+        ?Link $describedby = null,
     ): self {
-        return new self($baseUri, $self, $related, $first, $prev, $next, $last, $profiles, $links);
+        return new self($baseUri, $self, $related, $first, $prev, $next, $last, $profiles, $links, $describedby);
     }
 
     protected function reboundTo(string $baseUri): static
@@ -103,6 +109,11 @@ final readonly class DocumentLinks extends AbstractLinks
     public function related(): ?Link
     {
         return $this->link('related');
+    }
+
+    public function describedby(): ?Link
+    {
+        return $this->link('describedby');
     }
 
     public function first(): ?Link
