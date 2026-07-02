@@ -977,12 +977,21 @@ final class OpenApiProjector
      * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`) responds with:
      * `{jsonapi?, links?, data: <linkage>, meta?}` — the top-level document around the
      * bare linkage (`data` is the array / nullable-identifier of {@see linkageData()}).
+     *
+     * A **to-many** relationship endpoint is a queryable, paginated linkage collection
+     * (ADR 0096): its `links` carry the pagination members (`first`/`prev`/`next`/`last`),
+     * so it `$ref`s the typed `PaginationLinks` rather than the permissive `Links`, making
+     * those links discoverable/typed for a client and code generator. A to-one relationship
+     * does not paginate, so it keeps `Links`. A relationship endpoint returns linkage only —
+     * never a compound `included` — so no `included` is described here (core D16).
      */
     private function relationshipDocumentSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
     {
+        $links = $relation->isToMany() ? 'PaginationLinks' : 'Links';
+
         return Schema::ofType('object')
             ->withProperty('data', $this->linkageData($relation, $collector))
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $links))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);

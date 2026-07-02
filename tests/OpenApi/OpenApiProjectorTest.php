@@ -340,6 +340,26 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function theToManyRelationshipDocumentTypesItsPaginationLinks(): void
+    {
+        // A to-many relationship endpoint is a paginated linkage collection (ADR 0096),
+        // so its document `links` is the typed `PaginationLinks`, not the permissive
+        // `Links`; a to-one relationship does not paginate and keeps `Links`. Neither
+        // describes a compound `included` (a relationship endpoint is linkage-only) — D16.
+        $schemas = $this->schemas();
+
+        self::assertSame(
+            '#/components/schemas/PaginationLinks',
+            $this->strAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties', 'links', '$ref'),
+        );
+        self::assertSame(
+            '#/components/schemas/Links',
+            $this->strAt($schemas, 'ArticlesAuthorRelationshipDocument', 'properties', 'links', '$ref'),
+        );
+        self::assertArrayNotHasKey('included', $this->arrAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties'));
+    }
+
+    #[Test]
     public function itProjectsToOneToManyAndPolymorphicLinkage(): void
     {
         $schemas = $this->schemas();
