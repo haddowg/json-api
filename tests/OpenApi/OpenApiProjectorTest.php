@@ -383,6 +383,23 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function theRelationshipAndResourceObjectsRefTheSharedLinksAndMetaComponents(): void
+    {
+        $schemas = $this->schemas();
+
+        // A relationship object's links carry the conventional self/related pair (not
+        // pagination), so it $refs the shared `Links`; its meta $refs the shared `Meta`
+        // (it may carry pivot / identifierMeta) — no more bare `{type: object}` (D22).
+        self::assertSame('#/components/schemas/Links', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
+        self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'meta', '$ref'));
+
+        // The resource object's links/meta likewise $ref the shared components, matching
+        // the document-level links/meta.
+        self::assertSame('#/components/schemas/Links', $this->strAt($schemas, 'ArticlesResource', 'properties', 'links', '$ref'));
+        self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesResource', 'properties', 'meta', '$ref'));
+    }
+
+    #[Test]
     public function itDistinguishesCreateAndUpdateRequestSchemas(): void
     {
         $schemas = $this->schemas();
