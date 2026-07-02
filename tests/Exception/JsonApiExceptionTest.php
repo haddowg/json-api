@@ -91,7 +91,7 @@ final class JsonApiExceptionTest extends TestCase
         yield 'ResourceTypeUnacceptable' => [new ResourceTypeUnacceptable('book', []), 409, '409', 'RESOURCE_TYPE_UNACCEPTABLE', 'Resource type is unacceptable'];
         yield 'ResponseBodyInvalidJson' => [new ResponseBodyInvalidJson('lint'), 500, '500', 'RESPONSE_BODY_INVALID_JSON', 'Response body is an invalid JSON document'];
         yield 'ResponseBodyInvalidJsonApi' => [new ResponseBodyInvalidJsonApi([['message' => 'abc']]), 500, '500', 'RESPONSE_BODY_INVALID_JSON_API', 'Response body is an invalid JSON:API document'];
-        yield 'SortParamUnrecognized' => [new SortParamUnrecognized('foo'), 400, '400', 'SORTING_UNRECOGNIZED', 'Sorting paramter is unrecognized'];
+        yield 'SortParamUnrecognized' => [new SortParamUnrecognized('foo'), 400, '400', 'SORTING_UNRECOGNIZED', 'Sorting parameter is unrecognized'];
         yield 'SortingUnsupported' => [new SortingUnsupported(), 400, '400', 'SORTING_UNSUPPORTED', 'Sorting is unsupported'];
         yield 'TopLevelMemberNotAllowed' => [new TopLevelMemberNotAllowed(), 400, '400', 'TOP_LEVEL_MEMBER_NOT_ALLOWED', 'Top-level member is not allowed'];
         yield 'TopLevelMembersIncompatible' => [new TopLevelMembersIncompatible(), 400, '400', 'TOP_LEVEL_MEMBERS_INCOMPATIBLE', 'Top-level members are incompatible'];
