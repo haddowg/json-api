@@ -118,9 +118,11 @@ final class DocumentTransformer
             $transformation->result = $result;
         }
 
-        if ($data->hasIncludedResources() || $transformation->request->hasIncludedRelationships()) {
-            $transformation->result['included'] = $data->transformIncluded();
-        }
+        // A relationship endpoint's document is **linkage-only**: it carries the linkage
+        // `data` (and top-level jsonapi/meta/links), never a compound `included`. `?include`
+        // is not part of the relationship-endpoint contract — it is tolerated but does not
+        // produce an `included` member — so no included set (requested or default) is emitted
+        // here (unlike a primary/related resource document; core D16).
     }
 
     private function transformErrors(ErrorDocumentTransformation $transformation): void

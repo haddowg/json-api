@@ -118,8 +118,10 @@ final class DocumentTransformerTest extends TestCase
 
     #[Test]
     #[Group('spec:inclusion-of-related-resources')]
-    public function transformRelationshipDocumentWithEmptyIncluded(): void
+    public function transformRelationshipDocumentIsLinkageOnlyForARequestedInclude(): void
     {
+        // A relationship endpoint's document is linkage-only: a requested `?include`
+        // is tolerated but produces NO compound `included` member (core D16).
         $document = $this->createDocument(
             null,
             [],
@@ -132,19 +134,16 @@ final class DocumentTransformerTest extends TestCase
 
         $transformedDocument = $this->toRelationshipDocument($document, [], new StubJsonApiRequest(['include' => 'animal']));
 
-        self::assertEquals(
-            [
-                'data' => [],
-                'included' => [],
-            ],
-            $transformedDocument,
-        );
+        self::assertEquals(['data' => []], $transformedDocument);
+        self::assertArrayNotHasKey('included', $transformedDocument);
     }
 
     #[Test]
     #[Group('spec:inclusion-of-related-resources')]
-    public function transformRelationshipDocumentWithIncluded(): void
+    public function transformRelationshipDocumentOmitsIncludedEvenWhenTheDataCarriesIncludedResources(): void
     {
+        // Even when the transformed relationship data has populated an included set,
+        // the relationship document does not emit it — linkage-only (core D16).
         $document = $this->createDocument(
             null,
             [],
@@ -152,51 +151,15 @@ final class DocumentTransformerTest extends TestCase
             (new SingleResourceData())
                 ->setIncludedResources(
                     [
-                        [
-                            'type' => 'user',
-                            'id' => '2',
-                        ],
-                        [
-                            'type' => 'user',
-                            'id' => '3',
-                        ],
+                        ['type' => 'user', 'id' => '2'],
+                        ['type' => 'user', 'id' => '3'],
                     ],
                 ),
         );
 
         $transformedDocument = $this->toRelationshipDocument($document, []);
 
-        self::assertEquals(
-            [
-                'included' => [
-                    [
-                        'type' => 'user',
-                        'id' => '2',
-                    ],
-                    [
-                        'type' => 'user',
-                        'id' => '3',
-                    ],
-                ],
-            ],
-            $transformedDocument,
-        );
-    }
-
-    #[Test]
-    #[Group('spec:inclusion-of-related-resources')]
-    public function transformRelationshipDocumentByIncludedQueryParam(): void
-    {
-        $document = $this->createDocument();
-
-        $transformedDocument = $this->toRelationshipDocument($document, [], new StubJsonApiRequest(['include' => 'animal']));
-
-        self::assertEquals(
-            [
-                'included' => [],
-            ],
-            $transformedDocument,
-        );
+        self::assertArrayNotHasKey('included', $transformedDocument);
     }
 
     #[Test]
