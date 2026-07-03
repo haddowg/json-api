@@ -138,6 +138,25 @@ final class ArraySortHandlerTest extends TestCase
     }
 
     #[Test]
+    public function anOptionalHintIsAppendedToTheMessage(): void
+    {
+        $sort = $this->bespokeSort('bespoke');
+
+        self::assertSame(
+            'No handler is registered for sort "bespoke" (' . $sort::class . ').',
+            (new UnsupportedSort($sort))->getMessage(),
+        );
+
+        // A raising handler may append data-layer-specific remediation guidance.
+        $withHint = new UnsupportedSort($sort, 'Register an arm for it.');
+        self::assertSame(
+            'No handler is registered for sort "bespoke" (' . $sort::class . '). Register an arm for it.',
+            $withHint->getMessage(),
+        );
+        self::assertSame('Register an arm for it.', $withHint->hint);
+    }
+
+    #[Test]
     public function customSortRunsThroughARegisteredArm(): void
     {
         // key = strlen(category): news=4 (rows 1,3), guide=5 (row 2).
