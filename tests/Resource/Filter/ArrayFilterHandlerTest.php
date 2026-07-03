@@ -374,6 +374,26 @@ final class ArrayFilterHandlerTest extends TestCase
     }
 
     #[Test]
+    public function anOptionalHintIsAppendedToTheMessage(): void
+    {
+        $filter = $this->bespokeFilter('bespoke');
+
+        // No hint: the bare message (the default core behaviour — core names no data layer).
+        self::assertSame(
+            'No handler is registered for filter "bespoke" (' . $filter::class . ').',
+            (new UnsupportedFilter($filter))->getMessage(),
+        );
+
+        // A raising handler may append data-layer-specific remediation guidance.
+        $withHint = new UnsupportedFilter($filter, 'Register an arm for it.');
+        self::assertSame(
+            'No handler is registered for filter "bespoke" (' . $filter::class . '). Register an arm for it.',
+            $withHint->getMessage(),
+        );
+        self::assertSame('Register an arm for it.', $withHint->hint);
+    }
+
+    #[Test]
     public function customFilterRunsThroughARegisteredArm(): void
     {
         $filter = $this->bespokeFilter('minViews');
