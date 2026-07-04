@@ -76,6 +76,15 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
 
     protected bool $sparseField = true;
 
+    /**
+     * Sparse-by-default: when `true`, the field is omitted from the default response
+     * and rendered ONLY when the client explicitly names it in `fields[type]` — the
+     * opt-in inverse of the normal "present unless a fieldset excludes it". For an
+     * expensive computed/derived attribute a client rarely needs (see
+     * {@see sparseByDefault()}).
+     */
+    protected bool $sparseByDefault = false;
+
     protected bool $sortable = false;
 
     /**
@@ -411,6 +420,29 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     }
 
     /**
+     * Marks the field **sparse by default**: it is omitted from the default response
+     * and rendered ONLY when the client explicitly names it in a `fields[type]`
+     * member — the opt-in inverse of the usual sparse-fieldset rule (present unless a
+     * fieldset excludes it). The field stays a fully declared member (it validates as
+     * a known `fields[type]` name and documents in the schema), and — because the
+     * omission happens before the value hook runs — its (potentially expensive)
+     * serialization is skipped on every request that does not ask for it. Intended
+     * for costly computed/derived attributes a client seldom needs.
+     *
+     * Orthogonal to {@see hidden()} (never rendered) and {@see writeOnly()} (accepted
+     * but never rendered): a write-only or unconditionally-hidden field is never
+     * rendered even when named, so it wins.
+     *
+     * @return static
+     */
+    public function sparseByDefault(): static
+    {
+        $this->sparseByDefault = true;
+
+        return $this;
+    }
+
+    /**
      * @return static
      */
     public function sortable(): static
@@ -741,6 +773,11 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
     public function isSparseField(): bool
     {
         return $this->sparseField;
+    }
+
+    public function isSparseByDefault(): bool
+    {
+        return $this->sparseByDefault;
     }
 
     public function isSortable(): bool

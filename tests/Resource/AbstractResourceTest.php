@@ -158,6 +158,102 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function sparseByDefaultAttributeIsOmittedFromTheDefaultResponse(): void
+    {
+        // A sparse-by-default field is absent from a request that does not name it,
+        // AND its (expensive) value hook never runs — the field is dropped before the
+        // callable is added, so a serializeUsing() that would throw is never reached.
+        $resource = $this->sparseResource();
+
+        $attributes = $resource->getAttributes(
+            (object) ['id' => '1', 'name' => 'Gadget', 'score' => 99],
+            new StubJsonApiRequest(),
+        );
+
+        self::assertArrayHasKey('name', $attributes);
+        self::assertArrayNotHasKey('score', $attributes);
+    }
+
+    #[Test]
+    public function sparseByDefaultAttributeRendersWhenExplicitlyRequested(): void
+    {
+        $resource = $this->sparseResource();
+        $model = (object) ['id' => '1', 'name' => 'Gadget', 'score' => 99];
+        $request = StubJsonApiRequest::create(['fields' => ['widgets' => 'name,score']]);
+
+        $attributes = $resource->getAttributes($model, $request);
+
+        self::assertArrayHasKey('score', $attributes);
+        // The value hook runs only now, producing the computed value.
+        self::assertSame(99, $attributes['score']($model, $request, 'score'));
+    }
+
+    #[Test]
+    public function sparseByDefaultAttributeStaysAbsentWhenAnotherFieldIsRequested(): void
+    {
+        // A `fields[widgets]` that names other members but not the sparse field keeps
+        // it absent — it renders ONLY when explicitly named.
+        $resource = $this->sparseResource();
+        $request = StubJsonApiRequest::create(['fields' => ['widgets' => 'name']]);
+
+        $attributes = $resource->getAttributes(
+            (object) ['id' => '1', 'name' => 'Gadget', 'score' => 99],
+            $request,
+        );
+
+        self::assertArrayHasKey('name', $attributes);
+        self::assertArrayNotHasKey('score', $attributes);
+    }
+
+    #[Test]
+    public function sparseByDefaultRelationIsOmittedUnlessExplicitlyRequested(): void
+    {
+        // The attribute rule applies symmetrically to relations: a sparse-by-default
+        // relation is excluded from the rendered relationships unless named in
+        // `fields[widgets]`.
+        $resource = $this->sparseResource();
+        $resource->setSerializerResolver($this->resolver());
+        $model = (object) ['id' => '1', 'name' => 'Gadget', 'score' => 99, 'audit' => null];
+
+        $default = $resource->getRelationships($model, new StubJsonApiRequest());
+        self::assertArrayNotHasKey('audit', $default);
+
+        $requested = $resource->getRelationships(
+            $model,
+            StubJsonApiRequest::create(['fields' => ['widgets' => 'audit']]),
+        );
+        self::assertArrayHasKey('audit', $requested);
+    }
+
+    private function sparseResource(): AbstractResource
+    {
+        return new class extends AbstractResource {
+            public static string $type = 'widgets';
+
+            public function fields(): array
+            {
+                return [
+                    Id::make(),
+                    Str::make('name'),
+                    Integer::make('score')
+                        ->sparseByDefault()
+                        ->serializeUsing(static function (mixed $model): int {
+                            \assert(\is_object($model));
+
+                            return (int) ($model->score ?? 0);
+                        }),
+                    BelongsTo::make('audit', 'audits')->sparseByDefault(),
+                ];
+            }
+
+            public function getType(mixed $object): string
+            {
+                return 'widgets';
+            }
+        };
+    }
+
+    #[Test]
     public function writeOnlyFieldsAreHydratedOnCreate(): void
     {
         $resource = new PostResource();

@@ -94,6 +94,7 @@ final class FieldTest extends TestCase
         self::assertFalse($field->isReadOnly(false));
         self::assertFalse($field->isHidden());
         self::assertTrue($field->isSparseField());
+        self::assertFalse($field->isSparseByDefault());
         self::assertFalse($field->isSortable());
         self::assertSame([], $field->constraints());
     }
@@ -151,6 +152,7 @@ final class FieldTest extends TestCase
     {
         self::assertTrue(Str::make('a')->hidden()->isHidden());
         self::assertFalse(Str::make('a')->notSparseField()->isSparseField());
+        self::assertTrue(Str::make('a')->sparseByDefault()->isSparseByDefault());
         self::assertTrue(Str::make('a')->sortable()->isSortable());
     }
 
