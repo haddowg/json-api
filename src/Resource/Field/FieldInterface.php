@@ -119,6 +119,13 @@ interface FieldInterface
     public function isSparseField(): bool;
 
     /**
+     * Whether the field is sparse by default: omitted from the default response and
+     * rendered only when explicitly named in a `fields[type]` member
+     * ({@see \haddowg\JsonApi\Resource\Field\AbstractField::sparseByDefault()}).
+     */
+    public function isSparseByDefault(): bool;
+
+    /**
      * Whether the field may be used as a sort key.
      */
     public function isSortable(): bool;

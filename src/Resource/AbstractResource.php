@@ -365,6 +365,18 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
+            // A sparse-by-default field is omitted from the default response and
+            // rendered ONLY when the client explicitly names it in `fields[type]`
+            // (ADR 0117). Skipping it before the value hook is added means its
+            // (potentially expensive) serialization never runs on a request that did
+            // not ask for it. `getIncludedFields()` lists the names explicitly
+            // requested for this type (empty when the type carries no `fields[type]`
+            // member), so an unrequested sparse field is dropped here.
+            if ($field->isSparseByDefault()
+                && !\in_array($field->name(), $request->getIncludedFields($this->getType($object)), true)) {
+                continue;
+            }
+
             // A flattened attribute (`on('publisher.country')`) reads its backing
             // member off the FINAL related model in a to-one chain, not the owning
             // one: walk the chain hop by hop (each hop honouring its relation's
@@ -466,10 +478,14 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         // a relation whose hidden state is a per-request predicate still backs the
         // build-time relationNamed() lookup (a conditionally-hidden relation must
         // resolve, else a cannotReplaceFor 403 would degrade to a 404). It is
-        // excluded from the *rendered* relationships here, against the request.
+        // excluded from the *rendered* relationships here, against the request. A
+        // sparse-by-default relation is likewise excluded unless the request names it
+        // in `fields[type]` (ADR 0117), symmetric with the attribute path.
+        $type = $this->getType($object);
         $visible = \array_values(\array_filter(
             $this->relationFields(),
-            fn(RelationInterface $relation): bool => !$relation->isHiddenFor($request, $object),
+            fn(RelationInterface $relation): bool => !$relation->isHiddenFor($request, $object)
+                && !($relation->isSparseByDefault() && !\in_array($relation->name(), $request->getIncludedFields($type), true)),
         ));
 
         return self::relationshipCallables($visible, $resolver);
