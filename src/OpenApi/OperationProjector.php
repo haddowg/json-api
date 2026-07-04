@@ -746,12 +746,15 @@ final class OperationProjector
      * projected from the filter's value constraints (§4.4). A presence-only filter
      * (no constraints) yields a permissive value schema.
      *
-     * A {@see \haddowg\JsonApi\Resource\Filter\Range} (and its
-     * {@see \haddowg\JsonApi\Resource\Filter\DateRange} specialisation) carries a
-     * **structured** value — the nested `filter[<key>][min]`/`[max]` wire shape —
-     * so it projects an **object** value schema with `min`/`max` properties rather
-     * than the scalar schema its per-bound constraints would otherwise yield
-     * (ADR 0076; the `deepObject` *parameter style* itself is a follow-up slice).
+     * A filter with a **structured** wire shape describes its own parameter envelope
+     * via {@see \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter}: a
+     * {@see \haddowg\JsonApi\Resource\Filter\Range} (and its
+     * {@see \haddowg\JsonApi\Resource\Filter\DateRange} specialisation) wraps its
+     * per-bound value schema into an **object** with `min`/`max` properties and the
+     * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape
+     * (ADR 0076/0077). A scalar filter (the default) is its constraint-derived value
+     * schema with no style — so a consumer-defined structured filter documents
+     * correctly with no change here.
      *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @return list<Parameter>
@@ -760,16 +763,17 @@ final class OperationProjector
     {
         $parameters = [];
         foreach ($filters as $filter) {
-            $isRange = $filter instanceof \haddowg\JsonApi\Resource\Filter\Range;
+            $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints());
+            $shape = $filter instanceof \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
+                ? $filter->describeQueryParameter($valueSchema)
+                : new QueryParameterShape($valueSchema);
 
             $parameters[] = Parameter::query(
                 'filter[' . $filter->key() . ']',
-                $this->filterValueSchema($filter),
+                $shape->schema,
                 $this->filterDescription($filter),
-                // A structured Range's nested filter[<key>][min]/[max] value is an
-                // OAS `deepObject` parameter (ADR 0077); a scalar filter has no style.
-                style: $isRange ? ParameterStyle::DeepObject : null,
-                explode: $isRange ? true : null,
+                style: $shape->style,
+                explode: $shape->explode,
             );
         }
 
@@ -794,30 +798,6 @@ final class OperationProjector
         }
 
         return 'Filter the collection by `' . $filter->key() . '`.';
-    }
-
-    /**
-     * The value schema for one filter's `filter[<key>]` parameter.
-     *
-     * A scalar filter projects its declared value constraints. A structured
-     * {@see \haddowg\JsonApi\Resource\Filter\Range} instead projects an `object`
-     * with optional `min`/`max` bound properties: each bound carries the range's
-     * declared per-bound constraints (a numeric pattern for `Range`), and a
-     * {@see \haddowg\JsonApi\Resource\Filter\DateRange}'s bounds are `string`s with
-     * `format: date-time` (ADR 0076, spec §6).
-     */
-    private function filterValueSchema(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): Schema
-    {
-        if (!$filter instanceof \haddowg\JsonApi\Resource\Filter\Range) {
-            return $this->schemaProjector->projectConstraints($filter->constraints());
-        }
-
-        $bound = $filter instanceof \haddowg\JsonApi\Resource\Filter\DateRange
-            ? Schema::ofType('string')->withFormat('date-time')
-            : $this->schemaProjector->projectConstraints($filter->constraints());
-
-        return Schema::ofType('object')
-            ->withProperties(['min' => $bound, 'max' => $bound]);
     }
 
     /**
