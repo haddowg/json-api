@@ -29,7 +29,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  *
  * @phpstan-consistent-constructor
  */
-readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
+readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
 {
     use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 
@@ -79,5 +79,28 @@ readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
     protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
     {
         return new static($this->key, $this->column, $this->deserialize, $this->constraints, $description, $hasExample, $example);
+    }
+
+    public function describeQueryParameter(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\QueryParameterShape
+    {
+        // A Range's wire value is the nested object filter[<key>][min]/[max] — an OAS
+        // `deepObject` parameter (ADR 0077) whose bounds carry the per-bound value schema.
+        $bound = $this->boundSchema($valueSchema);
+
+        return new \haddowg\JsonApi\OpenApi\QueryParameterShape(
+            \haddowg\JsonApi\OpenApi\Schema::ofType('object')->withProperties(['min' => $bound, 'max' => $bound]),
+            \haddowg\JsonApi\OpenApi\ParameterStyle::DeepObject,
+            true,
+        );
+    }
+
+    /**
+     * The JSON Schema for each `min`/`max` bound. A numeric {@see Range}'s bounds carry
+     * its declared per-bound value constraints; {@see DateRange} overrides this to a
+     * `date-time` string.
+     */
+    protected function boundSchema(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\Schema
+    {
+        return $valueSchema;
     }
 }

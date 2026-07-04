@@ -49,6 +49,16 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
     }
 
     /**
+     * A date-time range documents each bound as a `date-time` string rather than the
+     * raw ISO-8601 `pattern` its constraint would project — the more meaningful OpenAPI
+     * shape (spec §6), overriding the numeric parent's per-bound value schema.
+     */
+    protected function boundSchema(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\Schema
+    {
+        return \haddowg\JsonApi\OpenApi\Schema::ofType('string')->withFormat('date-time');
+    }
+
+    /**
      * Coerces an ISO-8601 string to a `\DateTimeImmutable`; a value already a
      * `\DateTimeInterface` is returned as-is, and an unparseable/blank value is
      * returned unchanged (so a constraint-rejected value still reaches the

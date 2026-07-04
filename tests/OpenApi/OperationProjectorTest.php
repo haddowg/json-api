@@ -17,6 +17,7 @@ use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -65,6 +66,7 @@ final class OperationProjectorTest extends TestCase
                 Where::make('wordCount')->integer(),
                 Range::make('rating'),
                 DateRange::make('published'),
+                new CommaListFilter('labels'),
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             includablePaths: ['author', 'tags', 'author.company'],
@@ -140,6 +142,20 @@ final class OperationProjectorTest extends TestCase
         // A filter's own declared description is surfaced (not the generic fallback).
         $status = $this->parameterNamed($get, 'filter[status]');
         self::assertSame('Filter by status.', $this->strAt($status, 'description'));
+    }
+
+    #[Test]
+    public function aCustomFilterDescribesItsOwnParameterShape(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+        $labels = $this->parameterNamed($get, 'filter[labels]');
+
+        // A consumer-defined DescribesQueryParameter filter projects its own envelope
+        // — here a comma-list (form/array) shape, not the scalar default — with no
+        // change to the projector's built-in handling.
+        self::assertSame('form', $this->strAt($labels, 'style'));
+        self::assertFalse($this->at($labels, 'explode'));
+        self::assertSame('array', $this->strAt($labels, 'schema', 'type'));
     }
 
     #[Test]

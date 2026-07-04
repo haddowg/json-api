@@ -203,8 +203,9 @@ so the constraint is never hidden behind the extension alone.
   `describedAs()` / `example()` extend, and how each field type projects.
 - [Constraints](constraints.md) — the validation vocabulary the `SchemaProjector` maps to
   JSON Schema keywords (and the lossy-degradation cases).
-- [Filters](filters.md) — a filter's value schema, its generated description, and the
-  `Range` / `DateRange` `deepObject` parameter.
+- [Filters](filters.md) — a filter's value schema, its generated description, the
+  `Range` / `DateRange` `deepObject` parameter, and `DescribesQueryParameter` for a
+  custom filter's own structured parameter shape.
 - [Profiles](profiles.md) / [Countable profile](profiles/countable.md) — the profile
   mechanism behind the `x-profile` extension.
 - [Atomic Operations](atomic-operations.md) — the extension whose request/result

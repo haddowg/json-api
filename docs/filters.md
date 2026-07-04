@@ -98,6 +98,34 @@ each return a new instance. `constraints()` declares the value constraints a
 framework adapter validates a client-supplied value against **before** the filter
 reaches the data layer — see [Validating filter values](#validating-filter-values).
 
+### Structured parameters: `DescribesQueryParameter`
+
+By default a filter's OpenAPI `filter[<key>]` parameter is a **scalar** whose value
+schema is projected from its `constraints()`. A filter with a **structured** wire
+shape — a nested object like `Range`'s `filter[<key>][min]`/`[max]`, or a comma-list —
+declares its own OpenAPI parameter envelope by implementing
+[`Resource\Filter\DescribesQueryParameter`](../src/Resource/Filter/DescribesQueryParameter.php):
+
+```php
+public function describeQueryParameter(Schema $valueSchema): QueryParameterShape
+{
+    // Wrap the constraint-derived value schema and pair it with an OAS style.
+    return new QueryParameterShape(
+        Schema::ofType('array')->withItems($valueSchema),
+        ParameterStyle::Form,
+        false, // explode
+    );
+}
+```
+
+The projector hands you the value schema it already built from your `constraints()`;
+you wrap it (into an object's `min`/`max`, an array's `items`, …) and set the OAS
+`style`/`explode`. This is what lets a **custom** filter with a non-scalar value
+document correctly — the same self-describing seam constraints use for their JSON
+Schema keyword ([`ProvidesJsonSchema`](constraints.md#constrain-the-typed-escape-hatch)),
+one level up at the parameter. `Range`/`DateRange` implement it; every other built-in
+is a plain scalar.
+
 ## The built-in catalogue
 
 All built-ins live in `haddowg\JsonApi\Resource\Filter`. Each `make()` defaults
