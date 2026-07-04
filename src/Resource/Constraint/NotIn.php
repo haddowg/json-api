@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
  * Value must NOT be one of an enumerated set (JSON Schema `not: { enum }`).
  *
  * @template T
  */
-final readonly class NotIn implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class NotIn implements ProvidesJsonSchema
 {
     /**
      * @var list<T>
@@ -29,5 +31,10 @@ final readonly class NotIn implements \haddowg\JsonApi\Resource\Constraint\Const
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withNot(Schema::create()->withEnum($this->values));
     }
 }

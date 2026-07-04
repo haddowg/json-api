@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
- * Minimum number of array items (JSON Schema \`minItems\`).
+ * Minimum number of array items (JSON Schema `minItems`).
  */
-final readonly class MinItems implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class MinItems implements ProvidesJsonSchema
 {
     public function __construct(
         public int $value,
@@ -17,5 +19,10 @@ final readonly class MinItems implements \haddowg\JsonApi\Resource\Constraint\Co
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withMinItems($this->value);
     }
 }

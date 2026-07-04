@@ -15,14 +15,22 @@ whose single method `context(): Context` reports when it applies. You rarely
 construct one directly — the fluent field builders append them for you, so
 `Str::make('title')->required()->maxLength(200)` adds a `Required` and a
 `MaxLength`. Core stores this metadata and exposes it; it does **not** run it.
-Two consumers read it instead:
+Three consumers read it instead:
 
 - the **`SchemaCompiler`** ([validation](schema-validation.md#per-resource-schemas-schemacompiler))
   compiles the *structural* subset into a per-resource JSON Schema, so the
   document-validation layer tightens request bodies for free;
+- the **`SchemaProjector`** ([OpenAPI](openapi.md)) projects the same structural
+  subset into the published OpenAPI 3.1 / JSON Schema document;
 - a **framework adapter** translates the *full* set into its native validator and
   executes value-level validation, rendering a failure as `422` with a
   `source.pointer`.
+
+The two schema consumers agree because a structural constraint **self-describes**
+its JSON Schema keyword: it implements
+[`ProvidesJsonSchema`](../src/Resource/Constraint/ProvidesJsonSchema.php)
+(`contribute(Schema): Schema`), and both the compiler and the projector reduce over
+that one method — a single source of truth rather than two mirrored mappings.
 
 That split is deliberate: core defines the vocabulary, an adapter runs it. The
 boundary statement appears once at the [end of this page](#the-core-boundary).
@@ -247,6 +255,32 @@ constraint by constructing it with the `Context` you want (`onlyCreate()` /
 `onlyUpdate()` / `always()`), as above. Constraints added inside a `when()` builder
 are still captured into that `When` like any other.
 
+If your custom constraint has a lossless JSON Schema form, also implement
+[`ProvidesJsonSchema`](../src/Resource/Constraint/ProvidesJsonSchema.php) and return
+the accumulated node augmented with your keyword:
+
+```php
+final readonly class HexFormat implements ProvidesJsonSchema
+{
+    public function __construct(public Context $context = new Context()) {}
+
+    public function context(): Context
+    {
+        return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withPattern('^[0-9a-f]+$');
+    }
+}
+```
+
+Now the constraint appears in **both** the request-validation schema and the
+published OpenAPI document — with no core change. (JSON Schema is framework-neutral,
+so the schema shape lives on the constraint; the host-specific *execution* still
+lives in each adapter's translator.)
+
 ## The core boundary
 
 Core defines the constraint **vocabulary** and nothing more. It ships:
@@ -260,9 +294,12 @@ Core defines the constraint **vocabulary** and nothing more. It ships:
 What core *does* run, for free, is the **structural** subset: the
 [`SchemaCompiler`](schema-validation.md#per-resource-schemas-schemacompiler) turns the round-trippable
 constraints into a per-resource JSON Schema that the optional
-[document validator](schema-validation.md#validating-a-document) enforces. The non-structural
-rules — `When`, `CompareField`, closure date bounds, and any `constrain()` VO —
-are skipped by the compiler and carried as metadata for an adapter to execute.
+[document validator](schema-validation.md#validating-a-document) enforces — including
+any `constrain()` VO that self-describes via
+[`ProvidesJsonSchema`](../src/Resource/Constraint/ProvidesJsonSchema.php). The
+non-structural rules — `When`, `CompareField`, closure date bounds, and any custom
+VO with no lossless keyword — are skipped by the compiler and carried as metadata
+for an adapter to execute.
 
 ## Next / see also
 

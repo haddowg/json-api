@@ -11,30 +11,12 @@ use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\CompareField;
 use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
-use haddowg\JsonApi\Resource\Constraint\EmailFormat;
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMax;
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMin;
 use haddowg\JsonApi\Resource\Constraint\In;
-use haddowg\JsonApi\Resource\Constraint\IpFormat;
-use haddowg\JsonApi\Resource\Constraint\Max;
-use haddowg\JsonApi\Resource\Constraint\MaxItems;
-use haddowg\JsonApi\Resource\Constraint\MaxLength;
-use haddowg\JsonApi\Resource\Constraint\MaxProperties;
-use haddowg\JsonApi\Resource\Constraint\Min;
-use haddowg\JsonApi\Resource\Constraint\MinItems;
-use haddowg\JsonApi\Resource\Constraint\MinLength;
-use haddowg\JsonApi\Resource\Constraint\MinProperties;
-use haddowg\JsonApi\Resource\Constraint\MultipleOf;
-use haddowg\JsonApi\Resource\Constraint\NotIn;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Pattern;
+use haddowg\JsonApi\Resource\Constraint\ProvidesJsonSchema;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
-use haddowg\JsonApi\Resource\Constraint\SlugFormat;
-use haddowg\JsonApi\Resource\Constraint\UlidFormat;
-use haddowg\JsonApi\Resource\Constraint\UniqueItems;
-use haddowg\JsonApi\Resource\Constraint\UrlFormat;
-use haddowg\JsonApi\Resource\Constraint\UuidFormat;
 use haddowg\JsonApi\Resource\Constraint\When;
 use haddowg\JsonApi\Resource\Enum\DescribedEnum;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
@@ -386,27 +368,13 @@ final class SchemaProjector
     private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null, string $itemType = 'string'): Schema
     {
         switch (true) {
-            case $constraint instanceof MinLength: return $schema->withMinLength($constraint->value);
-            case $constraint instanceof MaxLength: return $schema->withMaxLength($constraint->value);
-            case $constraint instanceof MinItems: return $schema->withMinItems($constraint->value);
-            case $constraint instanceof MaxItems: return $schema->withMaxItems($constraint->value);
-            case $constraint instanceof UniqueItems: return $schema->withUniqueItems();
-            case $constraint instanceof MinProperties: return $schema->withMinProperties($constraint->value);
-            case $constraint instanceof MaxProperties: return $schema->withMaxProperties($constraint->value);
-            case $constraint instanceof Min: return $schema->withMinimum($constraint->value);
-            case $constraint instanceof Max: return $schema->withMaximum($constraint->value);
-            case $constraint instanceof ExclusiveMin: return $schema->withExclusiveMinimum($constraint->value);
-            case $constraint instanceof ExclusiveMax: return $schema->withExclusiveMaximum($constraint->value);
-            case $constraint instanceof MultipleOf: return $schema->withMultipleOf($constraint->value);
-            case $constraint instanceof Pattern: return $constraint->documentsAs !== null ? $schema->withType($constraint->documentsAs) : $schema->withPattern($constraint->regex);
-            case $constraint instanceof SlugFormat: return $schema->withPattern($constraint->regex);
-            case $constraint instanceof UlidFormat: return $schema->withPattern(Id::ULID_FORMAT_PATTERN);
+            // A Pattern carrying an OpenAPI-only `documentsAs` type overrides its own
+            // `pattern` keyword (a `pattern` is meaningless on a non-string schema);
+            // otherwise it self-describes like any other leaf constraint.
+            case $constraint instanceof Pattern: return $constraint->documentsAs !== null ? $schema->withType($constraint->documentsAs) : $constraint->contribute($schema);
+                // In carries enum var-names / descriptions and can hoist a backed enum into
+                // a reusable component — projector-only concerns, so it is not a plain leaf.
             case $constraint instanceof In: return $this->applyEnum($schema, $constraint, $notes, $collector);
-            case $constraint instanceof NotIn: return $schema->withNot(Schema::create()->withEnum($constraint->values));
-            case $constraint instanceof EmailFormat: return $schema->withFormat('email');
-            case $constraint instanceof UrlFormat: return $schema->withFormat('uri');
-            case $constraint instanceof UuidFormat: return $schema->withFormat('uuid');
-            case $constraint instanceof IpFormat: return $schema->withFormat($constraint->version === 6 ? 'ipv6' : 'ipv4');
             case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating, $itemType, $collector));
             case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $creating, $collector));
             case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $creating, $notes, $collector);
@@ -424,6 +392,9 @@ final class SchemaProjector
                 $notes[] = \sprintf('Value is compared against the `%s` field (%s).', $constraint->field, $constraint->operator->value);
 
                 return $schema;
+                // Every self-contained leaf constraint (length/size/numeric bounds, the
+                // format/pattern/enum keywords) describes its own JSON Schema keyword.
+            case $constraint instanceof ProvidesJsonSchema: return $constraint->contribute($schema);
             default: return $schema;
         }
     }

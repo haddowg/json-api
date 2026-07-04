@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
  * String must be a valid URL (JSON Schema `format: uri`). Optionally restricts
  * the allowed URI schemes (e.g. `https`); an empty list allows any scheme.
  */
-final readonly class UrlFormat implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class UrlFormat implements ProvidesJsonSchema
 {
     /**
      * @var list<string>
@@ -28,5 +30,10 @@ final readonly class UrlFormat implements \haddowg\JsonApi\Resource\Constraint\C
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withFormat('uri');
     }
 }

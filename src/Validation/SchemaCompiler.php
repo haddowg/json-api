@@ -4,36 +4,18 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Validation;
 
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\Each;
-use haddowg\JsonApi\Resource\Constraint\EmailFormat;
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMax;
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMin;
 use haddowg\JsonApi\Resource\Constraint\In;
-use haddowg\JsonApi\Resource\Constraint\IpFormat;
-use haddowg\JsonApi\Resource\Constraint\Max;
-use haddowg\JsonApi\Resource\Constraint\MaxItems;
-use haddowg\JsonApi\Resource\Constraint\MaxLength;
-use haddowg\JsonApi\Resource\Constraint\MaxProperties;
-use haddowg\JsonApi\Resource\Constraint\Min;
-use haddowg\JsonApi\Resource\Constraint\MinItems;
-use haddowg\JsonApi\Resource\Constraint\MinLength;
-use haddowg\JsonApi\Resource\Constraint\MinProperties;
-use haddowg\JsonApi\Resource\Constraint\MultipleOf;
-use haddowg\JsonApi\Resource\Constraint\NotIn;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
-use haddowg\JsonApi\Resource\Constraint\Pattern;
+use haddowg\JsonApi\Resource\Constraint\ProvidesJsonSchema;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
-use haddowg\JsonApi\Resource\Constraint\SlugFormat;
-use haddowg\JsonApi\Resource\Constraint\UlidFormat;
-use haddowg\JsonApi\Resource\Constraint\UniqueItems;
-use haddowg\JsonApi\Resource\Constraint\UrlFormat;
-use haddowg\JsonApi\Resource\Constraint\UuidFormat;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -221,47 +203,9 @@ final class SchemaCompiler
     private function applyConstraint(array $schema, \haddowg\JsonApi\Resource\Constraint\ConstraintInterface $constraint, bool $creating): array
     {
         switch (true) {
-            case $constraint instanceof MinLength: $schema['minLength'] = $constraint->value;
-                break;
-            case $constraint instanceof MaxLength: $schema['maxLength'] = $constraint->value;
-                break;
-            case $constraint instanceof MinItems: $schema['minItems'] = $constraint->value;
-                break;
-            case $constraint instanceof MaxItems: $schema['maxItems'] = $constraint->value;
-                break;
-            case $constraint instanceof UniqueItems: $schema['uniqueItems'] = true;
-                break;
-            case $constraint instanceof MinProperties: $schema['minProperties'] = $constraint->value;
-                break;
-            case $constraint instanceof MaxProperties: $schema['maxProperties'] = $constraint->value;
-                break;
-            case $constraint instanceof Min: $schema['minimum'] = $constraint->value;
-                break;
-            case $constraint instanceof Max: $schema['maximum'] = $constraint->value;
-                break;
-            case $constraint instanceof ExclusiveMin: $schema['exclusiveMinimum'] = $constraint->value;
-                break;
-            case $constraint instanceof ExclusiveMax: $schema['exclusiveMaximum'] = $constraint->value;
-                break;
-            case $constraint instanceof MultipleOf: $schema['multipleOf'] = $constraint->value;
-                break;
-            case $constraint instanceof Pattern: $schema['pattern'] = $constraint->regex;
-                break;
-            case $constraint instanceof SlugFormat: $schema['pattern'] = $constraint->regex;
-                break;
+            // In owns the enum value set; the composites recurse over their wrapped
+            // constraints — none reduces to the plain keyword-merge below.
             case $constraint instanceof In: $schema['enum'] = $constraint->values;
-                break;
-            case $constraint instanceof NotIn: $schema['not'] = ['enum' => $constraint->values];
-                break;
-            case $constraint instanceof EmailFormat: $schema['format'] = 'email';
-                break;
-            case $constraint instanceof UrlFormat: $schema['format'] = 'uri';
-                break;
-            case $constraint instanceof UuidFormat: $schema['format'] = 'uuid';
-                break;
-            case $constraint instanceof UlidFormat: $schema['pattern'] = \haddowg\JsonApi\Resource\Field\Id::ULID_FORMAT_PATTERN;
-                break;
-            case $constraint instanceof IpFormat: $schema['format'] = $constraint->version === 6 ? 'ipv6' : 'ipv4';
                 break;
             case $constraint instanceof Each: $schema['items'] = $this->eachSchema($constraint, $creating);
                 break;
@@ -284,8 +228,32 @@ final class SchemaCompiler
                 break;
             case $constraint instanceof AtLeastOneOf: $schema['anyOf'] = $this->atLeastOneOfSchema($constraint, $creating);
                 break;
+                // Every self-describing leaf constraint (length/size/numeric bounds, the
+                // format/pattern keywords, `not`) folds its own keyword(s) in through the
+                // shared Schema VO — one source of truth with the OpenAPI SchemaProjector.
+            case $constraint instanceof ProvidesJsonSchema: $schema = $this->applyProvided($schema, $constraint);
+                break;
                 // Required/Nullable handled by the caller; When/CompareField intentionally skipped.
             default: break;
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Folds a self-describing constraint's JSON Schema keyword(s) into the field
+     * schema array. The constraint builds its fragment on the shared {@see Schema}
+     * VO — the single source of truth also consulted by the OpenAPI
+     * {@see \haddowg\JsonApi\OpenApi\SchemaProjector} — and {@see Schema::toArray()}
+     * yields the keyword map to merge in.
+     *
+     * @param array<string, mixed> $schema
+     * @return array<string, mixed>
+     */
+    private function applyProvided(array $schema, ProvidesJsonSchema $constraint): array
+    {
+        foreach ($constraint->contribute(Schema::create())->toArray() as $keyword => $value) {
+            $schema[$keyword] = $value;
         }
 
         return $schema;

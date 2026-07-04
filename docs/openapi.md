@@ -32,10 +32,13 @@ The projection is a small pipeline of **pure** classes in
   the same way.
 
 - **`SchemaProjector`** — maps a [field](fields.md) and its declared
-  [constraints](constraints.md) to a `Schema`. It mirrors the body-validation
-  `SchemaCompiler`'s constraint→keyword mapping but emits a **standalone, OpenAPI-shaped**
-  schema — with `description` / `example`, full nullable handling, and the complete
-  attributes / resource-object shapes. A constraint that has no faithful JSON Schema
+  [constraints](constraints.md) to a `Schema`. A structural constraint self-describes
+  its keyword via [`ProvidesJsonSchema`](../src/Resource/Constraint/ProvidesJsonSchema.php),
+  so the projector shares one constraint→keyword source of truth with the
+  body-validation `SchemaCompiler` (rather than mirroring it) — but emits a
+  **standalone, OpenAPI-shaped** schema on top: `description` / `example`, full
+  nullable handling, enum var-names, and the complete attributes / resource-object
+  shapes. A constraint that has no faithful JSON Schema
   2020-12 keyword (a `When` with an opaque condition, `CompareField`, a date/time bound
   from `After` / `Before` / `Between`) is **never emitted as a wrong keyword**; instead a
   human-readable note is appended to the schema `description`. This lossy-by-design
