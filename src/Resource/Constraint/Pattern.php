@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
  * String must match a regular expression (JSON Schema `pattern`).
  *
@@ -17,9 +19,10 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * `^-?[0-9]+…$`. When set, the OpenAPI projector emits that type **instead of** the
  * `pattern` keyword (a `pattern` is meaningless on a non-string schema); runtime
  * validators ignore it and keep enforcing `$regex`. `null` (the default) projects
- * the conventional string `pattern`.
+ * the conventional string `pattern`, which is exactly what {@see contribute()}
+ * returns — the projector overlays the `$documentsAs` type itself.
  */
-final readonly class Pattern implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class Pattern implements ProvidesJsonSchema
 {
     public function __construct(
         public string $regex,
@@ -30,5 +33,10 @@ final readonly class Pattern implements \haddowg\JsonApi\Resource\Constraint\Con
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withPattern($this->regex);
     }
 }

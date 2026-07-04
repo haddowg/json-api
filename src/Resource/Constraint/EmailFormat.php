@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
- * String must be a valid email address (JSON Schema \`format: email\`).
+ * String must be a valid email address (JSON Schema `format: email`).
  *
  * `$strict` opts into RFC-compliant validation; it is typed config carried on the
  * constraint itself, which adapters read when executing. The JSON Schema
  * `format: email` is unaffected by it.
  */
-final readonly class EmailFormat implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class EmailFormat implements ProvidesJsonSchema
 {
     public function __construct(
         public bool $strict = false,
@@ -21,5 +23,10 @@ final readonly class EmailFormat implements \haddowg\JsonApi\Resource\Constraint
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withFormat('email');
     }
 }

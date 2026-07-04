@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Constraint;
 
+use haddowg\JsonApi\OpenApi\Schema;
+
 /**
- * Exclusive lower bound (JSON Schema \`exclusiveMinimum\`).
+ * Exclusive lower bound (JSON Schema `exclusiveMinimum`).
  */
-final readonly class ExclusiveMin implements \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+final readonly class ExclusiveMin implements ProvidesJsonSchema
 {
     public function __construct(
         public int|float $value,
@@ -17,5 +19,10 @@ final readonly class ExclusiveMin implements \haddowg\JsonApi\Resource\Constrain
     public function context(): Context
     {
         return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        return $schema->withExclusiveMinimum($this->value);
     }
 }
