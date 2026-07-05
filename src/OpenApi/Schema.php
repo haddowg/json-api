@@ -334,6 +334,23 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Sets the OpenAPI `discriminator` object — the `propertyName` whose value selects
+     * which of the sibling `oneOf`/`anyOf` schemas a value conforms to, plus an
+     * optional explicit value → schema `mapping`.
+     *
+     * @param array<string, string> $mapping
+     */
+    public function withDiscriminator(string $propertyName, array $mapping = []): self
+    {
+        $discriminator = ['propertyName' => $propertyName];
+        if ($mapping !== []) {
+            $discriminator['mapping'] = $mapping;
+        }
+
+        return $this->with('discriminator', $discriminator);
+    }
+
+    /**
      * Sets a vendor extension keyword. The name is normalized to the `x-` prefix.
      */
     public function withExtension(string $name, mixed $value): self

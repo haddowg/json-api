@@ -24,6 +24,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
@@ -423,6 +424,44 @@ final class SchemaProjectorTest extends TestCase
         $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')));
 
         self::assertSame(['object', 'null'], $this->at($schema, 'type'));
+    }
+
+    #[Test]
+    public function oneOfProjectsAsOneOfWithADiscriminatorAndPerBranchConst(): void
+    {
+        $field = OneOf::make('block')->discriminator('kind')
+            ->variant('heading', Str::make('text')->required())
+            ->variant('image', Str::make('src'));
+
+        $schema = $this->project($field, creating: true);
+
+        self::assertSame('kind', $this->at($schema, 'discriminator', 'propertyName'));
+
+        $branches = $this->listAt($schema, 'oneOf');
+        self::assertCount(2, $branches);
+
+        // Each branch carries the discriminator as a const and (on create) in required.
+        /** @var array<string, mixed> $heading */
+        $heading = $branches[0];
+        /** @var array<string, mixed> $image */
+        $image = $branches[1];
+        self::assertIsArray($heading);
+        self::assertIsArray($image);
+        self::assertSame('heading', $this->at($heading, 'properties', 'kind', 'const'));
+        self::assertContains('kind', $this->listAt($heading, 'required'));
+        self::assertContains('text', $this->listAt($heading, 'required'));
+        self::assertSame('image', $this->at($image, 'properties', 'kind', 'const'));
+    }
+
+    #[Test]
+    public function oneOfNullableAppendsANullBranch(): void
+    {
+        $field = OneOf::make('block')->nullable()->discriminator('kind')
+            ->variant('image', Str::make('src'));
+
+        $branches = $this->listAt($this->project($field), 'oneOf');
+        // The union gains a null branch.
+        self::assertContains(['type' => 'null'], $branches);
     }
 
     // ---- enums (4.8) ----

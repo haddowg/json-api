@@ -647,6 +647,18 @@ final class SchemaProjector
             if (\is_string($schema->get('$ref'))) {
                 return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
             }
+            // A composite (a discriminated union's `oneOf`) has no scalar type to
+            // widen; append a null branch so a nullable union still accepts `null`.
+            $oneOf = $schema->get('oneOf');
+            if (\is_array($oneOf)) {
+                /** @var list<Schema> $oneOf */
+                return $schema->withOneOf([...$oneOf, Schema::ofType('null')]);
+            }
+            $anyOf = $schema->get('anyOf');
+            if (\is_array($anyOf)) {
+                /** @var list<Schema> $anyOf */
+                return $schema->withAnyOf([...$anyOf, Schema::ofType('null')]);
+            }
         }
 
         return $schema;
