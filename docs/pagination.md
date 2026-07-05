@@ -408,6 +408,35 @@ the page is non-empty) — never a `total`, since there is none:
 { "page": { "perPage": 20, "from": "4", "to": "23", "hasMore": true } }
 ```
 
+### The keyset execution toolkit
+
+A data layer executing a `CursorWindow` should not reimplement the keyset
+mechanics — the core ships them under `Collection\Keyset`, one shared source for
+every adapter so the SQL push-down and any in-memory execution cannot drift:
+
+- [`KeysetResolver`](../src/Collection/Keyset/KeysetResolver.php) — resolves the
+  request's active sort into the ordered keyset columns the page walks
+  (validated exactly like the plain sort path, the primary key appended as the
+  final total-order column) and enforces cursor **staleness**: `assertFresh()`
+  rejects a boundary minted under different columns *or* flipped directions.
+- [`KeysetColumn`](../src/Collection/Keyset/KeysetColumn.php) — one resolved
+  `(column, direction)` level of that order.
+- [`InMemoryKeyset`](../src/Collection/Keyset/InMemoryKeyset.php) — the PHP
+  execution of the order: the forced NULL=largest comparator (`sort()`) and the
+  lexicographic strictly-after predicate (`after()`/`isAfter()`). It is both a
+  ready-made in-memory executor and the **ground truth** a SQL push-down's
+  forced `ORDER BY`/keyset `WHERE` must match byte-for-byte.
+- [`CursorTokenMinter`](../src/Collection/Keyset/CursorTokenMinter.php) — mints
+  the opaque boundary tokens off the sliced page rows (JSON-safe value coercion
+  via `coerce()`, the forward/backward `hasMore`/`hasPrevious` rules) and
+  assembles the [`CursorCollectionResult`](../src/Collection/CursorCollectionResult.php).
+
+The composition recipe — resolve columns, check staleness, fetch strictly-after
+rows over-fetched by one, slice, re-orient a backward page, mint — is witnessed
+end-to-end by [`KeysetCursorRoundTripTest`](../tests/Collection/Keyset/KeysetCursorRoundTripTest.php);
+an adapter supplies only its store's fetch (a pushed-down `WHERE`/`ORDER BY`, or
+`InMemoryKeyset` as-is) and a row → keyset-value reader.
+
 ## The `Page` value object
 
 [`PageInterface`](../src/Pagination/PageInterface.php) is generic (`PageInterface<T>`)
