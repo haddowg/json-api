@@ -375,6 +375,14 @@ package, so the core stays framework- and storage-agnostic. The companion
 Symfony bundle is that adapter: a Doctrine ORM data layer composing exactly these
 contracts.
 
+One execution concern the core *does* ship, because getting it wrong corrupts
+pagination rather than merely diverging in style: the cursor (keyset) machinery
+under `Collection\Keyset` — see
+[the keyset execution toolkit](pagination.md#the-keyset-execution-toolkit). An
+adapter adding cursor pagination consumes `KeysetResolver`, `InMemoryKeyset` and
+`CursorTokenMinter` rather than reimplementing the column resolution, the
+NULL=largest order, the staleness check, or the token minting.
+
 ## Next / see also
 
 - [Filters](filters.md) — the filter value objects and their fields.
