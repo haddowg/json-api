@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Resource\Constraint\Comparison;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\MinLength;
+use haddowg\JsonApi\Resource\Constraint\Shape;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -462,6 +463,82 @@ final class SchemaProjectorTest extends TestCase
         $branches = $this->listAt($this->project($field), 'oneOf');
         // The union gains a null branch.
         self::assertContains(['type' => 'null'], $branches);
+    }
+
+    #[Test]
+    public function nullableShapeOneOfWidensTheTypeAndAppendsANullBranch(): void
+    {
+        // A combinator on a scalar-typed field: widening `type` alone is not
+        // enough — `oneOf` applies regardless of the type keyword, so the union
+        // itself must admit null.
+        $field = ArrayHash::make('contact')->nullable()->constrain(
+            Shape::oneOf(
+                Schema::ofType('object')->withRequired(['email']),
+                Schema::ofType('object')->withRequired(['phone']),
+            ),
+        );
+
+        $schema = $this->project($field);
+
+        self::assertSame(['object', 'null'], $this->at($schema, 'type'));
+        $branches = $this->listAt($schema, 'oneOf');
+        self::assertCount(3, $branches);
+        self::assertContains(['type' => 'null'], $branches);
+    }
+
+    #[Test]
+    public function nullableShapeAnyOfAppendsANullBranch(): void
+    {
+        $field = ArrayHash::make('availability')->nullable()->constrain(
+            Shape::anyOf(
+                Schema::ofType('object')->withRequired(['worldwide']),
+                Schema::ofType('object')->withRequired(['regions']),
+            ),
+        );
+
+        $schema = $this->project($field);
+
+        self::assertSame(['object', 'null'], $this->at($schema, 'type'));
+        $branches = $this->listAt($schema, 'anyOf');
+        self::assertCount(3, $branches);
+        self::assertContains(['type' => 'null'], $branches);
+    }
+
+    #[Test]
+    public function nullableShapeAllOfHoistsIntoANullableDisjunction(): void
+    {
+        // An `allOf` is a conjunction — it cannot gain a null branch, so the
+        // whole conjunction hoists into `anyOf: [null, {allOf}]`.
+        $measurements = Schema::ofType('object')->withRequired(['widthMm', 'heightMm']);
+        $depth = Schema::ofType('object')->withRequired(['depthMm']);
+        $field = ArrayHash::make('dimensions')->nullable()->constrain(Shape::allOf($measurements, $depth));
+
+        $schema = $this->project($field);
+
+        self::assertSame(['object', 'null'], $this->at($schema, 'type'));
+        $this->missing($schema, 'allOf');
+        $branches = $this->listAt($schema, 'anyOf');
+        self::assertCount(2, $branches);
+        self::assertSame(['type' => 'null'], $branches[0]);
+        $conjunction = $branches[1];
+        self::assertIsArray($conjunction);
+        self::assertSame([$measurements->toArray(), $depth->toArray()], $conjunction['allOf'] ?? null);
+    }
+
+    #[Test]
+    public function aNonNullableShapeKeepsItsBareCombinator(): void
+    {
+        // Without nullable() the combinator projects untouched — no null branch,
+        // no hoist.
+        $field = ArrayHash::make('dimensions')->constrain(
+            Shape::allOf(Schema::ofType('object')->withRequired(['widthMm'])),
+        );
+
+        $schema = $this->project($field);
+
+        self::assertSame('object', $this->at($schema, 'type'));
+        self::assertCount(1, $this->listAt($schema, 'allOf'));
+        $this->missing($schema, 'anyOf');
     }
 
     // ---- enums (4.8) ----

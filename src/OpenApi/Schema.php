@@ -372,6 +372,18 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Drops a standard keyword — for the projector's restructuring passes (e.g.
+     * hoisting an `allOf` into a nullable disjunction). A no-op when absent.
+     */
+    public function without(string $keyword): self
+    {
+        $self = clone $this;
+        unset($self->keywords[$keyword]);
+
+        return $self;
+    }
+
+    /**
      * The canonical JSON-Schema 2020-12 representation: standard keywords in a
      * stable order, then vendor extensions. Nested {@see Schema} nodes recurse;
      * `list` arrays of nodes recurse element-wise.

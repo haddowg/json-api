@@ -638,17 +638,21 @@ final class SchemaProjector
             if (!($constraint instanceof Nullable) || !$constraint->context()->appliesTo($creating)) {
                 continue;
             }
-            if ($schema->hasScalarType()) {
-                return $this->allowNullInEnum($schema->asNullable());
-            }
             // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
             // widen; the OAS-3.1 way to make a referenced schema nullable is to
             // union it with the null type.
             if (\is_string($schema->get('$ref'))) {
                 return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
             }
-            // A composite (a discriminated union's `oneOf`) has no scalar type to
-            // widen; append a null branch so a nullable union still accepts `null`.
+
+            if ($schema->hasScalarType()) {
+                $schema = $this->allowNullInEnum($schema->asNullable());
+            }
+
+            // A combinator must also admit `null` explicitly: widening the type
+            // union is not enough, because `oneOf`/`anyOf`/`allOf` apply regardless
+            // of the `type` keyword (a nullable Shape'd field would otherwise
+            // document a schema that rejects the null it accepts at runtime).
             $oneOf = $schema->get('oneOf');
             if (\is_array($oneOf)) {
                 /** @var list<Schema> $oneOf */
@@ -659,6 +663,16 @@ final class SchemaProjector
                 /** @var list<Schema> $anyOf */
                 return $schema->withAnyOf([...$anyOf, Schema::ofType('null')]);
             }
+            $allOf = $schema->get('allOf');
+            if (\is_array($allOf)) {
+                /** @var list<Schema> $allOf */
+                // A conjunction cannot gain a null branch — hoist it into a
+                // disjunction with the null type instead.
+                return $schema->without('allOf')
+                    ->withAnyOf([Schema::ofType('null'), Schema::create()->withAllOf($allOf)]);
+            }
+
+            return $schema;
         }
 
         return $schema;
