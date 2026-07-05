@@ -29,6 +29,7 @@ use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Time;
 
@@ -75,6 +76,15 @@ final class SchemaProjector
      */
     public function projectField(FieldInterface $field, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
     {
+        // A field that describes its own schema (a composite type — Obj, the
+        // discriminated union) supplies the base node; the projector still layers the
+        // common post-processing (constraints, nullable, description, example) below.
+        if ($field instanceof ProvidesFieldSchema) {
+            $schema = $field->projectFieldSchema($this, $creating, $collector);
+
+            return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+        }
+
         $schema = $this->typeSchema($field);
 
         if ($field instanceof Map) {
@@ -95,6 +105,17 @@ final class SchemaProjector
             $schema = $schema->withProperties($properties)->withRequired($required);
         }
 
+        return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+    }
+
+    /**
+     * Layers the field-level post-processing common to every field — the applying
+     * constraints, then nullability, description (with any lossy-constraint notes)
+     * and example — onto a base schema, whether that base came from the built-in
+     * type switch or a {@see ProvidesFieldSchema} composite.
+     */
+    private function applyFieldPostProcessing(Schema $schema, FieldInterface $field, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
         // A list's `each()` items compose on top of its declared element type
         // (default `string`); non-list fields never carry an Each constraint.
         $itemType = $field instanceof ArrayList ? $field->elementType() : 'string';
@@ -713,7 +734,13 @@ final class SchemaProjector
         };
     }
 
-    private function isRequired(FieldInterface $field, bool $creating): bool
+    /**
+     * Whether the field carries a {@see Required} constraint applying in the given
+     * context. Public so a self-describing composite ({@see ProvidesFieldSchema})
+     * can populate its object `required` from its children exactly as the built-in
+     * {@see Obj}/{@see Map} projection does.
+     */
+    public function isRequired(FieldInterface $field, bool $creating): bool
     {
         foreach ($field->constraints() as $constraint) {
             if ($constraint instanceof Required && $constraint->context()->appliesTo($creating)) {

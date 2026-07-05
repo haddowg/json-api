@@ -23,6 +23,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
@@ -386,6 +387,42 @@ final class SchemaProjectorTest extends TestCase
         // Create projection: the required child populates the Map object `required`.
         $create = $this->project($field, creating: true);
         self::assertSame(['street'], $this->at($create, 'required'));
+    }
+
+    #[Test]
+    public function objProjectsAsAnObjectWithChildPropertiesViaTheSelfDescribingSeam(): void
+    {
+        $field = Obj::make('address')->fields(
+            Str::make('street')->maxLength(100),
+            Integer::make('zip')->min(0),
+        );
+        $schema = $this->project($field);
+
+        self::assertSame('object', $this->at($schema, 'type'));
+        self::assertSame(['type' => 'string', 'maxLength' => 100], $this->at($schema, 'properties', 'street'));
+        self::assertSame(['type' => 'integer', 'minimum' => 0], $this->at($schema, 'properties', 'zip'));
+    }
+
+    #[Test]
+    public function objCollectsRequiredChildrenOnCreateOnly(): void
+    {
+        $field = Obj::make('address')->fields(
+            Str::make('street')->required(),
+            Str::make('line2'),
+        );
+
+        $this->missing($this->project($field), 'required');
+
+        $create = $this->project($field, creating: true);
+        self::assertSame(['street'], $this->at($create, 'required'));
+    }
+
+    #[Test]
+    public function objNullableWidensTheObjectTypeToAllowNull(): void
+    {
+        $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')));
+
+        self::assertSame(['object', 'null'], $this->at($schema, 'type'));
     }
 
     // ---- enums (4.8) ----
