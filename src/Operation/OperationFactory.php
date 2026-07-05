@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Operation;
 
 use haddowg\JsonApi\Exception\ApplicationError;
+use haddowg\JsonApi\Exception\ResourceIdConflict;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -31,6 +32,23 @@ final class OperationFactory
      * operations; the five mutating verbs yield body-carrying operations whose
      * body is the same `$request` passed in. An unhandled HTTP method throws
      * {@see ApplicationError} (a 500), exactly as the inline dispatch did.
+     *
+     * A resource `PATCH` whose document `data.id` is present and differs from
+     * the endpoint id throws {@see ResourceIdConflict} (a 409), the id half of
+     * the spec's "type and id do not match the server's endpoint" rule (the type
+     * half is enforced by the hydrator). Both ids must be present *and strings*
+     * for the check to fire — an absent body id is a separate concern the
+     * hydrator owns, and a non-string body id is rejected as a 400
+     * ({@see \haddowg\JsonApi\Exception\ResourceIdInvalid}) by the hydrator's own
+     * id validation, so it can never reach a mismatching-yet-accepted state here.
+     *
+     * The id half lives here, so it guards the **HTTP dispatch path only**. The
+     * type half is in the hydrator and therefore covers every path (HTTP and
+     * programmatic). A caller that constructs an {@see UpdateResourceOperation}
+     * directly — bypassing this factory, as a future Atomic Operations backend
+     * would for a `ref`/`href`-targeted update sub-op whose body is still client
+     * input — must enforce the id/target match itself; it is not inherited from
+     * this factory.
      */
     public function fromRequest(
         JsonApiRequestInterface $request,
@@ -39,8 +57,16 @@ final class OperationFactory
     ): JsonApiOperationInterface {
         $query = QueryParameters::fromRequest($request);
         $hasRelationship = $target->hasRelationship();
+        $method = \strtoupper($request->getMethod());
 
-        return match (\strtoupper($request->getMethod())) {
+        if ($method === 'PATCH' && $hasRelationship === false) {
+            $bodyId = $request->getResourceId();
+            if (\is_string($bodyId) && $bodyId !== '' && $target->id !== null && $bodyId !== $target->id) {
+                throw new ResourceIdConflict($bodyId, $target->id);
+            }
+        }
+
+        return match ($method) {
             'GET' => match (true) {
                 $hasRelationship === false => new FetchResourceOperation($target, $query, $context),
                 $target->isRelationshipEndpoint => new FetchRelationshipOperation($target, $query, $context),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Resource\Field;
 
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
 use haddowg\JsonApi\Resource\Constraint\Before;
@@ -565,6 +566,59 @@ final class FieldTest extends TestCase
         $hydrated = $model['publishedAt'];
         self::assertInstanceOf(\DateTimeImmutable::class, $hydrated);
         self::assertSame('2021-06-07T08:09:10+00:00', $hydrated->format(\DateTimeInterface::ATOM));
+    }
+
+    #[Test]
+    public function dateTimeRejectsAGarbageStringWithATyped422(): void
+    {
+        $field = DateTime::make('publishedAt');
+
+        try {
+            $field->hydrate(['publishedAt' => null], 'banana', [], $this->request(), true);
+            self::fail('Expected an AttributeValueInvalid to be thrown.');
+        } catch (AttributeValueInvalid $e) {
+            self::assertSame(422, $e->getStatusCode());
+            $error = $e->getErrors()[0];
+            self::assertSame('422', $error->status);
+            self::assertSame('ATTRIBUTE_VALUE_INVALID', $error->code);
+            self::assertNotNull($error->source);
+            self::assertSame('/data/attributes/publishedAt', $error->source->pointer);
+        }
+    }
+
+    #[Test]
+    public function dateRejectsACalendarInvalidStringWithATyped422(): void
+    {
+        // Calendar-garbage (month 13, day 99) — a shape a regex cannot reject; the
+        // inherited cast turns the raw parse failure into a typed 422 for Date too.
+        $this->expectException(AttributeValueInvalid::class);
+
+        Date::make('birthday')->hydrate(['birthday' => null], '1997-13-99', [], $this->request(), true);
+    }
+
+    #[Test]
+    public function timeRejectsAGarbageStringWithATyped422(): void
+    {
+        // Date and Time extend DateTime and inherit deserializeValue — one fix covers all three.
+        $this->expectException(AttributeValueInvalid::class);
+
+        Time::make('opensAt')->hydrate(['opensAt' => null], 'not-a-time', [], $this->request(), true);
+    }
+
+    #[Test]
+    public function dateTimePassesNonStringAndEmptyValuesThroughUnchanged(): void
+    {
+        // Leniency preserved: an empty string and a non-string (wrong type) are not
+        // the cast's concern — they pass through untouched, never a 422.
+        $field = DateTime::make('publishedAt');
+
+        $empty = $field->hydrate(['publishedAt' => null], '', [], $this->request(), true);
+        self::assertIsArray($empty);
+        self::assertSame('', $empty['publishedAt']);
+
+        $nonString = $field->hydrate(['publishedAt' => null], 123, [], $this->request(), true);
+        self::assertIsArray($nonString);
+        self::assertSame(123, $nonString['publishedAt']);
     }
 
     #[Test]

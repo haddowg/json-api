@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Exception;
 
 use haddowg\JsonApi\Exception\AdditionProhibited;
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
@@ -15,6 +16,7 @@ use haddowg\JsonApi\Exception\QueryParamMalformed;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RequestBodyInvalidJson;
 use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
+use haddowg\JsonApi\Exception\ResourceIdConflict;
 use haddowg\JsonApi\Exception\ResponseBodyInvalidJsonApi;
 use haddowg\JsonApi\Exception\SortingUnsupported;
 use PHPUnit\Framework\Attributes\Group;
@@ -32,6 +34,33 @@ final class ExceptionErrorDetailTest extends TestCase
         self::assertNotNull($error->source);
         self::assertSame('/data/relationships/author', $error->source->pointer);
         self::assertSame("Full replacement of relationship 'author' is prohibited!", $error->detail);
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
+    public function resourceIdConflictPointsAtTheDocumentId(): void
+    {
+        $error = (new ResourceIdConflict('2', '1'))->getErrors()[0];
+
+        self::assertSame('409', $error->status);
+        self::assertSame('RESOURCE_ID_CONFLICT', $error->code);
+        self::assertSame('Resource id conflict', $error->title);
+        self::assertNotNull($error->source);
+        self::assertSame('/data/id', $error->source->pointer);
+        self::assertSame("Resource id '2' does not match the endpoint id '1'!", $error->detail);
+    }
+
+    #[Test]
+    public function attributeValueInvalidPointsAtTheAttribute(): void
+    {
+        $error = (new AttributeValueInvalid('publishedAt', 'not a valid date'))->getErrors()[0];
+
+        self::assertSame('422', $error->status);
+        self::assertSame('ATTRIBUTE_VALUE_INVALID', $error->code);
+        self::assertSame('Attribute value is invalid', $error->title);
+        self::assertNotNull($error->source);
+        self::assertSame('/data/attributes/publishedAt', $error->source->pointer);
+        self::assertSame('The value for attribute "publishedAt" is invalid: not a valid date', $error->detail);
     }
 
     #[Test]

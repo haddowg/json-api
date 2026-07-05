@@ -236,6 +236,25 @@ final class ConvenienceFilterTest extends TestCase
         self::assertSame(['1'], $this->ids($coerced));
     }
 
+    /**
+     * The FILTER arm is already safe: `DateRange`'s temporal deserializer swallows an
+     * unparseable bound (garbage or calendar-invalid) and returns it unchanged, so a
+     * bad bound surfaces as a clean `400` downstream (or is skipped identically on
+     * every provider) rather than the uncaught 500 the document-attribute arm raised.
+     */
+    #[Test]
+    public function dateRangeSwallowsAnUnparseableBoundRatherThanThrowing(): void
+    {
+        $filter = DateRange::make('at');
+        self::assertNotNull($filter->deserialize);
+
+        self::assertSame('banana', ($filter->deserialize)('banana'));
+        self::assertSame('1997-13-99', ($filter->deserialize)('1997-13-99'));
+
+        // A well-formed bound still coerces to a temporal instant.
+        self::assertInstanceOf(\DateTimeImmutable::class, ($filter->deserialize)('2021-06-15T12:00:00+00:00'));
+    }
+
     #[Test]
     public function booleanCoercesTruthyStrings(): void
     {

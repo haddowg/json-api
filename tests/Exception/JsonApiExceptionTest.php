@@ -26,6 +26,7 @@ use haddowg\JsonApi\Exception\RemovalProhibited;
 use haddowg\JsonApi\Exception\RequestBodyInvalidJson;
 use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
 use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
+use haddowg\JsonApi\Exception\ResourceIdConflict;
 use haddowg\JsonApi\Exception\ResourceIdentifierIdInvalid;
 use haddowg\JsonApi\Exception\ResourceIdentifierIdMissing;
 use haddowg\JsonApi\Exception\ResourceIdentifierLidInvalid;
@@ -79,6 +80,7 @@ final class JsonApiExceptionTest extends TestCase
         yield 'RequestBodyInvalidJson' => [new RequestBodyInvalidJson('lint'), 400, '400', 'REQUEST_BODY_INVALID_JSON', 'Request body is an invalid JSON document'];
         yield 'RequestBodyInvalidJsonApi' => [new RequestBodyInvalidJsonApi([['message' => 'abc']]), 400, '400', 'REQUEST_BODY_INVALID_JSON_API', 'Request body is an invalid JSON:API document'];
         yield 'RequiredTopLevelMembersMissing' => [new RequiredTopLevelMembersMissing(), 400, '400', 'REQUIRED_TOP_LEVEL_MEMBERS_MISSING', 'Required top-level members are missing'];
+        yield 'ResourceIdConflict' => [new ResourceIdConflict('2', '1'), 409, '409', 'RESOURCE_ID_CONFLICT', 'Resource id conflict'];
         yield 'ResourceIdInvalid' => [new ResourceIdInvalid('integer'), 400, '400', 'RESOURCE_ID_INVALID', 'Resource ID is invalid'];
         yield 'ResourceIdMissing' => [new ResourceIdMissing(), 400, '400', 'RESOURCE_ID_MISSING', 'Resource ID is missing'];
         yield 'ResourceIdentifierIdInvalid' => [new ResourceIdentifierIdInvalid('integer'), 400, '400', 'RESOURCE_IDENTIFIER_ID_INVALID', 'Resource identifier ID is invalid'];

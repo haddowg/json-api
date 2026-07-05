@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Resource\Filter;
 
+use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterArmInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
+use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
@@ -34,6 +36,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(WhereHas::class)]
 #[CoversClass(WhereDoesntHave::class)]
 #[CoversClass(WhereThrough::class)]
+#[CoversClass(Range::class)]
+#[CoversClass(DateRange::class)]
 #[CoversClass(UnsupportedFilter::class)]
 #[Group('spec:filtering')]
 final class ArrayFilterHandlerTest extends TestCase
@@ -157,6 +161,138 @@ final class ArrayFilterHandlerTest extends TestCase
         $result = (new ArrayFilterHandler())->apply(WhereNotNull::make('deletedAt'), $this->data(), '1');
 
         self::assertSame(['2'], $this->ids($result));
+    }
+
+    // --- ordered comparison against null never matches (ADR 0116) --------------
+
+    /**
+     * A dataset carrying a null-bearing numeric column, used only by the
+     * null-semantics tests (the shared {@see data()} stays null-free).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function nullBearingData(): array
+    {
+        return [
+            ['id' => '1', 'views' => 10],
+            ['id' => '2', 'views' => 5],
+            ['id' => 'N', 'views' => null],
+        ];
+    }
+
+    #[Test]
+    public function whereGreaterThanExcludesNull(): void
+    {
+        // Under PHP coercion `null > -1` was true (null -> 0); an ordered
+        // comparison now never matches a null column, so only the non-null rows
+        // (which are also in range) remain — the exclusion is null-specific.
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>'), $this->nullBearingData(), -1);
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereGreaterThanOrEqualExcludesNull(): void
+    {
+        // `null >= 0` was true under coercion; the null row is now excluded while
+        // the non-null rows still match.
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>='), $this->nullBearingData(), 0);
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereLessThanExcludesNull(): void
+    {
+        // `null < 100` was true under coercion; the null row is now excluded.
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<'), $this->nullBearingData(), 100);
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereLessThanOrEqualExcludesNull(): void
+    {
+        // `null <= 100` was true under coercion; the null row is now excluded.
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<='), $this->nullBearingData(), 100);
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function rangeExcludesNullColumn(): void
+    {
+        // A null column falls within no present bound (SQL UNKNOWN), and the raw
+        // value is read before the deserializer so a null->0 mapping cannot
+        // smuggle it in; the non-null in-range rows still match.
+        $result = (new ArrayFilterHandler())->apply(
+            Range::make('views'),
+            $this->nullBearingData(),
+            ['min' => '0', 'max' => '100'],
+        );
+
+        self::assertSame(['1', '2'], $this->ids($result));
+    }
+
+    #[Test]
+    public function dateRangeExcludesNullColumn(): void
+    {
+        // A null date column against a present bound is excluded, exactly as a
+        // SQL adapter's three-valued logic excludes it.
+        $data = [
+            ['id' => '1', 'published' => '2020-06-01'],
+            ['id' => 'N', 'published' => null],
+        ];
+
+        $result = (new ArrayFilterHandler())->apply(
+            DateRange::make('published'),
+            $data,
+            ['min' => '2020-01-01', 'max' => '2020-12-31'],
+        );
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function rangeExcludesAColumnADeserializerMapsToNull(): void
+    {
+        // A non-null raw the deserializer maps to null (a sentinel) must not slip
+        // through a max-only bound: `null <= max` coerces to true in PHP, so the
+        // post-deserialize guard excludes it, matching a SQL NULL. See ADR 0116.
+        $data = [
+            ['id' => '1', 'views' => '5'],
+            ['id' => 'S', 'views' => 'unknown'],
+        ];
+        $filter = Range::make('views')->deserializeUsing(static function (mixed $v): ?int {
+            self::assertIsString($v);
+
+            return $v === 'unknown' ? null : (int) $v;
+        });
+
+        $result = (new ArrayFilterHandler())->apply($filter, $data, ['max' => '100']);
+
+        self::assertSame(['1'], $this->ids($result));
+    }
+
+    #[Test]
+    public function whereThroughLeafComparisonExcludesNull(): void
+    {
+        // A reachable leaf whose value is null never satisfies an ordered
+        // compare(): under coercion `null >= 0` matched, now it does not, so only
+        // the non-null in-range row remains.
+        $data = [
+            ['id' => '1', 'author' => ['age' => 30]],
+            ['id' => 'N', 'author' => ['age' => null]],
+        ];
+        $filter = WhereThrough::make('author.age')->operator('>=')->deserializeUsing(static function (mixed $v): int {
+            self::assertIsString($v);
+
+            return (int) $v;
+        });
+
+        $result = (new ArrayFilterHandler())->apply($filter, $data, '0');
+
+        self::assertSame(['1'], $this->ids($result));
     }
 
     /**

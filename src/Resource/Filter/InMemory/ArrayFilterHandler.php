@@ -150,6 +150,13 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * from a database adapter. {@see bound()} applies this guard, so both bounds and
      * both providers degrade identically.
      *
+     * A row whose **column value is `null`** never falls within a present bound:
+     * the raw value is read *before* the deserializer and excluded, mirroring SQL
+     * three-valued logic (a NULL column against a present bound is UNKNOWN, so the
+     * row is excluded) rather than PHP's coercion of `null` toward `0`. The check
+     * is repeated *after* the deserializer so a custom mapping that produces `null`
+     * from a non-null raw is excluded too, never coerced through a bound. See ADR 0116.
+     *
      * @return \Closure(mixed): bool
      */
     private function range(Range $filter, mixed $value): \Closure
@@ -163,8 +170,24 @@ final class ArrayFilterHandler implements FilterHandlerInterface
                 return true;
             }
 
+            // Read the raw column BEFORE the deserializer so a mapping that
+            // coerces null (e.g. null->0) cannot smuggle a NULL row into a
+            // present bound: a NULL column never falls within a bound (SQL
+            // UNKNOWN), so it is excluded on every provider. See ADR 0116.
             $actual = Accessor::get($row, $filter->column);
+            if ($actual === null) {
+                return false;
+            }
+
+            // Re-check after the deserializer: a custom mapping that turns a
+            // non-null raw into null (e.g. a '' sentinel -> null) must not
+            // slip a NULL through a max-only bound (null <= max coerces to
+            // true in PHP). Both operands of every ordered test stay non-null,
+            // matching compare()'s guard. See ADR 0116.
             $actual = $filter->deserialize !== null ? ($filter->deserialize)($actual) : $actual;
+            if ($actual === null) {
+                return false;
+            }
 
             if ($min !== null && !($actual >= $min)) {
                 return false;
@@ -208,6 +231,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     /**
      * Shared operator comparison, identical for a {@see Where} column and a
      * {@see WhereThrough} leaf so the two stay byte-for-byte equivalent.
+     *
+     * An **ordered** comparison (`>`, `>=`, `<`, `<=`) against `null` never
+     * matches: either operand being `null` yields false, mirroring SQL
+     * three-valued logic (the predicate is UNKNOWN, excluding the row) rather
+     * than PHP's silent coercion of `null` toward `0`/`''`. Loose/strict
+     * equality (`=`/`==`/`!=`/`<>`/`===`) keeps native PHP semantics — `= null`
+     * is expressed with the dedicated {@see WhereNull}/{@see WhereNotNull}
+     * filters. See ADR 0116.
      */
     private function compare(mixed $actual, string $operator, mixed $expected): bool
     {
@@ -215,10 +246,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             '=', '==' => $actual == $expected,
             '===' => $actual === $expected,
             '!=', '<>' => $actual != $expected,
-            '>' => $actual > $expected,
-            '>=' => $actual >= $expected,
-            '<' => $actual < $expected,
-            '<=' => $actual <= $expected,
+            // An ordered comparison against `null` never matches: either operand
+            // being `null` yields false, mirroring SQL three-valued logic (the
+            // predicate is UNKNOWN, so the row is excluded) rather than PHP's
+            // silent coercion of `null` toward `0`/`''`. See ADR 0116.
+            '>' => $actual !== null && $expected !== null && $actual > $expected,
+            '>=' => $actual !== null && $expected !== null && $actual >= $expected,
+            '<' => $actual !== null && $expected !== null && $actual < $expected,
+            '<=' => $actual !== null && $expected !== null && $actual <= $expected,
             // Contains, case-insensitive for ASCII — the semantics a SQL
             // `LIKE '%…%'` gives on common backends (SQLite folds ASCII
             // only; anything beyond is platform-defined), so database
