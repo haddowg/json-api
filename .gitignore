@@ -34,3 +34,4 @@ phpunit.xml
 phpstan.neon
 .php-cs-fixer.php
 site/
+__pycache__/
