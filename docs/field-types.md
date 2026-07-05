@@ -181,6 +181,83 @@ only their own context.
 > `Map::on($relation)` — spreading children across a **related** model rather than
 > the same one — is out of scope for core 1.0.
 
+## `Obj`
+
+A typed nested object stored in a **single** backing value — one JSON column, one
+array property. It is the single-value sibling of `Map`: where `Map` spreads its
+children across separate flat columns and the nested object is only a wire view,
+`Obj` keeps the whole object as one value and its children address keys **inside**
+it. Use it when a structured attribute's natural storage is a single JSON document.
+
+| Method | Effect |
+|---|---|
+| `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |
+| `children()` | The declared children (for adapters and projection). |
+
+```php
+Obj::make('address')->nullable()->fields(
+    Str::make('street')->required(),
+    Str::make('city')->required(),
+    Str::make('postcode')->required()->maxLength(10),
+);
+```
+
+The child fields carry the typing and the constraints, exactly as `Map` children
+do — a child violation surfaces as a nested `/data/attributes/address/<child>`
+source pointer, and a read-only child is skipped on hydration per the operation
+context. Top-level constraints on the `Obj` itself are limited to presence
+(`required()` / `nullable()`).
+
+Write semantics on the single value:
+
+- a **partial `PATCH` merges per-child** — an un-supplied child keeps its stored
+  value (the single-value twin of `Map`'s per-column merge);
+- an **explicit `null` clears the whole object**;
+- the field-level `serializeUsing()`/`fillUsing()` hooks remain the escape hatch
+  when a child value needs a richer PHP type than JSON scalars (a `DateTime`
+  inside the object, a value object) — the stored children are otherwise plain
+  scalars in one array.
+
+In the generated OpenAPI document an `Obj` projects a typed `object` schema built
+from its children (it self-describes via `ProvidesFieldSchema`).
+
+**`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
+declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.
+
+## `OneOf`
+
+A **discriminated union** attribute: one of several declared object shapes
+(variants), selected by a discriminator property inside the value, stored — like
+`Obj` — as a single backing value that includes the discriminator.
+
+| Method | Effect |
+|---|---|
+| `discriminator(string $property)` | Names the property whose value selects the variant (default `type`). |
+| `variant(string $name, FieldInterface ...$children)` | Declares a variant: the discriminator value that selects it, and its child fields. |
+
+```php
+OneOf::make('block')->nullable()->discriminator('kind')
+    ->variant('heading', Str::make('text')->required(), Integer::make('level')->min(1)->max(6))
+    ->variant('image', Url::make('src')->required(), Str::make('alt'));
+```
+
+Only the **selected** variant's children run: a `heading` block validates and
+hydrates `text`/`level`, an `image` block `src`/`alt`. On a partial `PATCH` the
+incoming discriminator falls back to the stored one — the same variant merges
+per-child, a **different** variant starts fresh (stale keys from the old variant
+are not carried over). An unknown or missing discriminator has no variant to
+hydrate through, so the raw value is stored for the adapter's validator to reject
+(hydration never validates) — the host surfaces it as a `422` pointing at
+`/data/attributes/<field>/<discriminator>`.
+
+In the generated OpenAPI document a `OneOf` projects `oneOf` + a `discriminator`
+object, each branch carrying the discriminator as a `const` (and, on create, in
+its `required` list) — so a consumer can match a value to its variant statically.
+
+For asserting a shape over a **free-form** value instead of declaring fields —
+including unions of raw member schemas — see the
+[`Shape` composite-schema constraint](constraints.md#shape-composite-schema-constraints).
+
 ## `ArrayList`
 
 A zero-indexed array attribute (JSON `type: array`).
