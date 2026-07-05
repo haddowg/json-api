@@ -25,6 +25,20 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  */
 final class IdentifierResponse extends AbstractResponse
 {
+    use AppliesPaginationTrait;
+
+    /**
+     * The page that windowed the linkage, attached via {@see withPage()} so its
+     * profile (if any) is advertised. It never alters the document body: linkage
+     * documents stay links-only, with the pagination links rendered through the
+     * relationship-pagination seam
+     * ({@see \haddowg\JsonApi\Server\Server::withRelationshipPagination()}), and
+     * `meta.page` is deliberately not emitted (ADR 0124).
+     *
+     * @var \haddowg\JsonApi\Pagination\PageInterface<mixed>|null
+     */
+    private ?\haddowg\JsonApi\Pagination\PageInterface $page = null;
+
     private function __construct(
         private readonly mixed $parent,
         private readonly SerializerInterface $parentResource,
@@ -40,6 +54,28 @@ final class IdentifierResponse extends AbstractResponse
         string $relationshipName,
     ): self {
         return new self($parent, $parentResource, $relationshipName);
+    }
+
+    /**
+     * The same response with the page that windowed the linkage attached, so a
+     * page that activates a profile (e.g. cursor pagination) causes the response
+     * to advertise it — in `jsonapi.profile` and the `Content-Type` `profile`
+     * media-type parameter, exactly as {@see RelatedResponse::fromPage()} does.
+     *
+     * The rendered body is otherwise byte-identical to the page-less response:
+     * the pagination links flow through the relationship-pagination seam, and no
+     * `meta.page` is added (linkage documents are links-only — ADR 0124).
+     *
+     * @template T
+     *
+     * @param \haddowg\JsonApi\Pagination\PageInterface<T> $page
+     */
+    public function withPage(\haddowg\JsonApi\Pagination\PageInterface $page): self
+    {
+        $self = clone $this;
+        $self->page = $page;
+
+        return $self;
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
@@ -67,5 +103,16 @@ final class IdentifierResponse extends AbstractResponse
         $result = $this->applyTopLevelSelf($result, $server, $request);
 
         return new RenderedDocument($result, 200);
+    }
+
+    /**
+     * Adds the attached page's profile (if any) to the request-requested applied
+     * set, via the shared {@see AppliesPaginationTrait::appliedPageProfiles()}
+     * helper — the same wiring as {@see RelatedResponse}. With no page attached
+     * this is the parent behaviour unchanged.
+     */
+    protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        return $this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page);
     }
 }
