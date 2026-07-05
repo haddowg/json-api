@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Operation;
 
 use haddowg\JsonApi\Exception\ApplicationError;
+use haddowg\JsonApi\Exception\ResourceIdConflict;
 use haddowg\JsonApi\Operation\AddToRelationshipOperation;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\DeleteResourceOperation;
@@ -117,6 +118,65 @@ final class OperationFactoryTest extends TestCase
 
     #[Test]
     #[Group('spec:crud')]
+    public function patchWhoseBodyIdMismatchesTheTargetIdThrowsAResourceIdConflict(): void
+    {
+        $request = $this->patchRequest('/articles/1', ['type' => 'articles', 'id' => '2']);
+        $target = new Target('articles', '1');
+
+        try {
+            (new OperationFactory())->fromRequest($request, $target, $this->context($request));
+            self::fail('Expected a ResourceIdConflict.');
+        } catch (ResourceIdConflict $e) {
+            self::assertSame('2', $e->documentId);
+            self::assertSame('1', $e->endpointId);
+            self::assertSame(409, $e->getStatusCode());
+
+            $error = $e->getErrors()[0];
+            self::assertNotNull($error->source);
+            self::assertSame('/data/id', $error->source->pointer);
+        }
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
+    public function patchWhoseBodyIdMatchesTheTargetIdBuildsAnUpdateResourceOperation(): void
+    {
+        $request = $this->patchRequest('/articles/1', ['type' => 'articles', 'id' => '1']);
+        $target = new Target('articles', '1');
+
+        $operation = (new OperationFactory())->fromRequest($request, $target, $this->context($request));
+
+        self::assertInstanceOf(UpdateResourceOperation::class, $operation);
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
+    public function patchWithNoBodyIdBuildsAnUpdateResourceOperation(): void
+    {
+        $request = $this->patchRequest('/articles/1', ['type' => 'articles']);
+        $target = new Target('articles', '1');
+
+        $operation = (new OperationFactory())->fromRequest($request, $target, $this->context($request));
+
+        self::assertInstanceOf(UpdateResourceOperation::class, $operation);
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
+    public function aRelationshipPatchDoesNotTriggerTheResourceIdConflictCheck(): void
+    {
+        // The body id here is a linkage identifier for the related type, not the
+        // primary resource — the id-match rule applies only to a resource PATCH.
+        $request = $this->patchRequest('/articles/1/relationships/author', ['type' => 'people', 'id' => '99']);
+        $target = new Target('articles', '1', 'author', isRelationshipEndpoint: true);
+
+        $operation = (new OperationFactory())->fromRequest($request, $target, $this->context($request));
+
+        self::assertInstanceOf(UpdateRelationshipOperation::class, $operation);
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
     public function patchWithRelationshipBuildsAnUpdateRelationshipOperation(): void
     {
         $request = $this->request('PATCH', '/articles/1/relationships/author');
@@ -206,6 +266,16 @@ final class OperationFactoryTest extends TestCase
     private function request(string $method, string $uri): JsonApiRequestInterface
     {
         return new JsonApiRequest(new ServerRequest($method, $uri));
+    }
+
+    /**
+     * @param array<string, mixed> $data the document's `data` member
+     */
+    private function patchRequest(string $uri, array $data): JsonApiRequestInterface
+    {
+        return new JsonApiRequest(
+            (new ServerRequest('PATCH', $uri))->withParsedBody(['data' => $data]),
+        );
     }
 
     private function context(JsonApiRequestInterface $request): OperationContext

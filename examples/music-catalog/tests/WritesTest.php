@@ -9,6 +9,7 @@ use haddowg\JsonApi\Examples\MusicCatalog\Domain\User;
 use haddowg\JsonApi\Examples\MusicCatalog\Seed;
 use haddowg\JsonApi\Testing\AssertsSpecCompliance;
 use haddowg\JsonApi\Testing\JsonApiDocument;
+use haddowg\JsonApi\Testing\JsonApiErrors;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -118,6 +119,27 @@ final class WritesTest extends MusicCatalogTestCase
         ]);
 
         self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    #[Group('spec:crud')]
+    public function patchingWithABodyIdThatMismatchesTheUrlReturns409(): void
+    {
+        // JSON:API: a PATCH whose resource object's id does not match the
+        // endpoint id is a 409 conflict, sourced at /data/id.
+        $response = $this->patch('/albums/1', [
+            'data' => [
+                'type' => 'albums',
+                'id' => '2',
+                'attributes' => ['title' => 'Wrong Id'],
+            ],
+        ]);
+
+        self::assertSame(409, $response->getStatusCode());
+        $this->assertJsonApiSpecCompliant($response);
+
+        JsonApiErrors::of($response)
+            ->assertHasError(status: '409', pointer: '/data/id', code: 'RESOURCE_ID_CONFLICT');
     }
 
     #[Test]
