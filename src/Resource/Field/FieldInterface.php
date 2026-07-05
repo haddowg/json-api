@@ -169,4 +169,15 @@ interface FieldInterface
      * @param array<string, mixed> $data the full resource data array
      */
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed;
+
+    /**
+     * Casts an incoming wire (JSON) value to the domain representation the
+     * field's declared type would store — the value {@see hydrate()} writes onto
+     * the backing column for a plain field. Applies the type's value cast alone:
+     * the request/document-aware hydrate hooks (`deserializeUsing`/`fillUsing`)
+     * are not consulted, so the result is request-independent. For an adapter
+     * hydrating a value outside the resource hydration path (e.g. pivot meta
+     * onto a join row) where only the field's declared type is in play.
+     */
+    public function castWireValue(mixed $value): mixed;
 }

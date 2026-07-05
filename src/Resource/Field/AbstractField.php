@@ -856,6 +856,11 @@ abstract class AbstractField implements \haddowg\JsonApi\Resource\Field\FieldInt
         return Accessor::set($model, $column, $value);
     }
 
+    public function castWireValue(mixed $value): mixed
+    {
+        return $this->deserializeValue($value);
+    }
+
     /**
      * Casts a raw domain value to its serialized representation. Override in
      * concrete field types (e.g. format a `DateTimeInterface`). Default: identity.
