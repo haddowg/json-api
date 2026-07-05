@@ -281,6 +281,59 @@ published OpenAPI document — with no core change. (JSON Schema is framework-ne
 so the schema shape lives on the constraint; the host-specific *execution* still
 lives in each adapter's translator.)
 
+## `Shape`: composite-schema constraints
+
+`Shape` asserts a **composite JSON Schema** — a `oneOf` / `anyOf` / `allOf` of raw
+member schemas — over a free-form value. It is the assertional counterpart to the
+constructive composite fields ([`Obj` and `OneOf`](field-types.md#obj)): declare
+fields when the children are individually typed attributes; attach a `Shape` when
+the value stays a free-form map (`ArrayHash`) but its overall shape must still
+hold.
+
+| Builder | Meaning |
+|---|---|
+| `Shape::oneOf(Schema ...$members)` | The value must match **exactly one** member. |
+| `Shape::anyOf(Schema ...$members)` | The value must match **at least one** member. |
+| `Shape::allOf(Schema ...$members)` | The value must match **all** members (intersection). |
+| `->discriminator(string $property)` | Adds an OpenAPI `discriminator` naming the property that selects the matching `oneOf` member. |
+| `->onCreate()` / `->onUpdate()` | Scope the shape to one operation context (default: always). |
+
+```php
+ArrayHash::make('contact')->nullable()->constrain(
+    Shape::oneOf(
+        Schema::ofType('object')
+            ->withProperties([
+                'kind' => Schema::ofType('string')->withConst('email'),
+                'address' => Schema::ofType('string')->withFormat('email'),
+            ])
+            ->withRequired(['kind', 'address']),
+        Schema::ofType('object')
+            ->withProperties([
+                'kind' => Schema::ofType('string')->withConst('phone'),
+                'number' => Schema::ofType('string'),
+            ])
+            ->withRequired(['kind', 'number']),
+    )->discriminator('kind'),
+);
+```
+
+The members are plain [`Schema`](../src/OpenApi/Schema.php) nodes — raw JSON
+Schema no host validator vocabulary can translate. Execution therefore does not
+follow the usual adapter-translation route: core ships
+[`SchemaValueValidator`](../src/Validation/SchemaValueValidator.php) (backed by
+the optional `opis/json-schema`, exactly like [document
+validation](schema-validation.md)), which validates a value against a `Shape`'s
+composed schema and returns `422` `Error`s whose pointers extend the field's own
+(`/data/attributes/contact/...`). Framework adapters wire it when opis is
+installed; without opis a `Shape` still **documents** — it contributes its
+combinator (and `discriminator`) to the field's projected OpenAPI schema via
+`ProvidesJsonSchema` — it just doesn't validate.
+
+Value validation skips `null` — nullability is `nullable()`'s concern — and the
+projected schema agrees: on a nullable field a `oneOf`/`anyOf` gains an explicit
+null branch and an `allOf` hoists into `anyOf: [null, {allOf}]`, so the document
+admits the same `null` the runtime accepts.
+
 ## The core boundary
 
 Core defines the constraint **vocabulary** and nothing more. It ships:
