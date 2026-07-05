@@ -38,6 +38,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
@@ -797,6 +798,91 @@ final class FieldTest extends TestCase
         self::assertSame('grace', $account['name']);
         self::assertSame('user', $account['role'], 'a read-only Obj child must not be overwritten');
         self::assertSame('new', $account['secret'], 'a write-only Obj child is still hydrated');
+    }
+
+    #[Test]
+    public function oneOfSerializesTheActiveVariantSelectedByTheDiscriminator(): void
+    {
+        $field = $this->block();
+
+        $rendered = $field->serialize(
+            ['block' => ['kind' => 'image', 'src' => 'https://x/a.png', 'alt' => 'A photo']],
+            $this->request(),
+            'block',
+        );
+
+        self::assertSame(['kind' => 'image', 'src' => 'https://x/a.png', 'alt' => 'A photo'], $rendered);
+    }
+
+    #[Test]
+    public function oneOfHydratesOnlyTheSelectedVariantsChildren(): void
+    {
+        $field = $this->block();
+
+        $model = $field->hydrate(
+            [],
+            ['kind' => 'heading', 'text' => 'Hello', 'level' => 2, 'src' => 'ignored'],
+            [],
+            $this->request(),
+            true,
+        );
+
+        self::assertIsArray($model);
+        // Only the heading variant's children (text, level) hydrate; `src` (an image
+        // child) is not part of this variant and is dropped.
+        self::assertSame(['kind' => 'heading', 'text' => 'Hello', 'level' => 2], $model['block']);
+    }
+
+    #[Test]
+    public function oneOfSwitchingVariantStartsFreshRatherThanMerging(): void
+    {
+        $field = $this->block();
+
+        $model = $field->hydrate(
+            ['block' => ['kind' => 'heading', 'text' => 'Old', 'level' => 1]],
+            ['kind' => 'image', 'src' => 'https://x/b.png'],
+            [],
+            $this->request(),
+            false,
+        );
+
+        self::assertIsArray($model);
+        // The prior heading keys (text, level) do not linger after switching to image;
+        // only the supplied image children are written.
+        self::assertSame(['kind' => 'image', 'src' => 'https://x/b.png'], $model['block']);
+    }
+
+    #[Test]
+    public function oneOfPartialPatchWithoutRestatingTheDiscriminatorMergesTheStoredVariant(): void
+    {
+        $field = $this->block();
+
+        $model = $field->hydrate(
+            ['block' => ['kind' => 'image', 'src' => 'https://x/a.png', 'alt' => 'Old alt']],
+            ['alt' => 'New alt'],
+            [],
+            $this->request(),
+            false,
+        );
+
+        self::assertIsArray($model);
+        self::assertSame(['kind' => 'image', 'src' => 'https://x/a.png', 'alt' => 'New alt'], $model['block']);
+    }
+
+    #[Test]
+    public function oneOfRendersAnUnknownDiscriminatorValueAsIs(): void
+    {
+        $field = $this->block();
+        $stored = ['kind' => 'video', 'url' => 'https://x/v.mp4'];
+
+        self::assertSame($stored, $field->serialize(['block' => $stored], $this->request(), 'block'));
+    }
+
+    private function block(): OneOf
+    {
+        return OneOf::make('block')->discriminator('kind')
+            ->variant('heading', Str::make('text'), Integer::make('level'))
+            ->variant('image', Url::make('src'), Str::make('alt'));
     }
 
     #[Test]
