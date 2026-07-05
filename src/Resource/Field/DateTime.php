@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
@@ -86,13 +87,28 @@ class DateTime extends AbstractAttribute
         return $raw;
     }
 
+    /**
+     * A non-string or empty value passes through unchanged (leniency shared with
+     * the other attribute casts — type validity is a constraint/validation
+     * concern, not the cast's). A non-empty string that {@see \DateTimeImmutable}
+     * cannot parse — calendar-garbage (`1997-13-99`) or nonsense (`banana`) —
+     * raises a typed {@see AttributeValueInvalid} (422 at
+     * `/data/attributes/<name>`) rather than letting the raw parse `\Exception`
+     * escape as an uncaught 500: the cast is the last gate before the value is
+     * written onto the domain object.
+     */
     protected function deserializeValue(mixed $value): mixed
     {
         if (!\is_string($value) || $value === '') {
             return $value;
         }
 
-        $date = new \DateTimeImmutable($value);
+        try {
+            $date = new \DateTimeImmutable($value);
+        } catch (\Exception $e) {
+            throw new AttributeValueInvalid($this->name(), $e->getMessage());
+        }
+
         if ($this->useTimezone !== null) {
             $date = $date->setTimezone(new \DateTimeZone($this->useTimezone));
         }
