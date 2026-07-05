@@ -166,6 +166,14 @@ return IdentifierResponse::forRelationship(
 );
 ```
 
+On a windowed to-many linkage, `withPage($page)` attaches the page that produced
+the window so a page that activates a profile (cursor pagination) is advertised —
+in `jsonapi.profile` and the `Content-Type` `profile` parameter, exactly as
+`RelatedResponse::fromPage()` advertises it. The body is untouched: the pagination
+links flow through the relationship-pagination seam
+([profiles](profiles.md#the-bundled-relationship-queries-profile)), and a linkage
+document never carries `meta.page` (links-only by convention — ADR 0124).
+
 The same value object is the success body for a relationship **mutation** —
 `PATCH`/`POST`/`DELETE …/relationships/{rel}` render the mutated parent's linkage
 back at `200`. See [relationship mutation](relationship-mutation.md).
