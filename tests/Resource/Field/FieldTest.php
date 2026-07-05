@@ -37,6 +37,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Time;
@@ -695,6 +696,107 @@ final class FieldTest extends TestCase
         self::assertIsArray($model);
         self::assertSame('2 Low St', $model['street']);
         self::assertSame('Leeds', $model['city']);
+    }
+
+    #[Test]
+    public function objReadsAndWritesChildrenWithinOneColumn(): void
+    {
+        // Unlike Map (children spread across the model's columns), Obj keeps the whole
+        // object under ONE key, and its children address keys inside that value.
+        $field = Obj::make('address')->fields(
+            Str::make('street'),
+            Str::make('city'),
+        );
+
+        $serialized = $field->serialize(
+            ['address' => ['street' => '1 High St', 'city' => 'London']],
+            $this->request(),
+            'address',
+        );
+        self::assertSame(['street' => '1 High St', 'city' => 'London'], $serialized);
+
+        $model = $field->hydrate(
+            [],
+            ['street' => '2 Low St', 'city' => 'Leeds'],
+            [],
+            $this->request(),
+            true,
+        );
+        self::assertIsArray($model);
+        self::assertSame(['street' => '2 Low St', 'city' => 'Leeds'], $model['address']);
+    }
+
+    #[Test]
+    public function objPartialPatchMergesPerChild(): void
+    {
+        // A PATCH supplying only `city` keeps the stored `street` — per-child merge,
+        // the single-value twin of Map's per-column merge.
+        $field = Obj::make('address')->fields(
+            Str::make('street'),
+            Str::make('city'),
+        );
+
+        $model = $field->hydrate(
+            ['address' => ['street' => '1 High St', 'city' => 'London']],
+            ['city' => 'Leeds'],
+            [],
+            $this->request(),
+            false,
+        );
+
+        self::assertIsArray($model);
+        self::assertSame(['street' => '1 High St', 'city' => 'Leeds'], $model['address']);
+    }
+
+    #[Test]
+    public function objExplicitNullClearsTheObjectAndSerializesAsNull(): void
+    {
+        $field = Obj::make('address')->fields(Str::make('street'));
+
+        self::assertNull($field->serialize(['address' => null], $this->request(), 'address'));
+
+        $model = $field->hydrate(
+            ['address' => ['street' => '1 High St']],
+            null,
+            [],
+            $this->request(),
+            false,
+        );
+        self::assertIsArray($model);
+        self::assertNull($model['address']);
+    }
+
+    #[Test]
+    public function objGatesReadOnlyAndSkipsWriteOnlyChildren(): void
+    {
+        $field = Obj::make('account')->fields(
+            Str::make('name'),
+            Str::make('role')->readOnly(),
+            Str::make('secret')->writeOnly(),
+        );
+
+        // Write-only child never rendered.
+        $nested = $field->serialize(
+            ['account' => ['name' => 'ada', 'role' => 'user', 'secret' => 's3cr3t']],
+            $this->request(),
+            'account',
+        );
+        self::assertSame(['name' => 'ada', 'role' => 'user'], $nested);
+
+        // Read-only child not written; write-only child still hydrated.
+        $model = $field->hydrate(
+            ['account' => ['name' => 'ada', 'role' => 'user', 'secret' => 'old']],
+            ['name' => 'grace', 'role' => 'admin', 'secret' => 'new'],
+            [],
+            $this->request(),
+            false,
+        );
+        self::assertIsArray($model);
+        $account = $model['account'];
+        self::assertIsArray($account);
+        self::assertSame('grace', $account['name']);
+        self::assertSame('user', $account['role'], 'a read-only Obj child must not be overwritten');
+        self::assertSame('new', $account['secret'], 'a write-only Obj child is still hydrated');
     }
 
     #[Test]
