@@ -6,19 +6,23 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
-use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 
 /**
- * An in-core {@see ActionMetadataInterface} fixture — defined now so the contract is
- * exercised; this slice's component projection does not consume actions (Slice 3
- * builds the action paths).
+ * An in-core {@see ActionMetadataInterface} fixture. For convenience `responds`
+ * defaults from the legacy shape: an `outputType` yields a single {@see ActionResource}
+ * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
+ * list to advertise any other response set.
  */
 final class FakeActionMetadata implements ActionMetadataInterface
 {
     /**
-     * @param list<string> $methods
-     * @param list<string> $tags
+     * @param list<string>                  $methods
+     * @param non-empty-list<ActionResponse>|null $responds
+     * @param list<string>                  $tags
      */
     public function __construct(
         private readonly string $path,
@@ -27,7 +31,7 @@ final class FakeActionMetadata implements ActionMetadataInterface
         private readonly ActionInputMode $inputMode = ActionInputMode::None,
         private readonly ?string $inputType = null,
         private readonly ?string $outputType = null,
-        private readonly ?ActionOutputMode $outputMode = null,
+        private readonly ?array $responds = null,
         private readonly bool $secured = false,
         private readonly array $tags = [],
         private readonly ?string $summary = null,
@@ -59,14 +63,13 @@ final class FakeActionMetadata implements ActionMetadataInterface
         return $this->inputType;
     }
 
-    public function outputMode(): ActionOutputMode
+    public function responds(): array
     {
-        return $this->outputMode ?? ($this->outputType !== null ? ActionOutputMode::Document : ActionOutputMode::None);
-    }
+        if ($this->responds !== null) {
+            return $this->responds;
+        }
 
-    public function outputType(): ?string
-    {
-        return $this->outputType;
+        return $this->outputType !== null ? [new ActionResource($this->outputType)] : [new NoContent()];
     }
 
     public function isSecured(): bool

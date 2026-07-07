@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -33,6 +34,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<string>                    $includablePaths
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      * @param list<OperationType>             $publicOperations
+     * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      */
     public function __construct(
         private readonly string $type,
@@ -55,6 +57,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly ?string $idPattern = null,
         private readonly array $operationDescriptions = [],
         private readonly array $publicOperations = [],
+        private readonly array $responses = [],
     ) {}
 
     /**
@@ -69,6 +72,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param list<string>                    $includablePaths
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      * @param list<OperationType>             $publicOperations  the operations explicitly declared public (security: [])
+     * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      */
     public static function resource(
         string $type,
@@ -90,6 +94,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         ?string $idPattern = null,
         array $operationDescriptions = [],
         array $publicOperations = [],
+        array $responses = [],
     ): self {
         return new self(
             type: $type,
@@ -118,6 +123,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             idPattern: $idPattern,
             operationDescriptions: $operationDescriptions,
             publicOperations: $publicOperations,
+            responses: $responses,
         );
     }
 
@@ -231,6 +237,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface
     public function operationDescription(OperationType $operation): ?string
     {
         return $this->operationDescriptions[$operation->value] ?? null;
+    }
+
+    public function responsesFor(OperationType $operation): array
+    {
+        return $this->responses[$operation->value] ?? OperationResponses::defaultFor($operation);
     }
 
     public function includablePaths(): array

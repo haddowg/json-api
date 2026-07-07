@@ -50,7 +50,8 @@ The projection is a small pipeline of **pure** classes in
   exposed related and relationship endpoints, and its custom actions under the
   `-actions` segment. Each operation enumerates its concrete query parameters
   (`filter[…]`, `sort`, `include`, `fields[…]`, `page[…]`, `withCount`), its request body,
-  and the standard error responses, and carries its tags and per-operation security.
+  its declared success responses (see [Response declarations](#response-declarations)) and
+  the standard error responses, and carries its tags and per-operation security.
 
 - **`OpenApiProjector`** — the top-level entry point. It consumes a
   `ServerMetadataInterface` and returns one `OpenApi` document: the skeleton
@@ -107,12 +108,12 @@ them.
 | Interface | Describes |
 |---|---|
 | `ServerMetadataInterface` | one server: `info` (title / version / description / contact / license), `servers` (base URLs), the JSON:API version, tag definitions, security schemes + document-level default security, external docs, the type list, and the optional Atomic Operations endpoint |
-| `TypeMetadataInterface` | one type: `type` / `uriType`, the field inventory (may be absent for a standalone serializer), relations, the operation allow-list (+ which operations are secured / public), the id policy (`allowsClientId` / `requiresClientId` / `idPattern`), paginator kind + countability, filters, sorts, actions, tags, description (+ per-operation description overrides), and includable paths |
+| `TypeMetadataInterface` | one type: `type` / `uriType`, the field inventory (may be absent for a standalone serializer), relations, the operation allow-list (+ which operations are secured / public), the id policy (`allowsClientId` / `requiresClientId` / `idPattern`), paginator kind + countability, filters, sorts, actions, tags, description (+ per-operation description overrides), includable paths, and per-operation response declarations (`responsesFor`) |
 | `RelationMetadataInterface` | one relation: name, related type(s), cardinality, endpoint exposure + mutation flags, per-relation security, paginator kind, filters/sorts (for a queryable to-many), pivot fields, and description |
-| `ActionMetadataInterface` | one custom action: path, methods, scope, input/output mode + types, whether it is secured, tags, summary, description |
+| `ActionMetadataInterface` | one custom action: path, methods, scope, input mode + type, its `responds` response set, whether it is secured, tags, summary, description |
 
 Discriminator enums (`OperationType`, `PaginatorKind`, `ActionScope`,
-`ActionInputMode`, `ActionOutputMode`) round out the contract. The accessors that return
+`ActionInputMode`) round out the contract. The accessors that return
 OAS value objects (`servers()`, `tags()`, `securitySchemes()`) hand the projector
 ready-made VOs — that data is config-shaped, with no JSON:API semantics to interpret —
 while type / relation / action data, which *does* carry semantics the projector must
@@ -122,6 +123,75 @@ A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
 resource-object schema and no attribute / write-request components, exactly mirroring the
 runtime's "serializer but no fields" case.
+
+## Response declarations
+
+By default every operation advertises the single success response it has always emitted — a
+create `201` (with `Location` and the created document), an update `200`, a delete `204`, a
+fetch `200`, a collection `200`. A type may **override** the success set an operation
+advertises, and a custom action **declares** its own, through a small family of immutable
+response objects in `haddowg\JsonApi\OpenApi\Metadata`. This is how a spec-valid `204`, an
+asynchronous `202`, or a `303` completion enters the contract (ADR 0126, ADR 0127).
+
+### The response objects
+
+Each object names one HTTP status an operation may return; a declaration is a **list** of
+them (a set). They are typed per operation so an illegal combination is unrepresentable:
+
+| Object | Status | Body / headers | Valid on |
+|---|---|---|---|
+| `new Created()` | `201` | created resource document + `Location` | create |
+| `new Ok()` | `200` | resource / collection document | update, fetch-one, fetch-collection |
+| `new NoContent()` | `204` | no body | create, update, delete, actions |
+| `new Accepted(string $jobType)` | `202` | the **job** type's document + `Content-Location` + `Retry-After` | create, update, actions |
+| `new SeeOther()` | `303` | `Location` only, no body | fetch-one, actions |
+| `new MetaResult()` | `200` | a meta-only document | delete, actions |
+| `new ActionResource(string $type)` | `200` | the named type's document | actions |
+
+Each implements a per-operation **marker interface** — `CreateResponse`, `UpdateResponse`,
+`DeleteResponse`, `FetchOneResponse`, `FetchCollectionResponse` for CRUD, and
+`ActionResponse` for custom actions — so a value only type-checks where it is spec-valid
+(`new SeeOther()` is a `FetchOneResponse`, never a `CreateResponse`). The helpers
+`OperationResponses` (`defaultFor()` / `validate()`) and `ActionResponses` (`validate()`)
+supply the default set and reject a malformed one: empty, a duplicate status, more than one
+job-bearing `202`, or a status outside the operation's spec-valid range.
+
+The metadata contract carries the resolved sets:
+`TypeMetadataInterface::responsesFor(OperationType)` returns a type's success set for a
+CRUD/read operation (its declared override, else `OperationResponses::defaultFor()`), and
+`ActionMetadataInterface::responds()` returns an action's. The `OperationProjector` emits
+one `Response` per element, keyed by status — and the unoverridden default reproduces the
+exact response the document has always carried, so an existing contract is byte-for-byte
+unchanged.
+
+### The asynchronous-write lifecycle
+
+Together the objects reflect the JSON:API
+[asynchronous processing](https://jsonapi.org/recommendations/#asynchronous-processing)
+recommendation in the generated document:
+
+- A write accepted for background processing advertises **`new Accepted('jobs')`** — a
+  `202` whose body is the `jobs` type's document (that type must be registered so its
+  schema exists), plus a `Content-Location` header (the job URL to poll) and a
+  `Retry-After` hint.
+- The client polls the job resource; **completion** is a `303 See Other` to the produced
+  resource. Model it either as a **fetch-one** on the job type declaring
+  `[new Ok(), new SeeOther()]` (the spec-canonical shape: `200` with the job's status while
+  it runs, `303` when done) or as a **custom action** declaring
+  `[new Accepted('jobs'), new SeeOther()]`.
+
+Because the `303` is a **runtime** decision, a fetch-one that may redirect implements the
+read seam **`haddowg\JsonApi\Resource\ResolvesCompletionRedirect`**:
+`completionLocation(object $entity): ?string` returns the produced resource's URL when the
+work is complete (the handler then renders a `303`) or `null` for the normal `200`. The
+declaration documents the `303`; the seam performs it.
+
+### Authoring them
+
+Core defines and projects these objects; the **framework integrations** let you declare
+them on a resource or action — see the response-declaration sections of the
+[Symfony bundle](https://github.com/haddowg/json-api-symfony) and
+[Laravel package](https://github.com/haddowg/json-api-laravel) documentation.
 
 ## Authoring the schemas: `describedAs()` and `example()`
 
