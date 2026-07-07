@@ -41,16 +41,15 @@ interface ActionMetadataInterface
     public function inputType(): ?string;
 
     /**
-     * How the action answers on success — the discriminator for its success
-     * response (a resource document, a meta-only document, or `204 No Content`).
+     * The success responses this action advertises — one {@see ActionResponse} per
+     * response the projector emits ({@see ActionResource} for a `200` resource document,
+     * {@see MetaResult} for a `200` meta-only document, {@see NoContent} for a `204`,
+     * {@see Accepted} for a `202` async accept, {@see SeeOther} for a `303` completion).
+     * Validated by {@see ActionResponses::validate()}; never empty.
+     *
+     * @return non-empty-list<ActionResponse>
      */
-    public function outputMode(): ActionOutputMode;
-
-    /**
-     * The JSON:API type whose document schema is the action's success response,
-     * when {@see outputMode()} is {@see ActionOutputMode::Document}; `null` otherwise.
-     */
-    public function outputType(): ?string;
+    public function responds(): array;
 
     /**
      * Whether the action carries a security expression — i.e. it should be emitted

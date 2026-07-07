@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
-use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
+use haddowg\JsonApi\OpenApi\Metadata\NoContent;
+use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -146,8 +152,6 @@ final class OperationProjector
 
     private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
     {
-        $base = ComponentNaming::base($type->type());
-
         $parameters = $this->concatParameters(
             $this->filterParameters($type->filters()),
             [$this->sortParameter($type->sorts())],
@@ -159,11 +163,10 @@ final class OperationProjector
 
         $security = $this->securityFor($type, OperationType::FetchCollection, $server);
 
-        $responses = (new Responses())
-            ->with('200', Response::ofSchema(
-                'A collection of ' . $type->type() . ' resources.',
-                Schema::ref(ComponentNaming::schemaRef($base . 'Collection')),
-            ));
+        $responses = new Responses();
+        foreach ($type->responsesFor(OperationType::FetchCollection) as $response) {
+            $responses = $responses->with((string) $response->status(), $this->fetchCollectionSuccessResponse($type, $response));
+        }
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -179,8 +182,6 @@ final class OperationProjector
 
     private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
     {
-        $base = ComponentNaming::base($type->type());
-
         $parameters = $this->concatParameters(
             [$this->includeParameter($type->includablePaths())],
             $this->fieldsParameters($type, $server, $type->includablePaths()),
@@ -188,11 +189,10 @@ final class OperationProjector
 
         $security = $this->securityFor($type, OperationType::FetchOne, $server);
 
-        $responses = (new Responses())
-            ->with('200', Response::ofSchema(
-                'The requested ' . $type->type() . ' resource.',
-                Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
-            ));
+        $responses = new Responses();
+        foreach ($type->responsesFor(OperationType::FetchOne) as $response) {
+            $responses = $responses->with((string) $response->status(), $this->fetchOneSuccessResponse($type, $response));
+        }
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -216,17 +216,10 @@ final class OperationProjector
             ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
             : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
 
-        $responses = (new Responses())
-            ->with('201', new Response(
-                'The created ' . $type->type() . ' resource.',
-                headers: ['Location' => new Header(
-                    'The URL of the created resource.',
-                    schema: Schema::ofType('string')->withFormat('uri-reference'),
-                )],
-                content: [MediaType::JSON_API => MediaType::ofSchema(
-                    Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
-                )],
-            ));
+        $responses = new Responses();
+        foreach ($type->responsesFor(OperationType::Create) as $response) {
+            $responses = $responses->with((string) $response->status(), $this->createSuccessResponse($type, $response));
+        }
         $security = $this->securityFor($type, OperationType::Create, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
@@ -249,11 +242,10 @@ final class OperationProjector
             ? Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'))
             : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
 
-        $responses = (new Responses())
-            ->with('200', Response::ofSchema(
-                'The updated ' . $type->type() . ' resource.',
-                Schema::ref(ComponentNaming::schemaRef($base . 'Document')),
-            ));
+        $responses = new Responses();
+        foreach ($type->responsesFor(OperationType::Update) as $response) {
+            $responses = $responses->with((string) $response->status(), $this->updateSuccessResponse($type, $response));
+        }
         $security = $this->securityFor($type, OperationType::Update, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
@@ -272,8 +264,10 @@ final class OperationProjector
     {
         $security = $this->securityFor($type, OperationType::Delete, $server);
 
-        $responses = (new Responses())
-            ->with('204', Response::noContent('The resource was deleted.'));
+        $responses = new Responses();
+        foreach ($type->responsesFor(OperationType::Delete) as $response) {
+            $responses = $responses->with((string) $response->status(), $this->deleteSuccessResponse($type, $response));
+        }
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -284,6 +278,163 @@ final class OperationProjector
             operationId: 'delete.' . $type->type(),
             security: $security,
         );
+    }
+
+    // ---- Per-operation success responses ----------------------------------------
+
+    /**
+     * The concrete {@see Response} for one declared create success response. `201` is
+     * the created-resource shape (with `Location`), `204` a bodyless create, `202` the
+     * async-accept shape.
+     */
+    private function createSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    {
+        return match ($response->status()) {
+            201 => new Response(
+                'The created ' . $type->type() . ' resource.',
+                headers: ['Location' => new Header(
+                    'The URL of the created resource.',
+                    schema: Schema::ofType('string')->withFormat('uri-reference'),
+                )],
+                content: [MediaType::JSON_API => MediaType::ofSchema(
+                    Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
+                )],
+            ),
+            204 => Response::noContent('The resource was created; no content is returned.'),
+            202 => $this->acceptedResponse($this->jobTypeOf($response)),
+            default => throw $this->unexpectedResponse(OperationType::Create, $response->status()),
+        };
+    }
+
+    /**
+     * The concrete {@see Response} for one declared update success response. `200` is
+     * the updated-resource shape, `204` a bodyless update, `202` the async-accept shape.
+     */
+    private function updateSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    {
+        return match ($response->status()) {
+            200 => Response::ofSchema(
+                'The updated ' . $type->type() . ' resource.',
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
+            ),
+            204 => Response::noContent('The resource was updated; no content is returned.'),
+            202 => $this->acceptedResponse($this->jobTypeOf($response)),
+            default => throw $this->unexpectedResponse(OperationType::Update, $response->status()),
+        };
+    }
+
+    /**
+     * The concrete {@see Response} for one declared delete success response. `204` is
+     * the bodyless delete, `200` a meta-only document.
+     */
+    private function deleteSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    {
+        return match ($response->status()) {
+            204 => Response::noContent('The resource was deleted.'),
+            200 => Response::ofSchema(
+                'The resource was deleted; a meta-only document is returned.',
+                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+            ),
+            default => throw $this->unexpectedResponse(OperationType::Delete, $response->status()),
+        };
+    }
+
+    /**
+     * The concrete {@see Response} for one declared fetch-one success response. `200`
+     * is the resource document, `303` the async-completion redirect (headers only).
+     */
+    private function fetchOneSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    {
+        return match ($response->status()) {
+            200 => Response::ofSchema(
+                'The requested ' . $type->type() . ' resource.',
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
+            ),
+            303 => $this->seeOtherResponse(),
+            default => throw $this->unexpectedResponse(OperationType::FetchOne, $response->status()),
+        };
+    }
+
+    /**
+     * The concrete {@see Response} for one declared fetch-collection success response
+     * (`200`, the collection document).
+     */
+    private function fetchCollectionSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    {
+        return match ($response->status()) {
+            200 => Response::ofSchema(
+                'A collection of ' . $type->type() . ' resources.',
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Collection')),
+            ),
+            default => throw $this->unexpectedResponse(OperationType::FetchCollection, $response->status()),
+        };
+    }
+
+    /**
+     * The `202 Accepted` async-accept response: the pollable `$jobType` job document,
+     * with `Content-Location` (the poll URL) and `Retry-After` (the poll hint) headers.
+     */
+    private function acceptedResponse(string $jobType): Response
+    {
+        return new Response(
+            'The request was accepted for asynchronous processing.',
+            headers: [
+                'Content-Location' => new Header(
+                    'The URL of the job resource to poll for completion.',
+                    schema: Schema::ofType('string')->withFormat('uri-reference'),
+                ),
+                'Retry-After' => new Header(
+                    'The number of seconds to wait before polling the job resource.',
+                    schema: Schema::ofType('integer'),
+                ),
+            ],
+            content: [MediaType::JSON_API => MediaType::ofSchema(
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($jobType) . 'Document')),
+            )],
+        );
+    }
+
+    /**
+     * The `303 See Other` async-completion response: a `Location` header pointing at
+     * the produced resource, no body.
+     */
+    private function seeOtherResponse(): Response
+    {
+        return new Response(
+            'The asynchronous operation is complete; follow Location to the produced resource.',
+            headers: ['Location' => new Header(
+                'The URL of the produced resource.',
+                schema: Schema::ofType('string')->withFormat('uri-reference'),
+            )],
+        );
+    }
+
+    /**
+     * The job type of a `202` response, guaranteed non-null by
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\OperationResponses::validate()}; the
+     * guard is defensive against a hand-built metadata source.
+     */
+    private function jobTypeOf(OperationResponseInterface $response): string
+    {
+        $jobType = $response->jobType();
+        if ($jobType === null) {
+            throw new \LogicException('A 202 Accepted response was declared without a job type.');
+        }
+
+        return $jobType;
+    }
+
+    /**
+     * A guard for a status a validated response set should never contain for the
+     * given operation (defensive against a hand-built metadata source).
+     */
+    private function unexpectedResponse(OperationType $operation, int $status): \LogicException
+    {
+        return new \LogicException(\sprintf(
+            'Status %d is not a valid success response for the %s operation.',
+            $status,
+            $operation->value,
+        ));
     }
 
     /**
@@ -641,24 +792,16 @@ final class OperationProjector
      * One custom action's operation (§4.5): its input mode → `requestBody`
      * (`None` → none; `Document` → the input type's create-request schema; `Raw` → a
      * permissive binary body under a generic media type with relaxed content-type
-     * negotiation), its output mode → the success response (`Document` → the output
-     * type's document schema; `Meta` → the shared meta-document schema; `None` → a
-     * `204`), its tags, and the configured security requirement when {@see isSecured()}.
+     * negotiation), its declared responses ({@see ActionMetadataInterface::responds()})
+     * → one success response each, its tags, and the configured security requirement
+     * when {@see isSecured()}.
      */
     private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server): Operation
     {
         $responses = new Responses();
-        $responses = match ($action->outputMode()) {
-            ActionOutputMode::Document => $responses->with('200', Response::ofSchema(
-                'The action result.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($this->actionOutputType($action)) . 'Document')),
-            )),
-            ActionOutputMode::Meta => $responses->with('200', Response::ofSchema(
-                'The action result: a meta-only document.',
-                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
-            )),
-            ActionOutputMode::None => $responses->with('204', Response::noContent('The action completed with no content.')),
-        };
+        foreach ($action->responds() as $response) {
+            $responses = $responses->with((string) $response->status(), $this->actionSuccessResponse($response));
+        }
 
         $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
 
@@ -722,21 +865,31 @@ final class OperationProjector
     }
 
     /**
-     * The output type of a {@see ActionOutputMode::Document} action — the type whose
-     * document schema is its `200` response. Guarded: a `Document`-mode action with no
-     * declared `outputType` is a contradiction the metadata source must not produce.
+     * The concrete success {@see Response} for one declared action response:
+     * {@see ActionResource} → `200` with that type's document; {@see MetaResult} → `200`
+     * meta-only document; {@see NoContent} → `204`; {@see Accepted} → the async `202`;
+     * {@see SeeOther} → the `303` completion redirect.
      */
-    private function actionOutputType(ActionMetadataInterface $action): string
+    private function actionSuccessResponse(ActionResponse $response): Response
     {
-        $outputType = $action->outputType();
-        if ($outputType === null) {
-            throw new \LogicException(\sprintf(
-                'Action "%s" declares a Document output mode but no output type; a Document action must name the type whose document schema is its response.',
-                $action->path(),
-            ));
-        }
-
-        return $outputType;
+        return match (true) {
+            $response instanceof ActionResource => Response::ofSchema(
+                'The action result.',
+                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($response->bodyType()) . 'Document')),
+            ),
+            $response instanceof MetaResult => Response::ofSchema(
+                'The action result: a meta-only document.',
+                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+            ),
+            $response instanceof NoContent => Response::noContent('The action completed with no content.'),
+            $response instanceof Accepted => $this->acceptedResponse($response->jobType()),
+            $response instanceof SeeOther => $this->seeOtherResponse(),
+            default => throw new \LogicException(\sprintf(
+                'Unsupported action response %s (status %d).',
+                $response::class,
+                $response->status(),
+            )),
+        };
     }
 
     // ---- Parameters (reused by the stage-B relationship/action projection) ------

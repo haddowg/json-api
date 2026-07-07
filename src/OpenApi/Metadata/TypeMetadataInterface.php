@@ -182,6 +182,19 @@ interface TypeMetadataInterface
     public function operationDescription(OperationType $operation): ?string;
 
     /**
+     * The resolved success-response set for a CRUD/read operation: the type's
+     * declared override (validated via {@see OperationResponses::validate()}), else
+     * {@see OperationResponses::defaultFor()}. The projector reads this only for the
+     * operations present in {@see operations()}, emitting one OpenAPI response per
+     * element (a `202` carrying its {@see OperationResponseInterface::jobType()}). A
+     * type that declares no override returns the single default, so its projected
+     * document is unchanged.
+     *
+     * @return non-empty-list<OperationResponseInterface>
+     */
+    public function responsesFor(OperationType $operation): array;
+
+    /**
      * The relationship paths a `?include` may request for this type (respecting the
      * include safeguards: allow-list, depth, `cannotBeIncluded`), as dotted paths
      * (e.g. `author`, `author.company`). Consumed by the Slice-3 `include` parameter

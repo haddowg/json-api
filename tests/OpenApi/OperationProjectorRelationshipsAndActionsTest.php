@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
-use haddowg\JsonApi\OpenApi\Metadata\ActionOutputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -85,7 +87,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
                 new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article'),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles']),
-                new FakeActionMetadata('stats', ['POST'], ActionScope::Collection, ActionInputMode::None, outputMode: ActionOutputMode::Meta, tags: ['Articles']),
+                new FakeActionMetadata('stats', ['POST'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles']),
             ],
         );
         $people = FakeTypeMetadata::resource(
@@ -525,6 +527,43 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
 
         self::assertArrayNotHasKey('MetaDocument', $schemas);
+    }
+
+    #[Test]
+    public function anAcceptedActionResponseProjectsThe202AsyncShape(): void
+    {
+        $type = FakeTypeMetadata::resource(
+            type: 'articles',
+            fields: [Id::make(), Str::make('title')],
+            actions: [new FakeActionMetadata('archive', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [new Accepted('export-jobs')])],
+        );
+        $jobs = FakeTypeMetadata::resource(type: 'export-jobs', fields: [Id::make(), Str::make('state')]);
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type, $jobs]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        $accepted = $this->arrAt($paths, '/articles/{id}/-actions/archive', 'post', 'responses', '202');
+        self::assertSame(
+            '#/components/schemas/ExportJobsDocument',
+            $this->strAt($accepted, 'content', 'application/vnd.api+json', 'schema', '$ref'),
+        );
+        self::assertArrayHasKey('Content-Location', $this->arrAt($accepted, 'headers'));
+        self::assertArrayHasKey('Retry-After', $this->arrAt($accepted, 'headers'));
+    }
+
+    #[Test]
+    public function aSeeOtherActionResponseProjectsThe303Redirect(): void
+    {
+        $type = FakeTypeMetadata::resource(
+            type: 'articles',
+            fields: [Id::make(), Str::make('title')],
+            actions: [new FakeActionMetadata('result', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new SeeOther()])],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        $seeOther = $this->arrAt($paths, '/articles/{id}/-actions/result', 'get', 'responses', '303');
+        self::assertArrayHasKey('Location', $this->arrAt($seeOther, 'headers'));
+        self::assertArrayNotHasKey('content', $seeOther);
     }
 
     #[Test]
