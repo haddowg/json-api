@@ -30,6 +30,7 @@ final class ResourceTypeUnacceptable extends AbstractJsonApiException
                 code: 'RESOURCE_TYPE_UNACCEPTABLE',
                 title: 'Resource type is unacceptable',
                 detail: "Resource type '$this->currentType' is unacceptable!",
+                context: ['type' => $this->currentType],
                 source: ErrorSource::fromPointer('/data/type'),
             ),
         ];

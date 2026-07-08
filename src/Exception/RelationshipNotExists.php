@@ -21,6 +21,7 @@ final class RelationshipNotExists extends AbstractJsonApiException
                 code: 'RELATIONSHIP_NOT_EXISTS',
                 title: 'The requested relationship does not exist!',
                 detail: $this->getMessage(),
+                context: ['relationship' => $this->relationship],
             ),
         ];
     }

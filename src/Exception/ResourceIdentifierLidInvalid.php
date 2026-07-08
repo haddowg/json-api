@@ -21,6 +21,7 @@ final class ResourceIdentifierLidInvalid extends AbstractJsonApiException
                 code: 'RESOURCE_IDENTIFIER_LID_INVALID',
                 title: 'Resource identifier local ID is invalid',
                 detail: "The resource local ID (lid) must be a string instead of $this->type!",
+                context: ['type' => $this->type],
             ),
         ];
     }

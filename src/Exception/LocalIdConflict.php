@@ -30,6 +30,7 @@ final class LocalIdConflict extends AbstractJsonApiException
                 code: 'LOCAL_ID_CONFLICT',
                 title: 'Local id conflict',
                 detail: $this->getMessage(),
+                context: ['lid' => $this->lid, 'type' => $this->type],
             ),
         ];
     }

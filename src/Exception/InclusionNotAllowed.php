@@ -35,6 +35,7 @@ final class InclusionNotAllowed extends AbstractJsonApiException
                 code: 'INCLUSION_NOT_ALLOWED',
                 title: 'Inclusion is not allowed',
                 detail: "Included paths '" . \implode(', ', $this->paths) . "' are not allowed by the endpoint!",
+                context: ['paths' => \implode(', ', $this->paths)],
                 source: ErrorSource::fromParameter('include'),
             ),
         ];

@@ -22,6 +22,7 @@ final class MediaTypeUnsupported extends AbstractJsonApiException
                 code: 'MEDIA_TYPE_UNSUPPORTED',
                 title: 'The provided media type is unsupported',
                 detail: $this->getMessage(),
+                context: ['mediaType' => $this->mediaTypeName, 'header' => 'Content-Type'],
                 source: ErrorSource::fromParameter('content-type'),
             ),
         ];

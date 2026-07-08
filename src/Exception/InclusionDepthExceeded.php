@@ -34,6 +34,7 @@ final class InclusionDepthExceeded extends AbstractJsonApiException
                 code: 'INCLUSION_DEPTH_EXCEEDED',
                 title: 'Inclusion depth exceeded',
                 detail: "Included paths '" . \implode(', ', $this->paths) . "' exceed the maximum include depth of " . $this->maxDepth . ' permitted by the endpoint!',
+                context: ['paths' => \implode(', ', $this->paths), 'maxDepth' => $this->maxDepth],
                 source: ErrorSource::fromParameter('include'),
             ),
         ];

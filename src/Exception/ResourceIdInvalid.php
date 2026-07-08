@@ -22,6 +22,7 @@ final class ResourceIdInvalid extends AbstractJsonApiException
                 code: 'RESOURCE_ID_INVALID',
                 title: 'Resource ID is invalid',
                 detail: "The resource ID must be a string instead of $this->type!",
+                context: ['type' => $this->type],
                 source: ErrorSource::fromPointer('/data/id'),
             ),
         ];

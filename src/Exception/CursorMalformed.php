@@ -32,6 +32,7 @@ final class CursorMalformed extends AbstractJsonApiException
                 code: 'CURSOR_MALFORMED',
                 title: 'Cursor is malformed',
                 detail: "The cursor supplied in '$this->parameter' could not be decoded.",
+                context: ['parameter' => $this->parameter],
                 source: ErrorSource::fromParameter($this->parameter),
             ),
         ];

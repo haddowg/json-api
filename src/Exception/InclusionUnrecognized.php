@@ -28,6 +28,7 @@ final class InclusionUnrecognized extends AbstractJsonApiException
                 code: 'INCLUSION_UNRECOGNIZED',
                 title: 'Inclusion is unrecognized',
                 detail: "Included paths '" . \implode(', ', $this->unrecognizedInclusions) . "' can't be recognized by the endpoint!",
+                context: ['paths' => \implode(', ', $this->unrecognizedInclusions)],
                 source: ErrorSource::fromParameter('include'),
             ),
         ];

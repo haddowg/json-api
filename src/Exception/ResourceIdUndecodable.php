@@ -29,6 +29,7 @@ final class ResourceIdUndecodable extends AbstractJsonApiException
                 code: 'RESOURCE_ID_UNDECODABLE',
                 title: 'Resource ID is undecodable',
                 detail: $this->getMessage(),
+                context: ['id' => $this->id],
                 source: ErrorSource::fromPointer('/data/id'),
             ),
         ];

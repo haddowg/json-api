@@ -22,6 +22,7 @@ final class FilterParamUnrecognized extends AbstractJsonApiException
                 code: 'FILTERING_UNRECOGNIZED',
                 title: 'Filtering parameter is unrecognized',
                 detail: "Filtering parameter '$this->filterParam' can't be recognized by the endpoint!",
+                context: ['filter' => $this->filterParam],
                 source: ErrorSource::fromParameter("filter[$this->filterParam]"),
             ),
         ];

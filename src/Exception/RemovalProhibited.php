@@ -22,6 +22,7 @@ final class RemovalProhibited extends AbstractJsonApiException
                 code: 'REMOVAL_PROHIBITED',
                 title: 'Removal is prohibited',
                 detail: $this->getMessage(),
+                context: ['relationship' => $this->relationshipName],
                 source: ErrorSource::fromPointer("/data/relationships/$this->relationshipName"),
             ),
         ];

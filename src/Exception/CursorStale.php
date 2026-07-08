@@ -36,6 +36,7 @@ final class CursorStale extends AbstractJsonApiException
                 code: 'CURSOR_STALE',
                 title: 'Cursor is stale',
                 detail: "The cursor supplied in '$this->parameter' was built for a different sort order and can no longer be used.",
+                context: ['parameter' => $this->parameter],
                 source: ErrorSource::fromParameter($this->parameter),
             ),
         ];

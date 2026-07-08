@@ -158,6 +158,15 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
      */
     private ?\Closure $resolver = null;
 
+    /**
+     * The resolver that supplies a localized/overridden message template per error
+     * code, or null for the default (each error renders its own inline copy).
+     * Unlike the relationship resolvers this is read directly by the response layer
+     * (via {@see ServerInterface}) at render time, so it is a plain config value —
+     * not pushed into the {@see ResourceRegistry}.
+     */
+    private ?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface $errorMessageResolver = null;
+
     public function __construct()
     {
         $this->resources = new ResourceRegistry();
@@ -208,6 +217,21 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     {
         $self = clone $this;
         $self->defaultPaginator = $paginator;
+
+        return $self;
+    }
+
+    /**
+     * Sets the resolver the response layer consults to localize or override an
+     * error's `title`/`detail` per its stable `code` (an integration binds a thin
+     * adapter over its framework translator). Passing `null` (the default) restores
+     * the standalone behaviour: every error renders its own inline copy. Only the
+     * copy is resolvable — an error's `code` and `status` are never overridden.
+     */
+    public function withErrorMessageResolver(?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface $resolver): self
+    {
+        $self = clone $this;
+        $self->errorMessageResolver = $resolver;
 
         return $self;
     }
@@ -596,6 +620,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->defaultPaginator;
+    }
+
+    public function errorMessageResolver(): ?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface
+    {
+        return $this->errorMessageResolver;
     }
 
     public function maxIncludeDepth(): ?int

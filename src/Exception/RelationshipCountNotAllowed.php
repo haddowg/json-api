@@ -37,6 +37,7 @@ final class RelationshipCountNotAllowed extends AbstractJsonApiException
                 code: 'RELATIONSHIP_COUNT_NOT_ALLOWED',
                 title: 'Relationship count is not allowed',
                 detail: "Counted relationships '" . \implode(', ', $this->names) . "' are not countable to-many relationships of this resource!",
+                context: ['names' => \implode(', ', $this->names)],
                 source: ErrorSource::fromParameter('withCount'),
             ),
         ];

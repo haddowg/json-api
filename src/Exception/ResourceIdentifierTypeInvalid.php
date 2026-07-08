@@ -21,6 +21,7 @@ final class ResourceIdentifierTypeInvalid extends AbstractJsonApiException
                 code: 'RESOURCE_IDENTIFIER_TYPE_INVALID',
                 title: 'Resource identifier type is invalid',
                 detail: "The resource type must be a string instead of $this->type!",
+                context: ['type' => $this->type],
             ),
         ];
     }

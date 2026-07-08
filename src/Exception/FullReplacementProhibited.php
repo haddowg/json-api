@@ -22,6 +22,7 @@ final class FullReplacementProhibited extends AbstractJsonApiException
                 code: 'FULL_REPLACEMENT_PROHIBITED',
                 title: 'Full replacement is prohibited',
                 detail: $this->getMessage(),
+                context: ['relationship' => $this->relationshipName],
                 source: ErrorSource::fromPointer("/data/relationships/$this->relationshipName"),
             ),
         ];

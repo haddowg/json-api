@@ -22,6 +22,7 @@ final class QueryParamUnrecognized extends AbstractJsonApiException
                 code: 'QUERY_PARAM_UNRECOGNIZED',
                 title: 'Query parameter is unrecognized',
                 detail: "Query parameter '$this->unrecognizedQueryParam' can't be recognized by the endpoint!",
+                context: ['param' => $this->unrecognizedQueryParam],
                 source: ErrorSource::fromParameter($this->unrecognizedQueryParam),
             ),
         ];

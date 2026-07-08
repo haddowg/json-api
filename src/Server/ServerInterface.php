@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Server;
 
+use haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface;
 use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -67,4 +68,13 @@ interface ServerInterface
      * The PSR-17 factory used to create the response body stream.
      */
     public function streamFactory(): StreamFactoryInterface;
+
+    /**
+     * The resolver that supplies a (possibly localized) replacement message
+     * template per error {@see \haddowg\JsonApi\Schema\Error\Error::$code}, or
+     * `null` for the default (each error renders its own inline `title`/`detail`).
+     * The response layer consults it once per error and interpolates the error's
+     * context into the returned template.
+     */
+    public function errorMessageResolver(): ?ErrorMessageResolverInterface;
 }

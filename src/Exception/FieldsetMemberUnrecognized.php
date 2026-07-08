@@ -31,6 +31,7 @@ final class FieldsetMemberUnrecognized extends AbstractJsonApiException
                 code: 'FIELDSET_MEMBER_UNRECOGNIZED',
                 title: 'Fieldset member is unrecognized',
                 detail: "Fields '" . \implode(', ', $this->unrecognizedMembers) . "' requested for type '" . $this->type . "' can't be recognized by the endpoint!",
+                context: ['members' => \implode(', ', $this->unrecognizedMembers), 'type' => $this->type],
                 source: ErrorSource::fromParameter('fields'),
             ),
         ];
