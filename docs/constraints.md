@@ -334,6 +334,64 @@ projected schema agrees: on a nullable field a `oneOf`/`anyOf` gains an explicit
 null branch and an `allOf` hoists into `anyOf: [null, {allOf}]`, so the document
 admits the same `null` the runtime accepts.
 
+### Rolling your own composite constraint
+
+`Shape` holds no privileged status — it is just a `ProvidesJsonSchema` constraint
+that reaches for the `withOneOf` / `withAnyOf` / `withAllOf` (and
+`withDiscriminator`) withers inside `contribute()`. When the same composite
+recurs across resources, wrap it in a **named** constraint of your own rather
+than restating the member schemas at every `Shape::oneOf(...)` call site — the
+constraint becomes reusable, self-documenting vocabulary for that shape:
+
+```php
+final readonly class GeoJsonGeometry implements ProvidesJsonSchema
+{
+    public function __construct(public Context $context = new Context()) {}
+
+    public function context(): Context
+    {
+        return $this->context;
+    }
+
+    public function contribute(Schema $schema): Schema
+    {
+        $position = Schema::ofType('array')->withItems(Schema::ofType('number'));
+
+        return $schema->withOneOf([
+            Schema::ofType('object')
+                ->withProperties([
+                    'type' => Schema::ofType('string')->withConst('Point'),
+                    'coordinates' => $position,
+                ])
+                ->withRequired(['type', 'coordinates']),
+            Schema::ofType('object')
+                ->withProperties([
+                    'type' => Schema::ofType('string')->withConst('LineString'),
+                    'coordinates' => Schema::ofType('array')->withItems($position),
+                ])
+                ->withRequired(['type', 'coordinates']),
+        ])->withDiscriminator('type');
+    }
+}
+```
+
+Attach it like any other custom constraint — the field carries the base type, the
+constraint the combinator:
+
+```php
+ArrayHash::make('location')->nullable()->constrain(new GeoJsonGeometry());
+```
+
+Because it rides the same seam as `HexFormat` above, the `oneOf` (and its
+`discriminator`) appears in **both** the compiled request-validation schema and
+the published OpenAPI document, with no core change. How it is *executed* is an
+adapter concern (see [the core boundary](#the-core-boundary) below): `Shape`
+additionally carries a field-level
+[`SchemaValueValidator`](../src/Validation/SchemaValueValidator.php) that adapters
+wire by type, so reach for the built-in `Shape` when you want the per-field `422`
+value pass, and author your own when you want a named, reusable, self-documenting
+composite.
+
 ## The core boundary
 
 Core defines the constraint **vocabulary** and nothing more. It ships:
