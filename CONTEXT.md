@@ -39,6 +39,19 @@ _Avoid_: deserializer, denormalizer, mapper.
 Metadata describing a filter a type accepts; an **Adapter** executes it.
 _Avoid_: scope, criteria.
 
+**Filter group**:
+A composite **Filter** (`WhereAll` / `WhereAny`) that combines child filters with
+boolean AND / OR under one `filter[<key>]` key. Composed by the author — a client
+cannot assemble arbitrary boolean algebra. The group's request value is passed to
+every child, so it either fans one value across columns (search) or toggles a set
+of **fixed**-value conditions.
+_Avoid_: boolean filter, and/or grouping (implies the declined client-driven model).
+
+**Fixed value**:
+A **Filter** value pinned by the author (`->fixed(…)`) so the request value is
+ignored and the key becomes a presence trigger. Distinct from a **default**, which
+the client can override.
+
 **Sort**:
 Metadata describing a sort key a type accepts.
 

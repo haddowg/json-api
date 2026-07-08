@@ -259,6 +259,7 @@ the filters that carry the helper expose it:
 | `deserializeUsing(\Closure)` | `Where` | a value transformer applied before comparison |
 | `asBoolean()` | `Where` | a shortcut for `deserializeUsing()` coercing via `FILTER_VALIDATE_BOOLEAN` |
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
+| `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 
 ```php
@@ -364,6 +365,43 @@ $requested = FilterDefaults::apply($request->getFiltering(), $resource->filters(
 When two declared filters share a key, the first wins — the same first-match
 rule a handler uses to resolve a requested key to its declared filter. A custom
 filter opts in by implementing `HasDefaultValue` itself.
+
+## Fixed values
+
+`->fixed($value)` pins the compared value on a `Where` (or any convenience
+subclass): the request value is **ignored** and the key becomes a **presence
+trigger** — sending `filter[<key>]` with *any* value applies `column <operator>
+<value>`, and omitting the key does not apply it at all.
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\GreaterThan;
+
+Where::make('status')->fixed('published');   // filter[status]=<anything> → status = 'published'
+GreaterThan::make('priority')->fixed(5);      // filter[priority]=<anything> → priority > 5
+```
+
+Contrast it with [`default()`](#default-values):
+
+| | `->default($v)` | `->fixed($v)` |
+|---|---|---|
+| Applies when the key is **absent** | yes (folds `$v` in) | no |
+| Applies when the key is **present** | yes, with the client's value | yes, always with `$v` |
+| Client can **override** the value | yes — a sent value wins | no — the sent value is ignored |
+
+A default is a convenience the client can override; a fixed value is one it
+cannot influence at all. (Anything the client must be *unable to remove* — a
+soft-delete exclusion, tenant scoping — still belongs in your data layer, not a
+presence-triggered filter the client chooses whether to send.)
+
+`->fixed()` needs **no handler support of its own**: it routes execution through
+the existing value-deserializer seam (the compared value becomes a constant), so
+the built-in `Where` arm — in the reference `ArrayFilterHandler` and in a Doctrine
+or Eloquent adapter — runs it unchanged. Because the request value carries no
+meaning, any [declared value constraints](#validating-filter-values) are dropped
+(there is nothing client-supplied to validate), and the OpenAPI generator
+documents the parameter honestly as server-applied — its presence applies the
+filter, its value is ignored.
 
 ## Validating filter values
 
@@ -552,6 +590,112 @@ value as a **list** — either an already-array value
 (`filter[genres]=a,b`, split on the configured `delimiter()`). The split happens
 in the handler: the reference `ArrayFilterHandler` consults `$filter->delimiter`
 (defaulting to `,`) and treats an array value as already-split.
+
+## Filter groups: `WhereAll` / `WhereAny`
+
+By default distinct filters combine with an implicit **AND** across separate
+`filter[<key>]` keys. When you need **OR across columns**, or a single named
+condition that bundles several comparisons, compose a **filter group**:
+`WhereAll` (AND) and `WhereAny` (OR) are value objects carrying a `key()` and a
+`list<FilterInterface>` of children. The group is composed **server-side** by the
+resource author — the client picks *whether* to send `filter[<key>]`, never how
+the boolean algebra is assembled.
+
+Two properties make groups expressive:
+
+- The group **passes its own request value to every child**. So a group of
+  value-carrying children fans one value across columns.
+- A child's own `key()` is **ignored as a request parameter** (only the group's
+  key is a `filter[...]`), but still drives the child's **column** — so
+  `Contains::make('name')` filters column `name` whatever the group key is.
+
+### Fan-out search
+
+`WhereAny` over several `Contains` children is a multi-column search — one value,
+many columns:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereAny;
+use haddowg\JsonApi\Resource\Filter\Contains;
+
+public function filters(): array
+{
+    return [
+        WhereAny::make('q', Contains::make('name'), Contains::make('email'))
+            ->describedAs('Search by name or email.'),
+    ];
+}
+```
+
+```
+GET /users?filter[q]=foo   →  name LIKE '%foo%' OR email LIKE '%foo%'
+```
+
+A fanning group declares its **shared value's** constraints exactly like a
+`Where` (`->numeric()`, `->pattern(...)`, `->constrain(...)`), and the OpenAPI
+generator projects it as a single scalar `filter[q]` value parameter.
+
+### Canned toggle
+
+Combine `->fixed()` children and the group becomes a **canned toggle** — its
+presence applies a fixed, multi-condition predicate and the request value is
+ignored:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereAll;
+use haddowg\JsonApi\Resource\Filter\GreaterThan;
+use haddowg\JsonApi\Resource\Filter\Boolean;
+
+WhereAll::make('urgent',
+    GreaterThan::make('priority')->fixed(5),
+    Boolean::make('flagged')->fixed(true),
+);
+```
+
+```
+GET /tickets?filter[urgent]=1   →  priority > 5 AND flagged = true
+```
+
+Because every child is [fixed](#fixed-values), the group is presence-triggered:
+the OpenAPI generator documents `filter[urgent]` as server-applied (value
+ignored), and a group whose children all fix their value declares no value
+constraints of its own.
+
+### Nesting
+
+Groups nest arbitrarily — a group child is itself a `FilterInterface`, so it
+re-enters the same dispatch — letting the author compose `(A AND (B OR C))`:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereAll;
+use haddowg\JsonApi\Resource\Filter\WhereAny;
+use haddowg\JsonApi\Resource\Filter\Contains;
+use haddowg\JsonApi\Resource\Filter\Boolean;
+use haddowg\JsonApi\Resource\Filter\GreaterThan;
+
+WhereAll::make('search',
+    Contains::make('name'),                       // fans the request value
+    WhereAny::make('inner',
+        Boolean::make('flagged')->fixed(true),    // ignores it
+        GreaterThan::make('priority')->fixed(100),
+    ),
+);
+```
+
+```
+GET /users?filter[search]=bob
+    →  name LIKE '%bob%' AND (flagged = true OR priority > 100)
+```
+
+This stays owner-vetted: the client cannot assemble arbitrary boolean algebra
+(no client-driven `filter[and]`/`[or]`), so it does not widen the allow-list the
+group defines. See [ADR 0129](adr/0129-server-composed-filter-groups.md).
+
+Each provider runs a group through one recursive handler arm that combines its
+children with `AND`/`OR` — the reference `ArrayFilterHandler` ships one, and the
+Doctrine and Eloquent adapters each add their own (`andX()`/`orX()`, nested
+`where(fn ($q) => …)`). A child the handler doesn't recognise resolves through the
+same [custom-filter](#writing-a-custom-filter) fallthrough it would at the top level.
 
 ## Writing a custom filter
 
