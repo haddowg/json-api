@@ -101,6 +101,7 @@ the rendered document. Use named arguments:
 | `source` | `?ErrorSource` | Locates the cause in the request (see below). |
 | `links` | `?ErrorLinks` | An `about`/`type` link for the error. |
 | `meta` | `array<string, mixed>` | Non-standard meta-information. |
+| `context` | `array<string, scalar\|Stringable>` | Occurrence values interpolated into the `title`/`detail` templates — internal, never serialized. See [Localizing and overriding error copy](#localizing-and-overriding-error-copy). |
 
 The `source` member points at the part of the request that caused the error. It
 has three mutually exclusive constructors — pick the one matching where the cause
@@ -111,6 +112,64 @@ lives:
 | `ErrorSource::fromPointer('/data/attributes/name')` | `pointer` | the request **document body** (a JSON Pointer, RFC 6901) |
 | `ErrorSource::fromParameter('filter[genre]')` | `parameter` | a **query parameter** |
 | `ErrorSource::fromHeader('Accept')` | `header` | a request **header** |
+
+## Localizing and overriding error copy
+
+Every error's `title` and `detail` are **message templates** resolved at render
+time. By default an error renders its own inline copy — the English catalogue — so
+nothing changes until you bind a resolver. Bind one on the `Server` to localize or
+rebrand the copy per error `code`:
+
+```php
+use haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface;
+
+$server = Server::make()->withErrorMessageResolver(
+    new class implements ErrorMessageResolverInterface {
+        public function title(string $code): ?string
+        {
+            return ['RESOURCE_NOT_FOUND' => 'Introuvable'][$code] ?? null;
+        }
+
+        public function detail(string $code): ?string
+        {
+            return [
+                'MEDIA_TYPE_UNSUPPORTED' => "Le type de média '{mediaType}' n'est pas supporté.",
+            ][$code] ?? null;
+        }
+    },
+);
+```
+
+The resolver is consulted once per error, keyed by its stable `code`. It returns a
+(possibly localized) **template**, or `null` to keep that slot's default — so a
+partial translation degrades gracefully per slot. The render layer then interpolates
+the error's **context** into the template: a `{placeholder}` token is replaced by the
+matching `context` value (a media type, an id — the occurrence-specific, locale-
+invariant parameters each catalogue exception supplies), PSR-3 style. A token with no
+matching key is **left literal** — the render path never throws.
+
+Only the human copy is resolvable. An error's `code` and `status` are the machine and
+HTTP contract and are **never** overridden — the interface exposes only `title` and
+`detail`. And the resolver is applied **uniformly** to every error in the response, so
+a coded error an integration builds itself — for example a validator's `422` whose
+`title` is `Unprocessable Entity` under code `VALIDATION_FAILED` — is localized through
+the same seam, with nothing special-cased.
+
+> **This is core's whole job here.** Locale *negotiation* — turning an
+> `Accept-Language` header into the current locale — is the framework's concern, not
+> core's. A framework integration binds a thin resolver over its own translator
+> (`lang/errors.php`, `translations/errors.*.yaml`), which is already locale-aware, and
+> core interpolates whatever template that translator returns. See the
+> [Symfony](https://github.com/haddowg/json-api-symfony) and
+> [Laravel](https://github.com/haddowg/json-api-laravel) integrations.
+
+The available `{placeholder}` names are the keys of each error's `context`. The
+catalogue populates context for the dynamic parameters in its messages — for
+`MEDIA_TYPE_UNSUPPORTED`, `{mediaType}` and `{header}`; for a relationship prohibition,
+`{relationship}`; for an unrecognized filter, `{filter}` — so a translated template can
+reference them. An error whose detail is caller-supplied or built from a list carries
+no such parameters: its title still localizes, and its detail can still be overridden
+with a static string.
 
 ## Unexpected throwables: the generic 500
 

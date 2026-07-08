@@ -22,6 +22,7 @@ final class SortParamUnrecognized extends AbstractJsonApiException
                 code: 'SORTING_UNRECOGNIZED',
                 title: 'Sorting parameter is unrecognized',
                 detail: "Sorting parameter '$this->sortParam' can't be recognized by the endpoint!",
+                context: ['param' => $this->sortParam],
                 source: ErrorSource::fromParameter('sort'),
             ),
         ];

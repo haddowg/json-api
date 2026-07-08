@@ -38,6 +38,7 @@ final class AttributeValueInvalid extends AbstractJsonApiException
                 code: 'ATTRIBUTE_VALUE_INVALID',
                 title: 'Attribute value is invalid',
                 detail: $this->getMessage(),
+                context: ['attribute' => $this->attribute, 'reason' => $this->reason],
                 source: ErrorSource::fromPointer('/data/attributes/' . $this->attribute),
             ),
         ];

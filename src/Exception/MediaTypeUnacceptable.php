@@ -22,6 +22,7 @@ final class MediaTypeUnacceptable extends AbstractJsonApiException
                 code: 'MEDIA_TYPE_UNACCEPTABLE',
                 title: 'The provided media type is unacceptable',
                 detail: $this->getMessage(),
+                context: ['mediaType' => $this->mediaTypeName, 'header' => 'Accept'],
                 source: ErrorSource::fromParameter('accept'),
             ),
         ];

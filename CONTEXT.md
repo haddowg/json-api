@@ -77,6 +77,24 @@ A complete top-level JSON:API payload (data/errors/meta + links).
 The public value object a handler returns (data, error, meta, related, identifier)
 before it is rendered to a PSR-7 message.
 
+### Errors
+
+**Error catalogue**:
+The fixed set of error kinds the library can emit — one typed exception per kind,
+each carrying its own error data. _Avoid_: error registry, error map.
+
+**Error code**:
+The stable, machine-readable identifier of an error kind (`RESOURCE_NOT_FOUND`) —
+the contract a client codes against. Never localized, never overridden; the key by
+which human copy is resolved. Distinct from **status** (the HTTP status) and from
+the **title**/**detail** copy.
+
+**Message template**:
+An error's human-readable **title** or **detail** as a translatable string with
+`{placeholder}` slots, filled per occurrence from a **context** of locale-invariant
+values (a media type, an id). Localization resolves the template by **Error code**;
+the placeholders are interpolated *after*.
+
 ## Relationships
 
 - A **Server** registers many **Resources** and **Profiles**.
@@ -84,6 +102,7 @@ before it is rendered to a PSR-7 message.
 - A **Field** may be a **Relation** and may carry **Constraints**.
 - An **Operation** names a **Target** and is handled to produce a **Response**.
 - A **Paginator** produces a **Page**; a **Filter** or **Sort** is executed by an **Adapter**.
+- An **Error catalogue** entry is identified by its **Error code**; its **title**/**detail** are **Message templates** filled from an occurrence **context**.
 
 ## Example dialogue
 

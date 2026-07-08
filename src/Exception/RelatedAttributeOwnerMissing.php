@@ -42,6 +42,7 @@ final class RelatedAttributeOwnerMissing extends AbstractJsonApiException
                 code: 'RELATED_ATTRIBUTE_OWNER_MISSING',
                 title: 'Related attribute owner missing',
                 detail: $this->getMessage(),
+                context: ['attribute' => $this->attribute, 'relation' => $this->relation],
                 source: ErrorSource::fromPointer('/data/attributes/' . $this->attribute),
             ),
         ];

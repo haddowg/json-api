@@ -23,6 +23,7 @@ final class RequestBodyInvalidJson extends AbstractJsonApiException
                 code: 'REQUEST_BODY_INVALID_JSON',
                 title: 'Request body is an invalid JSON document',
                 detail: $this->getMessage(),
+                context: ['message' => $this->lintMessage],
                 meta: $this->originalBody !== null ? ['original' => $this->originalBody] : [],
             ),
         ];

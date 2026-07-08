@@ -27,6 +27,7 @@ final class ResourceIdConflict extends AbstractJsonApiException
                 code: 'RESOURCE_ID_CONFLICT',
                 title: 'Resource id conflict',
                 detail: $this->getMessage(),
+                context: ['documentId' => $this->documentId, 'endpointId' => $this->endpointId],
                 source: ErrorSource::fromPointer('/data/id'),
             ),
         ];

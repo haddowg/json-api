@@ -24,6 +24,7 @@ final class QueryParamMalformed extends AbstractJsonApiException
                 code: 'QUERY_PARAM_MALFORMED',
                 title: 'Query parameter is malformed',
                 detail: "Query parameter '$this->malformedQueryParam' is malformed!",
+                context: ['param' => $this->malformedQueryParam],
                 source: ErrorSource::fromParameter($this->malformedQueryParam),
             ),
         ];

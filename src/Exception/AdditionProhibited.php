@@ -22,6 +22,7 @@ final class AdditionProhibited extends AbstractJsonApiException
                 code: 'ADDITION_PROHIBITED',
                 title: 'Addition is prohibited',
                 detail: $this->getMessage(),
+                context: ['relationship' => $this->relationshipName],
                 source: ErrorSource::fromPointer("/data/relationships/$this->relationshipName"),
             ),
         ];

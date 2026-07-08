@@ -30,6 +30,7 @@ final class LocalIdNotFound extends AbstractJsonApiException
                 code: 'LOCAL_ID_NOT_FOUND',
                 title: 'Local id not found',
                 detail: $this->getMessage(),
+                context: ['lid' => $this->lid, 'type' => $this->type],
             ),
         ];
     }

@@ -22,6 +22,7 @@ final class ClientGeneratedIdAlreadyExists extends AbstractJsonApiException
                 code: 'CLIENT_GENERATED_ID_ALREADY_EXISTS',
                 title: 'Client generated ID already exists',
                 detail: $this->getMessage(),
+                context: ['id' => $this->clientGeneratedId],
                 source: ErrorSource::fromPointer('/data/id'),
             ),
         ];

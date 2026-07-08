@@ -25,6 +25,7 @@ final class NoResourceRegistered extends AbstractJsonApiException
             code: 'NO_RESOURCE_REGISTERED',
             title: 'No resource registered',
             detail: $this->getMessage(),
+            context: ['type' => $this->type],
         )];
     }
 }

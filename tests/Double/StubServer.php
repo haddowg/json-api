@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Double;
 
 use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
+use haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
 use haddowg\JsonApi\Serializer\RelationshipLoadStateInterface;
@@ -37,6 +38,7 @@ final class StubServer implements ResolvingServerInterface
         private readonly int $encodeOptions = 0,
         ?ProfileRegistry $profiles = null,
         private readonly ?int $maxIncludeDepth = null,
+        private readonly ?ErrorMessageResolverInterface $errorMessageResolver = null,
     ) {
         $this->psr17Factory = new Psr17Factory();
         $this->profiles = $profiles ?? new ProfileRegistry();
@@ -80,6 +82,11 @@ final class StubServer implements ResolvingServerInterface
     public function streamFactory(): StreamFactoryInterface
     {
         return $this->psr17Factory;
+    }
+
+    public function errorMessageResolver(): ?ErrorMessageResolverInterface
+    {
+        return $this->errorMessageResolver;
     }
 
     public function serializerFor(string $type): SerializerInterface

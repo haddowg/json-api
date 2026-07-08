@@ -15,12 +15,20 @@ use haddowg\JsonApi\Schema\Link\ErrorLinks;
  * {@see transform()} accordingly. Use named arguments for readable construction:
  * `new Error(status: '404', code: 'NOT_FOUND', title: 'Resource not found')`.
  *
+ * `title` and `detail` are message *templates*: the render layer interpolates
+ * `{placeholder}` tokens in them from `$context` (locale-invariant, occurrence-
+ * specific values such as a media type or an id), so an
+ * {@see ErrorMessageResolverInterface} can supply a localized replacement template
+ * keyed by the stable `$code`. `$context` is interpolation input only — it is
+ * @internal and never serialized to the wire.
+ *
  * @see https://jsonapi.org/format/1.1/#error-objects
  */
 final readonly class Error
 {
     /**
-     * @param array<string, mixed> $meta
+     * @param array<string, mixed>              $meta
+     * @param array<string, scalar|\Stringable> $context
      */
     public function __construct(
         public string $id = '',
@@ -31,6 +39,7 @@ final readonly class Error
         public ?ErrorSource $source = null,
         public ?ErrorLinks $links = null,
         public array $meta = [],
+        public array $context = [],
     ) {}
 
     /**

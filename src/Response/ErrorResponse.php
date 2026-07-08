@@ -8,6 +8,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
 use haddowg\JsonApi\Schema\Document\ErrorDocument;
 use haddowg\JsonApi\Schema\Error\Error;
+use haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
 use haddowg\JsonApi\Transformer\ErrorDocumentTransformation;
@@ -47,7 +48,7 @@ final class ErrorResponse extends AbstractResponse
         // documentation URL is never corrupted.
         $baseUri = \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri());
 
-        $document = new ErrorDocument($this->rebaseErrors($baseUri));
+        $document = new ErrorDocument($this->resolveErrors($baseUri, $server->errorMessageResolver()));
         $document->setJsonApi($this->resolveJsonApi($server));
         $document->setMeta($this->meta);
         $document->setLinks($this->links?->rebasedTo($baseUri));
@@ -60,29 +61,59 @@ final class ErrorResponse extends AbstractResponse
     }
 
     /**
-     * Returns the errors with each one's `links` ({@see \haddowg\JsonApi\Schema\Link\ErrorLinks})
-     * rebound to the resolved base URI, leaving an error without links untouched.
+     * Returns the errors ready to render: each one's `title`/`detail` resolved
+     * through the optional {@see ErrorMessageResolverInterface} (by its `code`),
+     * its {@see Error::$context} interpolated into the resulting template, and its
+     * `links` ({@see \haddowg\JsonApi\Schema\Link\ErrorLinks}) rebound to the
+     * resolved base URI. Applied uniformly to every error — so a host-built error
+     * that carries a `code` (e.g. an adapter's `422` validation title) localizes
+     * through the same seam. With no resolver bound and no context, an error's
+     * copy is byte-identical to its inline `title`/`detail`.
      *
      * @return list<Error>
      */
-    private function rebaseErrors(string $baseUri): array
+    private function resolveErrors(string $baseUri, ?ErrorMessageResolverInterface $resolver): array
     {
-        $rebased = [];
+        $resolved = [];
         foreach ($this->errors as $error) {
-            $rebased[] = $error->links === null
-                ? $error
-                : new Error(
-                    id: $error->id,
-                    status: $error->status,
-                    code: $error->code,
-                    title: $error->title,
-                    detail: $error->detail,
-                    source: $error->source,
-                    links: $error->links->rebasedTo($baseUri),
-                    meta: $error->meta,
-                );
+            $title = ($error->code !== '' ? $resolver?->title($error->code) : null) ?? $error->title;
+            $detail = ($error->code !== '' ? $resolver?->detail($error->code) : null) ?? $error->detail;
+
+            $resolved[] = new Error(
+                id: $error->id,
+                status: $error->status,
+                code: $error->code,
+                title: self::interpolate($title, $error->context),
+                detail: self::interpolate($detail, $error->context),
+                source: $error->source,
+                links: $error->links?->rebasedTo($baseUri),
+                meta: $error->meta,
+                context: $error->context,
+            );
         }
 
-        return $rebased;
+        return $resolved;
+    }
+
+    /**
+     * Interpolates `{placeholder}` tokens in `$template` from `$context` (PSR-3
+     * style), leaving a token with no matching key literal. A template with no
+     * tokens — or an empty context — is returned unchanged, so the resolver-free
+     * default renders exactly the error's inline copy.
+     *
+     * @param array<string, scalar|\Stringable> $context
+     */
+    private static function interpolate(string $template, array $context): string
+    {
+        if ($context === [] || $template === '') {
+            return $template;
+        }
+
+        $replacements = [];
+        foreach ($context as $key => $value) {
+            $replacements['{' . $key . '}'] = (string) $value;
+        }
+
+        return \strtr($template, $replacements);
     }
 }
