@@ -13,9 +13,14 @@ use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Filter\Boolean;
+use haddowg\JsonApi\Resource\Filter\Contains;
 use haddowg\JsonApi\Resource\Filter\DateRange;
+use haddowg\JsonApi\Resource\Filter\GreaterThan;
 use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereAll;
+use haddowg\JsonApi\Resource\Filter\WhereAny;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -67,6 +72,10 @@ final class OperationProjectorTest extends TestCase
                 Range::make('rating'),
                 DateRange::make('published'),
                 new CommaListFilter('labels'),
+                Where::make('archived')->fixed(true),
+                WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
+                    ->describedAs('Search title or summary.'),
+                WhereAll::make('urgent', GreaterThan::make('wordCount')->fixed(1000), Boolean::make('featured')->fixed(true)),
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             includablePaths: ['author', 'tags', 'author.company'],
@@ -220,6 +229,51 @@ final class OperationProjectorTest extends TestCase
         self::assertSame('date-time', $this->strAt($published, 'schema', 'properties', 'min', 'format'));
         self::assertSame('string', $this->strAt($published, 'schema', 'properties', 'max', 'type'));
         self::assertSame('date-time', $this->strAt($published, 'schema', 'properties', 'max', 'format'));
+    }
+
+    #[Test]
+    public function aFixedFilterProjectsAsAServerSetPresenceParameter(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+        $archived = $this->parameterNamed($get, 'filter[archived]');
+
+        // A ->fixed() filter's value is server-set: the parameter documents that its
+        // value is ignored (presence trigger), not a client value-input schema.
+        self::assertStringContainsString('server-set', $this->strAt($archived, 'description'));
+        // No value-input keyword is advertised (the value is dropped, not constrained).
+        self::assertArrayNotHasKey('pattern', $this->arrAt($archived, 'schema'));
+        self::assertArrayNotHasKey('const', $this->arrAt($archived, 'schema'));
+        // A scalar parameter carries no structured style/explode.
+        self::assertArrayNotHasKey('style', $archived);
+        self::assertArrayNotHasKey('explode', $archived);
+    }
+
+    #[Test]
+    public function aFanningGroupProjectsAScalarValueParameterWithItsOwnDescription(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+        $search = $this->parameterNamed($get, 'filter[search]');
+
+        // A WhereAny fanning one value across columns projects as a single scalar
+        // filter[<key>] carrying the author's description — the value IS a client
+        // input, so it is not marked server-set.
+        self::assertSame('Search title or summary.', $this->strAt($search, 'description'));
+        self::assertStringNotContainsString('server-set', $this->strAt($search, 'description'));
+        self::assertArrayNotHasKey('style', $search);
+        self::assertArrayNotHasKey('explode', $search);
+    }
+
+    #[Test]
+    public function anAllFixedGroupProjectsAsAServerSetPresenceParameter(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+        $urgent = $this->parameterNamed($get, 'filter[urgent]');
+
+        // A group whose children are all fixed is a canned toggle: presence applies
+        // it and the value is ignored, so it documents as server-set like ->fixed().
+        self::assertStringContainsString('server-set', $this->strAt($urgent, 'description'));
+        self::assertArrayNotHasKey('style', $urgent);
+        self::assertArrayNotHasKey('explode', $urgent);
     }
 
     #[Test]

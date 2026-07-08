@@ -11,6 +11,8 @@ use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereAll;
+use haddowg\JsonApi\Resource\Filter\WhereAny;
 use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
 use haddowg\JsonApi\Resource\Filter\WhereHas;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
@@ -69,6 +71,8 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private function predicate(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $value): \Closure
     {
         return match (true) {
+            $filter instanceof WhereAll => $this->whereAll($filter, $value),
+            $filter instanceof WhereAny => $this->whereAny($filter, $value),
             $filter instanceof Where => $this->where($filter, $value),
             $filter instanceof WhereIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), false),
             $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
@@ -110,6 +114,54 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
 
         return fn(mixed $row): bool => $this->compare(Accessor::get($row, $filter->column), $filter->operator, $expected);
+    }
+
+    /**
+     * AND group ({@see WhereAll}): a row matches when it satisfies **every** child.
+     * Each child predicate is built by re-entering {@see predicate()} — passing the
+     * **group's** value down uniformly — so a fixed child ignores it, a fanning
+     * child consumes it, and a nested group re-enters this same dispatch. An empty
+     * group is the AND identity (matches every row).
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function whereAll(WhereAll $filter, mixed $value): \Closure
+    {
+        $predicates = \array_map(fn(FilterInterface $child): \Closure => $this->predicate($child, $value), $filter->children);
+
+        return static function (mixed $row) use ($predicates): bool {
+            foreach ($predicates as $predicate) {
+                if (!$predicate($row)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+    }
+
+    /**
+     * OR group ({@see WhereAny}): a row matches when it satisfies **any** child.
+     * Each child predicate re-enters {@see predicate()} with the **group's** value
+     * (fanned uniformly across the children), so a value-carrying group is a
+     * multi-column search and a fixed-child group a canned toggle; a nested group
+     * re-enters this same dispatch. An empty group matches no row.
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function whereAny(WhereAny $filter, mixed $value): \Closure
+    {
+        $predicates = \array_map(fn(FilterInterface $child): \Closure => $this->predicate($child, $value), $filter->children);
+
+        return static function (mixed $row) use ($predicates): bool {
+            foreach ($predicates as $predicate) {
+                if ($predicate($row)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
     }
 
     /**

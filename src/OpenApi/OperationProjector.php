@@ -909,6 +909,13 @@ final class OperationProjector
      * schema with no style — so a consumer-defined structured filter documents
      * correctly with no change here.
      *
+     * A server-composed group ({@see \haddowg\JsonApi\Resource\Filter\WhereAll} /
+     * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
+     * `filter[<key>]` too: a fanning group carries the shared value schema from its
+     * own `constraints()`, and an all-fixed group (like a `->fixed()` scalar filter)
+     * declares none, so it projects as a permissive presence parameter whose
+     * description notes the value is server-set — see {@see filterDescription()}.
+     *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @return list<Parameter>
      */
@@ -943,14 +950,23 @@ final class OperationProjector
      */
     private function filterDescription(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): string
     {
+        $description = 'Filter the collection by `' . $filter->key() . '`.';
         if ($filter instanceof \haddowg\JsonApi\Resource\Filter\DescribedFilter) {
             $declared = $filter->getDescription();
             if ($declared !== null && $declared !== '') {
-                return $declared;
+                $description = $declared;
             }
         }
 
-        return 'Filter the collection by `' . $filter->key() . '`.';
+        // A presence-triggered filter (a `->fixed()` Where, or a group whose
+        // children are all fixed) has a **server-set** value: the parameter's
+        // presence applies a canned condition and the request value is ignored, so
+        // document it honestly rather than implying a client value input.
+        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter && $filter->isPresenceTriggered()) {
+            $description .= ' The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.';
+        }
+
+        return $description;
     }
 
     /**
