@@ -100,6 +100,22 @@ interface ServerMetadataInterface
     public function externalDocs(): ?\haddowg\JsonApi\OpenApi\ExternalDocumentation;
 
     /**
+     * The JSON:API profile URIs the server has **registered**, in registration order.
+     *
+     * The projection is registration-aware: a profile-gated affordance is advertised
+     * only when its profile is in this set — the runtime honours the profile's query
+     * parameters (`?withCount` for {@see \haddowg\JsonApi\Schema\Profile\CountableProfile},
+     * `relatedQuery` for {@see \haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile})
+     * only when the profile is negotiated, and only a registered profile can be
+     * negotiated. The set also drives the `jsonapi` object's `profile` enum and the
+     * cursor page-schema `x-profile` marker. An empty set advertises no profile-gated
+     * output.
+     *
+     * @return list<string>
+     */
+    public function profiles(): array;
+
+    /**
      * Every JSON:API type registered for this server, in a stable order.
      *
      * @return list<TypeMetadataInterface>

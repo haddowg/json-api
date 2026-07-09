@@ -19,6 +19,7 @@ use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
  * Projects a type's HTTP surface into OpenAPI {@see PathItem}s (design §4.4–4.6,
@@ -156,8 +157,9 @@ final class OperationProjector
             [$this->sortParameter($type->sorts())],
             [$this->includeParameter($type->includablePaths())],
             $this->fieldsParameters($type, $server, $type->includablePaths()),
-            $this->pageParameters($type->pageSchema()),
-            [$this->withCountParameter($this->collectionWithCountTokens($type))],
+            $this->pageParameters($type->pageSchema(), $server),
+            [$this->withCountParameter($this->collectionWithCountTokens($type), $server)],
+            [$this->relatedQueryParameter($type, $server)],
         );
 
         $security = $this->securityFor($type, OperationType::FetchCollection, $server);
@@ -184,6 +186,7 @@ final class OperationProjector
         $parameters = $this->concatParameters(
             [$this->includeParameter($type->includablePaths())],
             $this->fieldsParameters($type, $server, $type->includablePaths()),
+            [$this->relatedQueryParameter($type, $server)],
         );
 
         $security = $this->securityFor($type, OperationType::FetchOne, $server);
@@ -518,8 +521,8 @@ final class OperationProjector
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
-                $this->pageParameters($relation->pageSchema()),
-                [$this->withCountParameter($this->relatedWithCountTokens($relation, $server))],
+                $this->pageParameters($relation->pageSchema(), $server),
+                [$this->withCountParameter($this->relatedWithCountTokens($relation, $server), $server)],
             );
             $successDescription = 'The related ' . $relation->name() . ' collection.';
         } else {
@@ -601,8 +604,8 @@ final class OperationProjector
             $getParameters = $this->concatParameters(
                 $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
-                $this->pageParameters($relation->pageSchema()),
-                [$this->withCountParameter($this->relationshipWithCountTokens($relation))],
+                $this->pageParameters($relation->pageSchema(), $server),
+                [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
             );
         } else {
             $getParameters = [];
@@ -1281,13 +1284,23 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Pagination\MultiPaginator}. A `null` schema means the
      * collection is unpaginated — no `page` parameter at all (§4.4).
      *
+     * A paginator's page schema may carry a schema-level `x-profile` marker (the
+     * cursor strategy does — see {@see \haddowg\JsonApi\Pagination\CursorPaginator::describePageSchema()}).
+     * The marker is emitted STATICALLY by the registration-blind paginator VO, so here
+     * — the one place that knows the registered set — any `x-profile` whose profile the
+     * server did not register is stripped (top level and each `oneOf` branch). Only the
+     * marker is registration-gated: the branch/parameter itself always stays (cursor
+     * pagination works without the profile registered).
+     *
      * @return list<Parameter>
      */
-    private function pageParameters(?Schema $pageSchema): array
+    private function pageParameters(?Schema $pageSchema, ServerMetadataInterface $server): array
     {
         if ($pageSchema === null) {
             return [];
         }
+
+        $pageSchema = $this->stripUnregisteredProfileMarkers($pageSchema, $server->profiles());
 
         return [
             Parameter::query(
@@ -1301,18 +1314,65 @@ final class OperationProjector
     }
 
     /**
+     * Strips any page-schema `x-profile` marker naming an UNREGISTERED profile — at the
+     * top level (a bare cursor page) and in each `oneOf` branch (a MultiPaginator menu,
+     * whose cursor arm carries the marker). A marker naming a registered profile is
+     * kept. The schema is otherwise untouched: the cursor branch stays regardless.
+     *
+     * @param list<string> $profiles
+     */
+    private function stripUnregisteredProfileMarkers(Schema $pageSchema, array $profiles): Schema
+    {
+        $pageSchema = $this->stripProfileMarker($pageSchema, $profiles);
+
+        $oneOf = $pageSchema->get('oneOf');
+        if (\is_array($oneOf)) {
+            $branches = [];
+            foreach ($oneOf as $branch) {
+                if ($branch instanceof Schema) {
+                    $branches[] = $this->stripProfileMarker($branch, $profiles);
+                }
+            }
+            if ($branches !== []) {
+                $pageSchema = $pageSchema->withOneOf($branches);
+            }
+        }
+
+        return $pageSchema;
+    }
+
+    /**
+     * Removes a schema's `x-profile` marker when it names a profile absent from the
+     * registered `$profiles`; a no-op otherwise.
+     *
+     * @param list<string> $profiles
+     */
+    private function stripProfileMarker(Schema $schema, array $profiles): Schema
+    {
+        $marker = $schema->extension('profile');
+        if (\is_string($marker) && !\in_array($marker, $profiles, true)) {
+            return $schema->withoutExtension('profile');
+        }
+
+        return $schema;
+    }
+
+    /**
      * The `withCount` parameter for an endpoint that honours the Countable profile — a
      * comma-separated list of count tokens (`_self_` and/or countable relation names),
      * exactly as `?include` is a comma list (OAS `form`/`explode: false` array). `null`
      * when no token is valid for the endpoint (nothing countable), so the parameter is
-     * advertised only where the runtime would honour it. Profile-gated: the runtime
-     * recognises `withCount` only when the Countable profile is negotiated.
+     * advertised only where the runtime would honour it. Registration-gated: the runtime
+     * recognises `withCount` only when the Countable profile is **registered** and
+     * negotiated, so a server that did not register the Countable profile advertises no
+     * `withCount` at all — advertising it there would document a parameter every request
+     * `400`s on.
      *
      * @param list<string> $tokens
      */
-    private function withCountParameter(array $tokens): ?Parameter
+    private function withCountParameter(array $tokens, ServerMetadataInterface $server): ?Parameter
     {
-        if ($tokens === []) {
+        if ($tokens === [] || !\in_array(CountableProfile::URI, $server->profiles(), true)) {
             return null;
         }
 
@@ -1329,6 +1389,65 @@ final class OperationProjector
             style: ParameterStyle::Form,
             explode: false,
         )->withExtension('profile', CountableProfile::URI);
+    }
+
+    /**
+     * A `$ref` to the shared `relatedQuery` parameter component for a primary read
+     * endpoint (`GET /{type}` and `GET /{type}/{id}`), or `null` when the affordance
+     * does not apply: the Relationship Queries profile must be **registered** AND the
+     * primary type must declare at least one relation to address from the primary
+     * request. Registration-gated for the same reason as `?withCount` — the runtime
+     * parses the `relatedQuery` family only under the negotiated profile, so advertising
+     * it unregistered would document a `400`. Every eligible endpoint references the
+     * SAME single component ({@see relatedQueryParameterComponent()}); the allowed
+     * paths/keys are validated per relationship at runtime, not enumerated per endpoint.
+     */
+    private function relatedQueryParameter(TypeMetadataInterface $type, ServerMetadataInterface $server): ?Reference
+    {
+        if ($type->relations() === [] || !\in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)) {
+            return null;
+        }
+
+        return Reference::to('parameters', RelationshipQueriesProfile::FAMILY);
+    }
+
+    /**
+     * The single reusable `relatedQuery` parameter component (the Relationship Queries
+     * profile), emitted once under `#/components/parameters/relatedQuery` by the
+     * {@see OpenApiProjector} and `$ref`d by every relation-bearing primary read endpoint
+     * ({@see relatedQueryParameter()}).
+     *
+     * ONE generic `deepObject` shape for the whole
+     * `relatedQuery[<path>][sort]` / `relatedQuery[<path>][filter][<key>]` family: an
+     * object keyed by relationship (include) path, each value an object with an optional
+     * `sort` string and `filter` map (the same shape as the primary `?filter`). The
+     * allowed relationship paths and filter/sort keys are deliberately NOT enumerated —
+     * the addressed relationship's own vocabulary validates them at runtime. Only the
+     * canonical {@see RelationshipQueriesProfile::FAMILY} is projected; the byte-identical
+     * `rQ` shorthand is an undocumented convenience alias (documenting both would duplicate
+     * the parameter with no added meaning, and the two merge with the canonical winning).
+     */
+    public function relatedQueryParameterComponent(): Parameter
+    {
+        $perPath = Schema::ofType('object')
+            ->withProperty('sort', Schema::ofType('string')->withDescription(
+                'A comma-separated list of sort fields for the addressed relationship; prefix a field with `-` for descending order.',
+            ))
+            ->withProperty('filter', Schema::ofType('object')
+                ->withAdditionalProperties(Schema::create())
+                ->withDescription('A `filter[<key>]=<value>` map applied to the addressed relationship, in the same shape as the primary `filter`.'))
+            ->withAdditionalProperties(false);
+
+        return Parameter::query(
+            RelationshipQueriesProfile::FAMILY,
+            Schema::ofType('object')->withAdditionalProperties($perPath),
+            'Per-relationship sort and filter applied from the primary request, addressed by relationship (include) path (the Relationship Queries profile). '
+            . 'e.g. `' . RelationshipQueriesProfile::FAMILY . '[author][sort]=-createdAt` or `'
+            . RelationshipQueriesProfile::FAMILY . '[comments][filter][state]=open`. '
+            . 'Recognised only when the Relationship Queries profile is negotiated.',
+            style: ParameterStyle::DeepObject,
+            explode: true,
+        )->withExtension('profile', RelationshipQueriesProfile::URI);
     }
 
     /**
@@ -1396,10 +1515,12 @@ final class OperationProjector
 
     /**
      * Flattens parameter groups into one list, dropping the `null`s a single-or-none
-     * helper (`sortParameter`/`includeParameter`) returns when its source is empty.
+     * helper (`sortParameter`/`includeParameter`/`relatedQueryParameter`) returns when its
+     * source is empty. A group entry may be a {@see Reference} (the shared `relatedQuery`
+     * parameter component) as well as an inline {@see Parameter}.
      *
-     * @param list<Parameter|null> ...$groups
-     * @return list<Parameter>
+     * @param list<Parameter|Reference|null> ...$groups
+     * @return list<Parameter|Reference>
      */
     private function concatParameters(array ...$groups): array
     {

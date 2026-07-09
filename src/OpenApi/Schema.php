@@ -372,6 +372,33 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Reads a vendor extension keyword (`x-…`), or `null` when absent. The name is
+     * normalized to the `x-` prefix, mirroring {@see withExtension()} — so
+     * `extension('profile')` reads the `x-profile` marker.
+     */
+    public function extension(string $name): mixed
+    {
+        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+
+        return $this->extensions[$key] ?? null;
+    }
+
+    /**
+     * Drops a vendor extension keyword (`x-…`), returning a new instance. The name is
+     * normalized to the `x-` prefix. A no-op when absent. Used by the projector to
+     * strip a page-schema `x-profile` marker whose profile the server did not register.
+     */
+    public function withoutExtension(string $name): self
+    {
+        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+
+        $self = clone $this;
+        unset($self->extensions[$key]);
+
+        return $self;
+    }
+
+    /**
      * Drops a standard keyword — for the projector's restructuring passes (e.g.
      * hoisting an `allOf` into a nullable disjunction). A no-op when absent.
      */

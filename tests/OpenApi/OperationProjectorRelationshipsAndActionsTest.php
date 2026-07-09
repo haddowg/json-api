@@ -120,6 +120,9 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             types: [$articles, $people, $tags, $images, $videos],
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
+            // The Countable profile is registered, so the countable endpoints advertise
+            // `?withCount` (registration-aware projection — ADR 0131).
+            profiles: [CountableProfile::URI],
         );
     }
 
