@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
@@ -35,7 +35,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         private readonly bool $allowsAdd = true,
         private readonly bool $allowsRemove = true,
         private readonly bool $countable = false,
-        private readonly PaginatorKind $paginatorKind = PaginatorKind::None,
+        private readonly ?Schema $pageSchema = null,
         private readonly array $filters = [],
         private readonly array $sorts = [],
         private readonly array $relatedIncludablePaths = [],
@@ -126,9 +126,9 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         return $this->securityMutate;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function pageSchema(): ?Schema
     {
-        return $this->paginatorKind;
+        return $this->pageSchema;
     }
 
     public function filters(): array

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -19,8 +19,11 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * cap's worth of items with `200`, in keeping with the clamp-don't-`400`
  * pagination stance. Pass `0` to {@see withMaxPerPage()} to disable the cap
  * (unlimited).
+ *
+ * Its {@see kind()} is `offset`; rename it with {@see withKind()} when composing
+ * two offset strategies in one {@see MultiPaginator} menu.
  */
-final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
+final readonly class OffsetPaginator implements PaginatorInterface
 {
     public function __construct(
         public string $offsetKey = 'offset',
@@ -29,6 +32,7 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
         public int $defaultLimit = 15,
         public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
         public bool $wantsCount = false,
+        public string $kind = 'offset',
     ) {}
 
     public static function make(): self
@@ -38,22 +42,22 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
 
     public function withOffsetKey(string $offsetKey): self
     {
-        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
+        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withLimitKey(string $limitKey): self
     {
-        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
+        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withDefaultOffset(int $defaultOffset): self
     {
-        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount);
+        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withDefaultLimit(int $defaultLimit): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage, $this->wantsCount);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     /**
@@ -63,7 +67,7 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max), $this->wantsCount);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max), $this->wantsCount, $this->kind);
     }
 
     /**
@@ -74,7 +78,17 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
      */
     public function withCount(): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, true);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, true, $this->kind);
+    }
+
+    /**
+     * Renames the strategy's {@see kind()} discriminator — the `page[kind]` value
+     * (and OpenAPI `oneOf` branch `const`) that selects it in a {@see MultiPaginator}
+     * menu.
+     */
+    public function withKind(string $kind): self
+    {
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $kind);
     }
 
     public function wantsCount(): bool
@@ -82,9 +96,21 @@ final readonly class OffsetPaginator implements \haddowg\JsonApi\Pagination\Pagi
         return $this->wantsCount;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function kind(): string
     {
-        return PaginatorKind::Offset;
+        return $this->kind;
+    }
+
+    public function describePageSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty($this->offsetKey, Schema::ofType('integer')->withMinimum(0)->withDescription('The zero-based offset of the first resource.'))
+            ->withProperty($this->limitKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The maximum number of resources to return.'));
+    }
+
+    public function resolve(JsonApiRequestInterface $request): PaginatorInterface
+    {
+        return $this;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

@@ -58,6 +58,20 @@ Metadata describing a sort key a type accepts.
 **Paginator**:
 A strategy that reads the request's `page[…]` parameters and produces a **Page**.
 
+**Multi-paginator**:
+A **Paginator** that offers several strategies at once; the client selects one per
+request with `page[kind]=<kind>`, and an absent `page` falls back to the author's
+declared default. The author composes the menu — a client cannot invent a strategy.
+_Avoid_: pagination mode, page type.
+
+**Paginator kind**:
+The free-form string identifier a **Paginator** declares (its `kind()`) — the
+`page[kind]` discriminator value that names it in a **Multi-paginator** menu (and the
+OpenAPI `oneOf` branch `const`). Built-ins name themselves (`page`, `offset`,
+`cursor`, `fixed`); a custom paginator declares its own (`->withKind('…')`).
+Each **Paginator** also self-describes its `page[…]` **Schema**, so the projector
+emits a strategy's real parameters without a central switch.
+
 **Page**:
 The value object holding one slice of results together with its pagination links and meta.
 

@@ -108,12 +108,15 @@ them.
 | Interface | Describes |
 |---|---|
 | `ServerMetadataInterface` | one server: `info` (title / version / description / contact / license), `servers` (base URLs), the JSON:API version, tag definitions, security schemes + document-level default security, external docs, the type list, and the optional Atomic Operations endpoint |
-| `TypeMetadataInterface` | one type: `type` / `uriType`, the field inventory (may be absent for a standalone serializer), relations, the operation allow-list (+ which operations are secured / public), the id policy (`allowsClientId` / `requiresClientId` / `idPattern`), paginator kind + countability, filters, sorts, actions, tags, description (+ per-operation description overrides), includable paths, and per-operation response declarations (`responsesFor`) |
-| `RelationMetadataInterface` | one relation: name, related type(s), cardinality, endpoint exposure + mutation flags, per-relation security, paginator kind, filters/sorts (for a queryable to-many), pivot fields, and description |
+| `TypeMetadataInterface` | one type: `type` / `uriType`, the field inventory (may be absent for a standalone serializer), relations, the operation allow-list (+ which operations are secured / public), the id policy (`allowsClientId` / `requiresClientId` / `idPattern`), the `page` value schema (`pageSchema`) + countability, filters, sorts, actions, tags, description (+ per-operation description overrides), includable paths, and per-operation response declarations (`responsesFor`) |
+| `RelationMetadataInterface` | one relation: name, related type(s), cardinality, endpoint exposure + mutation flags, per-relation security, the `page` value schema (`pageSchema`), filters/sorts (for a queryable to-many), pivot fields, and description |
 | `ActionMetadataInterface` | one custom action: path, methods, scope, input mode + type, its `responds` response set, whether it is secured, tags, summary, description |
 
-Discriminator enums (`OperationType`, `PaginatorKind`, `ActionScope`,
-`ActionInputMode`) round out the contract. The accessors that return
+The `pageSchema()` accessors carry the resolved paginator's self-described `page[…]`
+object schema (a `oneOf` menu for a `MultiPaginator`), or `null` when the collection is
+unpaginated — so the projector emits the whole `page` family as one `deepObject`
+parameter without a central paginator switch. Discriminator enums (`OperationType`,
+`ActionScope`, `ActionInputMode`) round out the contract. The accessors that return
 OAS value objects (`servers()`, `tags()`, `securitySchemes()`) hand the projector
 ready-made VOs — that data is config-shaped, with no JSON:API semantics to interpret —
 while type / relation / action data, which *does* carry semantics the projector must
