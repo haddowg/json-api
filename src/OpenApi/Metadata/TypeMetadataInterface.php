@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
@@ -120,11 +121,15 @@ interface TypeMetadataInterface
     public function idPattern(): ?string;
 
     /**
-     * The pagination strategy for this type's primary collection endpoint
-     * (`GET /{type}`), already resolved against the server default by the metadata
-     * source. {@see PaginatorKind::None} when the collection is unpaginated.
+     * The `page[…]` value schema for this type's primary collection endpoint
+     * (`GET /{type}`) — the object schema of the resolved paginator
+     * ({@see \haddowg\JsonApi\Pagination\PaginatorInterface::describePageSchema()}),
+     * or the `oneOf` menu of a {@see \haddowg\JsonApi\Pagination\MultiPaginator}.
+     * `null` when the collection is unpaginated (no `page` parameter at all). The
+     * projector emits the whole `page` group as one `deepObject` query parameter
+     * carrying this schema.
      */
-    public function paginatorKind(): PaginatorKind;
+    public function pageSchema(): ?Schema;
 
     /**
      * Whether this type's collection advertises `?withCount` (the collection-level

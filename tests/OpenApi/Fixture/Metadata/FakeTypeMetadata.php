@@ -7,9 +7,10 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\OpenApi\Schema;
+use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
@@ -45,7 +46,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $operations = [],
         private readonly bool $allowsClientId = false,
         private readonly bool $requiresClientId = false,
-        private readonly PaginatorKind $paginatorKind = PaginatorKind::Page,
+        private readonly ?Schema $pageSchema = null,
         private readonly bool $countable = false,
         private readonly array $filters = [],
         private readonly array $sorts = [],
@@ -85,7 +86,8 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         ?string $description = null,
         ?array $operations = null,
         array $securedOperations = [],
-        PaginatorKind $paginatorKind = PaginatorKind::Page,
+        ?Schema $pageSchema = null,
+        bool $unpaginated = false,
         bool $countable = false,
         array $filters = [],
         array $sorts = [],
@@ -111,7 +113,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             ],
             allowsClientId: $allowsClientId,
             requiresClientId: $requiresClientId,
-            paginatorKind: $paginatorKind,
+            pageSchema: $unpaginated ? null : ($pageSchema ?? PagePaginator::make()->describePageSchema()),
             countable: $countable,
             filters: $filters,
             sorts: $sorts,
@@ -139,7 +141,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             type: $type,
             uriType: $uriType ?? $type,
             hasFields: false,
-            paginatorKind: PaginatorKind::None,
+            pageSchema: null,
             tags: $tags,
         );
     }
@@ -199,9 +201,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         return $this->idPattern;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function pageSchema(): ?Schema
     {
-        return $this->paginatorKind;
+        return $this->pageSchema;
     }
 
     public function isCountable(): bool

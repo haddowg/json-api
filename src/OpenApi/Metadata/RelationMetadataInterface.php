@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
@@ -109,12 +110,13 @@ interface RelationMetadataInterface
     public function securityMutate(): string|bool|null;
 
     /**
-     * The pagination strategy for this relation's related-collection endpoint
+     * The `page[…]` value schema for this relation's related-collection endpoint
      * (already resolved against the related-resource / server fallback by the
-     * metadata source). {@see PaginatorKind::None} for a to-one relation or an
-     * explicitly unpaginated to-many.
+     * metadata source) — the resolved paginator's object schema, or a
+     * {@see \haddowg\JsonApi\Pagination\MultiPaginator}'s `oneOf` menu. `null` for a
+     * to-one relation or an explicitly unpaginated to-many (no `page` parameter).
      */
-    public function paginatorKind(): PaginatorKind;
+    public function pageSchema(): ?Schema;
 
     /**
      * Extra filters this relation exposes on its related-collection endpoint

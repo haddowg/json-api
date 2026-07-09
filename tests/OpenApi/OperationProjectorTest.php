@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
+use haddowg\JsonApi\Pagination\CursorPaginator;
+use haddowg\JsonApi\Pagination\MultiPaginator;
+use haddowg\JsonApi\Pagination\OffsetPaginator;
+use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -65,7 +68,6 @@ final class OperationProjectorTest extends TestCase
             ],
             tags: ['Articles'],
             securedOperations: [OperationType::Create, OperationType::Update],
-            paginatorKind: PaginatorKind::Page,
             filters: [
                 Where::make('status')->describedAs('Filter by status.'),
                 Where::make('wordCount')->integer(),
@@ -129,12 +131,11 @@ final class OperationProjectorTest extends TestCase
         // One filter[] per declared filter.
         self::assertContains('filter[status]', $names);
         self::assertContains('filter[wordCount]', $names);
-        // sort / include / fields[type] / page[number] + page[size].
+        // sort / include / fields[type] / the single `page` deepObject (ADR 0130).
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
         self::assertContains('fields[articles]', $names);
-        self::assertContains('page[number]', $names);
-        self::assertContains('page[size]', $names);
+        self::assertContains('page', $names);
     }
 
     #[Test]
@@ -332,15 +333,16 @@ final class OperationProjectorTest extends TestCase
         self::assertContains('include', $names);
         self::assertContains('fields[articles]', $names);
         self::assertNotContains('sort', $names);
-        self::assertNotContains('page[number]', $names);
+        self::assertNotContains('page', $names);
         self::assertNotContains('filter[status]', $names);
     }
 
     #[Test]
-    public function pageParametersFollowThePaginatorKind(): void
+    public function paginationProjectsAsASingleDeepObjectPageParameter(): void
     {
-        // Each paginator kind's `page[…]` parameters are exercised via the FetchCollection
-        // path it lands on — one type per kind in a single server, projected together.
+        // Each strategy's `page[…]` family projects as ONE `page` deepObject parameter
+        // whose object schema the paginator self-describes (ADR 0130) — one type per
+        // strategy, plus an unpaginated type carrying no `page` at all.
         $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
@@ -349,45 +351,88 @@ final class OperationProjectorTest extends TestCase
                     type: 'pages',
                     fields: [Id::make(), Str::make('name')],
                     operations: [OperationType::FetchCollection],
-                    paginatorKind: PaginatorKind::Page,
+                    pageSchema: PagePaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'offsets',
                     fields: [Id::make(), Str::make('name')],
                     operations: [OperationType::FetchCollection],
-                    paginatorKind: PaginatorKind::Offset,
+                    pageSchema: OffsetPaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'cursors',
                     fields: [Id::make(), Str::make('name')],
                     operations: [OperationType::FetchCollection],
-                    paginatorKind: PaginatorKind::Cursor,
+                    pageSchema: CursorPaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'unpaged',
                     fields: [Id::make(), Str::make('name')],
                     operations: [OperationType::FetchCollection],
-                    paginatorKind: PaginatorKind::None,
+                    unpaginated: true,
                 ),
             ],
         );
         $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
 
-        self::assertSame(
-            ['page[number]', 'page[size]'],
-            $this->pageParameterNames($this->arrAt($paths, '/pages', 'get')),
+        // Page strategy → one `page` deepObject param with number/size object properties.
+        $page = $this->parameterNamed($this->arrAt($paths, '/pages', 'get'), 'page');
+        self::assertSame('deepObject', $page['style']);
+        self::assertTrue($page['explode']);
+        self::assertSame('object', $this->strAt($page, 'schema', 'type'));
+        self::assertSame(['number', 'size'], \array_keys($this->arrAt($page, 'schema', 'properties')));
+
+        // Offset strategy → offset/limit properties.
+        $offset = $this->parameterNamed($this->arrAt($paths, '/offsets', 'get'), 'page');
+        self::assertSame(['offset', 'limit'], \array_keys($this->arrAt($offset, 'schema', 'properties')));
+
+        // Cursor strategy → after/before/size (the CursorPaginator's real wire keys).
+        $cursor = $this->parameterNamed($this->arrAt($paths, '/cursors', 'get'), 'page');
+        self::assertSame(['after', 'before', 'size'], \array_keys($this->arrAt($cursor, 'schema', 'properties')));
+
+        // Unpaginated → no `page` parameter at all.
+        self::assertNotContains('page', $this->parameterNames($this->arrAt($paths, '/unpaged', 'get')));
+    }
+
+    #[Test]
+    public function aMultiPaginatorMenuProjectsAOneOfDiscriminatedByKind(): void
+    {
+        $menu = MultiPaginator::make(
+            PagePaginator::make(),
+            CursorPaginator::make(),
+        )->default('cursor');
+
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(
+                    type: 'things',
+                    fields: [Id::make(), Str::make('name')],
+                    operations: [OperationType::FetchCollection],
+                    pageSchema: $menu->describePageSchema(),
+                ),
+            ],
         );
-        self::assertSame(
-            ['page[offset]', 'page[limit]'],
-            $this->pageParameterNames($this->arrAt($paths, '/offsets', 'get')),
-        );
-        // Cursor pagination advertises the CursorPaginator's actual wire params
-        // (page[after]/page[before]/page[size]) — not the mistaken page[cursor] (D44).
-        self::assertSame(
-            ['page[after]', 'page[before]', 'page[size]'],
-            $this->pageParameterNames($this->arrAt($paths, '/cursors', 'get')),
-        );
-        self::assertSame([], $this->pageParameterNames($this->arrAt($paths, '/unpaged', 'get')));
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+        $page = $this->parameterNamed($this->arrAt($paths, '/things', 'get'), 'page');
+
+        self::assertSame('deepObject', $page['style']);
+        // The menu is a oneOf of the children's page objects, discriminated by `kind`.
+        $branches = $this->listAt($page, 'schema', 'oneOf');
+        self::assertCount(2, $branches);
+        self::assertSame('kind', $this->strAt($page, 'schema', 'discriminator', 'propertyName'));
+
+        // Each branch carries a `kind` const, its strategy keys, and closes the object.
+        $pageBranch = $this->arrAt($branches, '0');
+        self::assertSame('page', $this->strAt($pageBranch, 'properties', 'kind', 'const'));
+        self::assertSame(['number', 'size', 'kind'], \array_keys($this->arrAt($pageBranch, 'properties')));
+        self::assertFalse($pageBranch['additionalProperties']);
+
+        $cursorBranch = $this->arrAt($branches, '1');
+        self::assertSame('cursor', $this->strAt($cursorBranch, 'properties', 'kind', 'const'));
+        self::assertSame(['after', 'before', 'size', 'kind'], \array_keys($this->arrAt($cursorBranch, 'properties')));
+        self::assertFalse($cursorBranch['additionalProperties']);
     }
 
     #[Test]
@@ -603,21 +648,6 @@ final class OperationProjectorTest extends TestCase
         }
 
         return $names;
-    }
-
-    /**
-     * The operation's `page[…]` parameter names, in declared order (the others filtered
-     * out) — so a per-paginator-kind assertion reads off the projected path.
-     *
-     * @param array<array-key, mixed> $operation
-     * @return list<string>
-     */
-    private function pageParameterNames(array $operation): array
-    {
-        return \array_values(\array_filter(
-            $this->parameterNames($operation),
-            static fn(string $name): bool => \str_starts_with($name, 'page['),
-        ));
     }
 
     /**

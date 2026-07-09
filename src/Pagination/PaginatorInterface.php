@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -76,4 +77,40 @@ interface PaginatorInterface
      * whether to issue the `COUNT`.
      */
     public function wantsCount(): bool;
+
+    /**
+     * The free-form identifier this strategy answers to as a `page[kind]`
+     * discriminator value in a {@see MultiPaginator} menu (and the OpenAPI `oneOf`
+     * branch `const`). The built-ins name themselves — `page`, `offset`, `cursor`,
+     * `fixed` — and each exposes a `withKind()` wither so a custom strategy (or a
+     * second instance of a built-in) can adopt a distinct name and never collide.
+     * A menu rejects two children that report the same {@see kind()}.
+     */
+    public function kind(): string;
+
+    /**
+     * Self-describes this strategy's `page[…]` value as an OpenAPI **object**
+     * {@see Schema} — one property per `page[<key>]` parameter the strategy reads,
+     * keyed by the strategy's configured key names (so a re-keyed paginator
+     * documents its real wire form). The projector emits the whole `page` group as a
+     * single `deepObject` query parameter carrying this schema; a {@see MultiPaginator}
+     * composes its children's schemas into a `oneOf`. This replaces the projector's
+     * former hardcoded per-kind `match`, so a custom paginator projects its own keys
+     * with no central switch.
+     */
+    public function describePageSchema(): Schema;
+
+    /**
+     * Resolves this strategy to the concrete paginator that will run the request.
+     * A single strategy returns `$this`; a {@see MultiPaginator} selects one child
+     * from its menu by the request's `page[kind]` discriminator (or a
+     * strategy-unique `page[…]` key, or its declared default) and returns that
+     * child. A handler calls this **once up front** — before any
+     * `instanceof CursorPaginator` render/count branching — so the wrapper is never
+     * mistaken for a concrete strategy.
+     *
+     * @throws \haddowg\JsonApi\Exception\PaginationKindUnknown when `page[kind]`
+     *   names a strategy the menu does not offer
+     */
+    public function resolve(JsonApiRequestInterface $request): PaginatorInterface;
 }

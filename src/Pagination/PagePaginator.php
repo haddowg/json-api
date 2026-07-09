@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -19,8 +19,11 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * cap rather than honoured — a `page[size]=1000000` returns the cap's worth of
  * items with `200`, in keeping with the clamp-don't-`400` pagination stance. Pass
  * `0` to {@see withMaxPerPage()} to disable the cap (unlimited).
+ *
+ * Its {@see kind()} is `page`; rename it with {@see withKind()} when composing two
+ * page strategies in one {@see MultiPaginator} menu.
  */
-final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
+final readonly class PagePaginator implements PaginatorInterface
 {
     /**
      * The default page-size cap, applied unless overridden with
@@ -36,6 +39,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
         public int $defaultPerPage = 15,
         public int $maxPerPage = self::DEFAULT_MAX_PER_PAGE,
         public bool $wantsCount = false,
+        public string $kind = 'page',
     ) {}
 
     public static function make(): self
@@ -45,22 +49,22 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
+        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withPerPageKey(string $perPageKey): self
     {
-        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
+        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount);
+        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     public function withDefaultPerPage(int $defaultPerPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage, $this->wantsCount);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
     }
 
     /**
@@ -70,7 +74,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max), $this->wantsCount);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max), $this->wantsCount, $this->kind);
     }
 
     /**
@@ -81,7 +85,17 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      */
     public function withCount(): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, true);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, true, $this->kind);
+    }
+
+    /**
+     * Renames the strategy's {@see kind()} discriminator — the `page[kind]` value
+     * (and OpenAPI `oneOf` branch `const`) that selects it in a {@see MultiPaginator}
+     * menu. Use it to compose two page strategies without a collision.
+     */
+    public function withKind(string $kind): self
+    {
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $kind);
     }
 
     public function wantsCount(): bool
@@ -89,14 +103,26 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
         return $this->wantsCount;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function kind(): string
     {
-        return PaginatorKind::Page;
+        return $this->kind;
+    }
+
+    public function describePageSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'))
+            ->withProperty($this->perPageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'));
+    }
+
+    public function resolve(JsonApiRequestInterface $request): PaginatorInterface
+    {
+        return $this;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow
     {
-        [$page, $size] = $this->resolve($request);
+        [$page, $size] = $this->resolvePage($request);
 
         return new OffsetWindow(($page - 1) * $size, $size);
     }
@@ -108,7 +134,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      */
     public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): PageBasedPage
     {
-        [$page, $size] = $this->resolve($request);
+        [$page, $size] = $this->resolvePage($request);
 
         return new PageBasedPage($items, $totalItems, $page, $size);
     }
@@ -120,7 +146,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      */
     public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): PageBasedPage
     {
-        [$page, $size] = $this->resolve($request);
+        [$page, $size] = $this->resolvePage($request);
 
         return new PageBasedPage($items, null, $page, $size, $hasMore);
     }
@@ -134,7 +160,7 @@ final readonly class PagePaginator implements \haddowg\JsonApi\Pagination\Pagina
      *
      * @return array{int, int}
      */
-    private function resolve(JsonApiRequestInterface $request): array
+    private function resolvePage(JsonApiRequestInterface $request): array
     {
         $pagination = $request->getPagination();
 

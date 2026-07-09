@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Pagination;
 
 use haddowg\JsonApi\Exception\CursorMalformed;
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 
@@ -32,9 +32,12 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  * clamped to the cap rather than honoured. Pass `0` to {@see withMaxPerPage()} to
  * disable the cap (unlimited).
  *
+ * Its {@see kind()} is `cursor`; rename it with {@see withKind()} when composing
+ * two cursor strategies in one {@see MultiPaginator} menu.
+ *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */
-final readonly class CursorPaginator implements PaginatorInterface, DescribesPaginatorKindInterface
+final readonly class CursorPaginator implements PaginatorInterface
 {
     /**
      * The `page[…]` keys reserved for the cursor tokens; their wire form is
@@ -50,6 +53,7 @@ final readonly class CursorPaginator implements PaginatorInterface, DescribesPag
         public ProfileInterface $profile = new CursorPaginationProfile(),
         public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
         public CursorCodec $codec = new CursorCodec(),
+        public string $kind = 'cursor',
     ) {}
 
     public static function make(): self
@@ -59,12 +63,12 @@ final readonly class CursorPaginator implements PaginatorInterface, DescribesPag
 
     public function withDefaultSize(int $defaultSize): self
     {
-        return new self($defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec);
+        return new self($defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind);
     }
 
     public function withSizeKey(string $sizeKey): self
     {
-        return new self($this->defaultSize, $sizeKey, $this->profile, $this->maxPerPage, $this->codec);
+        return new self($this->defaultSize, $sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind);
     }
 
     /**
@@ -74,7 +78,17 @@ final readonly class CursorPaginator implements PaginatorInterface, DescribesPag
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->defaultSize, $this->sizeKey, $this->profile, \max(0, $max), $this->codec);
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, \max(0, $max), $this->codec, $this->kind);
+    }
+
+    /**
+     * Renames the strategy's {@see kind()} discriminator — the `page[kind]` value
+     * (and OpenAPI `oneOf` branch `const`) that selects it in a {@see MultiPaginator}
+     * menu.
+     */
+    public function withKind(string $kind): self
+    {
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $kind);
     }
 
     /**
@@ -173,9 +187,22 @@ final readonly class CursorPaginator implements PaginatorInterface, DescribesPag
         return false;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function kind(): string
     {
-        return PaginatorKind::Cursor;
+        return $this->kind;
+    }
+
+    public function describePageSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty(self::AFTER_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately AFTER this position.'))
+            ->withProperty(self::BEFORE_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately BEFORE this position.'))
+            ->withProperty($this->sizeKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'));
+    }
+
+    public function resolve(JsonApiRequestInterface $request): PaginatorInterface
+    {
+        return $this;
     }
 
     /**

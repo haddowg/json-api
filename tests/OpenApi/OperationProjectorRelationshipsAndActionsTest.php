@@ -9,12 +9,12 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
+use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -69,7 +69,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
                     ['tags'],
                     true,
                     countable: true,
-                    paginatorKind: PaginatorKind::Page,
+                    pageSchema: PagePaginator::make()->describePageSchema(),
                     filters: [Where::make('label')->describedAs('Filter tags by label.')],
                     sorts: [SortByField::make('label')],
                     // The related endpoint's `?include` is scoped to the RELATED type
@@ -178,8 +178,8 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertContains('filter[label]', $names);
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
-        self::assertContains('page[number]', $names);
-        self::assertContains('page[size]', $names);
+        // Pagination projects as a single `page` deepObject parameter (ADR 0130).
+        self::assertContains('page', $names);
 
         // The `sort` enum unions the related resource's own (`id`/`-id`) and the
         // relation's (`label`/`-label`) sortable tokens.
@@ -197,12 +197,12 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $related = $this->arrAt($this->paths(), '/articles/{id}/author', 'get');
         self::assertContains('filter[name]', $this->parameterNames($related));
         self::assertNotContains('sort', $this->parameterNames($related));
-        self::assertNotContains('page[number]', $this->parameterNames($related));
+        self::assertNotContains('page', $this->parameterNames($related));
 
         $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/author', 'get');
         self::assertContains('filter[name]', $this->parameterNames($relationship));
         self::assertNotContains('sort', $this->parameterNames($relationship));
-        self::assertNotContains('page[number]', $this->parameterNames($relationship));
+        self::assertNotContains('page', $this->parameterNames($relationship));
 
         // A to-MANY relationship (linkage) endpoint is a real queryable, paginated
         // linkage collection at parity with the related endpoint (ADR 0096): it carries
@@ -213,7 +213,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertContains('filter[color]', $toManyNames);
         self::assertContains('filter[label]', $toManyNames);
         self::assertContains('sort', $toManyNames);
-        self::assertContains('page[number]', $toManyNames);
+        self::assertContains('page', $toManyNames);
         self::assertNotContains('include', $toManyNames);
     }
 

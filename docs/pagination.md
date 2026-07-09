@@ -529,13 +529,80 @@ at the related endpoint, not at `/tracks`. A polymorphic to-many carries no shar
 filter/sort vocabulary, so on it `filter`/`sort` are a `400` and only `page`
 windows the mixed members — see [related endpoints](related-endpoints.md).
 
+## Offering a menu of strategies
+
+Sometimes one collection should support more than one pagination strategy and let
+the **client** pick per request — page-number for a human paging a UI, cursor for a
+stable deep-scroll export. Wrap the strategies you want to offer in a
+[`MultiPaginator`](../src/Pagination/MultiPaginator.php) — itself a
+`PaginatorInterface`, so it drops straight into `pagination()`, `paginate()` or
+`withDefaultPaginator()`:
+
+```php
+use haddowg\JsonApi\Pagination\CursorPaginator;
+use haddowg\JsonApi\Pagination\MultiPaginator;
+use haddowg\JsonApi\Pagination\PagePaginator;
+
+public function pagination(?PaginatorInterface $serverDefault): ?PaginatorInterface
+{
+    return MultiPaginator::make(
+        PagePaginator::make()->withDefaultPerPage(20),
+        CursorPaginator::make(),
+    )->default('cursor');
+}
+```
+
+The **author** declares the menu, so a client can only ever select a strategy you
+offered — never invent one. Each strategy names itself with a `kind()` — the
+built-ins are `page`, `offset`, `cursor` and `fixed`; give a second instance of the
+same strategy a distinct name with `withKind('…')` (two children sharing a kind is a
+wiring error). `->default('cursor')` is the strategy used when a request carries no
+pagination at all (the first-declared child if you omit it).
+
+### How the client selects
+
+Selection is **discriminator-first but not discriminator-only**:
+
+- **`page[kind]=<kind>`** selects that strategy outright —
+  `GET /tracks?page[kind]=cursor&page[size]=20`. An unknown kind is a `400` whose
+  `detail` lists the kinds on offer.
+- a **strategy-unique** `page[…]` key selects its owner without a `kind`: a
+  `page[after]`/`page[before]` implies cursor, a `page[offset]`/`page[limit]` implies
+  offset. This keeps the [cursor-pagination profile](#cursor-pagination)'s bare
+  params working unchanged.
+- a **shared** key (`page[size]`, `page[number]`) is ambiguous across strategies, so
+  it does **not** select on its own — the request falls back to your declared
+  `default()`. To pin a non-default strategy while sending only a shared key, add
+  `page[kind]`.
+- an **absent** `page` uses the `default()`.
+
+Everything else about pagination is unchanged: the handler resolves the wrapper to
+the one concrete strategy for the request up front, then runs the ordinary
+window → slice → count → paginate loop. Because the resolved strategy is a plain
+paginator, cursor selection still activates the
+[cursor-pagination profile](#cursor-pagination) on exactly the responses it produces.
+
+### In OpenAPI
+
+The whole `page[…]` family always projects as **one** `page` query parameter
+(`style: deepObject`), so `page[number]=2&page[size]=10` is the unchanged wire form.
+For a single strategy its schema is a plain object of that strategy's keys; for a menu
+it is a `oneOf` of the children's page objects — each carrying an optional
+`kind` const and `additionalProperties: false`, with a `discriminator` on `kind`. The
+schema therefore *encodes the selection rule itself*: a unique-key object matches
+exactly one branch, while a shared-key-only object matches several and is invalid
+until `page[kind]` disambiguates it.
+
 ## Custom strategies
 
 Supply your own count-based strategy by implementing `PaginatorInterface` and
 returning whatever `PageInterface` subtype suits — a custom `meta.page` shape, a
 keyset window, a different link policy. Register it per resource (`pagination()`),
 per relation (`paginate()`) or server-wide (`withDefaultPaginator()`); the
-window → slice → count → paginate loop is unchanged.
+window → slice → count → paginate loop is unchanged. A custom strategy names itself
+via `kind()` and self-describes its `page[…]` object schema via
+`describePageSchema()`, so it composes into a `MultiPaginator` menu and projects its
+real parameters with no central switch.
 
 ## Next / See also
 

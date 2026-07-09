@@ -444,4 +444,60 @@ final class PaginatorTest extends TestCase
         // counterpart — verified by the static type checker, not at runtime).
         self::assertFalse(CursorPaginator::make()->wantsCount());
     }
+
+    #[Test]
+    public function eachBuiltInNamesItsKind(): void
+    {
+        self::assertSame('page', PagePaginator::make()->kind());
+        self::assertSame('offset', OffsetPaginator::make()->kind());
+        self::assertSame('cursor', CursorPaginator::make()->kind());
+        self::assertSame('fixed', FixedPagePaginator::make()->kind());
+    }
+
+    #[Test]
+    public function withKindOverridesTheDiscriminatorWithoutTouchingBehaviour(): void
+    {
+        $renamed = PagePaginator::make()->withDefaultPerPage(25)->withKind('classic');
+
+        self::assertSame('classic', $renamed->kind());
+        self::assertSame(25, $renamed->defaultPerPage);
+    }
+
+    #[Test]
+    public function describePageSchemaReportsEachStrategysRealKeys(): void
+    {
+        self::assertSame(
+            ['number', 'size'],
+            \array_keys((array) PagePaginator::make()->describePageSchema()->get('properties')),
+        );
+        self::assertSame(
+            ['offset', 'limit'],
+            \array_keys((array) OffsetPaginator::make()->describePageSchema()->get('properties')),
+        );
+        self::assertSame(
+            ['after', 'before', 'size'],
+            \array_keys((array) CursorPaginator::make()->describePageSchema()->get('properties')),
+        );
+        self::assertSame(
+            ['number'],
+            \array_keys((array) FixedPagePaginator::make()->describePageSchema()->get('properties')),
+        );
+    }
+
+    #[Test]
+    public function describePageSchemaHonoursRekeyedParameters(): void
+    {
+        $schema = PagePaginator::make()->withPageKey('p')->withPerPageKey('per')->describePageSchema();
+
+        self::assertSame(['p', 'per'], \array_keys((array) $schema->get('properties')));
+    }
+
+    #[Test]
+    public function aSingleStrategyResolvesToItself(): void
+    {
+        $paginator = PagePaginator::make();
+        $request = StubJsonApiRequest::create(['page' => ['number' => '2']]);
+
+        self::assertSame($paginator, $paginator->resolve($request));
+    }
 }

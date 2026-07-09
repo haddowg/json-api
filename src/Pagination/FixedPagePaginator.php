@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Pagination;
 
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
@@ -13,14 +13,18 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *
  * The configured {@see $size} is the server's fixed page size, used to compute
  * the last page; it is never echoed in the emitted links. Fluent and immutable.
+ *
+ * Its {@see kind()} is `fixed`; rename it with {@see withKind()} when composing
+ * two fixed strategies in one {@see MultiPaginator} menu.
  */
-final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\PaginatorInterface, DescribesPaginatorKindInterface
+final readonly class FixedPagePaginator implements PaginatorInterface
 {
     public function __construct(
         public int $size = 15,
         public string $pageKey = 'number',
         public int $defaultPage = 1,
         public bool $wantsCount = false,
+        public string $kind = 'fixed',
     ) {}
 
     public static function make(int $size = 15): self
@@ -30,17 +34,17 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
 
     public function withSize(int $size): self
     {
-        return new self($size, $this->pageKey, $this->defaultPage, $this->wantsCount);
+        return new self($size, $this->pageKey, $this->defaultPage, $this->wantsCount, $this->kind);
     }
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($this->size, $pageKey, $this->defaultPage, $this->wantsCount);
+        return new self($this->size, $pageKey, $this->defaultPage, $this->wantsCount, $this->kind);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->size, $this->pageKey, $defaultPage, $this->wantsCount);
+        return new self($this->size, $this->pageKey, $defaultPage, $this->wantsCount, $this->kind);
     }
 
     /**
@@ -51,7 +55,17 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
      */
     public function withCount(): self
     {
-        return new self($this->size, $this->pageKey, $this->defaultPage, true);
+        return new self($this->size, $this->pageKey, $this->defaultPage, true, $this->kind);
+    }
+
+    /**
+     * Renames the strategy's {@see kind()} discriminator — the `page[kind]` value
+     * (and OpenAPI `oneOf` branch `const`) that selects it in a {@see MultiPaginator}
+     * menu.
+     */
+    public function withKind(string $kind): self
+    {
+        return new self($this->size, $this->pageKey, $this->defaultPage, $this->wantsCount, $kind);
     }
 
     public function wantsCount(): bool
@@ -59,9 +73,20 @@ final readonly class FixedPagePaginator implements \haddowg\JsonApi\Pagination\P
         return $this->wantsCount;
     }
 
-    public function paginatorKind(): PaginatorKind
+    public function kind(): string
     {
-        return PaginatorKind::Page;
+        return $this->kind;
+    }
+
+    public function describePageSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'));
+    }
+
+    public function resolve(JsonApiRequestInterface $request): PaginatorInterface
+    {
+        return $this;
     }
 
     public function window(JsonApiRequestInterface $request): OffsetWindow

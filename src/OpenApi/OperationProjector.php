@@ -14,7 +14,6 @@ use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
-use haddowg\JsonApi\OpenApi\Metadata\PaginatorKind;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -157,7 +156,7 @@ final class OperationProjector
             [$this->sortParameter($type->sorts())],
             [$this->includeParameter($type->includablePaths())],
             $this->fieldsParameters($type, $server, $type->includablePaths()),
-            $this->pageParameters($type->paginatorKind()),
+            $this->pageParameters($type->pageSchema()),
             [$this->withCountParameter($this->collectionWithCountTokens($type))],
         );
 
@@ -519,7 +518,7 @@ final class OperationProjector
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
-                $this->pageParameters($relation->paginatorKind()),
+                $this->pageParameters($relation->pageSchema()),
                 [$this->withCountParameter($this->relatedWithCountTokens($relation, $server))],
             );
             $successDescription = 'The related ' . $relation->name() . ' collection.';
@@ -602,7 +601,7 @@ final class OperationProjector
             $getParameters = $this->concatParameters(
                 $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
-                $this->pageParameters($relation->paginatorKind()),
+                $this->pageParameters($relation->pageSchema()),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation))],
             );
         } else {
@@ -1273,32 +1272,32 @@ final class OperationProjector
     }
 
     /**
-     * The paginator-kind-specific `page[…]` parameters: `number`/`size` for
-     * {@see PaginatorKind::Page}, `offset`/`limit` for {@see PaginatorKind::Offset},
-     * `after`/`before`/`size` for {@see PaginatorKind::Cursor} (matching the
-     * {@see \haddowg\JsonApi\Pagination\CursorPaginator} wire form), and none for
-     * {@see PaginatorKind::None} (§4.4).
+     * The single `page` query parameter. JSON:API carries the whole `page[…]`
+     * family under one key, so it projects as one OAS `deepObject` parameter
+     * (`style: deepObject, explode: true` — the wire form `page[number]=…` is
+     * byte-identical to before), whose schema each paginator self-describes via
+     * {@see \haddowg\JsonApi\Pagination\PaginatorInterface::describePageSchema()}: a
+     * plain object for a single strategy, a `oneOf` menu for a
+     * {@see \haddowg\JsonApi\Pagination\MultiPaginator}. A `null` schema means the
+     * collection is unpaginated — no `page` parameter at all (§4.4).
      *
      * @return list<Parameter>
      */
-    private function pageParameters(PaginatorKind $kind): array
+    private function pageParameters(?Schema $pageSchema): array
     {
-        return match ($kind) {
-            PaginatorKind::Page => [
-                Parameter::query('page[number]', Schema::ofType('integer')->withMinimum(1), 'The page number to retrieve.'),
-                Parameter::query('page[size]', Schema::ofType('integer')->withMinimum(1), 'The number of resources per page.'),
-            ],
-            PaginatorKind::Offset => [
-                Parameter::query('page[offset]', Schema::ofType('integer')->withMinimum(0), 'The zero-based offset of the first resource.'),
-                Parameter::query('page[limit]', Schema::ofType('integer')->withMinimum(1), 'The maximum number of resources to return.'),
-            ],
-            PaginatorKind::Cursor => [
-                Parameter::query('page[after]', Schema::ofType('string'), 'An opaque cursor; returns the page immediately AFTER this position.'),
-                Parameter::query('page[before]', Schema::ofType('string'), 'An opaque cursor; returns the page immediately BEFORE this position.'),
-                Parameter::query('page[size]', Schema::ofType('integer')->withMinimum(1), 'The number of resources per page.'),
-            ],
-            PaginatorKind::None => [],
-        };
+        if ($pageSchema === null) {
+            return [];
+        }
+
+        return [
+            Parameter::query(
+                'page',
+                $pageSchema,
+                'Pagination parameters, e.g. `page[number]=2&page[size]=10`.',
+                style: ParameterStyle::DeepObject,
+                explode: true,
+            ),
+        ];
     }
 
     /**
