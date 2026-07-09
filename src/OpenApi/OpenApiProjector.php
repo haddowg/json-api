@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
  * Projects a server's worth of JSON:API metadata (a {@see ServerMetadataInterface})
@@ -42,7 +43,7 @@ final class OpenApiProjector
     public function project(ServerMetadataInterface $server): OpenApi
     {
         $schemas = [];
-        $this->addSharedComponents($schemas, $server->jsonApiVersion());
+        $this->addSharedComponents($schemas, $server);
 
         // The shared meta-document component is referenced by an action that declares a
         // MetaResult response and by a delete that declares a `200` meta-only success
@@ -96,8 +97,18 @@ final class OpenApiProjector
         }
         \ksort($schemas);
 
+        // The Relationship Queries profile (when registered and some type has a relation
+        // to address) contributes ONE shared `relatedQuery` parameter component that the
+        // relation-bearing read endpoints `$ref`; emitted only when referenced, mirroring
+        // the shared `MetaDocument` schema above.
+        $parameters = [];
+        if ($this->referencesRelatedQuery($server)) {
+            $parameters[RelationshipQueriesProfile::FAMILY] = $this->operationProjector->relatedQueryParameterComponent();
+        }
+
         $components = new Components(
             schemas: $schemas,
+            parameters: $parameters,
             securitySchemes: $server->securitySchemes(),
         );
 
@@ -185,9 +196,13 @@ final class OpenApiProjector
      *
      * @param array<string, Schema> $schemas
      */
-    private function addSharedComponents(array &$schemas, string $jsonApiVersion): void
+    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server): void
     {
-        $schemas['JsonApi'] = $this->jsonApiObjectSchema($jsonApiVersion);
+        $schemas['JsonApi'] = $this->jsonApiObjectSchema(
+            $server->jsonApiVersion(),
+            $server->profiles(),
+            $this->advertisedExtensions($server),
+        );
         $schemas['Meta'] = Schema::ofType('object')
             ->withDescription('A JSON:API meta object: a free-form set of non-standard members.')
             ->withAdditionalProperties(Schema::create());
@@ -1261,15 +1276,70 @@ final class OpenApiProjector
      * `version` property to the server's configured JSON:API version: a
      * server-generated response document always carries that version, and `const`
      * only constrains when the optional `jsonapi` member is present.
+     *
+     * The `ext` and `profile` members are registration-aware: a **non-empty** advertised
+     * set pins the member's items to an `enum` of exactly those URIs (the document can
+     * only ever advertise a registered extension / profile), while an **empty** set keeps
+     * the open `array<uri-string>` shape — an empty JSON Schema `enum` is invalid, so
+     * there is nothing to pin and the member stays unconstrained.
+     *
+     * @param list<string> $profiles   the registered profile URIs
+     * @param list<string> $extensions the advertised extension URIs
      */
-    private function jsonApiObjectSchema(string $jsonApiVersion): Schema
+    private function jsonApiObjectSchema(string $jsonApiVersion, array $profiles, array $extensions): Schema
     {
+        $extItems = Schema::ofType('string')->withFormat('uri');
+        if ($extensions !== []) {
+            $extItems = $extItems->withEnum($extensions);
+        }
+
+        $profileItems = Schema::ofType('string')->withFormat('uri');
+        if ($profiles !== []) {
+            $profileItems = $profileItems->withEnum($profiles);
+        }
+
         return Schema::ofType('object')
             ->withDescription("An object describing the server's implementation of the JSON:API specification.")
             ->withProperty('version', Schema::ofType('string')->withConst($jsonApiVersion))
-            ->withProperty('ext', Schema::ofType('array')->withItems(Schema::ofType('string')->withFormat('uri')))
-            ->withProperty('profile', Schema::ofType('array')->withItems(Schema::ofType('string')->withFormat('uri')))
+            ->withProperty('ext', Schema::ofType('array')->withItems($extItems))
+            ->withProperty('profile', Schema::ofType('array')->withItems($profileItems))
             ->withProperty('meta', Schema::ofType('object'));
+    }
+
+    /**
+     * The advertised JSON:API extension URIs, derived from the server metadata rather
+     * than a second interface accessor: the Atomic Operations extension is the only
+     * extension core models, so the list is `[AtomicExtension::URI]` when the atomic
+     * endpoint is enabled ({@see ServerMetadataInterface::atomicOperations()} is
+     * non-`null`) and `[]` otherwise (ADR 0131).
+     *
+     * @return list<string>
+     */
+    private function advertisedExtensions(ServerMetadataInterface $server): array
+    {
+        return $server->atomicOperations() !== null ? [AtomicExtension::URI] : [];
+    }
+
+    /**
+     * Whether the document references the shared `relatedQuery` parameter component: the
+     * Relationship Queries profile is registered AND at least one type declares a
+     * relation to address. Mirrors the per-endpoint gate in
+     * {@see OperationProjector::relatedQueryParameter()} so the component is emitted iff
+     * some operation `$ref`s it.
+     */
+    private function referencesRelatedQuery(ServerMetadataInterface $server): bool
+    {
+        if (!\in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)) {
+            return false;
+        }
+
+        foreach ($server->types() as $type) {
+            if ($type->relations() !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

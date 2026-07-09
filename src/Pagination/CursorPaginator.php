@@ -194,10 +194,16 @@ final readonly class CursorPaginator implements PaginatorInterface
 
     public function describePageSchema(): Schema
     {
+        // The page object carries a schema-level `x-profile` marker naming the cursor
+        // profile: cursor pagination is profile-advertised, so a generated client knows
+        // this branch (bare, or one arm of a MultiPaginator `oneOf`) belongs to the
+        // cursor profile. The VO stays registration-blind — the OpenAPI projector strips
+        // the marker when the cursor profile is not registered ({@see \haddowg\JsonApi\OpenApi\OperationProjector}).
         return Schema::ofType('object')
             ->withProperty(self::AFTER_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately AFTER this position.'))
             ->withProperty(self::BEFORE_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately BEFORE this position.'))
-            ->withProperty($this->sizeKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'));
+            ->withProperty($this->sizeKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'))
+            ->withExtension('profile', $this->profile->uri());
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface

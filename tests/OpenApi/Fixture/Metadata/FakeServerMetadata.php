@@ -27,6 +27,7 @@ final class FakeServerMetadata implements ServerMetadataInterface
      * @param list<Tag>                        $tags
      * @param array<string, SecurityScheme>    $securitySchemes
      * @param list<SecurityRequirement>        $defaultSecurity
+     * @param list<string>                     $profiles
      */
     public function __construct(
         private readonly string $title,
@@ -42,6 +43,7 @@ final class FakeServerMetadata implements ServerMetadataInterface
         private readonly array $defaultSecurity = [],
         private readonly ?ExternalDocumentation $externalDocs = null,
         private readonly ?AtomicOperationsMetadataInterface $atomicOperations = null,
+        private readonly array $profiles = [],
     ) {}
 
     public function title(): string
@@ -97,6 +99,11 @@ final class FakeServerMetadata implements ServerMetadataInterface
     public function externalDocs(): ?ExternalDocumentation
     {
         return $this->externalDocs;
+    }
+
+    public function profiles(): array
+    {
+        return $this->profiles;
     }
 
     public function types(): array
