@@ -89,6 +89,66 @@ final class ProfileApplicationTest extends TestCase
         self::assertArrayNotHasKey('meta', $body);
     }
 
+    #[Test]
+    public function advertisesARegisteredActivatedProfileWithoutARequestOrPage(): void
+    {
+        // A profile a NESTED render activated (e.g. a cursor-paginated included
+        // relation) is advertised at the document level via withActivatedProfiles(),
+        // even when neither the request nor the primary page carries it.
+        $server = new StubServer(profiles: new ProfileRegistry($this->timestampsProfile()));
+        $request = new JsonApiRequest(new ServerRequest('GET', '/users/1'));
+
+        $psr = DataResponse::fromResource(new \stdClass(), new StubResource('user', '1'))
+            ->withActivatedProfiles($this->timestampsProfile())
+            ->toPsrResponse($server, $request);
+
+        $body = $this->decode((string) $psr->getBody());
+
+        self::assertStringContainsString('profile="' . self::URI . '"', $psr->getHeaderLine('Content-Type'));
+        self::assertSame('Accept', $psr->getHeaderLine('Vary'));
+        self::assertIsArray($body['jsonapi']);
+        self::assertSame([self::URI], $body['jsonapi']['profile']);
+        // The finalizeDocument hook ran for the activated profile too.
+        self::assertSame(['appliedBy' => 'timestamps'], $body['meta']);
+    }
+
+    #[Test]
+    public function dropsAnUnregisteredActivatedProfile(): void
+    {
+        // Empty registry: an activated profile the server never registered is silently
+        // dropped, exactly as an unregistered requested/page profile is.
+        $server = new StubServer();
+        $request = new JsonApiRequest(new ServerRequest('GET', '/users/1'));
+
+        $psr = DataResponse::fromResource(new \stdClass(), new StubResource('user', '1'))
+            ->withActivatedProfiles($this->timestampsProfile())
+            ->toPsrResponse($server, $request);
+
+        $body = $this->decode((string) $psr->getBody());
+
+        self::assertSame('application/vnd.api+json', $psr->getHeaderLine('Content-Type'));
+        self::assertSame('', $psr->getHeaderLine('Vary'));
+        self::assertIsArray($body['jsonapi']);
+        self::assertArrayNotHasKey('profile', $body['jsonapi']);
+    }
+
+    #[Test]
+    public function doesNotDuplicateAnActivatedProfileAlreadyRequested(): void
+    {
+        // The same profile requested AND activated appears exactly once.
+        $server = new StubServer(profiles: new ProfileRegistry($this->timestampsProfile()));
+        $request = $this->requestRequestingProfile(self::URI);
+
+        $psr = DataResponse::fromResource(new \stdClass(), new StubResource('user', '1'))
+            ->withActivatedProfiles($this->timestampsProfile())
+            ->toPsrResponse($server, $request);
+
+        $body = $this->decode((string) $psr->getBody());
+
+        self::assertIsArray($body['jsonapi']);
+        self::assertSame([self::URI], $body['jsonapi']['profile']);
+    }
+
     private function timestampsProfile(): AbstractProfile
     {
         return new class extends AbstractProfile {

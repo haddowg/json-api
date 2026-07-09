@@ -70,6 +70,21 @@ abstract class AbstractResponse
     protected array $appliedExtensions = [];
 
     /**
+     * Profiles a **nested** render activated that the document must still advertise
+     * — set by {@see withActivatedProfiles()}. The paginated responses advertise the
+     * profile of their own primary/related page automatically
+     * ({@see AppliesPaginationTrait::appliedPageProfiles()}); this carries a profile
+     * activated somewhere the top-level page does not reach — e.g. a cursor-paginated
+     * **included** relation whose per-parent {@see \haddowg\JsonApi\Pagination\CursorBasedPage}
+     * renders inside the compound document while the primary collection is page-based.
+     * Each is advertised only when the server has registered it (the same advisory
+     * rule the page path applies).
+     *
+     * @var list<ProfileInterface>
+     */
+    protected array $activatedProfiles = [];
+
+    /**
      * @param array<string, mixed> $meta
      */
     public function withMeta(array $meta): static
@@ -163,6 +178,26 @@ abstract class AbstractResponse
     {
         $self = clone $this;
         $self->encodeOptions = $encodeOptions;
+
+        return $self;
+    }
+
+    /**
+     * Advertises one or more profiles a **nested** render activated — a profile the
+     * document must carry that the response's own top-level page does not surface.
+     * The motivating case: a cursor-paginated **included** relation renders a
+     * {@see \haddowg\JsonApi\Pagination\CursorBasedPage} per parent inside a compound
+     * document whose primary collection is page-based, so the cursor-pagination
+     * profile is activated by the include, not the primary page. Each URI is advertised
+     * only when the server has registered the profile (the advisory rule the page path
+     * already applies); an unregistered one is silently dropped.
+     *
+     * @param ProfileInterface ...$profiles
+     */
+    public function withActivatedProfiles(ProfileInterface ...$profiles): static
+    {
+        $self = clone $this;
+        $self->activatedProfiles = \array_values($profiles);
 
         return $self;
     }
@@ -286,6 +321,47 @@ abstract class AbstractResponse
                 $seen[$uri] = true;
             }
         }
+
+        // Fold in any profile a nested render activated (e.g. a cursor-paginated
+        // included relation), each only when the server has registered it.
+        foreach ($this->activatedProfiles as $activated) {
+            $profiles = $this->mergeAppliedProfile($profiles, $server, $activated);
+        }
+
+        return $profiles;
+    }
+
+    /**
+     * Merges one profile into the applied set, but only when the server
+     * **recognises** it — the advisory rule shared by the page-profile path
+     * ({@see AppliesPaginationTrait::appliedPageProfiles()}) and the activated-profile
+     * fold above. The registered instance is used (not the caller's), so the server's
+     * configuration of that profile wins; an already-present or unregistered profile
+     * leaves the set unchanged. A recognised, new profile is prepended, matching how a
+     * page profile is surfaced ahead of the request-requested set.
+     *
+     * @param list<ProfileInterface> $profiles
+     *
+     * @return list<ProfileInterface>
+     */
+    protected function mergeAppliedProfile(array $profiles, ServerInterface $server, ?ProfileInterface $profile): array
+    {
+        if ($profile === null) {
+            return $profiles;
+        }
+
+        $registered = $server->profiles()->get($profile->uri());
+        if ($registered === null) {
+            return $profiles;
+        }
+
+        foreach ($profiles as $existing) {
+            if ($existing->uri() === $registered->uri()) {
+                return $profiles;
+            }
+        }
+
+        \array_unshift($profiles, $registered);
 
         return $profiles;
     }
