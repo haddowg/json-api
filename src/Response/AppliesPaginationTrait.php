@@ -73,24 +73,18 @@ trait AppliesPaginationTrait
      */
     private function appliedPageProfiles(array $profiles, ServerInterface $server, ?\haddowg\JsonApi\Pagination\PageInterface $page): array
     {
-        $pageProfile = $page?->profile();
-        if ($pageProfile === null) {
-            return $profiles;
-        }
-
-        $registered = $server->profiles()->get($pageProfile->uri());
-        if ($registered === null) {
-            return $profiles;
-        }
-
-        foreach ($profiles as $profile) {
-            if ($profile->uri() === $registered->uri()) {
-                return $profiles;
-            }
-        }
-
-        \array_unshift($profiles, $registered);
-
-        return $profiles;
+        return $this->mergeAppliedProfile($profiles, $server, $page?->profile());
     }
+
+    /**
+     * Registers-and-dedups one profile into the applied set — the shared advisory
+     * rule, implemented on {@see AbstractResponse::mergeAppliedProfile()} so both the
+     * page-profile path here and the activated-profile fold on the base response use
+     * one code path.
+     *
+     * @param list<\haddowg\JsonApi\Schema\Profile\ProfileInterface> $profiles
+     *
+     * @return list<\haddowg\JsonApi\Schema\Profile\ProfileInterface>
+     */
+    abstract protected function mergeAppliedProfile(array $profiles, ServerInterface $server, ?\haddowg\JsonApi\Schema\Profile\ProfileInterface $profile): array;
 }
