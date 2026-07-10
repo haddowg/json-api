@@ -275,7 +275,7 @@ closure with that request context, so you don't repeat the `…OnCreate` suffix 
 each call:
 
 ```php
-Str::make('slug')->onCreate(function (Str $field): void {
+Str::make('slug')->onCreate(function (StrBuilder $field): void {
     $field->required()->maxLength(64);
 });
 ```
@@ -320,7 +320,7 @@ Str::make('passwordConfirm')
     )
     ->when(
         static fn(mixed $value): bool => $value !== null && $value !== '',
-        static function (Str $field): void {
+        static function (StrBuilder $field): void {
             $field->minLength(8);
         },
     )

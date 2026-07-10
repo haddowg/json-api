@@ -55,7 +55,7 @@ final class OneOf extends AbstractAttribute implements ProvidesFieldSchema
      *
      * @return static
      */
-    public function variant(string $name, FieldInterface ...$children): static
+    public function variant(string $name, FieldInterface|FieldBuilderInterface ...$children): static
     {
         $this->variants[$name] = Obj::make($name)->fields(...$children);
 

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * A string attribute that validates an IP address. Accepts both IPv4 and IPv6
- * by default; narrow with {@see v4()} / {@see v6()}. Equivalent to
- * `Str::make($name)->ip()`.
+ * A **field builder** facade for an IP-address string. Accepts both IPv4 and IPv6
+ * by default; narrow with {@see v4()} / {@see v6()}. Presets an `IpFormat`
+ * constraint and builds a plain {@see Str}. Equivalent to `Str::make($name)->ip()`.
  */
-final class Ip extends Str
+final class Ip extends StrBuilder
 {
     /**
      * @return static

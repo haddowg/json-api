@@ -34,7 +34,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('secret')->hidden(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         // A closure-declared field is NOT unconditionally hidden, so the static
         // getter stays permissive (the superset schema still documents it).
@@ -47,7 +47,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function unconditionalHiddenPrecedesAnyRequest(): void
     {
-        $field = Str::make('secret')->hidden();
+        $field = Str::make('secret')->hidden()->build();
 
         self::assertTrue($field->isHidden());
         // Unconditional restriction wins regardless of the caller.
@@ -58,7 +58,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function isHiddenForDefaultsFalseWithNoDeclaration(): void
     {
-        $field = Str::make('title');
+        $field = Str::make('title')->build();
 
         self::assertFalse($field->isHidden());
         self::assertFalse($field->isHiddenFor($this->guest(), null));
@@ -71,7 +71,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('token')->writeOnly(
             static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertFalse($field->isWriteOnly());
         self::assertTrue($field->isWriteOnlyFor($this->guest()));
@@ -81,7 +81,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function unconditionalWriteOnlyPrecedesAnyRequest(): void
     {
-        $field = Str::make('password')->writeOnly();
+        $field = Str::make('password')->writeOnly()->build();
 
         self::assertTrue($field->isWriteOnly());
         self::assertTrue($field->isWriteOnlyFor($this->admin()));
@@ -94,7 +94,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('slug')->readOnly(
             static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertFalse($field->isReadOnly(true));
         self::assertFalse($field->isReadOnly(false));
@@ -110,7 +110,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('a')->readOnlyOnCreate(
             static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertTrue($field->isReadOnlyFor(true, $this->guest()));
         // The create predicate must not leak into the update context.
@@ -122,7 +122,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('a')->readOnlyOnUpdate(
             static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertFalse($field->isReadOnlyFor(true, $this->guest()));
         self::assertTrue($field->isReadOnlyFor(false, $this->guest()));
@@ -131,7 +131,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function unconditionalReadOnlyPrecedesAnyRequest(): void
     {
-        $field = Str::make('viewCount')->readOnly();
+        $field = Str::make('viewCount')->readOnly()->build();
 
         self::assertTrue($field->isReadOnlyFor(true, $this->admin()));
         self::assertTrue($field->isReadOnlyFor(false, $this->admin()));
@@ -164,7 +164,7 @@ final class RequestAwarePredicatesTest extends TestCase
         // coherent alongside an unconditional write-only — the guard must not fire.
         $field = Str::make('secret')
             ->readOnly(static fn(JsonApiRequestInterface $request): bool => false)
-            ->writeOnly();
+            ->writeOnly()->build();
 
         self::assertTrue($field->isWriteOnly());
         self::assertFalse($field->isReadOnly(true));
@@ -175,7 +175,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('secret')
             ->writeOnly(static fn(JsonApiRequestInterface $request): bool => false)
-            ->readOnly();
+            ->readOnly()->build();
 
         self::assertTrue($field->isReadOnly(true));
         self::assertFalse($field->isWriteOnly());
@@ -186,7 +186,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $field = Str::make('secret')
             ->readOnly(static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin')
-            ->writeOnly(static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') === 'admin');
+            ->writeOnly(static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') === 'admin')->build();
 
         // Each resolver stays individually coherent.
         self::assertTrue($field->isReadOnlyFor(true, $this->guest()));

@@ -27,9 +27,12 @@ final class Map extends AbstractAttribute
     /**
      * @return static
      */
-    public function fields(\haddowg\JsonApi\Resource\Field\FieldInterface ...$children): static
+    public function fields(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface ...$children): static
     {
-        $this->children = \array_values($children);
+        $this->children = \array_values(\array_map(
+            static fn(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface $child): \haddowg\JsonApi\Resource\Field\FieldInterface => $child instanceof \haddowg\JsonApi\Resource\Field\FieldBuilderInterface ? $child->build() : $child,
+            $children,
+        ));
 
         return $this;
     }

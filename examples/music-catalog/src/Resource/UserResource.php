@@ -16,6 +16,7 @@ use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 
 /**
  * The `users` resource. Demonstrates several format-subtype fields ({@see Email},
@@ -64,7 +65,7 @@ final class UserResource extends AbstractResource
                 )
                 ->when(
                     static fn(mixed $value): bool => $value !== null && $value !== '',
-                    static function (Str $field): void {
+                    static function (StrBuilder $field): void {
                         $field->minLength(8);
                     },
                 )

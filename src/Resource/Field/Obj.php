@@ -37,9 +37,12 @@ final class Obj extends AbstractAttribute implements ProvidesFieldSchema
     /**
      * @return static
      */
-    public function fields(FieldInterface ...$children): static
+    public function fields(FieldInterface|FieldBuilderInterface ...$children): static
     {
-        $this->children = \array_values($children);
+        $this->children = \array_values(\array_map(
+            static fn(FieldInterface|FieldBuilderInterface $child): FieldInterface => $child instanceof FieldBuilderInterface ? $child->build() : $child,
+            $children,
+        ));
 
         return $this;
     }

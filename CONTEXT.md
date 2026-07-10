@@ -156,3 +156,11 @@ the placeholders are interpolated *after*.
   **Resource** *class*. The thing in the wire document is always a *resource object*.
 - **"Schema"** — avoid as a synonym for **Resource**; reserve "schema" for JSON
   Schema validation documents.
+- **"Field"** — resolved: the glossary term is the **readonly value object** the
+  engine walks — it serializes/hydrates and carries **Constraints**. The mutable,
+  fluent object an author chains (what `Str::make()` returns) is a **field
+  builder**; a `fields()` entry may be either, and the resource **builds** any
+  builder into its **Field** before use. Autocomplete on a builder shows only
+  authoring methods; the **Field** exposes only the consumption surface. (Amends
+  [ADR 0003](docs/adr/0003-immutable-value-objects-with-carve-outs.md): the builder
+  stays mutable, but it now *produces* a readonly **Field** rather than *being* one.)

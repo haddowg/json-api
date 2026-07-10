@@ -8,10 +8,10 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 
 /**
- * A string attribute that validates email format by default. Equivalent to
- * `Str::make($name)->email()`.
+ * A **field builder** facade for an email string: presets an {@see EmailFormat}
+ * constraint and builds a plain {@see Str}. Equivalent to `Str::make($name)->email()`.
  */
-final class Email extends Str
+final class Email extends StrBuilder
 {
     /**
      * @return static
