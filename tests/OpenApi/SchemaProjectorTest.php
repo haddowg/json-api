@@ -136,27 +136,27 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function integerFieldProjectsToIntegerType(): void
     {
-        self::assertSame('integer', $this->at($this->project(Integer::make('n')), 'type'));
+        self::assertSame('integer', $this->at($this->project(Integer::make('n')->build()), 'type'));
     }
 
     #[Test]
     public function decimalFieldProjectsToNumberType(): void
     {
-        self::assertSame('number', $this->at($this->project(Decimal::make('d')), 'type'));
+        self::assertSame('number', $this->at($this->project(Decimal::make('d')->build()), 'type'));
     }
 
     #[Test]
     public function booleanFieldProjectsToBooleanType(): void
     {
-        self::assertSame('boolean', $this->at($this->project(Boolean::make('b')), 'type'));
+        self::assertSame('boolean', $this->at($this->project(Boolean::make('b')->build()), 'type'));
     }
 
     #[Test]
     public function dateTimeFamilyProjectsTheRightFormat(): void
     {
-        self::assertSame(['type' => 'string', 'format' => 'date'], $this->project(Date::make('d')));
-        self::assertSame(['type' => 'string', 'format' => 'time'], $this->project(Time::make('t')));
-        self::assertSame(['type' => 'string', 'format' => 'date-time'], $this->project(DateTime::make('dt')));
+        self::assertSame(['type' => 'string', 'format' => 'date'], $this->project(Date::make('d')->build()));
+        self::assertSame(['type' => 'string', 'format' => 'time'], $this->project(Time::make('t')->build()));
+        self::assertSame(['type' => 'string', 'format' => 'date-time'], $this->project(DateTime::make('dt')->build()));
     }
 
     #[Test]
@@ -198,7 +198,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function arrayListProjectsToArrayWithItems(): void
     {
-        $schema = $this->project(ArrayList::make('tags'));
+        $schema = $this->project(ArrayList::make('tags')->build());
 
         // Items default to `string` so a list attribute never degrades to `unknown[]`.
         self::assertSame('array', $this->at($schema, 'type'));
@@ -208,7 +208,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function arrayListElementTypeIsDeclarable(): void
     {
-        $schema = $this->project(ArrayList::make('scores')->of('integer'));
+        $schema = $this->project(ArrayList::make('scores')->of('integer')->build());
 
         self::assertSame('array', $this->at($schema, 'type'));
         self::assertSame(['type' => 'integer'], $this->at($schema, 'items'));
@@ -217,7 +217,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function arrayHashProjectsToObjectWithAdditionalProperties(): void
     {
-        $schema = $this->project(ArrayHash::make('meta'));
+        $schema = $this->project(ArrayHash::make('meta')->build());
 
         self::assertSame('object', $this->at($schema, 'type'));
         self::assertSame([], $this->at($schema, 'additionalProperties'));
@@ -238,7 +238,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function numericBoundConstraints(): void
     {
-        $schema = $this->project(Integer::make('n')->min(0)->max(10)->multipleOf(2));
+        $schema = $this->project(Integer::make('n')->min(0)->max(10)->multipleOf(2)->build());
 
         self::assertSame(0, $this->at($schema, 'minimum'));
         self::assertSame(10, $this->at($schema, 'maximum'));
@@ -248,7 +248,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function exclusiveBoundConstraints(): void
     {
-        $schema = $this->project(Decimal::make('d')->exclusiveMin(0.0)->exclusiveMax(1.0));
+        $schema = $this->project(Decimal::make('d')->exclusiveMin(0.0)->exclusiveMax(1.0)->build());
 
         self::assertSame(0.0, $this->at($schema, 'exclusiveMinimum'));
         self::assertSame(1.0, $this->at($schema, 'exclusiveMaximum'));
@@ -257,7 +257,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function arrayBoundConstraints(): void
     {
-        $schema = $this->project(ArrayList::make('tags')->minItems(1)->maxItems(10)->uniqueItems());
+        $schema = $this->project(ArrayList::make('tags')->minItems(1)->maxItems(10)->uniqueItems()->build());
 
         self::assertSame(1, $this->at($schema, 'minItems'));
         self::assertSame(10, $this->at($schema, 'maxItems'));
@@ -267,7 +267,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function objectPropertyBoundConstraints(): void
     {
-        $schema = $this->project(ArrayHash::make('m')->minProperties(1)->maxProperties(3));
+        $schema = $this->project(ArrayHash::make('m')->minProperties(1)->maxProperties(3)->build());
 
         self::assertSame(1, $this->at($schema, 'minProperties'));
         self::assertSame(3, $this->at($schema, 'maxProperties'));
@@ -276,7 +276,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function eachConstraintProjectsToItems(): void
     {
-        $schema = $this->project(ArrayList::make('codes')->each(new MinLength(2)));
+        $schema = $this->project(ArrayList::make('codes')->each(new MinLength(2))->build());
 
         // The per-item constraints compose on top of the element type (default string).
         self::assertSame(['type' => 'string', 'minLength' => 2], $this->at($schema, 'items'));
@@ -318,7 +318,7 @@ final class SchemaProjectorTest extends TestCase
         $field = DateTime::make('when')->between(
             new \DateTimeImmutable('2020-01-01T00:00:00+00:00'),
             new \DateTimeImmutable('2020-12-31T00:00:00+00:00'),
-        );
+        )->build();
         $schema = $this->project($field);
 
         $this->missing($schema, 'formatMinimum');
@@ -336,7 +336,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function nullableWidensTheType(): void
     {
-        self::assertSame(['integer', 'null'], $this->at($this->project(Integer::make('n')->nullable()), 'type'));
+        self::assertSame(['integer', 'null'], $this->at($this->project(Integer::make('n')->nullable()->build()), 'type'));
     }
 
     #[Test]
@@ -367,8 +367,8 @@ final class SchemaProjectorTest extends TestCase
     {
         $field = Map::make('address')->fields(
             Str::make('street')->maxLength(100)->build(),
-            Integer::make('zip')->min(0),
-        );
+            Integer::make('zip')->min(0)->build(),
+        )->build();
         $schema = $this->project($field);
 
         self::assertSame('object', $this->at($schema, 'type'));
@@ -382,7 +382,7 @@ final class SchemaProjectorTest extends TestCase
         $field = Map::make('address')->fields(
             Str::make('street')->required()->build(),
             Str::make('line2')->build(),
-        );
+        )->build();
 
         // Read projection: no nested `required` (mirrors top-level attributes).
         $this->missing($this->project($field), 'required');
@@ -397,8 +397,8 @@ final class SchemaProjectorTest extends TestCase
     {
         $field = Obj::make('address')->fields(
             Str::make('street')->maxLength(100)->build(),
-            Integer::make('zip')->min(0),
-        );
+            Integer::make('zip')->min(0)->build(),
+        )->build();
         $schema = $this->project($field);
 
         self::assertSame('object', $this->at($schema, 'type'));
@@ -412,7 +412,7 @@ final class SchemaProjectorTest extends TestCase
         $field = Obj::make('address')->fields(
             Str::make('street')->required()->build(),
             Str::make('line2')->build(),
-        );
+        )->build();
 
         $this->missing($this->project($field), 'required');
 
@@ -423,7 +423,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function objNullableWidensTheObjectTypeToAllowNull(): void
     {
-        $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')->build()));
+        $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')->build())->build());
 
         self::assertSame(['object', 'null'], $this->at($schema, 'type'));
     }
@@ -433,7 +433,7 @@ final class SchemaProjectorTest extends TestCase
     {
         $field = OneOf::make('block')->discriminator('kind')
             ->variant('heading', Str::make('text')->required()->build())
-            ->variant('image', Str::make('src')->build());
+            ->variant('image', Str::make('src')->build())->build();
 
         $schema = $this->project($field, creating: true);
 
@@ -459,7 +459,7 @@ final class SchemaProjectorTest extends TestCase
     public function oneOfNullableAppendsANullBranch(): void
     {
         $field = OneOf::make('block')->nullable()->discriminator('kind')
-            ->variant('image', Str::make('src')->build());
+            ->variant('image', Str::make('src')->build())->build();
 
         $branches = $this->listAt($this->project($field), 'oneOf');
         // The union gains a null branch.
@@ -477,7 +477,7 @@ final class SchemaProjectorTest extends TestCase
                 Schema::ofType('object')->withRequired(['email']),
                 Schema::ofType('object')->withRequired(['phone']),
             ),
-        );
+        )->build();
 
         $schema = $this->project($field);
 
@@ -495,7 +495,7 @@ final class SchemaProjectorTest extends TestCase
                 Schema::ofType('object')->withRequired(['worldwide']),
                 Schema::ofType('object')->withRequired(['regions']),
             ),
-        );
+        )->build();
 
         $schema = $this->project($field);
 
@@ -512,7 +512,7 @@ final class SchemaProjectorTest extends TestCase
         // whole conjunction hoists into `anyOf: [null, {allOf}]`.
         $measurements = Schema::ofType('object')->withRequired(['widthMm', 'heightMm']);
         $depth = Schema::ofType('object')->withRequired(['depthMm']);
-        $field = ArrayHash::make('dimensions')->nullable()->constrain(Shape::allOf($measurements, $depth));
+        $field = ArrayHash::make('dimensions')->nullable()->constrain(Shape::allOf($measurements, $depth))->build();
 
         $schema = $this->project($field);
 
@@ -533,7 +533,7 @@ final class SchemaProjectorTest extends TestCase
         // no hoist.
         $field = ArrayHash::make('dimensions')->constrain(
             Shape::allOf(Schema::ofType('object')->withRequired(['widthMm'])),
-        );
+        )->build();
 
         $schema = $this->project($field);
 
@@ -563,7 +563,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function intBackedEnumFollowsBackingTypeAndEmitsVarnamesWithoutDescriptions(): void
     {
-        $schema = $this->project(Integer::make('priority')->enum(Priority::class));
+        $schema = $this->project(Integer::make('priority')->enum(Priority::class)->build());
 
         self::assertSame('integer', $this->at($schema, 'type'));
         self::assertSame([1, 2], $this->at($schema, 'enum'));
@@ -622,7 +622,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function compareFieldDegradesToADescriptionNote(): void
     {
-        $schema = $this->project(Integer::make('end')->compareWith('start', Comparison::GreaterThan));
+        $schema = $this->project(Integer::make('end')->compareWith('start', Comparison::GreaterThan)->build());
 
         $this->missing($schema, 'not');
         self::assertStringContainsString('compared against the `start` field', $this->stringAt($schema, 'description'));
@@ -643,7 +643,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function closureDateBoundDegradesToADescriptionNote(): void
     {
-        $field = DateTime::make('when')->after(static fn(): \DateTimeImmutable => new \DateTimeImmutable('now'));
+        $field = DateTime::make('when')->after(static fn(): \DateTimeImmutable => new \DateTimeImmutable('now'))->build();
         $schema = $this->project($field);
 
         $this->missing($schema, 'formatMinimum');
@@ -655,7 +655,7 @@ final class SchemaProjectorTest extends TestCase
     {
         $field = Integer::make('end')
             ->describedAs('The end value.')
-            ->compareWith('start', Comparison::GreaterThan);
+            ->compareWith('start', Comparison::GreaterThan)->build();
         $schema = $this->project($field);
 
         $description = $this->stringAt($schema, 'description');
@@ -699,7 +699,7 @@ final class SchemaProjectorTest extends TestCase
     public function readProjectionOmitsConditionallyVisibleFieldsFromRequired(): void
     {
         $fields = [
-            Id::make(),
+            Id::make()->build(),
             Str::make('name')->required()->build(),
             // In the read superset schema, but request-conditionally absent from the wire.
             Str::make('nickname')->hidden(static fn(mixed $model, $request): bool => false)->build(),
@@ -755,7 +755,7 @@ final class SchemaProjectorTest extends TestCase
     public function readOnlyContextDistinguishesCreateFromUpdate(): void
     {
         // `readOnlyOnCreate()` is writable on update but not on create.
-        $fields = [Id::make(), Str::make('name')->build(), Str::make('handle')->readOnlyOnCreate()->build()];
+        $fields = [Id::make()->build(), Str::make('name')->build(), Str::make('handle')->readOnlyOnCreate()->build()];
 
         $create = $this->projector()->projectAttributes($fields, RepresentationContext::Create)->toArray();
         $update = $this->projector()->projectAttributes($fields, RepresentationContext::Update)->toArray();
@@ -786,7 +786,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function resourceObjectIdHonoursTheDeclaredIdPattern(): void
     {
-        $schema = $this->projector()->projectResourceObject('articles', [Id::make()->numeric(), Str::make('name')->build()])->toArray();
+        $schema = $this->projector()->projectResourceObject('articles', [Id::make()->numeric()->build(), Str::make('name')->build()])->toArray();
 
         $id = $this->at($schema, 'properties', 'id');
         self::assertIsArray($id);
@@ -819,7 +819,7 @@ final class SchemaProjectorTest extends TestCase
     private function fields(): array
     {
         return [
-            Id::make(),
+            Id::make()->build(),
             Str::make('name')->required()->maxLength(50)->build(),
             Str::make('status')->enum(Status::class)->build(),
             Str::make('secret')->writeOnly()->build(),

@@ -8,37 +8,36 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
  * Exposes a nested JSON object in the resource attributes while spreading its
- * values across multiple flat columns on the **same** domain object. Each child
- * field reads/writes its own column; the child's `name()` is the key inside the
- * nested object.
+ * values across multiple flat columns on the **same** domain object — the built,
+ * readonly value object the engine walks. Each child field reads/writes its own
+ * column; the child's `name()` is the key inside the nested object. Authors declare
+ * one with {@see make()}, which returns a mutable {@see MapBuilder}; the resource
+ * **builds** it into this value object before use.
  *
  * Top-level constraints are limited to presence (`required()` / `nullable()`);
  * structural constraints belong on the child fields. `Map::on($relation)`
  * (related-model column spread) is out of scope for core — see the Symfony
  * bundle.
  */
-final class Map extends AbstractAttribute
+final readonly class Map extends AbstractFieldValue
 {
     /**
-     * @var list<\haddowg\JsonApi\Resource\Field\FieldInterface>
+     * @param list<FieldInterface> $children
      */
-    private array $children = [];
+    public function __construct(
+        FieldState $state,
+        private array $children = [],
+    ) {
+        parent::__construct($state);
+    }
 
-    /**
-     * @return static
-     */
-    public function fields(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface ...$children): static
+    public static function make(string $name): MapBuilder
     {
-        $this->children = \array_values(\array_map(
-            static fn(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface $child): \haddowg\JsonApi\Resource\Field\FieldInterface => $child instanceof \haddowg\JsonApi\Resource\Field\FieldBuilderInterface ? $child->build() : $child,
-            $children,
-        ));
-
-        return $this;
+        return new MapBuilder($name);
     }
 
     /**
-     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
+     * @return list<FieldInterface>
      */
     public function children(): array
     {
@@ -47,8 +46,8 @@ final class Map extends AbstractAttribute
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
-        if ($this->serializeUsing !== null) {
-            return ($this->serializeUsing)($model, $request, $name);
+        if ($this->state->serializeUsing !== null) {
+            return ($this->state->serializeUsing)($model, $request, $name);
         }
 
         $nested = [];
@@ -67,8 +66,8 @@ final class Map extends AbstractAttribute
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        if ($this->fillUsing !== null) {
-            $result = ($this->fillUsing)($model, $value, $data, $this->name);
+        if ($this->state->fillUsing !== null) {
+            $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
         }

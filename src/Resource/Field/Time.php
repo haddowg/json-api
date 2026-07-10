@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * A wall-clock time attribute (`HH:MM:SS`). A {@see DateTime} specialised to a
- * time-only serialization format.
+ * A wall-clock time attribute (`HH:MM:SS`) — the built, readonly value object the
+ * engine walks. A {@see DateTime} specialised to a time-only serialization
+ * format. Authors declare one with {@see make()}, which returns a mutable
+ * {@see TimeBuilder}.
  */
-final class Time extends DateTime
+final readonly class Time extends DateTime
 {
-    protected string $format = 'H:i:s';
+    public static function make(string $name): TimeBuilder
+    {
+        return new TimeBuilder($name);
+    }
 }

@@ -15,7 +15,7 @@ final class IdTest extends TestCase
     #[Test]
     public function forbidsClientIdsByDefault(): void
     {
-        $id = Id::make();
+        $id = Id::make()->build();
 
         self::assertFalse($id->allowsClientId());
         self::assertFalse($id->requiresClientId());
@@ -24,7 +24,7 @@ final class IdTest extends TestCase
     #[Test]
     public function allowClientIdMakesAClientIdOptional(): void
     {
-        $id = Id::make()->allowClientId();
+        $id = Id::make()->allowClientId()->build();
 
         self::assertTrue($id->allowsClientId());
         self::assertFalse($id->requiresClientId());
@@ -33,7 +33,7 @@ final class IdTest extends TestCase
     #[Test]
     public function requireClientIdMakesAClientIdMandatory(): void
     {
-        $id = Id::make()->requireClientId();
+        $id = Id::make()->requireClientId()->build();
 
         self::assertTrue($id->allowsClientId());
         self::assertTrue($id->requiresClientId());
@@ -42,13 +42,13 @@ final class IdTest extends TestCase
     #[Test]
     public function storeProvidedIsTheDefaultFallback(): void
     {
-        self::assertNull(Id::make()->generateIdValue());
+        self::assertNull(Id::make()->build()->generateIdValue());
     }
 
     #[Test]
     public function generatedUuidMintsAVersion4Uuid(): void
     {
-        $value = Id::make()->uuid()->generated()->generateIdValue();
+        $value = Id::make()->uuid()->generated()->build()->generateIdValue();
 
         self::assertIsString($value);
         self::assertMatchesRegularExpression(
@@ -60,7 +60,7 @@ final class IdTest extends TestCase
     #[Test]
     public function generatedUuidMintsAFreshValueEachCall(): void
     {
-        $id = Id::make()->uuid()->generated();
+        $id = Id::make()->uuid()->generated()->build();
 
         self::assertNotSame($id->generateIdValue(), $id->generateIdValue());
     }
@@ -68,7 +68,7 @@ final class IdTest extends TestCase
     #[Test]
     public function generatedUlidMintsACrockfordBase32Ulid(): void
     {
-        $value = Id::make()->ulid()->generated()->generateIdValue();
+        $value = Id::make()->ulid()->generated()->build()->generateIdValue();
 
         self::assertIsString($value);
         self::assertMatchesRegularExpression('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/', $value);
@@ -77,7 +77,7 @@ final class IdTest extends TestCase
     #[Test]
     public function generateUsingReturnsTheClosureValue(): void
     {
-        $value = Id::make()->generateUsing(static fn(): string => 'minted')->generateIdValue();
+        $value = Id::make()->generateUsing(static fn(): string => 'minted')->build()->generateIdValue();
 
         self::assertSame('minted', $value);
     }
@@ -85,7 +85,7 @@ final class IdTest extends TestCase
     #[Test]
     public function generateUsingSupersedesAFormatGenerator(): void
     {
-        $value = Id::make()->uuid()->generated()->generateUsing(static fn(): string => 'override')->generateIdValue();
+        $value = Id::make()->uuid()->generated()->generateUsing(static fn(): string => 'override')->build()->generateIdValue();
 
         self::assertSame('override', $value);
     }

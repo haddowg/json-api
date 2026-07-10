@@ -4,68 +4,17 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMax;
-use haddowg\JsonApi\Resource\Constraint\ExclusiveMin;
-use haddowg\JsonApi\Resource\Constraint\Max;
-use haddowg\JsonApi\Resource\Constraint\Min;
-use haddowg\JsonApi\Resource\Constraint\MultipleOf;
-
 /**
- * An integer attribute (JSON `type: integer`). Serializes/hydrates as `int`.
+ * An integer attribute (JSON `type: integer`) — the built, readonly value object
+ * the engine walks. Authors declare one with {@see make()}, which returns a
+ * mutable {@see IntegerBuilder}; the resource **builds** it into this value object
+ * before use. Serializes/hydrates as `int`.
  */
-final class Integer extends AbstractAttribute
+final readonly class Integer extends AbstractFieldValue
 {
-    /**
-     * @return static
-     */
-    public function min(int $value): static
+    public static function make(string $name): IntegerBuilder
     {
-        return $this->addConstraint(new Min($value, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function max(int $value): static
-    {
-        return $this->addConstraint(new Max($value, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function exclusiveMin(int $value): static
-    {
-        return $this->addConstraint(new ExclusiveMin($value, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function exclusiveMax(int $value): static
-    {
-        return $this->addConstraint(new ExclusiveMax($value, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function multipleOf(int $value): static
-    {
-        return $this->addConstraint(new MultipleOf($value, $this->currentContext()));
-    }
-
-    /**
-     * Restricts the value to an enumerated set of integers. Members may be plain
-     * integers or **int-backed-enum cases** (normalized to their backing value),
-     * matching {@see AbstractField::in()}.
-     *
-     * @param list<int|\BackedEnum> $values
-     * @return static
-     */
-    public function in(array $values): static
-    {
-        return parent::in($values);
+        return new IntegerBuilder($name);
     }
 
     protected function serializeValue(mixed $raw): mixed

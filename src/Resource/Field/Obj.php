@@ -12,7 +12,9 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * A typed nested object attribute stored in a **single** backing value (one JSON
  * column / one array property), with declared child fields addressing keys **inside**
- * that value.
+ * that value — the built, readonly value object the engine walks. Authors declare
+ * one with {@see make()}, which returns a mutable {@see ObjBuilder}; the resource
+ * **builds** it into this value object before use.
  *
  * It is the single-value sibling of {@see Map}: `Map` spreads its children across
  * separate flat columns of the domain object and the nested object is only a wire
@@ -27,24 +29,21 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * per-child (an un-supplied child keeps its stored value); an explicit `null` clears
  * the whole object.
  */
-final class Obj extends AbstractAttribute implements ProvidesFieldSchema
+final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSchema
 {
     /**
-     * @var list<FieldInterface>
+     * @param list<FieldInterface> $children
      */
-    private array $children = [];
+    public function __construct(
+        FieldState $state,
+        private array $children = [],
+    ) {
+        parent::__construct($state);
+    }
 
-    /**
-     * @return static
-     */
-    public function fields(FieldInterface|FieldBuilderInterface ...$children): static
+    public static function make(string $name): ObjBuilder
     {
-        $this->children = \array_values(\array_map(
-            static fn(FieldInterface|FieldBuilderInterface $child): FieldInterface => $child instanceof FieldBuilderInterface ? $child->build() : $child,
-            $children,
-        ));
-
-        return $this;
+        return new ObjBuilder($name);
     }
 
     /**
@@ -57,15 +56,15 @@ final class Obj extends AbstractAttribute implements ProvidesFieldSchema
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
-        if ($this->serializeUsing !== null) {
-            return ($this->serializeUsing)($model, $request, $name);
+        if ($this->state->serializeUsing !== null) {
+            return ($this->state->serializeUsing)($model, $request, $name);
         }
 
-        if ($this->extractUsing !== null) {
-            return ($this->extractUsing)($model, $request, $name);
+        if ($this->state->extractUsing !== null) {
+            return ($this->state->extractUsing)($model, $request, $name);
         }
 
-        $value = Accessor::get($model, $this->column ?? $name);
+        $value = Accessor::get($model, $this->state->column ?? $name);
         if ($value === null) {
             return null;
         }
@@ -86,13 +85,13 @@ final class Obj extends AbstractAttribute implements ProvidesFieldSchema
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        if ($this->fillUsing !== null) {
-            $result = ($this->fillUsing)($model, $value, $data, $this->name);
+        if ($this->state->fillUsing !== null) {
+            $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
         }
 
-        $column = $this->column ?? $this->name;
+        $column = $this->state->column ?? $this->state->name;
 
         // An explicit null clears the whole object.
         if ($value === null) {

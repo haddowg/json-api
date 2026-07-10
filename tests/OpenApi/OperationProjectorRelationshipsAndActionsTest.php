@@ -61,7 +61,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->required()->build()],
+            fields: [Id::make()->build(), Str::make('title')->required()->build()],
             relations: [
                 new FakeRelationMetadata('author', ['people'], false),
                 new FakeRelationMetadata(
@@ -92,7 +92,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         );
         $people = FakeTypeMetadata::resource(
             type: 'people',
-            fields: [Id::make(), Str::make('name')->build()],
+            fields: [Id::make()->build(), Str::make('name')->build()],
             relations: [new FakeRelationMetadata('company', ['companies'], false)],
             tags: ['People'],
             // The related resource's own filter — honoured on the `author` to-one's
@@ -103,7 +103,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // `?include=articles` and the widened `fields[articles]` both resolve.
         $tags = FakeTypeMetadata::resource(
             type: 'tags',
-            fields: [Id::make(), Str::make('label')->build()],
+            fields: [Id::make()->build(), Str::make('label')->build()],
             relations: [new FakeRelationMetadata('articles', ['articles'], true)],
             tags: ['Tags'],
             // The related resource's OWN filter/sort — merged with the relation's
@@ -111,8 +111,8 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             filters: [Where::make('color')],
             sorts: [SortByField::make('id')],
         );
-        $images = FakeTypeMetadata::resource(type: 'images', fields: [Id::make(), Str::make('url')->build()], tags: ['Media']);
-        $videos = FakeTypeMetadata::resource(type: 'videos', fields: [Id::make(), Str::make('url')->build()], tags: ['Media']);
+        $images = FakeTypeMetadata::resource(type: 'images', fields: [Id::make()->build(), Str::make('url')->build()], tags: ['Media']);
+        $videos = FakeTypeMetadata::resource(type: 'videos', fields: [Id::make()->build(), Str::make('url')->build()], tags: ['Media']);
 
         return new FakeServerMetadata(
             title: 'Blog API',
@@ -523,7 +523,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // not carry the shared meta-document component.
         $type = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             actions: [new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles')],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
@@ -537,10 +537,10 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     {
         $type = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             actions: [new FakeActionMetadata('archive', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [new Accepted('export-jobs')])],
         );
-        $jobs = FakeTypeMetadata::resource(type: 'export-jobs', fields: [Id::make(), Str::make('state')->build()]);
+        $jobs = FakeTypeMetadata::resource(type: 'export-jobs', fields: [Id::make()->build(), Str::make('state')->build()]);
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type, $jobs]);
         $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
 
@@ -558,7 +558,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     {
         $type = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             actions: [new FakeActionMetadata('result', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new SeeOther()])],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
@@ -591,7 +591,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // (inherits the empty default), mirroring the CRUD secured-op guard.
         $type = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             actions: [new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, secured: true)],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
@@ -664,7 +664,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // drop the 401, MORE permissive than the type it hangs off.
         $type = FakeTypeMetadata::resource(
             type: 'posts',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             relations: [
                 new FakeRelationMetadata('open', ['posts'], false, securityRead: false, securityMutate: false),
                 new FakeRelationMetadata('inherits', ['posts'], false),
@@ -708,7 +708,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // projector faithfully reflecting that the relation owns its gate.
         $type = FakeTypeMetadata::resource(
             type: 'notes',
-            fields: [Id::make(), Str::make('body')->build()],
+            fields: [Id::make()->build(), Str::make('body')->build()],
             relations: [
                 new FakeRelationMetadata('locked', ['notes'], false, securityRead: "is_granted('VIEW', object)", securityMutate: "is_granted('EDIT', object)"),
                 new FakeRelationMetadata('plain', ['notes'], false),
@@ -744,7 +744,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     {
         $type = FakeTypeMetadata::resource(
             type: 'jobs',
-            fields: [Id::make(), Str::make('name')->build()],
+            fields: [Id::make()->build(), Str::make('name')->build()],
             operations: [],
             actions: [new FakeActionMetadata('run', ['POST'], ActionScope::Collection, ActionInputMode::None)],
         );

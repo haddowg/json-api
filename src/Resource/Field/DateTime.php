@@ -5,77 +5,29 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
-use haddowg\JsonApi\Resource\Constraint\After;
-use haddowg\JsonApi\Resource\Constraint\Before;
-use haddowg\JsonApi\Resource\Constraint\Between;
 
 /**
- * An ISO-8601 date-time attribute (with timezone). Serializes a
- * `\DateTimeInterface` to a string in {@see $format}; hydrates a string back to
- * a `\DateTimeImmutable`.
- *
- * `before()` / `after()` / `between()` accept a fixed `\DateTimeInterface` or a
- * `\Closure` evaluated at validation time; closure bounds do not round-trip to
- * JSON Schema.
+ * An ISO-8601 date-time attribute (with timezone) — the built, readonly value
+ * object the engine walks. Authors declare one with {@see make()}, which returns
+ * a mutable {@see DateTimeBuilder}; the resource **builds** it into this value
+ * object before use. Serializes a `\DateTimeInterface` to a string in
+ * {@see $format}; hydrates a string back to a `\DateTimeImmutable`.
  *
  * Non-final by design: {@see Date} and {@see Time} extend it.
  */
-class DateTime extends AbstractAttribute
+readonly class DateTime extends AbstractFieldValue
 {
-    protected string $format = \DateTimeInterface::ATOM;
-
-    protected ?string $useTimezone = null;
-
-    /**
-     * Overrides the serialization format string.
-     *
-     * @return static
-     */
-    public function format(string $format): static
-    {
-        $this->format = $format;
-
-        return $this;
+    public function __construct(
+        FieldState $state,
+        protected string $format = \DateTimeInterface::ATOM,
+        protected ?string $useTimezone = null,
+    ) {
+        parent::__construct($state);
     }
 
-    /**
-     * @param \DateTimeInterface|\Closure(): \DateTimeInterface $bound
-     * @return static
-     */
-    public function before(\DateTimeInterface|\Closure $bound): static
+    public static function make(string $name): DateTimeBuilder
     {
-        return $this->addConstraint(new Before($bound, $this->currentContext()));
-    }
-
-    /**
-     * @param \DateTimeInterface|\Closure(): \DateTimeInterface $bound
-     * @return static
-     */
-    public function after(\DateTimeInterface|\Closure $bound): static
-    {
-        return $this->addConstraint(new After($bound, $this->currentContext()));
-    }
-
-    /**
-     * @param \DateTimeInterface|\Closure(): \DateTimeInterface $min
-     * @param \DateTimeInterface|\Closure(): \DateTimeInterface $max
-     * @return static
-     */
-    public function between(\DateTimeInterface|\Closure $min, \DateTimeInterface|\Closure $max): static
-    {
-        return $this->addConstraint(new Between($min, $max, $this->currentContext()));
-    }
-
-    /**
-     * Converts hydrated values into the given timezone before storing.
-     *
-     * @return static
-     */
-    public function useTimezone(string $timezone): static
-    {
-        $this->useTimezone = $timezone;
-
-        return $this;
+        return new DateTimeBuilder($name);
     }
 
     protected function serializeValue(mixed $raw): mixed

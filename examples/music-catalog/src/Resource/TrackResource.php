@@ -42,21 +42,21 @@ final class TrackResource extends AbstractResource
     public function fields(): array
     {
         return [
-            Id::make(),
+            Id::make()->build(),
             Str::make('title')->required()->sortable(),
-            Integer::make('trackNumber')->min(1)->sortable(),
+            Integer::make('trackNumber')->min(1)->sortable()->build(),
             // The JSON:API member `durationSeconds` is stored on the domain
             // object's `length_seconds` column — a storedAs() rename round-trips
             // transparently through both serialize and hydrate.
-            Integer::make('durationSeconds')->storedAs('length_seconds'),
-            Boolean::make('explicit'),
+            Integer::make('durationSeconds')->storedAs('length_seconds')->build(),
+            Boolean::make('explicit')->build(),
             // An array attribute with per-item rules: at least one genre, each a
             // non-empty string, no duplicates.
             ArrayList::make('genres')
                 ->minItems(1)
                 ->each(new MinLength(1))
-                ->uniqueItems(),
-            Time::make('previewOffset')->nullable(),
+                ->uniqueItems()->build(),
+            Time::make('previewOffset')->nullable()->build(),
             // Computed: no backing column (computed() nulls it), derived across the
             // trackNumber + title columns purely on read.
             Str::make('displayTitle')
@@ -76,8 +76,8 @@ final class TrackResource extends AbstractResource
             // (add/remove still allowed).
             BelongsToMany::make('playlists', 'playlists')
                 ->fields(
-                    Integer::make('position')->min(1),
-                    DateTime::make('addedAt')->readOnly(),
+                    Integer::make('position')->min(1)->build(),
+                    DateTime::make('addedAt')->readOnly()->build(),
                 )
                 ->cannotReplace(),
         ];

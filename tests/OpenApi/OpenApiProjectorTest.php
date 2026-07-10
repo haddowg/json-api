@@ -58,10 +58,10 @@ final class OpenApiProjectorTest extends TestCase
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
             fields: [
-                Id::make(),
+                Id::make()->build(),
                 Str::make('title')->required()->describedAs('The article headline.')->example('Hello')->build(),
                 Str::make('status')->enum(Status::class)->describedAs('Publication status.')->build(),
-                Integer::make('wordCount')->nullable(),
+                Integer::make('wordCount')->nullable()->build(),
             ],
             relations: [
                 FakeRelationMetadata::toOne('author', ['people'], 'The author.'),
@@ -77,10 +77,10 @@ final class OpenApiProjectorTest extends TestCase
         $people = FakeTypeMetadata::resource(
             type: 'people',
             fields: [
-                Id::make(),
+                Id::make()->build(),
                 Str::make('name')->required()->build(),
                 Str::make('role')->enum(Status::class)->build(), // re-use the same enum → dedup
-                Boolean::make('active'),
+                Boolean::make('active')->build(),
             ],
             relations: [
                 // A polymorphic to-one: linkage is a oneOf of member identifiers.
@@ -93,7 +93,7 @@ final class OpenApiProjectorTest extends TestCase
         $tags = FakeTypeMetadata::resource(
             type: 'tags',
             fields: [
-                Id::make(),
+                Id::make()->build(),
                 Str::make('label')->required()->build(),
             ],
             tags: ['Tags'],
@@ -144,18 +144,18 @@ final class OpenApiProjectorTest extends TestCase
     {
         $playlists = FakeTypeMetadata::resource(
             type: 'playlists',
-            fields: [Id::make(), Str::make('name')->required()->build()],
+            fields: [Id::make()->build(), Str::make('name')->required()->build()],
             relations: [
                 FakeRelationMetadata::toMany('orderedTracks', ['tracks'], 'Tracks in order.', pivotFields: [
-                    Integer::make('position')->describedAs('The track position.'),
-                    Boolean::make('featured')->nullable(),
+                    Integer::make('position')->describedAs('The track position.')->build(),
+                    Boolean::make('featured')->nullable()->build(),
                 ]),
                 // A plain (non-pivot) to-many keeps a bare `$ref` linkage.
                 FakeRelationMetadata::toMany('tags', ['tags']),
             ],
         );
-        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make(), Str::make('title')->required()->build()]);
-        $tags = FakeTypeMetadata::resource(type: 'tags', fields: [Id::make(), Str::make('label')->required()->build()]);
+        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make()->build(), Str::make('title')->required()->build()]);
+        $tags = FakeTypeMetadata::resource(type: 'tags', fields: [Id::make()->build(), Str::make('label')->required()->build()]);
 
         $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks, $tags]);
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
@@ -193,15 +193,15 @@ final class OpenApiProjectorTest extends TestCase
     {
         $playlists = FakeTypeMetadata::resource(
             type: 'playlists',
-            fields: [Id::make(), Str::make('name')->required()->build()],
+            fields: [Id::make()->build(), Str::make('name')->required()->build()],
             relations: [
                 FakeRelationMetadata::toMany('orderedTracks', ['tracks'], pivotFields: [
-                    Integer::make('position')->required(),
+                    Integer::make('position')->required()->build(),
                     Str::make('addedAt')->readOnly()->build(),
                 ]),
             ],
         );
-        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make(), Str::make('title')->build()]);
+        $tracks = FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make()->build(), Str::make('title')->build()]);
         $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks]);
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
 
@@ -442,7 +442,7 @@ final class OpenApiProjectorTest extends TestCase
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(
                 type: 'articles',
-                fields: [Id::make(), Str::make('title')->required()->build()],
+                fields: [Id::make()->build(), Str::make('title')->required()->build()],
                 relations: [
                     FakeRelationMetadata::toOne('author', ['people']),
                     // A locked to-one: settable on create (initial state) but never replaced.
@@ -473,7 +473,7 @@ final class OpenApiProjectorTest extends TestCase
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(
                 type: 'articles',
-                fields: [Id::make(), Str::make('title')->required()->build()],
+                fields: [Id::make()->build(), Str::make('title')->required()->build()],
                 relations: [new FakeRelationMetadata('owner', ['people'], false, allowsReplace: false)],
             )],
         );
@@ -494,7 +494,7 @@ final class OpenApiProjectorTest extends TestCase
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(
                 type: 'devices',
-                fields: [Id::make(), Str::make('label')->required()->build()],
+                fields: [Id::make()->build(), Str::make('label')->required()->build()],
                 allowsClientId: true,
                 requiresClientId: true,
             )],
@@ -516,7 +516,7 @@ final class OpenApiProjectorTest extends TestCase
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(
                 type: 'widgets',
-                fields: [Id::make(), Str::make('name')->required()->build()],
+                fields: [Id::make()->build(), Str::make('name')->required()->build()],
                 securedOperations: [OperationType::Create],
                 publicOperations: [OperationType::FetchOne],
             )],
@@ -549,7 +549,7 @@ final class OpenApiProjectorTest extends TestCase
         $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
-            types: [FakeTypeMetadata::resource(type: 'gadgets', fields: [Id::make(), Str::make('name')->build()])],
+            types: [FakeTypeMetadata::resource(type: 'gadgets', fields: [Id::make()->build(), Str::make('name')->build()])],
         );
         $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
 
@@ -614,7 +614,7 @@ final class OpenApiProjectorTest extends TestCase
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->required()->build()],
+            fields: [Id::make()->build(), Str::make('title')->required()->build()],
             operationDescriptions: [
                 OperationType::FetchCollection->value => 'Browse the article catalogue.',
             ],
@@ -715,7 +715,7 @@ final class OpenApiProjectorTest extends TestCase
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->required()->build()],
+            fields: [Id::make()->build(), Str::make('title')->required()->build()],
             // `categories` is a related type but is never registered on the server.
             relations: [FakeRelationMetadata::toOne('category', ['categories'])],
         );
@@ -802,10 +802,10 @@ final class OpenApiProjectorTest extends TestCase
         // shapes, and the atomic `data` union must not reference them (D26).
         $readOnly = FakeTypeMetadata::resource(
             type: 'reports',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
         );
-        $writable = FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')->build()]);
+        $writable = FakeTypeMetadata::resource(type: 'notes', fields: [Id::make()->build(), Str::make('body')->build()]);
         $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
