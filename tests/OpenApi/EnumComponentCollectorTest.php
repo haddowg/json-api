@@ -73,7 +73,7 @@ final class EnumComponentCollectorTest extends TestCase
     #[Test]
     public function withoutACollectorTheProjectorEmitsTheEnumInline(): void
     {
-        $field = Str::make('status')->enum(Status::class);
+        $field = Str::make('status')->enum(Status::class)->build();
 
         // No collector → backward-compatible inline projection (the Slice-1 behaviour).
         $inline = (new SchemaProjector())->projectField($field)->toArray();
@@ -86,7 +86,7 @@ final class EnumComponentCollectorTest extends TestCase
     #[Test]
     public function withACollectorTheProjectorHoistsTheEnumAndRefsIt(): void
     {
-        $field = Str::make('status')->enum(Status::class);
+        $field = Str::make('status')->enum(Status::class)->build();
         $collector = new EnumComponentCollector();
 
         $schema = (new SchemaProjector())->projectField($field, false, $collector)->toArray();
@@ -109,7 +109,7 @@ final class EnumComponentCollectorTest extends TestCase
         // A nullable backed-enum field is hoisted to a bare `$ref`, which carries no
         // scalar `type` to widen; the OAS-3.1 way to make a referenced schema nullable
         // is to union it with the null type (`anyOf: [{$ref}, {type: null}]`).
-        $field = Str::make('status')->enum(Status::class)->nullable();
+        $field = Str::make('status')->enum(Status::class)->nullable()->build();
         $collector = new EnumComponentCollector();
 
         $schema = (new SchemaProjector())->projectField($field, false, $collector)->toArray();

@@ -4,104 +4,22 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
-use haddowg\JsonApi\Resource\Constraint\EmailFormat;
-use haddowg\JsonApi\Resource\Constraint\IpFormat;
-use haddowg\JsonApi\Resource\Constraint\MaxLength;
-use haddowg\JsonApi\Resource\Constraint\MinLength;
-use haddowg\JsonApi\Resource\Constraint\Pattern;
-use haddowg\JsonApi\Resource\Constraint\SlugFormat;
-use haddowg\JsonApi\Resource\Constraint\UrlFormat;
-use haddowg\JsonApi\Resource\Constraint\UuidFormat;
-
 /**
- * A generic string attribute. The `email()` / `url()` / `uuid()` / `slug()` /
- * `ip()` shortcuts append the same format constraint the dedicated field types
- * carry, so `Str::make('contact')->email()` and `Email::make('contact')`
- * produce identical metadata.
+ * A generic string attribute — the built, readonly value object the engine walks.
+ * Authors declare one with {@see make()}, which returns a mutable
+ * {@see StrBuilder}; the resource **builds** it into this value object before use.
  *
- * Non-final by design: the format-preset string types ({@see Email}, {@see Url},
- * {@see Uuid}, {@see Slug}, {@see Ip}) extend it.
+ * The builder's `email()` / `url()` / `uuid()` / `slug()` / `ip()` shortcuts (and
+ * the {@see Email} / {@see Url} / {@see Uuid} / {@see Slug} / {@see Ip} facades)
+ * append a format constraint and build a plain `Str`, so
+ * `Str::make('contact')->email()` and `Email::make('contact')` produce identical
+ * metadata.
  */
-class Str extends AbstractAttribute
+final readonly class Str extends AbstractFieldValue
 {
-    /**
-     * @return static
-     */
-    public function minLength(int $length): static
+    public static function make(string $name): StrBuilder
     {
-        return $this->addConstraint(new MinLength($length, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function maxLength(int $length): static
-    {
-        return $this->addConstraint(new MaxLength($length, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function pattern(string $regex): static
-    {
-        return $this->addConstraint(new Pattern($regex, $this->currentContext()));
-    }
-
-    /**
-     * @param bool $strict opt into RFC-compliant validation (default HTML5-style)
-     * @return static
-     */
-    public function email(bool $strict = false): static
-    {
-        return $this->addConstraint(new EmailFormat($strict, $this->currentContext()));
-    }
-
-    /**
-     * @param list<string> $allowedSchemes
-     * @return static
-     */
-    public function url(array $allowedSchemes = []): static
-    {
-        return $this->addConstraint(new UrlFormat($allowedSchemes, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function uuid(?int $version = null): static
-    {
-        return $this->addConstraint(new UuidFormat($version, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function slug(?string $regex = null): static
-    {
-        $field = $this->addConstraint(
-            $regex === null
-                ? new SlugFormat(context: $this->currentContext())
-                : new SlugFormat($regex, $this->currentContext()),
-        );
-
-        // Without an explicit example a renderer synthesises a gibberish string from
-        // the slug pattern. Preset a readable one for the default slug shape (a custom
-        // regex may not match it, so only the default form gets a default); an author
-        // `->example(…)` still wins.
-        if ($regex === null && !$field->hasExample()) {
-            $field = $field->example('example-slug');
-        }
-
-        return $field;
-    }
-
-    /**
-     * @return static
-     */
-    public function ip(?int $version = null): static
-    {
-        return $this->addConstraint(new IpFormat($version, $this->currentContext()));
+        return new StrBuilder($name);
     }
 
     protected function serializeValue(mixed $raw): mixed

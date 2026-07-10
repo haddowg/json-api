@@ -124,7 +124,7 @@ final class ProvidesJsonSchemaTest extends TestCase
     #[Test]
     public function the_openapi_projector_honours_a_consumer_defined_constraint(): void
     {
-        $schema = (new SchemaProjector())->projectField(Str::make('token')->constrain(new HexFormat()))->toArray();
+        $schema = (new SchemaProjector())->projectField(Str::make('token')->constrain(new HexFormat())->build())->toArray();
 
         self::assertSame(HexFormat::PATTERN, $schema['pattern']);
         self::assertTrue($schema['x-hex']);
@@ -144,7 +144,7 @@ final class ProvidesJsonSchemaTest extends TestCase
             {
                 return [
                     Id::make(),
-                    Str::make('token')->constrain(new HexFormat()),
+                    Str::make('token')->constrain(new HexFormat())->build(),
                 ];
             }
         };
@@ -167,7 +167,7 @@ final class ProvidesJsonSchemaTest extends TestCase
     #[Test]
     public function a_composite_composes_a_consumer_defined_constraint_through_the_seam(): void
     {
-        $field = Str::make('token')->sequentially(new HexFormat(), new MinLength(3));
+        $field = Str::make('token')->sequentially(new HexFormat(), new MinLength(3))->build();
 
         $projected = (new SchemaProjector())->projectField($field)->toArray();
         self::assertSame(HexFormat::PATTERN, $projected['pattern']);
@@ -181,7 +181,7 @@ final class ProvidesJsonSchemaTest extends TestCase
             {
                 return [
                     Id::make(),
-                    Str::make('token')->sequentially(new HexFormat(), new MinLength(3)),
+                    Str::make('token')->sequentially(new HexFormat(), new MinLength(3))->build(),
                 ];
             }
         };

@@ -180,4 +180,13 @@ interface FieldInterface
      * onto a join row) where only the field's declared type is in play.
      */
     public function castWireValue(mixed $value): mixed;
+
+    /**
+     * Serializes the field's value from the domain object alone, **without a
+     * request**. Used for request-independent members — the resource `id` (an
+     * identity must not vary by request) and a pivot-meta value cast — so only the
+     * backing column and the type's value cast are consulted; the request-aware
+     * `serializeUsing()` / `extractUsing()` hooks are not.
+     */
+    public function serializeWithoutRequest(mixed $model): mixed;
 }

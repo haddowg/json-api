@@ -477,7 +477,7 @@ final class RelationTest extends TestCase
     {
         $position = Integer::make('position');
         $addedAt = DateTimeField::make('addedAt')->readOnly();
-        $note = Str::make('note')->readOnlyOnUpdate();
+        $note = Str::make('note')->readOnlyOnUpdate()->build();
 
         $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt, $note);
 

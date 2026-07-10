@@ -26,7 +26,7 @@ final class CastWireValueTest extends TestCase
     #[Test]
     public function strPassesTheValueThroughUnchanged(): void
     {
-        $field = Str::make('title');
+        $field = Str::make('title')->build();
 
         self::assertSame('hello', $field->castWireValue('hello'));
         self::assertNull($field->castWireValue(null));
@@ -104,7 +104,7 @@ final class CastWireValueTest extends TestCase
     {
         // The hydrate hooks need the full document context; the public cast is
         // the declared type's value cast alone.
-        $field = Str::make('name')->deserializeUsing(fn(mixed $value): mixed => \is_string($value) ? trim($value) : $value);
+        $field = Str::make('name')->deserializeUsing(fn(mixed $value): mixed => \is_string($value) ? trim($value) : $value)->build();
 
         self::assertSame('  bob  ', $field->castWireValue('  bob  '));
     }

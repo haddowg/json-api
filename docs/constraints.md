@@ -60,7 +60,7 @@ per-field `onCreate()` / `onUpdate()` builders — each runs a closure and stamp
 **every constraint appended inside it** with that context:
 
 ```php
-Str::make('handle')->onCreate(static function (Str $field): void {
+Str::make('handle')->onCreate(static function (StrBuilder $field): void {
     $field->required()->slug();   // both stamped onlyCreate()
 });
 ```
@@ -224,7 +224,7 @@ a minimum length only when the confirmation field is actually supplied:
 ```php
 ->when(
     static fn(mixed $value): bool => $value !== null && $value !== '',
-    static function (Str $field): void {
+    static function (StrBuilder $field): void {
         $field->minLength(8);
     },
 )

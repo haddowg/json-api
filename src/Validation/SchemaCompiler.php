@@ -72,7 +72,7 @@ final class SchemaCompiler
         $relationshipProperties = [];
         $relationshipRequired = [];
 
-        foreach ($resource->fields() as $field) {
+        foreach ($resource->allFields() as $field) {
             if ($field instanceof Id || $field->isHidden()) {
                 continue;
             }

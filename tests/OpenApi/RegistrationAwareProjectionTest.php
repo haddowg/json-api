@@ -45,7 +45,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         // A countable type: `collectionWithCountTokens` yields `_self_`.
         $type = FakeTypeMetadata::resource(
             type: 'books',
-            fields: [Id::make(), Str::make('title')],
+            fields: [Id::make(), Str::make('title')->build()],
             operations: [OperationType::FetchCollection],
             countable: true,
         );
@@ -72,7 +72,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         // Nothing countable → no valid token → no parameter, registered or not.
         $type = FakeTypeMetadata::resource(
             type: 'plain',
-            fields: [Id::make(), Str::make('name')],
+            fields: [Id::make(), Str::make('name')->build()],
             operations: [OperationType::FetchCollection],
         );
 
@@ -127,7 +127,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         $document = $this->projector()->project(new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
-            types: [FakeTypeMetadata::resource(type: 'tags', fields: [Id::make(), Str::make('label')])],
+            types: [FakeTypeMetadata::resource(type: 'tags', fields: [Id::make(), Str::make('label')->build()])],
             profiles: [RelationshipQueriesProfile::URI],
         ))->toArray();
 
@@ -142,7 +142,7 @@ final class RegistrationAwareProjectionTest extends TestCase
     {
         $type = FakeTypeMetadata::resource(
             type: 'feed',
-            fields: [Id::make(), Str::make('body')],
+            fields: [Id::make(), Str::make('body')->build()],
             operations: [OperationType::FetchCollection],
             pageSchema: CursorPaginator::make()->describePageSchema(),
         );
@@ -175,7 +175,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         $menu = MultiPaginator::make(PagePaginator::make(), CursorPaginator::make())->default('page');
         $type = FakeTypeMetadata::resource(
             type: 'things',
-            fields: [Id::make(), Str::make('name')],
+            fields: [Id::make(), Str::make('name')->build()],
             operations: [OperationType::FetchCollection],
             pageSchema: $menu->describePageSchema(),
         );
@@ -252,7 +252,7 @@ final class RegistrationAwareProjectionTest extends TestCase
             $this->projector()->project(new FakeServerMetadata(
                 title: 'API',
                 version: '1.0.0',
-                types: [FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')])],
+                types: [FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')->build()])],
                 atomicOperations: new FakeAtomicOperationsMetadata(),
             ))->toArray(),
             'components',
@@ -283,11 +283,11 @@ final class RegistrationAwareProjectionTest extends TestCase
             types: [
                 FakeTypeMetadata::resource(
                     type: 'articles',
-                    fields: [Id::make(), Str::make('title')],
+                    fields: [Id::make(), Str::make('title')->build()],
                     relations: [new FakeRelationMetadata('author', ['people'], false)],
                     includablePaths: ['author'],
                 ),
-                FakeTypeMetadata::resource(type: 'people', fields: [Id::make(), Str::make('name')]),
+                FakeTypeMetadata::resource(type: 'people', fields: [Id::make(), Str::make('name')->build()]),
             ],
             profiles: $profiles,
         );
@@ -301,7 +301,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         return new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
-            types: [FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')])],
+            types: [FakeTypeMetadata::resource(type: 'notes', fields: [Id::make(), Str::make('body')->build()])],
             profiles: $profiles,
         );
     }

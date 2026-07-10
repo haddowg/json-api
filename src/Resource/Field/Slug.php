@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * A string attribute that validates a URL slug by default (lowercase
- * alphanumerics separated by single hyphens). Equivalent to
- * `Str::make($name)->slug()`.
+ * A **field builder** facade for a URL slug string (lowercase alphanumerics
+ * separated by single hyphens): presets a `SlugFormat` constraint and builds a
+ * plain {@see Str}. Equivalent to `Str::make($name)->slug()`.
  */
-final class Slug extends Str
+final class Slug extends StrBuilder
 {
     /**
      * @return static

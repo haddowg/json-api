@@ -28,6 +28,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Field\Uuid;
@@ -129,7 +130,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function stringFieldProjectsToStringType(): void
     {
-        self::assertSame('string', $this->at($this->project(Str::make('s')), 'type'));
+        self::assertSame('string', $this->at($this->project(Str::make('s')->build()), 'type'));
     }
 
     #[Test]
@@ -161,16 +162,16 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function formatStringTypesProjectTheirFormat(): void
     {
-        self::assertSame('email', $this->at($this->project(Email::make('e')), 'format'));
-        self::assertSame('uri', $this->at($this->project(Url::make('u')), 'format'));
-        self::assertSame('uuid', $this->at($this->project(Uuid::make('id')), 'format'));
-        self::assertSame('ipv4', $this->at($this->project(Ip::make('ip')), 'format'));
+        self::assertSame('email', $this->at($this->project(Email::make('e')->build()), 'format'));
+        self::assertSame('uri', $this->at($this->project(Url::make('u')->build()), 'format'));
+        self::assertSame('uuid', $this->at($this->project(Uuid::make('id')->build()), 'format'));
+        self::assertSame('ipv4', $this->at($this->project(Ip::make('ip')->build()), 'format'));
     }
 
     #[Test]
     public function slugProjectsAPatternNotAFormat(): void
     {
-        $schema = $this->project(Slug::make('slug'));
+        $schema = $this->project(Slug::make('slug')->build());
 
         self::assertSame('string', $this->at($schema, 'type'));
         self::assertArrayHasKey('pattern', $schema);
@@ -186,11 +187,11 @@ final class SchemaProjectorTest extends TestCase
     public function slugWithACustomRegexGetsNoDefaultExampleAndAnExplicitOneWins(): void
     {
         // A custom slug regex may not match the default example, so no default is preset.
-        $custom = $this->project(Str::make('slug')->slug('^[A-Z]+$'));
+        $custom = $this->project(Str::make('slug')->slug('^[A-Z]+$')->build());
         self::assertArrayNotHasKey('example', $custom);
 
         // An author-supplied example always wins over the default.
-        $explicit = $this->project(Slug::make('slug')->example('my-mix'));
+        $explicit = $this->project(Slug::make('slug')->example('my-mix')->build());
         self::assertSame('my-mix', $this->at($explicit, 'example'));
     }
 
@@ -227,7 +228,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function stringLengthAndPatternConstraints(): void
     {
-        $schema = $this->project(Str::make('s')->minLength(1)->maxLength(5)->pattern('^x'));
+        $schema = $this->project(Str::make('s')->minLength(1)->maxLength(5)->pattern('^x')->build());
 
         self::assertSame(1, $this->at($schema, 'minLength'));
         self::assertSame(5, $this->at($schema, 'maxLength'));
@@ -284,7 +285,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function notInProjectsToNotEnum(): void
     {
-        $schema = $this->project(Str::make('s')->notIn(['x', 'y']));
+        $schema = $this->project(Str::make('s')->notIn(['x', 'y'])->build());
 
         self::assertSame(['enum' => ['x', 'y']], $this->at($schema, 'not'));
     }
@@ -292,7 +293,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function sequentiallyMergesInline(): void
     {
-        $schema = $this->project(Str::make('code')->sequentially(new MinLength(3), new MaxLength(8)));
+        $schema = $this->project(Str::make('code')->sequentially(new MinLength(3), new MaxLength(8))->build());
 
         self::assertSame(3, $this->at($schema, 'minLength'));
         self::assertSame(8, $this->at($schema, 'maxLength'));
@@ -301,7 +302,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function atLeastOneOfProjectsToAnyOf(): void
     {
-        $schema = $this->project(Str::make('ref')->atLeastOneOf(new MinLength(8), new MaxLength(2)));
+        $schema = $this->project(Str::make('ref')->atLeastOneOf(new MinLength(8), new MaxLength(2))->build());
 
         self::assertSame([['minLength' => 8], ['maxLength' => 2]], $this->at($schema, 'anyOf'));
     }
@@ -344,7 +345,7 @@ final class SchemaProjectorTest extends TestCase
         // `enum` is an absolute whitelist that overrides the type union, so a
         // nullable enumerated field must carry `null` in `enum` to accept its own
         // legitimate null value.
-        $schema = $this->project(Str::make('status')->enum(Status::class)->nullable());
+        $schema = $this->project(Str::make('status')->enum(Status::class)->nullable()->build());
 
         self::assertSame(['string', 'null'], $this->at($schema, 'type'));
         self::assertSame(['draft', 'published', 'archived', null], $this->at($schema, 'enum'));
@@ -353,7 +354,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function nullableInListAddsNullToTheEnumList(): void
     {
-        $schema = $this->project(Str::make('size')->in(['s', 'm', 'l'])->nullable());
+        $schema = $this->project(Str::make('size')->in(['s', 'm', 'l'])->nullable()->build());
 
         self::assertSame(['string', 'null'], $this->at($schema, 'type'));
         self::assertSame(['s', 'm', 'l', null], $this->at($schema, 'enum'));
@@ -365,7 +366,7 @@ final class SchemaProjectorTest extends TestCase
     public function mapCascadesChildFieldsIntoProperties(): void
     {
         $field = Map::make('address')->fields(
-            Str::make('street')->maxLength(100),
+            Str::make('street')->maxLength(100)->build(),
             Integer::make('zip')->min(0),
         );
         $schema = $this->project($field);
@@ -379,8 +380,8 @@ final class SchemaProjectorTest extends TestCase
     public function mapCollectsRequiredChildrenOnCreateOnly(): void
     {
         $field = Map::make('address')->fields(
-            Str::make('street')->required(),
-            Str::make('line2'),
+            Str::make('street')->required()->build(),
+            Str::make('line2')->build(),
         );
 
         // Read projection: no nested `required` (mirrors top-level attributes).
@@ -395,7 +396,7 @@ final class SchemaProjectorTest extends TestCase
     public function objProjectsAsAnObjectWithChildPropertiesViaTheSelfDescribingSeam(): void
     {
         $field = Obj::make('address')->fields(
-            Str::make('street')->maxLength(100),
+            Str::make('street')->maxLength(100)->build(),
             Integer::make('zip')->min(0),
         );
         $schema = $this->project($field);
@@ -409,8 +410,8 @@ final class SchemaProjectorTest extends TestCase
     public function objCollectsRequiredChildrenOnCreateOnly(): void
     {
         $field = Obj::make('address')->fields(
-            Str::make('street')->required(),
-            Str::make('line2'),
+            Str::make('street')->required()->build(),
+            Str::make('line2')->build(),
         );
 
         $this->missing($this->project($field), 'required');
@@ -422,7 +423,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function objNullableWidensTheObjectTypeToAllowNull(): void
     {
-        $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')));
+        $schema = $this->project(Obj::make('address')->nullable()->fields(Str::make('street')->build()));
 
         self::assertSame(['object', 'null'], $this->at($schema, 'type'));
     }
@@ -431,8 +432,8 @@ final class SchemaProjectorTest extends TestCase
     public function oneOfProjectsAsOneOfWithADiscriminatorAndPerBranchConst(): void
     {
         $field = OneOf::make('block')->discriminator('kind')
-            ->variant('heading', Str::make('text')->required())
-            ->variant('image', Str::make('src'));
+            ->variant('heading', Str::make('text')->required()->build())
+            ->variant('image', Str::make('src')->build());
 
         $schema = $this->project($field, creating: true);
 
@@ -458,7 +459,7 @@ final class SchemaProjectorTest extends TestCase
     public function oneOfNullableAppendsANullBranch(): void
     {
         $field = OneOf::make('block')->nullable()->discriminator('kind')
-            ->variant('image', Str::make('src'));
+            ->variant('image', Str::make('src')->build());
 
         $branches = $this->listAt($this->project($field), 'oneOf');
         // The union gains a null branch.
@@ -546,7 +547,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function enumWithDescriptionsEmitsAllSurfacesInBothMode(): void
     {
-        $schema = $this->project(Str::make('status')->enum(Status::class));
+        $schema = $this->project(Str::make('status')->enum(Status::class)->build());
 
         self::assertSame('string', $this->at($schema, 'type'));
         self::assertSame(['draft', 'published', 'archived'], $this->at($schema, 'enum'));
@@ -576,7 +577,7 @@ final class SchemaProjectorTest extends TestCase
     {
         // `enum: []` is an invalid 2020-12 schema (the keyword requires a non-empty
         // array), so a degenerate empty value set emits no `enum` at all.
-        $schema = $this->project(Str::make('x')->in([]));
+        $schema = $this->project(Str::make('x')->in([])->build());
 
         $this->missing($schema, 'enum');
         self::assertSame('string', $this->at($schema, 'type'));
@@ -586,7 +587,7 @@ final class SchemaProjectorTest extends TestCase
     public function extensionsOnlyModeOmitsTheMarkdownTable(): void
     {
         $schema = $this->projector(EnumDescriptionMode::Extensions)
-            ->projectField(Str::make('status')->enum(Status::class))
+            ->projectField(Str::make('status')->enum(Status::class)->build())
             ->toArray();
 
         self::assertSame(['Draft', 'Published', 'Archived'], $this->at($schema, 'x-enum-varnames'));
@@ -598,7 +599,7 @@ final class SchemaProjectorTest extends TestCase
     public function descriptionOnlyModeOmitsTheExtensions(): void
     {
         $schema = $this->projector(EnumDescriptionMode::Description)
-            ->projectField(Str::make('status')->enum(Status::class))
+            ->projectField(Str::make('status')->enum(Status::class)->build())
             ->toArray();
 
         $this->missing($schema, 'x-enum-varnames');
@@ -609,7 +610,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function plainInEnumEmitsNoEnumMetadata(): void
     {
-        $schema = $this->project(Str::make('s')->in(['a', 'b']));
+        $schema = $this->project(Str::make('s')->in(['a', 'b'])->build());
 
         self::assertSame(['a', 'b'], $this->at($schema, 'enum'));
         $this->missing($schema, 'x-enum-varnames');
@@ -630,9 +631,9 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function conditionalWhenDegradesToADescriptionNote(): void
     {
-        $field = Str::make('s')->when(static fn(mixed $v): bool => true, static function (Str $f): void {
+        $field = Str::make('s')->when(static fn(mixed $v): bool => true, static function (StrBuilder $f): void {
             $f->minLength(5);
-        });
+        })->build();
         $schema = $this->project($field);
 
         $this->missing($schema, 'minLength');
@@ -667,7 +668,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function descriptionAndExampleSurfaceOnTheSchema(): void
     {
-        $schema = $this->project(Str::make('name')->describedAs('A name')->example('Ada'));
+        $schema = $this->project(Str::make('name')->describedAs('A name')->example('Ada')->build());
 
         self::assertSame('A name', $this->at($schema, 'description'));
         self::assertSame('Ada', $this->at($schema, 'example'));
@@ -699,10 +700,10 @@ final class SchemaProjectorTest extends TestCase
     {
         $fields = [
             Id::make(),
-            Str::make('name')->required(),
+            Str::make('name')->required()->build(),
             // In the read superset schema, but request-conditionally absent from the wire.
-            Str::make('nickname')->hidden(static fn(mixed $model, $request): bool => false),
-            Str::make('token')->writeOnly(static fn($request): bool => false),
+            Str::make('nickname')->hidden(static fn(mixed $model, $request): bool => false)->build(),
+            Str::make('token')->writeOnly(static fn($request): bool => false)->build(),
         ];
 
         $schema = $this->projector()->projectAttributes($fields)->toArray();
@@ -754,7 +755,7 @@ final class SchemaProjectorTest extends TestCase
     public function readOnlyContextDistinguishesCreateFromUpdate(): void
     {
         // `readOnlyOnCreate()` is writable on update but not on create.
-        $fields = [Id::make(), Str::make('name'), Str::make('handle')->readOnlyOnCreate()];
+        $fields = [Id::make(), Str::make('name')->build(), Str::make('handle')->readOnlyOnCreate()->build()];
 
         $create = $this->projector()->projectAttributes($fields, RepresentationContext::Create)->toArray();
         $update = $this->projector()->projectAttributes($fields, RepresentationContext::Update)->toArray();
@@ -785,7 +786,7 @@ final class SchemaProjectorTest extends TestCase
     #[Test]
     public function resourceObjectIdHonoursTheDeclaredIdPattern(): void
     {
-        $schema = $this->projector()->projectResourceObject('articles', [Id::make()->numeric(), Str::make('name')])->toArray();
+        $schema = $this->projector()->projectResourceObject('articles', [Id::make()->numeric(), Str::make('name')->build()])->toArray();
 
         $id = $this->at($schema, 'properties', 'id');
         self::assertIsArray($id);
@@ -819,11 +820,11 @@ final class SchemaProjectorTest extends TestCase
     {
         return [
             Id::make(),
-            Str::make('name')->required()->maxLength(50),
-            Str::make('status')->enum(Status::class),
-            Str::make('secret')->writeOnly(),
-            Str::make('derived')->readOnly(),
-            Str::make('internal')->hidden(),
+            Str::make('name')->required()->maxLength(50)->build(),
+            Str::make('status')->enum(Status::class)->build(),
+            Str::make('secret')->writeOnly()->build(),
+            Str::make('derived')->readOnly()->build(),
+            Str::make('internal')->hidden()->build(),
         ];
     }
 }

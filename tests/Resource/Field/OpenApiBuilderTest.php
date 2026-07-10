@@ -23,7 +23,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function descriptionAndExampleSurfaceThroughGetters(): void
     {
-        $field = Str::make('name')->describedAs('The display name')->example('Ada');
+        $field = Str::make('name')->describedAs('The display name')->example('Ada')->build();
 
         self::assertSame('The display name', $field->getDescription());
         self::assertTrue($field->hasExample());
@@ -33,10 +33,10 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function aNullExampleIsDistinguishedFromNoExample(): void
     {
-        self::assertFalse(Str::make('name')->getDescription() !== null);
-        self::assertFalse(Str::make('name')->hasExample());
+        self::assertFalse(Str::make('name')->build()->getDescription() !== null);
+        self::assertFalse(Str::make('name')->build()->hasExample());
 
-        $field = Str::make('name')->example(null);
+        $field = Str::make('name')->example(null)->build();
         self::assertTrue($field->hasExample());
         self::assertNull($field->getExample());
     }
@@ -44,7 +44,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function enumExpandsToBackingScalarsAndRetainsTheClassString(): void
     {
-        $field = Str::make('status')->enum(Status::class);
+        $field = Str::make('status')->enum(Status::class)->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame(['draft', 'published', 'archived'], $in->values);
@@ -54,7 +54,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function inAcceptsBackedEnumCasesAndNormalizesThemToScalars(): void
     {
-        $field = Str::make('status')->in([Status::Draft, Status::Published]);
+        $field = Str::make('status')->in([Status::Draft, Status::Published])->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame(['draft', 'published'], $in->values);
@@ -64,7 +64,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function inWithPlainScalarsRetainsNoEnumClass(): void
     {
-        $field = Str::make('status')->in(['a', 'b']);
+        $field = Str::make('status')->in(['a', 'b'])->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame(['a', 'b'], $in->values);
@@ -74,7 +74,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function inWithMixedEnumsRetainsNoSingleEnumClass(): void
     {
-        $field = Str::make('mixed')->in([Status::Draft, 'literal']);
+        $field = Str::make('mixed')->in([Status::Draft, 'literal'])->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame(['draft', 'literal'], $in->values);
@@ -104,7 +104,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function notInNormalizesEnumCasesToScalars(): void
     {
-        $field = Str::make('status')->notIn([Status::Archived]);
+        $field = Str::make('status')->notIn([Status::Archived])->build();
 
         $constraints = $field->constraints();
         self::assertCount(1, $constraints);

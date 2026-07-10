@@ -78,9 +78,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     private bool $isCountable = false;
 
     /**
-     * The resource's field inventory (attributes + relationships).
+     * The resource's field inventory (attributes + relationships). Each entry may
+     * be a **field builder** ({@see \haddowg\JsonApi\Resource\Field\FieldBuilderInterface}
+     * — what `Str::make(…)->…` returns) or an already-built
+     * {@see \haddowg\JsonApi\Resource\Field\FieldInterface}; {@see allFields()}
+     * builds any builder into its value object before use.
      *
-     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
+     * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
      */
     abstract public function fields(): array;
 
@@ -1004,17 +1008,30 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
-     * The cached field inventory. Guards the reserved `?withCount` token `_self_`
-     * at build time: a relation literally named `_self_` would be ambiguous with the
-     * token naming the primary collection, so it is rejected here (the single point
-     * where every field is first indexed) rather than letting the token silently win.
+     * The resource's **built** field inventory: every {@see fields()} entry, with
+     * any {@see \haddowg\JsonApi\Resource\Field\FieldBuilderInterface} frozen into
+     * its {@see \haddowg\JsonApi\Resource\Field\FieldInterface} value object. This
+     * is the single point every consumer — inside the resource and out (the
+     * validation {@see \haddowg\JsonApi\Validation\SchemaCompiler}, the adapters) —
+     * reads fields through, so a builder never leaks past the declaration boundary.
+     *
+     * Guards the reserved `?withCount` token `_self_` at build time: a relation
+     * literally named `_self_` would be ambiguous with the token naming the primary
+     * collection, so it is rejected here (the single point where every field is
+     * first indexed) rather than letting the token silently win. The result is
+     * cached for the resource's lifetime.
      *
      * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
-    final protected function allFields(): array
+    final public function allFields(): array
     {
         if ($this->fieldCache === null) {
-            $this->fieldCache = \array_values($this->fields());
+            $this->fieldCache = \array_values(\array_map(
+                static fn(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface $field): \haddowg\JsonApi\Resource\Field\FieldInterface => $field instanceof \haddowg\JsonApi\Resource\Field\FieldBuilderInterface
+                    ? $field->build()
+                    : $field,
+                $this->fields(),
+            ));
             foreach ($this->fieldCache as $field) {
                 if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface
                     && $field->name() === \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN) {

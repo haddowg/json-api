@@ -133,7 +133,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     #[Test]
     public function aConstrainedStringSchemaAcceptsValidAndRejectsInvalid(): void
     {
-        $schema = $this->projector()->projectField(Str::make('name')->minLength(2)->maxLength(5));
+        $schema = $this->projector()->projectField(Str::make('name')->minLength(2)->maxLength(5)->build());
 
         self::assertNull($this->validate($schema, 'Ada'));
         self::assertNotNull($this->validate($schema, 'x'));      // too short
@@ -143,7 +143,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     #[Test]
     public function anEmailFormatSchemaParsesAndValidates(): void
     {
-        $schema = $this->projector()->projectField(Email::make('email'));
+        $schema = $this->projector()->projectField(Email::make('email')->build());
 
         self::assertNull($this->validate($schema, 'ada@example.com'));
         self::assertNotNull($this->validate($schema, 'not-an-email'));
@@ -163,7 +163,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     #[Test]
     public function anEnumSchemaParsesDespiteVendorExtensions(): void
     {
-        $schema = $this->projector()->projectField(Str::make('status')->enum(Status::class));
+        $schema = $this->projector()->projectField(Str::make('status')->enum(Status::class)->build());
 
         self::assertNull($this->validate($schema, 'draft'));
         self::assertNotNull($this->validate($schema, 'unknown'));
@@ -174,7 +174,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     {
         // The regression for finding 2: without `null` in `enum`, opis rejects the
         // field's own legitimate null even though the type union allows it.
-        $schema = $this->projector()->projectField(Str::make('status')->enum(Status::class)->nullable());
+        $schema = $this->projector()->projectField(Str::make('status')->enum(Status::class)->nullable()->build());
 
         self::assertNull($this->validate($schema, 'draft'));
         self::assertNull($this->validate($schema, null));
@@ -217,8 +217,8 @@ final class SchemaProjectorMetaValidationTest extends TestCase
         // required child so a write omitting it is rejected, matching the runtime
         // nested-attribute validation cascade.
         $field = Map::make('address')->fields(
-            Str::make('street')->required(),
-            Str::make('line2'),
+            Str::make('street')->required()->build(),
+            Str::make('line2')->build(),
         );
         $schema = $this->projector()->projectField($field, creating: true);
 
@@ -232,8 +232,8 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     {
         $fields = [
             Id::make(),
-            Str::make('name')->required()->maxLength(50),
-            Str::make('status')->enum(Status::class),
+            Str::make('name')->required()->maxLength(50)->build(),
+            Str::make('status')->enum(Status::class)->build(),
         ];
         $schema = $this->projector()->projectResourceObject('articles', $fields);
 

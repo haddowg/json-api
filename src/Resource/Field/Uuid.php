@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * A string attribute that validates UUID format by default. Equivalent to
- * `Str::make($name)->uuid()`.
+ * A **field builder** facade for a UUID string: presets a `UuidFormat` constraint
+ * and builds a plain {@see Str}. Equivalent to `Str::make($name)->uuid()`.
  */
-final class Uuid extends Str
+final class Uuid extends StrBuilder
 {
     /**
      * @return static

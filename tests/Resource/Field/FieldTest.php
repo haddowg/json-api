@@ -41,6 +41,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Field\Uuid;
@@ -73,7 +74,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function makeSetsNameAndDefaultColumn(): void
     {
-        $field = Str::make('title');
+        $field = Str::make('title')->build();
 
         self::assertSame('title', $field->name());
         self::assertSame('title', $field->column());
@@ -82,7 +83,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function storedAsOverridesColumn(): void
     {
-        $field = Str::make('title')->storedAs('post_title');
+        $field = Str::make('title')->storedAs('post_title')->build();
 
         self::assertSame('title', $field->name());
         self::assertSame('post_title', $field->column());
@@ -91,7 +92,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function defaultFlags(): void
     {
-        $field = Str::make('title');
+        $field = Str::make('title')->build();
 
         self::assertFalse($field->isReadOnly(true));
         self::assertFalse($field->isReadOnly(false));
@@ -105,7 +106,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function readOnlyAppliesToBothContexts(): void
     {
-        $field = Str::make('slug')->readOnly();
+        $field = Str::make('slug')->readOnly()->build();
 
         self::assertTrue($field->isReadOnly(true));
         self::assertTrue($field->isReadOnly(false));
@@ -114,20 +115,20 @@ final class FieldTest extends TestCase
     #[Test]
     public function readOnlyOnCreateAndUpdateAreContextScoped(): void
     {
-        self::assertTrue(Str::make('a')->readOnlyOnCreate()->isReadOnly(true));
-        self::assertFalse(Str::make('a')->readOnlyOnCreate()->isReadOnly(false));
-        self::assertFalse(Str::make('a')->readOnlyOnUpdate()->isReadOnly(true));
-        self::assertTrue(Str::make('a')->readOnlyOnUpdate()->isReadOnly(false));
+        self::assertTrue(Str::make('a')->readOnlyOnCreate()->build()->isReadOnly(true));
+        self::assertFalse(Str::make('a')->readOnlyOnCreate()->build()->isReadOnly(false));
+        self::assertFalse(Str::make('a')->readOnlyOnUpdate()->build()->isReadOnly(true));
+        self::assertTrue(Str::make('a')->readOnlyOnUpdate()->build()->isReadOnly(false));
     }
 
     #[Test]
     public function writeOnlyDefaultsFalseAndIsTheInverseOfReadOnly(): void
     {
-        self::assertFalse(Str::make('a')->isWriteOnly());
-        self::assertTrue(Str::make('password')->writeOnly()->isWriteOnly());
+        self::assertFalse(Str::make('a')->build()->isWriteOnly());
+        self::assertTrue(Str::make('password')->writeOnly()->build()->isWriteOnly());
 
         // Write-only is not read-only: it is still hydrated on both contexts.
-        $field = Str::make('password')->writeOnly();
+        $field = Str::make('password')->writeOnly()->build();
         self::assertFalse($field->isReadOnly(true));
         self::assertFalse($field->isReadOnly(false));
     }
@@ -153,16 +154,16 @@ final class FieldTest extends TestCase
     #[Test]
     public function flagBuilders(): void
     {
-        self::assertTrue(Str::make('a')->hidden()->isHidden());
-        self::assertFalse(Str::make('a')->notSparseField()->isSparseField());
-        self::assertTrue(Str::make('a')->sparseByDefault()->isSparseByDefault());
-        self::assertTrue(Str::make('a')->sortable()->isSortable());
+        self::assertTrue(Str::make('a')->hidden()->build()->isHidden());
+        self::assertFalse(Str::make('a')->notSparseField()->build()->isSparseField());
+        self::assertTrue(Str::make('a')->sparseByDefault()->build()->isSparseByDefault());
+        self::assertTrue(Str::make('a')->sortable()->build()->isSortable());
     }
 
     #[Test]
     public function requiredAppendsConstraintWithAlwaysContext(): void
     {
-        $constraints = Str::make('title')->required()->constraints();
+        $constraints = Str::make('title')->required()->build()->constraints();
 
         self::assertCount(1, $constraints);
         self::assertInstanceOf(Required::class, $constraints[0]);
@@ -173,11 +174,11 @@ final class FieldTest extends TestCase
     #[Test]
     public function requiredOnCreateAndUpdateScopeContext(): void
     {
-        $create = Str::make('a')->requiredOnCreate()->constraints()[0];
+        $create = Str::make('a')->requiredOnCreate()->build()->constraints()[0];
         self::assertTrue($create->context()->appliesTo(true));
         self::assertFalse($create->context()->appliesTo(false));
 
-        $update = Str::make('a')->requiredOnUpdate()->constraints()[0];
+        $update = Str::make('a')->requiredOnUpdate()->build()->constraints()[0];
         self::assertFalse($update->context()->appliesTo(true));
         self::assertTrue($update->context()->appliesTo(false));
     }
@@ -185,9 +186,9 @@ final class FieldTest extends TestCase
     #[Test]
     public function onCreateBuilderScopesNestedConstraints(): void
     {
-        $field = Str::make('title')->onCreate(static function (Str $f): void {
+        $field = Str::make('title')->onCreate(static function (StrBuilder $f): void {
             $f->minLength(1)->maxLength(10);
-        });
+        })->build();
 
         $constraints = $field->constraints();
         self::assertCount(2, $constraints);
@@ -200,9 +201,9 @@ final class FieldTest extends TestCase
     #[Test]
     public function onUpdateBuilderScopesNestedConstraints(): void
     {
-        $field = Str::make('title')->onUpdate(static function (Str $f): void {
+        $field = Str::make('title')->onUpdate(static function (StrBuilder $f): void {
             $f->maxLength(5);
-        });
+        })->build();
 
         $constraint = $field->constraints()[0];
         self::assertFalse($constraint->context()->appliesTo(true));
@@ -213,9 +214,9 @@ final class FieldTest extends TestCase
     public function whenFoldsBuilderConstraintsIntoASingleConditional(): void
     {
         $condition = static fn(mixed $value): bool => $value !== null;
-        $field = Str::make('title')->when($condition, static function (Str $f): void {
+        $field = Str::make('title')->when($condition, static function (StrBuilder $f): void {
             $f->minLength(3)->maxLength(10);
-        });
+        })->build();
 
         $constraints = $field->constraints();
         self::assertCount(1, $constraints);
@@ -234,11 +235,11 @@ final class FieldTest extends TestCase
     #[Test]
     public function whenScopesTheConditionalToTheActiveContext(): void
     {
-        $field = Str::make('title')->onCreate(static function (Str $f): void {
-            $f->when(static fn(mixed $v): bool => true, static function (Str $g): void {
+        $field = Str::make('title')->onCreate(static function (StrBuilder $f): void {
+            $f->when(static fn(mixed $v): bool => true, static function (StrBuilder $g): void {
                 $g->minLength(3);
             });
-        });
+        })->build();
 
         $constraint = $field->constraints()[0];
         self::assertInstanceOf(When::class, $constraint);
@@ -249,11 +250,11 @@ final class FieldTest extends TestCase
     #[Test]
     public function nestedWhenBuildersCompose(): void
     {
-        $field = Str::make('title')->when(static fn(mixed $v): bool => true, static function (Str $f): void {
-            $f->minLength(1)->when(static fn(mixed $v): bool => true, static function (Str $g): void {
+        $field = Str::make('title')->when(static fn(mixed $v): bool => true, static function (StrBuilder $f): void {
+            $f->minLength(1)->when(static fn(mixed $v): bool => true, static function (StrBuilder $g): void {
                 $g->maxLength(5);
             });
-        });
+        })->build();
 
         $constraints = $field->constraints();
         self::assertCount(1, $constraints);
@@ -269,7 +270,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function stringFluentConstraints(): void
     {
-        $field = Str::make('a')->minLength(1)->maxLength(10)->pattern('^x');
+        $field = Str::make('a')->minLength(1)->maxLength(10)->pattern('^x')->build();
         $types = \array_map(static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class, $field->constraints());
 
         self::assertSame([MinLength::class, MaxLength::class, \haddowg\JsonApi\Resource\Constraint\Pattern::class], $types);
@@ -279,29 +280,29 @@ final class FieldTest extends TestCase
     public function stringFormatShortcutsMatchDedicatedFields(): void
     {
         self::assertEquals(
-            Str::make('c')->email()->constraints(),
-            Email::make('c')->constraints(),
+            Str::make('c')->email()->build()->constraints(),
+            Email::make('c')->build()->constraints(),
         );
-        self::assertInstanceOf(EmailFormat::class, Str::make('c')->email()->constraints()[0]);
-        self::assertInstanceOf(UrlFormat::class, Url::make('c')->constraints()[0]);
-        self::assertInstanceOf(UuidFormat::class, Uuid::make('c')->constraints()[0]);
-        self::assertInstanceOf(SlugFormat::class, Slug::make('c')->constraints()[0]);
-        self::assertInstanceOf(IpFormat::class, Ip::make('c')->constraints()[0]);
+        self::assertInstanceOf(EmailFormat::class, Str::make('c')->email()->build()->constraints()[0]);
+        self::assertInstanceOf(UrlFormat::class, Url::make('c')->build()->constraints()[0]);
+        self::assertInstanceOf(UuidFormat::class, Uuid::make('c')->build()->constraints()[0]);
+        self::assertInstanceOf(SlugFormat::class, Slug::make('c')->build()->constraints()[0]);
+        self::assertInstanceOf(IpFormat::class, Ip::make('c')->build()->constraints()[0]);
     }
 
     #[Test]
     public function emailStrictnessIsTypedOnTheConstraint(): void
     {
-        $loose = Str::make('c')->email()->constraints()[0];
+        $loose = Str::make('c')->email()->build()->constraints()[0];
         self::assertInstanceOf(EmailFormat::class, $loose);
         self::assertFalse($loose->strict);
 
-        $strict = Str::make('c')->email(true)->constraints()[0];
+        $strict = Str::make('c')->email(true)->build()->constraints()[0];
         self::assertInstanceOf(EmailFormat::class, $strict);
         self::assertTrue($strict->strict);
 
         // Email::strict() reconciles to a SINGLE strict EmailFormat, not a second rule.
-        $email = Email::make('c')->strict()->constraints();
+        $email = Email::make('c')->strict()->build()->constraints();
         self::assertCount(1, $email);
         self::assertInstanceOf(EmailFormat::class, $email[0]);
         self::assertTrue($email[0]->strict);
@@ -317,7 +318,7 @@ final class FieldTest extends TestCase
             }
         };
 
-        $field = Str::make('x')->minLength(2)->constrain($custom);
+        $field = Str::make('x')->minLength(2)->constrain($custom)->build();
 
         $types = \array_map(
             static fn(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface $c): string => $c::class,
@@ -330,12 +331,12 @@ final class FieldTest extends TestCase
     #[Test]
     public function compositionCombinatorsWrapTheirConstraints(): void
     {
-        $sequential = Str::make('x')->sequentially(new MinLength(3), new MaxLength(10))->constraints();
+        $sequential = Str::make('x')->sequentially(new MinLength(3), new MaxLength(10))->build()->constraints();
         self::assertCount(1, $sequential);
         self::assertInstanceOf(Sequentially::class, $sequential[0]);
         self::assertCount(2, $sequential[0]->constraints);
 
-        $either = Str::make('x')->atLeastOneOf(new MinLength(3), new In(['n/a']))->constraints();
+        $either = Str::make('x')->atLeastOneOf(new MinLength(3), new In(['n/a']))->build()->constraints();
         self::assertCount(1, $either);
         self::assertInstanceOf(AtLeastOneOf::class, $either[0]);
         self::assertCount(2, $either[0]->constraints);
@@ -354,7 +355,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function urlAllowedSchemesNarrowsConstraint(): void
     {
-        $constraint = Url::make('c')->allowedSchemes('https')->constraints()[1];
+        $constraint = Url::make('c')->allowedSchemes('https')->build()->constraints()[1];
 
         self::assertInstanceOf(UrlFormat::class, $constraint);
         self::assertSame(['https'], $constraint->allowedSchemes);
@@ -363,14 +364,14 @@ final class FieldTest extends TestCase
     #[Test]
     public function ipVersionShortcuts(): void
     {
-        self::assertSame(4, Ip::make('c')->v4()->constraints()[1]->version ?? null);
-        self::assertSame(6, Ip::make('c')->v6()->constraints()[1]->version ?? null);
+        self::assertSame(4, Ip::make('c')->v4()->build()->constraints()[1]->version ?? null);
+        self::assertSame(6, Ip::make('c')->v6()->build()->constraints()[1]->version ?? null);
     }
 
     #[Test]
     public function serializeReadsFromArrayModel(): void
     {
-        $field = Str::make('title');
+        $field = Str::make('title')->build();
 
         self::assertSame('Hello', $field->serialize(['title' => 'Hello'], $this->request(), 'title'));
     }
@@ -385,13 +386,13 @@ final class FieldTest extends TestCase
             }
         };
 
-        self::assertSame('From getter', Str::make('title')->serialize($model, $this->request(), 'title'));
+        self::assertSame('From getter', Str::make('title')->build()->serialize($model, $this->request(), 'title'));
     }
 
     #[Test]
     public function serializeUsingOverridesAccessor(): void
     {
-        $field = Str::make('title')->serializeUsing(static fn(): string => 'override');
+        $field = Str::make('title')->serializeUsing(static fn(): string => 'override')->build();
 
         self::assertSame('override', $field->serialize(['title' => 'ignored'], $this->request(), 'title'));
     }
@@ -407,7 +408,7 @@ final class FieldTest extends TestCase
 
                 return \substr($body, 0, 3);
             },
-        );
+        )->build();
 
         self::assertNull($field->column());
         self::assertSame('Hel', $field->serialize(['body' => 'Hello world'], $this->request(), 'preview'));
@@ -427,7 +428,7 @@ final class FieldTest extends TestCase
 
                 return $first . ' ' . $last;
             },
-        );
+        )->build();
 
         // Sugar = computed() (no backing column) + the value closure + read-only on
         // BOTH create and update.
@@ -443,7 +444,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function computedUsingFieldDoesNotHydrate(): void
     {
-        $field = Str::make('displayName')->computedUsing(static fn(): string => 'x');
+        $field = Str::make('displayName')->computedUsing(static fn(): string => 'x')->build();
         $model = ['displayName' => 'original'];
 
         // computed() => no backing column => hydrate is a no-op (and the field is
@@ -454,7 +455,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function onRecordsTheBackingRelationAndKeepsTheBackingColumn(): void
     {
-        $field = Str::make('authorName')->on('author');
+        $field = Str::make('authorName')->on('author')->build();
 
         self::assertSame('author', $field->relatedVia());
         // A flattened attribute still has its own backing member on the related model.
@@ -464,7 +465,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function onHonoursStoredAsForTheBackingColumn(): void
     {
-        $field = Str::make('authorName')->on('author')->storedAs('name');
+        $field = Str::make('authorName')->on('author')->storedAs('name')->build();
 
         self::assertSame('author', $field->relatedVia());
         self::assertSame('name', $field->column());
@@ -475,7 +476,7 @@ final class FieldTest extends TestCase
     {
         // A multi-hop chain is recorded verbatim; the backing member is still the
         // field's own column() on the FINAL related model.
-        $field = Str::make('countryName')->on('publisher.country')->storedAs('name');
+        $field = Str::make('countryName')->on('publisher.country')->storedAs('name')->build();
 
         self::assertSame('publisher.country', $field->relatedVia());
         self::assertSame('name', $field->column());
@@ -484,7 +485,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function plainAttributeReportsNoRelatedVia(): void
     {
-        self::assertNull(Str::make('title')->relatedVia());
+        self::assertNull(Str::make('title')->build()->relatedVia());
     }
 
     #[Test]
@@ -752,7 +753,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function objExplicitNullClearsTheObjectAndSerializesAsNull(): void
     {
-        $field = Obj::make('address')->fields(Str::make('street'));
+        $field = Obj::make('address')->fields(Str::make('street')->build());
 
         self::assertNull($field->serialize(['address' => null], $this->request(), 'address'));
 
@@ -881,8 +882,8 @@ final class FieldTest extends TestCase
     private function block(): OneOf
     {
         return OneOf::make('block')->discriminator('kind')
-            ->variant('heading', Str::make('text'), Integer::make('level'))
-            ->variant('image', Url::make('src'), Str::make('alt'));
+            ->variant('heading', Str::make('text')->build(), Integer::make('level'))
+            ->variant('image', Url::make('src')->build(), Str::make('alt')->build());
     }
 
     #[Test]
@@ -1040,7 +1041,7 @@ final class FieldTest extends TestCase
 
                 return $model;
             },
-        );
+        )->build();
 
         $model = $field->hydrate(['name' => ''], 'bob', [], $this->request(), true);
         self::assertIsArray($model);
@@ -1054,7 +1055,7 @@ final class FieldTest extends TestCase
             self::assertIsString($v);
 
             return \trim($v);
-        });
+        })->build();
 
         $model = $field->hydrate(['name' => ''], '  bob  ', [], $this->request(), true);
         self::assertIsArray($model);
@@ -1064,7 +1065,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function computedFieldWithoutFillHookDoesNotHydrate(): void
     {
-        $field = Str::make('preview')->computed();
+        $field = Str::make('preview')->computed()->build();
         $model = ['preview' => 'original'];
 
         self::assertSame($model, $field->hydrate($model, 'new', [], $this->request(), true));
