@@ -58,9 +58,9 @@ final class OperationProjectorTest extends TestCase
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
             fields: [
-                Id::make(),
+                Id::make()->build(),
                 Str::make('title')->required()->build(),
-                Integer::make('wordCount')->nullable(),
+                Integer::make('wordCount')->nullable()->build(),
             ],
             relations: [
                 FakeRelationMetadata::toOne('author', ['people']),
@@ -349,25 +349,25 @@ final class OperationProjectorTest extends TestCase
             types: [
                 FakeTypeMetadata::resource(
                     type: 'pages',
-                    fields: [Id::make(), Str::make('name')->build()],
+                    fields: [Id::make()->build(), Str::make('name')->build()],
                     operations: [OperationType::FetchCollection],
                     pageSchema: PagePaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'offsets',
-                    fields: [Id::make(), Str::make('name')->build()],
+                    fields: [Id::make()->build(), Str::make('name')->build()],
                     operations: [OperationType::FetchCollection],
                     pageSchema: OffsetPaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'cursors',
-                    fields: [Id::make(), Str::make('name')->build()],
+                    fields: [Id::make()->build(), Str::make('name')->build()],
                     operations: [OperationType::FetchCollection],
                     pageSchema: CursorPaginator::make()->describePageSchema(),
                 ),
                 FakeTypeMetadata::resource(
                     type: 'unpaged',
-                    fields: [Id::make(), Str::make('name')->build()],
+                    fields: [Id::make()->build(), Str::make('name')->build()],
                     operations: [OperationType::FetchCollection],
                     unpaginated: true,
                 ),
@@ -408,7 +408,7 @@ final class OperationProjectorTest extends TestCase
             types: [
                 FakeTypeMetadata::resource(
                     type: 'things',
-                    fields: [Id::make(), Str::make('name')->build()],
+                    fields: [Id::make()->build(), Str::make('name')->build()],
                     operations: [OperationType::FetchCollection],
                     pageSchema: $menu->describePageSchema(),
                 ),
@@ -518,7 +518,7 @@ final class OperationProjectorTest extends TestCase
         // The op must instead emit NO per-operation `security` (inherit the empty default).
         $type = FakeTypeMetadata::resource(
             type: 'articles',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             securedOperations: [OperationType::Create],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
@@ -533,7 +533,7 @@ final class OperationProjectorTest extends TestCase
         // A read-only type: only fetchCollection + fetchOne.
         $type = FakeTypeMetadata::resource(
             type: 'reports',
-            fields: [Id::make(), Str::make('name')->build()],
+            fields: [Id::make()->build(), Str::make('name')->build()],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
@@ -566,7 +566,7 @@ final class OperationProjectorTest extends TestCase
     {
         $type = FakeTypeMetadata::resource(
             type: 'blog-posts',
-            fields: [Id::make(), Str::make('title')->build()],
+            fields: [Id::make()->build(), Str::make('title')->build()],
             uriType: 'posts',
             operations: [OperationType::FetchCollection],
         );

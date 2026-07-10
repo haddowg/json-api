@@ -12,7 +12,10 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 /**
  * A discriminated union attribute: the value is exactly **one of** a set of named
  * object shapes ({@see Obj} variants), selected by a **discriminator** property
- * (default `type`) whose value names the active variant.
+ * (default `type`) whose value names the active variant — the built, readonly value
+ * object the engine walks. Authors declare one with {@see make()}, which returns a
+ * mutable {@see OneOfBuilder}; the resource **builds** it into this value object
+ * before use.
  *
  * Like {@see Obj} the whole object lives in a single backing value; the discriminator
  * property is stored/rendered alongside the active variant's children. On hydrate the
@@ -26,40 +29,22 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * shapes" whose members you only want documented and validated (not hydrated per
  * variant) is a schema-bearing constraint on a pass-through field instead.
  */
-final class OneOf extends AbstractAttribute implements ProvidesFieldSchema
+final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSchema
 {
-    private string $discriminator = 'type';
-
     /**
-     * @var array<string, Obj>
+     * @param array<string, Obj> $variants
      */
-    private array $variants = [];
-
-    /**
-     * Sets the discriminator property whose value names the active variant (default
-     * `type`).
-     *
-     * @return static
-     */
-    public function discriminator(string $property): static
-    {
-        $this->discriminator = $property;
-
-        return $this;
+    public function __construct(
+        FieldState $state,
+        private string $discriminator = 'type',
+        private array $variants = [],
+    ) {
+        parent::__construct($state);
     }
 
-    /**
-     * Registers a named variant from its child fields. The `$name` is the
-     * discriminator value that selects this variant; the children address keys inside
-     * the object exactly as {@see Obj}'s do.
-     *
-     * @return static
-     */
-    public function variant(string $name, FieldInterface|FieldBuilderInterface ...$children): static
+    public static function make(string $name): OneOfBuilder
     {
-        $this->variants[$name] = Obj::make($name)->fields(...$children);
-
-        return $this;
+        return new OneOfBuilder($name);
     }
 
     public function discriminatorName(): string
@@ -86,15 +71,15 @@ final class OneOf extends AbstractAttribute implements ProvidesFieldSchema
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
-        if ($this->serializeUsing !== null) {
-            return ($this->serializeUsing)($model, $request, $name);
+        if ($this->state->serializeUsing !== null) {
+            return ($this->state->serializeUsing)($model, $request, $name);
         }
 
-        if ($this->extractUsing !== null) {
-            return ($this->extractUsing)($model, $request, $name);
+        if ($this->state->extractUsing !== null) {
+            return ($this->state->extractUsing)($model, $request, $name);
         }
 
-        $value = Accessor::get($model, $this->column ?? $name);
+        $value = Accessor::get($model, $this->state->column ?? $name);
         if ($value === null) {
             return null;
         }
@@ -125,13 +110,13 @@ final class OneOf extends AbstractAttribute implements ProvidesFieldSchema
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        if ($this->fillUsing !== null) {
-            $result = ($this->fillUsing)($model, $value, $data, $this->name);
+        if ($this->state->fillUsing !== null) {
+            $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
         }
 
-        $column = $this->column ?? $this->name;
+        $column = $this->state->column ?? $this->state->name;
 
         if ($value === null) {
             return Accessor::set($model, $column, null);

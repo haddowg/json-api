@@ -169,13 +169,13 @@ final class OperationResponseProjectionTest extends TestCase
     {
         $videos = FakeTypeMetadata::resource(
             type: 'videos',
-            fields: [Id::make(), Str::make('title')->required()->build()],
+            fields: [Id::make()->build(), Str::make('title')->required()->build()],
             tags: ['Videos'],
             responses: $responses,
         );
         $jobs = FakeTypeMetadata::resource(
             type: 'jobs',
-            fields: [Id::make(), Str::make('status')->required()->build()],
+            fields: [Id::make()->build(), Str::make('status')->required()->build()],
             tags: ['Jobs'],
         );
 

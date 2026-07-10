@@ -149,8 +149,8 @@ final class TrackSerializer extends AbstractSerializer implements SerializerReso
             BelongsTo::make('album', 'albums'),
             BelongsToMany::make('playlists', 'playlists')
                 ->fields(
-                    Integer::make('position')->min(1),
-                    DateTime::make('addedAt')->readOnly(),
+                    Integer::make('position')->min(1)->build(),
+                    DateTime::make('addedAt')->readOnly()->build(),
                 )
                 ->cannotReplace(),
         ];

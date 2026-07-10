@@ -19,7 +19,7 @@ use haddowg\JsonApi\Resource\Field\Uuid;
 /**
  * The `playlists` resource type.
  *
- * Demonstrates: a client-generated UUID id (`Id::make()->uuid()->allowClientId()`,
+ * Demonstrates: a client-generated UUID id (`Id::make()->uuid()->allowClientId()->build()`,
  * so a `POST` may supply its own id — the custom {@see PlaylistHydrator} that wins
  * for writes accepts it too); a read-only `slug` derived from `title` by the custom
  * {@see \haddowg\JsonApi\Examples\MusicCatalog\Hydrator\PlaylistHydrator} (never
@@ -38,11 +38,11 @@ final class PlaylistResource extends AbstractResource
         return [
             // A client-generated UUID id: allowClientId() opts in so a POST may
             // carry its own `id` (a default resource rejects one).
-            Id::make()->uuid()->allowClientId(),
+            Id::make()->uuid()->allowClientId()->build(),
             Str::make('title')->required(),
             // Derived from title by the custom hydrator, so read-only on the wire.
             Slug::make('slug')->readOnly(),
-            Boolean::make('public'),
+            Boolean::make('public')->build(),
             Uuid::make('externalId')->nullable(),
 
             // Default relation reader: `owner` reads $playlist->owner (a User) and
@@ -54,8 +54,8 @@ final class PlaylistResource extends AbstractResource
             // drives render, filter/sort and (in the Symfony bundle) write/validate.
             BelongsToMany::make('tracks', 'tracks')
                 ->fields(
-                    Integer::make('position')->min(1),
-                    DateTime::make('addedAt')->readOnly(),
+                    Integer::make('position')->min(1)->build(),
+                    DateTime::make('addedAt')->readOnly()->build(),
                 )
                 ->paginate(PagePaginator::make()->withDefaultPerPage(2)),
         ];

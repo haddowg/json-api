@@ -432,8 +432,8 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyDeclaresPivotFieldDefinitions(): void
     {
-        $position = Integer::make('position')->required()->min(1);
-        $addedAt = DateTimeField::make('addedAt')->readOnly();
+        $position = Integer::make('position')->required()->min(1)->build();
+        $addedAt = DateTimeField::make('addedAt')->readOnly()->build();
 
         $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt);
 
@@ -452,7 +452,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyLooksUpAPivotFieldByName(): void
     {
-        $position = Integer::make('position');
+        $position = Integer::make('position')->build();
 
         $relation = BelongsToMany::make('roles', 'roles')->fields($position);
 
@@ -463,7 +463,7 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyPivotFieldCarriesItsConstraints(): void
     {
-        $position = Integer::make('position')->required();
+        $position = Integer::make('position')->required()->build();
 
         $relation = BelongsToMany::make('roles', 'roles')->fields($position);
 
@@ -475,8 +475,8 @@ final class RelationTest extends TestCase
     #[Test]
     public function belongsToManyPivotFieldsAreWritableUnlessReadOnly(): void
     {
-        $position = Integer::make('position');
-        $addedAt = DateTimeField::make('addedAt')->readOnly();
+        $position = Integer::make('position')->build();
+        $addedAt = DateTimeField::make('addedAt')->readOnly()->build();
         $note = Str::make('note')->readOnlyOnUpdate()->build();
 
         $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt, $note);

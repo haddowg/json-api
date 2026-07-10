@@ -35,7 +35,7 @@ final class CastWireValueTest extends TestCase
     #[Test]
     public function integerCastsANumericWireValue(): void
     {
-        $field = Integer::make('count');
+        $field = Integer::make('count')->build();
 
         self::assertSame(9, $field->castWireValue('9'));
         self::assertSame(9, $field->castWireValue(9));
@@ -47,7 +47,7 @@ final class CastWireValueTest extends TestCase
     #[Test]
     public function decimalCastsANumericWireValue(): void
     {
-        $field = Decimal::make('price');
+        $field = Decimal::make('price')->build();
 
         self::assertSame(2.0, $field->castWireValue('2'));
         self::assertSame(1.5, $field->castWireValue(1.5));
@@ -56,7 +56,7 @@ final class CastWireValueTest extends TestCase
     #[Test]
     public function booleanCastsAWireValue(): void
     {
-        $field = Boolean::make('active');
+        $field = Boolean::make('active')->build();
 
         self::assertFalse($field->castWireValue(0));
         self::assertTrue($field->castWireValue(1));
@@ -66,7 +66,7 @@ final class CastWireValueTest extends TestCase
     #[Test]
     public function dateTimeParsesAWireString(): void
     {
-        $field = DateTime::make('publishedAt');
+        $field = DateTime::make('publishedAt')->build();
 
         $cast = $field->castWireValue('2021-06-07T08:09:10+00:00');
         self::assertInstanceOf(\DateTimeImmutable::class, $cast);
@@ -78,7 +78,7 @@ final class CastWireValueTest extends TestCase
     {
         $this->expectException(AttributeValueInvalid::class);
 
-        DateTime::make('publishedAt')->castWireValue('banana');
+        DateTime::make('publishedAt')->build()->castWireValue('banana');
     }
 
     #[Test]
@@ -88,12 +88,12 @@ final class CastWireValueTest extends TestCase
         // castWireValue IS the hydration value cast, exposed.
         $request = new StubJsonApiRequest();
 
-        $integer = Integer::make('count');
+        $integer = Integer::make('count')->build();
         $model = $integer->hydrate(['count' => 0], '9', [], $request, true);
         self::assertIsArray($model);
         self::assertSame($model['count'], $integer->castWireValue('9'));
 
-        $dateTime = DateTime::make('publishedAt');
+        $dateTime = DateTime::make('publishedAt')->build();
         $model = $dateTime->hydrate(['publishedAt' => null], '2021-06-07T08:09:10+00:00', [], $request, true);
         self::assertIsArray($model);
         self::assertEquals($model['publishedAt'], $dateTime->castWireValue('2021-06-07T08:09:10+00:00'));

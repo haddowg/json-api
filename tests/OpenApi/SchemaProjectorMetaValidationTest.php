@@ -152,7 +152,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     #[Test]
     public function aNullableIntegerSchemaAcceptsNullAndAnInteger(): void
     {
-        $schema = $this->projector()->projectField(Integer::make('age')->min(0)->nullable());
+        $schema = $this->projector()->projectField(Integer::make('age')->min(0)->nullable()->build());
 
         self::assertNull($this->validate($schema, 42));
         self::assertNull($this->validate($schema, null));
@@ -190,7 +190,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
         // the description, not as an unenforced keyword) — proving no wrong keyword
         // was emitted. The schema also meta-validates as a clean 2020-12 document.
         $schema = $this->projector()->projectField(
-            DateTime::make('when')->after(new \DateTimeImmutable('2020-06-01T00:00:00+00:00')),
+            DateTime::make('when')->after(new \DateTimeImmutable('2020-06-01T00:00:00+00:00'))->build(),
         );
 
         self::assertSame('date-time', $schema->get('format'));
@@ -203,7 +203,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     #[Test]
     public function anArrayListWithUniqueItemsValidates(): void
     {
-        $schema = $this->projector()->projectField(ArrayList::make('tags')->minItems(1)->uniqueItems());
+        $schema = $this->projector()->projectField(ArrayList::make('tags')->minItems(1)->uniqueItems()->build());
 
         self::assertNull($this->validate($schema, ['a', 'b']));
         self::assertNotNull($this->validate($schema, []));            // below minItems
@@ -219,7 +219,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
         $field = Map::make('address')->fields(
             Str::make('street')->required()->build(),
             Str::make('line2')->build(),
-        );
+        )->build();
         $schema = $this->projector()->projectField($field, creating: true);
 
         self::assertNull($this->validate($schema, ['street' => '1 High St', 'line2' => 'Flat 2']));
@@ -231,7 +231,7 @@ final class SchemaProjectorMetaValidationTest extends TestCase
     public function aProjectedResourceObjectValidatesAConformingResource(): void
     {
         $fields = [
-            Id::make(),
+            Id::make()->build(),
             Str::make('name')->required()->maxLength(50)->build(),
             Str::make('status')->enum(Status::class)->build(),
         ];

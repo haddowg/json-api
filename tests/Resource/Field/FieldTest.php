@@ -345,7 +345,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function compareWithAttachesACrossFieldConstraint(): void
     {
-        $compare = DateTime::make('endDate')->compareWith('startDate', Comparison::GreaterThan)->constraints()[0];
+        $compare = DateTime::make('endDate')->compareWith('startDate', Comparison::GreaterThan)->build()->constraints()[0];
 
         self::assertInstanceOf(CompareField::class, $compare);
         self::assertSame('startDate', $compare->field);
@@ -523,7 +523,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function integerCastsOnSerializeAndHydrate(): void
     {
-        $field = Integer::make('count');
+        $field = Integer::make('count')->build();
 
         self::assertSame(5, $field->serialize(['count' => '5'], $this->request(), 'count'));
 
@@ -535,7 +535,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function decimalCasts(): void
     {
-        $field = Decimal::make('price');
+        $field = Decimal::make('price')->build();
 
         self::assertSame(1.5, $field->serialize(['price' => '1.5'], $this->request(), 'price'));
 
@@ -547,7 +547,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function booleanCasts(): void
     {
-        $field = Boolean::make('active');
+        $field = Boolean::make('active')->build();
 
         self::assertTrue($field->serialize(['active' => 1], $this->request(), 'active'));
 
@@ -559,7 +559,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function dateTimeSerializesAndHydrates(): void
     {
-        $field = DateTime::make('publishedAt');
+        $field = DateTime::make('publishedAt')->build();
         $date = new \DateTimeImmutable('2020-01-02T03:04:05+00:00');
 
         self::assertSame('2020-01-02T03:04:05+00:00', $field->serialize(['publishedAt' => $date], $this->request(), 'publishedAt'));
@@ -574,7 +574,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function dateTimeRejectsAGarbageStringWithATyped422(): void
     {
-        $field = DateTime::make('publishedAt');
+        $field = DateTime::make('publishedAt')->build();
 
         try {
             $field->hydrate(['publishedAt' => null], 'banana', [], $this->request(), true);
@@ -596,7 +596,7 @@ final class FieldTest extends TestCase
         // inherited cast turns the raw parse failure into a typed 422 for Date too.
         $this->expectException(AttributeValueInvalid::class);
 
-        Date::make('birthday')->hydrate(['birthday' => null], '1997-13-99', [], $this->request(), true);
+        Date::make('birthday')->build()->hydrate(['birthday' => null], '1997-13-99', [], $this->request(), true);
     }
 
     #[Test]
@@ -605,7 +605,7 @@ final class FieldTest extends TestCase
         // Date and Time extend DateTime and inherit deserializeValue — one fix covers all three.
         $this->expectException(AttributeValueInvalid::class);
 
-        Time::make('opensAt')->hydrate(['opensAt' => null], 'not-a-time', [], $this->request(), true);
+        Time::make('opensAt')->build()->hydrate(['opensAt' => null], 'not-a-time', [], $this->request(), true);
     }
 
     #[Test]
@@ -613,7 +613,7 @@ final class FieldTest extends TestCase
     {
         // Leniency preserved: an empty string and a non-string (wrong type) are not
         // the cast's concern — they pass through untouched, never a 422.
-        $field = DateTime::make('publishedAt');
+        $field = DateTime::make('publishedAt')->build();
 
         $empty = $field->hydrate(['publishedAt' => null], '', [], $this->request(), true);
         self::assertIsArray($empty);
@@ -627,7 +627,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function dateUsesDateOnlyFormat(): void
     {
-        $field = Date::make('birthday');
+        $field = Date::make('birthday')->build();
         $date = new \DateTimeImmutable('2020-01-02T03:04:05+00:00');
 
         self::assertSame('2020-01-02', $field->serialize(['birthday' => $date], $this->request(), 'birthday'));
@@ -636,7 +636,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function timeUsesTimeOnlyFormat(): void
     {
-        $field = Time::make('opensAt');
+        $field = Time::make('opensAt')->build();
         $date = new \DateTimeImmutable('2020-01-02T03:04:05+00:00');
 
         self::assertSame('03:04:05', $field->serialize(['opensAt' => $date], $this->request(), 'opensAt'));
@@ -647,7 +647,7 @@ final class FieldTest extends TestCase
     {
         $field = DateTime::make('a')
             ->before(new \DateTimeImmutable('2030-01-01'))
-            ->after(static fn(): \DateTimeImmutable => new \DateTimeImmutable('2000-01-01'));
+            ->after(static fn(): \DateTimeImmutable => new \DateTimeImmutable('2000-01-01'))->build();
 
         self::assertInstanceOf(Before::class, $field->constraints()[0]);
         self::assertInstanceOf(After::class, $field->constraints()[1]);
@@ -656,7 +656,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function arrayListSerializesAndConstrains(): void
     {
-        $field = ArrayList::make('tags')->minItems(1)->maxItems(5)->uniqueItems()->sorted();
+        $field = ArrayList::make('tags')->minItems(1)->maxItems(5)->uniqueItems()->sorted()->build();
 
         self::assertSame(['a', 'b', 'c'], $field->serialize(['tags' => ['c', 'a', 'b']], $this->request(), 'tags'));
 
@@ -668,7 +668,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function arrayHashSortsKeys(): void
     {
-        $field = ArrayHash::make('meta')->sortKeys();
+        $field = ArrayHash::make('meta')->sortKeys()->build();
 
         self::assertSame(['a' => 1, 'b' => 2], $field->serialize(['meta' => ['b' => 2, 'a' => 1]], $this->request(), 'meta'));
     }
@@ -679,7 +679,7 @@ final class FieldTest extends TestCase
         $field = Map::make('address')->fields(
             Str::make('street'),
             Str::make('city'),
-        );
+        )->build();
 
         $serialized = $field->serialize(
             ['street' => '1 High St', 'city' => 'London'],
@@ -708,7 +708,7 @@ final class FieldTest extends TestCase
         $field = Obj::make('address')->fields(
             Str::make('street'),
             Str::make('city'),
-        );
+        )->build();
 
         $serialized = $field->serialize(
             ['address' => ['street' => '1 High St', 'city' => 'London']],
@@ -736,7 +736,7 @@ final class FieldTest extends TestCase
         $field = Obj::make('address')->fields(
             Str::make('street'),
             Str::make('city'),
-        );
+        )->build();
 
         $model = $field->hydrate(
             ['address' => ['street' => '1 High St', 'city' => 'London']],
@@ -753,7 +753,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function objExplicitNullClearsTheObjectAndSerializesAsNull(): void
     {
-        $field = Obj::make('address')->fields(Str::make('street')->build());
+        $field = Obj::make('address')->fields(Str::make('street')->build())->build();
 
         self::assertNull($field->serialize(['address' => null], $this->request(), 'address'));
 
@@ -775,7 +775,7 @@ final class FieldTest extends TestCase
             Str::make('name'),
             Str::make('role')->readOnly(),
             Str::make('secret')->writeOnly(),
-        );
+        )->build();
 
         // Write-only child never rendered.
         $nested = $field->serialize(
@@ -882,8 +882,8 @@ final class FieldTest extends TestCase
     private function block(): OneOf
     {
         return OneOf::make('block')->discriminator('kind')
-            ->variant('heading', Str::make('text')->build(), Integer::make('level'))
-            ->variant('image', Url::make('src')->build(), Str::make('alt')->build());
+            ->variant('heading', Str::make('text')->build(), Integer::make('level')->build())
+            ->variant('image', Url::make('src')->build(), Str::make('alt')->build())->build();
     }
 
     #[Test]
@@ -894,7 +894,7 @@ final class FieldTest extends TestCase
         $field = Map::make('settings')->fields(
             Str::make('name'),
             Str::make('role')->readOnly(),
-        );
+        )->build();
 
         $model = $field->hydrate(
             ['name' => 'old', 'role' => 'user'],
@@ -917,7 +917,7 @@ final class FieldTest extends TestCase
         $field = Map::make('credentials')->fields(
             Str::make('username'),
             Str::make('secret')->writeOnly(),
-        );
+        )->build();
 
         $nested = $field->serialize(
             ['username' => 'ada', 'secret' => 's3cr3t'],
@@ -942,7 +942,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function idDefaultsToIdName(): void
     {
-        $field = Id::make();
+        $field = Id::make()->build();
 
         self::assertSame('id', $field->name());
         self::assertSame('42', $field->serialize(['id' => 42], $this->request(), 'id'));
@@ -951,24 +951,24 @@ final class FieldTest extends TestCase
     #[Test]
     public function idFormatShortcuts(): void
     {
-        self::assertInstanceOf(UuidFormat::class, Id::make()->uuid()->constraints()[0]);
-        self::assertInstanceOf(UlidFormat::class, Id::make()->ulid()->constraints()[0]);
-        self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, Id::make()->numeric()->constraints()[0]);
+        self::assertInstanceOf(UuidFormat::class, Id::make()->uuid()->build()->constraints()[0]);
+        self::assertInstanceOf(UlidFormat::class, Id::make()->ulid()->build()->constraints()[0]);
+        self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, Id::make()->numeric()->build()->constraints()[0]);
     }
 
     #[Test]
     public function idFormatShortcutsAlsoSetTheRoutePattern(): void
     {
-        self::assertNull(Id::make()->routePattern());
-        self::assertSame(Id::UUID_FORMAT_PATTERN, Id::make()->uuid()->routePattern());
-        self::assertSame(Id::ULID_FORMAT_PATTERN, Id::make()->ulid()->routePattern());
-        self::assertSame(Id::NUMERIC_FORMAT_PATTERN, Id::make()->numeric()->routePattern());
+        self::assertNull(Id::make()->build()->routePattern());
+        self::assertSame(Id::UUID_FORMAT_PATTERN, Id::make()->uuid()->build()->routePattern());
+        self::assertSame(Id::ULID_FORMAT_PATTERN, Id::make()->ulid()->build()->routePattern());
+        self::assertSame(Id::NUMERIC_FORMAT_PATTERN, Id::make()->numeric()->build()->routePattern());
     }
 
     #[Test]
     public function idPatternStripsAnchorsForTheRoutePatternButKeepsTheAnchoredConstraint(): void
     {
-        $field = Id::make()->pattern('^[a-z0-9]+$');
+        $field = Id::make()->pattern('^[a-z0-9]+$')->build();
 
         self::assertSame('[a-z0-9]+', $field->routePattern());
         self::assertInstanceOf(\haddowg\JsonApi\Resource\Constraint\Pattern::class, $field->constraints()[0]);
@@ -978,7 +978,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function idMatchAsSetsTheRoutePatternWithoutAConstraint(): void
     {
-        $field = Id::make()->matchAs('\d+');
+        $field = Id::make()->matchAs('\d+')->build();
 
         self::assertSame('\d+', $field->routePattern());
         self::assertSame([], $field->constraints());
@@ -997,7 +997,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function idEncoderRoundTripsOnSerialize(): void
     {
-        $field = Id::make()->encodeUsing(new ReversingIdEncoder());
+        $field = Id::make()->encodeUsing(new ReversingIdEncoder())->build();
 
         self::assertSame($field->encoder(), $field->encoder());
         self::assertNotNull($field->encoder());
@@ -1008,14 +1008,14 @@ final class FieldTest extends TestCase
     #[Test]
     public function idWithoutAnEncoderSerializesTheRawId(): void
     {
-        self::assertNull(Id::make()->encoder());
-        self::assertSame('42', Id::make()->serializeWithoutRequest(['id' => 42]));
+        self::assertNull(Id::make()->build()->encoder());
+        self::assertSame('42', Id::make()->build()->serializeWithoutRequest(['id' => 42]));
     }
 
     #[Test]
     public function integerInConstraint(): void
     {
-        $field = Integer::make('rank')->in([1, 2, 3]);
+        $field = Integer::make('rank')->in([1, 2, 3])->build();
 
         self::assertInstanceOf(In::class, $field->constraints()[0]);
         self::assertSame([1, 2, 3], $field->constraints()[0]->values);
@@ -1024,7 +1024,7 @@ final class FieldTest extends TestCase
     #[Test]
     public function decimalMaxConstraint(): void
     {
-        $field = Decimal::make('price')->max(99.99);
+        $field = Decimal::make('price')->max(99.99)->build();
 
         self::assertInstanceOf(Max::class, $field->constraints()[0]);
         self::assertSame(99.99, $field->constraints()[0]->value);

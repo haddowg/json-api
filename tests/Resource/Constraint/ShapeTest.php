@@ -81,7 +81,7 @@ final class ShapeTest extends TestCase
                 Schema::ofType('object')->withProperties(['src' => Schema::ofType('string')]),
                 Schema::ofType('object')->withProperties(['text' => Schema::ofType('string')]),
             )->discriminator('kind'),
-        );
+        )->build();
 
         $schema = (new SchemaProjector())->projectField($field)->toArray();
 

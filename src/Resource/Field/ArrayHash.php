@@ -4,57 +4,25 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
-use haddowg\JsonApi\Resource\Constraint\MaxProperties;
-use haddowg\JsonApi\Resource\Constraint\MinProperties;
-
 /**
  * A JSON object attribute exposed as a PHP associative array (JSON
- * `type: object`).
+ * `type: object`) — the built, readonly value object the engine walks. Authors
+ * declare one with {@see make()}, which returns a mutable {@see ArrayHashBuilder};
+ * the resource **builds** it into this value object before use.
  */
-final class ArrayHash extends AbstractAttribute
+final readonly class ArrayHash extends AbstractFieldValue
 {
-    private bool $sortKeys = false;
-
-    private bool $sortValues = false;
-
-    /**
-     * @return static
-     */
-    public function minProperties(int $count): static
-    {
-        return $this->addConstraint(new MinProperties($count, $this->currentContext()));
+    public function __construct(
+        FieldState $state,
+        private bool $sortKeys = false,
+        private bool $sortValues = false,
+    ) {
+        parent::__construct($state);
     }
 
-    /**
-     * @return static
-     */
-    public function maxProperties(int $count): static
+    public static function make(string $name): ArrayHashBuilder
     {
-        return $this->addConstraint(new MaxProperties($count, $this->currentContext()));
-    }
-
-    /**
-     * Sorts the object by key on serialization.
-     *
-     * @return static
-     */
-    public function sortKeys(): static
-    {
-        $this->sortKeys = true;
-
-        return $this;
-    }
-
-    /**
-     * Sorts the object by value on serialization (keys preserved).
-     *
-     * @return static
-     */
-    public function sortValues(): static
-    {
-        $this->sortValues = true;
-
-        return $this;
+        return new ArrayHashBuilder($name);
     }
 
     protected function serializeValue(mixed $raw): mixed

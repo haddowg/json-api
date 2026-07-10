@@ -84,7 +84,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function integerEnumExpandsToIntBackingScalars(): void
     {
-        $field = Integer::make('priority')->enum(Priority::class);
+        $field = Integer::make('priority')->enum(Priority::class)->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame([1, 2], $in->values);
@@ -94,7 +94,7 @@ final class OpenApiBuilderTest extends TestCase
     #[Test]
     public function integerInAcceptsIntBackedEnumCases(): void
     {
-        $field = Integer::make('priority')->in([Priority::Low, Priority::High]);
+        $field = Integer::make('priority')->in([Priority::Low, Priority::High])->build();
 
         $in = $this->onlyIn($field->constraints());
         self::assertSame([1, 2], $in->values);
