@@ -21,9 +21,12 @@ public function fields(): array
 }
 ```
 
-Fields are **mutable builders**: every fluent method mutates the field and
-returns it, so a field reads as one chained expression and one `fields()` entry
-configures serialize *and* hydrate at once.
+Each `make()` returns a **field builder** — a mutable object whose fluent methods
+mutate it and return it, so a field reads as one chained expression. The resource
+**builds** each builder into a `readonly` **Field** value object before use, and one
+`fields()` entry configures serialize *and* hydrate at once. Autocomplete on the
+builder shows only authoring methods; the built **Field** exposes only the
+consumption surface.
 
 ## Naming and storage
 
