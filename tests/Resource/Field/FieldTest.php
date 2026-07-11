@@ -68,7 +68,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Time::class)]
 #[CoversClass(Url::class)]
 #[CoversClass(Uuid::class)]
-#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractField::class)]
+#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractFieldValue::class)]
 final class FieldTest extends TestCase
 {
     #[Test]

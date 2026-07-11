@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Decimal::class)]
 #[CoversClass(Integer::class)]
 #[CoversClass(Str::class)]
-#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractField::class)]
+#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractFieldValue::class)]
 final class CastWireValueTest extends TestCase
 {
     #[Test]

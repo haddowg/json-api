@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 /**
- * A pivot-backed to-many relationship (`belongsToMany`). Same serialization and
- * constraint surface as {@see HasMany}, plus **pivot-field declarations**: the
- * fields of the join (association) table, declared as real
- * {@see FieldInterface} definitions — the same field DSL used for attributes
- * (`Integer`, `Str`, `DateTime`, …) with their constraints, casts and
- * read-only / context behaviour.
+ * A pivot-backed to-many relationship (`belongsToMany`) — the built, readonly value
+ * object the engine walks. Same serialization and constraint surface as
+ * {@see HasMany}, plus **pivot-field declarations**: the fields of the join
+ * (association) table, declared as real {@see FieldInterface} definitions — the same
+ * field DSL used for attributes (`Integer`, `Str`, `DateTime`, …) with their
+ * constraints, casts and read-only / context behaviour. Authors declare one with
+ * {@see make()}, which returns a mutable {@see BelongsToManyBuilder}.
  *
  * One declaration drives every pivot concern: render (the field's value cast),
  * filter / sort (its name + column), and **write / validate** (its constraints
@@ -20,37 +21,23 @@ namespace haddowg\JsonApi\Resource\Field;
  * reading the field definitions back to validate the linkage `meta` and persist
  * the association entity.
  */
-final class BelongsToMany extends HasMany
+final readonly class BelongsToMany extends HasMany
 {
     /**
-     * The declared pivot fields, keyed by field name (declaration order
-     * preserved).
-     *
-     * @var array<string, FieldInterface>
+     * @param array<string, FieldInterface> $pivotFields the declared pivot fields, keyed by field name (declaration order preserved)
      */
-    private array $pivotFields = [];
+    public function __construct(
+        FieldState $state,
+        RelationState $relationState,
+        private array $pivotFields = [],
+        private ?string $pivotThrough = null,
+    ) {
+        parent::__construct($state, $relationState);
+    }
 
-    private ?string $pivotThrough = null;
-
-    /**
-     * Declares the pivot (join-table) fields as field definitions. Pass the same
-     * field types used for attributes — `Integer::make('position')->required()`,
-     * `DateTime::make('addedAt')->readOnly()`, `Str::make('note')->maxLength(140)`
-     * — with their constraints, casts and read-only / context behaviour. A pivot
-     * field is **writable by default** (settable from the linkage `meta`); opt a
-     * server-owned column out with `->readOnly()`. Replaces any previously
-     * declared set.
-     *
-     * @return static
-     */
-    public function fields(FieldInterface ...$fields): static
+    public static function make(string $name, string $type): BelongsToManyBuilder
     {
-        $this->pivotFields = [];
-        foreach ($fields as $field) {
-            $this->pivotFields[$field->name()] = $field;
-        }
-
-        return $this;
+        return BelongsToManyBuilder::make($name, $type);
     }
 
     /**
@@ -90,24 +77,9 @@ final class BelongsToMany extends HasMany
     }
 
     /**
-     * Names the association entity backing the pivot. Declare-only in 1.0:
-     * an opaque class-string the host interprets (the Symfony bundle's Doctrine
-     * adapter reads it as the association entity backing the pivot relation,
-     * overriding its auto-detection). Core never interprets it. Pass `null` to
-     * clear an earlier override.
-     *
-     * @return static
-     */
-    public function through(?string $associationEntity): static
-    {
-        $this->pivotThrough = $associationEntity;
-
-        return $this;
-    }
-
-    /**
-     * The declared pivot association entity (the `through()` override), or
-     * `null` when none was declared.
+     * The declared pivot association entity (the
+     * {@see BelongsToManyBuilder::through()} override), or `null` when none was
+     * declared.
      */
     public function pivotThrough(): ?string
     {

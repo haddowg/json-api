@@ -9,7 +9,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
  * A write targeted an attribute flattened from a to-one relation
- * ({@see \haddowg\JsonApi\Resource\Field\AbstractField::on()}) whose related
+ * ({@see \haddowg\JsonApi\Resource\Field\AbstractFieldBuilder::on()}) whose related
  * model is absent: there is no owner object to write the value onto.
  *
  * Rendered as a 422 (require-exists). The flattened attribute cannot

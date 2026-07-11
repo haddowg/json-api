@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\AbstractField;
-use haddowg\JsonApi\Resource\Field\AbstractRelation;
+use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
+use haddowg\JsonApi\Resource\Field\AbstractRelationValue;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -20,8 +20,8 @@ use PHPUnit\Framework\TestCase;
  * resolvers. The closures branch on an `X-Role` header so a single fixture can
  * exercise both the restricted and permissive caller.
  */
-#[CoversClass(AbstractField::class)]
-#[CoversClass(AbstractRelation::class)]
+#[CoversClass(AbstractFieldValue::class)]
+#[CoversClass(AbstractRelationValue::class)]
 #[CoversClass(Str::class)]
 #[CoversClass(BelongsTo::class)]
 #[CoversClass(HasMany::class)]
@@ -200,7 +200,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $relation = BelongsTo::make('owner', 'users')->cannotReplace(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         // Static getter stays permissive (not unconditionally prohibited).
         self::assertTrue($relation->allowsReplace());
@@ -215,7 +215,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $relation = HasMany::make('tags', 'tags')->cannotRemove(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertTrue($relation->allowsRemove());
         self::assertFalse($relation->allowsRemoveFor($this->guest(), null));
@@ -227,7 +227,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $relation = HasMany::make('tags', 'tags')->cannotAdd(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertTrue($relation->allowsAdd());
         self::assertFalse($relation->allowsAddFor($this->guest(), null));
@@ -239,7 +239,7 @@ final class RequestAwarePredicatesTest extends TestCase
     {
         $relation = BelongsTo::make('secret', 'secrets')->cannotBeIncluded(
             static fn(mixed $model, JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
-        );
+        )->build();
 
         self::assertTrue($relation->isIncludable());
         self::assertFalse($relation->isIncludableFor($this->guest(), null));
@@ -249,7 +249,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function unconditionalRelationProhibitionPrecedesAnyRequest(): void
     {
-        $relation = BelongsTo::make('owner', 'users')->cannotReplace();
+        $relation = BelongsTo::make('owner', 'users')->cannotReplace()->build();
 
         self::assertFalse($relation->allowsReplace());
         // Unconditional prohibition denies regardless of the caller.
@@ -260,7 +260,7 @@ final class RequestAwarePredicatesTest extends TestCase
     #[Test]
     public function relationResolversDefaultPermissiveWithNoDeclaration(): void
     {
-        $relation = HasMany::make('tags', 'tags');
+        $relation = HasMany::make('tags', 'tags')->build();
 
         self::assertTrue($relation->allowsReplaceFor($this->guest(), null));
         self::assertTrue($relation->allowsRemoveFor($this->guest(), null));

@@ -28,8 +28,8 @@ final class RendersRelationsTraitTest extends TestCase
     public function buildsACallableMapKeyedByRelationName(): void
     {
         $serializer = new StandaloneRelationsSerializer([
-            BelongsTo::make('author', 'authors'),
-            HasMany::make('comments', 'comments'),
+            BelongsTo::make('author', 'authors')->build(),
+            HasMany::make('comments', 'comments')->build(),
         ]);
         $serializer->setSerializerResolver(new StubSerializerResolver('authors', 'comments'));
 
@@ -46,8 +46,8 @@ final class RendersRelationsTraitTest extends TestCase
     public function callablesBuildRelationshipObjectsOfTheRightCardinality(): void
     {
         $serializer = new StandaloneRelationsSerializer([
-            BelongsTo::make('author', 'authors'),
-            HasMany::make('comments', 'comments'),
+            BelongsTo::make('author', 'authors')->build(),
+            HasMany::make('comments', 'comments')->build(),
         ]);
         $serializer->setSerializerResolver(new StubSerializerResolver('authors', 'comments'));
 

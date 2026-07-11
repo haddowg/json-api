@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Serializer;
  * count exposed as `meta.total` on the relationship object. The resource document
  * reads it via `instanceof CountableControlsInterface` to validate the request's
  * `?withCount` up front: a name that is not in this set (not declared
- * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}, or a
+ * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()}, or a
  * to-one relation) is rejected with
  * {@see \haddowg\JsonApi\Exception\RelationshipCountNotAllowed} (400) — mirroring
  * the root-scoped include allow-list check.
@@ -26,7 +26,7 @@ interface CountableControlsInterface
 {
     /**
      * The relationship names that are countable for this resource — each declared
-     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()} and
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()} and
      * to-many. A `?withCount` naming any other relationship is rejected (400).
      * Return an empty list to forbid all counting on this resource.
      *

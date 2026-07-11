@@ -15,7 +15,7 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * {@see ConstraintInterface} metadata, and declares its read-only / sparse-fieldset /
  * sortable behaviour.
  *
- * The fluent builders live on {@see AbstractField}; this interface is the
+ * The fluent builders live on {@see AbstractFieldBuilder}; this interface is the
  * contract the schema base walks.
  */
 interface FieldInterface
@@ -34,7 +34,7 @@ interface FieldInterface
 
     /**
      * The `.`-separated chain of declared, to-one relations this attribute is
-     * **flattened from** ({@see AbstractField::on()}) — `'author'` (single hop) or
+     * **flattened from** ({@see AbstractFieldBuilder::on()}) — `'author'` (single hop) or
      * `'publisher.country'` (multi-hop) — or `null` for a plain attribute. When
      * non-null, the owning resource walks the chain to its final related object and
      * the field reads its `column() ?? name()` off / writes it onto *that* object,
@@ -46,7 +46,7 @@ interface FieldInterface
     /**
      * Whether the field is **unconditionally** read-only in the given request
      * context, and so must not be hydrated. A field whose read-only state is a
-     * request predicate ({@see AbstractField::readOnly()} with a closure) reports
+     * request predicate ({@see AbstractFieldBuilder::readOnly()} with a closure) reports
      * `false` here (it is not unconditionally restricted) — the request-aware
      * {@see isReadOnlyFor()} is the gate the hydrate/validate paths consult.
      *
@@ -121,7 +121,7 @@ interface FieldInterface
     /**
      * Whether the field is sparse by default: omitted from the default response and
      * rendered only when explicitly named in a `fields[type]` member
-     * ({@see \haddowg\JsonApi\Resource\Field\AbstractField::sparseByDefault()}).
+     * ({@see \haddowg\JsonApi\Resource\Field\AbstractFieldBuilder::sparseByDefault()}).
      */
     public function isSparseByDefault(): bool;
 

@@ -5,22 +5,25 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
  * A polymorphic to-one relationship (`morphTo`): the related resource may be one
  * of several declared types, passed as the mandatory list to {@see make()}; the
- * related object's serializer is resolved at runtime by its own `getType()`.
+ * related object's serializer is resolved at runtime by its own `getType()` — the
+ * built, readonly value object the engine walks. Authors declare one with
+ * {@see make()}, which returns a mutable {@see MorphToBuilder}.
  */
-final class MorphTo extends AbstractRelation
+final readonly class MorphTo extends AbstractRelationValue
 {
-    use DeclaresPolymorphicTypes;
-
     /**
-     * Eager by default: the morph id/type sit on the owning model, so resolving the
-     * linkage identifier is free (no query). {@see AbstractRelation::$dataOnlyWhenLoaded}.
+     * @param non-empty-list<string> $types
      */
-    protected bool $dataOnlyWhenLoaded = false;
+    public static function make(string $name, array $types): MorphToBuilder
+    {
+        return MorphToBuilder::make($name, $types);
+    }
 
     public function isToMany(): bool
     {
@@ -30,17 +33,17 @@ final class MorphTo extends AbstractRelation
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+        SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         $relationship = \haddowg\JsonApi\Schema\Relationship\ToOneRelationship::create();
 
         // A polymorphic relation resolves the serializer from the related
         // object's own type, so it must read the related value. Under the
         // load-aware policy, defer that read (and the data member) unless the
-        // relationship is included — see AbstractRelation::shouldDeferLinkage().
+        // relationship is included — see AbstractRelationValue::shouldDeferLinkage().
         if ($this->shouldDeferLinkage($model, $resolver)) {
             $deferredSerializer = null;
-            foreach ($this->relatedTypes as $type) {
+            foreach ($this->relationState->relatedTypes as $type) {
                 if ($resolver->hasSerializerFor($type)) {
                     $deferredSerializer = $resolver->serializerFor($type);
 
@@ -50,11 +53,11 @@ final class MorphTo extends AbstractRelation
 
             if ($deferredSerializer !== null) {
                 $relationship
-                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $deferredSerializer)
+                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->state->name), $deferredSerializer)
                     ->omitDataWhenNotIncluded();
             }
         } else {
-            $related = $this->relatedValue($model, $request, $this->name);
+            $related = $this->relatedValue($model, $request, $this->state->name);
             if ($related !== null) {
                 // Resolve the serializer for whichever declared type reports the
                 // related object's own type (the shared per-relation rule).

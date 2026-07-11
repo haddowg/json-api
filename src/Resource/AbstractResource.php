@@ -190,7 +190,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * request its total via `?withCount=_self_` (under the negotiated Countable
      * profile), which renders `meta.total` (and, when paginated, `meta.page.total`
      * + the `last` link). Off by default — counting is opt-in; an unrequested
-     * collection paginates count-free. Mirrors {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}
+     * collection paginates count-free. Mirrors {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()}
      * for relations. Fluent: returns `$this`.
      *
      * @return static
@@ -422,7 +422,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * The relationship names this resource has opted out of inclusion for, derived
      * from {@see relationFields()} where the relation declared
-     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}.
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::cannotBeIncluded()}.
      *
      * @return list<string>
      */
@@ -441,7 +441,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * The relationship names this resource declares countable, derived from
      * {@see relationFields()} where the relation is to-many and declared
-     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}. A
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()}. A
      * `?withCount` naming any other relationship is rejected (400).
      *
      * @return list<string>
@@ -878,7 +878,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * `column() ?? name()` the field reads/writes) or `null` when any intermediate
      * hop is null (short-circuit). Each segment is resolved against the owning
      * type's **hidden-inclusive** relation set (a flattened attribute may back onto
-     * a {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::hidden()} relation —
+     * a {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::hidden()} relation —
      * the idiomatic internal association) and read via its `readValue()` (honouring
      * its `column()`/`storedAs()`); each successive segment is resolved on the prior
      * segment's related type's serializer, resolved through the injected

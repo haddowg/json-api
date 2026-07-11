@@ -5,44 +5,33 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Constraint\MaxItems;
-use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
- * A to-many relationship (`hasMany`): a collection of related models.
+ * A to-many relationship (`hasMany`): a collection of related models — the built,
+ * readonly value object the engine walks. Authors declare one with {@see make()},
+ * which returns a mutable {@see HasManyBuilder}; the resource **builds** it into
+ * this value object before use.
  *
  * Non-final by design: {@see BelongsToMany} extends it.
  */
-class HasMany extends AbstractRelation
+readonly class HasMany extends AbstractRelationValue
 {
-    use DeclaresMonomorphicType;
+    public static function make(string $name, string $type): HasManyBuilder
+    {
+        return HasManyBuilder::make($name, $type);
+    }
 
     public function isToMany(): bool
     {
         return true;
     }
 
-    /**
-     * @return static
-     */
-    public function minItems(int $count): static
-    {
-        return $this->addConstraint(new MinItems($count, $this->currentContext()));
-    }
-
-    /**
-     * @return static
-     */
-    public function maxItems(int $count): static
-    {
-        return $this->addConstraint(new MaxItems($count, $this->currentContext()));
-    }
-
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+        SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         return $this->buildToMany($model, $request, $resolver);
     }

@@ -104,7 +104,7 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
      * is `false` — is rejected. The remaining (relation) names are validated against
      * the resource's declared countable relationships: a name the primary serializer
      * does not declare countable — because it is not
-     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}, or it is
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()}, or it is
      * to-one — is rejected. Either offence raises {@see RelationshipCountNotAllowed}
      * (400).
      *

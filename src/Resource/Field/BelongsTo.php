@@ -5,23 +5,23 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
 /**
  * A to-one relationship backed by a foreign key on the owning model
- * (`belongsTo`).
+ * (`belongsTo`) — the built, readonly value object the engine walks. Authors
+ * declare one with {@see make()}, which returns a mutable {@see BelongsToBuilder};
+ * the resource **builds** it into this value object before use.
  *
  * Non-final by design: {@see HasOne} extends it.
  */
-class BelongsTo extends AbstractRelation
+readonly class BelongsTo extends AbstractRelationValue
 {
-    use DeclaresMonomorphicType;
-
-    /**
-     * Eager by default: the foreign key sits on the owning model, so resolving the
-     * linkage identifier is free (no query). {@see AbstractRelation::$dataOnlyWhenLoaded}.
-     */
-    protected bool $dataOnlyWhenLoaded = false;
+    public static function make(string $name, string $type): BelongsToBuilder
+    {
+        return BelongsToBuilder::make($name, $type);
+    }
 
     public function isToMany(): bool
     {
@@ -31,7 +31,7 @@ class BelongsTo extends AbstractRelation
     public function buildRelationship(
         mixed $model,
         JsonApiRequestInterface $request,
-        \haddowg\JsonApi\Resource\SerializerResolverInterface $resolver,
+        SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         return $this->buildToOne($model, $request, $resolver);
     }

@@ -22,7 +22,7 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  *
  * Consulted only for a lazy relation
  * ({@see RelationInterface::emitsDataOnlyWhenLoaded()} — the per-type default, not
- * overridden by {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::withData()}).
+ * overridden by {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::withData()}).
  */
 interface RelationshipLoadStateInterface
 {

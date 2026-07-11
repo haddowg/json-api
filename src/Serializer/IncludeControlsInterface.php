@@ -32,7 +32,7 @@ interface IncludeControlsInterface
      * during the transformer's recursion (a relation's own includability), so it
      * receives the `$request` and the domain `$object` — a relation may declare
      * its includability as a request predicate
-     * ({@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}
+     * ({@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::cannotBeIncluded()}
      * with a closure). Return an empty list to keep every relationship includable.
      *
      * @return list<string>
