@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractField::class)]
+#[CoversClass(\haddowg\JsonApi\Resource\Field\AbstractFieldValue::class)]
 #[CoversClass(In::class)]
 #[Group('spec:document-structure')]
 final class OpenApiBuilderTest extends TestCase

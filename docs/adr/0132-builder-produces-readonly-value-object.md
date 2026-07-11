@@ -1,6 +1,11 @@
 # Field and filter builders produce a separate readonly value object
 
-Status: proposed
+Status: accepted
+
+_Realized across all four families: string and the remaining attribute types, the
+filters, and the relations — the fat `AbstractField` / `AbstractRelation` /
+`AbstractAttribute` bases are gone, replaced by the `AbstractFieldBuilder` /
+`AbstractFieldValue` (and their relation subclasses) pair._
 
 ## Context
 

@@ -10,7 +10,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
 /**
  * Raised (400) when a requested `?include` path is recognized as a relationship
  * but is not permitted: either the relation has opted out of inclusion via
- * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::cannotBeIncluded()}, or
+ * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::cannotBeIncluded()}, or
  * the path is outside the root resource's allowed-include-paths whitelist
  * ({@see \haddowg\JsonApi\Serializer\IncludeControlsInterface::getAllowedIncludePaths()}).
  */

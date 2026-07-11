@@ -35,16 +35,10 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     public function isToMany(): bool;
 
     /**
-     * Whether the relationship should be eager-loaded by data-layer adapters.
-     * Core ships metadata only; the flag is advisory.
-     */
-    public function canEagerLoad(): bool;
-
-    /**
      * Whether the relationship object should carry the spec's conventional
      * `self` / `related` links, built from the owning resource's type + id and
      * this relation's URI segment. On by default; suppressed by
-     * {@see AbstractRelation::withoutLinks()}.
+     * {@see AbstractRelationBuilder::withoutLinks()}.
      */
     public function includesLinks(): bool;
 
@@ -55,7 +49,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * trigger a lazy storage load just to serialize identifiers). The default is
      * **per relation type** — lazy (`true`) for the to-many relations and `HasOne`,
      * eager (`false`) for the owner-side to-ones `BelongsTo`/`MorphTo`; override a
-     * lazy relation to eager with {@see AbstractRelation::withData()}. The policy is
+     * lazy relation to eager with {@see AbstractRelationBuilder::withData()}. The policy is
      * advisory and gated by an injected
      * {@see \haddowg\JsonApi\Serializer\RelationshipLoadStateInterface}; an
      * included relationship always emits data, and a relation that would render no
@@ -109,7 +103,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Whether full replacement of this relationship is **unconditionally**
      * permitted (a `PATCH` to the relationship endpoint, or a `data` member for
      * this relation in a whole-resource body). On by default; opt out via
-     * {@see AbstractRelation::cannotReplace()}. A prohibited replacement is a
+     * {@see AbstractRelationBuilder::cannotReplace()}. A prohibited replacement is a
      * {@see \haddowg\JsonApi\Exception\FullReplacementProhibited} (403). A relation
      * whose replace gate is a request predicate still reports `true` here (it is
      * not unconditionally prohibited); the mutation path consults
@@ -119,7 +113,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
 
     /**
      * The relation's declared READ security (its related + relationship GET
-     * endpoints), set by {@see AbstractRelation::security()}: a host authorization
+     * endpoints), set by {@see AbstractRelationBuilder::security()}: a host authorization
      * expression string, `true` (documented secured), `false` (documented public), or
      * `null` to inherit the owning resource's read security. Opaque to core — the host
      * evaluates an expression and the OpenAPI projector reads it.
@@ -128,7 +122,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
 
     /**
      * The relation's declared MUTATION security (its relationship-mutation
-     * endpoints), set by {@see AbstractRelation::security()}: a host expression
+     * endpoints), set by {@see AbstractRelationBuilder::security()}: a host expression
      * string, `true`/`false`, or `null` to inherit the owning resource's update
      * security.
      */
@@ -147,7 +141,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Whether removal from this relationship is **unconditionally** permitted —
      * `DELETE` to a to-many relationship endpoint, or clearing a to-one
      * (`data: null`). On by default; opt out via
-     * {@see AbstractRelation::cannotRemove()}. A prohibited removal is a
+     * {@see AbstractRelationBuilder::cannotRemove()}. A prohibited removal is a
      * {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403). A relation whose
      * remove gate is a request predicate still reports `true` here; the mutation
      * path consults {@see allowsRemoveFor()}.
@@ -165,7 +159,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     /**
      * Whether this relation's related HTTP endpoint (`GET /{type}/{id}/{rel}`) is
      * exposed. On by default; suppressed by
-     * {@see AbstractRelation::withoutRelatedEndpoint()}. A suppressed endpoint is
+     * {@see AbstractRelationBuilder::withoutRelatedEndpoint()}. A suppressed endpoint is
      * enforced by the host as a 404, and its conventional `related` link is omitted
      * so a rendered link never points at that 404.
      */
@@ -174,7 +168,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     /**
      * Whether this relation's relationship-linkage HTTP endpoint
      * (`GET|PATCH|POST|DELETE /{type}/{id}/relationships/{rel}`) is exposed. On by
-     * default; suppressed by {@see AbstractRelation::withoutRelationshipEndpoint()}.
+     * default; suppressed by {@see AbstractRelationBuilder::withoutRelationshipEndpoint()}.
      * A suppressed endpoint is enforced by the host as a 404, and its conventional
      * `self` link is omitted so a rendered link never points at that 404.
      */
@@ -183,7 +177,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
     /**
      * Whether additions to this (to-many) relationship are **unconditionally**
      * permitted — a `POST` to its relationship endpoint. On by default; opt out
-     * via {@see AbstractRelation::cannotAdd()}. A prohibited addition is an
+     * via {@see AbstractRelationBuilder::cannotAdd()}. A prohibited addition is an
      * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). A relation whose
      * add gate is a request predicate still reports `true` here; the mutation path
      * consults {@see allowsAddFor()}.
@@ -202,7 +196,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Whether this relationship may **unconditionally** be included in a compound
      * document — fetched via `?include` and expanded into `included`, and
      * auto-included when it is a default-include. On by default; opt out via
-     * {@see AbstractRelation::cannotBeIncluded()}. A `?include` naming a
+     * {@see AbstractRelationBuilder::cannotBeIncluded()}. A `?include` naming a
      * non-includable relation is an
      * {@see \haddowg\JsonApi\Exception\InclusionNotAllowed} (400); a non-includable
      * relation is also excluded from the default-include cascade. Linkage and
@@ -227,7 +221,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * it in `?withCount`), and its related-collection endpoint
      * (`GET /{type}/{id}/{rel}`) emits the pagination `total` + `last` link. A
      * non-countable relation's endpoint paginates count-free (no `total`, no
-     * `last`). Off by default; opt in via {@see AbstractRelation::countable()}.
+     * `last`). Off by default; opt in via {@see AbstractRelationBuilder::countable()}.
      * This is the single universal gate for any relationship count: a `?withCount`
      * naming a relation that is not countable — or a to-one relation — is rejected
      * (400).
@@ -238,23 +232,13 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * The effective paginator for this relation's related-collection endpoint
      * (`GET /{type}/{id}/{rel}`), resolved against `$fallback` (the already-resolved
      * related-resource-or-server default). Returns this relation's own paginator
-     * ({@see AbstractRelation::paginate()}) when set, else `$fallback` — unless
-     * {@see withoutPagination()} disabled it, in which case `null` (fetch-all)
-     * regardless of `$fallback`. The host resolves the chain as
+     * ({@see AbstractRelationBuilder::paginate()}) when set, else `$fallback` — unless
+     * {@see AbstractRelationBuilder::withoutPagination()} disabled it, in which case
+     * `null` (fetch-all) regardless of `$fallback`. The host resolves the chain as
      * relation → related resource → server default; a to-one relation has no
      * collection and ignores this.
      */
     public function pagination(?\haddowg\JsonApi\Pagination\PaginatorInterface $fallback): ?\haddowg\JsonApi\Pagination\PaginatorInterface;
-
-    /**
-     * Explicitly opts this relation's related-collection endpoint out of pagination
-     * (fetch-all): {@see pagination()} then returns `null` regardless of the
-     * resolved fallback, so the related collection is fetched whole and renders
-     * `meta.total` unconditionally (no `page` meta). Returns `$this` (fluent).
-     *
-     * @return static
-     */
-    public function withoutPagination(): static;
 
     /**
      * Extra filters this relation exposes **only** on its related-collection
@@ -263,7 +247,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * {@see \haddowg\JsonApi\Resource\AbstractResource::filters()}; the host merges
      * this set with the related resource's own filters when parsing the request's
      * `?filter`, and on a key clash the relation's declaration wins (the more
-     * specific scope). Declared via {@see AbstractRelation::withFilters()}.
+     * specific scope). Declared via {@see AbstractRelationBuilder::withFilters()}.
      * Default: none. Metadata only — execution lives in the adapter's filter
      * handler, exactly as for a resource filter.
      *
@@ -292,7 +276,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * {@see \haddowg\JsonApi\Resource\AbstractResource::sorts()}; the host merges
      * this set with the related resource's own sorts when parsing the request's
      * `?sort`, and on a key clash the relation's declaration wins (the more
-     * specific scope). Declared via {@see AbstractRelation::withSorts()}. Default:
+     * specific scope). Declared via {@see AbstractRelationBuilder::withSorts()}. Default:
      * none. Metadata only — execution lives in the adapter's sort handler, exactly
      * as for a resource sort.
      *

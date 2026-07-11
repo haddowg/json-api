@@ -66,7 +66,7 @@ final class RequestAbsoluteLinksTest extends TestCase
     public function theRelationshipSelfAndRelatedLinksAreRequestAbsolute(): void
     {
         $album = ['author' => ['id' => '7', 'type' => 'people']];
-        $relation = BelongsTo::make('author', 'people');
+        $relation = BelongsTo::make('author', 'people')->build();
         $resolver = new StubSerializerResolver();
 
         $resource = new StubResource('album', '1', relationships: [
@@ -87,7 +87,7 @@ final class RequestAbsoluteLinksTest extends TestCase
     public function theRelationshipDocumentLinksAreRequestAbsolute(): void
     {
         $album = ['tracks' => [['id' => '10', 'type' => 'track'], ['id' => '20', 'type' => 'track']]];
-        $relation = HasMany::make('tracks', 'track');
+        $relation = HasMany::make('tracks', 'track')->build();
         $resolver = new StubSerializerResolver();
 
         $resource = new StubResource('album', '1', relationships: [

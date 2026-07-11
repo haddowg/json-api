@@ -10,7 +10,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
 /**
  * Raised (400) when a `?withCount` query parameter names a relationship that
  * cannot be counted: either the relation is not declared
- * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()}, or it is
+ * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()}, or it is
  * a to-one relationship (a count is a to-many cardinality only). `countable()` is
  * the single universal count gate, so a name failing it is rejected here rather
  * than silently ignored — mirroring the include-safeguard rejection of an

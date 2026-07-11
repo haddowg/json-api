@@ -15,13 +15,20 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * A polymorphic to-many relationship (`morphToMany`): the collection's members
  * may each be one of several declared types, passed as the mandatory list to
  * {@see make()}; each member's serializer is resolved at runtime by its own
- * `getType()` — the to-many parallel of {@see MorphTo}. The mixed-type members
- * are rendered by binding a {@see PolymorphicSerializer} that resolves and
- * delegates per member.
+ * `getType()` — the to-many parallel of {@see MorphTo}, and the built, readonly
+ * value object the engine walks. The mixed-type members are rendered by binding a
+ * {@see PolymorphicSerializer} that resolves and delegates per member. Authors
+ * declare one with {@see make()}, which returns a mutable {@see MorphToManyBuilder}.
  */
-final class MorphToMany extends AbstractRelation
+final readonly class MorphToMany extends AbstractRelationValue
 {
-    use DeclaresPolymorphicTypes;
+    /**
+     * @param non-empty-list<string> $types
+     */
+    public static function make(string $name, array $types): MorphToManyBuilder
+    {
+        return MorphToManyBuilder::make($name, $types);
+    }
 
     public function isToMany(): bool
     {
@@ -41,15 +48,15 @@ final class MorphToMany extends AbstractRelation
         // without any transformer or ToManyRelationship change.
         $serializer = new PolymorphicSerializer(function (mixed $object) use ($resolver): SerializerInterface {
             return $this->resolveSerializer($object, $resolver)
-                ?? throw new \LogicException(\sprintf('No declared type of the "%s" relationship serializes the related object.', $this->name));
+                ?? throw new \LogicException(\sprintf('No declared type of the "%s" relationship serializes the related object.', $this->state->name));
         });
 
         if ($this->shouldDeferLinkage($model, $resolver)) {
             $relationship
-                ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->name), $serializer)
+                ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->state->name), $serializer)
                 ->omitDataWhenNotIncluded();
         } else {
-            $relationship->setData($this->relatedValue($model, $request, $this->name), $serializer);
+            $relationship->setData($this->relatedValue($model, $request, $this->state->name), $serializer);
         }
 
         // Convention links, the relationship-meta hook (its first consumer is the

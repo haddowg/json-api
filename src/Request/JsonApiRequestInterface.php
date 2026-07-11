@@ -118,7 +118,7 @@ interface JsonApiRequestInterface extends ServerRequestInterface
      * collection/resource** (its `meta.total` top-level). The list is the raw
      * requested set; whether a given target is actually countable is validated
      * against the resource — a relation must be
-     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelation::countable()} (and
+     * {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::countable()} (and
      * to-many), `_self_` requires the resource be
      * {@see \haddowg\JsonApi\Resource\AbstractResource::countable()} — and a count is
      * only emitted when a {@see \haddowg\JsonApi\Serializer\RelationshipCountInterface}

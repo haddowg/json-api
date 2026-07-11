@@ -6,15 +6,15 @@ namespace haddowg\JsonApi\Resource\Field;
 
 /**
  * A to-one relationship backed by a foreign key on the **related** model
- * (`hasOne`). Identical metadata to {@see BelongsTo}; the distinction is for
- * data-layer adapters.
+ * (`hasOne`) — the built, readonly value object the engine walks. Identical
+ * metadata to {@see BelongsTo}; the distinction is for data-layer adapters (and the
+ * lazy linkage default set on its {@see HasOneBuilder}). Authors declare one with
+ * {@see make()}, which returns a mutable {@see HasOneBuilder}.
  */
-final class HasOne extends BelongsTo
+final readonly class HasOne extends BelongsTo
 {
-    /**
-     * Lazy by default (overriding {@see BelongsTo}'s eager default): the foreign key
-     * sits on the *related* model, so resolving the linkage identifier is a query —
-     * the same N+1 risk as a to-many. {@see AbstractRelation::$dataOnlyWhenLoaded}.
-     */
-    protected bool $dataOnlyWhenLoaded = true;
+    public static function make(string $name, string $type): HasOneBuilder
+    {
+        return HasOneBuilder::make($name, $type);
+    }
 }
