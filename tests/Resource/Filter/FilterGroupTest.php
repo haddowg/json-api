@@ -68,7 +68,7 @@ final class FilterGroupTest extends TestCase
     {
         // filter[q]=foo -> name LIKE foo OR email LIKE foo: the group's single value
         // is passed to every child (fan-out search).
-        $filter = WhereAny::make('q', Contains::make('name'), Contains::make('email'));
+        $filter = WhereAny::make('q', Contains::make('name'), Contains::make('email'))->build();
 
         $result = (new ArrayFilterHandler())->apply($filter, $this->data(), 'foo');
 
@@ -80,7 +80,7 @@ final class FilterGroupTest extends TestCase
     public function whereAllCombinesChildrenWithAnd(): void
     {
         // A fanning AND group: filter[a]=... applied to every child.
-        $filter = WhereAll::make('same', Contains::make('name'), Contains::make('email'));
+        $filter = WhereAll::make('same', Contains::make('name'), Contains::make('email'))->build();
 
         // Only row where BOTH name and email contain "b": row 3 ("Bob" / "bob@z.com").
         $result = (new ArrayFilterHandler())->apply($filter, $this->data(), 'b');
@@ -97,7 +97,7 @@ final class FilterGroupTest extends TestCase
             'urgent',
             GreaterThan::make('priority')->fixed(5),
             Boolean::make('flagged')->fixed(true),
-        );
+        )->build();
 
         $handler = new ArrayFilterHandler();
 
@@ -121,7 +121,7 @@ final class FilterGroupTest extends TestCase
                 Boolean::make('flagged')->fixed(true),
                 GreaterThan::make('priority')->fixed(100),
             ),
-        );
+        )->build();
 
         $result = (new ArrayFilterHandler())->apply($filter, $this->data(), 'bob');
 
@@ -133,7 +133,7 @@ final class FilterGroupTest extends TestCase
     public function fixedStandalonePinsTheComparedValueRegardlessOfTheSentValue(): void
     {
         // filter[status]=<anything> -> status = 'published', the sent value ignored.
-        $filter = Where::make('status')->fixed('published');
+        $filter = Where::make('status')->fixed('published')->build();
 
         $handler = new ArrayFilterHandler();
 
@@ -150,7 +150,7 @@ final class FilterGroupTest extends TestCase
 
         self::assertInstanceOf(GreaterThan::class, $filter);
 
-        $result = (new ArrayFilterHandler())->apply($filter, $this->data(), 'ignored');
+        $result = (new ArrayFilterHandler())->apply($filter->build(), $this->data(), 'ignored');
 
         // priority > 5: rows 1 (10) and 3 (8).
         self::assertSame(['1', '3'], $this->ids($result));
@@ -194,7 +194,7 @@ final class FilterGroupTest extends TestCase
             }
         };
 
-        $filter = WhereAny::make('x', $custom, Boolean::make('flagged')->fixed(false));
+        $filter = WhereAny::make('x', $custom, Boolean::make('flagged')->fixed(false))->build();
 
         $result = (new ArrayFilterHandler([$arm]))->apply($filter, $this->data(), '8');
 
@@ -207,7 +207,7 @@ final class FilterGroupTest extends TestCase
     {
         // Distinct from ->default(): a fixed filter never applies when its key is
         // absent (it declares no default to fold in), and it reports presence-trigger.
-        $filter = Where::make('status')->fixed('published');
+        $filter = Where::make('status')->fixed('published')->build();
 
         self::assertInstanceOf(PresenceTriggeredFilter::class, $filter);
         self::assertTrue($filter->isPresenceTriggered());
@@ -224,7 +224,7 @@ final class FilterGroupTest extends TestCase
     {
         // GreaterThan presets a numeric() constraint; ->fixed() drops it because
         // there is no client value to validate — any sent value triggers the filter.
-        $filter = GreaterThan::make('priority')->fixed(5);
+        $filter = GreaterThan::make('priority')->fixed(5)->build();
 
         self::assertSame([], $filter->constraints());
     }
@@ -236,22 +236,22 @@ final class FilterGroupTest extends TestCase
             'urgent',
             GreaterThan::make('priority')->fixed(5),
             Boolean::make('flagged')->fixed(true),
-        );
+        )->build();
         $fanning = WhereAny::make('q', Contains::make('name'), Contains::make('email'));
 
         self::assertTrue($allFixed->isPresenceTriggered());
-        self::assertFalse($fanning->isPresenceTriggered());
+        self::assertFalse($fanning->build()->isPresenceTriggered());
 
         // A fanning group can declare its shared value's constraints; an all-fixed
         // group declares none.
         self::assertSame([], $allFixed->constraints());
-        self::assertCount(1, $fanning->numeric()->constraints());
+        self::assertCount(1, $fanning->numeric()->build()->constraints());
     }
 
     #[Test]
     public function anEmptyGroupIsNotPresenceTriggered(): void
     {
-        self::assertFalse(WhereAll::make('x')->isPresenceTriggered());
-        self::assertFalse(WhereAny::make('x')->isPresenceTriggered());
+        self::assertFalse(WhereAll::make('x')->build()->isPresenceTriggered());
+        self::assertFalse(WhereAny::make('x')->build()->isPresenceTriggered());
     }
 }

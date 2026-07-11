@@ -10,16 +10,16 @@ namespace haddowg\JsonApi\Resource\Filter;
  * a database adapter `LIKE '…%'` with the trailing wildcard added by the
  * handler).
  *
- * A thin {@see Where} subclass presetting the operator and a string-value
- * description; a handler's existing `instanceof Where` arm dispatches it
- * unchanged.
+ * A {@see WhereBuilder} facade presetting the operator and a string-value
+ * description and building a plain {@see Where}; a handler's existing
+ * `instanceof Where` arm dispatches it unchanged.
  *
  * The `starts` operator is this convenience's identity and cannot be overridden —
- * the `$operator` argument exists only for {@see Where::make()} signature parity,
- * and a non-`starts` value is a loud {@see \InvalidArgumentException}
+ * the `$operator` argument exists only for {@see WhereBuilder::make()} signature
+ * parity, and a non-`starts` value is a loud {@see \InvalidArgumentException}
  * ({@see FixedOperator}).
  */
-final readonly class StartsWith extends \haddowg\JsonApi\Resource\Filter\Where
+final class StartsWith extends WhereBuilder
 {
     public static function make(string $key, ?string $column = null, string $operator = 'starts'): static
     {

@@ -5,23 +5,28 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Filter;
 
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereBuilder;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+use haddowg\JsonApi\Resource\Filter\WhereIdInBuilder;
 use haddowg\JsonApi\Resource\Filter\WhereIdNotIn;
+use haddowg\JsonApi\Resource\Filter\WhereIdNotInBuilder;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
+use haddowg\JsonApi\Resource\Filter\WhereInBuilder;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
+use haddowg\JsonApi\Resource\Filter\WhereNotInBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The `default()` refinement on every value-carrying filter: declaring is
- * immutable and flag-tracked (`null` is a legitimate default), and the other
- * refinement helpers thread a declared default through unchanged.
+ * The `default()` setter on every value-carrying filter builder: declaring is
+ * flag-tracked (`null` is a legitimate default), and the other builder setters
+ * thread a declared default through to the built value object unchanged.
  */
 final class FilterDefaultValueTest extends TestCase
 {
     /**
-     * @return iterable<string, array{Where|WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn}>
+     * @return iterable<string, array{WhereBuilder|WhereInBuilder|WhereNotInBuilder|WhereIdInBuilder|WhereIdNotInBuilder}>
      */
     public static function valueCarryingFilters(): iterable
     {
@@ -34,26 +39,25 @@ final class FilterDefaultValueTest extends TestCase
 
     #[Test]
     #[DataProvider('valueCarryingFilters')]
-    public function aFilterHasNoDefaultUntilDeclared(Where|WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter): void
+    public function aFilterHasNoDefaultUntilDeclared(WhereBuilder|WhereInBuilder|WhereNotInBuilder|WhereIdInBuilder|WhereIdNotInBuilder $filter): void
     {
-        self::assertFalse($filter->hasDefault());
-        self::assertNull($filter->defaultValue());
+        $built = $filter->build();
+
+        self::assertFalse($built->hasDefault());
+        self::assertNull($built->defaultValue());
     }
 
     #[Test]
     #[DataProvider('valueCarryingFilters')]
-    public function declaringADefaultIsImmutableAndFlagTracked(Where|WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter): void
+    public function declaringADefaultIsFlagTracked(WhereBuilder|WhereInBuilder|WhereNotInBuilder|WhereIdInBuilder|WhereIdNotInBuilder $filter): void
     {
-        $defaulted = $filter->default('value');
+        $defaulted = $filter->default('value')->build();
 
-        self::assertNotSame($filter, $defaulted);
         self::assertTrue($defaulted->hasDefault());
         self::assertSame('value', $defaulted->defaultValue());
 
-        // The original is untouched, and null is a declarable default.
-        self::assertFalse($filter->hasDefault());
-
-        $nullDefault = $filter->default(null);
+        // null is a declarable default (distinct from "no default").
+        $nullDefault = $filter->default(null)->build();
         self::assertTrue($nullDefault->hasDefault());
         self::assertNull($nullDefault->defaultValue());
     }
@@ -63,29 +67,32 @@ final class FilterDefaultValueTest extends TestCase
     {
         $where = Where::make('status')->default('active')
             ->singular()
-            ->deserializeUsing(static fn(mixed $value): mixed => $value);
+            ->deserializeUsing(static fn(mixed $value): mixed => $value)
+            ->build();
         self::assertTrue($where->hasDefault());
         self::assertSame('active', $where->defaultValue());
         self::assertTrue($where->singular);
 
         $whereIn = WhereIn::make('tags')->default('a,b')
             ->delimiter('|')
-            ->singular();
+            ->singular()
+            ->build();
         self::assertTrue($whereIn->hasDefault());
         self::assertSame('a,b', $whereIn->defaultValue());
         self::assertSame('|', $whereIn->delimiter);
 
         $whereNotIn = WhereNotIn::make('tags')->default(['a'])
             ->delimiter('|')
-            ->singular();
+            ->singular()
+            ->build();
         self::assertTrue($whereNotIn->hasDefault());
         self::assertSame(['a'], $whereNotIn->defaultValue());
 
-        $whereIdIn = WhereIdIn::make()->default('1,2')->delimiter('|');
+        $whereIdIn = WhereIdIn::make()->default('1,2')->delimiter('|')->build();
         self::assertTrue($whereIdIn->hasDefault());
         self::assertSame('1,2', $whereIdIn->defaultValue());
 
-        $whereIdNotIn = WhereIdNotIn::make()->default('3')->delimiter('|');
+        $whereIdNotIn = WhereIdNotIn::make()->default('3')->delimiter('|')->build();
         self::assertTrue($whereIdNotIn->hasDefault());
         self::assertSame('3', $whereIdNotIn->defaultValue());
     }
@@ -93,11 +100,11 @@ final class FilterDefaultValueTest extends TestCase
     #[Test]
     public function declaringADefaultPreservesTheOtherRefinements(): void
     {
-        $where = Where::make('status')->singular()->default('active');
+        $where = Where::make('status')->singular()->default('active')->build();
         self::assertTrue($where->singular);
         self::assertTrue($where->hasDefault());
 
-        $whereIn = WhereIn::make('tags')->delimiter('|')->default('a|b');
+        $whereIn = WhereIn::make('tags')->delimiter('|')->default('a|b')->build();
         self::assertSame('|', $whereIn->delimiter);
         self::assertTrue($whereIn->hasDefault());
     }

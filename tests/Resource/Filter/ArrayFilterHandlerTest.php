@@ -73,7 +73,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereEquals(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Where::make('status'), $this->data(), 'published');
+        $result = (new ArrayFilterHandler())->apply(Where::make('status')->build(), $this->data(), 'published');
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -81,7 +81,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereGreaterThan(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>'), $this->data(), 9);
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>')->build(), $this->data(), 9);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -92,7 +92,7 @@ final class ArrayFilterHandlerTest extends TestCase
         // `like` is contains with ASCII case-folding — the semantics a SQL
         // `LIKE '%…%'` gives on common backends, so database adapters can
         // match this reference behaviour.
-        $filter = Where::make('status', operator: 'like');
+        $filter = Where::make('status', operator: 'like')->build();
 
         self::assertSame(['2', '3'], $this->ids(
             (new ArrayFilterHandler())->apply($filter, $this->data(), 'PUBLISH'),
@@ -109,7 +109,7 @@ final class ArrayFilterHandlerTest extends TestCase
             self::assertIsString($v);
 
             return (int) $v;
-        });
+        })->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->data(), '50');
 
         self::assertSame(['2'], $this->ids($result));
@@ -118,7 +118,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereInFromCommaString(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereIn::make('status'), $this->data(), 'draft,published');
+        $result = (new ArrayFilterHandler())->apply(WhereIn::make('status')->build(), $this->data(), 'draft,published');
 
         self::assertSame(['1', '2', '3'], $this->ids($result));
     }
@@ -126,7 +126,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereNotIn(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereNotIn::make('status'), $this->data(), 'draft');
+        $result = (new ArrayFilterHandler())->apply(WhereNotIn::make('status')->build(), $this->data(), 'draft');
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -134,7 +134,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereIdIn(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereIdIn::make(), $this->data(), '1,3');
+        $result = (new ArrayFilterHandler())->apply(WhereIdIn::make()->build(), $this->data(), '1,3');
 
         self::assertSame(['1', '3'], $this->ids($result));
     }
@@ -142,7 +142,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereIdNotIn(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereIdNotIn::make(), $this->data(), '1');
+        $result = (new ArrayFilterHandler())->apply(WhereIdNotIn::make()->build(), $this->data(), '1');
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -186,7 +186,7 @@ final class ArrayFilterHandlerTest extends TestCase
         // Under PHP coercion `null > -1` was true (null -> 0); an ordered
         // comparison now never matches a null column, so only the non-null rows
         // (which are also in range) remain — the exclusion is null-specific.
-        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>'), $this->nullBearingData(), -1);
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>')->build(), $this->nullBearingData(), -1);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -196,7 +196,7 @@ final class ArrayFilterHandlerTest extends TestCase
     {
         // `null >= 0` was true under coercion; the null row is now excluded while
         // the non-null rows still match.
-        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>='), $this->nullBearingData(), 0);
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '>=')->build(), $this->nullBearingData(), 0);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -205,7 +205,7 @@ final class ArrayFilterHandlerTest extends TestCase
     public function whereLessThanExcludesNull(): void
     {
         // `null < 100` was true under coercion; the null row is now excluded.
-        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<'), $this->nullBearingData(), 100);
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<')->build(), $this->nullBearingData(), 100);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -214,7 +214,7 @@ final class ArrayFilterHandlerTest extends TestCase
     public function whereLessThanOrEqualExcludesNull(): void
     {
         // `null <= 100` was true under coercion; the null row is now excluded.
-        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<='), $this->nullBearingData(), 100);
+        $result = (new ArrayFilterHandler())->apply(Where::make('views', operator: '<=')->build(), $this->nullBearingData(), 100);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -226,7 +226,7 @@ final class ArrayFilterHandlerTest extends TestCase
         // value is read before the deserializer so a null->0 mapping cannot
         // smuggle it in; the non-null in-range rows still match.
         $result = (new ArrayFilterHandler())->apply(
-            Range::make('views'),
+            Range::make('views')->build(),
             $this->nullBearingData(),
             ['min' => '0', 'max' => '100'],
         );
@@ -245,7 +245,7 @@ final class ArrayFilterHandlerTest extends TestCase
         ];
 
         $result = (new ArrayFilterHandler())->apply(
-            DateRange::make('published'),
+            DateRange::make('published')->build(),
             $data,
             ['min' => '2020-01-01', 'max' => '2020-12-31'],
         );
@@ -267,7 +267,7 @@ final class ArrayFilterHandlerTest extends TestCase
             self::assertIsString($v);
 
             return $v === 'unknown' ? null : (int) $v;
-        });
+        })->build();
 
         $result = (new ArrayFilterHandler())->apply($filter, $data, ['max' => '100']);
 
@@ -288,7 +288,7 @@ final class ArrayFilterHandlerTest extends TestCase
             self::assertIsString($v);
 
             return (int) $v;
-        });
+        })->build();
 
         $result = (new ArrayFilterHandler())->apply($filter, $data, '0');
 
@@ -406,7 +406,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereThroughMatchesASingleToOneHop(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name'), $this->traversalData(), 'Ada');
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name')->build(), $this->traversalData(), 'Ada');
 
         self::assertSame(['1'], $this->ids($result));
     }
@@ -415,7 +415,7 @@ final class ArrayFilterHandlerTest extends TestCase
     public function whereThroughIsExistsAnyAcrossAToManyHop(): void
     {
         // Keeps a row that has *some* comment whose body matches.
-        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('comments.body'), $this->traversalData(), 'second');
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('comments.body')->build(), $this->traversalData(), 'second');
 
         self::assertSame(['1'], $this->ids($result));
     }
@@ -423,7 +423,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereThroughChainsMultipleHops(): void
     {
-        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.company.name'), $this->traversalData(), 'Globex');
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.company.name')->build(), $this->traversalData(), 'Globex');
 
         self::assertSame(['2'], $this->ids($result));
     }
@@ -431,7 +431,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereThroughAppliesTheFluentOperator(): void
     {
-        $filter = WhereThrough::make('author.name')->operator('like');
+        $filter = WhereThrough::make('author.name')->operator('like')->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->traversalData(), 'AD');
 
         self::assertSame(['1'], $this->ids($result));
@@ -441,7 +441,7 @@ final class ArrayFilterHandlerTest extends TestCase
     public function whereThroughUsesTheNamedKeyOverridePathDistinctly(): void
     {
         // The key and the traversal path differ; traversal reads the path, not the key.
-        $filter = WhereThrough::make('topAuthor', 'author.name');
+        $filter = WhereThrough::make('topAuthor', 'author.name')->build();
         self::assertSame('topAuthor', $filter->key());
 
         $result = (new ArrayFilterHandler())->apply($filter, $this->traversalData(), 'Bob');
@@ -460,7 +460,7 @@ final class ArrayFilterHandlerTest extends TestCase
             self::assertIsString($v);
 
             return (int) $v;
-        });
+        })->build();
 
         $result = (new ArrayFilterHandler())->apply($filter, $data, '40');
 
@@ -471,7 +471,7 @@ final class ArrayFilterHandlerTest extends TestCase
     public function whereThroughEmptyOrMissingHopMatchesNothing(): void
     {
         // Row 3 has a null author; no reachable leaf, so it never matches.
-        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name'), $this->traversalData(), 'Nobody');
+        $result = (new ArrayFilterHandler())->apply(WhereThrough::make('author.name')->build(), $this->traversalData(), 'Nobody');
 
         self::assertSame([], $this->ids($result));
     }
@@ -479,7 +479,7 @@ final class ArrayFilterHandlerTest extends TestCase
     #[Test]
     public function whereThroughDeclaresItsValueConstraints(): void
     {
-        $filter = WhereThrough::make('author.age')->integer();
+        $filter = WhereThrough::make('author.age')->integer()->build();
 
         self::assertCount(1, $filter->constraints());
     }

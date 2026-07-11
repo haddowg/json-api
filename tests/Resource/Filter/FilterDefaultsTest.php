@@ -18,7 +18,7 @@ final class FilterDefaultsTest extends TestCase
     {
         $merged = FilterDefaults::apply(
             ['title' => 'Alpha'],
-            [Where::make('title'), Where::make('status')->default('active')],
+            [Where::make('title')->build(), Where::make('status')->default('active')->build()],
         );
 
         self::assertSame(['title' => 'Alpha', 'status' => 'active'], $merged);
@@ -29,7 +29,7 @@ final class FilterDefaultsTest extends TestCase
     {
         $merged = FilterDefaults::apply(
             ['status' => 'archived'],
-            [Where::make('status')->default('active')],
+            [Where::make('status')->default('active')->build()],
         );
 
         self::assertSame(['status' => 'archived'], $merged);
@@ -38,7 +38,7 @@ final class FilterDefaultsTest extends TestCase
     #[Test]
     public function presenceWinsEvenWithAnEmptyOrNullValue(): void
     {
-        $declared = [Where::make('status')->default('active')];
+        $declared = [Where::make('status')->default('active')->build()];
 
         self::assertSame(['status' => ''], FilterDefaults::apply(['status' => ''], $declared));
         self::assertSame(['status' => null], FilterDefaults::apply(['status' => null], $declared));
@@ -47,7 +47,7 @@ final class FilterDefaultsTest extends TestCase
     #[Test]
     public function aNullDefaultIsAppliedNotSkipped(): void
     {
-        $merged = FilterDefaults::apply([], [Where::make('parent')->default(null)]);
+        $merged = FilterDefaults::apply([], [Where::make('parent')->default(null)->build()]);
 
         self::assertSame(['parent' => null], $merged);
     }
@@ -56,8 +56,8 @@ final class FilterDefaultsTest extends TestCase
     public function filtersWithoutADefaultContributeNothing(): void
     {
         $merged = FilterDefaults::apply([], [
-            Where::make('title'),
-            WhereIn::make('tags'),
+            Where::make('title')->build(),
+            WhereIn::make('tags')->build(),
             WhereNull::make('deletedAt'),
         ]);
 
@@ -68,8 +68,8 @@ final class FilterDefaultsTest extends TestCase
     public function theFirstDeclaredDefaultWinsForASharedKey(): void
     {
         $merged = FilterDefaults::apply([], [
-            Where::make('status')->default('active'),
-            Where::make('status')->default('archived'),
+            Where::make('status')->default('active')->build(),
+            Where::make('status')->default('archived')->build(),
         ]);
 
         self::assertSame(['status' => 'active'], $merged);
@@ -79,8 +79,8 @@ final class FilterDefaultsTest extends TestCase
     public function setFilterDefaultsCarryTheirRequestShape(): void
     {
         $merged = FilterDefaults::apply([], [
-            WhereIn::make('tags')->default(['a', 'b']),
-            WhereIn::make('categories')->default('news,guide'),
+            WhereIn::make('tags')->default(['a', 'b'])->build(),
+            WhereIn::make('categories')->default('news,guide')->build(),
         ]);
 
         self::assertSame(['tags' => ['a', 'b'], 'categories' => 'news,guide'], $merged);
