@@ -70,7 +70,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
                     true,
                     countable: true,
                     pageSchema: PagePaginator::make()->describePageSchema(),
-                    filters: [Where::make('label')->describedAs('Filter tags by label.')],
+                    filters: [Where::make('label')->describedAs('Filter tags by label.')->build()],
                     sorts: [SortByField::make('label')],
                     // The related endpoint's `?include` is scoped to the RELATED type
                     // (`tags`), not the parent (`articles`) — `tags` includes `articles`.
@@ -97,7 +97,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             tags: ['People'],
             // The related resource's own filter — honoured on the `author` to-one's
             // related and relationship endpoints (proves the to-one filter projection).
-            filters: [Where::make('name')],
+            filters: [Where::make('name')->build()],
         );
         // `tags` declares `articles` as an includable relation so the related-endpoint
         // `?include=articles` and the widened `fields[articles]` both resolve.
@@ -108,7 +108,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             tags: ['Tags'],
             // The related resource's OWN filter/sort — merged with the relation's
             // `label` filter on the `tags` related endpoint (proves the merge).
-            filters: [Where::make('color')],
+            filters: [Where::make('color')->build()],
             sorts: [SortByField::make('id')],
         );
         $images = FakeTypeMetadata::resource(type: 'images', fields: [Id::make()->build(), Str::make('url')->build()], tags: ['Media']);

@@ -267,9 +267,23 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Default: none. Metadata only — execution lives in the adapter's filter
      * handler, exactly as for a resource filter.
      *
-     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     * Each entry may be a **filter builder**
+     * ({@see \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface}) or an
+     * already-built {@see \haddowg\JsonApi\Resource\Filter\FilterInterface};
+     * {@see allFilters()} builds any builder into its value object before use.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface>
      */
     public function filters(): array;
+
+    /**
+     * This relation's **built** filter inventory: every {@see filters()} entry, with
+     * any {@see \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface} frozen into
+     * its {@see \haddowg\JsonApi\Resource\Filter\FilterInterface} value object.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    public function allFilters(): array;
 
     /**
      * Extra sorts this relation exposes **only** on its related-collection

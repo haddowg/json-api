@@ -9,10 +9,15 @@ use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
 
 /**
- * Declares **value constraints** on a value-carrying filter and the fluent
- * builders that append them, mirroring the {@see \haddowg\JsonApi\Resource\Field\Id}
- * field's `uuid()` / `numeric()` / `pattern()` shortcuts and reusing the same
- * core {@see ConstraintInterface} vocabulary.
+ * Declares **value constraints** on a value-carrying, **self-contained readonly**
+ * filter (one that is its own value object, with copy-on-write withers and no
+ * separate builder) and the fluent builders that append them, mirroring the
+ * {@see \haddowg\JsonApi\Resource\Field\Id} field's `uuid()` / `numeric()` /
+ * `pattern()` shortcuts and reusing the same core {@see ConstraintInterface}
+ * vocabulary. The core built-ins instead split into a mutable builder
+ * ({@see BuildsValueConstraints}) and a readonly value object
+ * ({@see ExposesValueMetadata}); this trait remains the extension point for a
+ * consumer filter that prefers to be a single readonly class.
  *
  * Constraints are **metadata only** — core never executes them (like every other
  * {@see ConstraintInterface}). A framework adapter translates them to its native
@@ -21,15 +26,14 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * integer column) is a clean `400` {@see \haddowg\JsonApi\Exception\FilterValueInvalid}
  * rather than the provider's silent non-match (or, on a strict driver, a PDO `500`).
  *
- * The filter VOs are immutable, so {@see constrain()} and the shortcuts are
- * withers: each returns a new instance with the constraint appended, exactly like
- * the existing `singular()` / `default()` / `deserializeUsing()` refinements. The
- * host filter supplies {@see withConstraints()} (it alone knows its constructor).
+ * The filter is immutable, so {@see constrain()} and the shortcuts are withers:
+ * each returns a new instance with the constraint appended, exactly like a
+ * `singular()` / `default()` refinement. The host filter supplies
+ * {@see withConstraints()} (it alone knows its constructor).
  *
  * It also carries the **description / example** authoring metadata the OpenAPI
- * generator reads when projecting this filter's `filter[<key>]` query parameter
- * (forward use — the filter→parameter projection lands in a later slice). Both are
- * immutable withers like {@see constrain()}, backed by the host's
+ * generator reads when projecting this filter's `filter[<key>]` query parameter.
+ * Both are immutable withers like {@see constrain()}, backed by the host's
  * {@see withDescriptionAndExample()} seam.
  *
  * @phpstan-require-implements DescribedFilter
@@ -132,10 +136,10 @@ trait HasValueConstraints
      * The value must be a boolean wire form accepted by `FILTER_VALIDATE_BOOLEAN`:
      * `1`/`true`/`on`/`yes` (truthy) or `0`/`false`/`off`/`no`/`''` (falsy),
      * case-insensitively and with optional surrounding whitespace — exactly the
-     * vocabulary {@see Where::asBoolean()} coerces, so the {@see Boolean} filter's
-     * coercion, validation and OpenAPI value schema all accept the same set (they
-     * must not drift apart). Documents as an OpenAPI `boolean` (the wire string is
-     * validated by the regex).
+     * vocabulary {@see WhereBuilder::asBoolean()} coerces, so the {@see Boolean}
+     * filter's coercion, validation and OpenAPI value schema all accept the same set
+     * (they must not drift apart). Documents as an OpenAPI `boolean` (the wire string
+     * is validated by the regex).
      */
     public function boolean(): static
     {

@@ -69,13 +69,13 @@ final class CriteriaApplier
     {
         /** @var array<string, FilterInterface> $declared */
         $declared = [];
-        foreach ($resource->filters() as $filter) {
+        foreach ($resource->allFilters() as $filter) {
             // First declared wins for a shared key (the FilterDefaults rule).
             $declared[$filter->key()] ??= $filter;
         }
 
         $requested = $foldDefaults
-            ? FilterDefaults::apply($request->getFiltering(), $resource->filters())
+            ? FilterDefaults::apply($request->getFiltering(), $resource->allFilters())
             : $request->getFiltering();
 
         foreach ($requested as $key => $value) {

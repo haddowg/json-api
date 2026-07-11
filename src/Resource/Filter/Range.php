@@ -8,7 +8,9 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows whose column falls within an **inclusive range**, expressed as a
  * structured value with an optional lower and upper bound: `min <= value <= max`.
  * Either bound may be omitted, so an open-ended range works — `min` alone is a
- * `>=`, `max` alone a `<=`, and an entirely absent value is a no-op.
+ * `>=`, `max` alone a `<=`, and an entirely absent value is a no-op. The built,
+ * readonly value object an adapter consumes; authors declare one with {@see make()},
+ * which returns a mutable {@see RangeBuilder}.
  *
  * Unlike the scalar filters this is a **genuinely new filter type**, not a
  * {@see Where} preset: its wire value is **nested** —
@@ -24,14 +26,11 @@ namespace haddowg\JsonApi\Resource\Filter;
  * and the reference in-memory apply; database adapters translate it into two
  * push-down `andWhere` predicates.
  *
- * {@see DateRange} is the only subclass and never widens the constructor, so the
- * withers' `new static(...)` is safe.
- *
- * @phpstan-consistent-constructor
+ * {@see DateRange} is the only subclass and never widens the constructor.
  */
 readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
 {
-    use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
+    use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
      * @param \Closure(mixed): mixed|null                                   $deserialize optional value transformer applied to each bound and the column value before comparison
@@ -47,38 +46,14 @@ readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
         public mixed $example = null,
     ) {}
 
-    public static function make(string $key, ?string $column = null): static
+    public static function make(string $key, ?string $column = null): RangeBuilder
     {
-        return (new static($key, $column ?? $key))
-            ->deserializeUsing(\haddowg\JsonApi\Resource\Filter\NumericCoercion::deserializer())
-            ->numeric()
-            ->describedAs('Matches values within the given inclusive numeric range (min/max, either optional).');
+        return RangeBuilder::make($key, $column);
     }
 
     public function key(): string
     {
         return $this->key;
-    }
-
-    /**
-     * @param \Closure(mixed): mixed $deserialize
-     */
-    public function deserializeUsing(\Closure $deserialize): static
-    {
-        return new static($this->key, $this->column, $deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    /**
-     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
-     */
-    protected function withConstraints(array $constraints): static
-    {
-        return new static($this->key, $this->column, $this->deserialize, $constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
-    {
-        return new static($this->key, $this->column, $this->deserialize, $this->constraints, $description, $hasExample, $example);
     }
 
     public function describeQueryParameter(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\QueryParameterShape

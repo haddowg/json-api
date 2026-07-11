@@ -9,13 +9,15 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 /**
  * Base for the **server-composed** boolean filter groups {@see WhereAll} (AND)
  * and {@see WhereAny} (OR): a `key()` plus a `list<FilterInterface> $children`
- * the resource author composes on the server. The group combines its children
- * under one `filter[<key>]` key and **passes its own request value uniformly to
- * every child** — so a group of value-carrying children fans one value across
- * columns (`WhereAny::make('q', Contains::make('name'), Contains::make('email'))`
- * → `filter[q]=foo` matches `name LIKE foo OR email LIKE foo`), while a group of
- * {@see Where::fixed() fixed} children is a canned toggle whose request value is
- * ignored. The two even mix (a fixed child ignores the passed value).
+ * the resource author composes on the server — the built, readonly value object a
+ * handler consumes (`instanceof WhereAll` / `instanceof WhereAny`, then
+ * `->children`). The group combines its children under one `filter[<key>]` key and
+ * **passes its own request value uniformly to every child** — so a group of
+ * value-carrying children fans one value across columns
+ * (`WhereAny::make('q', Contains::make('name'), Contains::make('email'))` →
+ * `filter[q]=foo` matches `name LIKE foo OR email LIKE foo`), while a group of
+ * {@see WhereBuilder::fixed() fixed} children is a canned toggle whose request value
+ * is ignored. The two even mix (a fixed child ignores the passed value).
  *
  * A child's own `key()` is **ignored as a request parameter** — only the group's
  * key is a `filter[...]` — but still drives the child's target column/operator, so
@@ -26,19 +28,15 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * assemble arbitrary boolean algebra — so it does not reintroduce a client-driven
  * `filter[and]`/`[or]` model.
  *
- * The group carries {@see HasValueConstraints} exactly like {@see Where}, so a
- * fanning group can declare its shared value's constraints (`->numeric()`,
- * `->pattern(...)`, …); an all-fixed group declares none. Not `final`: the AND/OR
- * distinction is the concrete subclass, dispatched by a handler's
- * `instanceof WhereAll` / `instanceof WhereAny` arm. The withers construct via
- * `new static(...)`, so a subclass keeps its own identity across a fluent
- * refinement.
- *
- * @phpstan-consistent-constructor
+ * The group carries the value-metadata consumption surface ({@see ExposesValueMetadata})
+ * exactly like {@see Where}, so a fanning group can carry its shared value's declared
+ * constraints (authored via {@see WhereGroupBuilder}); an all-fixed group declares
+ * none. Not `final`: the AND/OR distinction is the concrete subclass, dispatched by
+ * a handler's `instanceof WhereAll` / `instanceof WhereAny` arm.
  */
 abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
-    use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
+    use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
      * @param list<FilterInterface>     $children    the filters this group combines
@@ -52,16 +50,6 @@ abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Filter\D
         public bool $hasExample = false,
         public mixed $example = null,
     ) {}
-
-    /**
-     * Composes the group from its child filters. A child's own key is ignored as a
-     * request parameter (only this group's `$key` is a `filter[...]`), but still
-     * drives the child's column/operator.
-     */
-    public static function make(string $key, FilterInterface ...$children): static
-    {
-        return new static($key, \array_values($children));
-    }
 
     public function key(): string
     {
@@ -98,18 +86,5 @@ abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Filter\D
         }
 
         return true;
-    }
-
-    /**
-     * @param list<ConstraintInterface> $constraints
-     */
-    protected function withConstraints(array $constraints): static
-    {
-        return new static($this->key, $this->children, $constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
-    {
-        return new static($this->key, $this->children, $this->constraints, $description, $hasExample, $example);
     }
 }

@@ -141,11 +141,18 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     private bool $paginationDisabled = false;
 
     /**
-     * Extra filters scoped to this relation's related-collection endpoint.
+     * Extra filters scoped to this relation's related-collection endpoint. Each
+     * entry may be a filter builder or an already-built filter; {@see allFilters()}
+     * builds any builder before use.
      *
-     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface>
      */
     protected array $relationFilters = [];
+
+    /**
+     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>|null
+     */
+    private ?array $filterCache = null;
 
     /**
      * Extra sorts scoped to this relation's related-collection endpoint.
@@ -546,9 +553,10 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
      *
      * @return static
      */
-    public function withFilters(\haddowg\JsonApi\Resource\Filter\FilterInterface ...$filters): static
+    public function withFilters(\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface ...$filters): static
     {
         $this->relationFilters = [...$this->relationFilters, ...\array_values($filters)];
+        $this->filterCache = null;
 
         return $this;
     }
@@ -573,6 +581,20 @@ abstract class AbstractRelation extends AbstractField implements \haddowg\JsonAp
     public function filters(): array
     {
         return $this->relationFilters;
+    }
+
+    public function allFilters(): array
+    {
+        if ($this->filterCache === null) {
+            $this->filterCache = \array_values(\array_map(
+                static fn(\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $filter instanceof \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface
+                    ? $filter->build()
+                    : $filter,
+                $this->relationFilters,
+            ));
+        }
+
+        return $this->filterCache;
     }
 
     public function sorts(): array

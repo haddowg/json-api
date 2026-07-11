@@ -319,8 +319,8 @@ final class AbstractResourceTest extends TestCase
     {
         $resource = new PostResource();
 
-        self::assertCount(1, $resource->filters());
-        self::assertSame('status', $resource->filters()[0]->key());
+        self::assertCount(1, $resource->allFilters());
+        self::assertSame('status', $resource->allFilters()[0]->key());
         self::assertInstanceOf(PagePaginator::class, $resource->pagination(null));
     }
 

@@ -10,13 +10,16 @@ namespace haddowg\JsonApi\Resource\Filter;
  * whose author's name matches; `comments.body` keeps a row that has *some* comment
  * whose body matches; `author.company.name` chains the hops. Every intermediate
  * segment is a relationship (to-one or to-many — both translate identically as
- * "there exists a … whose …"); the final segment is the compared attribute.
+ * "there exists a … whose …"); the final segment is the compared attribute. The
+ * built, readonly value object an adapter consumes; authors declare one with
+ * {@see make()}, which returns a mutable {@see WhereThroughBuilder}.
  *
  * The wire key carries dots by default — `WhereThrough::make('author.name')`
  * responds to `filter[author.name]` — or supply an explicit key:
  * `WhereThrough::make('topAuthor', 'author.name')` → `filter[topAuthor]`. Both
  * positional slots are taken, so the comparison operator is the fluent
- * {@see operator()} setter (default `=`), with the same vocabulary as {@see Where}.
+ * {@see WhereThroughBuilder::operator()} setter (default `=`), with the same
+ * vocabulary as {@see Where}.
  *
  * Like {@see WhereHas} this is data-layer-specific: core ships the metadata and a
  * reference in-memory traversal; database adapters interpret the path as a
@@ -25,7 +28,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
 {
-    use \haddowg\JsonApi\Resource\Filter\HasValueConstraints;
+    use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
      * @param \Closure(mixed): mixed|null                                   $deserialize optional value transformer applied before comparison
@@ -47,43 +50,13 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\De
      * traversal path (`make('author.name')` → `filter[author.name]`); supply a
      * second argument to override the key (`make('topAuthor', 'author.name')`).
      */
-    public static function make(string $key, ?string $path = null): self
+    public static function make(string $key, ?string $path = null): WhereThroughBuilder
     {
-        return new self($key, $path ?? $key);
+        return WhereThroughBuilder::make($key, $path);
     }
 
     public function key(): string
     {
         return $this->key;
-    }
-
-    /**
-     * Sets the comparison operator applied at the leaf segment. Same vocabulary as
-     * {@see Where} (`=`, `!=`, `<>`, `>`, `>=`, `<`, `<=`, `like`); immutable.
-     */
-    public function operator(string $operator): self
-    {
-        return new self($this->key, $this->path, $operator, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    /**
-     * @param \Closure(mixed): mixed $deserialize
-     */
-    public function deserializeUsing(\Closure $deserialize): self
-    {
-        return new self($this->key, $this->path, $this->operator, $deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    /**
-     * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints
-     */
-    protected function withConstraints(array $constraints): static
-    {
-        return new self($this->key, $this->path, $this->operator, $this->deserialize, $constraints, $this->description, $this->hasExample, $this->example);
-    }
-
-    protected function withDescriptionAndExample(?string $description, bool $hasExample, mixed $example): static
-    {
-        return new self($this->key, $this->path, $this->operator, $this->deserialize, $this->constraints, $description, $hasExample, $example);
     }
 }

@@ -72,6 +72,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     private ?array $fieldCache = null;
 
     /**
+     * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>|null
+     */
+    private ?array $filterCache = null;
+
+    /**
      * Whether the primary collection is client-countable via `?withCount=_self_`,
      * set by {@see countable()}. Off by default — counting is opt-in.
      */
@@ -90,9 +95,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
     /**
      * The filters this resource exposes (metadata; execution lives in adapter
-     * handlers). Default: none.
+     * handlers). Default: none. Each entry may be a **filter builder**
+     * ({@see \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface} — what
+     * `Where::make(…)->…` returns) or an already-built
+     * {@see \haddowg\JsonApi\Resource\Filter\FilterInterface}; {@see allFilters()}
+     * builds any builder into its value object before use.
      *
-     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface>
      */
     public function filters(): array
     {
@@ -1045,6 +1054,30 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         return $this->fieldCache;
+    }
+
+    /**
+     * The resource's **built** filter inventory: every {@see filters()} entry, with
+     * any {@see \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface} frozen into
+     * its {@see \haddowg\JsonApi\Resource\Filter\FilterInterface} value object. This
+     * is the single point every consumer (the OpenAPI projection, the adapters)
+     * reads filters through, so a builder never leaks past the declaration boundary.
+     * The result is cached for the resource's lifetime.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
+     */
+    final public function allFilters(): array
+    {
+        if ($this->filterCache === null) {
+            $this->filterCache = \array_values(\array_map(
+                static fn(\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $filter instanceof \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface
+                    ? $filter->build()
+                    : $filter,
+                $this->filters(),
+            ));
+        }
+
+        return $this->filterCache;
     }
 
     /**

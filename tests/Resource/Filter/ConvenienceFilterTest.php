@@ -74,7 +74,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function containsIsCaseInsensitiveSubstring(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Contains::make('name'), $this->people(), 'LA');
+        $result = (new ArrayFilterHandler())->apply(Contains::make('name')->build(), $this->people(), 'LA');
 
         // "Ada Lovelace" (Love**la**ce), "A**la**n Turing" — both contain "la"
         // folded; "Grace Hopper" does not.
@@ -84,7 +84,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function startsWithMatchesPrefixCaseInsensitively(): void
     {
-        $result = (new ArrayFilterHandler())->apply(StartsWith::make('name'), $this->people(), 'a');
+        $result = (new ArrayFilterHandler())->apply(StartsWith::make('name')->build(), $this->people(), 'a');
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -93,7 +93,7 @@ final class ConvenienceFilterTest extends TestCase
     public function startsWithDoesNotMatchMidString(): void
     {
         // "lan" is inside "Alan" but the name does not start with it.
-        $result = (new ArrayFilterHandler())->apply(StartsWith::make('name'), $this->people(), 'lan');
+        $result = (new ArrayFilterHandler())->apply(StartsWith::make('name')->build(), $this->people(), 'lan');
 
         self::assertSame([], $this->ids($result));
     }
@@ -101,7 +101,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function endsWithMatchesSuffixCaseInsensitively(): void
     {
-        $result = (new ArrayFilterHandler())->apply(EndsWith::make('email'), $this->people(), '.IO');
+        $result = (new ArrayFilterHandler())->apply(EndsWith::make('email')->build(), $this->people(), '.IO');
 
         self::assertSame(['1', '3'], $this->ids($result));
     }
@@ -109,7 +109,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function endsWithDoesNotMatchMidString(): void
     {
-        $result = (new ArrayFilterHandler())->apply(EndsWith::make('email'), $this->people(), 'example');
+        $result = (new ArrayFilterHandler())->apply(EndsWith::make('email')->build(), $this->people(), 'example');
 
         self::assertSame([], $this->ids($result));
     }
@@ -117,7 +117,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function numericEqualityCoercesTheValue(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Numeric::make('age'), $this->people(), '18');
+        $result = (new ArrayFilterHandler())->apply(Numeric::make('age')->build(), $this->people(), '18');
 
         self::assertSame(['2'], $this->ids($result));
     }
@@ -126,7 +126,7 @@ final class ConvenienceFilterTest extends TestCase
     public function greaterThanComparesNumerically(): void
     {
         // 18 and 50 are > 6; 5 is not.
-        $result = (new ArrayFilterHandler())->apply(GreaterThan::make('age'), $this->people(), '6');
+        $result = (new ArrayFilterHandler())->apply(GreaterThan::make('age')->build(), $this->people(), '6');
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -134,7 +134,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function greaterThanOrEqualIsInclusive(): void
     {
-        $result = (new ArrayFilterHandler())->apply(GreaterThanOrEqual::make('age'), $this->people(), '18');
+        $result = (new ArrayFilterHandler())->apply(GreaterThanOrEqual::make('age')->build(), $this->people(), '18');
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -142,7 +142,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function lessThanComparesNumerically(): void
     {
-        $result = (new ArrayFilterHandler())->apply(LessThan::make('age'), $this->people(), '18');
+        $result = (new ArrayFilterHandler())->apply(LessThan::make('age')->build(), $this->people(), '18');
 
         self::assertSame(['1'], $this->ids($result));
     }
@@ -150,7 +150,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function lessThanOrEqualIsInclusive(): void
     {
-        $result = (new ArrayFilterHandler())->apply(LessThanOrEqual::make('age'), $this->people(), '18');
+        $result = (new ArrayFilterHandler())->apply(LessThanOrEqual::make('age')->build(), $this->people(), '18');
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -163,7 +163,7 @@ final class ConvenienceFilterTest extends TestCase
             ['id' => '2', 'price' => 10.5],
         ];
 
-        $result = (new ArrayFilterHandler())->apply(GreaterThan::make('price'), $data, '10.0');
+        $result = (new ArrayFilterHandler())->apply(GreaterThan::make('price')->build(), $data, '10.0');
 
         self::assertSame(['2'], $this->ids($result));
     }
@@ -187,14 +187,14 @@ final class ConvenienceFilterTest extends TestCase
 
         // Capture the value the comparison actually sees by re-wrapping the
         // convenience's preset deserializer behind a spy.
-        $convenience = GreaterThan::make('age');
+        $convenience = GreaterThan::make('age')->build();
         self::assertNotNull($convenience->deserialize);
         // assertSame is type-strict: it proves both the int value and the int type.
         self::assertSame(18, ($convenience->deserialize)('18'));
         self::assertSame(18.5, ($convenience->deserialize)('18.5'));
 
         // A bare Where has no deserializer — the raw string flows to comparison.
-        $bare = Where::make('age', operator: '>');
+        $bare = Where::make('age', operator: '>')->build();
         self::assertNull($bare->deserialize);
 
         // Both still keep the same clean-numeric row in PHP 8 (numeric strings
@@ -220,7 +220,7 @@ final class ConvenienceFilterTest extends TestCase
         // lexically "...T12:..." >= "...T13:..." is false, so the boundary row is
         // wrongly dropped.
         $bare = (new ArrayFilterHandler())->apply(
-            Range::make('at')->deserializeUsing(static fn(mixed $v): mixed => $v),
+            Range::make('at')->deserializeUsing(static fn(mixed $v): mixed => $v)->build(),
             $data,
             ['min' => '2021-06-15T13:00:00+01:00'],
         );
@@ -229,7 +229,7 @@ final class ConvenienceFilterTest extends TestCase
         // DateRange coerces both to \DateTimeImmutable: equal instants, so the
         // inclusive `>=` keeps the boundary row.
         $coerced = (new ArrayFilterHandler())->apply(
-            DateRange::make('at'),
+            DateRange::make('at')->build(),
             $data,
             ['min' => '2021-06-15T13:00:00+01:00'],
         );
@@ -245,7 +245,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function dateRangeSwallowsAnUnparseableBoundRatherThanThrowing(): void
     {
-        $filter = DateRange::make('at');
+        $filter = DateRange::make('at')->build();
         self::assertNotNull($filter->deserialize);
 
         self::assertSame('banana', ($filter->deserialize)('banana'));
@@ -259,7 +259,7 @@ final class ConvenienceFilterTest extends TestCase
     public function booleanCoercesTruthyStrings(): void
     {
         foreach (['1', 'true', 'on', 'yes'] as $truthy) {
-            $result = (new ArrayFilterHandler())->apply(Boolean::make('active'), $this->people(), $truthy);
+            $result = (new ArrayFilterHandler())->apply(Boolean::make('active')->build(), $this->people(), $truthy);
             self::assertSame(['1', '3'], $this->ids($result), "value: {$truthy}");
         }
     }
@@ -268,7 +268,7 @@ final class ConvenienceFilterTest extends TestCase
     public function booleanMatchesFalse(): void
     {
         foreach (['0', 'false', 'off', 'no'] as $falsy) {
-            $result = (new ArrayFilterHandler())->apply(Boolean::make('active'), $this->people(), $falsy);
+            $result = (new ArrayFilterHandler())->apply(Boolean::make('active')->build(), $this->people(), $falsy);
             self::assertSame(['2'], $this->ids($result), "value: {$falsy}");
         }
     }
@@ -285,7 +285,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function booleanWithAnEmptyValueCoercesToFalseAndMatchesTheFalsyRows(): void
     {
-        $filter = Boolean::make('active');
+        $filter = Boolean::make('active')->build();
 
         // The coercion itself: '' -> bool false (NOT null, NOT a no-op).
         self::assertNotNull($filter->deserialize);
@@ -310,7 +310,7 @@ final class ConvenienceFilterTest extends TestCase
             ['id' => '2', 'is_active' => false],
         ];
 
-        $result = (new ArrayFilterHandler())->apply(Boolean::make('active', 'is_active'), $data, 'true');
+        $result = (new ArrayFilterHandler())->apply(Boolean::make('active', 'is_active')->build(), $data, 'true');
 
         self::assertSame(['1'], $this->ids($result));
     }
@@ -325,7 +325,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function everyValueBooleanCoercesAlsoPassesItsDeclaredConstraint(): void
     {
-        $filter = Boolean::make('active');
+        $filter = Boolean::make('active')->build();
         $constraint = $filter->constraints()[0];
         self::assertInstanceOf(Pattern::class, $constraint);
         $pattern = '~' . $constraint->regex . '~';
@@ -370,9 +370,9 @@ final class ConvenienceFilterTest extends TestCase
     {
         // Passing the identity operator explicitly is harmless (no throw), and the
         // resulting filter still carries the fixed operator.
-        self::assertSame('like', Contains::make('name', null, 'like')->operator);
-        self::assertSame('=', Boolean::make('active', null, '=')->operator);
-        self::assertSame('>=', GreaterThanOrEqual::make('age', null, '>=')->operator);
+        self::assertSame('like', Contains::make('name', null, 'like')->build()->operator);
+        self::assertSame('=', Boolean::make('active', null, '=')->build()->operator);
+        self::assertSame('>=', GreaterThanOrEqual::make('age', null, '>=')->build()->operator);
     }
 
     /**
@@ -391,7 +391,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function rangeAppliesBothBounds(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $this->products(), ['min' => '10', 'max' => '100']);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $this->products(), ['min' => '10', 'max' => '100']);
 
         self::assertSame(['2', '3'], $this->ids($result));
     }
@@ -399,7 +399,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function rangeWithOnlyTheMinBoundIsOpenEnded(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $this->products(), ['min' => '50']);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $this->products(), ['min' => '50']);
 
         self::assertSame(['2', '3', '4'], $this->ids($result));
     }
@@ -407,7 +407,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function rangeWithOnlyTheMaxBoundIsOpenEnded(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $this->products(), ['max' => '50']);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $this->products(), ['max' => '50']);
 
         self::assertSame(['1', '2'], $this->ids($result));
     }
@@ -415,7 +415,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function rangeTreatsABlankBoundAsAbsent(): void
     {
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $this->products(), ['min' => '50', 'max' => '']);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $this->products(), ['min' => '50', 'max' => '']);
 
         self::assertSame(['2', '3', '4'], $this->ids($result));
     }
@@ -424,7 +424,7 @@ final class ConvenienceFilterTest extends TestCase
     public function rangeWithAnEntirelyAbsentValueIsANoOp(): void
     {
         // An empty array (no bounds) keeps every row.
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $this->products(), []);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $this->products(), []);
 
         self::assertSame(['1', '2', '3', '4'], $this->ids($result));
     }
@@ -438,7 +438,7 @@ final class ConvenienceFilterTest extends TestCase
             ['id' => '2', 'price' => '100'],
         ];
 
-        $result = (new ArrayFilterHandler())->apply(Range::make('price'), $data, ['min' => '20']);
+        $result = (new ArrayFilterHandler())->apply(Range::make('price')->build(), $data, ['min' => '20']);
 
         self::assertSame(['2'], $this->ids($result));
     }
@@ -458,7 +458,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function dateRangeAppliesBothBoundsTemporally(): void
     {
-        $filter = DateRange::make('published', 'published');
+        $filter = DateRange::make('published', 'published')->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), [
             'min' => '2021-01-01T00:00:00+00:00',
             'max' => '2022-01-01T00:00:00+00:00',
@@ -470,7 +470,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function dateRangeWithOnlyTheMinBoundIsOpenEnded(): void
     {
-        $filter = DateRange::make('published');
+        $filter = DateRange::make('published')->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), ['min' => '2021-01-01T00:00:00+00:00']);
 
         self::assertSame(['2', '3'], $this->ids($result));
@@ -479,7 +479,7 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function dateRangeWithAnAbsentValueIsANoOp(): void
     {
-        $filter = DateRange::make('published');
+        $filter = DateRange::make('published')->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), []);
 
         self::assertSame(['1', '2', '3'], $this->ids($result));
@@ -493,7 +493,7 @@ final class ConvenienceFilterTest extends TestCase
             ['id' => '1', 'published_at' => '2020-01-01T00:00:00+00:00'],
             ['id' => '2', 'published_at' => '2022-01-01T00:00:00+00:00'],
         ];
-        $filter = DateRange::make('published', 'published_at');
+        $filter = DateRange::make('published', 'published_at')->build();
         self::assertSame('published', $filter->key());
 
         $result = (new ArrayFilterHandler())->apply($filter, $data, ['min' => '2021-01-01T00:00:00+00:00']);
@@ -513,7 +513,7 @@ final class ConvenienceFilterTest extends TestCase
         // database adapter binding a non-date string). Instead the bound is skipped
         // (treated as open/absent), so a min-only calendar-invalid value is a no-op,
         // not a full-set match.
-        $filter = DateRange::make('published');
+        $filter = DateRange::make('published')->build();
         $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), ['min' => '1997-13-99']);
 
         self::assertSame(['1', '2', '3'], $this->ids($result));
@@ -530,25 +530,25 @@ final class ConvenienceFilterTest extends TestCase
     {
         // The numeric conveniences preset a numeric Pattern so the OpenAPI
         // generator (which reads constraints()) narrows the value schema.
-        foreach ([Numeric::make('age'), GreaterThan::make('age'), GreaterThanOrEqual::make('age'), LessThan::make('age'), LessThanOrEqual::make('age')] as $filter) {
+        foreach ([Numeric::make('age')->build(), GreaterThan::make('age')->build(), GreaterThanOrEqual::make('age')->build(), LessThan::make('age')->build(), LessThanOrEqual::make('age')->build()] as $filter) {
             self::assertCount(1, $filter->constraints());
             self::assertInstanceOf(Pattern::class, $filter->constraints()[0]);
         }
 
         // Boolean presets a boolean Pattern.
-        self::assertCount(1, Boolean::make('active')->constraints());
-        self::assertInstanceOf(Pattern::class, Boolean::make('active')->constraints()[0]);
+        self::assertCount(1, Boolean::make('active')->build()->constraints());
+        self::assertInstanceOf(Pattern::class, Boolean::make('active')->build()->constraints()[0]);
 
         // String conveniences keep a permissive string value (no constraint).
-        self::assertSame([], Contains::make('name')->constraints());
-        self::assertSame([], StartsWith::make('name')->constraints());
-        self::assertSame([], EndsWith::make('name')->constraints());
+        self::assertSame([], Contains::make('name')->build()->constraints());
+        self::assertSame([], StartsWith::make('name')->build()->constraints());
+        self::assertSame([], EndsWith::make('name')->build()->constraints());
     }
 
     #[Test]
     public function rangePresetsItsNumericConstraint(): void
     {
-        $filter = Range::make('price');
+        $filter = Range::make('price')->build();
 
         self::assertCount(1, $filter->constraints());
         self::assertInstanceOf(Pattern::class, $filter->constraints()[0]);
@@ -559,7 +559,7 @@ final class ConvenienceFilterTest extends TestCase
     {
         // DateRange presets an ISO-8601 Pattern (not the numeric one) so a framework
         // validator rejects a malformed bound before the filter reaches the data layer.
-        $filter = DateRange::make('published');
+        $filter = DateRange::make('published')->build();
 
         self::assertCount(1, $filter->constraints());
         $constraint = $filter->constraints()[0];
@@ -577,31 +577,32 @@ final class ConvenienceFilterTest extends TestCase
     #[Test]
     public function eachConveniencePresetsADescription(): void
     {
-        self::assertNotNull(Contains::make('name')->getDescription());
-        self::assertNotNull(StartsWith::make('name')->getDescription());
-        self::assertNotNull(EndsWith::make('name')->getDescription());
-        self::assertNotNull(Numeric::make('age')->getDescription());
-        self::assertNotNull(GreaterThan::make('age')->getDescription());
-        self::assertNotNull(Boolean::make('active')->getDescription());
-        self::assertNotNull(Range::make('price')->getDescription());
-        self::assertNotNull(DateRange::make('published')->getDescription());
+        self::assertNotNull(Contains::make('name')->build()->getDescription());
+        self::assertNotNull(StartsWith::make('name')->build()->getDescription());
+        self::assertNotNull(EndsWith::make('name')->build()->getDescription());
+        self::assertNotNull(Numeric::make('age')->build()->getDescription());
+        self::assertNotNull(GreaterThan::make('age')->build()->getDescription());
+        self::assertNotNull(Boolean::make('active')->build()->getDescription());
+        self::assertNotNull(Range::make('price')->build()->getDescription());
+        self::assertNotNull(DateRange::make('published')->build()->getDescription());
     }
 
     #[Test]
     public function aSubclassKeepsItsIdentityAndPresetsAcrossAFluentRefinement(): void
     {
-        // `new static(...)` in Where's withers preserves the subclass type, so a
-        // `->describedAs()`/`->default()` chain does not downcast to a bare Where
-        // and the preset operator/deserializer/constraint survive.
+        // The convenience facade is a WhereBuilder subclass, so a
+        // `->describedAs()`/`->default()` chain keeps the GreaterThan builder type
+        // and the preset operator/deserializer/constraint survive into the built Where.
         $filter = GreaterThan::make('age')->describedAs('Custom')->default('0');
 
         self::assertInstanceOf(GreaterThan::class, $filter);
-        self::assertSame('Custom', $filter->getDescription());
-        self::assertSame('>', $filter->operator);
-        self::assertCount(1, $filter->constraints());
+        $built = $filter->build();
+        self::assertSame('Custom', $built->getDescription());
+        self::assertSame('>', $built->operator);
+        self::assertCount(1, $built->constraints());
 
         // The coercion still applies after the refinement.
-        $result = (new ArrayFilterHandler())->apply($filter, [['id' => '1', 'age' => '5'], ['id' => '2', 'age' => '18']], '6');
+        $result = (new ArrayFilterHandler())->apply($built, [['id' => '1', 'age' => '5'], ['id' => '2', 'age' => '18']], '6');
         self::assertSame(['2'], $this->ids($result));
     }
 }
