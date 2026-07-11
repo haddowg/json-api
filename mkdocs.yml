@@ -71,11 +71,7 @@ validation:
 
 # Working/analysis and maintainer-facing docs kept in the repo but not on the site.
 exclude_docs: |
-  IA-PLAN.md
-  v1-readiness-review.md
-  v1-security-negotiation-review.md
   spec-compliance.md
-  release-readiness.md
 
 nav:
   - Home: index.md

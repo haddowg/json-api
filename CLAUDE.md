@@ -29,25 +29,23 @@ original; never call this package a "fork". (See [ADR 0001](docs/adr/0001-derive
 
 ### Status
 
-The library is **feature-complete** across the surface documented under `docs/`
-(serialization, hydration, the fluent schema DSL, profiles, pagination,
-middleware, optional validation). The remaining pre-1.0 work is a readiness pass:
-a spec-compliance audit, a public-API surface review, a performance baseline, a
-security review, and the release itself. Known not-yet-built work is the JSON:API
-Atomic Operations extension (its seams are in place — see
-[ADR 0011](docs/adr/0011-atomic-operations-deferred-seams-in-place.md)) and
-attribute-driven hydrators.
+The library is **feature-complete** across the surface
+documented under `docs/` (serialization, hydration, the fluent schema DSL,
+profiles, pagination, middleware, optional validation, and the JSON:API Atomic
+Operations extension — see [`docs/atomic-operations.md`](docs/atomic-operations.md)).
+Attribute-driven hydrators remain the one deliberately unbuilt piece on the
+roadmap.
 
 ### Companion Symfony bundle (sibling repo)
 
 A Symfony integration, [`haddowg/json-api-symfony`](https://github.com/haddowg/json-api-symfony),
-is being built in a **sibling checkout** at `../json-api-symfony`, resolved here via a Composer
-**path repository** (core is not yet on Packagist). It is **co-evolving with this
-library pre-1.0**: building it is a deliberate forcing function to confirm the
-public API has everything required for a real integration before 1.0 freezes it.
-Integration-driven changes land **here** as core PRs (each with an ADR + a tag)
-*ahead* of the bundle phase that consumes them — while the API is still cheap to
-change, prefer fixing core over working around it in the bundle.
+is built in a **sibling checkout** at `../json-api-symfony` and depends on this core
+package. Building it was the forcing function that confirmed the public API had
+everything a real integration needs. The core surface is **semver-bound**, so an
+integration-driven core change goes through the normal release cycle (marked breaking
+when it is) and lands **here** as a core PR (with an ADR) ahead of the bundle change
+that consumes it. Prefer fixing core over working around it in the bundle, weighed
+against the compatibility cost.
 
 ## Git conventions
 
@@ -59,7 +57,8 @@ Project-specific points that drive automated versioning via
   [Conventional Commit](https://www.conventionalcommits.org/) (imperative mood). PRs
   are **squash-merged**, so the PR title becomes the single commit on `main` — a
   non-conforming title breaks versioning.
-- While `0.x`, breaking changes (`!` or `BREAKING CHANGE:`) bump the **minor**.
+- Mark a breaking change with `!` or a `BREAKING CHANGE:` footer; release-please
+  derives the version bump and changelog entry from the commit type.
 - The PR description reads as natural prose pitched by an external contributor — no
   "What"/"Why" headings, no reference to internal planning or this playbook (a
   public reader has no context for them).
@@ -98,9 +97,8 @@ items) and the registry lookups (`class-string<T>` → narrowed return). Skip
 generics on internal types, on PSR-* boundary types, and where `instanceof`/`match`
 already narrows. Apply at port time, not as a retroactive sweep.
 
-**Deliberately not generic** (the 1.0-readiness review confirmed the parameter
-**erases at a boundary**, so a `@template` would be ceremony that buys no
-use-site narrowing):
+**Deliberately not generic** (the parameter **erases at a boundary**, so a
+`@template` would be ceremony that buys no use-site narrowing):
 
 - **`DataResponse`** — `T` is the domain object, but `SerializerInterface` is
   intentionally non-generic and the rendered `data` is `mixed`; `T` is erased the
@@ -110,8 +108,9 @@ use-site narrowing):
   (`match (true) { $op instanceof … }`), so `TOperation` is always the
   `JsonApiOperationInterface` base; the parameter would only add `<JsonApiOperationInterface>` noise
   at every reference.
-- **`FieldInterface`** — `AbstractResource::fields()` is a **heterogeneous** `list<FieldInterface>`
-  and fields are mutable builders whose `serialize()`/`deserializeValue()` are
+- **`FieldInterface`** — `AbstractResource::fields()` is a **heterogeneous**
+  `list<FieldInterface|FieldBuilderInterface>` (each entry a built field or the builder
+  that produces one), and a field's `serialize()`/`deserializeValue()` are
   `mixed → mixed` by design; no single `T` can flow through the list.
 
 ## Modernisation conventions (shared)
@@ -194,7 +193,8 @@ ported early) are **leaf VOs** (distinct from the mutable output relationships);
 `null`/`[]` data = clear the relationship. **`lid`** (1.1 local IDs) is supported at
 the data-model level beyond yin (`ResourceIdentifier` carries `?id` + `?lid`,
 `fromArray()` requires `type` + at-least-one-of); cross-document `lid` *resolution*
-is deferred to the post-1.0 Atomic Operations extension.
+lives in the Atomic Operations extension (`Atomic\LocalIdRegistry`, within a batch)
+— outside a batch a `lid` is rejected `400 LOCAL_ID_NOT_SUPPORTED`.
 
 ### Serializers & output relationships
 `src/Serializer`, `src/Schema/Relationship` → [serializers](docs/serializers.md).
@@ -295,16 +295,18 @@ arrays and convert to `stdClass` once at the boundary (analysable at L9).
 ### Fluent schema — fields, constraints, relations
 `src/Resource` → [resources](docs/resources.md), [fields](docs/fields.md),
 [constraints](docs/constraints.md). An `AbstractResource` subclass satisfies **both**
-`SerializerInterface` and `HydratorInterface` from one `fields()` list. **Fields are
-mutable builders** (methods mutate and return `$this`) — *deliberately not* the
-readonly-VO pattern, so a field reads as one fluent expression. **`ConstraintInterface` is
+`SerializerInterface` and `HydratorInterface` from one `fields()` list. Each `make()`
+returns a **mutable field builder** (methods mutate and return `$this`, so a field reads
+as one fluent expression); the resource **builds** each builder into a `final readonly`
+**Field** value object (`allFields()`) before use — authoring surface on the builder,
+consumption surface on the built Field. **`ConstraintInterface` is
 metadata only — the core never executes it** (each is a `final readonly` VO with a
 create/update `Context`); execution belongs to the JSON Schema compiler or an adapter.
 A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
 **Relations**: `RelationInterface extends FieldInterface`; serializes via the related type's serializer
 (resolved through the injected `SerializerResolverInterface`), hydrates from the parsed
-`Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only** in
-1.0; `MorphTo` picks the serializer by the related object's `getType()`.
+`Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only**;
+`MorphTo` picks the serializer by the related object's `getType()`.
 
 ### Filters & sorts
 `src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),

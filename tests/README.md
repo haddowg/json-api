@@ -43,5 +43,4 @@ vendor/bin/phpunit --group spec:document-structure
 `spec:crud`, `spec:errors`, `spec:query-parameters`, `spec:content-negotiation`,
 `spec:extensions-and-profiles`.
 
-(The list grows as the suite grows; the canonical compliance tracker is
-`docs/spec-compliance.md`.)
+(The list grows as the suite grows.)

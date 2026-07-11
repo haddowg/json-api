@@ -5,8 +5,9 @@ describes one member of a resource type — the `id`, an attribute, or a
 [relationship](relations.md) — and that single declaration drives **both**
 directions: how the member is serialized out of a domain object and how it is
 hydrated back into one. This page documents the fluent surface that *every*
-attribute field inherits from `Resource\Field\AbstractField`. Each concrete field
-type ([field types](field-types.md)) adds only its type-specific delta on top.
+attribute field builder inherits from `Resource\Field\AbstractFieldBuilder`. Each
+concrete field type ([field types](field-types.md)) adds only its type-specific delta
+on top.
 
 ```php
 use haddowg\JsonApi\Resource\Field\Id;

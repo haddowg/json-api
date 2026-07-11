@@ -179,7 +179,7 @@ object on create or update, and `readOnlyOnCreate()`/`readOnlyOnUpdate()` each g
 only their own context.
 
 > `Map::on($relation)` — spreading children across a **related** model rather than
-> the same one — is out of scope for core 1.0.
+> the same one — is out of scope for core.
 
 ## `Obj`
 

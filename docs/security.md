@@ -13,7 +13,7 @@ and [what you must do](#what-you-must-do).
 
 ## What the library guarantees
 
-These properties were reviewed for the 1.0 release and are covered by the test
+These properties are reviewed and covered by the test
 suite.
 
 ### Bounded body parsing
