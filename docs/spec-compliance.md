@@ -1,16 +1,24 @@
 # JSON:API 1.1 spec compliance
 
-This page is the canonical compliance reference for the library: it tracks every
+> **Internal / maintainer-facing.** This ledger is deliberately excluded from the
+> published docs site (`exclude_docs` in [`mkdocs.yml`](../mkdocs.yml)): it is a
+> maintenance and release-readiness artifact, not consumer documentation. The
+> consumer-facing surface is the capability pages under [`docs/`](index.md)
+> ([resources](resources.md), [fields](fields.md), [relations](relations.md), …);
+> this is the internal backstop they are all measured against.
+
+This document is the canonical compliance ledger for the library: it tracks every
 normative MUST/SHOULD requirement of [JSON:API 1.1](https://jsonapi.org/format/1.1/)
 and records how — and whether — the library satisfies it. Each row carries a
 [status](#status-legend), names the implementing class, and names a test that
 proves it. Read a row as "this requirement, this code, this proof". When a
 requirement is intentionally unsupported the row says so and gives the rationale.
 
-If you are an evaluator or auditor verifying conformance, this is the page to
-read top to bottom. If you are building an API, the capability pages
-([resources](resources.md), [fields](fields.md), [relations](relations.md), …)
-are the better starting point — this ledger is the backstop they all point at.
+Read it top to bottom when running the spec-compliance audit for release
+readiness, when adding or relocating a spec-tagged test, or when you need to
+confirm (or cite, to back an external conformance claim) exactly where a given
+MUST/SHOULD is satisfied. Every row's named test is runnable in isolation — see
+[spec-group anchoring](#spec-group-anchoring).
 
 > **Scope — format compliance only.** This document tracks
 > **[JSON:API 1.1](https://jsonapi.org/format/1.1/) *format* compliance** — the
@@ -283,7 +291,18 @@ the resource, serializer, hydrator, relation, filter, sort, paginator, and
 profile interfaces documented across the capability pages, plus the response
 value objects in [responses.md](responses.md).
 
-## Next / see also
+## See also
+
+Maintainer references — where the decisions and mechanics behind these rows live:
+
+- [`CLAUDE.md`](../CLAUDE.md) — the executor playbook: the porting workflow and
+  the per-component notes that most rows here summarise.
+- [`docs/adr/`](adr/) — the rationale for the big calls the ledger records (the
+  derived-from-yin stance, the atomic-operations foundation, and so on).
+- [`tests/README.md`](../tests/README.md) — the `#[Group('spec:<section>')]`
+  convention and the list of known spec anchors this ledger maps onto.
+
+Capability docs cited by the rows above (the consumer-facing surface):
 
 - [schema-validation.md](schema-validation.md) — wiring the opt-in
   DocumentValidator/SchemaCompiler that backs the validation-as-compliance-aid

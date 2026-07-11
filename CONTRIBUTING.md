@@ -51,7 +51,7 @@ Commit messages drive automated versioning and the changelog via
 
 Common types:
 
-| Type | Use for | Version impact (pre-1.0) |
+| Type | Use for | Version impact |
 |------|---------|--------------------------|
 | `feat:` | A new feature | minor |
 | `fix:` | A bug fix | patch |
@@ -61,8 +61,8 @@ Common types:
 | `chore:`, `ci:`, `build:` | Tooling / maintenance | none |
 
 Indicate a breaking change with a `!` after the type (e.g. `feat!:`) or a
-`BREAKING CHANGE:` footer. While the package is `0.x`, breaking changes bump the
-minor version and are documented in the changelog.
+`BREAKING CHANGE:` footer; release-please derives the version bump from it and records
+it in the changelog.
 
 ### Examples
 
