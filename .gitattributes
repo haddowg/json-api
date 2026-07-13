@@ -14,3 +14,9 @@
 /.release-please-manifest.json export-ignore
 /release-please-config.json    export-ignore
 /CONTRIBUTING.md         export-ignore
+/CLAUDE.md               export-ignore
+/CONTEXT.md              export-ignore
+/examples/               export-ignore
+/mkdocs.yml              export-ignore
+/mkdocs_hooks.py         export-ignore
+/.pre-commit-config.yaml export-ignore
