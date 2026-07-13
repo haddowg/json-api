@@ -8,7 +8,9 @@
         "psr-7",
         "psr-15",
         "api",
-        "rest"
+        "rest",
+        "openapi",
+        "atomic-operations"
     ],
     "homepage": "https://github.com/haddowg/json-api",
     "license": "MIT",
