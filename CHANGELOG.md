@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/haddowg/json-api/compare/v1.0.0...v1.0.1) (2026-07-13)
+
+
+### Miscellaneous Chores
+
+* tag releases as v-prefixed versions for Packagist ([#154](https://github.com/haddowg/json-api/issues/154)) ([8109894](https://github.com/haddowg/json-api/commit/8109894fb221046d22b66a96b3c4a4cbbbef4b61))
+
 ## 1.0.0 (2026-07-13)
 
 
