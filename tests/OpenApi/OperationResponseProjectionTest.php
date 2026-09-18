@@ -150,6 +150,57 @@ final class OperationResponseProjectionTest extends TestCase
         self::assertArrayNotHasKey('content', $this->arrAt($get, 'responses', '303'));
     }
 
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    #[Group('spec:sparse-fieldsets')]
+    public function aWriteAdvertisesIncludeAndFieldsOnlyWhereItAnswersWithAResourceDocument(): void
+    {
+        // The default create (`201`) and update (`200`) answer with the type's own
+        // document, which `?include` / `fields[]` shape exactly as they shape a read's.
+        $default = $this->paths([]);
+        self::assertSame(['fields[videos]'], $this->parameterNames($this->arrAt($default, '/videos', 'post')));
+        self::assertSame(['fields[videos]'], $this->parameterNames($this->arrAt($default, '/videos/{id}', 'patch')));
+
+        // A `204` create is bodyless and a `202` update answers with the JOB resource, so
+        // neither renders a `videos` document there is anything to shape.
+        $bodyless = $this->paths([
+            OperationType::Create->value => [new NoContent()],
+            OperationType::Update->value => [new Accepted('jobs')],
+        ]);
+        self::assertArrayNotHasKey('parameters', $this->arrAt($bodyless, '/videos', 'post'));
+        self::assertArrayNotHasKey('parameters', $this->arrAt($bodyless, '/videos/{id}', 'patch'));
+
+        // A mixed set keeps the pair — one arm still answers with the resource document.
+        $mixed = $this->paths([OperationType::Create->value => [new Created(), new Accepted('jobs')]]);
+        self::assertSame(['fields[videos]'], $this->parameterNames($this->arrAt($mixed, '/videos', 'post')));
+
+        // A delete answers `204` or a meta-only `200` — never a resource document.
+        self::assertArrayNotHasKey('parameters', $this->arrAt($default, '/videos/{id}', 'delete'));
+        self::assertArrayNotHasKey(
+            'parameters',
+            $this->arrAt($this->paths([OperationType::Delete->value => [new MetaResult()]]), '/videos/{id}', 'delete'),
+        );
+    }
+
+    /**
+     * The `name`s of an operation's parameters.
+     *
+     * @param array<array-key, mixed> $operation
+     * @return list<string>
+     */
+    private function parameterNames(array $operation): array
+    {
+        $names = [];
+        foreach ($this->arrAt($operation, 'parameters') as $parameter) {
+            self::assertIsArray($parameter);
+            self::assertArrayHasKey('name', $parameter);
+            self::assertIsString($parameter['name']);
+            $names[] = $parameter['name'];
+        }
+
+        return $names;
+    }
+
     /**
      * The projected `paths` for a `videos` type carrying the given response overrides,
      * plus a `jobs` type so the async 202's `JobsDocument` ref resolves.

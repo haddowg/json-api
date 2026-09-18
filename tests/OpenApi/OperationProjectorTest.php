@@ -469,6 +469,36 @@ final class OperationProjectorTest extends TestCase
     }
 
     #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    #[Group('spec:sparse-fieldsets')]
+    public function aWriteDeclaresTheSameIncludeAndFieldsParametersItsReadDoes(): void
+    {
+        $paths = $this->paths();
+
+        // The legal include paths and fieldset members are a property of the TYPE, not of
+        // the operation, so a write that answers with the resource document carries the
+        // read's parameters verbatim — enums and all — rather than a second vocabulary.
+        $get = $this->arrAt($paths, '/articles/{id}', 'get');
+        $expected = [
+            $this->parameterNamed($get, 'include'),
+            $this->parameterNamed($get, 'fields[articles]'),
+        ];
+
+        foreach ([['/articles', 'post'], ['/articles/{id}', 'patch']] as [$path, $method]) {
+            $write = $this->arrAt($paths, $path, $method);
+
+            self::assertSame(['include', 'fields[articles]'], $this->parameterNames($write), "{$method} {$path}");
+            self::assertSame($expected, [
+                $this->parameterNamed($write, 'include'),
+                $this->parameterNamed($write, 'fields[articles]'),
+            ], "{$method} {$path}");
+        }
+
+        // Neither leaks onto the delete, which returns no resource document.
+        self::assertArrayNotHasKey('parameters', $this->arrAt($paths, '/articles/{id}', 'delete'));
+    }
+
+    #[Test]
     public function theDeleteReturns204NoContent(): void
     {
         $delete = $this->arrAt($this->paths(), '/articles/{id}', 'delete');
