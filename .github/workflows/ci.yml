@@ -75,6 +75,37 @@ jobs:
       - name: Run PHPStan
         run: composer phpstan
 
+  generator-contract:
+    name: Generator contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      # A structural change to the projected document must move
+      # OpenApi\GeneratorContract::CONTRACT, or every generated client silently skips
+      # whatever it added. The witness on the base revision is the comparison point.
+      - name: Check the contract against the base revision
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          WITNESS: tests/OpenApi/Fixture/contract-witness.json
+        run: |
+          git show "$BASE_SHA:$WITNESS" > /tmp/base-witness.json 2>/dev/null || : > /tmp/base-witness.json
+          php bin/contract-guard.php /tmp/base-witness.json "$WITNESS"
+
   coding-standards:
     name: Coding standards
     runs-on: ubuntu-latest

@@ -179,15 +179,21 @@ final class OpenApiProjector
         return $tags;
     }
 
+    /**
+     * The document metadata, plus the `x-generator` compatibility stamp every projected
+     * document carries ({@see GeneratorContract}). The stamp is projector-owned, not
+     * metadata-driven: it describes the structure this library emits, so a server has
+     * nothing to say about it.
+     */
     private function info(ServerMetadataInterface $server): Info
     {
-        return new Info(
+        return (new Info(
             title: $server->title(),
             version: $server->version(),
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        );
+        ))->withExtension('generator', GeneratorContract::toArray());
     }
 
     /**

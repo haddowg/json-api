@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Contact;
+use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\MediaType;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -245,6 +246,26 @@ final class OpenApiProjectorTest extends TestCase
         self::assertArrayHasKey('/articles/{id}', $this->arrAt($array, 'paths'));
 
         self::assertSame('http', $this->strAt($array, 'components', 'securitySchemes', 'bearer', 'type'));
+    }
+
+    /**
+     * Every projected document carries the `info.x-generator` compatibility stamp — a
+     * single monotonic integer a code generator compares against the range it supports.
+     * It is projector-owned, so a server's metadata cannot influence or suppress it.
+     */
+    #[Test]
+    public function everyDocumentCarriesTheGeneratorContract(): void
+    {
+        foreach ([$this->server(), new FakeServerMetadata('Bare', '0.1', [])] as $server) {
+            $info = $this->arrAt($this->projector()->project($server)->toArray(), 'info');
+
+            self::assertSame(['contract' => GeneratorContract::CONTRACT], $info['x-generator']);
+        }
+
+        // It carries compatibility signalling and nothing else — no generator name, no
+        // package version. The JSON:API version stays where it belongs, on the JsonApi
+        // component, and is not restated here.
+        self::assertSame('1.1', $this->at($this->schemas(), 'JsonApi', 'properties', 'version', 'const'));
     }
 
     #[Test]

@@ -1,8 +1,13 @@
 # Normalise line endings
 * text=auto eol=lf
 
+# The contract witness is regenerated from the projector, never hand-edited — collapse it
+# in review diffs so the change that produced it stays readable.
+/tests/OpenApi/Fixture/contract-witness.json linguist-generated=true
+
 # Exclude development & meta files from the Composer dist archive
 /.github/                export-ignore
+/bin/                    export-ignore
 /docs/                   export-ignore
 /tests/                  export-ignore
 /benchmarks/             export-ignore

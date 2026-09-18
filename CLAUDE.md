@@ -331,6 +331,34 @@ resources; a missing type throws `NoResourceRegistered` (500), a duplicate type 
 `\LogicException` (wiring bug). `dispatch(JsonApiOperation)` invokes the handler
 directly (no PSR-15 chain).
 
+### OpenAPI projection & the generator contract
+`src/OpenApi` → [openapi](docs/openapi.md). A **pure** projector: `ServerMetadataInterface`
+in, an immutable `OpenApi` VO tree out, no I/O and no framework. Every document it emits
+carries `info.x-generator: {contract: N}` — `GeneratorContract::CONTRACT`, a monotonic
+integer **bumped by hand** whenever the emitted structure moves. Deliberately *not* the
+package version (a patch may change nothing a consumer reads while a minor changes plenty)
+and deliberately *not* a feature-token list (two hand-maintained lists, the server's and
+every generator's, that would have to agree forever).
+
+**The bump discipline**, and why forgetting it is the real risk: the field means nothing
+the moment a projector change lands without one. Two checks make that fail rather than
+pass silently:
+
+1. `tests/OpenApi/Fixture/contract-witness.json` is the projected document of
+   `ContractWitnessServer` (the broadest fixture core has). `ContractWitnessTest` fails as
+   soon as the projector's output diverges from it — regenerate with
+   `UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest` and **read the
+   diff**; it is the change you are deciding about.
+2. The `generator-contract` CI job runs `bin/contract-guard.php`, which diffs the witness
+   against the base revision's and **fails the PR** when the structure moved and `CONTRACT`
+   did not. Reworded `description`/`summary` prose is exempt (a generator is never too old
+   to read a sentence); every other difference counts.
+
+Bump by one, never renumber. Over-bumping costs a generator one warning; under-bumping is
+the silent under-generation the whole mechanism exists to prevent. Widen
+`ContractWitnessServer` whenever the projector grows a branch it does not reach — an
+unreached branch is one the guard cannot see.
+
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**
 dev-only — useful in consumer suites). Assertions + builders only; **no**
