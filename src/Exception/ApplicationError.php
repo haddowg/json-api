@@ -4,22 +4,26 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
-
-final class ApplicationError extends AbstractJsonApiException
+final class ApplicationError extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct()
     {
-        parent::__construct('Application exception is thrown!', 500);
+        parent::__construct('Application exception is thrown!', self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'APPLICATION_ERROR',
+            status: 500,
+            title: 'Application error',
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '500',
-                code: 'APPLICATION_ERROR',
-                title: 'Application error',
+            self::describe()->toError(
                 detail: 'An application error has occurred!',
             ),
         ];

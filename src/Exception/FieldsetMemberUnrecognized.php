@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
-final class FieldsetMemberUnrecognized extends AbstractJsonApiException
+final class FieldsetMemberUnrecognized extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param string       $type                 the resource type whose `fields[type]` carried the unknown member(s)
@@ -19,17 +18,25 @@ final class FieldsetMemberUnrecognized extends AbstractJsonApiException
     ) {
         parent::__construct(
             "Fields '" . \implode(', ', $unrecognizedMembers) . "' requested for type '" . $type . "' can't be recognized!",
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'FIELDSET_MEMBER_UNRECOGNIZED',
+            status: 400,
+            title: 'Fieldset member is unrecognized',
+            context: ['members' => ErrorContextType::Str, 'type' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'FIELDSET_MEMBER_UNRECOGNIZED',
-                title: 'Fieldset member is unrecognized',
+            self::describe()->toError(
                 detail: "Fields '" . \implode(', ', $this->unrecognizedMembers) . "' requested for type '" . $this->type . "' can't be recognized by the endpoint!",
                 context: ['members' => \implode(', ', $this->unrecognizedMembers), 'type' => $this->type],
                 source: ErrorSource::fromParameter('fields'),

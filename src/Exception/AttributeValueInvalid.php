@@ -18,7 +18,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * a server fault. The error points at the attribute the client sent
  * (`/data/attributes/<name>`); the underlying reason is carried in `detail`.
  */
-final class AttributeValueInvalid extends AbstractJsonApiException
+final class AttributeValueInvalid extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(
         public readonly string $attribute,
@@ -26,17 +26,26 @@ final class AttributeValueInvalid extends AbstractJsonApiException
     ) {
         parent::__construct(
             \sprintf('The value for attribute "%s" is invalid: %s', $attribute, $reason),
-            422,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'ATTRIBUTE_VALUE_INVALID',
+            status: 422,
+            title: 'Attribute value is invalid',
+            context: ['attribute' => ErrorContextType::Str, 'reason' => ErrorContextType::Str],
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::Writes,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '422',
-                code: 'ATTRIBUTE_VALUE_INVALID',
-                title: 'Attribute value is invalid',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['attribute' => $this->attribute, 'reason' => $this->reason],
                 source: ErrorSource::fromPointer('/data/attributes/' . $this->attribute),

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -18,23 +17,32 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * `source.parameter` naming the offending `page[…]` cursor parameter, distinct
  * from a {@see CursorMalformed} (a token that could not be decoded at all).
  */
-final class CursorStale extends AbstractJsonApiException
+final class CursorStale extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param string $parameter the cursor parameter that went stale, e.g. `page[after]` or `page[before]`
      */
     public function __construct(public readonly string $parameter)
     {
-        parent::__construct("Cursor parameter '$parameter' no longer matches the requested sort!", 400);
+        parent::__construct("Cursor parameter '$parameter' no longer matches the requested sort!", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'CURSOR_STALE',
+            status: 400,
+            title: 'Cursor is stale',
+            context: ['parameter' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
+            feature: ErrorFeature::CursorPagination,
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'CURSOR_STALE',
-                title: 'Cursor is stale',
+            self::describe()->toError(
                 detail: "The cursor supplied in '$this->parameter' was built for a different sort order and can no longer be used.",
                 context: ['parameter' => $this->parameter],
                 source: ErrorSource::fromParameter($this->parameter),

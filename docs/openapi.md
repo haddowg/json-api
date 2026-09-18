@@ -13,9 +13,9 @@ fixtures and no framework.
 
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
-schemas (`describedAs()` / `example()`), and the vendor extensions it emits
-(`x-generator`, `x-enum-*`, `x-profile`). For *serving* the document, the config, and the UI, see
-the Symfony bundle's OpenAPI docs.
+schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-error-context`). For
+*serving* the document, the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
 
@@ -54,15 +54,19 @@ The projection is a small pipeline of **pure** classes in
   its declared success responses (see [Response declarations](#response-declarations)) and
   the standard error responses, and carries its tags and per-operation security.
 
+- **`ErrorCatalogProjector`** — projects core's error codes into one named schema
+  component each, and the `anyOf` that offers them from `ErrorDocument.errors.items`. See
+  [The error-code catalogue](#the-error-code-catalogue).
+
 - **`OpenApiProjector`** — the top-level entry point. It consumes a
   `ServerMetadataInterface` and returns one `OpenApi` document: the skeleton
   (`openapi` / `info` / `servers` / `tags` / security schemes), the full component set
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
   relationship / related document envelopes), the shared components (`JsonApi`, `Meta`,
-  `Links`, `PaginationLinks`, `Error`, `ErrorDocument`), the named enum components, the
-  optional [Atomic Operations](atomic-operations.md) extension components + path, and —
-  via the `OperationProjector` — the `paths`.
+  `Links`, `PaginationLinks`, `Error`, `ErrorDocument`), the per-code error variants, the
+  named enum components, the optional [Atomic Operations](atomic-operations.md) extension
+  components + path, and — via the `OperationProjector` — the `paths`.
 
 Component **names** follow stable PascalCase conventions (`blog-post` → `BlogPost`, so
 `BlogPostResource`, `BlogPostCreateRequest`, `BlogPostAuthorRelationship`, …), shared
@@ -142,6 +146,106 @@ sketch:
   example in the `description`, so a generated client never coerces on a keyword the
   server does not honour. Note that `Time`'s `H:i:s` default carries no offset and so is
   not an RFC 3339 `full-time`.
+
+### The error-code catalogue
+
+Every [typed exception](errors-and-exceptions.md) core raises carries a stable `code`, a
+fixed HTTP status, a default title and — usually — a known `source` member. The
+projection publishes each one as its own schema component, so a generated client can
+offer a typed exception per code instead of an opaque string to `switch` on:
+
+```yaml
+components:
+  schemas:
+    FilteringUnrecognizedError:
+      title: Filtering parameter is unrecognized
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            code:   { type: string, const: FILTERING_UNRECOGNIZED }
+            status: { type: string, const: '400' }
+            source: { type: object, required: [parameter] }
+          required: [code, status, source]
+      x-error-context:
+        filter: { type: string }
+```
+
+A variant **narrows** the shared `Error` rather than restating it, so the member
+vocabulary lives in one place. `code` and `status` are pinned to a `const` — they are the
+machine and HTTP contract and no [message resolver](errors-and-exceptions.md#localizing-and-overriding-error-copy)
+can change them. `title` stays a plain string, because a resolver replaces it per locale;
+core's default is the schema's `title` annotation.
+
+`ErrorDocument.errors.items` then offers the catalogue:
+
+```yaml
+items:
+  anyOf:
+    - $ref: '#/components/schemas/Error'          # the open branch
+    - $ref: '#/components/schemas/FilteringUnrecognizedError'
+    - …
+```
+
+**The first branch is the generic `Error`, and it is load-bearing.** Your application
+throws error codes this projection has never heard of, and a closed `oneOf` would make
+those documents fail your own published schema. The `anyOf` is a **catalogue, not a
+constraint**: it constrains nothing, and that is the point. A generator reads the named
+variants for the codes it can type and falls back to a status-based exception, raw code
+intact, for anything else. ([ADR 0136](adr/0136-the-projected-error-code-catalogue-is-open.md).)
+
+The catalogue is registration-aware, like the rest of the document: a code that depends
+on a capability your server does not offer is left out entirely. The atomic and local-id
+codes need the [Atomic Operations](atomic-operations.md) extension; `CURSOR_MALFORMED` /
+`CURSOR_STALE` need a cursor-paginated collection; `PAGINATION_KIND_UNKNOWN` needs a
+`MultiPaginator` menu; `RELATIONSHIP_COUNT_NOT_ALLOWED` needs the Countable profile;
+the client-id codes need a type that permits one; and the whole request-document family
+(bad JSON, missing `data`, an unacceptable `type`, …) needs a server that accepts a
+request body somewhere — a CRUD write, a mutable relationship endpoint, or the atomic
+batch.
+
+**Adding your own codes to the catalogue.** Implement `DescribedErrorInterface` on your
+exception and build its errors through the descriptor:
+
+```php
+use haddowg\JsonApi\Exception\AbstractJsonApiException;
+use haddowg\JsonApi\Exception\DescribedErrorInterface;
+use haddowg\JsonApi\Exception\ErrorContextType;
+use haddowg\JsonApi\Exception\ErrorDescriptor;
+use haddowg\JsonApi\Exception\ErrorSourceShape;
+use haddowg\JsonApi\Schema\Error\ErrorSource;
+
+final class SeatsSoldOut extends AbstractJsonApiException implements DescribedErrorInterface
+{
+    public function __construct(public readonly string $performance)
+    {
+        parent::__construct("No seats remain for '$performance'.", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'SEATS_SOLD_OUT',
+            status: 409,
+            title: 'Seats are sold out',
+            context: ['performance' => ErrorContextType::Str],
+            source: ErrorSourceShape::Pointer,
+        );
+    }
+
+    public function getErrors(): array
+    {
+        return [self::describe()->toError(
+            detail: "No seats remain for '{performance}'.",
+            context: ['performance' => $this->performance],
+            source: ErrorSource::fromPointer('/data/relationships/performance'),
+        )];
+    }
+}
+```
+
+Core projects its own catalogue; an integration decides whether and how to feed yours
+into the document it builds.
 
 ## The metadata contract
 
@@ -358,6 +462,23 @@ naming the profile whose negotiation activates it. A tool that understands the e
 can surface the parameter conditionally; a tool that does not simply ignores an unknown
 `x-` keyword. The parameter's `description` also states the profile requirement in prose,
 so the constraint is never hidden behind the extension alone.
+
+### Error message placeholders: `x-error-context`
+
+Each [error-code variant](#the-error-code-catalogue) carries the `{placeholder}` tokens
+core interpolates into that code's `title` and `detail`, with a JSON Schema type each:
+
+```yaml
+x-error-context:
+  paths:    { type: string }
+  maxDepth: { type: integer }
+```
+
+These are **not wire members**. An error's context is interpolation input — it never
+appears in the response — so it is an extension rather than a property a client would
+wait for in vain. What it is good for is writing a replacement template: bind an
+[`ErrorMessageResolverInterface`](errors-and-exceptions.md#localizing-and-overriding-error-copy) and
+these are the tokens your translation for that code may use.
 
 ## Related pages
 

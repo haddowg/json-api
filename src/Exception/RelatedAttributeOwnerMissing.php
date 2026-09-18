@@ -18,7 +18,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * its flattened attribute can be written. The error points at the attribute the
  * client sent (`/data/attributes/<name>`), not the backing relation.
  */
-final class RelatedAttributeOwnerMissing extends AbstractJsonApiException
+final class RelatedAttributeOwnerMissing extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(
         public readonly string $attribute,
@@ -30,17 +30,26 @@ final class RelatedAttributeOwnerMissing extends AbstractJsonApiException
                 $attribute,
                 $relation,
             ),
-            422,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RELATED_ATTRIBUTE_OWNER_MISSING',
+            status: 422,
+            title: 'Related attribute owner missing',
+            context: ['attribute' => ErrorContextType::Str, 'relation' => ErrorContextType::Str],
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::Writes,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '422',
-                code: 'RELATED_ATTRIBUTE_OWNER_MISSING',
-                title: 'Related attribute owner missing',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['attribute' => $this->attribute, 'relation' => $this->relation],
                 source: ErrorSource::fromPointer('/data/attributes/' . $this->attribute),

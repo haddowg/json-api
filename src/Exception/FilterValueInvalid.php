@@ -22,7 +22,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * can throw it; a framework adapter populates `$messages` from its translated
  * constraint violations. One {@see Error} is rendered per violation message.
  */
-final class FilterValueInvalid extends AbstractJsonApiException
+final class FilterValueInvalid extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param string       $filterKey the `filter[<key>]` key whose value is invalid
@@ -34,7 +34,17 @@ final class FilterValueInvalid extends AbstractJsonApiException
     ) {
         parent::__construct(
             \sprintf("Filtering value for 'filter[%s]' is invalid: %s", $filterKey, \implode('; ', $messages)),
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'FILTER_VALUE_INVALID',
+            status: 400,
+            title: 'Filter value is invalid',
+            source: ErrorSourceShape::Parameter,
         );
     }
 
@@ -43,10 +53,7 @@ final class FilterValueInvalid extends AbstractJsonApiException
         $source = ErrorSource::fromParameter("filter[$this->filterKey]");
 
         if ($this->messages === []) {
-            return [new Error(
-                status: '400',
-                code: 'FILTER_VALUE_INVALID',
-                title: 'Filter value is invalid',
+            return [self::describe()->toError(
                 detail: "The value supplied for 'filter[$this->filterKey]' is invalid.",
                 source: $source,
             )];
@@ -55,10 +62,7 @@ final class FilterValueInvalid extends AbstractJsonApiException
         $errors = [];
 
         foreach ($this->messages as $message) {
-            $errors[] = new Error(
-                status: '400',
-                code: 'FILTER_VALUE_INVALID',
-                title: 'Filter value is invalid',
+            $errors[] = self::describe()->toError(
                 detail: $message,
                 source: $source,
             );

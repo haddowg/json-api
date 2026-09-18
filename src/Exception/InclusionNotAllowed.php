@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -14,7 +13,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * the path is outside the root resource's allowed-include-paths whitelist
  * ({@see \haddowg\JsonApi\Serializer\IncludeControlsInterface::getAllowedIncludePaths()}).
  */
-final class InclusionNotAllowed extends AbstractJsonApiException
+final class InclusionNotAllowed extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param list<string> $paths
@@ -23,17 +22,25 @@ final class InclusionNotAllowed extends AbstractJsonApiException
     {
         parent::__construct(
             "Included paths '" . \implode(', ', $paths) . "' are not allowed!",
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'INCLUSION_NOT_ALLOWED',
+            status: 400,
+            title: 'Inclusion is not allowed',
+            context: ['paths' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'INCLUSION_NOT_ALLOWED',
-                title: 'Inclusion is not allowed',
+            self::describe()->toError(
                 detail: "Included paths '" . \implode(', ', $this->paths) . "' are not allowed by the endpoint!",
                 context: ['paths' => \implode(', ', $this->paths)],
                 source: ErrorSource::fromParameter('include'),

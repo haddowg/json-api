@@ -108,7 +108,19 @@ before it is rendered to a PSR-7 message.
 
 **Error catalogue**:
 The fixed set of error kinds the library can emit — one typed exception per kind,
-each carrying its own error data. _Avoid_: error registry, error map.
+each carrying its own error data. _Avoid_: error registry, error map. It is core's
+catalogue, never the world's: an application raises its own **Error codes** and the
+projected document stays open to them.
+
+**Error descriptor**:
+What an error kind can state before it is raised — its **Error code**, status, default
+title, **context** placeholder shape, `source` member and the **Error feature** it depends
+on. Read off the exception class, never off an instance.
+
+**Error feature**:
+The server capability an error kind depends on (atomic operations, cursor pagination, a
+pagination menu, the Countable profile, client-generated ids, writes at all). An error
+kind gated on a feature the server does not offer is left out of the projected document.
 
 **Error code**:
 The stable, machine-readable identifier of an error kind (`RESOURCE_NOT_FOUND`) —
@@ -129,7 +141,7 @@ the placeholders are interpolated *after*.
 - A **Field** may be a **Relation** and may carry **Constraints**.
 - An **Operation** names a **Target** and is handled to produce a **Response**.
 - A **Paginator** produces a **Page**; a **Filter** or **Sort** is executed by an **Adapter**.
-- An **Error catalogue** entry is identified by its **Error code**; its **title**/**detail** are **Message templates** filled from an occurrence **context**.
+- An **Error catalogue** entry is identified by its **Error code**; its **title**/**detail** are **Message templates** filled from an occurrence **context**, and its **Error descriptor** is what the OpenAPI projection publishes.
 
 ## Example dialogue
 

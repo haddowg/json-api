@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -14,20 +13,29 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * Rendered as a 422 — the safety net behind the create-id format constraint,
  * which already rejects a malformed id before hydration.
  */
-final class ResourceIdUndecodable extends AbstractJsonApiException
+final class ResourceIdUndecodable extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(public readonly string $id)
     {
-        parent::__construct("The resource ID '$id' could not be decoded!", 422);
+        parent::__construct("The resource ID '$id' could not be decoded!", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RESOURCE_ID_UNDECODABLE',
+            status: 422,
+            title: 'Resource ID is undecodable',
+            context: ['id' => ErrorContextType::Str],
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::Writes,
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '422',
-                code: 'RESOURCE_ID_UNDECODABLE',
-                title: 'Resource ID is undecodable',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['id' => $this->id],
                 source: ErrorSource::fromPointer('/data/id'),

@@ -167,6 +167,20 @@ $message, int $statusCode)` forwards both to `parent::__construct()` so `getCode
 mirrors the status. Body-invalid exceptions take the already-extracted data
 (raw/decoded body, validation-error list) — **decoupled** from the request layer.
 
+**The descriptor split.** A second, **opt-in** contract `DescribedErrorInterface` adds
+`static describe(): ErrorDescriptor` — `code`, `status` (int), default `title`, the
+`context` placeholder shape, the `ErrorSourceShape` the exception always fills, and the
+gating `ErrorFeature`. It is deliberately *not* folded into `JsonApiExceptionInterface`
+(an abstract static on a published interface breaks every third-party implementor). Core's
+53 exceptions implement it **and** build through `ErrorDescriptor::toError()`, and their
+constructors pass `self::describe()->status` — so `code`/`status`/`title` exist in exactly
+one place per class and the published description cannot drift from the rendered error.
+`ErrorCatalog` is the hand-written roster of those classes; `ErrorCatalogTest` scans
+`src/Exception` and fails when one lands outside it. **Never** enumerate the catalogue by
+constructing exceptions with placeholder arguments — `getErrors()` interpolates
+constructor state, so the result would be fiction. See
+[ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md).
+
 ### Requests
 `src/Request` → [content-negotiation](docs/content-negotiation.md),
 [concepts](docs/concepts.md). Clone-then-assign / not-readonly (see shared notes).
@@ -353,6 +367,17 @@ pass silently:
    against the base revision's and **fails the PR** when the structure moved and `CONTRACT`
    did not. Reworded `description`/`summary` prose is exempt (a generator is never too old
    to read a sentence); every other difference counts.
+
+**The error catalogue is open on purpose.** `ErrorCatalogProjector` emits one
+`<Code>Error` component per catalogued code (`allOf: [$ref Error, {code/status const,
+source required}]`, core's default title as the schema `title` annotation) and wires them
+into `ErrorDocument.errors.items` as an `anyOf` **led by the generic `Error`**. That first
+branch makes the `anyOf` constrain nothing, which is the point: an application throws
+codes the projector never saw, and a closed `oneOf` would make a server's own documents
+fail its own schema. `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates`
+is the guard — do not "tighten" it. `context` is **not** a property (it is interpolation
+input, never on the wire); it is published as `x-error-context`. Gating is registration-aware
+per `ErrorFeature` ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 
 **Temporal `format` keywords are conditional.** `date-time`/`date`/`time` are RFC 3339
 productions, so `DateTime::schemaFormat()` decides whether one may be emitted by rendering

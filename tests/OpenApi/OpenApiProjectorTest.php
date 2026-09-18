@@ -287,8 +287,11 @@ final class OpenApiProjectorTest extends TestCase
             self::assertArrayHasKey($component, $schemas, "missing component {$component}");
         }
 
-        // The error document references the shared error object.
-        self::assertSame('#/components/schemas/Error', $this->strAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', '$ref'));
+        // The error document offers the shared error object first — the open branch that
+        // keeps an undocumented code valid — then the catalogued per-code variants.
+        $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
+        self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
+        self::assertContains(['$ref' => '#/components/schemas/ResourceNotFoundError'], $branches);
         self::assertContains('errors', $this->listAt($schemas, 'ErrorDocument', 'required'));
     }
 
