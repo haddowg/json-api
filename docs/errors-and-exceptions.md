@@ -253,6 +253,31 @@ extends `\Exception`, takes `(string $message, int $statusCode)`, forwards both 
 `getStatusCode()`; each subclass implements `getErrors()`. You only touch this base
 when you write your own exception.
 
+### Describing an error code
+
+`getErrors()` builds its error objects at throw time from constructor state, so nothing
+can read the catalogue off a class without inventing arguments for it. A second,
+**optional** contract closes that gap:
+
+```php
+interface DescribedErrorInterface extends JsonApiExceptionInterface
+{
+    /** The invariant description of this exception's error code. */
+    public static function describe(): ErrorDescriptor;
+}
+```
+
+An `ErrorDescriptor` carries the parts that are the same for every occurrence: the `code`,
+the `status`, the default `title`, the names and types of the `context` placeholders, the
+`source` member the exception always fills, and the `ErrorFeature` (if any) the error
+depends on. Every exception core ships implements it **and** renders its errors through
+`ErrorDescriptor::toError()`, so the description and the rendered error cannot disagree.
+
+That is what lets the [OpenAPI projection](openapi.md#the-error-code-catalogue) publish a
+named schema component per code without ever constructing an exception. `ErrorCatalog`
+holds core's roster; describing your own exception is opt-in and costs nothing if you
+skip it.
+
 ## Writing your own exception
 
 Domain-specific failures fit the same model. Extend `AbstractJsonApiException`,
@@ -291,6 +316,11 @@ then flows through the *same* [`ErrorHandlerMiddleware`](middleware.md) as the
 built-in catalogue and renders a spec-compliant `402` with no special-casing.
 Reference global classes like `\Exception` with a leading backslash inline, matching
 the codebase style.
+
+Add `implements DescribedErrorInterface` and a static `describe()` to have the code join
+the projected catalogue — see [the worked example](openapi.md#the-error-code-catalogue).
+Without it the exception still works exactly as above; it simply reaches a generated
+client as a plain `code` string.
 
 ## The exception catalogue
 

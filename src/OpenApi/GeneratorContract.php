@@ -44,7 +44,7 @@ final class GeneratorContract
      * The current contract. Bump by exactly one; see the class docblock for what
      * warrants it and `docs/openapi.md` for the discipline around it.
      */
-    public const CONTRACT = 3;
+    public const CONTRACT = 4;
 
     /**
      * The `info.x-generator` value.
