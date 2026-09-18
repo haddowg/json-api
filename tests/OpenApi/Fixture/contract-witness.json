@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 5
+            "contract": 2
         }
     },
     "servers": [
@@ -7200,12 +7200,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "relationship": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ApplicationError": {
                 "title": "Application error",
@@ -8636,15 +8631,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "attribute": {
-                        "type": "string"
-                    },
-                    "reason": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ClientGeneratedIdAlreadyExistsError": {
                 "title": "Client generated ID already exists",
@@ -8676,12 +8663,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "id": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ClientGeneratedIdNotSupportedError": {
                 "title": "Client generated ID is not supported",
@@ -8796,12 +8778,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "parameter": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "CursorStaleError": {
                 "title": "Cursor is stale",
@@ -8833,12 +8810,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "parameter": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "DataMemberMissingError": {
                 "title": "Missing `data` member at the document's top level",
@@ -9126,15 +9098,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "members": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "FilterValueInvalidError": {
                 "title": "Filter value is invalid",
@@ -9198,12 +9162,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "filter": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "FullReplacementProhibitedError": {
                 "title": "Full replacement is prohibited",
@@ -9235,12 +9194,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "relationship": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "HealthcheckCollection": {
                 "type": "object",
@@ -9508,15 +9462,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "paths": {
-                        "type": "string"
-                    },
-                    "maxDepth": {
-                        "type": "integer"
-                    }
-                }
+                ]
             },
             "InclusionNotAllowedError": {
                 "title": "Inclusion is not allowed",
@@ -9548,12 +9494,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "paths": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "InclusionUnrecognizedError": {
                 "title": "Inclusion is unrecognized",
@@ -9585,12 +9526,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "paths": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "InclusionUnsupportedError": {
                 "title": "Inclusion is unsupported",
@@ -9731,15 +9667,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "lid": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "LocalIdNotFoundError": {
                 "title": "Local id not found",
@@ -9764,15 +9692,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "lid": {
-                        "type": "string"
-                    },
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "LocalIdNotSupportedError": {
                 "title": "Local id is not supported",
@@ -9836,15 +9756,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "mediaType": {
-                        "type": "string"
-                    },
-                    "header": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "MediaTypeUnsupportedError": {
                 "title": "The provided media type is unsupported",
@@ -9876,15 +9788,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "mediaType": {
-                        "type": "string"
-                    },
-                    "header": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "Meta": {
                 "type": "object",
@@ -9932,12 +9836,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "PaginationKindUnknownError": {
                 "title": "Pagination kind is not supported",
@@ -9969,15 +9868,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "kind": {
-                        "type": "string"
-                    },
-                    "kinds": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "PaginationLinks": {
                 "type": "object",
@@ -10397,12 +10288,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "param": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "QueryParamUnrecognizedError": {
                 "title": "Query parameter is unrecognized",
@@ -10434,12 +10320,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "param": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RelatedAttributeOwnerMissingError": {
                 "title": "Related attribute owner missing",
@@ -10471,15 +10352,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "attribute": {
-                        "type": "string"
-                    },
-                    "relation": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RelationshipCountNotAllowedError": {
                 "title": "Relationship count is not allowed",
@@ -10511,12 +10384,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "names": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RelationshipNotExistsError": {
                 "title": "The requested relationship does not exist!",
@@ -10541,12 +10409,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "relationship": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RelationshipTypeInappropriateError": {
                 "title": "Relationship type is inappropriate",
@@ -10610,12 +10473,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "relationship": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RequestBodyInvalidJsonApiError": {
                 "title": "Request body is an invalid JSON:API document",
@@ -10665,12 +10523,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "message": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "RequiredTopLevelMembersMissingError": {
                 "title": "Required top-level members are missing",
@@ -10727,15 +10580,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "documentId": {
-                        "type": "string"
-                    },
-                    "endpointId": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdInvalidError": {
                 "title": "Resource ID is invalid",
@@ -10767,12 +10612,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdMissingError": {
                 "title": "Resource ID is missing",
@@ -10836,12 +10676,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "id": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdentifierIdInvalidError": {
                 "title": "Resource identifier ID is invalid",
@@ -10866,12 +10701,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdentifierIdMissingError": {
                 "title": "An ID for the resource identifier is missing",
@@ -10921,12 +10751,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdentifierTypeInvalidError": {
                 "title": "Resource identifier type is invalid",
@@ -10951,12 +10776,7 @@
                             "status"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResourceIdentifierTypeMissingError": {
                 "title": "A type for the resource identifier is missing",
@@ -11070,12 +10890,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "type": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "ResponseBodyInvalidJsonApiError": {
                 "title": "Response body is an invalid JSON:API document",
@@ -11157,12 +10972,7 @@
                             "source"
                         ]
                     }
-                ],
-                "x-error-context": {
-                    "param": {
-                        "type": "string"
-                    }
-                }
+                ]
             },
             "SortingUnsupportedError": {
                 "title": "Sorting is unsupported",

@@ -33,6 +33,12 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * out entirely. A read-only server's client has no use for a typed
  * `RESOURCE_TYPE_UNACCEPTABLE` it can never receive.
  *
+ * **{@see ErrorDescriptor::$context} is not projected.** It is the interpolation input
+ * core fills into the `title` / `detail` templates (ADR 0128) and never reaches the wire.
+ * The reason it is not a document property is the reason it is not a vendor extension
+ * either. Whoever writes a replacement template writes PHP and reads the descriptor
+ * directly; see `docs/errors-and-exceptions.md`.
+ *
  * @internal
  */
 final class ErrorCatalogProjector
@@ -117,27 +123,12 @@ final class ErrorCatalogProjector
             $required[] = 'source';
         }
 
-        $variant = Schema::create()
+        return Schema::create()
             ->withTitle($descriptor->title)
             ->withAllOf([
                 Schema::ref(ComponentNaming::schemaRef('Error')),
                 $narrowing->withRequired($required),
             ]);
-
-        if ($descriptor->context === []) {
-            return $variant;
-        }
-
-        // Not a wire member: `Error::$context` is the interpolation input core fills into
-        // the `title` / `detail` templates, so it is published as an extension naming the
-        // `{placeholder}` tokens a replacement template may use (ADR 0128), not as a
-        // property the response will carry.
-        $context = [];
-        foreach ($descriptor->context as $name => $type) {
-            $context[$name] = Schema::ofType($type->value);
-        }
-
-        return $variant->withExtension('error-context', $context);
     }
 
     /**

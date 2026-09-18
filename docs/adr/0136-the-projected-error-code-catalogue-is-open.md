@@ -18,13 +18,15 @@ with the raw code intact, for a code it does not recognise. We accept that the v
 value is nil and the document grows by roughly 50 schema components; discovery is the
 point, and validation of `code` was never possible anyway.
 
-Two supporting decisions. **`context` is not a property.** `Error::$context` is the
+Two supporting decisions. **`context` is not projected at all.** `Error::$context` is the
 interpolation input core fills into the `title` / `detail` templates ([ADR
 0128](0128-localizable-error-catalogue-via-code-keyed-resolver.md)) and never reaches the
-wire, so typing it as a member would describe something no server sends. It is published
-as an `x-error-context` extension naming the `{placeholder}` tokens and their types —
-useful to whoever writes the replacement templates, honest about not being data the
-client receives. **The catalogue is registration-aware.** Each descriptor names the
+wire, so typing it as a member would describe something no server sends. Publishing its
+shape as an `x-error-context` extension describes the same unsendable thing one keyword
+over, which is why that extension is gone too. Its audience was whoever writes a
+replacement template, and they write PHP: `ErrorDescriptor::$context` already names the
+tokens and their types, where they are already reading. The document stays a description of
+what a client receives. **The catalogue is registration-aware.** Each descriptor names the
 `ErrorFeature` it depends on (atomic operations, cursor pagination, a pagination menu,
 the Countable profile, client-generated ids, or any write at all) and the projector drops
 codes the server cannot raise, the same gating [ADR
