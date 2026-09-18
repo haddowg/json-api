@@ -94,6 +94,38 @@ final class OpenApiModelTest extends TestCase
     }
 
     #[Test]
+    public function infoCarriesVendorExtensionsAfterTheStandardMembers(): void
+    {
+        $info = (new Info('My API', '1.0.0'))
+            ->withExtension('generator', ['contract' => 7])
+            ->withExtension('x-logo', 'https://x/logo.png');
+
+        self::assertSame([
+            'title' => 'My API',
+            'version' => '1.0.0',
+            'x-generator' => ['contract' => 7],
+            'x-logo' => 'https://x/logo.png',
+        ], $info->toArray());
+
+        // Read back by either spelling; an absent extension is null.
+        self::assertSame(['contract' => 7], $info->extension('generator'));
+        self::assertSame(['contract' => 7], $info->extension('x-generator'));
+        self::assertNull($info->extension('nope'));
+
+        // The withers preserve them.
+        self::assertSame(['contract' => 7], $info->withDescription('d')->extension('generator'));
+    }
+
+    #[Test]
+    public function infoRendersAnExtensionObjectAsAJsonObject(): void
+    {
+        $json = (new Info('My API', '1.0.0'))->withExtension('generator', ['contract' => 7])->toJson();
+
+        self::assertInstanceOf(\stdClass::class, $json->{'x-generator'});
+        self::assertSame(7, $json->{'x-generator'}->contract);
+    }
+
+    #[Test]
     public function contactOmitsAllAbsentMembers(): void
     {
         self::assertSame([], (new Contact())->toArray());

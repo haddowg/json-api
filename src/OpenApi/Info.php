@@ -8,9 +8,15 @@ namespace haddowg\JsonApi\OpenApi;
  * An OpenAPI 3.1 Info Object — the document metadata. `title` and `version` are
  * required; `summary`, `description`, `termsOfService`, `contact` and `license`
  * are optional.
+ *
+ * Vendor extensions (`x-…`) are carried alongside and emitted after the standard
+ * members — the projector stamps `x-generator` here (see {@see GeneratorContract}).
  */
 final readonly class Info implements \JsonSerializable
 {
+    /**
+     * @param array<string, mixed> $extensions vendor extensions (`x-…`), emitted after the standard members
+     */
     public function __construct(
         public string $title,
         public string $version,
@@ -19,6 +25,7 @@ final readonly class Info implements \JsonSerializable
         public ?string $termsOfService = null,
         public ?Contact $contact = null,
         public ?License $license = null,
+        private array $extensions = [],
     ) {}
 
     public function withDescription(?string $description): self
@@ -31,6 +38,7 @@ final readonly class Info implements \JsonSerializable
             $this->termsOfService,
             $this->contact,
             $this->license,
+            $this->extensions,
         );
     }
 
@@ -44,6 +52,7 @@ final readonly class Info implements \JsonSerializable
             $this->termsOfService,
             $contact,
             $this->license,
+            $this->extensions,
         );
     }
 
@@ -57,7 +66,38 @@ final readonly class Info implements \JsonSerializable
             $this->termsOfService,
             $this->contact,
             $license,
+            $this->extensions,
         );
+    }
+
+    /**
+     * Sets a vendor extension keyword (the name is normalized to the `x-` prefix).
+     */
+    public function withExtension(string $name, mixed $value): self
+    {
+        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+
+        return new self(
+            $this->title,
+            $this->version,
+            $this->summary,
+            $this->description,
+            $this->termsOfService,
+            $this->contact,
+            $this->license,
+            [...$this->extensions, $key => $value],
+        );
+    }
+
+    /**
+     * Reads a vendor extension keyword (`x-…`), or `null` when absent. The name is
+     * normalized to the `x-` prefix, so `extension('generator')` reads `x-generator`.
+     */
+    public function extension(string $name): mixed
+    {
+        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+
+        return $this->extensions[$key] ?? null;
     }
 
     /**
@@ -82,6 +122,9 @@ final readonly class Info implements \JsonSerializable
             $out['license'] = $this->license->toArray();
         }
         $out['version'] = $this->version;
+        foreach ($this->extensions as $key => $value) {
+            $out[$key] = $value;
+        }
 
         return $out;
     }
