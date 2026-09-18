@@ -761,9 +761,9 @@ final class OperationProjector
     /**
      * The component-name base for a relation's single related resource component. A
      * monomorphic relation names the single related type; a relation with no declared
-     * types degrades to the relation's own name (matching the synthetic
-     * unregistered-related emission). Polymorphic relations are handled separately by
-     * {@see relatedCollectionResponseRef()} / the per-member resolution, never here.
+     * types at all degrades to the relation's own name. Polymorphic relations are handled
+     * separately by {@see relatedCollectionResponseRef()} / the per-member resolution,
+     * never here.
      */
     private function relatedComponentBase(RelationMetadataInterface $relation): string
     {
