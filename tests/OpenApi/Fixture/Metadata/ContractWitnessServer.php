@@ -61,9 +61,10 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * It is deliberately maximal rather than realistic: every branch it reaches is a branch a
  * change can be caught in, and a branch it misses is one that moves the document silently.
  * It covers the field vocabulary (scalars, formats, nested maps/objects, a discriminated
- * union, both enum backing types), all three client-id policies, a read-only type, a
- * standalone type with no field inventory, a related-only type reached across a relation,
- * every relation shape (to-one, to-many, pivot-backed, polymorphic, endpoint-suppressed,
+ * union, both enum backing types), all three client-id policies, a read-only type whose
+ * relation is nonetheless mutable, a standalone type with no field inventory, an
+ * unregistered linkage-only related type, every relation shape (to-one, to-many,
+ * pivot-backed, polymorphic, endpoint-suppressed,
  * mutation-locked), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, both registered profiles, and the Atomic
@@ -212,11 +213,11 @@ final class ContractWitnessServer
     }
 
     /**
-     * A client id is permitted but optional, and `company` is a **related-only** type:
-     * reached across an exposed related endpoint without being registered, so the
-     * projector synthesizes a permissive resource object for it. Its collection offers a
-     * pagination **menu** — the one page shape that projects as a `oneOf` of strategies
-     * and makes `page[kind]` selectable (and therefore refusable).
+     * A client id is permitted but optional, and `companies` is a **linkage-only** related
+     * type: named by a relation that suppresses its related endpoint, and never registered,
+     * so the document gives it a bare `ResourceIdentifier` and no resource object. Its
+     * collection offers a pagination **menu** — the one page shape that projects as a
+     * `oneOf` of strategies and makes `page[kind]` selectable (and therefore refusable).
      */
     private static function people(): FakeTypeMetadata
     {
@@ -227,7 +228,7 @@ final class ContractWitnessServer
                 Str::make('name')->required()->build(),
                 Str::make('role')->enum(Status::class)->build(),
             ],
-            relations: [new FakeRelationMetadata('company', ['companies'], false)],
+            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
             tags: ['People'],
             allowsClientId: true,
             pageSchema: (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
@@ -263,13 +264,17 @@ final class ContractWitnessServer
 
     /**
      * Read-only: the operation allow-list exposes no write, so no create/update
-     * components (standalone or atomic) are emitted for it.
+     * components (standalone or atomic) are emitted for it. Its `clips` relation leaves
+     * every mutation flag on, which is the branch that proves the relation flags alone do
+     * not open a relationship mutation — the type has no `Update` for one to ride on, so
+     * `/images/{id}/relationships/clips` is `GET`-only.
      */
     private static function images(): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'images',
             fields: [Id::make()->build(), Url::make('url')->build()],
+            relations: [FakeRelationMetadata::toMany('clips', ['videos'])],
             tags: ['Media'],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
         );

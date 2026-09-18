@@ -42,6 +42,10 @@ final class OpenApiProjector
      */
     public function project(ServerMetadataInterface $server): OpenApi
     {
+        // Refuse before building anything: a related endpoint pointed at a type this
+        // server does not register has no honest projection (see the method).
+        $this->guardRelatedTypesAreRegistered($server);
+
         $schemas = [];
         $this->addSharedComponents($schemas, $server);
 
@@ -63,14 +67,12 @@ final class OpenApiProjector
             $this->addTypeComponents($schemas, $type, $collector);
         }
 
-        // Linkage `$ref`s a `<RelatedType>ResourceIdentifier` (and an exposed related
-        // endpoint `$ref`s its `Resource`/`Collection`) for every relation's related
-        // type, but a related type need not itself be a registered type (the contract
-        // does not require it). Emit minimal components for any referenced-but-
-        // unregistered related type so the document carries no dangling internal
-        // reference (the OAS meta-schema treats Schema Objects as opaque and cannot
-        // catch one).
-        $this->addUnregisteredRelatedComponents($schemas, $server);
+        // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
+        // linkage-only related type need not be registered here — an identifier is
+        // `{type, id}` and asserts no shape. Emit one for each so the document carries no
+        // dangling internal reference (the OAS meta-schema treats Schema Objects as
+        // opaque and cannot catch one).
+        $this->addLinkageOnlyRelatedComponents($schemas, $server);
 
         // The Atomic Operations extension (opt-in): when enabled, its request/result
         // document components join the schema set (and its path joins the document
@@ -383,25 +385,19 @@ final class OpenApiProjector
     }
 
     /**
-     * Emits minimal components for every related type referenced by a relation but not
-     * registered as a server type (so its own `addTypeComponents()` never ran), so the
-     * document carries no dangling `$ref`:
+     * Emits a `<RelatedType>ResourceIdentifier` for every related type a relation names
+     * but the server does not register (so its own `addTypeComponents()` never ran),
+     * since every relationship object `$ref`s one and the document must carry no dangling
+     * `$ref`.
      *
-     * - a `<RelatedType>ResourceIdentifier` (linkage target) — always, since every
-     *   relationship object `$ref`s it;
-     * - a `<RelatedType>Resource` + `<RelatedType>Collection` — only when a relation
-     *   exposing its **related** endpoint targets the type, since the path projection
-     *   (stage B) then `$ref`s those for the to-one related document / to-many related
-     *   collection. The synthesized shapes are permissive (enough to resolve and
-     *   self-describe); a registered related type already has concrete ones.
-     *
-     * The types that pick up a resource object here are exactly
-     * {@see ProjectedTypes::relatedOnly()} — the accessor a framework integration reads
-     * to keep its per-type JSON Schema bundle covering the same set this document does.
+     * An identifier is `{type, id}` — it asserts no shape, so a server can honestly point
+     * linkage at a type it knows nothing else about. A resource **object** is the opposite,
+     * and a related type that needs one is registered here or the projection already
+     * refused in {@see guardRelatedTypesAreRegistered()}.
      *
      * @param array<string, Schema> $schemas
      */
-    private function addUnregisteredRelatedComponents(array &$schemas, ServerMetadataInterface $server): void
+    private function addLinkageOnlyRelatedComponents(array &$schemas, ServerMetadataInterface $server): void
     {
         $registered = \array_fill_keys(ProjectedTypes::registered($server), true);
 
@@ -411,24 +407,44 @@ final class OpenApiProjector
                     if (isset($registered[$relatedType])) {
                         continue;
                     }
-                    $relName = $this->componentBase($relatedType);
 
-                    $identifier = $relName . 'ResourceIdentifier';
-                    if (!isset($schemas[$identifier])) {
-                        $schemas[$identifier] = $this->resourceIdentifierSchema($relatedType);
-                    }
+                    $identifier = $this->componentBase($relatedType) . 'ResourceIdentifier';
+                    $schemas[$identifier] ??= $this->resourceIdentifierSchema($relatedType);
+                }
+            }
+        }
+    }
 
-                    if (!$relation->exposesRelatedEndpoint()) {
-                        continue;
-                    }
+    /**
+     * Refuses to project a server whose relation exposes its **related** endpoint to a
+     * type the server does not register.
+     *
+     * A document is one server's contract. That endpoint returns the related type as
+     * primary data, so the document has to state its shape — and with no registration
+     * there is no field inventory to state it from. The projector used to synthesize an
+     * open `<RelatedType>Resource` instead, which put two different shapes behind one
+     * JSON:API `type` across two documents from the same process, with nothing marking
+     * the weaker one as a guess.
+     *
+     * Two servers serving the same type stay legitimate: each projects from its own
+     * registrations, so each states a shape it can honour. The fault is describing a type
+     * you do not serve.
+     *
+     * @throws RelatedTypeNotRegistered naming the first offending relation
+     */
+    private function guardRelatedTypesAreRegistered(ServerMetadataInterface $server): void
+    {
+        $registered = \array_fill_keys(ProjectedTypes::registered($server), true);
 
-                    $resource = $relName . 'Resource';
-                    if (!isset($schemas[$resource])) {
-                        $schemas[$resource] = $this->permissiveResourceObject($relatedType);
-                    }
-                    $collection = $relName . 'Collection';
-                    if (!isset($schemas[$collection])) {
-                        $schemas[$collection] = $this->collectionDocumentSchema($relName, $relation->relatedIncludablePaths() !== []);
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (!$relation->exposesRelatedEndpoint()) {
+                    continue;
+                }
+
+                foreach ($relation->relatedTypes() as $relatedType) {
+                    if (!isset($registered[$relatedType])) {
+                        throw new RelatedTypeNotRegistered($server->title(), $type->type(), $relation->name(), $relatedType);
                     }
                 }
             }

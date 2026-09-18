@@ -10,24 +10,22 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
  * The JSON:API types a server's projection **describes with a resource object** — the
  * authoritative answer to "which types does this server's generated contract cover?".
  *
- * A server's document covers more than the types registered on it. A relation may target
- * a type the server does not register (it belongs to another server, or is described
- * without being registered at all), and when that relation exposes its **related**
- * endpoint the projector synthesizes a permissive `<RelatedType>Resource` so the endpoint
- * that returns one has something to `$ref`. Those synthesized types are part of the
- * contract: the server really does return them.
+ * A framework integration emits a **second** artifact from the same metadata (the
+ * per-type JSON Schema bundle served at `/schemas.json`) and keys it from
+ * {@see forServer()}, so the two artifacts cover one agreed type set rather than two that
+ * happen to coincide. That is why this is public API rather than a private detail of the
+ * projector.
  *
- * The rule matters beyond the OpenAPI document because a framework integration emits a
- * **second** artifact from the same metadata — the per-type JSON Schema bundle served at
- * `/schemas.json`. Deriving that bundle from {@see ServerMetadataInterface::types()}
- * alone silently omits every related-only type, so the two artifacts describe different
- * type sets and a client validating a related endpoint's response finds no schema for it.
- * Keying that bundle from {@see forServer()} is what keeps the two aligned, and is why
- * this is public API rather than a private detail of the projector.
+ * On a projectable server the answer is just the registered types, because a resource
+ * object is a shape claim and only a registration carries the field inventory to back
+ * one. {@see relatedOnly()} reports the types that break that rule — a related endpoint
+ * aimed at something this server does not register — and a non-empty result means
+ * {@see OpenApiProjector::project()} refuses with a
+ * {@see RelatedTypeNotRegistered}. Read it to fail a build before the export runs.
  *
  * A related type that is only ever a **linkage** target (no relation exposes its related
- * endpoint) is deliberately absent: the document gives it a `ResourceIdentifier` and no
- * resource object, so there is no resource-object contract to describe.
+ * endpoint) is fine unregistered and deliberately absent from the set: the document gives
+ * it a `ResourceIdentifier`, which is `{type, id}` and asserts no shape.
  *
  * @see OpenApiProjector::project() the document side of the same rule
  */
@@ -35,8 +33,10 @@ final class ProjectedTypes
 {
     /**
      * Every type the server's projection describes with a resource object: the
-     * registered types in registration order, then the related-only types in the order
-     * their first exposing relation is walked.
+     * registered types in registration order, then anything {@see relatedOnly()} reports
+     * — which is empty for every server that projects, so in practice this is
+     * {@see registered()}. The concatenation stays so a caller reading it never has to
+     * know which of the two it is looking at.
      *
      * @return list<string>
      */
@@ -62,9 +62,14 @@ final class ProjectedTypes
     }
 
     /**
-     * The types the server describes **only** as a relation target: not registered, but
-     * reached by a relation exposing its related endpoint, so the projection synthesizes
-     * a permissive resource object for them. Deduped, in first-encountered order.
+     * The types a relation exposes its **related** endpoint to without the server
+     * registering them — a fault, and exactly the set
+     * {@see OpenApiProjector::project()} throws {@see RelatedTypeNotRegistered} over.
+     * Deduped, in first-encountered order; empty for a server that projects.
+     *
+     * Call it to fail a build before the export runs. The exception carries the parent
+     * type and relation as well, which is what makes it the better diagnostic once
+     * projection is on the table.
      *
      * @return list<string>
      */

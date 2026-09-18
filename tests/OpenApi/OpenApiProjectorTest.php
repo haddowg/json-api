@@ -468,9 +468,9 @@ final class OpenApiProjectorTest extends TestCase
                 type: 'articles',
                 fields: [Id::make()->build(), Str::make('title')->required()->build()],
                 relations: [
-                    FakeRelationMetadata::toOne('author', ['people']),
+                    new FakeRelationMetadata('author', ['people'], false, relatedEndpoint: false),
                     // A locked to-one: settable on create (initial state) but never replaced.
-                    new FakeRelationMetadata('owner', ['people'], false, allowsReplace: false),
+                    new FakeRelationMetadata('owner', ['people'], false, relatedEndpoint: false, allowsReplace: false),
                 ],
             )],
         );
@@ -498,7 +498,7 @@ final class OpenApiProjectorTest extends TestCase
             types: [FakeTypeMetadata::resource(
                 type: 'articles',
                 fields: [Id::make()->build(), Str::make('title')->required()->build()],
-                relations: [new FakeRelationMetadata('owner', ['people'], false, allowsReplace: false)],
+                relations: [new FakeRelationMetadata('owner', ['people'], false, relatedEndpoint: false, allowsReplace: false)],
             )],
         );
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
@@ -730,18 +730,21 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     /**
-     * A related type referenced by a relation but **not** registered as a server
-     * type still resolves: the projector synthesizes a minimal
-     * `<RelatedType>ResourceIdentifier` so its linkage `$ref` is never dangling.
+     * A **linkage-only** related type the server does not register still resolves: the
+     * projector synthesizes a minimal `<RelatedType>ResourceIdentifier` so its linkage
+     * `$ref` is never dangling. An identifier is `{type, id}` and asserts no shape, so
+     * pointing linkage at a type this server knows nothing else about stays honest —
+     * unlike a resource object, which the projector refuses to invent.
      */
     #[Test]
-    public function itSynthesizesAnIdentifierForAnUnregisteredRelatedType(): void
+    public function itSynthesizesAnIdentifierForAnUnregisteredLinkageOnlyRelatedType(): void
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
             fields: [Id::make()->build(), Str::make('title')->required()->build()],
-            // `categories` is a related type but is never registered on the server.
-            relations: [FakeRelationMetadata::toOne('category', ['categories'])],
+            // `categories` is a related type but is never registered on the server, so
+            // the relation must not expose its related endpoint.
+            relations: [new FakeRelationMetadata('category', ['categories'], false, relatedEndpoint: false)],
         );
 
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$articles]);

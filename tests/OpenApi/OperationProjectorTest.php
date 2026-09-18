@@ -49,9 +49,11 @@ final class OperationProjectorTest extends TestCase
     private const OAS_SCHEMA_ID = 'https://spec.openapis.org/oas/3.1/schema/2022-10-07';
 
     /**
-     * A single rich `articles` resource: every CRUD operation, two filters (one
-     * constrained, one presence-only), a sort, a page paginator, two includable
-     * paths, and `create`/`update` marked secured.
+     * A rich `articles` resource: every CRUD operation, two filters (one constrained,
+     * one presence-only), a sort, a page paginator, two includable paths, and
+     * `create`/`update` marked secured. Its two relation targets are registered
+     * alongside it (bare, since nothing here asserts on them) because a relation
+     * exposing its related endpoint to an unregistered type is refused.
      */
     private function richServer(): FakeServerMetadata
     {
@@ -83,11 +85,13 @@ final class OperationProjectorTest extends TestCase
             includablePaths: ['author', 'tags', 'author.company'],
             idPattern: 'art-[0-9]+',
         );
+        $people = FakeTypeMetadata::resource(type: 'people', fields: [Id::make()->build(), Str::make('name')->build()], tags: ['People']);
+        $tags = FakeTypeMetadata::resource(type: 'tags', fields: [Id::make()->build(), Str::make('label')->build()], tags: ['Tags']);
 
         return new FakeServerMetadata(
             title: 'Blog API',
             version: '1.0.0',
-            types: [$articles],
+            types: [$articles, $people, $tags],
             servers: [],
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
@@ -479,19 +483,24 @@ final class OperationProjectorTest extends TestCase
         // the operation, so a write that answers with the resource document carries the
         // read's parameters verbatim — enums and all — rather than a second vocabulary.
         $get = $this->arrAt($paths, '/articles/{id}', 'get');
-        $expected = [
-            $this->parameterNamed($get, 'include'),
-            $this->parameterNamed($get, 'fields[articles]'),
-        ];
+        $names = $this->parameterNames($get);
+        self::assertSame(['include', 'fields[articles]', 'fields[people]', 'fields[tags]'], $names);
+
+        $expected = [];
+        foreach ($names as $name) {
+            $expected[] = $this->parameterNamed($get, $name);
+        }
 
         foreach ([['/articles', 'post'], ['/articles/{id}', 'patch']] as [$path, $method]) {
             $write = $this->arrAt($paths, $path, $method);
 
-            self::assertSame(['include', 'fields[articles]'], $this->parameterNames($write), "{$method} {$path}");
-            self::assertSame($expected, [
-                $this->parameterNamed($write, 'include'),
-                $this->parameterNamed($write, 'fields[articles]'),
-            ], "{$method} {$path}");
+            self::assertSame($names, $this->parameterNames($write), "{$method} {$path}");
+
+            $actual = [];
+            foreach ($names as $name) {
+                $actual[] = $this->parameterNamed($write, $name);
+            }
+            self::assertSame($expected, $actual, "{$method} {$path}");
         }
 
         // Neither leaks onto the delete, which returns no resource document.

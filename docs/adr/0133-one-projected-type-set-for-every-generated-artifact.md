@@ -1,5 +1,7 @@
 # One projected type set for every generated artifact
 
+> Status: the synthesized related-only resource object is **superseded by [ADR 0137](0137-a-document-describes-only-types-its-server-registers.md)** — the projector now refuses that configuration instead of inventing a shape, so `relatedOnly()` is empty for every server that projects and `forServer()` collapses onto `registered()`. The accessor and the one-type-set rule this ADR established are retained unchanged.
+
 A server's OpenAPI document describes its registered types **plus** any type reached by a
 relation that exposes its related endpoint — the projector synthesizes a permissive
 resource object for the latter, because the endpoint really returns one and a dangling

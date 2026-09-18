@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 4
+            "contract": 5
         }
     },
     "servers": [
@@ -2681,13 +2681,14 @@
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
                         "schema": {
                             "type": "array",
                             "items": {
                                 "type": "string",
                                 "enum": [
-                                    "url"
+                                    "url",
+                                    "clips"
                                 ]
                             }
                         },
@@ -4412,99 +4413,6 @@
                 }
             }
         },
-        "/people/{id}/company": {
-            "parameters": [
-                {
-                    "name": "id",
-                    "in": "path",
-                    "description": "The `people` resource identifier.",
-                    "required": true,
-                    "schema": {
-                        "type": "string"
-                    }
-                }
-            ],
-            "get": {
-                "tags": [
-                    "People"
-                ],
-                "summary": "Fetch the related company of a people",
-                "description": "Returns the related `company` resource of a `people` (or `null`).",
-                "operationId": "fetchRelated.people.company",
-                "responses": {
-                    "200": {
-                        "description": "The related company resource (or `null`).",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PeopleCompanyRelatedDocument"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request — the request was malformed (e.g. an invalid query parameter).",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden — the request is not authorised.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found — the resource does not exist.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    },
-                    "406": {
-                        "description": "Not Acceptable — the `Accept` header could not be satisfied.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized — authentication is required and was missing or invalid.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorDocument"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/people/{id}/relationships/company": {
             "parameters": [
                 {
@@ -6117,13 +6025,14 @@
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
                         "schema": {
                             "type": "array",
                             "items": {
                                 "type": "string",
                                 "enum": [
-                                    "url"
+                                    "url",
+                                    "clips"
                                 ]
                             }
                         },
@@ -6151,6 +6060,26 @@
                         },
                         "style": "deepObject",
                         "explode": true
+                    },
+                    {
+                        "name": "withCount",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `clips`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "clips"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "x-profile": "https://haddowg.github.io/json-api/profiles/countable/"
+                    },
+                    {
+                        "$ref": "#/components/parameters/relatedQuery"
                     }
                 ],
                 "responses": {
@@ -6240,18 +6169,22 @@
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
                         "schema": {
                             "type": "array",
                             "items": {
                                 "type": "string",
                                 "enum": [
-                                    "url"
+                                    "url",
+                                    "clips"
                                 ]
                             }
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "$ref": "#/components/parameters/relatedQuery"
                     }
                 ],
                 "responses": {
@@ -6261,6 +6194,247 @@
                             "application/vnd.api+json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ImagesDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request — the request was malformed (e.g. an invalid query parameter).",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden — the request is not authorised.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found — the resource does not exist.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "Not Acceptable — the `Accept` header could not be satisfied.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — authentication is required and was missing or invalid.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/images/{id}/clips": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `images` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Fetch the related clips of a images",
+                "description": "Returns the related `clips` resources of a `images`.",
+                "operationId": "fetchRelated.images.clips",
+                "parameters": [
+                    {
+                        "name": "fields[videos]",
+                        "in": "query",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "url",
+                                    "seconds"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "withCount",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "_self_"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "x-profile": "https://haddowg.github.io/json-api/profiles/countable/"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The related clips collection.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VideosCollection"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request — the request was malformed (e.g. an invalid query parameter).",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden — the request is not authorised.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found — the resource does not exist.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "Not Acceptable — the `Accept` header could not be satisfied.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — authentication is required and was missing or invalid.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorDocument"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/images/{id}/relationships/clips": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `images` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Fetch the clips relationship of a images",
+                "description": "Returns the `clips` relationship linkage of a `images`.",
+                "operationId": "fetchRelationship.images.clips",
+                "parameters": [
+                    {
+                        "name": "withCount",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "_self_"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "x-profile": "https://haddowg.github.io/json-api/profiles/countable/"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The clips relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ImagesClipsRelationshipDocument"
                                 }
                             }
                         }
@@ -8573,52 +8747,6 @@
                     }
                 ]
             },
-            "CompaniesCollection": {
-                "type": "object",
-                "properties": {
-                    "data": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/CompaniesResource"
-                        }
-                    },
-                    "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
-                    },
-                    "meta": {
-                        "$ref": "#/components/schemas/Meta"
-                    },
-                    "jsonapi": {
-                        "$ref": "#/components/schemas/JsonApi"
-                    }
-                },
-                "required": [
-                    "data"
-                ]
-            },
-            "CompaniesResource": {
-                "type": "object",
-                "description": "An `companies` resource object.",
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "const": "companies"
-                    },
-                    "id": {
-                        "type": "string"
-                    },
-                    "attributes": {
-                        "type": "object"
-                    },
-                    "meta": {
-                        "type": "object"
-                    }
-                },
-                "required": [
-                    "type",
-                    "id"
-                ]
-            },
             "CompaniesResourceIdentifier": {
                 "type": "object",
                 "properties": {
@@ -9214,6 +9342,46 @@
                     "url"
                 ]
             },
+            "ImagesClipsRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VideosResourceIdentifier"
+                        }
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ImagesClipsRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VideosResourceIdentifier"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/PaginationLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
             "ImagesCollection": {
                 "type": "object",
                 "properties": {
@@ -9272,7 +9440,12 @@
                         "$ref": "#/components/schemas/ImagesAttributes"
                     },
                     "relationships": {
-                        "type": "object"
+                        "type": "object",
+                        "properties": {
+                            "clips": {
+                                "$ref": "#/components/schemas/ImagesClipsRelationship"
+                            }
+                        }
                     },
                     "links": {
                         "$ref": "#/components/schemas/Links"
@@ -9957,33 +10130,6 @@
                     },
                     "links": {
                         "$ref": "#/components/schemas/PaginationLinks"
-                    },
-                    "meta": {
-                        "$ref": "#/components/schemas/Meta"
-                    },
-                    "jsonapi": {
-                        "$ref": "#/components/schemas/JsonApi"
-                    }
-                },
-                "required": [
-                    "data"
-                ]
-            },
-            "PeopleCompanyRelatedDocument": {
-                "type": "object",
-                "properties": {
-                    "data": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/CompaniesResource"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    },
-                    "links": {
-                        "$ref": "#/components/schemas/Links"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
