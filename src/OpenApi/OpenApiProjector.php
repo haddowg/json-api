@@ -379,14 +379,15 @@ final class OpenApiProjector
      *   collection. The synthesized shapes are permissive (enough to resolve and
      *   self-describe); a registered related type already has concrete ones.
      *
+     * The types that pick up a resource object here are exactly
+     * {@see ProjectedTypes::relatedOnly()} — the accessor a framework integration reads
+     * to keep its per-type JSON Schema bundle covering the same set this document does.
+     *
      * @param array<string, Schema> $schemas
      */
     private function addUnregisteredRelatedComponents(array &$schemas, ServerMetadataInterface $server): void
     {
-        $registered = [];
-        foreach ($server->types() as $type) {
-            $registered[$type->type()] = true;
-        }
+        $registered = \array_fill_keys(ProjectedTypes::registered($server), true);
 
         foreach ($server->types() as $type) {
             foreach ($type->relations() as $relation) {
