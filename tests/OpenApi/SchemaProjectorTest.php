@@ -155,8 +155,69 @@ final class SchemaProjectorTest extends TestCase
     public function dateTimeFamilyProjectsTheRightFormat(): void
     {
         self::assertSame(['type' => 'string', 'format' => 'date'], $this->project(Date::make('d')->build()));
-        self::assertSame(['type' => 'string', 'format' => 'time'], $this->project(Time::make('t')->build()));
         self::assertSame(['type' => 'string', 'format' => 'date-time'], $this->project(DateTime::make('dt')->build()));
+    }
+
+    /**
+     * `format: time` is RFC 3339 `full-time`, which requires an offset — so Time's own
+     * `H:i:s` default has never satisfied it and is documented as a plain string.
+     */
+    #[Test]
+    public function defaultTimeProjectsAsAPlainStringWithItsShapeInProse(): void
+    {
+        $schema = $this->project(Time::make('t')->build());
+
+        self::assertSame('string', $this->at($schema, 'type'));
+        $this->missing($schema, 'format');
+        self::assertStringContainsString('`09:08:07`', $this->stringAt($schema, 'description'));
+    }
+
+    #[Test]
+    public function anOffsetBearingTimeFormatKeepsTheTimeKeyword(): void
+    {
+        $schema = $this->project(Time::make('t')->format('H:i:sP')->build());
+
+        self::assertSame(['type' => 'string', 'format' => 'time'], $schema);
+    }
+
+    #[Test]
+    public function aNonDefaultButStillRfc3339FormatKeepsItsKeyword(): void
+    {
+        self::assertSame(
+            ['type' => 'string', 'format' => 'date-time'],
+            $this->project(DateTime::make('dt')->format(\DateTimeInterface::RFC3339_EXTENDED)->build()),
+        );
+    }
+
+    #[Test]
+    public function aCustomDateTimeFormatDropsTheKeywordAndDescribesItsShape(): void
+    {
+        $schema = $this->project(DateTime::make('dt')->format('d/m/Y H:i')->build());
+
+        self::assertSame('string', $this->at($schema, 'type'));
+        $this->missing($schema, 'format');
+        self::assertStringContainsString('`05/09/2024 09:08`', $this->stringAt($schema, 'description'));
+    }
+
+    #[Test]
+    public function aCustomDateFormatDropsTheKeywordAndDescribesItsShape(): void
+    {
+        $schema = $this->project(Date::make('d')->format('d/m/Y')->build());
+
+        self::assertSame('string', $this->at($schema, 'type'));
+        $this->missing($schema, 'format');
+        self::assertStringContainsString('`05/09/2024`', $this->stringAt($schema, 'description'));
+    }
+
+    #[Test]
+    public function theShapeNoteIsAppendedToTheAuthorsOwnDescription(): void
+    {
+        $schema = $this->project(
+            DateTime::make('dt')->format('d/m/Y H:i')->describedAs('When it was archived.')->build(),
+        );
+
+        self::assertStringStartsWith('When it was archived.', $this->stringAt($schema, 'description'));
+        self::assertStringContainsString('`05/09/2024 09:08`', $this->stringAt($schema, 'description'));
     }
 
     #[Test]

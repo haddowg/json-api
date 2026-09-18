@@ -34,6 +34,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Filter\Boolean as BooleanFilter;
 use haddowg\JsonApi\Resource\Filter\Contains;
@@ -128,6 +129,13 @@ final class ContractWitnessServer
                 Boolean::make('featured')->build(),
                 Date::make('releasedOn')->build(),
                 DateTime::make('publishedAt')->nullable()->build(),
+                // The three temporal projections: a non-default format that is still
+                // RFC 3339 keeps its keyword, one that is not loses it for a shape note,
+                // and Time's own default is the second of those (`H:i:s` carries no
+                // offset, so it is not an RFC 3339 full-time).
+                DateTime::make('syncedAt')->format(\DateTimeInterface::RFC3339_EXTENDED)->build(),
+                DateTime::make('archivedAt')->format('d/m/Y H:i')->build(),
+                Time::make('embargoLifts')->build(),
                 Email::make('editorEmail')->build(),
                 Url::make('canonicalUrl')->build(),
                 ArrayList::make('keywords')->minItems(1)->maxItems(10)->uniqueItems()->build(),

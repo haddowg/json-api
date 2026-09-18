@@ -22,7 +22,6 @@ use haddowg\JsonApi\Resource\Enum\DescribedEnum;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
-use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
@@ -31,7 +30,6 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
-use haddowg\JsonApi\Resource\Field\Time;
 
 /**
  * Projects core JSON:API type metadata (fields + their declared constraints) into
@@ -49,7 +47,10 @@ use haddowg\JsonApi\Resource\Field\Time;
  * (no cross-property comparison in 2020-12), and an {@see After}/{@see Before}/
  * {@see Between} date/time bound (JSON Schema 2020-12 has no standard keyword that
  * bounds a `date-time` *string*) — is never emitted as a wrong keyword; instead a
- * human-readable note is appended to the schema `description`.
+ * human-readable note is appended to the schema `description`. The same rule governs
+ * the `format` keyword of a {@see DateTime} field: `date-time`, `date` and `time` are
+ * RFC 3339 productions, so a field configured to serialize anything else is documented
+ * as a plain string whose shape is given by example (see {@see temporalShapeNotes()}).
  *
  * **Backed enums.** When a field's {@see In} carries an enum class-string, the
  * `enum` schema additionally gains `x-enum-varnames` (case names) and, when the
@@ -120,7 +121,7 @@ final class SchemaProjector
         // (default `string`); non-list fields never carry an Each constraint.
         $itemType = $field instanceof ArrayList ? $field->elementType() : 'string';
 
-        $notes = [];
+        $notes = $this->temporalShapeNotes($field);
         foreach ($field->constraints() as $constraint) {
             if (!$constraint->context()->appliesTo($creating)) {
                 continue;
@@ -337,7 +338,9 @@ final class SchemaProjector
 
     /**
      * The base type/format schema for a field, derived structurally from its PHP
-     * class (the narrower Date/Time/DateTime order matters — they share a base).
+     * class. The `format` keyword of a date/time field is the exception: it comes
+     * from the field's configured serialization format rather than its class, since
+     * that format is what decides whether an RFC 3339 keyword is true.
      */
     private function typeSchema(FieldInterface $field): Schema
     {
@@ -352,12 +355,7 @@ final class SchemaProjector
 
         $schema = Schema::ofType($type);
 
-        $format = match (true) {
-            $field instanceof Date => 'date',
-            $field instanceof Time => 'time',
-            $field instanceof DateTime => 'date-time',
-            default => null,
-        };
+        $format = $field instanceof DateTime ? $field->schemaFormat() : null;
         if ($format !== null) {
             $schema = $schema->withFormat($format);
         }
@@ -602,6 +600,34 @@ final class SchemaProjector
         }
 
         return $schema;
+    }
+
+    /**
+     * Degrades a date/time field whose configured serialization format is not RFC 3339
+     * to a human-readable note.
+     *
+     * `date-time`, `date` and `time` are each defined as an RFC 3339 production, so a
+     * server that writes anything else cannot be given one of those keywords without
+     * misdirecting every consumer that reads it — a generated client coerces on the
+     * keyword and gets a parse failure, or a wrong-shaped value, from a response the
+     * document called valid. The field is documented as the plain string it is, and the
+     * shape it does take is described by example. No `pattern` is derived: a PHP format
+     * string can render variable-width fields and open-ended timezone names, so a
+     * regex inferred from one would eventually reject a response the server is entitled
+     * to send, which is worse for a consumer than no regex at all.
+     *
+     * @return list<string>
+     */
+    private function temporalShapeNotes(FieldInterface $field): array
+    {
+        if (!$field instanceof DateTime || $field->schemaFormat() !== null) {
+            return [];
+        }
+
+        return [\sprintf(
+            'A date/time value written as `%s`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time.',
+            $field->sampleWireValue(),
+        )];
     }
 
     /**
