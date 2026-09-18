@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -13,7 +12,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * Depth is the number of relationship hops from the primary resource:
  * `?include=a` is depth 1, `?include=a.b.c` is depth 3.
  */
-final class InclusionDepthExceeded extends AbstractJsonApiException
+final class InclusionDepthExceeded extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param list<string> $paths
@@ -22,17 +21,25 @@ final class InclusionDepthExceeded extends AbstractJsonApiException
     {
         parent::__construct(
             "Included paths '" . \implode(', ', $paths) . "' exceed the maximum include depth of " . $maxDepth . '!',
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'INCLUSION_DEPTH_EXCEEDED',
+            status: 400,
+            title: 'Inclusion depth exceeded',
+            context: ['paths' => ErrorContextType::Str, 'maxDepth' => ErrorContextType::Integer],
+            source: ErrorSourceShape::Parameter,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'INCLUSION_DEPTH_EXCEEDED',
-                title: 'Inclusion depth exceeded',
+            self::describe()->toError(
                 detail: "Included paths '" . \implode(', ', $this->paths) . "' exceed the maximum include depth of " . $this->maxDepth . ' permitted by the endpoint!',
                 context: ['paths' => \implode(', ', $this->paths), 'maxDepth' => $this->maxDepth],
                 source: ErrorSource::fromParameter('include'),

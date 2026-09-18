@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
-final class ResourceIdConflict extends AbstractJsonApiException
+final class ResourceIdConflict extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(
         public readonly string $documentId,
@@ -15,17 +14,26 @@ final class ResourceIdConflict extends AbstractJsonApiException
     ) {
         parent::__construct(
             "Resource id '$documentId' does not match the endpoint id '$endpointId'!",
-            409,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RESOURCE_ID_CONFLICT',
+            status: 409,
+            title: 'Resource id conflict',
+            context: ['documentId' => ErrorContextType::Str, 'endpointId' => ErrorContextType::Str],
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::Writes,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '409',
-                code: 'RESOURCE_ID_CONFLICT',
-                title: 'Resource id conflict',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['documentId' => $this->documentId, 'endpointId' => $this->endpointId],
                 source: ErrorSource::fromPointer('/data/id'),

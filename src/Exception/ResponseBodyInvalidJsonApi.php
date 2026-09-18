@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
-final class ResponseBodyInvalidJsonApi extends AbstractJsonApiException
+final class ResponseBodyInvalidJsonApi extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param list<array{message: string, property?: string}> $validationErrors
@@ -17,7 +16,16 @@ final class ResponseBodyInvalidJsonApi extends AbstractJsonApiException
         public readonly mixed $originalBody = null,
         public readonly bool $includeOriginalBody = false,
     ) {
-        parent::__construct('Response body is an invalid JSON:API document: ' . \print_r($validationErrors, true), 500);
+        parent::__construct('Response body is an invalid JSON:API document: ' . \print_r($validationErrors, true), self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RESPONSE_BODY_INVALID_JSON_API',
+            status: 500,
+            title: 'Response body is an invalid JSON:API document',
+        );
     }
 
     public function getErrors(): array
@@ -28,10 +36,7 @@ final class ResponseBodyInvalidJsonApi extends AbstractJsonApiException
         foreach ($this->validationErrors as $validationError) {
             $property = $validationError['property'] ?? '';
 
-            $errors[] = new Error(
-                status: '500',
-                code: 'RESPONSE_BODY_INVALID_JSON_API',
-                title: 'Response body is an invalid JSON:API document',
+            $errors[] = self::describe()->toError(
                 detail: \ucfirst($validationError['message']),
                 source: $property !== '' ? ErrorSource::fromPointer($property) : null,
                 meta: $first && $this->includeOriginalBody ? ['original' => $this->originalBody] : [],
