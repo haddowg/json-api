@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 3
+            "contract": 4
         }
     },
     "servers": [
@@ -3821,18 +3821,55 @@
                         "in": "query",
                         "description": "Pagination parameters, e.g. `page[number]=2&page[size]=10`.",
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "number": {
-                                    "type": "integer",
-                                    "description": "The page number to retrieve.",
-                                    "minimum": 1
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "number": {
+                                            "type": "integer",
+                                            "description": "The page number to retrieve.",
+                                            "minimum": 1
+                                        },
+                                        "size": {
+                                            "type": "integer",
+                                            "description": "The number of resources per page.",
+                                            "minimum": 1
+                                        },
+                                        "kind": {
+                                            "type": "string",
+                                            "description": "Selects the pagination strategy.",
+                                            "const": "page"
+                                        }
+                                    },
+                                    "additionalProperties": false
                                 },
-                                "size": {
-                                    "type": "integer",
-                                    "description": "The number of resources per page.",
-                                    "minimum": 1
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "after": {
+                                            "type": "string",
+                                            "description": "An opaque cursor; returns the page immediately AFTER this position."
+                                        },
+                                        "before": {
+                                            "type": "string",
+                                            "description": "An opaque cursor; returns the page immediately BEFORE this position."
+                                        },
+                                        "size": {
+                                            "type": "integer",
+                                            "description": "The number of resources per page.",
+                                            "minimum": 1
+                                        },
+                                        "kind": {
+                                            "type": "string",
+                                            "description": "Selects the pagination strategy.",
+                                            "const": "cursor"
+                                        }
+                                    },
+                                    "additionalProperties": false
                                 }
+                            ],
+                            "discriminator": {
+                                "propertyName": "kind"
                             }
                         },
                         "style": "deepObject",
@@ -6959,6 +6996,68 @@
     },
     "components": {
         "schemas": {
+            "AdditionProhibitedError": {
+                "title": "Addition is prohibited",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "ADDITION_PROHIBITED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "relationship": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ApplicationError": {
+                "title": "Application error",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "APPLICATION_ERROR"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "500"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
             "ArticlesAtomicAdd": {
                 "type": "object",
                 "description": "The resource object an `add` operation creates.",
@@ -8203,6 +8302,38 @@
                     "op"
                 ]
             },
+            "AtomicOperationsInvalidError": {
+                "title": "Atomic operations request is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "ATOMIC_OPERATIONS_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
             "AtomicOperationsRequest": {
                 "type": "object",
                 "description": "The Atomic Operations extension request document: an ordered, all-or-nothing batch of write operations.",
@@ -8301,6 +8432,147 @@
                     "atomic:results"
                 ]
             },
+            "AttributeValueInvalidError": {
+                "title": "Attribute value is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "ATTRIBUTE_VALUE_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "422"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "attribute": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ClientGeneratedIdAlreadyExistsError": {
+                "title": "Client generated ID already exists",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "CLIENT_GENERATED_ID_ALREADY_EXISTS"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "409"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ClientGeneratedIdNotSupportedError": {
+                "title": "Client generated ID is not supported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "CLIENT_GENERATED_ID_NOT_SUPPORTED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "ClientGeneratedIdRequiredError": {
+                "title": "Required client generated ID",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "CLIENT_GENERATED_ID_REQUIRED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
             "CompaniesCollection": {
                 "type": "object",
                 "properties": {
@@ -8366,6 +8638,105 @@
                     "id"
                 ]
             },
+            "CursorMalformedError": {
+                "title": "Cursor is malformed",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "CURSOR_MALFORMED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "parameter": {
+                        "type": "string"
+                    }
+                }
+            },
+            "CursorStaleError": {
+                "title": "Cursor is stale",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "CURSOR_STALE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "parameter": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DataMemberMissingError": {
+                "title": "Missing `data` member at the document's top level",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "DATA_MEMBER_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
             "Error": {
                 "type": "object",
                 "properties": {
@@ -8402,7 +8773,171 @@
                         "type": "array",
                         "minItems": 1,
                         "items": {
-                            "$ref": "#/components/schemas/Error"
+                            "description": "A JSON:API error object. The named branches catalogue the codes this server documents; the leading generic `Error` keeps the list open, so an error carrying an undocumented `code` is still a valid error object.",
+                            "anyOf": [
+                                {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AdditionProhibitedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ApplicationError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AtomicOperationsInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AttributeValueInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ClientGeneratedIdAlreadyExistsError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ClientGeneratedIdNotSupportedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ClientGeneratedIdRequiredError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/CursorMalformedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/CursorStaleError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/DataMemberMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FieldsetMemberUnrecognizedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FilteringUnrecognizedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FilterValueInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/FullReplacementProhibitedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/InclusionDepthExceededError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/InclusionNotAllowedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/InclusionUnrecognizedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/InclusionUnsupportedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/LocalIdConflictError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/LocalIdNotFoundError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/LocalIdNotSupportedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/MediaTypeUnacceptableError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/MediaTypeUnsupportedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/NoResourceRegisteredError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/PaginationKindUnknownError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/QueryParamMalformedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/QueryParamUnrecognizedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RelatedAttributeOwnerMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RelationshipCountNotAllowedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RelationshipNotExistsError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RelationshipTypeInappropriateError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RemovalProhibitedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RequestBodyInvalidJsonError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RequestBodyInvalidJsonApiError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RequiredTopLevelMembersMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdConflictError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdentifierIdInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdentifierIdMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdentifierLidInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdentifierTypeInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdentifierTypeMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceIdUndecodableError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceNotFoundError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceTypeMissingError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResourceTypeUnacceptableError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResponseBodyInvalidJsonError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ResponseBodyInvalidJsonApiError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/SortingUnsupportedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/SortingUnrecognizedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/TopLevelMemberNotAllowedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/TopLevelMembersIncompatibleError"
+                                }
+                            ]
                         }
                     },
                     "links": {
@@ -8429,6 +8964,152 @@
                         "type": "string"
                     },
                     "header": {
+                        "type": "string"
+                    }
+                }
+            },
+            "FieldsetMemberUnrecognizedError": {
+                "title": "Fieldset member is unrecognized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "FIELDSET_MEMBER_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "members": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "FilterValueInvalidError": {
+                "title": "Filter value is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "FILTER_VALUE_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "FilteringUnrecognizedError": {
+                "title": "Filtering parameter is unrecognized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "FILTERING_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "filter": {
+                        "type": "string"
+                    }
+                }
+            },
+            "FullReplacementProhibitedError": {
+                "title": "Full replacement is prohibited",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "FULL_REPLACEMENT_PROHIBITED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "relationship": {
                         "type": "string"
                     }
                 }
@@ -8624,6 +9305,152 @@
                     "id"
                 ]
             },
+            "InclusionDepthExceededError": {
+                "title": "Inclusion depth exceeded",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "INCLUSION_DEPTH_EXCEEDED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "paths": {
+                        "type": "string"
+                    },
+                    "maxDepth": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "InclusionNotAllowedError": {
+                "title": "Inclusion is not allowed",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "INCLUSION_NOT_ALLOWED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "paths": {
+                        "type": "string"
+                    }
+                }
+            },
+            "InclusionUnrecognizedError": {
+                "title": "Inclusion is unrecognized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "INCLUSION_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "paths": {
+                        "type": "string"
+                    }
+                }
+            },
+            "InclusionUnsupportedError": {
+                "title": "Inclusion is unsupported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "INCLUSION_UNSUPPORTED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
             "JsonApi": {
                 "type": "object",
                 "description": "An object describing the server's implementation of the JSON:API specification.",
@@ -8708,6 +9535,184 @@
                     "$ref": "#/components/schemas/LinkObject"
                 }
             },
+            "LocalIdConflictError": {
+                "title": "Local id conflict",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "LOCAL_ID_CONFLICT"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "lid": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LocalIdNotFoundError": {
+                "title": "Local id not found",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "LOCAL_ID_NOT_FOUND"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "lid": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LocalIdNotSupportedError": {
+                "title": "Local id is not supported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "LOCAL_ID_NOT_SUPPORTED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "MediaTypeUnacceptableError": {
+                "title": "The provided media type is unacceptable",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "MEDIA_TYPE_UNACCEPTABLE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "406"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "mediaType": {
+                        "type": "string"
+                    },
+                    "header": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MediaTypeUnsupportedError": {
+                "title": "The provided media type is unsupported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "MEDIA_TYPE_UNSUPPORTED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "415"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "mediaType": {
+                        "type": "string"
+                    },
+                    "header": {
+                        "type": "string"
+                    }
+                }
+            },
             "Meta": {
                 "type": "object",
                 "description": "A JSON:API meta object: a free-form set of non-standard members.",
@@ -8730,6 +9735,76 @@
                 "required": [
                     "meta"
                 ]
+            },
+            "NoResourceRegisteredError": {
+                "title": "No resource registered",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "NO_RESOURCE_REGISTERED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "500"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PaginationKindUnknownError": {
+                "title": "Pagination kind is not supported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "PAGINATION_KIND_UNKNOWN"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "kinds": {
+                        "type": "string"
+                    }
+                }
             },
             "PaginationLinks": {
                 "type": "object",
@@ -9146,6 +10221,835 @@
                     "High"
                 ]
             },
+            "QueryParamMalformedError": {
+                "title": "Query parameter is malformed",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "QUERY_PARAM_MALFORMED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "param": {
+                        "type": "string"
+                    }
+                }
+            },
+            "QueryParamUnrecognizedError": {
+                "title": "Query parameter is unrecognized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "QUERY_PARAM_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "param": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RelatedAttributeOwnerMissingError": {
+                "title": "Related attribute owner missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RELATED_ATTRIBUTE_OWNER_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "422"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "attribute": {
+                        "type": "string"
+                    },
+                    "relation": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RelationshipCountNotAllowedError": {
+                "title": "Relationship count is not allowed",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RELATIONSHIP_COUNT_NOT_ALLOWED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "names": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RelationshipNotExistsError": {
+                "title": "The requested relationship does not exist!",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RELATIONSHIP_NOT_EXISTS"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "404"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "relationship": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RelationshipTypeInappropriateError": {
+                "title": "Relationship type is inappropriate",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RELATIONSHIP_TYPE_INAPPROPRIATE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "RemovalProhibitedError": {
+                "title": "Removal is prohibited",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "REMOVAL_PROHIBITED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "relationship": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RequestBodyInvalidJsonApiError": {
+                "title": "Request body is an invalid JSON:API document",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "REQUEST_BODY_INVALID_JSON_API"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "RequestBodyInvalidJsonError": {
+                "title": "Request body is an invalid JSON document",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "REQUEST_BODY_INVALID_JSON"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RequiredTopLevelMembersMissingError": {
+                "title": "Required top-level members are missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "REQUIRED_TOP_LEVEL_MEMBERS_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "ResourceIdConflictError": {
+                "title": "Resource id conflict",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_ID_CONFLICT"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "409"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "documentId": {
+                        "type": "string"
+                    },
+                    "endpointId": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdInvalidError": {
+                "title": "Resource ID is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_ID_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdMissingError": {
+                "title": "Resource ID is missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_ID_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "ResourceIdUndecodableError": {
+                "title": "Resource ID is undecodable",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_ID_UNDECODABLE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "422"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdentifierIdInvalidError": {
+                "title": "Resource identifier ID is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_IDENTIFIER_ID_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdentifierIdMissingError": {
+                "title": "An ID for the resource identifier is missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_IDENTIFIER_ID_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "ResourceIdentifierLidInvalidError": {
+                "title": "Resource identifier local ID is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_IDENTIFIER_LID_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdentifierTypeInvalidError": {
+                "title": "Resource identifier type is invalid",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_IDENTIFIER_TYPE_INVALID"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResourceIdentifierTypeMissingError": {
+                "title": "A type for the resource identifier is missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_IDENTIFIER_TYPE_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "ResourceNotFoundError": {
+                "title": "Resource not found",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_NOT_FOUND"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "404"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "ResourceTypeMissingError": {
+                "title": "Resource type is missing",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_TYPE_MISSING"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
+            "ResourceTypeUnacceptableError": {
+                "title": "Resource type is unacceptable",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESOURCE_TYPE_UNACCEPTABLE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "409"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ResponseBodyInvalidJsonApiError": {
+                "title": "Response body is an invalid JSON:API document",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESPONSE_BODY_INVALID_JSON_API"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "500"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "ResponseBodyInvalidJsonError": {
+                "title": "Response body is an invalid JSON document",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "RESPONSE_BODY_INVALID_JSON"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "500"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "SortingUnrecognizedError": {
+                "title": "Sorting parameter is unrecognized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "SORTING_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ],
+                "x-error-context": {
+                    "param": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SortingUnsupportedError": {
+                "title": "Sorting is unsupported",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "SORTING_UNSUPPORTED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "parameter"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
             "Status": {
                 "description": "| Value | Description |\n| --- | --- |\n| `draft` | Not yet visible to readers |\n| `published` | Live and public |\n| `archived` |  |",
                 "enum": [
@@ -9503,6 +11407,56 @@
                 },
                 "required": [
                     "data"
+                ]
+            },
+            "TopLevelMemberNotAllowedError": {
+                "title": "Top-level member is not allowed",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "TOP_LEVEL_MEMBER_NOT_ALLOWED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
+            "TopLevelMembersIncompatibleError": {
+                "title": "Top-level members are incompatible",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "TOP_LEVEL_MEMBERS_INCOMPATIBLE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
                 ]
             },
             "VideosAtomicAdd": {

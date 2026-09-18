@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
-final class RelationshipTypeInappropriate extends AbstractJsonApiException
+final class RelationshipTypeInappropriate extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(
         public readonly string $relationshipName,
@@ -17,17 +16,25 @@ final class RelationshipTypeInappropriate extends AbstractJsonApiException
         parent::__construct(
             "The provided relationship '$relationshipName' is of type of $currentRelationshipType, but " .
             ($expectedRelationshipType !== '' ? "$expectedRelationshipType is" : 'it is not the one which is') . ' expected!',
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RELATIONSHIP_TYPE_INAPPROPRIATE',
+            status: 400,
+            title: 'Relationship type is inappropriate',
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::Writes,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'RELATIONSHIP_TYPE_INAPPROPRIATE',
-                title: 'Relationship type is inappropriate',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 source: ErrorSource::fromPointer("/data/relationships/$this->relationshipName"),
             ),

@@ -22,20 +22,28 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  *
  * @see https://jsonapi.org/ext/atomic/
  */
-final class AtomicOperationsInvalid extends AbstractJsonApiException
+final class AtomicOperationsInvalid extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(private readonly string $detail, private readonly string $pointer)
     {
-        parent::__construct($detail, 400);
+        parent::__construct($detail, self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'ATOMIC_OPERATIONS_INVALID',
+            status: 400,
+            title: 'Atomic operations request is invalid',
+            source: ErrorSourceShape::Pointer,
+            feature: ErrorFeature::AtomicOperations,
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'ATOMIC_OPERATIONS_INVALID',
-                title: 'Atomic operations request is invalid',
+            self::describe()->toError(
                 detail: $this->detail,
                 source: ErrorSource::fromPointer($this->pointer),
             ),

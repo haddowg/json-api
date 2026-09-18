@@ -4,23 +4,30 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
-final class FilterParamUnrecognized extends AbstractJsonApiException
+final class FilterParamUnrecognized extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(public readonly string $filterParam)
     {
-        parent::__construct("Filtering parameter '$filterParam' can't be recognized!", 400);
+        parent::__construct("Filtering parameter '$filterParam' can't be recognized!", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'FILTERING_UNRECOGNIZED',
+            status: 400,
+            title: 'Filtering parameter is unrecognized',
+            context: ['filter' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'FILTERING_UNRECOGNIZED',
-                title: 'Filtering parameter is unrecognized',
+            self::describe()->toError(
                 detail: "Filtering parameter '$this->filterParam' can't be recognized by the endpoint!",
                 context: ['filter' => $this->filterParam],
                 source: ErrorSource::fromParameter("filter[$this->filterParam]"),

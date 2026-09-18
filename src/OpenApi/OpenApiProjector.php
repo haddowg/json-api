@@ -198,7 +198,8 @@ final class OpenApiProjector
 
     /**
      * The components shared by every document: the JSON:API object, the top-level
-     * links / meta containers, and the error document.
+     * links / meta containers, the error document, and the per-code error variants the
+     * server's registered feature set can raise.
      *
      * @param array<string, Schema> $schemas
      */
@@ -217,7 +218,16 @@ final class OpenApiProjector
         $schemas['PaginationLinks'] = $this->paginationLinksSchema();
         $schemas['ErrorSource'] = $this->errorSourceSchema();
         $schemas['Error'] = $this->errorObjectSchema();
-        $schemas['ErrorDocument'] = $this->errorDocumentSchema();
+
+        $catalog = new ErrorCatalogProjector();
+        $variants = $catalog->components($server);
+        $schemas['ErrorDocument'] = $this->errorDocumentSchema(
+            $catalog->errorsItemSchema(\array_keys($variants)),
+        );
+
+        foreach ($variants as $name => $variant) {
+            $schemas[$name] = $variant;
+        }
     }
 
     /**
@@ -1400,12 +1410,13 @@ final class OpenApiProjector
 
     /**
      * The shared error-document schema: `{errors: [<Error>], meta?, jsonapi?, links?}`,
-     * mirroring core's {@see \haddowg\JsonApi\Schema\Error\Error} object shape.
+     * mirroring core's {@see \haddowg\JsonApi\Schema\Error\Error} object shape. `$item`
+     * is the open error-code catalogue built by {@see ErrorCatalogProjector}.
      */
-    private function errorDocumentSchema(): Schema
+    private function errorDocumentSchema(Schema $item): Schema
     {
         return Schema::ofType('object')
-            ->withProperty('errors', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/Error'))->withMinItems(1))
+            ->withProperty('errors', Schema::ofType('array')->withItems($item)->withMinItems(1))
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))

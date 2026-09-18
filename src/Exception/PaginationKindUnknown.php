@@ -16,7 +16,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * unrecognised strategy request is a client mistake worth signalling (an ambiguous
  * or garbage `page[…]` value without a `kind` still falls back to the default).
  */
-final class PaginationKindUnknown extends AbstractJsonApiException
+final class PaginationKindUnknown extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param string       $kind       the requested `page[kind]` value that no child declares
@@ -26,7 +26,19 @@ final class PaginationKindUnknown extends AbstractJsonApiException
         public readonly string $kind,
         public readonly array $validKinds,
     ) {
-        parent::__construct("Pagination kind '$kind' is not supported!", 400);
+        parent::__construct("Pagination kind '$kind' is not supported!", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'PAGINATION_KIND_UNKNOWN',
+            status: 400,
+            title: 'Pagination kind is not supported',
+            context: ['kind' => ErrorContextType::Str, 'kinds' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
+            feature: ErrorFeature::PaginationMenu,
+        );
     }
 
     public function getErrors(): array
@@ -34,10 +46,7 @@ final class PaginationKindUnknown extends AbstractJsonApiException
         $valid = \implode(', ', $this->validKinds);
 
         return [
-            new Error(
-                status: '400',
-                code: 'PAGINATION_KIND_UNKNOWN',
-                title: 'Pagination kind is not supported',
+            self::describe()->toError(
                 detail: "The pagination strategy 'page[kind]=$this->kind' is not supported; use one of: $valid.",
                 context: ['kind' => $this->kind, 'kinds' => $valid],
                 source: ErrorSource::fromParameter('page[kind]'),

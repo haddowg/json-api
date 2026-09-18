@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -16,7 +15,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * than silently ignored — mirroring the include-safeguard rejection of an
  * unpermitted `?include` path.
  */
-final class RelationshipCountNotAllowed extends AbstractJsonApiException
+final class RelationshipCountNotAllowed extends AbstractJsonApiException implements DescribedErrorInterface
 {
     /**
      * @param list<string> $names the offending relationship name(s) named in `?withCount`
@@ -25,17 +24,26 @@ final class RelationshipCountNotAllowed extends AbstractJsonApiException
     {
         parent::__construct(
             "Counted relationships '" . \implode(', ', $names) . "' are not allowed!",
-            400,
+            self::describe()->status,
+        );
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RELATIONSHIP_COUNT_NOT_ALLOWED',
+            status: 400,
+            title: 'Relationship count is not allowed',
+            context: ['names' => ErrorContextType::Str],
+            source: ErrorSourceShape::Parameter,
+            feature: ErrorFeature::RelationshipCounts,
         );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '400',
-                code: 'RELATIONSHIP_COUNT_NOT_ALLOWED',
-                title: 'Relationship count is not allowed',
+            self::describe()->toError(
                 detail: "Counted relationships '" . \implode(', ', $this->names) . "' are not countable to-many relationships of this resource!",
                 context: ['names' => \implode(', ', $this->names)],
                 source: ErrorSource::fromParameter('withCount'),

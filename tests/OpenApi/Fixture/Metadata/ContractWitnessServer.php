@@ -20,6 +20,7 @@ use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\Tag;
 use haddowg\JsonApi\Pagination\CursorPaginator;
+use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
@@ -63,9 +64,11 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * union, both enum backing types), all three client-id policies, a read-only type, a
  * standalone type with no field inventory, a related-only type reached across a relation,
  * every relation shape (to-one, to-many, pivot-backed, polymorphic, endpoint-suppressed,
- * mutation-locked), the filter/sort/pagination vocabulary, custom actions in each input
- * mode and scope, non-default success responses, both registered profiles, and the Atomic
- * Operations extension.
+ * mutation-locked), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
+ * menu of both, and an unpaginated collection), custom actions in each input mode and
+ * scope, non-default success responses, both registered profiles, and the Atomic
+ * Operations extension. Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
+ * the error catalogue gates on.
  *
  * Widen it whenever the projector grows a branch it does not reach.
  */
@@ -211,7 +214,9 @@ final class ContractWitnessServer
     /**
      * A client id is permitted but optional, and `company` is a **related-only** type:
      * reached across an exposed related endpoint without being registered, so the
-     * projector synthesizes a permissive resource object for it.
+     * projector synthesizes a permissive resource object for it. Its collection offers a
+     * pagination **menu** — the one page shape that projects as a `oneOf` of strategies
+     * and makes `page[kind]` selectable (and therefore refusable).
      */
     private static function people(): FakeTypeMetadata
     {
@@ -225,6 +230,7 @@ final class ContractWitnessServer
             relations: [new FakeRelationMetadata('company', ['companies'], false)],
             tags: ['People'],
             allowsClientId: true,
+            pageSchema: (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
             filters: [Where::make('name')->build()],
             publicOperations: [OperationType::FetchCollection],
         );

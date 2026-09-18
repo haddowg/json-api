@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
-use haddowg\JsonApi\Schema\Error\Error;
-
-final class RelationshipNotExists extends AbstractJsonApiException
+final class RelationshipNotExists extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(public readonly string $relationship)
     {
-        parent::__construct("The requested relationship '$relationship' does not exist!", 404);
+        parent::__construct("The requested relationship '$relationship' does not exist!", self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'RELATIONSHIP_NOT_EXISTS',
+            status: 404,
+            title: 'The requested relationship does not exist!',
+            context: ['relationship' => ErrorContextType::Str],
+        );
     }
 
     public function getErrors(): array
     {
         return [
-            new Error(
-                status: '404',
-                code: 'RELATIONSHIP_NOT_EXISTS',
-                title: 'The requested relationship does not exist!',
+            self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['relationship' => $this->relationship],
             ),
