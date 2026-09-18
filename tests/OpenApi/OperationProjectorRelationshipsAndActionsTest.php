@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -427,6 +428,26 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertSame('#/components/schemas/TagsResourceIdentifier', $this->strAt($tagsData, 'items', '$ref'));
     }
 
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    #[Group('spec:sparse-fieldsets')]
+    public function aRelationshipMutationAdvertisesNeitherIncludeNorFields(): void
+    {
+        // A relationship endpoint answers with LINKAGE — identifiers, no attributes and
+        // no `included` member, whatever the request asks for (core D16). So the verbs
+        // that mutate one advertise neither parameter, unlike the resource-level writes.
+        $paths = $this->paths();
+
+        foreach ([
+            ['/articles/{id}/relationships/author', 'patch'],
+            ['/articles/{id}/relationships/tags', 'patch'],
+            ['/articles/{id}/relationships/tags', 'post'],
+            ['/articles/{id}/relationships/tags', 'delete'],
+        ] as [$path, $method]) {
+            self::assertArrayNotHasKey('parameters', $this->arrAt($paths, $path, $method), "{$method} {$path}");
+        }
+    }
+
     // ---- Custom-action endpoints ------------------------------------------------
 
     #[Test]
@@ -567,6 +588,57 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $seeOther = $this->arrAt($paths, '/articles/{id}/-actions/result', 'get', 'responses', '303');
         self::assertArrayHasKey('Location', $this->arrAt($seeOther, 'headers'));
         self::assertArrayNotHasKey('content', $seeOther);
+    }
+
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    #[Group('spec:sparse-fieldsets')]
+    public function anActionAdvertisesIncludeAndFieldsForItsBodyTypeOnly(): void
+    {
+        $paths = $this->paths();
+
+        // `publish` answers with an `articles` document, rendered through the same
+        // serializer a read uses — so it takes the `articles` include/fields pair.
+        $publish = $this->arrAt($paths, '/articles/{id}/-actions/publish', 'post');
+        $names = $this->parameterNames($publish);
+        self::assertContains('include', $names);
+        self::assertContains('fields[articles]', $names);
+        self::assertSame(
+            $this->listAt($this->parameterNamed($this->arrAt($paths, '/articles/{id}', 'get'), 'include'), 'schema', 'items', 'enum'),
+            $this->listAt($this->parameterNamed($publish, 'include'), 'schema', 'items', 'enum'),
+        );
+
+        // `import` (204) and `stats` (meta-only 200) answer with no resource document.
+        self::assertArrayNotHasKey('parameters', $this->arrAt($paths, '/articles/-actions/import', 'post'));
+        self::assertArrayNotHasKey('parameters', $this->arrAt($paths, '/articles/-actions/stats', 'post'));
+    }
+
+    #[Test]
+    #[Group('spec:inclusion-of-related-resources')]
+    public function anActionsIncludeParameterFollowsItsBodyTypeNotTheTypeItIsMountedOn(): void
+    {
+        // An action mounted on `articles` whose body is a `people` document advertises
+        // `people`'s includable paths, because `people` is the document's primary data.
+        $articles = FakeTypeMetadata::resource(
+            type: 'articles',
+            fields: [Id::make()->build(), Str::make('title')->build()],
+            relations: [new FakeRelationMetadata('author', ['people'], false)],
+            includablePaths: ['author'],
+            actions: [new FakeActionMetadata('reassign', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('people')])],
+        );
+        $people = FakeTypeMetadata::resource(
+            type: 'people',
+            fields: [Id::make()->build(), Str::make('name')->build()],
+            relations: [new FakeRelationMetadata('company', ['companies'], false)],
+            includablePaths: ['company'],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$articles, $people]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        $reassign = $this->arrAt($paths, '/articles/{id}/-actions/reassign', 'post');
+
+        self::assertSame(['company'], $this->listAt($this->parameterNamed($reassign, 'include'), 'schema', 'items', 'enum'));
+        self::assertSame(['include', 'fields[people]'], $this->parameterNames($reassign));
     }
 
     #[Test]

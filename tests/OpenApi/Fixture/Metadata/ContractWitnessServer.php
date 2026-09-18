@@ -232,7 +232,9 @@ final class ContractWitnessServer
 
     /**
      * A client id is mandatory, and the collection is cursor-paginated (the one
-     * paginator whose page schema omits a total).
+     * paginator whose page schema omits a total). Its create answers `204`: the client
+     * already knows the id it sent, so there is no resource document to echo — and
+     * therefore nothing for `?include` / `fields[…]` to shape.
      */
     private static function tags(): FakeTypeMetadata
     {
@@ -249,6 +251,7 @@ final class ContractWitnessServer
             pageSchema: CursorPaginator::make()->describePageSchema(),
             filters: [Where::make('color')->build()],
             sorts: [SortByField::make('id')],
+            responses: [OperationType::Create->value => [new NoContent()]],
         );
     }
 
@@ -267,7 +270,8 @@ final class ContractWitnessServer
     }
 
     /**
-     * Unpaginated: a collection with no `page[…]` parameters at all.
+     * Unpaginated: a collection with no `page[…]` parameters at all. Its update answers
+     * `204`, the other write that returns no resource document to shape.
      */
     private static function videos(): FakeTypeMetadata
     {
@@ -276,6 +280,7 @@ final class ContractWitnessServer
             fields: [Id::make()->build(), Url::make('url')->build(), Integer::make('seconds')->build()],
             tags: ['Media'],
             unpaginated: true,
+            responses: [OperationType::Update->value => [new NoContent()]],
         );
     }
 }
