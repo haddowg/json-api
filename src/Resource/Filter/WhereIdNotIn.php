@@ -9,8 +9,9 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see WhereIdIn}) — the built, readonly value object an adapter consumes. Authors
  * declare one with {@see make()}, which returns a mutable {@see WhereIdNotInBuilder}.
  */
-final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
+final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
+    use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
@@ -36,6 +37,11 @@ final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Filter\De
     public function key(): string
     {
         return $this->key;
+    }
+
+    public function targetColumn(): string
+    {
+        return $this->column;
     }
 
     public function hasDefault(): bool

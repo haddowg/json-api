@@ -331,7 +331,10 @@ coupled in core). Mirrors the `ConstraintInterface` + translator split; there is
 `Query` interface**. An unrecognised VO at a handler throws the typed
 `UnsupportedFilter`/`UnsupportedSort` (a server-config error → **500**). Core ships
 reference `InMemory\Array{Filter,Sort}Handler` for its own tests and as worked
-examples — **not** a production query layer.
+examples — **not** a production query layer. Two opt-in seams feed the OpenAPI
+projection and nothing else: `DescribesQueryParameter` (the parameter envelope) and
+`TargetsColumn` (the one column a filter compares, so its value schema can default to
+that field's type). A filter that compares no single column implements neither.
 
 ### Server & resource registry
 `src/Server` → [server](docs/server.md). `Server` is an **immutable value** (`make()`
@@ -416,6 +419,21 @@ carries the placeholder shape for the PHP author writing a replacement template,
 [parameter]`/`[pointer]` where the exception fills it unconditionally) — that *is* on the
 wire. Gating is registration-aware per `ErrorFeature`
 ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+
+**A `filter[<key>]` gets its container from the kind and its value from the constraints.**
+The kind decides the envelope — `Range` a `min`/`max` `deepObject`, the four set filters an
+array whose OAS style spells their `delimiter()` (a delimiter OAS cannot spell falls back to
+a plain `string`, not to an array with the wrong separator), a presence-triggered filter a
+`string` — and it does so whether or not constraints were declared. The value inside comes
+from `projectConstraints()`, and **only when those produced nothing at all** does the
+fallback run: `TargetsColumn::targetColumn()` matched against the type's own `fields()`
+(`column()`, so a `computed()` field with its null column never matches, and a `relatedVia()`
+field is skipped — its column is the related object's). Exactly one match, scalar wire form,
+type only — no `format`/`enum`/`maxLength`, which describe a body member and not a
+comparison operand. Anything else emits nothing; never widen this to guess through a
+relationship path or a pivot prefix ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
+The related/relationship endpoints resolve against the **related** type's inventory
+(`relatedFilterParameters()`); a polymorphic relation has none, so its filters stay untyped.
 
 **Temporal `format` keywords are conditional.** `date-time`/`date`/`time` are RFC 3339
 productions, so `DateTime::schemaFormat()` decides whether one may be emitted by rendering

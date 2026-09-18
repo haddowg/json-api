@@ -159,6 +159,17 @@ sketch:
   document is linkage and carries no `included` however the request is spelled. A custom
   action follows its declared body: one answering with a named type's document advertises
   **that** type's pair, even when it is mounted on another.
+- **Filter values that carry a type.** A `filter[<key>]` gets its **container** shape from
+  the filter kind — a set is an array, a range a `min`/`max` object, a presence-only filter
+  a plain string whose description says the value is ignored — and its **value** schema from
+  the filter's declared [value constraints](filters.md#validating-filter-values). A filter
+  that declared none falls back to the JSON type of the field it targets, matching the
+  filter's column against the type's field inventory: a `Where` over a `Str` documents as
+  `{"type": "string"}` where it used to document as `{}`. Only the type carries over — not
+  the field's `format`, `enum` or length, which describe a document member rather than a
+  comparison operand. Where the column resolves to no single scalar field — a relationship
+  path, a group spanning several columns, a computed value, a composite — the parameter
+  stays untyped rather than guessing. ([ADR 0138](adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md).)
 - **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
   productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
   one only when its configured serialization format really writes that shape. A field

@@ -153,7 +153,7 @@ final class OperationProjector
     private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
     {
         $parameters = $this->concatParameters(
-            $this->filterParameters($type->filters()),
+            $this->filterParameters($type->filters(), $type->fields()),
             [$this->sortParameter($type->sorts())],
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
@@ -522,7 +522,7 @@ final class OperationProjector
         if ($relation->isToMany()) {
             $responseRef = $this->relatedCollectionResponseRef($relation, $relBase);
             $parameters = $this->concatParameters(
-                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
@@ -539,7 +539,7 @@ final class OperationProjector
             // vocabulary — any filter `400`s — so it advertises none.
             $parameters = $this->concatParameters(
                 \count($relation->relatedTypes()) === 1
-                    ? $this->filterParameters($this->relatedFilterVocabulary($relation, $server))
+                    ? $this->relatedFilterParameters($relation, $server)
                     : [],
                 [$includeParameter],
                 $fieldsParameters,
@@ -610,11 +610,11 @@ final class OperationProjector
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {
             $getParameters = \count($relation->relatedTypes()) === 1
-                ? $this->filterParameters($this->relatedFilterVocabulary($relation, $server))
+                ? $this->relatedFilterParameters($relation, $server)
                 : [];
         } elseif (\count($relation->relatedTypes()) === 1) {
             $getParameters = $this->concatParameters(
-                $this->filterParameters($this->relatedFilterVocabulary($relation, $server)),
+                $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
@@ -1003,9 +1003,10 @@ final class OperationProjector
     }
 
     /**
-     * One `filter[<key>]` query parameter per declared filter; its value schema is
-     * projected from the filter's value constraints (§4.4). A presence-only filter
-     * (no constraints) yields a permissive value schema.
+     * One `filter[<key>]` query parameter per declared filter (§4.4). Its **value**
+     * schema comes from the filter's declared value constraints; its **container**
+     * shape comes from the filter kind. The two compose: the kind says "a list", the
+     * constraints say "of integers".
      *
      * A filter with a **structured** wire shape describes its own parameter envelope
      * via {@see \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter}: a
@@ -1013,25 +1014,43 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Resource\Filter\DateRange} specialisation) wraps its
      * per-bound value schema into an **object** with `min`/`max` properties and the
      * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape
-     * (ADR 0076/0077). A scalar filter (the default) is its constraint-derived value
-     * schema with no style — so a consumer-defined structured filter documents
-     * correctly with no change here.
+     * (ADR 0076/0077); a set filter ({@see \haddowg\JsonApi\Resource\Filter\WhereIn}
+     * and friends) wraps it into an **array** whose OAS style spells its declared
+     * delimiter. A scalar filter (the default) is its value schema with no style — so
+     * a consumer-defined structured filter documents correctly with no change here.
+     *
+     * Where the filter declared **no** value constraints, `$fields` is the fallback:
+     * a filter that names the column of one field in the inventory documents as that
+     * field's JSON type (ADR 0138, {@see defaultFilterValueType()}).
      *
      * A server-composed group ({@see \haddowg\JsonApi\Resource\Filter\WhereAll} /
      * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
      * `filter[<key>]` too: a fanning group carries the shared value schema from its
      * own `constraints()`, and an all-fixed group (like a `->fixed()` scalar filter)
-     * declares none, so it projects as a permissive presence parameter whose
-     * description notes the value is server-set — see {@see filterDescription()}.
+     * declares none — a presence parameter whose description notes the value is
+     * server-set, see {@see filterDescription()}.
      *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
+     * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface>   $fields  the inventory of the type the filters run against
+     *
      * @return list<Parameter>
      */
-    private function filterParameters(array $filters): array
+    private function filterParameters(array $filters, array $fields): array
     {
         $parameters = [];
         foreach ($filters as $filter) {
             $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints());
+            // Only a value the constraints said NOTHING about falls back. One that
+            // declared a keyword — even a `format` with no `type` beside it — keeps
+            // exactly what it declared, so the fallback can never manufacture a
+            // contradiction out of an author's own (possibly deliberate) narrowing.
+            if ($valueSchema->toArray() === []) {
+                $default = $this->defaultFilterValueType($filter, $fields);
+                if ($default !== null) {
+                    $valueSchema = $valueSchema->withType($default);
+                }
+            }
+
             $shape = $filter instanceof \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
                 ? $filter->describeQueryParameter($valueSchema)
                 : new QueryParameterShape($valueSchema);
@@ -1046,6 +1065,53 @@ final class OperationProjector
         }
 
         return $parameters;
+    }
+
+    /**
+     * The JSON type to fall back to for a filter whose declared constraints said
+     * nothing about its value, or `null` to leave that value untyped.
+     *
+     * A **presence-triggered** filter is `string` whatever it targets: the server
+     * decides the match and discards whatever the request carried, so the only true
+     * statement about the value is that it is a query string, and typing it from a
+     * column would tell a client to send something that is never read.
+     *
+     * Otherwise the filter must name a column ({@see \haddowg\JsonApi\Resource\Filter\TargetsColumn})
+     * that **exactly one** field in `$fields` backs, and that field must have a scalar
+     * wire form. Anything else resolves to nothing: a relationship path or a
+     * relationship name, a computed value no field stores, a column two fields share, a
+     * composite or relation field. An untyped parameter says "this library does not
+     * know", which a consumer can work with; a guessed one says something false that a
+     * client would then be validated against. See ADR 0138.
+     *
+     * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface> $fields
+     */
+    private function defaultFilterValueType(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, array $fields): ?string
+    {
+        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter && $filter->isPresenceTriggered()) {
+            return 'string';
+        }
+
+        if (!$filter instanceof \haddowg\JsonApi\Resource\Filter\TargetsColumn) {
+            return null;
+        }
+
+        $column = $filter->targetColumn();
+        $match = null;
+        foreach ($fields as $field) {
+            // A computed field's column is null (it stores nothing), and a field
+            // flattened from a to-one relation reads its column off the RELATED object —
+            // neither names storage on the type being filtered.
+            if ($field->column() !== $column || $field->relatedVia() !== null) {
+                continue;
+            }
+            if ($match !== null) {
+                return null;
+            }
+            $match = $field;
+        }
+
+        return $match === null ? null : $this->schemaProjector->scalarValueType($match);
     }
 
     /**
@@ -1255,6 +1321,23 @@ final class OperationProjector
         $types = $relation->relatedTypes();
 
         return \count($types) === 1 ? $this->typeNamed($types[0], $server) : null;
+    }
+
+    /**
+     * The `filter[…]` parameters of a related / relationship endpoint. Both halves of
+     * the merged vocabulary run against the **related** type's rows, so its inventory
+     * — not the parent's — is what a filter's column resolves against. A polymorphic
+     * relation has no single related type, hence no inventory: its (own) filters
+     * document untyped.
+     *
+     * @return list<Parameter>
+     */
+    private function relatedFilterParameters(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    {
+        return $this->filterParameters(
+            $this->relatedFilterVocabulary($relation, $server),
+            $this->relatedTypeMetadata($relation, $server)?->fields() ?? [],
+        );
     }
 
     /**
