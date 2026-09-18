@@ -94,7 +94,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $people = FakeTypeMetadata::resource(
             type: 'people',
             fields: [Id::make()->build(), Str::make('name')->build()],
-            relations: [new FakeRelationMetadata('company', ['companies'], false)],
+            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
             tags: ['People'],
             // The related resource's own filter — honoured on the `author` to-one's
             // related and relationship endpoints (proves the to-one filter projection).
@@ -629,7 +629,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $people = FakeTypeMetadata::resource(
             type: 'people',
             fields: [Id::make()->build(), Str::make('name')->build()],
-            relations: [new FakeRelationMetadata('company', ['companies'], false)],
+            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
             includablePaths: ['company'],
         );
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$articles, $people]);
@@ -826,6 +826,44 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertArrayNotHasKey('/jobs', $paths);
         self::assertArrayNotHasKey('/jobs/{id}', $paths);
         self::assertArrayHasKey('/jobs/-actions/run', $paths);
+    }
+
+    // ---- The parent's allow-list gates relationship mutation ---------------------
+
+    #[Test]
+    public function aReadOnlyTypesMutableRelationStillProjectsNoMutatingVerb(): void
+    {
+        // Every relation flag is permissive, but the allow-list exposes no `Update` for a
+        // relationship mutation to ride on — so the linkage endpoint is GET-only. The
+        // relation flags narrow the parent's gate; they never widen it.
+        $type = FakeTypeMetadata::resource(
+            type: 'reports',
+            fields: [Id::make()->build(), Str::make('name')->build()],
+            relations: [FakeRelationMetadata::toMany('sections', ['reports'])],
+            operations: [OperationType::FetchCollection, OperationType::FetchOne],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        self::assertSame(['parameters', 'get'], \array_keys($this->arrAt($paths, '/reports/{id}/relationships/sections')));
+        // The reads are untouched: the related endpoint is still there.
+        self::assertArrayHasKey('/reports/{id}/sections', $paths);
+    }
+
+    #[Test]
+    public function aTypeWithAnEmptyAllowListProjectsRelationshipReadsButNoMutations(): void
+    {
+        $type = FakeTypeMetadata::resource(
+            type: 'reports',
+            fields: [Id::make()->build(), Str::make('name')->build()],
+            relations: [FakeRelationMetadata::toMany('sections', ['reports'])],
+            operations: [],
+        );
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]);
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+
+        self::assertArrayNotHasKey('/reports/{id}', $paths);
+        self::assertSame(['parameters', 'get'], \array_keys($this->arrAt($paths, '/reports/{id}/relationships/sections')));
     }
 
     // ---- Meta-validation + dangling refs ----------------------------------------

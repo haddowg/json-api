@@ -76,33 +76,50 @@ built from that server's registered types.
 
 ### Which types a document describes
 
-A server's document is not limited to the types registered on it. A relation may target a
-type registered on **another** server (or on none at all), and when that relation exposes
-its related endpoint the server genuinely returns that type — `GET /favorites/{id}/user`
-responds with a `users` resource object whether or not `users` is registered here. So the
-projector synthesizes a **permissive** `<RelatedType>Resource` for it: the `type` const, a
-string `id`, and open `attributes` / `meta`. There is no field inventory to project from,
-and a dangling `$ref` would make the document invalid.
+A server's document describes the types registered on that server, and a resource object
+is the shape claim that only a registration can back. So a relation that exposes its
+related endpoint must point at a type this server registers. `GET /favorites/{id}/user`
+returns a `users` resource object as primary data, and with `users` unregistered here
+there is no field inventory to describe one.
 
-A related type reached only as **linkage** gets a `<RelatedType>ResourceIdentifier` and no
-resource object — nothing returns it as a resource, so there is nothing more to say.
+The projector refuses that configuration rather than publishing a guess:
 
-`ProjectedTypes` is the accessor for that set, and the reason it is public rather than an
-implementation detail of the projector:
+```
+haddowg\JsonApi\OpenApi\RelatedTypeNotRegistered
+
+Relation "user" on type "favorites" exposes its related endpoint to type "users",
+which is not registered on server "Music Catalog API". …
+```
+
+Three ways out, all of them honest:
+
+- **register the type on this server** — it then projects from its own fields;
+- **point the relation at a type that is registered** — a reduced second type
+  (`public-profiles` beside a full `users`) where the real one belongs elsewhere;
+- **call `->withoutRelatedEndpoint()`** — linkage-only, which needs no shape at all.
+
+That last case is fully supported and unchanged. A related type reached only as linkage
+gets a `<RelatedType>ResourceIdentifier` and no resource object, registered or not: an
+identifier is `{type, id}` and asserts nothing about the resource behind it.
+
+Two servers describing the same JSON:API `type` differently is a different thing
+entirely, and stays supported — a v2 server serving a reshaped `users` beside v1 is the
+versioning pattern, and each document states a shape its own server honours.
+
+`ProjectedTypes` is the accessor for the described set:
 
 ```php
 use haddowg\JsonApi\OpenApi\ProjectedTypes;
 
 ProjectedTypes::registered($server);   // ['favorites']  — projected from their own fields
-ProjectedTypes::relatedOnly($server);  // ['users']      — synthesized, permissive
-ProjectedTypes::forServer($server);    // ['favorites', 'users']
+ProjectedTypes::relatedOnly($server);  // []             — non-empty means project() refuses
+ProjectedTypes::forServer($server);    // ['favorites']
 ```
 
 A framework integration emits a second artifact from the same metadata — the per-type JSON
-Schema bundle served at `/schemas.json` — and keys it from `forServer()`. Keying it from
-the registered types alone drops every related-only type, so the two artifacts would
-disagree about which types the server describes and a client validating a related
-endpoint's response would find no schema for it.
+Schema bundle served at `/schemas.json` — and keys it from `forServer()`, so the two
+artifacts describe one agreed type set. `relatedOnly()` is the diagnostic: read it to fail
+a build before the export runs.
 
 ### What the schemas capture
 
@@ -125,7 +142,10 @@ sketch:
   linkage `data` (a single nullable identifier for a to-one, an array for a to-many; a
   polymorphic relation's identifier is the `oneOf` of its members). A write request lists
   only the relations settable in that write. Endpoints are emitted per relation, gated by
-  its endpoint-exposure and mutation flags.
+  its endpoint-exposure and mutation flags — and a mutating verb on
+  `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
+  expose `Update`, since that is what it is. A read-only type's relation flags never open
+  one.
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an

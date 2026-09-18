@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\ProjectedTypes;
+use haddowg\JsonApi\OpenApi\RelatedTypeNotRegistered;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -24,6 +25,10 @@ use PHPUnit\Framework\TestCase;
  * from the same metadata, and derives its keys from this class. If the two ever drift,
  * one server ships two artifacts that disagree about which types it describes, which is
  * the failure these assertions exist to catch.
+ *
+ * {@see ProjectedTypes::relatedOnly()} is the other half: it reports the types that would
+ * need a resource object the server cannot back, and a non-empty result is precisely the
+ * server the projector refuses.
  */
 #[CoversClass(ProjectedTypes::class)]
 final class ProjectedTypesTest extends TestCase
@@ -121,20 +126,18 @@ final class ProjectedTypesTest extends TestCase
     }
 
     /**
-     * The whole point: the document describes `users`, so the accessor must too.
-     * Deriving a second artifact from `ServerMetadataInterface::types()` alone is the
-     * bug this replaces — it would report `favorites` only.
+     * The reported related-only set and the projector's refusal are one rule seen from
+     * two sides, so a caller can fail a build off the accessor and get the same verdict
+     * the export would reach.
      */
     #[Test]
-    public function theReportedSetMatchesTheDocumentsResourceObjects(): void
+    public function aNonEmptyRelatedOnlySetIsExactlyTheServerTheProjectorRefuses(): void
     {
         $server = $this->crossServerBoundary();
+        self::assertNotSame([], ProjectedTypes::relatedOnly($server));
 
-        $reported = ProjectedTypes::forServer($server);
-        \sort($reported);
-
-        self::assertSame($this->resourceObjectTypes($server), $reported);
-        self::assertContains('users', $reported);
+        $this->expectException(RelatedTypeNotRegistered::class);
+        (new OpenApiProjector())->project($server);
     }
 
     /**
@@ -192,6 +195,30 @@ final class ProjectedTypesTest extends TestCase
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$comments]);
 
         self::assertSame(['people', 'bots'], ProjectedTypes::relatedOnly($server));
+        self::assertSame(['comments', 'people', 'bots'], ProjectedTypes::forServer($server));
+    }
+
+    /**
+     * Once every related endpoint points somewhere registered, the two accessors
+     * converge — which is the state every projectable server is in.
+     */
+    #[Test]
+    public function registeringTheRelatedTypesCollapsesTheSetOntoTheDocument(): void
+    {
+        $comments = FakeTypeMetadata::resource(
+            type: 'comments',
+            fields: [Id::make()->build()],
+            relations: [
+                FakeRelationMetadata::toOne('author', ['people', 'bots']),
+                FakeRelationMetadata::toMany('mentions', ['people', 'comments']),
+            ],
+        );
+        $people = FakeTypeMetadata::resource(type: 'people', fields: [Id::make()->build()]);
+        $bots = FakeTypeMetadata::resource(type: 'bots', fields: [Id::make()->build()]);
+
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$comments, $people, $bots]);
+
+        self::assertSame([], ProjectedTypes::relatedOnly($server));
         self::assertSame(['comments', 'people', 'bots'], ProjectedTypes::forServer($server));
 
         $reported = ProjectedTypes::forServer($server);

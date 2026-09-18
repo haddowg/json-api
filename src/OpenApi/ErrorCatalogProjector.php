@@ -244,8 +244,12 @@ final class ErrorCatalogProjector
 
     /**
      * Whether the server accepts a request document anywhere: a CRUD write on some type,
-     * a mutable relationship endpoint, or the atomic batch endpoint. Everything that
-     * parses or hydrates a body hangs off this.
+     * or the atomic batch endpoint. Everything that parses or hydrates a body hangs off
+     * this.
+     *
+     * A relationship mutation needs no branch of its own: it rides on its type's
+     * {@see OperationType::Update}, so a type permissive enough to project one is already
+     * caught by the CRUD loop.
      */
     private function exposesAWrite(ServerMetadataInterface $server): bool
     {
@@ -256,16 +260,6 @@ final class ErrorCatalogProjector
         foreach ($server->types() as $type) {
             foreach ([OperationType::Create, OperationType::Update, OperationType::Delete] as $operation) {
                 if (\in_array($operation, $type->operations(), true)) {
-                    return true;
-                }
-            }
-
-            foreach ($type->relations() as $relation) {
-                if (!$relation->exposesRelationshipEndpoint()) {
-                    continue;
-                }
-
-                if ($relation->allowsReplace() || $relation->allowsAdd() || $relation->allowsRemove()) {
                     return true;
                 }
             }

@@ -368,6 +368,24 @@ pass silently:
    did not. Reworded `description`/`summary` prose is exempt (a generator is never too old
    to read a sentence); every other difference counts.
 
+**A document describes only types its server registers.** A relation exposing its
+**related** endpoint to an unregistered type is refused — `RelatedTypeNotRegistered`, thrown
+from `project()` before any component is built ([ADR 0137](docs/adr/0137-a-document-describes-only-types-its-server-registers.md)).
+Do not restore the synthesized permissive `<Type>Resource`; the runtime it claimed to
+describe 500s (`serializerFor()` on an unregistered type) and renders the relationship with
+no `data` member at all. Two servers serving one type with different shapes is a **supported**
+versioning pattern, not this fault, and the `<Type>ResourceIdentifier` stub for a
+linkage-only related type stays — an identifier asserts no shape. `ProjectedTypes::relatedOnly()`
+is now the diagnostic: non-empty ⇒ the projection refuses, and it is what an adapter's
+`ServableResourceWarmer` should read to fail the build earlier.
+
+**A relationship mutation rides on the parent's `Update`.** `PATCH`/`POST`/`DELETE` on
+`/{type}/{id}/relationships/{rel}` is gated by the type's operation allow-list **and** the
+relation's mutation flags; the flags narrow, never widen. `ErrorCatalogProjector::exposesAWrite()`
+depends on the same rule, which is why it has no relation branch of its own. The relationship
+and related **reads** stay ungated by the allow-list (a standalone-relations type with no CRUD
+still serves them).
+
 **The error catalogue is open on purpose.** `ErrorCatalogProjector` emits one
 `<Code>Error` component per catalogued code (`allOf: [$ref Error, {code/status const,
 source required}]`, core's default title as the schema `title` annotation) and wires them

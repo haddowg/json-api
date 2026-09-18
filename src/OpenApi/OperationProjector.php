@@ -57,8 +57,8 @@ final class OperationProjector
      * Builds every {@see PathItem} for `$type`, keyed by path template: its allowed
      * CRUD endpoints, its relations' exposed related / relationship endpoints, and its
      * custom-action endpoints. A type with no CRUD operation still contributes its
-     * relationship and action paths (a standalone serializer with only actions, say);
-     * a type with nothing exposed contributes an empty map.
+     * relationship reads and action paths (a standalone serializer with only actions,
+     * say), but never a relationship mutation — that verb rides on the type's `Update`.
      *
      * @return array<string, PathItem> path template → {@see PathItem}
      */
@@ -80,7 +80,7 @@ final class OperationProjector
             }
         }
 
-        foreach ($this->relationshipPaths($type, $server) as $path => $item) {
+        foreach ($this->relationshipPaths($type, $server, $operations) as $path => $item) {
             $paths[$path] = $item;
         }
 
@@ -476,9 +476,10 @@ final class OperationProjector
      * document — one path per concrete relation name (`…/{id}/author`, not a parametric
      * segment). The `{id}` path parameter is shared at the path-item level.
      *
+     * @param array<string, true> $operations the type's allowed operations as a presence set
      * @return array<string, PathItem>
      */
-    private function relationshipPaths(TypeMetadataInterface $type, ServerMetadataInterface $server): array
+    private function relationshipPaths(TypeMetadataInterface $type, ServerMetadataInterface $server, array $operations): array
     {
         $paths = [];
         $idParameter = $this->idPathParameter($type);
@@ -491,7 +492,7 @@ final class OperationProjector
 
             if ($relation->exposesRelationshipEndpoint()) {
                 $item = new PathItem(parameters: [$idParameter]);
-                foreach ($this->relationshipOperations($type, $relation, $server) as $method => $operation) {
+                foreach ($this->relationshipOperations($type, $relation, $server, $operations) as $method => $operation) {
                     $item = $item->withOperation($method, $operation);
                 }
                 $paths['/' . $type->uriType() . '/{id}/relationships/' . $relation->name()] = $item;
@@ -579,9 +580,16 @@ final class OperationProjector
      * and — to-many only — `POST` (add, {@see allowsAdd()}) and `DELETE` (remove,
      * {@see allowsRemove()}).
      *
+     * The relation flags are the narrower half of the gate. A relationship mutation is an
+     * update of the parent resource — it derives its security from the parent's
+     * {@see OperationType::Update}, and a host routes it off the parent's update — so a
+     * type whose allow-list omits `Update` exposes no mutating verb here however
+     * permissive its relations are.
+     *
+     * @param array<string, true> $allowed the type's allowed operations as a presence set
      * @return array<string, Operation> lower-cased HTTP method → operation
      */
-    private function relationshipOperations(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    private function relationshipOperations(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, array $allowed): array
     {
         $base = ComponentNaming::base($type->type());
         $relBase = $base . ComponentNaming::base($relation->name());
@@ -631,8 +639,10 @@ final class OperationProjector
             security: $getSecurity,
         );
 
+        $updatable = isset($allowed[OperationType::Update->value]);
+
         // PATCH — full replacement of the relationship.
-        if ($relation->allowsReplace()) {
+        if ($updatable && $relation->allowsReplace()) {
             $operations['patch'] = $this->relationshipMutationOperation(
                 $type,
                 $relation,
@@ -645,7 +655,7 @@ final class OperationProjector
         }
 
         // POST / DELETE — to-many add / remove only (a to-one has no add/remove verbs).
-        if ($relation->isToMany()) {
+        if ($updatable && $relation->isToMany()) {
             if ($relation->allowsAdd()) {
                 $operations['post'] = $this->relationshipMutationOperation(
                     $type,
