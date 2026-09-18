@@ -14,6 +14,7 @@ use haddowg\JsonApi\OpenApi\MediaType;
 use haddowg\JsonApi\OpenApi\OAuthFlow;
 use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\OpenApi;
+use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\Operation;
 use haddowg\JsonApi\OpenApi\Parameter;
 use haddowg\JsonApi\OpenApi\PathItem;
@@ -28,6 +29,7 @@ use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\ServerVariable;
 use haddowg\JsonApi\OpenApi\Tag;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContractWitnessServer;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -239,6 +241,15 @@ final class OpenApiMetaValidationTest extends TestCase
 
         self::assertArrayHasKey('paths', $document->toArray());
         $this->assertValidOpenApiDocument($document);
+    }
+
+    #[Test]
+    public function theContractWitnessDocumentValidates(): void
+    {
+        // The broadest document core can project (every branch the witness server
+        // reaches), so it is also the strongest §10 witness available — including the
+        // `info.x-generator` stamp, which the meta-schema admits as an Info extension.
+        $this->assertValidOpenApiDocument((new OpenApiProjector())->project(ContractWitnessServer::build()));
     }
 
     #[Test]

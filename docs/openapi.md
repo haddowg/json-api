@@ -13,8 +13,8 @@ fixtures and no framework.
 
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
-schemas (`describedAs()` / `example()`), and the JSON:API-specific vendor extensions it
-emits (`x-enum-*`, `x-profile`). For *serving* the document, the config, and the UI, see
+schemas (`describedAs()` / `example()`), and the vendor extensions it emits
+(`x-generator`, `x-enum-*`, `x-profile`). For *serving* the document, the config, and the UI, see
 the Symfony bundle's OpenAPI docs.
 
 ## The projection model
@@ -268,8 +268,50 @@ may see or do (see the [request-aware predicates](fields.md) note).
 
 ## Vendor extensions
 
-The projection emits a few JSON:API-specific OpenAPI **vendor extensions** (`x-…`
-keywords) to carry information the base OAS vocabulary cannot.
+The projection emits a few OpenAPI **vendor extensions** (`x-…` keywords) to carry
+information the base OAS vocabulary cannot.
+
+### The generator contract: `x-generator`
+
+Every projected document stamps its `info` with one integer:
+
+```json
+"info": {
+  "title": "Music API",
+  "version": "1.2.0",
+  "x-generator": { "contract": 1 }
+}
+```
+
+`contract` is the version of the **emitted structure**, and it moves only when that
+structure moves. It is not the package version, and reading it as one would be wrong:
+`1.4.2 → 1.4.3` may emit exactly the same document while a minor release adds a member,
+so a code generator keying on semver would accept or reject for reasons unrelated to what
+it actually reads.
+
+A code generator declares the range of contracts it understands and compares:
+
+| `contract` | verdict |
+| --- | --- |
+| below the generator's minimum | **Error.** The server is older than a structure the generator requires. |
+| within the range | Generate. |
+| above the generator's maximum | **Warn.** The server describes capabilities the generator cannot read. |
+
+The upper bound is the one that needs the field. A server *older* than a generator expects
+already fails loudly: the generator reads for a member, finds it absent, and says so. A
+server *newer* fails silently — the unread structure simply is not generated, and the
+client comes out missing capabilities the server offers with nothing to indicate it. That
+silent under-generation is what `x-generator` exists to catch.
+
+It carries compatibility signalling and nothing else. The JSON:API version is the
+`JsonApi` component's `version` const, and the supported profiles and extensions are that
+component's `profile` / `ext` enums; none of it is restated here. There is deliberately no
+feature-token list either: naming what changed would mean two hand-maintained lists (the
+server's and every generator's known-set) that have to agree forever, and a drifting token
+list is worse than an integer that cannot drift.
+
+The bump is a maintainer decision, made when a projector change lands, and CI enforces
+that the decision gets made — see the contract discipline in `CLAUDE.md`.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
