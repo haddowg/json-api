@@ -45,6 +45,12 @@ use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereAll;
 use haddowg\JsonApi\Resource\Filter\WhereAny;
+use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+use haddowg\JsonApi\Resource\Filter\WhereIdNotIn;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+use haddowg\JsonApi\Resource\Filter\WhereNotIn;
+use haddowg\JsonApi\Resource\Filter\WhereNull;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -193,6 +199,16 @@ final class ContractWitnessServer
                 WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
                     ->describedAs('Search title or summary.')->build(),
                 WhereAll::make('urgent', GreaterThan::make('wordCount')->fixed(1000), BooleanFilter::make('featured')->fixed(true))->build(),
+                // The value-schema fallback (ADR 0138), one branch each: a boolean column,
+                // a temporal column (a string, and NOT the field's `date-time` format), a
+                // set over a list column (a list of what the projector will not guess), a
+                // relationship path it cannot resolve at all, and a presence-only filter
+                // whose value is read by nobody.
+                Where::make('featured')->build(),
+                Where::make('releasedOn')->build(),
+                WhereIn::make('keywords')->build(),
+                WhereThrough::make('author.name')->build(),
+                WhereNull::make('unpublished', 'publishedAt'),
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             actions: [
@@ -256,7 +272,13 @@ final class ContractWitnessServer
             allowsClientId: true,
             requiresClientId: true,
             pageSchema: CursorPaginator::make()->describePageSchema(),
-            filters: [Where::make('color')->build()],
+            filters: [
+                Where::make('color')->build(),
+                WhereIn::make('label')->build(),
+                // A delimiter OAS cannot spell: the value documents as the one string
+                // the client sends, never as a list split on the wrong character.
+                WhereIdNotIn::make('excludeId')->delimiter(';')->build(),
+            ],
             sorts: [SortByField::make('id')],
             responses: [OperationType::Create->value => [new NoContent()]],
         );
@@ -289,6 +311,10 @@ final class ContractWitnessServer
         return FakeTypeMetadata::resource(
             type: 'videos',
             fields: [Id::make()->build(), Url::make('url')->build(), Integer::make('seconds')->build()],
+            filters: [
+                WhereNotIn::make('seconds')->delimiter('|')->build(),
+                WhereIdIn::make()->build(),
+            ],
             tags: ['Media'],
             unpaginated: true,
             responses: [OperationType::Update->value => [new NoContent()]],

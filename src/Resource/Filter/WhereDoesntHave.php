@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows that lack a related record on the named relationship (the
  * negation of {@see WhereHas}).
  */
-final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter\FilterInterface
+final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
@@ -23,6 +23,15 @@ final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * Always presence-triggered: the relationship's existence decides the match, so
+     * whatever value the request carries with the key is ignored.
+     */
+    public function isPresenceTriggered(): bool
+    {
+        return true;
     }
 
     /**

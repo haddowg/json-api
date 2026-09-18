@@ -10,8 +10,9 @@ namespace haddowg\JsonApi\Resource\Filter;
  * column; ships as a dedicated type because id filtering is the most common case.
  * Authors declare one with {@see make()}, which returns a mutable {@see WhereIdInBuilder}.
  */
-final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue
+final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
+    use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
@@ -37,6 +38,11 @@ final readonly class WhereIdIn implements \haddowg\JsonApi\Resource\Filter\Descr
     public function key(): string
     {
         return $this->key;
+    }
+
+    public function targetColumn(): string
+    {
+        return $this->column;
     }
 
     public function hasDefault(): bool

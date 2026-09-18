@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * narrowed by a nested filter). Data-layer-specific; core ships the metadata,
  * adapters interpret the relationship traversal.
  */
-final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\FilterInterface
+final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
@@ -24,6 +24,15 @@ final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\Filter
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * Always presence-triggered: the relationship's existence decides the match, so
+     * whatever value the request carries with the key is ignored.
+     */
+    public function isPresenceTriggered(): bool
+    {
+        return true;
     }
 
     /**

@@ -337,6 +337,38 @@ final class SchemaProjector
     }
 
     /**
+     * The JSON type a field's value carries when it has a **scalar** wire form —
+     * `string`, `integer`, `number` or `boolean` — or `null` when it has none.
+     *
+     * This is the field's base type with nothing layered on it: no `format`, no
+     * `enum`, no length or bound from its constraints. Those narrowings describe the
+     * member in a document body, where the whole value is the field's; they do not
+     * survive the move to a `filter[<key>]`, whose value is an operand the filter's
+     * operator compares (a substring match against an enum column takes neither the
+     * enum nor its length). The OpenAPI path projection reads this to default a
+     * filter's value schema to the type of the field it targets.
+     *
+     * A composite ({@see Map}, {@see ArrayHash}, {@see ArrayList}, or a
+     * {@see ProvidesFieldSchema} type that supplies its own node) and a relation have
+     * no scalar form, so each returns `null` rather than a type that would misdescribe
+     * a query-string value.
+     */
+    public function scalarValueType(FieldInterface $field): ?string
+    {
+        if ($field instanceof RelationInterface
+            || $field instanceof ProvidesFieldSchema
+            || $field instanceof Map
+            || $field instanceof ArrayHash
+            || $field instanceof ArrayList) {
+            return null;
+        }
+
+        $type = $this->typeSchema($field)->get('type');
+
+        return \is_string($type) && $type !== 'object' && $type !== 'array' ? $type : null;
+    }
+
+    /**
      * The base type/format schema for a field, derived structurally from its PHP
      * class. The `format` keyword of a date/time field is the exception: it comes
      * from the field's configured serialization format rather than its class, since

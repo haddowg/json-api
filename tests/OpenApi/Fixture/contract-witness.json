@@ -41,7 +41,9 @@
                         "name": "filter[status]",
                         "in": "query",
                         "description": "Filter by status.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[wordCount]",
@@ -55,7 +57,9 @@
                         "name": "filter[archived]",
                         "in": "query",
                         "description": "Filter the collection by `archived`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[rating]",
@@ -116,7 +120,50 @@
                         "name": "filter[urgent]",
                         "in": "query",
                         "description": "Filter the collection by `urgent`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[featured]",
+                        "in": "query",
+                        "description": "Filter the collection by `featured`.",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "filter[releasedOn]",
+                        "in": "query",
+                        "description": "Filter the collection by `releasedOn`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[keywords]",
+                        "in": "query",
+                        "description": "Filter the collection by `keywords`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[author.name]",
+                        "in": "query",
+                        "description": "Filter the collection by `author.name`.",
                         "schema": {}
+                    },
+                    {
+                        "name": "filter[unpublished]",
+                        "in": "query",
+                        "description": "Filter the collection by `unpublished`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "sort",
@@ -1116,7 +1163,9 @@
                         "name": "filter[name]",
                         "in": "query",
                         "description": "Filter the collection by `name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "fields[people]",
@@ -1236,7 +1285,9 @@
                         "name": "filter[name]",
                         "in": "query",
                         "description": "Filter the collection by `name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -1469,7 +1520,17 @@
                         "name": "filter[label]",
                         "in": "query",
                         "description": "Filter tags by label.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[excludeId]",
+                        "in": "query",
+                        "description": "Filter the collection by `excludeId`.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "sort",
@@ -1706,7 +1767,17 @@
                         "name": "filter[label]",
                         "in": "query",
                         "description": "Filter tags by label.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[excludeId]",
+                        "in": "query",
+                        "description": "Filter the collection by `excludeId`.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "sort",
@@ -2460,7 +2531,9 @@
                         "name": "filter[name]",
                         "in": "query",
                         "description": "Filter the collection by `name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "fields[people]",
@@ -2580,7 +2653,9 @@
                         "name": "filter[name]",
                         "in": "query",
                         "description": "Filter the collection by `name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -3797,7 +3872,9 @@
                         "name": "filter[name]",
                         "in": "query",
                         "description": "Filter the collection by `name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "fields[people]",
@@ -4642,6 +4719,27 @@
                         "schema": {}
                     },
                     {
+                        "name": "filter[label]",
+                        "in": "query",
+                        "description": "Filter the collection by `label`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[excludeId]",
+                        "in": "query",
+                        "description": "Filter the collection by `excludeId`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "name": "sort",
                         "in": "query",
                         "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `id`, `-id`.",
@@ -5232,7 +5330,9 @@
                         "name": "filter[status]",
                         "in": "query",
                         "description": "Filter by status.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[wordCount]",
@@ -5246,7 +5346,9 @@
                         "name": "filter[archived]",
                         "in": "query",
                         "description": "Filter the collection by `archived`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[rating]",
@@ -5307,7 +5409,50 @@
                         "name": "filter[urgent]",
                         "in": "query",
                         "description": "Filter the collection by `urgent`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[featured]",
+                        "in": "query",
+                        "description": "Filter the collection by `featured`.",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "filter[releasedOn]",
+                        "in": "query",
+                        "description": "Filter the collection by `releasedOn`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[keywords]",
+                        "in": "query",
+                        "description": "Filter the collection by `keywords`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[author.name]",
+                        "in": "query",
+                        "description": "Filter the collection by `author.name`.",
                         "schema": {}
+                    },
+                    {
+                        "name": "filter[unpublished]",
+                        "in": "query",
+                        "description": "Filter the collection by `unpublished`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "sort",
@@ -5482,7 +5627,9 @@
                         "name": "filter[status]",
                         "in": "query",
                         "description": "Filter by status.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[wordCount]",
@@ -5496,7 +5643,9 @@
                         "name": "filter[archived]",
                         "in": "query",
                         "description": "Filter the collection by `archived`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[rating]",
@@ -5557,7 +5706,50 @@
                         "name": "filter[urgent]",
                         "in": "query",
                         "description": "Filter the collection by `urgent`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[featured]",
+                        "in": "query",
+                        "description": "Filter the collection by `featured`.",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "filter[releasedOn]",
+                        "in": "query",
+                        "description": "Filter the collection by `releasedOn`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[keywords]",
+                        "in": "query",
+                        "description": "Filter the collection by `keywords`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[author.name]",
+                        "in": "query",
+                        "description": "Filter the collection by `author.name`.",
                         "schema": {}
+                    },
+                    {
+                        "name": "filter[unpublished]",
+                        "in": "query",
+                        "description": "Filter the collection by `unpublished`. The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "sort",
@@ -6282,6 +6474,32 @@
                 "operationId": "fetchRelated.images.clips",
                 "parameters": [
                     {
+                        "name": "filter[seconds]",
+                        "in": "query",
+                        "description": "Filter the collection by `seconds`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "style": "pipeDelimited",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter the collection by `id`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "fields[videos]",
                         "in": "query",
                         "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
@@ -6411,6 +6629,32 @@
                 "operationId": "fetchRelationship.images.clips",
                 "parameters": [
                     {
+                        "name": "filter[seconds]",
+                        "in": "query",
+                        "description": "Filter the collection by `seconds`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "style": "pipeDelimited",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter the collection by `id`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "withCount",
                         "in": "query",
                         "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
@@ -6511,6 +6755,32 @@
                 "description": "Returns a paginated collection of `videos` resources.",
                 "operationId": "fetchCollection.videos",
                 "parameters": [
+                    {
+                        "name": "filter[seconds]",
+                        "in": "query",
+                        "description": "Filter the collection by `seconds`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "style": "pipeDelimited",
+                        "explode": false
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter the collection by `id`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
                     {
                         "name": "fields[videos]",
                         "in": "query",

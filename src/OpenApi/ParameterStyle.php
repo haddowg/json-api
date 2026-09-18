@@ -13,9 +13,17 @@ namespace haddowg\JsonApi\OpenApi;
  * `include` parameters render as a `form` parameter with `explode: false` — the
  * standard OAS way to document a single parameter carrying a comma-delimited
  * list (JSON:API §4.4).
+ *
+ * `pipeDelimited` and `spaceDelimited` are the only other separators OAS names, and
+ * a {@see \haddowg\JsonApi\Resource\Filter\WhereIn} can be built on either
+ * ({@see \haddowg\JsonApi\Resource\Filter\WhereInBuilder::delimiter()}). Any other
+ * separator has no OAS spelling, so a filter using one documents its value as the
+ * single opaque string the client sends rather than as a list split the wrong way.
  */
 enum ParameterStyle: string
 {
     case DeepObject = 'deepObject';
     case Form = 'form';
+    case PipeDelimited = 'pipeDelimited';
+    case SpaceDelimited = 'spaceDelimited';
 }

@@ -16,7 +16,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * typed value deserializer and the matching value constraint and build a plain
  * `Where`, so a handler's existing `instanceof Where` arm dispatches them unchanged.
  */
-final readonly class Where implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+final readonly class Where implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
@@ -50,6 +50,11 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Filter\Described
     public function key(): string
     {
         return $this->key;
+    }
+
+    public function targetColumn(): string
+    {
+        return $this->column;
     }
 
     public function isSingular(): bool

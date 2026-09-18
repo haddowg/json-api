@@ -123,8 +123,54 @@ you wrap it (into an object's `min`/`max`, an array's `items`, …) and set the 
 `style`/`explode`. This is what lets a **custom** filter with a non-scalar value
 document correctly — the same self-describing seam constraints use for their JSON
 Schema keyword ([`ProvidesJsonSchema`](constraints.md#constrain-the-typed-escape-hatch)),
-one level up at the parameter. `Range`/`DateRange` implement it; every other built-in
-is a plain scalar.
+one level up at the parameter.
+
+`Range`/`DateRange` implement it (the `min`/`max` object) and so do the four set
+filters, `WhereIn` / `WhereNotIn` / `WhereIdIn` / `WhereIdNotIn` (an array whose OAS
+style spells the declared [`delimiter()`](#refinement-helpers) — `form` for a comma,
+`pipeDelimited`, `spaceDelimited`; a delimiter OAS cannot spell documents as the single
+opaque string the client sends). A filter's container shape is a property of its kind, so
+it is projected whether or not the filter declared any constraints.
+
+### Untyped filter values: `TargetsColumn`
+
+A filter that declares no value constraints has nothing to project a value schema from.
+Left there, the parameter carries `"schema": {}` — a value a generated client types as
+`mixed`. Filters that compare one backing column implement
+[`Resource\Filter\TargetsColumn`](../src/Resource/Filter/TargetsColumn.php), and the
+OpenAPI projection matches that column against the field inventory of the type being
+filtered. Resolve it to exactly one field and the value documents as that field's JSON
+type:
+
+```php
+Str::make('title')                  // a field …
+Where::make('title')                // … and a filter over its column
+// → filter[title]: {"type": "string"}
+```
+
+Only the **type** carries over. Not the field's `format`, `enum`, `maxLength` or any
+other narrowing: those describe a member in a document body, whereas a `filter[<key>]`
+value is an operand your filter's operator compares, and a substring match over an enum
+column takes a substring. The fallback also applies **only** where you declared no
+constraints at all — declare one and the parameter is exactly what your constraints say,
+never a merge.
+
+Where the column resolves to nothing the parameter stays untyped, which is deliberate:
+a wrong type invites a client to validate against it. That covers a relationship path
+(`WhereThrough`), a relationship name (`WhereHas` / `WhereDoesntHave`), a group fanning
+one value across several columns (`WhereAll` / `WhereAny`), a `computed()` field, a
+column two fields share, a composite (`Map`, `ArrayList`, `ArrayHash`, `OneOf`) or
+relation field, and any custom filter that names no column. Declare a constraint to
+document one of those yourself — `WhereThrough::make('author.age')->integer()` — or leave
+it open.
+
+The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`, `WhereDoesntHave`)
+and a [`fixed()`](#fixed-values) filter document as a plain `string` whatever they
+target: the server decides the match and discards the value, and their description says
+so.
+
+This is documentation, not validation. A derived type never becomes a `400` — only a
+declared constraint does (see [Validating filter values](#validating-filter-values)).
 
 ## The built-in catalogue
 
