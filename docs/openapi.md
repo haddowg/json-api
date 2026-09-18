@@ -13,8 +13,8 @@ fixtures and no framework.
 
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
-schemas (`describedAs()` / `example()`), and the JSON:API-specific vendor extensions it
-emits (`x-enum-*`, `x-profile`). For *serving* the document, the config, and the UI, see
+schemas (`describedAs()` / `example()`), and the vendor extensions it emits
+(`x-generator`, `x-enum-*`, `x-profile`). For *serving* the document, the config, and the UI, see
 the Symfony bundle's OpenAPI docs.
 
 ## The projection model
