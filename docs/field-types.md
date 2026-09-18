@@ -121,6 +121,33 @@ releases" always means *now*, per request — not the moment the resource class 
 loaded. The same closure form works for `after()` and for either bound of
 `between()`.
 
+### What `format()` does to the generated schemas
+
+The `format: date-time`, `format: date` and `format: time` keywords are all defined
+as RFC 3339 productions, so the [OpenAPI projection](openapi.md) and the
+[body-validation schema](schema-validation.md) emit one only when your configured
+format really writes that shape. `schemaFormat()` answers it by rendering a set of
+reference instants and checking the output, so an equivalent spelling
+(`\DateTimeInterface::RFC3339`, `RFC3339_EXTENDED`, a hand-rolled
+`'Y-m-d\TH:i:s.uP'`) keeps its keyword.
+
+Anything else is documented as a plain `string` whose shape is described by example:
+
+```php
+DateTime::make('archivedAt')->format('d/m/Y H:i');
+```
+
+```jsonc
+{
+  "type": "string",
+  "description": "A date/time value written as `05/09/2024 09:08`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
+}
+```
+
+No `pattern` is derived. A PHP format string can render variable-width fields and
+open-ended timezone names, so a regex inferred from one would eventually reject a
+response your server is entitled to send.
+
 ## `Date`
 
 A `DateTime` fixed to the `Y-m-d` format — a calendar date with no time
@@ -132,6 +159,8 @@ nullable `Date`.
 Date::make('birthDate')->nullable();
 ```
 
+`Y-m-d` is RFC 3339 `full-date`, so the default projects as `format: date`.
+
 ## `Time`
 
 A `DateTime` fixed to the `H:i:s` format — a wall-clock time. The track's
@@ -141,6 +170,12 @@ offset into the track where its preview starts) is a nullable `Time`.
 ```php
 Time::make('previewOffset')->nullable();
 ```
+
+`format: time` is RFC 3339 `full-time`, which **requires** a time-offset, so the
+`H:i:s` default does not qualify and projects as a plain string with its shape in the
+description. That is the honest answer: JSON Schema 2020-12 has no keyword for an
+offsetless wall-clock time. Give the field an offset with `->format('H:i:sP')` if you
+want the keyword and your values carry a meaningful zone.
 
 ## `Map`
 

@@ -12,10 +12,13 @@ use haddowg\JsonApi\Resource\Constraint\MinLength;
 use haddowg\JsonApi\Resource\Constraint\UlidFormat;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\Date;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Validation\DocumentValidator;
 use haddowg\JsonApi\Validation\SchemaCompiler;
 use haddowg\JsonApi\Validation\VendoredSchemaProvider;
@@ -283,5 +286,42 @@ final class SchemaCompilerTest extends TestCase
 
         $this->expectException(RequestBodyInvalidJsonApi::class);
         $this->validator()->validateRequest($body, [$compiled]);
+    }
+
+    /**
+     * The compiled fragment keeps a temporal `format` only where the field's configured
+     * serialization format really is RFC 3339 — otherwise the validator would reject the
+     * very body the hydrator accepts, and the body a client built from the document sends.
+     */
+    #[Test]
+    public function temporalFormatsFollowTheFieldsConfiguredSerializationFormat(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'events';
+
+            public function fields(): array
+            {
+                return [
+                    Id::make(),
+                    DateTime::make('startsAt'),
+                    DateTime::make('archivedAt')->format('d/m/Y H:i'),
+                    Date::make('heldOn'),
+                    Time::make('doorsOpen'),
+                ];
+            }
+        };
+
+        $json = \json_encode($this->compiler()->compile($resource, creating: true), \JSON_THROW_ON_ERROR);
+        $decoded = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        /** @var array<string, mixed> $decoded */
+        $properties = $this->at($decoded, 'properties', 'data', 'properties', 'attributes', 'properties');
+        self::assertIsArray($properties);
+
+        self::assertSame(['type' => 'string', 'format' => 'date-time'], $properties['startsAt']);
+        self::assertSame(['type' => 'string', 'format' => 'date'], $properties['heldOn']);
+        // `H:i:s` is not an RFC 3339 full-time (no offset), so neither is `format: time`.
+        self::assertSame(['type' => 'string'], $properties['doorsOpen']);
+        self::assertSame(['type' => 'string'], $properties['archivedAt']);
     }
 }
