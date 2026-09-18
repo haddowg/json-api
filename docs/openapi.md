@@ -67,7 +67,37 @@ Component **names** follow stable PascalCase conventions (`blog-post` → `BlogP
 `BlogPostResource`, `BlogPostCreateRequest`, `BlogPostAuthorRelationship`, …), shared
 between the schema and path projections so every `$ref` resolves. The document is
 projected once per server: a multi-server API produces one document per server, each
-carrying only that server's types.
+built from that server's registered types.
+
+### Which types a document describes
+
+A server's document is not limited to the types registered on it. A relation may target a
+type registered on **another** server (or on none at all), and when that relation exposes
+its related endpoint the server genuinely returns that type — `GET /favorites/{id}/user`
+responds with a `users` resource object whether or not `users` is registered here. So the
+projector synthesizes a **permissive** `<RelatedType>Resource` for it: the `type` const, a
+string `id`, and open `attributes` / `meta`. There is no field inventory to project from,
+and a dangling `$ref` would make the document invalid.
+
+A related type reached only as **linkage** gets a `<RelatedType>ResourceIdentifier` and no
+resource object — nothing returns it as a resource, so there is nothing more to say.
+
+`ProjectedTypes` is the accessor for that set, and the reason it is public rather than an
+implementation detail of the projector:
+
+```php
+use haddowg\JsonApi\OpenApi\ProjectedTypes;
+
+ProjectedTypes::registered($server);   // ['favorites']  — projected from their own fields
+ProjectedTypes::relatedOnly($server);  // ['users']      — synthesized, permissive
+ProjectedTypes::forServer($server);    // ['favorites', 'users']
+```
+
+A framework integration emits a second artifact from the same metadata — the per-type JSON
+Schema bundle served at `/schemas.json` — and keys it from `forServer()`. Keying it from
+the registered types alone drops every related-only type, so the two artifacts would
+disagree about which types the server describes and a client validating a related
+endpoint's response would find no schema for it.
 
 ### What the schemas capture
 
