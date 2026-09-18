@@ -19,6 +19,17 @@ namespace haddowg\JsonApi\OpenApi;
  * changes it, so a code generator keying on semver would accept or reject for reasons
  * unrelated to what it reads.
  *
+ * It is nonetheless **release-scoped**, like the package version. The contract names the
+ * shape a *release* emits, so it moves at most once per release cycle however many
+ * commits that cycle takes: the first change to move the structure moves the contract,
+ * and every later change in the same cycle leaves it alone. Only a released document is
+ * a document a generator has ever seen.
+ *
+ * **An absent `info.x-generator` means contract 1.** v1.0.0 shipped before this field
+ * existed, so contract 1 denotes the shape it emitted rather than "no signal" — every
+ * published document is readable, and a generator supporting `[1, 2]` handles both v1.0.0
+ * and the release that added the stamp.
+ *
  * A code generator declares the contract range it understands and compares:
  *
  * - **below its minimum** — error. The document predates a structure the generator
@@ -41,10 +52,11 @@ namespace haddowg\JsonApi\OpenApi;
 final class GeneratorContract
 {
     /**
-     * The current contract. Bump by exactly one; see the class docblock for what
-     * warrants it and `docs/openapi.md` for the discipline around it.
+     * The current contract. Bump by exactly one, and at most once per release; see the
+     * class docblock for what warrants it and `docs/openapi.md` for the discipline
+     * around it.
      */
-    public const CONTRACT = 5;
+    public const CONTRACT = 2;
 
     /**
      * The `info.x-generator` value.

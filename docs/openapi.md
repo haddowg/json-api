@@ -14,8 +14,8 @@ fixtures and no framework.
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
 schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
-extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-error-context`). For
-*serving* the document, the config, and the UI, see the Symfony bundle's OpenAPI docs.
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`). For *serving* the document,
+the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
 
@@ -187,15 +187,23 @@ components:
             status: { type: string, const: '400' }
             source: { type: object, required: [parameter] }
           required: [code, status, source]
-      x-error-context:
-        filter: { type: string }
 ```
 
 A variant **narrows** the shared `Error` rather than restating it, so the member
 vocabulary lives in one place. `code` and `status` are pinned to a `const` — they are the
 machine and HTTP contract and no [message resolver](errors-and-exceptions.md#localizing-and-overriding-error-copy)
 can change them. `title` stays a plain string, because a resolver replaces it per locale;
-core's default is the schema's `title` annotation.
+core's default is the schema's `title` annotation. `source` names the member the exception
+always fills, so a client can read `source.parameter` without a null check on the codes
+that guarantee it.
+
+What the variant does **not** carry is the error's interpolation context. The
+`{placeholder}` tokens core fills into `title` and `detail` are resolved before the
+response leaves, so the context itself never reaches a client. Describing its shape in a
+document a client reads would describe something it can never receive. Those tokens are a
+PHP-side API and live on the
+[descriptor](errors-and-exceptions.md#which-placeholders-a-code-offers), where whoever
+writes a replacement template is already working.
 
 `ErrorDocument.errors.items` then offers the catalogue:
 
@@ -420,7 +428,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 1 }
+  "x-generator": { "contract": 2 }
 }
 ```
 
@@ -430,10 +438,21 @@ structure moves. It is not the package version, and reading it as one would be w
 so a code generator keying on semver would accept or reject for reasons unrelated to what
 it actually reads.
 
+It is nevertheless **release-scoped**, which is the part that matters when you write the
+generator. The contract names the shape a *release* emits, so it moves at most once per
+release however many changes that release contains. Two documents carrying the same
+contract have the same structure; consecutive contracts differ by one release's worth of
+change, not by one commit's.
+
+**A document with no `x-generator` at all is contract 1.** Version 1.0.0 shipped before
+the field existed, so contract 1 denotes the shape it emitted rather than "unknown" — a
+generator declaring `[1, 2]` reads every document this library has ever produced.
+
 A code generator declares the range of contracts it understands and compares:
 
 | `contract` | verdict |
 | --- | --- |
+| absent | Treat as 1 — a pre-`x-generator` document. |
 | below the generator's minimum | **Error.** The server is older than a structure the generator requires. |
 | within the range | Generate. |
 | above the generator's maximum | **Warn.** The server describes capabilities the generator cannot read. |
@@ -451,8 +470,10 @@ feature-token list either: naming what changed would mean two hand-maintained li
 server's and every generator's known-set) that have to agree forever, and a drifting token
 list is worse than an integer that cannot drift.
 
-The bump is a maintainer decision, made when a projector change lands, and CI enforces
-that the decision gets made — see the contract discipline in `CLAUDE.md`.
+The bump is a maintainer decision, and CI enforces that it gets made. A guard compares the
+projected structure against the last release tag: a cycle that moves the structure must
+move the contract past what that release shipped, and once it has, later changes in the
+same cycle leave it alone. See the contract discipline in `CLAUDE.md`.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
@@ -482,23 +503,6 @@ naming the profile whose negotiation activates it. A tool that understands the e
 can surface the parameter conditionally; a tool that does not simply ignores an unknown
 `x-` keyword. The parameter's `description` also states the profile requirement in prose,
 so the constraint is never hidden behind the extension alone.
-
-### Error message placeholders: `x-error-context`
-
-Each [error-code variant](#the-error-code-catalogue) carries the `{placeholder}` tokens
-core interpolates into that code's `title` and `detail`, with a JSON Schema type each:
-
-```yaml
-x-error-context:
-  paths:    { type: string }
-  maxDepth: { type: integer }
-```
-
-These are **not wire members**. An error's context is interpolation input — it never
-appears in the response — so it is an extension rather than a property a client would
-wait for in vain. What it is good for is writing a replacement template: bind an
-[`ErrorMessageResolverInterface`](errors-and-exceptions.md#localizing-and-overriding-error-copy) and
-these are the tokens your translation for that code may use.
 
 ## Related pages
 

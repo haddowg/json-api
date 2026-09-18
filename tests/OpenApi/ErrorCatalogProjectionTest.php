@@ -87,17 +87,18 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theInterpolationContextIsPublishedAsAnExtensionNotAProperty(): void
+    public function theInterpolationContextIsNotProjectedAtAll(): void
     {
         // Error::$context never reaches the wire — it is what core fills into the
-        // title/detail templates — so it is advertised as a vendor extension naming the
-        // placeholders, never as a member a response would carry.
+        // title/detail templates before they are sent. A document describes what a client
+        // receives, so the placeholder shape is neither a property nor an extension here;
+        // ErrorDescriptor carries it for the PHP author writing a replacement template.
+        $descriptor = $this->descriptorFor('INCLUSION_DEPTH_EXCEEDED');
+        self::assertNotSame([], $descriptor->context, 'this code must declare placeholders for the test to mean anything');
+
         $variant = $this->arrAt($this->schemas($this->fullServer()), 'InclusionDepthExceededError');
 
-        self::assertSame(
-            ['paths' => ['type' => 'string'], 'maxDepth' => ['type' => 'integer']],
-            $this->arrAt($variant, 'x-error-context'),
-        );
+        self::assertArrayNotHasKey('x-error-context', $variant);
 
         $narrowing = $this->listAt($variant, 'allOf')[1];
         self::assertIsArray($narrowing);
@@ -266,6 +267,20 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     // ---- Fixtures & helpers ---------------------------------------------------------
+
+    /**
+     * The catalogued descriptor for one code.
+     */
+    private function descriptorFor(string $code): ErrorDescriptor
+    {
+        foreach (ErrorCatalog::descriptors() as $descriptor) {
+            if ($descriptor->code === $code) {
+                return $descriptor;
+            }
+        }
+
+        self::fail("no catalogued descriptor for {$code}");
+    }
 
     /**
      * Asserts every code gated on `$feature` is present in `$offering`'s document and

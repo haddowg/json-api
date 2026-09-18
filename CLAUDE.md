@@ -354,19 +354,34 @@ package version (a patch may change nothing a consumer reads while a minor chang
 and deliberately *not* a feature-token list (two hand-maintained lists, the server's and
 every generator's, that would have to agree forever).
 
+**The contract is release-scoped**, like the package version and unlike a build number. It
+moves **at most once per release**, not once per change: the first PR of a cycle that moves
+the emitted structure bumps it, and every later PR in that cycle leaves it alone. Unreleased
+commits accumulate under one integer because a consumer only ever sees releases. Getting
+this wrong is not theoretical: the first post-`v1.0.0` cycle ran 1→2→3→4→5, one bump per PR,
+for a document shape nobody had seen more than once. **An absent `x-generator` means
+contract 1** — `v1.0.0` shipped before the field existed, so 1 denotes what it emitted and a
+generator supporting `[1, 2]` reads every document this library has produced
+([ADR 0134](docs/adr/0134-generated-documents-carry-a-monotonic-contract-integer.md)).
+
 **The bump discipline**, and why forgetting it is the real risk: the field means nothing
-the moment a projector change lands without one. Two checks make that fail rather than
-pass silently:
+the moment a release lands with a moved structure and an unmoved integer. Two checks make
+that fail rather than pass silently:
 
 1. `tests/OpenApi/Fixture/contract-witness.json` is the projected document of
    `ContractWitnessServer` (the broadest fixture core has). `ContractWitnessTest` fails as
    soon as the projector's output diverges from it — regenerate with
    `UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest` and **read the
    diff**; it is the change you are deciding about.
-2. The `generator-contract` CI job runs `bin/contract-guard.php`, which diffs the witness
-   against the base revision's and **fails the PR** when the structure moved and `CONTRACT`
-   did not. Reworded `description`/`summary` prose is exempt (a generator is never too old
-   to read a sentence); every other difference counts.
+2. The `generator-contract` CI job runs `bin/contract-guard.php`, which resolves the latest
+   release tag (`git tag --sort=-v:refname`), reads the witness and the `CONTRACT` constant
+   as they were **at that tag**, and compares. Structure moved and `CONTRACT` still equals
+   the tag's value → **fail**. Structure moved and `CONTRACT` is already ahead → **pass**
+   (an earlier PR in the cycle bumped). Structure unchanged and `CONTRACT` moved anyway →
+   **fail**, the bump announces nothing. No tags, or no witness at the tag (`v1.0.0`
+   predates both the witness and the constant) → pass. Reworded `description`/`summary`
+   prose is exempt (a generator is never too old to read a sentence); every other
+   difference counts.
 
 **A document describes only types its server registers.** A relation exposing its
 **related** endpoint to an unregistered type is refused — `RelatedTypeNotRegistered`, thrown
@@ -393,9 +408,14 @@ into `ErrorDocument.errors.items` as an `anyOf` **led by the generic `Error`**. 
 branch makes the `anyOf` constrain nothing, which is the point: an application throws
 codes the projector never saw, and a closed `oneOf` would make a server's own documents
 fail its own schema. `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates`
-is the guard — do not "tighten" it. `context` is **not** a property (it is interpolation
-input, never on the wire); it is published as `x-error-context`. Gating is registration-aware
-per `ErrorFeature` ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+is the guard — do not "tighten" it. `context` is **not projected at all** — not as a
+property and not as an extension. It is interpolation input, resolved before the response
+leaves, so either spelling would describe something no client can receive; `ErrorDescriptor`
+carries the placeholder shape for the PHP author writing a replacement template, and
+`docs/errors-and-exceptions.md` documents it. The `source` narrowing stays (`required:
+[parameter]`/`[pointer]` where the exception fills it unconditionally) — that *is* on the
+wire. Gating is registration-aware per `ErrorFeature`
+([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 
 **Temporal `format` keywords are conditional.** `date-time`/`date`/`time` are RFC 3339
 productions, so `DateTime::schemaFormat()` decides whether one may be emitted by rendering
@@ -406,10 +426,10 @@ shape-by-example note. Never derive a `pattern` from a PHP format string ([ADR 0
 Note the footgun this exposed: `Time`'s own `H:i:s` default is **not** an RFC 3339 `full-time`
 (no offset), so the default `Time` field emits no `format` at all.
 
-Bump by one, never renumber. Over-bumping costs a generator one warning; under-bumping is
-the silent under-generation the whole mechanism exists to prevent. Widen
-`ContractWitnessServer` whenever the projector grows a branch it does not reach — an
-unreached branch is one the guard cannot see.
+Bump by one, never renumber, never more than once between releases. Over-bumping costs a
+generator one warning; under-bumping is the silent under-generation the whole mechanism
+exists to prevent. Widen `ContractWitnessServer` whenever the projector grows a branch it
+does not reach — an unreached branch is one the guard cannot see.
 
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**

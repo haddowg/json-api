@@ -22,8 +22,10 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * `$context` is the *shape* of {@see Error::$context} — the `{placeholder}` tokens core
  * fills into the `title` / `detail` templates for this code, which is what an
  * {@see \haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface} must support in a
- * replacement template. Context is interpolation input, never a wire member, so the
- * projection publishes it as a vendor extension rather than a property.
+ * replacement template. Context is interpolation input, resolved before the response is
+ * sent and never a wire member, so this is where the placeholder shape is published: the
+ * OpenAPI projection leaves it out entirely, because a template author writes PHP and a
+ * generated document describes only what a client receives.
  */
 final readonly class ErrorDescriptor
 {

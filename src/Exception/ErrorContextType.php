@@ -11,8 +11,10 @@ namespace haddowg\JsonApi\Exception;
  * Context is interpolation input — the values core substitutes into the `title` /
  * `detail` templates — so a type here says what an
  * {@see \haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface} implementation
- * will be handed for that placeholder. The backing value is the JSON Schema type
- * name, which is what the OpenAPI projection emits.
+ * will be handed for that placeholder. The backing value is the JSON Schema type name, so
+ * an integration that wants to describe context in its own tooling has a ready keyword.
+ * Core's OpenAPI projection does not use it: context never reaches a client, so a document
+ * describing what a client receives has nothing to say about it.
  */
 enum ErrorContextType: string
 {

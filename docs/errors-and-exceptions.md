@@ -163,6 +163,8 @@ the same seam, with nothing special-cased.
 > [Symfony](https://github.com/haddowg/json-api-symfony) and
 > [Laravel](https://github.com/haddowg/json-api-laravel) integrations.
 
+### Which placeholders a code offers
+
 The available `{placeholder}` names are the keys of each error's `context`. The
 catalogue populates context for the dynamic parameters in its messages — for
 `MEDIA_TYPE_UNSUPPORTED`, `{mediaType}` and `{header}`; for a relationship prohibition,
@@ -170,6 +172,27 @@ catalogue populates context for the dynamic parameters in its messages — for
 reference them. An error whose detail is caller-supplied or built from a list carries
 no such parameters: its title still localizes, and its detail can still be overridden
 with a static string.
+
+Each code publishes its own placeholder shape on its **descriptor**, which is the
+authoritative list to write a template against:
+
+```php
+use haddowg\JsonApi\Exception\ErrorCatalog;
+use haddowg\JsonApi\Exception\InclusionDepthExceeded;
+
+InclusionDepthExceeded::describe()->context;
+// ['paths' => ErrorContextType::Str, 'maxDepth' => ErrorContextType::Integer]
+
+foreach (ErrorCatalog::descriptors() as $descriptor) {
+    // $descriptor->code => array_keys($descriptor->context)
+}
+```
+
+Deliberately, none of this reaches the generated [OpenAPI document](openapi.md). Context is
+interpolated into `title` and `detail` before the response is sent and never appears on the
+wire, so a document describing what a client receives has nothing to say about it. The
+placeholders are a PHP-side authoring API and live here, where you are writing the
+replacement templates.
 
 ## Unexpected throwables: the generic 500
 
