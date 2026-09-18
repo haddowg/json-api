@@ -230,20 +230,21 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aMutableRelationshipEndpointAloneCountsAsAWrite(): void
+    public function aMutableRelationOnAReadOnlyTypeIsNotAWrite(): void
     {
-        // A type whose CRUD allow-list exposes no write can still accept a linkage body
-        // on a relationship endpoint, so the request-document codes stay reachable.
+        // The relation's mutation flags are permissive, but the type's allow-list has no
+        // `Update` for a relationship mutation to ride on, so the projector emits no verb
+        // that takes a linkage body — and the request-document codes stay out.
         $type = FakeTypeMetadata::resource(
             type: 'books',
             fields: [Id::make()->build(), Str::make('title')->build()],
-            relations: [new FakeRelationMetadata('authors', ['people'], true)],
+            relations: [new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false)],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
         );
 
         $schemas = $this->schemas(new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]));
 
-        self::assertArrayHasKey('DataMemberMissingError', $schemas);
+        self::assertArrayNotHasKey('DataMemberMissingError', $schemas);
     }
 
     #[Test]
@@ -311,7 +312,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         $type = FakeTypeMetadata::resource(
             type: 'books',
             fields: [Id::make()->build(), Str::make('title')->build()],
-            relations: [new FakeRelationMetadata('authors', ['people'], true, countable: true)],
+            relations: [new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true)],
             allowsClientId: $clientIds,
             pageSchema: $page ?? (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
             countable: true,

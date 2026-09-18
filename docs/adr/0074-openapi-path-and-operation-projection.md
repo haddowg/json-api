@@ -1,5 +1,7 @@
 # OpenAPI path and operation projection
 
+> Status: two claims here are **superseded by [ADR 0137](0137-a-document-describes-only-types-its-server-registers.md)** — an exposed related endpoint targeting an unregistered type is now refused rather than given a synthesized `<RelatedType>Resource` + `Collection`, and a relationship **mutation** verb additionally requires the parent type's allow-list to expose `Update` (the per-relation mutation flags narrow that gate, they do not open it). Everything else stands.
+
 The `OpenApiProjector` now projects **paths** (design §4.4, D10/D12): an
 `OperationProjector` collaborator turns each type's allowed CRUD operations into
 OAS `PathItem`s — `GET`/`POST` on `/{uriType}` and `GET`/`PATCH`/`DELETE` on
