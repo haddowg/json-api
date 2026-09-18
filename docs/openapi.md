@@ -126,6 +126,15 @@ sketch:
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
   includable path, so `?include` is never advertised where the runtime would reject it.
+- **`?include` / `fields[…]` on writes.** These two shape the *rendered document*, not the
+  query that selects it, so they belong to every operation that answers with a resource
+  document — a `POST` create and a `PATCH` update as much as a `GET`, with the identical
+  allowed-value enums, because the legal paths and members are a property of the type. A
+  write that returns no such document takes neither: a `204` create or update, a delete
+  (`204` or a meta-only `200`), and a relationship-endpoint mutation, whose echoed
+  document is linkage and carries no `included` however the request is spelled. A custom
+  action follows its declared body: one answering with a named type's document advertises
+  **that** type's pair, even when it is mounted on another.
 - **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
   productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
   one only when its configured serialization format really writes that shape. A field

@@ -155,8 +155,7 @@ final class OperationProjector
         $parameters = $this->concatParameters(
             $this->filterParameters($type->filters()),
             [$this->sortParameter($type->sorts())],
-            [$this->includeParameter($type->includablePaths())],
-            $this->fieldsParameters($type, $server, $type->includablePaths()),
+            $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
             [$this->withCountParameter($this->collectionWithCountTokens($type), $server)],
             [$this->relatedQueryParameter($type, $server)],
@@ -184,8 +183,7 @@ final class OperationProjector
     private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
     {
         $parameters = $this->concatParameters(
-            [$this->includeParameter($type->includablePaths())],
-            $this->fieldsParameters($type, $server, $type->includablePaths()),
+            $this->documentShapeParameters($type, $server),
             [$this->relatedQueryParameter($type, $server)],
         );
 
@@ -218,8 +216,10 @@ final class OperationProjector
             ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
             : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
 
+        $declared = $type->responsesFor(OperationType::Create);
+
         $responses = new Responses();
-        foreach ($type->responsesFor(OperationType::Create) as $response) {
+        foreach ($declared as $response) {
             $responses = $responses->with((string) $response->status(), $this->createSuccessResponse($type, $response));
         }
         $security = $this->securityFor($type, OperationType::Create, $server);
@@ -231,6 +231,7 @@ final class OperationProjector
             summary: 'Create a ' . $type->type(),
             description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: 'create.' . $type->type(),
+            parameters: $this->declaresStatus($declared, 201) ? $this->documentShapeParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
@@ -244,8 +245,10 @@ final class OperationProjector
             ? Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'))
             : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
 
+        $declared = $type->responsesFor(OperationType::Update);
+
         $responses = new Responses();
-        foreach ($type->responsesFor(OperationType::Update) as $response) {
+        foreach ($declared as $response) {
             $responses = $responses->with((string) $response->status(), $this->updateSuccessResponse($type, $response));
         }
         $security = $this->securityFor($type, OperationType::Update, $server);
@@ -257,6 +260,7 @@ final class OperationProjector
             summary: 'Update a ' . $type->type(),
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: 'update.' . $type->type(),
+            parameters: $this->declaresStatus($declared, 200) ? $this->documentShapeParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
@@ -673,6 +677,10 @@ final class OperationProjector
      * One relationship-mutation operation (`PATCH`/`POST`/`DELETE` on
      * `…/relationships/{rel}`): a relationship-document request body and a
      * `200` (echoing the linkage) plus the enumerated error responses.
+     *
+     * It takes no `?include` / `fields[<type>]`: the echoed document is linkage-only, and
+     * {@see \haddowg\JsonApi\Transformer\DocumentTransformer::transformRelationshipDataMembers()}
+     * emits no `included` member for it however the request is spelled.
      */
     private function relationshipMutationOperation(
         TypeMetadataInterface $type,
@@ -824,6 +832,7 @@ final class OperationProjector
             summary: $action->summary() ?? ('Invoke the `' . $action->path() . '` action'),
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on a `' . $type->type() . '` resource.'),
             operationId: 'action.' . $type->type() . '.' . $action->path(),
+            parameters: $this->actionDocumentShapeParameters($action, $server),
             requestBody: $this->actionRequestBody($action),
             security: $security,
         );
@@ -895,6 +904,93 @@ final class OperationProjector
     }
 
     // ---- Parameters (reused by the stage-B relationship/action projection) ------
+
+    /**
+     * The `?include` and `fields[<type>]` parameters for an operation whose success body
+     * is `$type`'s resource document.
+     *
+     * The pair shapes the **rendered document**, not the query that selects the data, so
+     * it belongs to every operation that answers with a resource document — a `POST`
+     * create and a `PATCH` update as much as a `GET`. The runtime treats them the same
+     * way: {@see \haddowg\JsonApi\Negotiation\StrictQueryParameterValidator} gates on the
+     * family name only, and
+     * {@see \haddowg\JsonApi\Transformer\DocumentTransformer::transformResourceDocument()}
+     * builds `included` and applies sparse fieldsets without ever consulting the HTTP
+     * method. The allowed paths and members are a property of the type, so a write
+     * carries the identical enums its reads do.
+     *
+     * @return list<Parameter>
+     */
+    private function documentShapeParameters(TypeMetadataInterface $type, ServerMetadataInterface $server): array
+    {
+        $include = $this->includeParameter($type->includablePaths());
+
+        return [
+            ...($include === null ? [] : [$include]),
+            ...$this->fieldsParameters($type, $server, $type->includablePaths()),
+        ];
+    }
+
+    /**
+     * The `?include` / `fields[<type>]` parameters for a custom action: the pair for the
+     * type named by its {@see ActionResource} response, since that response is rendered
+     * as a resource document through the same serializer a read of that type uses. An
+     * action answering `204`/`202`/`303`, or a meta-only `200`, has no resource document
+     * to shape and takes neither parameter. The parameters are rooted at the **body**
+     * type, not the type the action is mounted on — an action on `/articles` returning a
+     * `people` document advertises `people`'s include paths.
+     *
+     * @return list<Parameter>
+     */
+    private function actionDocumentShapeParameters(ActionMetadataInterface $action, ServerMetadataInterface $server): array
+    {
+        foreach ($action->responds() as $response) {
+            if (!$response instanceof ActionResource) {
+                continue;
+            }
+
+            $bodyType = $this->typeNamed($response->bodyType(), $server);
+
+            return $bodyType === null ? [] : $this->documentShapeParameters($bodyType, $server);
+        }
+
+        return [];
+    }
+
+    /**
+     * Whether a declared success-response set advertises `$status` — the status whose
+     * body is the type's own resource document (`201` for a create, `200` for an
+     * update). A set without it answers with no such document: a `204` carries no body
+     * at all and a `202`'s body is the job resource, so there is nothing for
+     * `?include` / `fields[<type>]` to shape and neither is advertised.
+     *
+     * @param non-empty-list<OperationResponseInterface> $responses
+     */
+    private function declaresStatus(array $responses, int $status): bool
+    {
+        foreach ($responses as $response) {
+            if ($response->status() === $status) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The metadata for the type named `$type`, or `null` when the server does not
+     * describe it.
+     */
+    private function typeNamed(string $type, ServerMetadataInterface $server): ?TypeMetadataInterface
+    {
+        foreach ($server->types() as $candidate) {
+            if ($candidate->type() === $type) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * One `filter[<key>]` query parameter per declared filter; its value schema is
@@ -1147,16 +1243,8 @@ final class OperationProjector
     private function relatedTypeMetadata(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?TypeMetadataInterface
     {
         $types = $relation->relatedTypes();
-        if (\count($types) !== 1) {
-            return null;
-        }
-        foreach ($server->types() as $candidate) {
-            if ($candidate->type() === $types[0]) {
-                return $candidate;
-            }
-        }
 
-        return null;
+        return \count($types) === 1 ? $this->typeNamed($types[0], $server) : null;
     }
 
     /**

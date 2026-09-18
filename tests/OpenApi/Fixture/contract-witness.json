@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 2
+            "contract": 3
         }
     },
     "servers": [
@@ -342,6 +342,99 @@
                 "summary": "Create a articles",
                 "description": "Creates a new `articles` resource from the supplied attributes and relationships.",
                 "operationId": "create.articles",
+                "parameters": [
+                    {
+                        "name": "include",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "author",
+                                    "tags",
+                                    "author.company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[articles]",
+                        "in": "query",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "title",
+                                    "slug",
+                                    "status",
+                                    "priority",
+                                    "wordCount",
+                                    "rating",
+                                    "featured",
+                                    "releasedOn",
+                                    "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
+                                    "editorEmail",
+                                    "canonicalUrl",
+                                    "keywords",
+                                    "analytics",
+                                    "address",
+                                    "block",
+                                    "author",
+                                    "tags",
+                                    "cover",
+                                    "locked",
+                                    "attachments"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[tags]",
+                        "in": "query",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "label",
+                                    "articles"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -761,6 +854,99 @@
                 "summary": "Update a articles",
                 "description": "Updates an existing `articles` resource, applying the supplied attributes and relationships.",
                 "operationId": "update.articles",
+                "parameters": [
+                    {
+                        "name": "include",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "author",
+                                    "tags",
+                                    "author.company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[articles]",
+                        "in": "query",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "title",
+                                    "slug",
+                                    "status",
+                                    "priority",
+                                    "wordCount",
+                                    "rating",
+                                    "featured",
+                                    "releasedOn",
+                                    "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
+                                    "editorEmail",
+                                    "canonicalUrl",
+                                    "keywords",
+                                    "analytics",
+                                    "address",
+                                    "block",
+                                    "author",
+                                    "tags",
+                                    "cover",
+                                    "locked",
+                                    "attachments"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[tags]",
+                        "in": "query",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "label",
+                                    "articles"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -3089,6 +3275,99 @@
                 "summary": "Publish the article",
                 "description": "Invokes the `publish` custom action on a `articles` resource.",
                 "operationId": "action.articles.publish",
+                "parameters": [
+                    {
+                        "name": "include",
+                        "in": "query",
+                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "author",
+                                    "tags",
+                                    "author.company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[articles]",
+                        "in": "query",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "title",
+                                    "slug",
+                                    "status",
+                                    "priority",
+                                    "wordCount",
+                                    "rating",
+                                    "featured",
+                                    "releasedOn",
+                                    "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
+                                    "editorEmail",
+                                    "canonicalUrl",
+                                    "keywords",
+                                    "analytics",
+                                    "address",
+                                    "block",
+                                    "author",
+                                    "tags",
+                                    "cover",
+                                    "locked",
+                                    "attachments"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[tags]",
+                        "in": "query",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "label",
+                                    "articles"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The action result.",
@@ -3624,6 +3903,26 @@
                 "summary": "Create a people",
                 "description": "Creates a new `people` resource from the supplied attributes and relationships.",
                 "operationId": "create.people",
+                "parameters": [
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -3942,6 +4241,26 @@
                 "summary": "Update a people",
                 "description": "Updates an existing `people` resource, applying the supplied attributes and relationships.",
                 "operationId": "update.people",
+                "parameters": [
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -4521,24 +4840,8 @@
                     "required": true
                 },
                 "responses": {
-                    "201": {
-                        "description": "The created tags resource.",
-                        "headers": {
-                            "Location": {
-                                "description": "The URL of the created resource.",
-                                "schema": {
-                                    "type": "string",
-                                    "format": "uri-reference"
-                                }
-                            }
-                        },
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/TagsDocument"
-                                }
-                            }
-                        }
+                    "204": {
+                        "description": "The resource was created; no content is returned."
                     },
                     "400": {
                         "description": "Bad Request — the request was malformed (e.g. an invalid query parameter).",
@@ -4827,6 +5130,25 @@
                 "summary": "Update a tags",
                 "description": "Updates an existing `tags` resource, applying the supplied attributes and relationships.",
                 "operationId": "update.tags",
+                "parameters": [
+                    {
+                        "name": "fields[tags]",
+                        "in": "query",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "label",
+                                    "articles"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -6066,6 +6388,25 @@
                 "summary": "Create a videos",
                 "description": "Creates a new `videos` resource from the supplied attributes and relationships.",
                 "operationId": "create.videos",
+                "parameters": [
+                    {
+                        "name": "fields[videos]",
+                        "in": "query",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "url",
+                                    "seconds"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/vnd.api+json": {
@@ -6391,15 +6732,8 @@
                     "required": true
                 },
                 "responses": {
-                    "200": {
-                        "description": "The updated videos resource.",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/VideosDocument"
-                                }
-                            }
-                        }
+                    "204": {
+                        "description": "The resource was updated; no content is returned."
                     },
                     "400": {
                         "description": "Bad Request — the request was malformed (e.g. an invalid query parameter).",
