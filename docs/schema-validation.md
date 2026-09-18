@@ -182,7 +182,10 @@ and so on. `Nullable` widens a field's `type` to allow `null`; `Each` compiles t
 `properties`. Composition constraints map too: `Sequentially` merges its inner
 schemas into the field, and `AtLeastOneOf` becomes an `anyOf`. A relationship field
 constrains only the linkage `type` (to its declared related types); cardinality is
-left to the base schema.
+left to the base schema. `date`/`time`/`date-time` are the one conditional entry in
+that list: each is an RFC 3339 production, so a [`DateTime`](field-types.md#datetime)
+field gets its keyword only when its configured serialization format really writes that
+shape — otherwise the compiled schema would reject the bodies the hydrator accepts.
 
 Some constraints **deliberately do not round-trip** and are silently skipped — JSON
 Schema cannot express them, and the runtime [validator](constraints.md) still

@@ -41,8 +41,9 @@ The projection is a small pipeline of **pure** classes in
   shapes. A constraint that has no faithful JSON Schema
   2020-12 keyword (a `When` with an opaque condition, `CompareField`, a date/time bound
   from `After` / `Before` / `Between`) is **never emitted as a wrong keyword**; instead a
-  human-readable note is appended to the schema `description`. This lossy-by-design
-  degradation keeps the document honest.
+  human-readable note is appended to the schema `description`. The same rule governs a
+  date/time field's own `format` keyword. This lossy-by-design degradation keeps the
+  document honest.
 
 - **`OperationProjector`** — projects one type's HTTP surface into `PathItem`s: the
   resource-level `GET` / `POST` on `/{uriType}` and `GET` / `PATCH` / `DELETE` on
@@ -125,6 +126,13 @@ sketch:
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
   includable path, so `?include` is never advertised where the runtime would reject it.
+- **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
+  productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
+  one only when its configured serialization format really writes that shape. A field
+  that writes anything else is documented as a plain `string` and its shape is given by
+  example in the `description`, so a generated client never coerces on a keyword the
+  server does not honour. Note that `Time`'s `H:i:s` default carries no offset and so is
+  not an RFC 3339 `full-time`.
 
 ## The metadata contract
 

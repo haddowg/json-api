@@ -354,6 +354,15 @@ pass silently:
    did not. Reworded `description`/`summary` prose is exempt (a generator is never too old
    to read a sentence); every other difference counts.
 
+**Temporal `format` keywords are conditional.** `date-time`/`date`/`time` are RFC 3339
+productions, so `DateTime::schemaFormat()` decides whether one may be emitted by rendering
+reference instants through the field's configured format and checking the output — the
+projector and `Validation\SchemaCompiler` both defer to it, and neither switches on the
+`Date`/`Time`/`DateTime` class any more. A failing field degrades to a plain `string` plus a
+shape-by-example note. Never derive a `pattern` from a PHP format string ([ADR 0135](docs/adr/0135-temporal-format-keywords-follow-the-configured-serialization-format.md)).
+Note the footgun this exposed: `Time`'s own `H:i:s` default is **not** an RFC 3339 `full-time`
+(no offset), so the default `Time` field emits no `format` at all.
+
 Bump by one, never renumber. Over-bumping costs a generator one warning; under-bumping is
 the silent under-generation the whole mechanism exists to prevent. Widen
 `ContractWitnessServer` whenever the projector grows a branch it does not reach — an

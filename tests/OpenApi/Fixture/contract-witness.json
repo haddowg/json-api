@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 1
+            "contract": 2
         }
     },
     "servers": [
@@ -158,7 +158,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -173,6 +173,9 @@
                                     "featured",
                                     "releasedOn",
                                     "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
                                     "keywords",
@@ -509,7 +512,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -524,6 +527,9 @@
                                     "featured",
                                     "releasedOn",
                                     "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
                                     "keywords",
@@ -1334,7 +1340,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1349,6 +1355,9 @@
                                     "featured",
                                     "releasedOn",
                                     "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
                                     "keywords",
@@ -5055,7 +5064,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5070,6 +5079,9 @@
                                     "featured",
                                     "releasedOn",
                                     "publishedAt",
+                                    "syncedAt",
+                                    "archivedAt",
+                                    "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
                                     "keywords",
@@ -6849,6 +6861,18 @@
                         ],
                         "format": "date-time"
                     },
+                    "syncedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "archivedAt": {
+                        "type": "string",
+                        "description": "A date/time value written as `05/09/2024 09:08`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
+                    },
+                    "embargoLifts": {
+                        "type": "string",
+                        "description": "A date/time value written as `09:08:07`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
+                    },
                     "editorEmail": {
                         "type": "string",
                         "format": "email"
@@ -6927,6 +6951,9 @@
                     "featured",
                     "releasedOn",
                     "publishedAt",
+                    "syncedAt",
+                    "archivedAt",
+                    "embargoLifts",
                     "editorEmail",
                     "canonicalUrl",
                     "keywords",
@@ -7148,6 +7175,18 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "syncedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "archivedAt": {
+                        "type": "string",
+                        "description": "A date/time value written as `05/09/2024 09:08`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
+                    },
+                    "embargoLifts": {
+                        "type": "string",
+                        "description": "A date/time value written as `09:08:07`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
                     },
                     "editorEmail": {
                         "type": "string",
@@ -7556,6 +7595,18 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "syncedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "archivedAt": {
+                        "type": "string",
+                        "description": "A date/time value written as `05/09/2024 09:08`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
+                    },
+                    "embargoLifts": {
+                        "type": "string",
+                        "description": "A date/time value written as `09:08:07`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
                     },
                     "editorEmail": {
                         "type": "string",

@@ -19,13 +19,11 @@ use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
-use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
-use haddowg\JsonApi\Resource\Field\Time;
 
 /**
  * Compiles a {@see AbstractResource}'s field + constraint metadata into a decoded
@@ -180,13 +178,10 @@ final class SchemaCompiler
             default => 'string',
         };
 
-        // Date/Time extend DateTime, so check the narrower types first.
-        $format = match (true) {
-            $field instanceof Date => 'date',
-            $field instanceof Time => 'time',
-            $field instanceof DateTime => 'date-time',
-            default => null,
-        };
+        // A date/time field's `format` follows its configured serialization format, not
+        // its class: emitting `date-time` for a value that is not RFC 3339 would reject
+        // the very body the hydrator accepts.
+        $format = $field instanceof DateTime ? $field->schemaFormat() : null;
 
         $schema = ['type' => $type];
         if ($format !== null) {
