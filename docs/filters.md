@@ -132,20 +132,19 @@ style spells the declared [`delimiter()`](#refinement-helpers) — `form` for a 
 opaque string the client sends). A filter's container shape is a property of its kind, so
 it is projected whether or not the filter declared any constraints.
 
-### Untyped filter values: `TargetsColumn`
+### Where a filter value's type comes from: `TargetsColumn`
 
 A filter that declares no value constraints has nothing to project a value schema from.
-Left there, the parameter carries `"schema": {}` — a value a generated client types as
-`mixed`. Filters that compare one backing column implement
+Filters that compare one backing column implement
 [`Resource\Filter\TargetsColumn`](../src/Resource/Filter/TargetsColumn.php), and the
 OpenAPI projection matches that column against the field inventory of the type being
 filtered. Resolve it to exactly one field and the value documents as that field's JSON
 type:
 
 ```php
-Str::make('title')                  // a field …
-Where::make('title')                // … and a filter over its column
-// → filter[title]: {"type": "string"}
+Integer::make('views')              // a field …
+Where::make('views')                // … and a filter over its column
+// → filter[views]: {"type": "integer"}
 ```
 
 Only the **type** carries over. Not the field's `format`, `enum`, `maxLength` or any
@@ -155,14 +154,18 @@ column takes a substring. The fallback also applies **only** where you declared 
 constraints at all — declare one and the parameter is exactly what your constraints say,
 never a merge.
 
-Where the column resolves to nothing the parameter stays untyped, which is deliberate:
-a wrong type invites a client to validate against it. That covers a relationship path
-(`WhereThrough`), a relationship name (`WhereHas` / `WhereDoesntHave`), a group fanning
-one value across several columns (`WhereAll` / `WhereAny`), a `computed()` field, a
-column two fields share, a composite (`Map`, `ArrayList`, `ArrayHash`, `OneOf`) or
-relation field, and any custom filter that names no column. Declare a constraint to
-document one of those yourself — `WhereThrough::make('author.age')->integer()` — or leave
-it open.
+Where the column resolves to nothing, the value documents as `string`. A query parameter
+is a string on the wire whatever the server parses it into, so that is the honest floor;
+an empty schema would have said less than the protocol already guarantees. The floor is
+what a relationship path (`WhereThrough`), a relationship name (`WhereHas` /
+`WhereDoesntHave`), a group fanning one value across several columns (`WhereAll` /
+`WhereAny`), a `computed()` field, a column two fields share, a composite (`Map`,
+`ArrayList`, `ArrayHash`, `OneOf`) or relation field, and any custom filter naming no
+column all land on. Declare a constraint to say something narrower, as
+`WhereThrough::make('author.age')->integer()` does.
+
+Nothing ever overwrites a narrower answer. A derived type beats the floor and a declared
+constraint beats both.
 
 The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`, `WhereDoesntHave`)
 and a [`fixed()`](#fixed-values) filter document as a plain `string` whatever they

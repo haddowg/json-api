@@ -47,7 +47,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The `filter[<key>]` value schema: the container shape each filter kind projects, and
- * the field-derived type that fills it in when the author declared no value constraints
+ * what fills the scalar slot inside it when the author declared no value constraints —
+ * the type of the field the filter targets, or `string` where no field resolves
  * (ADR 0138).
  */
 #[CoversClass(OperationProjector::class)]
@@ -92,29 +93,42 @@ final class FilterValueSchemaProjectionTest extends TestCase
             ['schema' => ['format' => 'uuid']],
         ];
 
-        // Nothing resolves the column, so nothing is claimed about the value.
-        yield 'a column no field backs' => [Where::make('unknown')->build(), ['schema' => []]];
-        yield 'a computed field backs no column' => [Where::make('displayTitle')->build(), ['schema' => []]];
+        // Nothing resolves the column, so the value is the `string` every query parameter
+        // already is — no narrower claim, and no pretence that the type is unknown.
+        yield 'a column no field backs' => [Where::make('unknown')->build(), ['schema' => ['type' => 'string']]];
+        yield 'a computed field backs no column' => [
+            Where::make('displayTitle')->build(),
+            ['schema' => ['type' => 'string']],
+        ];
         yield 'a flattened related attribute backs no column here' => [
             Where::make('authorName')->build(),
-            ['schema' => []],
+            ['schema' => ['type' => 'string']],
         ];
-        yield 'two fields share the column' => [Where::make('shared')->build(), ['schema' => []]];
-        yield 'a relation is not a value' => [Where::make('author')->build(), ['schema' => []]];
-        yield 'a list column has no scalar form' => [Where::make('keywords')->build(), ['schema' => []]];
-        yield 'an open-object column has no scalar form' => [Where::make('analytics')->build(), ['schema' => []]];
-        yield 'a map column has no scalar form' => [Where::make('address')->build(), ['schema' => []]];
-        yield 'a self-describing composite has no scalar form' => [Where::make('block')->build(), ['schema' => []]];
+        yield 'two fields share the column' => [Where::make('shared')->build(), ['schema' => ['type' => 'string']]];
+        yield 'a relation is not a value' => [Where::make('author')->build(), ['schema' => ['type' => 'string']]];
+        yield 'a list column has no scalar form' => [
+            Where::make('keywords')->build(),
+            ['schema' => ['type' => 'string']],
+        ];
+        yield 'an open-object column has no scalar form' => [
+            Where::make('analytics')->build(),
+            ['schema' => ['type' => 'string']],
+        ];
+        yield 'a map column has no scalar form' => [Where::make('address')->build(), ['schema' => ['type' => 'string']]];
+        yield 'a self-describing composite has no scalar form' => [
+            Where::make('block')->build(),
+            ['schema' => ['type' => 'string']],
+        ];
         yield 'a relationship path is not a column' => [
             WhereThrough::make('author.name')->build(),
-            ['schema' => []],
+            ['schema' => ['type' => 'string']],
         ];
         yield 'a group spans columns' => [
             WhereAny::make('q', Contains::make('title'), Contains::make('status'))->build(),
-            ['schema' => []],
+            ['schema' => ['type' => 'string']],
         ];
         yield 'a consumer filter naming no column' => [new CommaListFilter('labels'), [
-            'schema' => ['type' => 'array', 'items' => []],
+            'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
             'style' => 'form',
             'explode' => false,
         ]];
@@ -156,7 +170,7 @@ final class FilterValueSchemaProjectionTest extends TestCase
             'explode' => false,
         ]];
         yield 'a set over a column with no scalar form' => [WhereIn::make('keywords')->build(), [
-            'schema' => ['type' => 'array', 'items' => []],
+            'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
             'style' => 'form',
             'explode' => false,
         ]];
@@ -251,7 +265,12 @@ final class FilterValueSchemaProjectionTest extends TestCase
 
         $document = (new OpenApiProjector())->project($server)->toArray();
 
-        self::assertSame([], $this->schemaOf($document, '/widgets/{id}/attachments', 'filter[views]'));
+        // Both related types call `views` an integer, but the relation names no single
+        // inventory to read that off, so the value stays at the wire's own `string`.
+        self::assertSame(
+            ['type' => 'string'],
+            $this->schemaOf($document, '/widgets/{id}/attachments', 'filter[views]'),
+        );
     }
 
     /**

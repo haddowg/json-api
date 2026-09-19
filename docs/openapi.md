@@ -164,12 +164,13 @@ sketch:
   a plain string whose description says the value is ignored — and its **value** schema from
   the filter's declared [value constraints](filters.md#validating-filter-values). A filter
   that declared none falls back to the JSON type of the field it targets, matching the
-  filter's column against the type's field inventory: a `Where` over a `Str` documents as
-  `{"type": "string"}` where it used to document as `{}`. Only the type carries over — not
-  the field's `format`, `enum` or length, which describe a document member rather than a
+  filter's column against the type's field inventory: a `Where` over an `Integer` documents
+  as `{"type": "integer"}` where it used to document as `{}`. Only the type carries over —
+  not the field's `format`, `enum` or length, which describe a document member rather than a
   comparison operand. Where the column resolves to no single scalar field — a relationship
-  path, a group spanning several columns, a computed value, a composite — the parameter
-  stays untyped rather than guessing. ([ADR 0138](adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md).)
+  path, a group spanning several columns, a computed value, a composite — the value is
+  `string`, which is what a query parameter is on the wire regardless.
+  ([ADR 0138](adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md).)
 - **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
   productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
   one only when its configured serialization format really writes that shape. A field
