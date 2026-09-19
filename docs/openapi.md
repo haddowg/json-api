@@ -51,12 +51,16 @@ The projection is a small pipeline of **pure** classes in
   exposed related and relationship endpoints, and its custom actions under the
   `-actions` segment. Each operation enumerates its concrete query parameters
   (`filter[…]`, `sort`, `include`, `fields[…]`, `page[…]`, `withCount`), its request body,
-  its declared success responses (see [Response declarations](#response-declarations)) and
-  the standard error responses, and carries its tags and per-operation security.
+  its declared success responses (see [Response declarations](#response-declarations)) and a
+  `$ref` per standard error status, and carries its tags and per-operation security.
 
 - **`ErrorCatalogProjector`** — projects the server's error codes into one named schema
   component each, and the `anyOf` that offers them from `ErrorDocument.errors.items`. See
   [The error-code catalogue](#the-error-code-catalogue).
+
+- **`ErrorResponseProjector`** — projects the `components.responses` entry every operation's
+  error `$ref`s resolve to, one per advertised status, each pointing at the narrowest error
+  document the catalogue supports. See [The shared error responses](#the-shared-error-responses).
 
 - **`OpenApiProjector`** — the top-level entry point. It consumes a
   `ServerMetadataInterface` and returns one `OpenApi` document: the skeleton
@@ -64,9 +68,10 @@ The projection is a small pipeline of **pure** classes in
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
   relationship / related document envelopes), the shared components (`JsonApi`, `Meta`,
-  `Links`, `PaginationLinks`, `Error`, `ErrorDocument`), the per-code error variants, the
-  named enum components, the optional [Atomic Operations](atomic-operations.md) extension
-  components + path, and — via the `OperationProjector` — the `paths`.
+  `Links`, `PaginationLinks`, `Error`, `ErrorDocument` and its per-status narrowings), the
+  per-code error variants, the shared error responses, the named enum components, the
+  optional [Atomic Operations](atomic-operations.md) extension components + path, and —
+  via the `OperationProjector` — the `paths`.
 
 Component **names** follow stable PascalCase conventions (`blog-post` → `BlogPost`, so
 `BlogPostResource`, `BlogPostCreateRequest`, `BlogPostAuthorRelationship`, …), shared
@@ -243,6 +248,51 @@ the client-id codes need a type that permits one; and the whole request-document
 (bad JSON, missing `data`, an unacceptable `type`, …) needs a server that accepts a
 request body somewhere — a CRUD write, a mutable relationship endpoint, or the atomic
 batch.
+
+### The shared error responses
+
+An operation does not describe its error bodies. It `$ref`s one of the shared responses
+under `components.responses`, named for the HTTP status:
+
+```yaml
+paths:
+  /articles:
+    post:
+      responses:
+        '201': { … }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+components:
+  responses:
+    UnprocessableEntity:
+      description: Unprocessable Entity — the document failed validation.
+      content:
+        application/vnd.api+json:
+          schema: { $ref: '#/components/schemas/ErrorDocument422' }
+```
+
+One response component per status your server advertises — nothing more, in keeping with
+the rest of the document. An endpoint that phrases a status its own way keeps its wording
+on the `$ref` as an OAS 3.1 Reference Object `description`, which overrides the
+component's; the [Atomic Operations](atomic-operations.md) batch does this for the six it
+describes in terms of an operation within the batch rather than the request as a whole.
+
+**Each response carries the narrowest error document its status supports.** Every
+catalogued code pins its `status` to a `const`, so `ErrorDocument422` is the error document
+whose `errors.items.anyOf` offers only the codes that can arrive with a `422` — and the
+open generic `Error` still leads it. A status the catalogue claims no code for keeps the
+generic `ErrorDocument`: `401` always, because no code core raises declares it (your
+firewall answers first), and any status whose codes your feature set gated out.
+
+Two things follow, and the second is easy to miss. The `anyOf` is still a catalogue and
+still not a constraint — your own `422` code validates against `ErrorDocument422` for the
+same reason it validates against `ErrorDocument`. And a document's status is the status
+*class* its errors share: a response that collects a `422` and a `409` goes out as a `400`
+([ADR 0018](adr/0018-error-document-status-reflects-a-uniform-error-set.md)), so a `400`
+body can carry an error object whose own `status` member reads `"422"`. The generic branch
+absorbs that and validation passes. Read the per-status list as the codes that status
+usually carries, not the codes it can only carry.
+([ADR 0139](adr/0139-error-responses-are-shared-components-narrowed-per-status.md).)
 
 **Adding your own codes to the catalogue.** Implement `DescribedErrorInterface` on your
 exception and build its errors through the descriptor:

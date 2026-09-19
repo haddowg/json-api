@@ -35,6 +35,7 @@ final class OpenApiProjector
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
         private readonly OperationProjector $operationProjector = new OperationProjector(),
+        private readonly ErrorCatalogProjector $errorCatalogProjector = new ErrorCatalogProjector(),
     ) {}
 
     /**
@@ -46,8 +47,15 @@ final class OpenApiProjector
         // server does not register has no honest projection (see the method).
         $this->guardRelatedTypesAreRegistered($server);
 
+        // The paths are projected FIRST because the error responses are now shared
+        // components: which statuses the operations reference decides which response
+        // components, and which per-status `ErrorDocument` narrowings, the document
+        // carries. Path projection reads only the metadata, so the move is free.
+        $paths = $this->paths($server);
+        $errorStatuses = ErrorResponseProjector::referencedStatuses($paths);
+
         $schemas = [];
-        $this->addSharedComponents($schemas, $server);
+        $this->addSharedComponents($schemas, $server, $errorStatuses);
 
         // The shared meta-document component is referenced by an action that declares a
         // MetaResult response and by a delete that declares a `200` meta-only success
@@ -110,6 +118,7 @@ final class OpenApiProjector
 
         $components = new Components(
             schemas: $schemas,
+            responses: ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server)),
             parameters: $parameters,
             securitySchemes: $server->securitySchemes(),
         );
@@ -122,8 +131,6 @@ final class OpenApiProjector
             tags: $this->tags($server),
             externalDocs: $server->externalDocs(),
         );
-
-        $paths = $this->paths($server);
 
         return $paths->isEmpty() ? $document : $document->withPaths($paths);
     }
@@ -203,9 +210,13 @@ final class OpenApiProjector
      * links / meta containers, the error document, and the per-code error variants the
      * server's registered feature set can raise.
      *
+     * `$errorStatuses` are the statuses the projected paths advertise; each one the
+     * catalogue claims also gets an `ErrorDocument<status>` narrowing.
+     *
      * @param array<string, Schema> $schemas
+     * @param list<string>          $errorStatuses
      */
-    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server): void
+    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server, array $errorStatuses): void
     {
         $schemas['JsonApi'] = $this->jsonApiObjectSchema(
             $server->jsonApiVersion(),
@@ -221,11 +232,25 @@ final class OpenApiProjector
         $schemas['ErrorSource'] = $this->errorSourceSchema();
         $schemas['Error'] = $this->errorObjectSchema();
 
-        $catalog = new ErrorCatalogProjector();
+        $catalog = $this->errorCatalogProjector;
         $variants = $catalog->components($server);
         $schemas['ErrorDocument'] = $this->errorDocumentSchema(
             $catalog->errorsItemSchema(\array_keys($variants)),
         );
+
+        // One narrowing per advertised status the catalogue claims. A status it claims no
+        // code for keeps the generic document — `401` always, and any status whose codes
+        // the server's feature set gated out.
+        $byStatus = $catalog->componentsByStatus($server);
+        foreach ($errorStatuses as $status) {
+            $codes = $byStatus[(int) $status] ?? null;
+            if ($codes === null) {
+                continue;
+            }
+            $schemas['ErrorDocument' . $status] = $this->errorDocumentSchema(
+                $catalog->errorsItemSchema($codes, (int) $status),
+            );
+        }
 
         foreach ($variants as $name => $variant) {
             $schemas[$name] = $variant;
@@ -829,15 +854,19 @@ final class OpenApiProjector
     }
 
     /**
-     * Adds the atomic endpoint's standard error responses (each `$ref`ing the shared
-     * `ErrorDocument`): `400`/`403`/`404`/`406`/`409`/`415`/`500`, plus `422` for a
-     * validation failure within the batch, and `401` when the operation is secured
-     * (its effective security is non-empty — the same invariant every CRUD/action
+     * Adds the atomic endpoint's standard error responses (each a `$ref` to the shared
+     * `components.responses` entry for its status): `400`/`403`/`404`/`406`/`409`/`415`/`500`,
+     * plus `422` for a validation failure within the batch, and `401` when the operation is
+     * secured (its effective security is non-empty — the same invariant every CRUD/action
      * operation carries, D17).
+     *
+     * The batch phrases six of these in terms of an operation within it rather than the
+     * request as a whole; those `$ref`s carry the wording as a Reference Object
+     * `description` override, which OAS 3.1 permits. The three it phrases identically to
+     * every other endpoint reference the component bare.
      */
     private function withAtomicErrorResponses(Responses $responses, bool $secured): Responses
     {
-        $errorRef = Reference::to('schemas', 'ErrorDocument');
         $statuses = [
             '400' => 'Bad Request — the operations document was malformed.',
             '403' => 'Forbidden — the request is not authorised.',
@@ -852,7 +881,7 @@ final class OpenApiProjector
             $statuses['401'] = 'Unauthorized — authentication is required and was missing or invalid.';
         }
         foreach ($statuses as $status => $description) {
-            $responses = $responses->with((string) $status, Response::ofSchema($description, $errorRef));
+            $responses = $responses->with((string) $status, ErrorResponseProjector::reference((string) $status, $description));
         }
 
         return $responses;

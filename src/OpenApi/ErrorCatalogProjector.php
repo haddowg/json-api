@@ -58,15 +58,29 @@ final class ErrorCatalogProjector
     public function components(ServerMetadataInterface $server): array
     {
         $components = [];
-        foreach (self::catalog($server)->descriptors() as $descriptor) {
-            if ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server)) {
-                continue;
-            }
-
+        foreach ($this->raisable($server) as $descriptor) {
             $components[self::componentName($descriptor->code)] = $this->variant($descriptor);
         }
 
         return $components;
+    }
+
+    /**
+     * The same variant component names, grouped by the status each pins to a `const` —
+     * the input to the per-status `ErrorDocument` narrowing. A status the catalogue never
+     * claims is absent from the map, so the narrowing is derivable from the catalogue
+     * alone: `401` is declared by no descriptor and therefore never narrows.
+     *
+     * @return array<int, list<string>>
+     */
+    public function componentsByStatus(ServerMetadataInterface $server): array
+    {
+        $byStatus = [];
+        foreach ($this->raisable($server) as $descriptor) {
+            $byStatus[$descriptor->status][] = self::componentName($descriptor->code);
+        }
+
+        return $byStatus;
     }
 
     /**
@@ -91,9 +105,16 @@ final class ErrorCatalogProjector
      * The schema for one entry of `ErrorDocument.errors`: the open generic `Error`
      * first, then every catalogued variant.
      *
+     * With a `$status`, the entry belongs to a per-status narrowing (`ErrorDocument415`)
+     * and `$components` holds only the codes pinned to that status. The generic branch
+     * still leads, and it does more work there: a mixed-status document rounds down to
+     * its status class ([ADR 0018](../../docs/adr/0018-error-document-status-reflects-a-uniform-error-set.md)),
+     * so a `400` body may legitimately carry an error object whose own `status` reads
+     * `"422"`.
+     *
      * @param list<string> $components the variant component names, in emit order
      */
-    public function errorsItemSchema(array $components): Schema
+    public function errorsItemSchema(array $components, ?int $status = null): Schema
     {
         $branches = [Schema::ref(ComponentNaming::schemaRef('Error'))];
         foreach ($components as $component) {
@@ -102,9 +123,15 @@ final class ErrorCatalogProjector
 
         return Schema::create()
             ->withDescription(
-                'A JSON:API error object. The named branches catalogue the codes this server '
-                . 'documents; the leading generic `Error` keeps the list open, so an error '
-                . 'carrying an undocumented `code` is still a valid error object.',
+                $status === null
+                    ? 'A JSON:API error object. The named branches catalogue the codes this server '
+                        . 'documents; the leading generic `Error` keeps the list open, so an error '
+                        . 'carrying an undocumented `code` is still a valid error object.'
+                    : 'A JSON:API error object in a `' . $status . '` document. The named branches catalogue '
+                        . 'the codes this server documents at that status; the leading generic `Error` keeps '
+                        . 'the list open, so an error carrying an undocumented `code` — or one whose own '
+                        . '`status` differs, which happens when a document of mixed statuses takes the '
+                        . 'status class they round down to — is still a valid error object.',
             )
             ->withAnyOf($branches);
     }
@@ -120,6 +147,23 @@ final class ErrorCatalogProjector
         $base = ComponentNaming::base(\strtolower($code));
 
         return \str_ends_with($base, 'Error') ? $base : $base . 'Error';
+    }
+
+    /**
+     * The descriptors this server can actually raise, in catalogue order: the assembled
+     * catalogue minus every code whose {@see ErrorFeature} the server does not offer.
+     *
+     * @return \Generator<int, ErrorDescriptor>
+     */
+    private function raisable(ServerMetadataInterface $server): \Generator
+    {
+        foreach (self::catalog($server)->descriptors() as $descriptor) {
+            if ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server)) {
+                continue;
+            }
+
+            yield $descriptor;
+        }
     }
 
     /**
