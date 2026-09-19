@@ -159,11 +159,15 @@ mirrors the status. Body-invalid exceptions take the already-extracted data
 contract; keep it opt-in, never fold it into `JsonApiExceptionInterface`. Core's exceptions
 implement it **and** build through `ErrorDescriptor::toError()`, and their constructors pass
 `self::describe()->status`, so `code`/`status`/`title` live in exactly one place per class.
-`ErrorCatalog` is the hand-written roster of those classes; `ErrorCatalogTest` scans
-`src/Exception` and fails when one lands outside it. **Never** enumerate the catalogue by
-constructing exceptions with placeholder arguments — `getErrors()` interpolates constructor
-state, so the result would be fiction
-([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+`ErrorCatalog` is a composite over `ErrorCatalogSourceInterface`: it merges sources in
+order, dedupes by class, and **throws** when two classes claim one `code`. `CoreErrorSource`
+discovers core's own from `src/Exception` (`scandir`, **not** `glob` — glob returns empty
+under `phar://`), memoised per process. Never add a roster. A server contributes its own
+via `OpenApi\Metadata\ContributesErrorCodes`, assembled per server in
+`ErrorCatalogProjector::catalog()`; `ErrorFeature` stays a **closed** enum and a contributed
+code is ungated. **Never** enumerate the catalogue by constructing exceptions with
+placeholder arguments — `getErrors()` interpolates constructor state, so the result would be
+fiction ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 
 ### Requests
 `src/Request` → [content-negotiation](docs/content-negotiation.md),

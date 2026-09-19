@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\Exception\CoreErrorSource;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
+use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
@@ -14,8 +16,8 @@ use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
 /**
- * Projects core's {@see ErrorCatalog} into one named schema component per error code,
- * and the `anyOf` that offers them from `ErrorDocument.errors.items`.
+ * Projects the server's {@see ErrorCatalog} into one named schema component per error
+ * code, and the `anyOf` that offers them from `ErrorDocument.errors.items`.
  *
  * A variant narrows the shared `Error` rather than restating it: `allOf: [$ref Error,
  * {code: const, status: const, …}]`. So a generator reads the code off
@@ -24,9 +26,13 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  *
  * **The `anyOf` is a catalogue, not a constraint.** Its first branch is the open generic
  * `Error`, which every error object satisfies — including one carrying an application's
- * own code that core has never heard of. That is deliberate: a closed `oneOf` would
- * make a server's own error documents fail its own published schema the first time the
- * application threw something of its own ([ADR 0136](../../docs/adr/0136-open-error-code-catalogue-in-the-projected-document.md)).
+ * own code that no source declared. That is deliberate: a closed `oneOf` would make a
+ * server's own error documents fail its own published schema the first time the
+ * application threw something undeclared ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+ *
+ * Core's codes are always catalogued. A server whose metadata implements
+ * {@see ContributesErrorCodes} adds its own on top, so the catalogue covers the errors
+ * that server actually raises rather than only the ones core ships.
  *
  * The projection is registration-aware, like the rest of the document (ADR 0131): a
  * code whose descriptor names an {@see ErrorFeature} the server does not offer is left
@@ -52,7 +58,7 @@ final class ErrorCatalogProjector
     public function components(ServerMetadataInterface $server): array
     {
         $components = [];
-        foreach (ErrorCatalog::descriptors() as $descriptor) {
+        foreach (self::catalog($server)->descriptors() as $descriptor) {
             if ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server)) {
                 continue;
             }
@@ -61,6 +67,24 @@ final class ErrorCatalogProjector
         }
 
         return $components;
+    }
+
+    /**
+     * The catalogue this server publishes: core's codes first, then whatever its metadata
+     * contributes. Assembled per server, so an application's errors appear only on the
+     * servers it registered them for.
+     */
+    public static function catalog(ServerMetadataInterface $server): ErrorCatalog
+    {
+        $sources = [new CoreErrorSource()];
+
+        if ($server instanceof ContributesErrorCodes) {
+            foreach ($server->errorSources() as $source) {
+                $sources[] = $source;
+            }
+        }
+
+        return new ErrorCatalog(...$sources);
     }
 
     /**

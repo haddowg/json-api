@@ -54,7 +54,7 @@ The projection is a small pipeline of **pure** classes in
   its declared success responses (see [Response declarations](#response-declarations)) and
   the standard error responses, and carries its tags and per-operation security.
 
-- **`ErrorCatalogProjector`** — projects core's error codes into one named schema
+- **`ErrorCatalogProjector`** — projects the server's error codes into one named schema
   component each, and the `anyOf` that offers them from `ErrorDocument.errors.items`. See
   [The error-code catalogue](#the-error-code-catalogue).
 
@@ -283,8 +283,13 @@ final class SeatsSoldOut extends AbstractJsonApiException implements DescribedEr
 }
 ```
 
-Core projects its own catalogue; an integration decides whether and how to feed yours
-into the document it builds.
+Then point the server at it. The catalogue is assembled from
+[sources](errors-and-exceptions.md#contributing-your-codes-to-the-catalogue): core's own
+always, plus whatever the server's metadata contributes through `ContributesErrorCodes`.
+Contribution is per server, so `SEATS_SOLD_OUT` is documented on the servers that can
+raise it and nowhere else, and two classes claiming one `code` are refused rather than
+silently merged. The Symfony and Laravel integrations wire a source from their own
+discovery, so in those apps the exception above is catalogued by writing it.
 
 ## The metadata contract
 
@@ -311,6 +316,11 @@ OAS value objects (`servers()`, `tags()`, `securitySchemes()`) hand the projecto
 ready-made VOs — that data is config-shaped, with no JSON:API semantics to interpret —
 while type / relation / action data, which *does* carry semantics the projector must
 interpret, flows through the interface family above.
+
+One optional contract sits beside the family: `ContributesErrorCodes` extends
+`ServerMetadataInterface` with `errorSources(): iterable`, and the projector checks for it
+when it assembles that server's [error catalogue](#the-error-code-catalogue). Metadata
+that does not implement it publishes core's codes and nothing else.
 
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive

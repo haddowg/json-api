@@ -18,6 +18,25 @@ with the raw code intact, for a code it does not recognise. We accept that the v
 value is nil and the document grows by roughly 50 schema components; discovery is the
 point, and validation of `code` was never possible anyway.
 
+**The membership is open too.** A catalogue that only ever holds core's 53 codes describes
+half of any real server: applications and framework integrations raise codes of their own,
+and a generated client should be able to type those as well. So `ErrorCatalog` is a
+composite over `ErrorCatalogSourceInterface` — each source yields described-error classes,
+core's is one of them, and the projector assembles a fresh catalogue per server from
+core's source plus whatever the server's metadata contributes through
+`ContributesErrorCodes`. Per server, not static: an application's codes belong in the
+documents of the servers that registered them and nowhere else, which is the
+registration-awareness [ADR 0131](0131-registration-aware-openapi-projection.md) already
+applies everywhere else in the projection. Two *different* classes claiming one `code`
+throws, naming both — a code is what a client dispatches on, so resolving the clash
+silently would publish one class's status and title under the other's code. Core's source
+reads the classes filed beside it, scoped to that one directory, at projection time and at
+most once per process; a projected document is a warmed or exported artefact, so a
+directory read costs nothing where it happens. (`scandir`, not `glob`: `glob()` does not
+traverse stream wrappers and returns an empty array under `phar://`, which would empty the
+catalogue without a word.) `ErrorFeature` stays a closed enum of core's own capabilities —
+a contributed error names none and is published wherever it is registered.
+
 Two supporting decisions. **`context` is not projected at all.** `Error::$context` is the
 interpolation input core fills into the `title` / `detail` templates ([ADR
 0128](0128-localizable-error-catalogue-via-code-keyed-resolver.md)) and never reaches the
@@ -43,6 +62,12 @@ write components.
 - **Serializing `context` into the error's `meta`.** It would make the typed-context story
   work end to end, but it changes every error document for every existing server, and ADR
   0128 deliberately kept context internal. Out of scope for a projection change.
+- **A hand-written roster of core's exception classes**, policed by a test that scans
+  `src/Exception` and fails when one lands outside it. It is greppable and it diffs, but
+  it is a second copy of the membership and it is closed by construction: an application
+  cannot add a code to it at all. Discovering the same directory the test scanned gives
+  the identical guarantee with nothing to drift, and the roster's absence is what made
+  room for the source contract.
 - **Reading the catalogue by reflecting over `src/Exception` and constructing each
   exception with placeholder arguments.** Fragile and dishonest — `getErrors()` builds its
   errors from constructor state, so the arguments would have to be invented and the
