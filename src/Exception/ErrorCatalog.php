@@ -5,85 +5,53 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Exception;
 
 /**
- * Every error code core can raise, as data.
+ * The error codes a server documents, assembled from its {@see ErrorCatalogSourceInterface}s.
  *
- * The exceptions are the source of truth — each one's {@see ErrorDescriptor} is the
- * same object its `getErrors()` renders through — but a class is not a list, so the
- * membership is spelled out here. An explicit roster is the honest form: it is
- * greppable, it diffs, and it never has to construct an exception with invented
- * arguments to find out what code it carries. `ErrorCatalogTest` fails when a new
- * exception lands without joining it.
+ * Core's codes are one source ({@see CoreErrorSource}); an application's or a framework
+ * integration's are others. The catalogue merges them in source order, drops a class two
+ * sources both name, and refuses a code two *different* classes claim — a `code` is the
+ * identifier a client dispatches on, so last-one-wins would publish one class's status
+ * and title under another class's code.
  *
- * The list is core's, not the world's: an application throws codes this catalogue has
- * never heard of, which is why the projected `anyOf` keeps an open generic `Error`
- * branch alongside the named variants
- * ([ADR 0136](../../docs/adr/0136-open-error-code-catalogue-in-the-projected-document.md)).
+ * The exceptions stay the source of truth: a descriptor is read off the class with
+ * {@see DescribedErrorInterface::describe()}, never by constructing an exception with
+ * invented arguments, because `getErrors()` interpolates constructor state and the result
+ * would be fiction.
+ *
+ * The catalogue is never authoritative over the whole world — an application can always
+ * throw a code no source declared — which is why the projected `anyOf` keeps an open
+ * generic `Error` branch alongside the named variants
+ * ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
  */
 final class ErrorCatalog
 {
+    /** @var list<ErrorCatalogSourceInterface> */
+    private readonly array $sources;
+
+    /** @var list<class-string<DescribedErrorInterface>>|null */
+    private ?array $exceptions = null;
+
+    public function __construct(ErrorCatalogSourceInterface ...$sources)
+    {
+        $this->sources = \array_values($sources);
+    }
+
     /**
-     * Core's described exceptions, in class-name order — which fixes the order the
-     * OpenAPI projection emits their components in.
+     * Core's codes and nothing else.
+     */
+    public static function core(): self
+    {
+        return new self(new CoreErrorSource());
+    }
+
+    /**
+     * Every described-error class the sources contribute, deduplicated, in source order.
      *
      * @return list<class-string<DescribedErrorInterface>>
      */
-    public static function exceptions(): array
+    public function exceptions(): array
     {
-        return [
-            AdditionProhibited::class,
-            ApplicationError::class,
-            AtomicOperationsInvalid::class,
-            AttributeValueInvalid::class,
-            ClientGeneratedIdAlreadyExists::class,
-            ClientGeneratedIdNotSupported::class,
-            ClientGeneratedIdRequired::class,
-            CursorMalformed::class,
-            CursorStale::class,
-            DataMemberMissing::class,
-            FieldsetMemberUnrecognized::class,
-            FilterParamUnrecognized::class,
-            FilterValueInvalid::class,
-            FullReplacementProhibited::class,
-            InclusionDepthExceeded::class,
-            InclusionNotAllowed::class,
-            InclusionUnrecognized::class,
-            InclusionUnsupported::class,
-            LocalIdConflict::class,
-            LocalIdNotFound::class,
-            LocalIdNotSupported::class,
-            MediaTypeUnacceptable::class,
-            MediaTypeUnsupported::class,
-            NoResourceRegistered::class,
-            PaginationKindUnknown::class,
-            QueryParamMalformed::class,
-            QueryParamUnrecognized::class,
-            RelatedAttributeOwnerMissing::class,
-            RelationshipCountNotAllowed::class,
-            RelationshipNotExists::class,
-            RelationshipTypeInappropriate::class,
-            RemovalProhibited::class,
-            RequestBodyInvalidJson::class,
-            RequestBodyInvalidJsonApi::class,
-            RequiredTopLevelMembersMissing::class,
-            ResourceIdConflict::class,
-            ResourceIdentifierIdInvalid::class,
-            ResourceIdentifierIdMissing::class,
-            ResourceIdentifierLidInvalid::class,
-            ResourceIdentifierTypeInvalid::class,
-            ResourceIdentifierTypeMissing::class,
-            ResourceIdInvalid::class,
-            ResourceIdMissing::class,
-            ResourceIdUndecodable::class,
-            ResourceNotFound::class,
-            ResourceTypeMissing::class,
-            ResourceTypeUnacceptable::class,
-            ResponseBodyInvalidJson::class,
-            ResponseBodyInvalidJsonApi::class,
-            SortingUnsupported::class,
-            SortParamUnrecognized::class,
-            TopLevelMemberNotAllowed::class,
-            TopLevelMembersIncompatible::class,
-        ];
+        return $this->exceptions ??= $this->merge();
     }
 
     /**
@@ -91,11 +59,45 @@ final class ErrorCatalog
      *
      * @return list<ErrorDescriptor>
      */
-    public static function descriptors(): array
+    public function descriptors(): array
     {
         return \array_map(
             static fn(string $exception): ErrorDescriptor => $exception::describe(),
-            self::exceptions(),
+            $this->exceptions(),
         );
+    }
+
+    /**
+     * @return list<class-string<DescribedErrorInterface>>
+     */
+    private function merge(): array
+    {
+        /** @var array<class-string<DescribedErrorInterface>, true> $classes */
+        $classes = [];
+        /** @var array<string, class-string<DescribedErrorInterface>> $claimants */
+        $claimants = [];
+
+        foreach ($this->sources as $source) {
+            foreach ($source->describedErrors() as $class) {
+                if (isset($classes[$class])) {
+                    continue;
+                }
+
+                $code = $class::describe()->code;
+                if (isset($claimants[$code])) {
+                    throw new \LogicException(\sprintf(
+                        'The error code "%s" is claimed by both %s and %s. An error code identifies one error to a client, so rename one of them.',
+                        $code,
+                        $claimants[$code],
+                        $class,
+                    ));
+                }
+
+                $claimants[$code] = $class;
+                $classes[$class] = true;
+            }
+        }
+
+        return \array_keys($classes);
     }
 }

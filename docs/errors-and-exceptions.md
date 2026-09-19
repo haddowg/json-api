@@ -183,7 +183,7 @@ use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 InclusionDepthExceeded::describe()->context;
 // ['paths' => ErrorContextType::Str, 'maxDepth' => ErrorContextType::Integer]
 
-foreach (ErrorCatalog::descriptors() as $descriptor) {
+foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
     // $descriptor->code => array_keys($descriptor->context)
 }
 ```
@@ -297,9 +297,55 @@ depends on. Every exception core ships implements it **and** renders its errors 
 `ErrorDescriptor::toError()`, so the description and the rendered error cannot disagree.
 
 That is what lets the [OpenAPI projection](openapi.md#the-error-code-catalogue) publish a
-named schema component per code without ever constructing an exception. `ErrorCatalog`
-holds core's roster; describing your own exception is opt-in and costs nothing if you
-skip it.
+named schema component per code without ever constructing an exception. Describing your
+own exception is opt-in and costs nothing if you skip it.
+
+### Contributing your codes to the catalogue
+
+`ErrorCatalog` is assembled from sources, each of which yields described-error classes:
+
+```php
+interface ErrorCatalogSourceInterface
+{
+    /** @return iterable<class-string<DescribedErrorInterface>> */
+    public function describedErrors(): iterable;
+}
+```
+
+Core's own codes come from `CoreErrorSource`, which reads the classes filed under
+`src/Exception` at projection time. `ErrorCatalog::core()` is that source on its own —
+the catalogue as core ships it.
+
+Your codes join by adding a source. `ClassListErrorSource` takes the classes you name,
+and anything else you write implements the one method:
+
+```php
+use haddowg\JsonApi\Exception\ClassListErrorSource;
+use haddowg\JsonApi\Exception\CoreErrorSource;
+use haddowg\JsonApi\Exception\ErrorCatalog;
+
+$catalog = new ErrorCatalog(
+    new CoreErrorSource(),
+    new ClassListErrorSource(PaymentRequired::class, SubscriptionExpired::class),
+);
+```
+
+The catalogue merges sources in order and drops a class two of them both name. Two
+*different* classes claiming the same `code` is refused with a `\LogicException` naming
+both: a code is the identifier a client dispatches on, so quietly letting one win would
+publish one class's status and title under the other's code.
+
+A source reaches a generated document through the server's OpenAPI metadata. Implement
+`OpenApi\Metadata\ContributesErrorCodes` — `ServerMetadataInterface` plus an
+`errorSources(): iterable` — and the projector puts those sources behind core's when it
+builds that server's catalogue. Contribution is per server, so your codes appear only in
+the documents of servers that offer them. The [Symfony](https://github.com/haddowg/json-api-symfony)
+and [Laravel](https://github.com/haddowg/json-api-laravel) integrations wire this from
+their own discovery.
+
+`ErrorFeature` gates core's codes on core's capabilities and is a closed enum; a
+contributed descriptor leaves `feature` at `null` and is published on every server that
+registers it.
 
 ## Writing your own exception
 
@@ -341,9 +387,10 @@ Reference global classes like `\Exception` with a leading backslash inline, matc
 the codebase style.
 
 Add `implements DescribedErrorInterface` and a static `describe()` to have the code join
-the projected catalogue — see [the worked example](openapi.md#the-error-code-catalogue).
-Without it the exception still works exactly as above; it simply reaches a generated
-client as a plain `code` string.
+the projected catalogue, then point a [source](#contributing-your-codes-to-the-catalogue)
+at it — see [the worked example](openapi.md#the-error-code-catalogue). Without that the
+exception still works exactly as above; it simply reaches a generated client as a plain
+`code` string.
 
 ## The exception catalogue
 

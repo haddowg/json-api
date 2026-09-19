@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Pagination\CursorPaginator;
@@ -17,6 +19,8 @@ use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContributingServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
@@ -50,7 +54,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $schemas = $this->schemas($this->fullServer());
 
-        foreach (ErrorCatalog::descriptors() as $descriptor) {
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
             $component = ErrorCatalogProjector::componentName($descriptor->code);
             self::assertArrayHasKey($component, $schemas, "missing error component {$component}");
         }
@@ -112,7 +116,54 @@ final class ErrorCatalogProjectionTest extends TestCase
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
-        self::assertCount(\count(ErrorCatalog::descriptors()) + 1, $branches);
+        self::assertCount(\count(ErrorCatalog::core()->descriptors()) + 1, $branches);
+    }
+
+    // ---- Contributed codes ----------------------------------------------------------
+
+    #[Test]
+    public function aServerContributedCodeIsCataloguedAlongsideCores(): void
+    {
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(PaymentRequired::class),
+        );
+
+        $schemas = $this->schemas($server);
+
+        self::assertArrayHasKey('PaymentRequiredError', $schemas);
+        self::assertArrayHasKey('ResourceNotFoundError', $schemas);
+
+        $narrowing = $this->listAt($schemas, 'PaymentRequiredError', 'allOf')[1];
+        self::assertIsArray($narrowing);
+        self::assertSame('PAYMENT_REQUIRED', $this->at($narrowing, 'properties', 'code', 'const'));
+        self::assertSame('402', $this->at($narrowing, 'properties', 'status', 'const'));
+
+        $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
+        self::assertContains(['$ref' => '#/components/schemas/PaymentRequiredError'], $branches);
+    }
+
+    #[Test]
+    public function aContributedCodeIsAbsentFromAServerThatDidNotRegisterIt(): void
+    {
+        // The catalogue is assembled per server, so one server's errors never leak into
+        // another's document.
+        self::assertArrayNotHasKey('PaymentRequiredError', $this->schemas($this->fullServer()));
+    }
+
+    #[Test]
+    public function aContributedCodeIsUngatedByDefault(): void
+    {
+        // ErrorFeature is core's closed enum of core's capabilities; a contributed error
+        // names none, so it is published on every server that registers it.
+        self::assertNull(PaymentRequired::describe()->feature);
+
+        $server = new ContributingServerMetadata(
+            $this->readOnlyServer(),
+            new ClassListErrorSource(PaymentRequired::class),
+        );
+
+        self::assertArrayHasKey('PaymentRequiredError', $this->schemas($server));
     }
 
     // ---- The open branch ----------------------------------------------------------
@@ -259,7 +310,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         self::assertArrayNotHasKey('LocalIdConflictError', $schemas);
 
         $universal = \array_filter(
-            ErrorCatalog::descriptors(),
+            ErrorCatalog::core()->descriptors(),
             static fn(ErrorDescriptor $descriptor): bool => $descriptor->feature === null,
         );
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
@@ -273,7 +324,7 @@ final class ErrorCatalogProjectionTest extends TestCase
      */
     private function descriptorFor(string $code): ErrorDescriptor
     {
-        foreach (ErrorCatalog::descriptors() as $descriptor) {
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
             if ($descriptor->code === $code) {
                 return $descriptor;
             }
@@ -292,7 +343,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         $withheld = $this->schemas($withholding);
 
         $gated = 0;
-        foreach (ErrorCatalog::descriptors() as $descriptor) {
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
             $component = ErrorCatalogProjector::componentName($descriptor->code);
 
             if ($descriptor->feature === $feature) {
@@ -379,7 +430,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     /**
      * @return array<array-key, mixed>
      */
-    private function schemas(FakeServerMetadata $server): array
+    private function schemas(ServerMetadataInterface $server): array
     {
         return $this->arrAt((new OpenApiProjector())->project($server)->toArray(), 'components', 'schemas');
     }
