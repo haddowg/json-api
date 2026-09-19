@@ -1,51 +1,43 @@
 # CLAUDE.md — executor playbook
 
-Maintenance playbook for `haddowg/json-api`, read by future Claude Code sessions
-(including after compaction or restart). It records the **executor-facing**
-decisions that do *not* belong in consumer docs — yin divergences, why a type
-breaks a convention, what was deliberately not ported, PHPStan level-9 footguns.
+Operating instructions and orientation for `haddowg/json-api`, read by future Claude Code
+sessions (including after compaction or restart). What to run, what not to break, where
+each component lives.
 
-Three places carry the rest, and this file links out rather than restating them:
-the **public API** is documented under [`docs/`](docs/index.md), the **domain
-language** in [`CONTEXT.md`](CONTEXT.md), and the **rationale for the big
-architectural decisions** as ADRs under [`docs/adr/`](docs/adr/). Read the
-consumer docs for the surface, an ADR for *why* a decision was made, and this file
-for the finer-grained executor notes that fit none of those — yin divergences,
-convention carve-outs, level-9 footguns.
+Four artefacts own everything else, and this file points at them instead of restating them:
 
-When recording a new ADR, follow [`docs/adr/ADR-FORMAT.md`](docs/adr/ADR-FORMAT.md)
-— a short title stating the decision, then 1–3 sentences of *why*.
+- [`docs/`](docs/index.md) owns the public API and consumer-facing behaviour.
+- [`docs/adr/`](docs/adr/) owns *why* a decision was made and what was rejected.
+- [`CONTEXT.md`](CONTEXT.md) owns the domain language.
+- Git history owns what changed and when.
+
+So keep this file minimal. A paragraph explaining why, recounting what went wrong, or
+narrating how something came to be belongs in one of those four, even when it is true and
+interesting. When recording a new ADR, follow
+[`docs/adr/ADR-FORMAT.md`](docs/adr/ADR-FORMAT.md): a short title stating the decision,
+then 1–3 sentences of *why*.
 
 ## Project orientation
 
-`haddowg/json-api` is a modern, server-side JSON:API 1.1 library for PHP 8.3+. It
-is a **derivative work** based on [woohoolabs/yin](https://github.com/woohoolabs/yin)
-(MIT) — substantial portions derive from yin — but it is **not a fork**: no
-upstream tracking, no commitment to yin's public API. Always credit yin as the
-original; never call this package a "fork". (See [ADR 0001](docs/adr/0001-derived-from-yin-not-forked.md).)
+`haddowg/json-api` is a modern, server-side JSON:API 1.1 library for PHP 8.3+. It is a
+**derivative work** based on [woohoolabs/yin](https://github.com/woohoolabs/yin) (MIT) but
+**not a fork**: no upstream tracking, no commitment to yin's public API. Always credit yin
+as the original; never call this package a "fork"
+([ADR 0001](docs/adr/0001-derived-from-yin-not-forked.md)).
 
 - Spec: [JSON:API 1.1](https://jsonapi.org/format/1.1/) · Namespace: `haddowg\JsonApi\…` · Min PHP 8.3
 - Consumer docs: [`docs/index.md`](docs/index.md) · Domain language: [`CONTEXT.md`](CONTEXT.md) · Decision records: [`docs/adr/`](docs/adr/)
-
-### Status
-
-The library is **feature-complete** across the surface
-documented under `docs/` (serialization, hydration, the fluent schema DSL,
-profiles, pagination, middleware, optional validation, and the JSON:API Atomic
-Operations extension — see [`docs/atomic-operations.md`](docs/atomic-operations.md)).
-Attribute-driven hydrators remain the one deliberately unbuilt piece on the
-roadmap.
+- The library is **feature-complete** across the surface documented under `docs/`.
+  Attribute-driven hydrators are the one deliberately unbuilt piece on the roadmap.
 
 ### Companion Symfony bundle (sibling repo)
 
-A Symfony integration, [`haddowg/json-api-symfony`](https://github.com/haddowg/json-api-symfony),
-is built in a **sibling checkout** at `../json-api-symfony` and depends on this core
-package. Building it was the forcing function that confirmed the public API had
-everything a real integration needs. The core surface is **semver-bound**, so an
-integration-driven core change goes through the normal release cycle (marked breaking
-when it is) and lands **here** as a core PR (with an ADR) ahead of the bundle change
-that consumes it. Prefer fixing core over working around it in the bundle, weighed
-against the compatibility cost.
+[`haddowg/json-api-symfony`](https://github.com/haddowg/json-api-symfony) is built in a
+**sibling checkout** at `../json-api-symfony` and depends on this package. The core surface
+is **semver-bound**, so an integration-driven core change lands **here** first as a core PR
+with an ADR (marked breaking when it is), ahead of the bundle change that consumes it.
+Prefer fixing core over working around it in the bundle, weighed against the compatibility
+cost.
 
 ## Git conventions
 
@@ -93,25 +85,21 @@ modernised API replaces.
 
 Default to PHPStan generics (`@template`) on **consumer-visible** types whose type
 parameter actually **survives to the use site** — `PageInterface<T>` (the page holds its
-items) and the registry lookups (`class-string<T>` → narrowed return). Skip
-generics on internal types, on PSR-* boundary types, and where `instanceof`/`match`
-already narrows. Apply at port time, not as a retroactive sweep.
+items) and the registry lookups (`class-string<T>` → narrowed return). Skip generics on
+internal types, on PSR-* boundary types, and where `instanceof`/`match` already narrows.
+Apply at port time, not as a retroactive sweep.
 
-**Deliberately not generic** (the parameter **erases at a boundary**, so a
-`@template` would be ceremony that buys no use-site narrowing):
+Three types are **deliberately not generic** because the parameter erases at a boundary.
+Do not add a `@template` to any of them:
 
-- **`DataResponse`** — `T` is the domain object, but `SerializerInterface` is
-  intentionally non-generic and the rendered `data` is `mixed`; `T` is erased the
-  moment the response is built, and threads `<mixed>` through every frozen
-  signature that returns one (`OperationHandlerInterface`, `Server`).
-- **`OperationHandlerInterface`** — a handler dispatches over the **whole** operation union
-  (`match (true) { $op instanceof … }`), so `TOperation` is always the
-  `JsonApiOperationInterface` base; the parameter would only add `<JsonApiOperationInterface>` noise
-  at every reference.
+- **`DataResponse`** — `SerializerInterface` is intentionally non-generic and the rendered
+  `data` is `mixed`, so `T` would thread `<mixed>` through every frozen signature that
+  returns one (`OperationHandlerInterface`, `Server`).
+- **`OperationHandlerInterface`** — a handler dispatches over the **whole** operation union,
+  so `TOperation` is always the `JsonApiOperationInterface` base.
 - **`FieldInterface`** — `AbstractResource::fields()` is a **heterogeneous**
-  `list<FieldInterface|FieldBuilderInterface>` (each entry a built field or the builder
-  that produces one), and a field's `serialize()`/`deserializeValue()` are
-  `mixed → mixed` by design; no single `T` can flow through the list.
+  `list<FieldInterface|FieldBuilderInterface>` and a field's `serialize()`/
+  `deserializeValue()` are `mixed → mixed` by design.
 
 ## Modernisation conventions (shared)
 
@@ -167,19 +155,15 @@ $message, int $statusCode)` forwards both to `parent::__construct()` so `getCode
 mirrors the status. Body-invalid exceptions take the already-extracted data
 (raw/decoded body, validation-error list) — **decoupled** from the request layer.
 
-**The descriptor split.** A second, **opt-in** contract `DescribedErrorInterface` adds
-`static describe(): ErrorDescriptor` — `code`, `status` (int), default `title`, the
-`context` placeholder shape, the `ErrorSourceShape` the exception always fills, and the
-gating `ErrorFeature`. It is deliberately *not* folded into `JsonApiExceptionInterface`
-(an abstract static on a published interface breaks every third-party implementor). Core's
-53 exceptions implement it **and** build through `ErrorDescriptor::toError()`, and their
-constructors pass `self::describe()->status` — so `code`/`status`/`title` exist in exactly
-one place per class and the published description cannot drift from the rendered error.
+`DescribedErrorInterface` (`static describe(): ErrorDescriptor`) is a second, **opt-in**
+contract; keep it opt-in, never fold it into `JsonApiExceptionInterface`. Core's exceptions
+implement it **and** build through `ErrorDescriptor::toError()`, and their constructors pass
+`self::describe()->status`, so `code`/`status`/`title` live in exactly one place per class.
 `ErrorCatalog` is the hand-written roster of those classes; `ErrorCatalogTest` scans
 `src/Exception` and fails when one lands outside it. **Never** enumerate the catalogue by
-constructing exceptions with placeholder arguments — `getErrors()` interpolates
-constructor state, so the result would be fiction. See
-[ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md).
+constructing exceptions with placeholder arguments — `getErrors()` interpolates constructor
+state, so the result would be fiction
+([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 
 ### Requests
 `src/Request` → [content-negotiation](docs/content-negotiation.md),
@@ -202,25 +186,24 @@ update) then runs `validateDomainObject()`. Relationship cardinality is checked 
 **reflecting the hydrator callable's 2nd-parameter type-hint** and comparing
 to-one/to-many; mismatch throws `RelationshipTypeInappropriate`. Decoded-JSON
 boundary: body members arrive as `mixed` — guard with `\is_string`/`\is_array`
-before use. The input relationship VOs (`src/Hydrator/Relationship/{ToOne,ToMany}Relationship`,
-ported early) are **leaf VOs** (distinct from the mutable output relationships);
-`null`/`[]` data = clear the relationship. **`lid`** (1.1 local IDs) is supported at
-the data-model level beyond yin (`ResourceIdentifier` carries `?id` + `?lid`,
-`fromArray()` requires `type` + at-least-one-of); cross-document `lid` *resolution*
-lives in the Atomic Operations extension (`Atomic\LocalIdRegistry`, within a batch)
-— outside a batch a `lid` is rejected `400 LOCAL_ID_NOT_SUPPORTED`.
+before use. The input relationship VOs (`src/Hydrator/Relationship/{ToOne,ToMany}Relationship`)
+are **leaf VOs** (distinct from the mutable output relationships); `null`/`[]` data = clear
+the relationship. **`lid`** (1.1 local IDs) is supported at the data-model level beyond yin
+(`ResourceIdentifier` carries `?id` + `?lid`, `fromArray()` requires `type` +
+at-least-one-of); cross-document `lid` *resolution* lives in the Atomic Operations
+extension (`Atomic\LocalIdRegistry`, within a batch) — outside a batch a `lid` is rejected
+`400 LOCAL_ID_NOT_SUPPORTED`.
 
 ### Serializers & output relationships
 `src/Serializer`, `src/Schema/Relationship` → [serializers](docs/serializers.md).
-`SerializerInterface` (formerly `Schema\Resource\ResourceInterface`, renamed to
-free `Resource` for the DSL) is **not generic** (the serialized value is
-`mixed`) and **stateless** — yin's `initializeTransformation()`/`clearTransformation()`
-are dropped, a single instance serializes many objects. `AbstractSerializer` is a
-thin base that `use`s the **public, composable** `Serializer\TransformerTrait`
-(date/decimal formatting helpers) — mirroring the Hydrator trait/abstract split, a
-consumer can compose the trait onto a bare `SerializerInterface` impl instead of
-extending the base. The trait lives in `Serializer\` (**not** `Transformer\`,
-which stays wholly `@internal`). The **output** relationships
+`SerializerInterface` (yin's `Schema\Resource\ResourceInterface`, renamed to free
+`Resource` for the DSL) is **not generic** (the serialized value is `mixed`) and
+**stateless** — yin's `initializeTransformation()`/`clearTransformation()` are dropped, a
+single instance serializes many objects. `AbstractSerializer` is a thin base that `use`s
+the **public, composable** `Serializer\TransformerTrait` (date/decimal formatting helpers),
+so a consumer can compose the trait onto a bare `SerializerInterface` impl instead of
+extending the base. The trait lives in `Serializer\` (**not** `Transformer\`, which stays
+wholly `@internal`). The **output** relationships
 (`Schema\Relationship\{AbstractRelationship,ToOne,ToMany}Relationship`) are the one
 **mutable** Schema VO (a resource builds them per request); `transform()` is
 `@internal` and carries yin's inclusion/dedup decision tree verbatim.
@@ -233,7 +216,7 @@ classes are **stateless** (no `initialize`/`clear` lifecycle). The engine is
 response layer. Spec-sensitive logic (compound `included`, sparse fieldsets, dedup)
 is ported verbatim, guarded by `ResourceTransformerTest`/`DocumentTransformerTest`.
 yin's root `Utils` was **not ported** except `@internal Transformer\Utils::getUri`;
-`AbstractSimpleResourceDocument` was intentionally **not ported** (recorded footgun).
+`AbstractSimpleResourceDocument` was intentionally **not ported**.
 
 ### Responses & ServerInterface
 `src/Response`, `src/Server` → [responses](docs/responses.md), [server](docs/server.md).
@@ -294,11 +277,11 @@ locations).
 `opis/json-schema` (`require-dev` + `suggest`, **never** `require`). `DocumentValidator`
 builds **one reusable** opis validator and validates against a synthetic composite
 root `{ "allOf": [ {"$ref": <root>}, …$additionalSchemas ], "unevaluatedProperties":
-false }`. `allOf` is the single extension point — **profile fragments** now and
-**per-resource compiled schemas** are both just entries in `$additionalSchemas`.
-Relocating the base root's `unevaluatedProperties` onto the composite is what lets a
-fragment **extend** the allowed top-level members. Violations map to the **existing**
-existing `Request`/`ResponseBodyInvalidJsonApi` exceptions — no new exception type.
+false }`. `allOf` is the single extension point — profile fragments and per-resource
+compiled schemas are both just entries in `$additionalSchemas`. Keep
+`unevaluatedProperties` on the composite, not the base root; moving it back stops a
+fragment extending the allowed top-level members. Violations map to the **existing**
+`Request`/`ResponseBodyInvalidJsonApi` exceptions — no new exception type.
 The two middleware are **per-server opt-in** (the injected `DocumentValidator` makes
 DI fail fast if opis is absent). **`SchemaCompiler`** turns a resource's field+
 constraint metadata into a draft-2020-12 `stdClass` that **tightens** the base for one
@@ -333,8 +316,8 @@ coupled in core). Mirrors the `ConstraintInterface` + translator split; there is
 reference `InMemory\Array{Filter,Sort}Handler` for its own tests and as worked
 examples — **not** a production query layer. Two opt-in seams feed the OpenAPI
 projection and nothing else: `DescribesQueryParameter` (the parameter envelope) and
-`TargetsColumn` (the one column a filter compares, so its value schema can default to
-that field's type). A filter that compares no single column implements neither.
+`TargetsColumn` (the one column a filter compares). A filter that compares no single
+column implements neither.
 
 ### Server & resource registry
 `src/Server` → [server](docs/server.md). `Server` is an **immutable value** (`make()`
@@ -350,104 +333,48 @@ directly (no PSR-15 chain).
 
 ### OpenAPI projection & the generator contract
 `src/OpenApi` → [openapi](docs/openapi.md). A **pure** projector: `ServerMetadataInterface`
-in, an immutable `OpenApi` VO tree out, no I/O and no framework. Every document it emits
-carries `info.x-generator: {contract: N}` — `GeneratorContract::CONTRACT`, a monotonic
-integer **bumped by hand** whenever the emitted structure moves. Deliberately *not* the
-package version (a patch may change nothing a consumer reads while a minor changes plenty)
-and deliberately *not* a feature-token list (two hand-maintained lists, the server's and
-every generator's, that would have to agree forever).
+in, an immutable `OpenApi` VO tree out, no I/O and no framework.
 
-**The contract is release-scoped**, like the package version and unlike a build number. It
-moves **at most once per release**, not once per change: the first PR of a cycle that moves
-the emitted structure bumps it, and every later PR in that cycle leaves it alone. Unreleased
-commits accumulate under one integer because a consumer only ever sees releases. Getting
-this wrong is not theoretical: the first post-`v1.0.0` cycle ran 1→2→3→4→5, one bump per PR,
-for a document shape nobody had seen more than once. **An absent `x-generator` means
-contract 1** — `v1.0.0` shipped before the field existed, so 1 denotes what it emitted and a
-generator supporting `[1, 2]` reads every document this library has produced
-([ADR 0134](docs/adr/0134-generated-documents-carry-a-monotonic-contract-integer.md)).
+Every emitted document stamps `info.x-generator: {contract: N}` from
+`GeneratorContract::CONTRACT`, a monotonic integer bumped **by hand** when the emitted
+structure moves. It is **release-scoped**: the first change in a release cycle that moves
+the structure bumps it by one, and every later change in that cycle leaves it alone. Never
+renumber ([ADR 0134](docs/adr/0134-generated-documents-carry-a-monotonic-contract-integer.md)).
 
-**The bump discipline**, and why forgetting it is the real risk: the field means nothing
-the moment a release lands with a moved structure and an unmoved integer. Two checks make
-that fail rather than pass silently:
+Two checks enforce the bump. Read what they tell you rather than silencing them:
 
-1. `tests/OpenApi/Fixture/contract-witness.json` is the projected document of
-   `ContractWitnessServer` (the broadest fixture core has). `ContractWitnessTest` fails as
-   soon as the projector's output diverges from it — regenerate with
+1. `ContractWitnessTest` compares the projector's output against
+   `tests/OpenApi/Fixture/contract-witness.json`. Regenerate with
    `UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest` and **read the
-   diff**; it is the change you are deciding about.
-2. The `generator-contract` CI job runs `bin/contract-guard.php`, which resolves the latest
-   release tag (`git tag --sort=-v:refname`), reads the witness and the `CONTRACT` constant
-   as they were **at that tag**, and compares. Structure moved and `CONTRACT` still equals
-   the tag's value → **fail**. Structure moved and `CONTRACT` is already ahead → **pass**
-   (an earlier PR in the cycle bumped). Structure unchanged and `CONTRACT` moved anyway →
-   **fail**, the bump announces nothing. No tags, or no witness at the tag (`v1.0.0`
-   predates both the witness and the constant) → pass. Reworded `description`/`summary`
-   prose is exempt (a generator is never too old to read a sentence); every other
-   difference counts.
+   diff** — it is the change you are deciding about. Widen `ContractWitnessServer` whenever
+   the projector grows a branch the fixture does not reach.
+2. The `generator-contract` CI job runs `bin/contract-guard.php`, which compares the witness
+   and the `CONTRACT` constant against **the last release tag**, not the PR base. Its output
+   names the verdict that fired and what to do about it.
 
-**A document describes only types its server registers.** A relation exposing its
-**related** endpoint to an unregistered type is refused — `RelatedTypeNotRegistered`, thrown
-from `project()` before any component is built ([ADR 0137](docs/adr/0137-a-document-describes-only-types-its-server-registers.md)).
-Do not restore the synthesized permissive `<Type>Resource`; the runtime it claimed to
-describe 500s (`serializerFor()` on an unregistered type) and renders the relationship with
-no `data` member at all. Two servers serving one type with different shapes is a **supported**
-versioning pattern, not this fault, and the `<Type>ResourceIdentifier` stub for a
-linkage-only related type stays — an identifier asserts no shape. `ProjectedTypes::relatedOnly()`
-is now the diagnostic: non-empty ⇒ the projection refuses, and it is what an adapter's
-`ServableResourceWarmer` should read to fail the build earlier.
+Settled rules a change here must not quietly reopen. Each has an ADR:
 
-**A relationship mutation rides on the parent's `Update`.** `PATCH`/`POST`/`DELETE` on
-`/{type}/{id}/relationships/{rel}` is gated by the type's operation allow-list **and** the
-relation's mutation flags; the flags narrow, never widen. `ErrorCatalogProjector::exposesAWrite()`
-depends on the same rule, which is why it has no relation branch of its own. The relationship
-and related **reads** stay ungated by the allow-list (a standalone-relations type with no CRUD
-still serves them).
-
-**The error catalogue is open on purpose.** `ErrorCatalogProjector` emits one
-`<Code>Error` component per catalogued code (`allOf: [$ref Error, {code/status const,
-source required}]`, core's default title as the schema `title` annotation) and wires them
-into `ErrorDocument.errors.items` as an `anyOf` **led by the generic `Error`**. That first
-branch makes the `anyOf` constrain nothing, which is the point: an application throws
-codes the projector never saw, and a closed `oneOf` would make a server's own documents
-fail its own schema. `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates`
-is the guard — do not "tighten" it. `context` is **not projected at all** — not as a
-property and not as an extension. It is interpolation input, resolved before the response
-leaves, so either spelling would describe something no client can receive; `ErrorDescriptor`
-carries the placeholder shape for the PHP author writing a replacement template, and
-`docs/errors-and-exceptions.md` documents it. The `source` narrowing stays (`required:
-[parameter]`/`[pointer]` where the exception fills it unconditionally) — that *is* on the
-wire. Gating is registration-aware per `ErrorFeature`
-([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
-
-**A `filter[<key>]` gets its container from the kind and its value from the constraints.**
-The kind decides the envelope — `Range` a `min`/`max` `deepObject`, the four set filters an
-array whose OAS style spells their `delimiter()` (a delimiter OAS cannot spell falls back to
-a plain `string`, not to an array with the wrong separator), a presence-triggered filter a
-`string` — and it does so whether or not constraints were declared. The value inside comes
-from `projectConstraints()`, and **only when those produced nothing at all** does the
-fallback run: `TargetsColumn::targetColumn()` matched against the type's own `fields()`
-(`column()`, so a `computed()` field with its null column never matches, and a `relatedVia()`
-field is skipped — its column is the related object's). Exactly one match, scalar wire form,
-type only — no `format`/`enum`/`maxLength`, which describe a body member and not a
-comparison operand. Anything else emits nothing; never widen this to guess through a
-relationship path or a pivot prefix ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
-The related/relationship endpoints resolve against the **related** type's inventory
-(`relatedFilterParameters()`); a polymorphic relation has none, so its filters stay untyped.
-
-**Temporal `format` keywords are conditional.** `date-time`/`date`/`time` are RFC 3339
-productions, so `DateTime::schemaFormat()` decides whether one may be emitted by rendering
-reference instants through the field's configured format and checking the output — the
-projector and `Validation\SchemaCompiler` both defer to it, and neither switches on the
-`Date`/`Time`/`DateTime` class any more. A failing field degrades to a plain `string` plus a
-shape-by-example note. Never derive a `pattern` from a PHP format string ([ADR 0135](docs/adr/0135-temporal-format-keywords-follow-the-configured-serialization-format.md)).
-Note the footgun this exposed: `Time`'s own `H:i:s` default is **not** an RFC 3339 `full-time`
-(no offset), so the default `Time` field emits no `format` at all.
-
-Bump by one, never renumber, never more than once between releases. Over-bumping costs a
-generator one warning; under-bumping is the silent under-generation the whole mechanism
-exists to prevent. Widen `ContractWitnessServer` whenever the projector grows a branch it
-does not reach — an unreached branch is one the guard cannot see.
+- An exposed **related** endpoint pointing at an unregistered type is refused
+  (`RelatedTypeNotRegistered`, thrown from `project()` before any component is built). Do
+  not restore the synthesized permissive `<Type>Resource`
+  ([ADR 0137](docs/adr/0137-a-document-describes-only-types-its-server-registers.md)).
+- A relationship **mutation** verb is gated by the parent type's `Update` allow-list, which
+  the relation's mutation flags narrow and never widen; relationship and related **reads**
+  stay ungated ([ADR 0074](docs/adr/0074-openapi-path-and-operation-projection.md)).
+- The error catalogue's `anyOf` is **led by the generic `Error`** and stays open;
+  `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates` guards it,
+  so do not "tighten" it. `Error::$context` is not projected in any spelling
+  ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+- A `filter[<key>]` takes its container from the filter kind and its value from declared
+  constraints, falling back to `TargetsColumn` matched against the type's own `fields()`
+  **only** when the constraints produced nothing. Never widen that fallback to guess through
+  a relationship path or a pivot prefix
+  ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
+- A temporal `format` keyword is emitted only when `DateTime::schemaFormat()` confirms the
+  field's configured format writes RFC 3339; the projector and `Validation\SchemaCompiler`
+  both defer to it rather than switching on the field class. Never derive a `pattern` from a
+  PHP format string
+  ([ADR 0135](docs/adr/0135-temporal-format-keywords-follow-the-configured-serialization-format.md)).
 
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**
