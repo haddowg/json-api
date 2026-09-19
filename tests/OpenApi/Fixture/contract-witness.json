@@ -105,7 +105,9 @@
                         "description": "Filter the collection by `labels`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -114,7 +116,9 @@
                         "name": "filter[search]",
                         "in": "query",
                         "description": "Search title or summary.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[urgent]",
@@ -146,7 +150,9 @@
                         "description": "Filter the collection by `keywords`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -155,7 +161,9 @@
                         "name": "filter[author.name]",
                         "in": "query",
                         "description": "Filter the collection by `author.name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[unpublished]",
@@ -1514,7 +1522,9 @@
                         "name": "filter[color]",
                         "in": "query",
                         "description": "Filter the collection by `color`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[label]",
@@ -1761,7 +1771,9 @@
                         "name": "filter[color]",
                         "in": "query",
                         "description": "Filter the collection by `color`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[label]",
@@ -4716,7 +4728,9 @@
                         "name": "filter[color]",
                         "in": "query",
                         "description": "Filter the collection by `color`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[label]",
@@ -5394,7 +5408,9 @@
                         "description": "Filter the collection by `labels`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -5403,7 +5419,9 @@
                         "name": "filter[search]",
                         "in": "query",
                         "description": "Search title or summary.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[urgent]",
@@ -5435,7 +5453,9 @@
                         "description": "Filter the collection by `keywords`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -5444,7 +5464,9 @@
                         "name": "filter[author.name]",
                         "in": "query",
                         "description": "Filter the collection by `author.name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[unpublished]",
@@ -5691,7 +5713,9 @@
                         "description": "Filter the collection by `labels`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -5700,7 +5724,9 @@
                         "name": "filter[search]",
                         "in": "query",
                         "description": "Search title or summary.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[urgent]",
@@ -5732,7 +5758,9 @@
                         "description": "Filter the collection by `keywords`.",
                         "schema": {
                             "type": "array",
-                            "items": {}
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "style": "form",
                         "explode": false
@@ -5741,7 +5769,9 @@
                         "name": "filter[author.name]",
                         "in": "query",
                         "description": "Filter the collection by `author.name`.",
-                        "schema": {}
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "filter[unpublished]",

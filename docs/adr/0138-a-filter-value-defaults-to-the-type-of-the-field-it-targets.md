@@ -23,13 +23,20 @@ even a type its column contradicts — an author who writes `Where::make('views'
 over an integer column has said something, and a projector that quietly rewrote half of it
 would produce a schema neither of them meant. This is a fallback, never an override.
 
-Where the column does not resolve, the parameter stays untyped. A relationship path
+Where the column does not resolve, the value documents as `string`. A relationship path
 (`WhereThrough`), a relationship name (`WhereHas`), a group fanning one value across
 several columns (`WhereAny`), a column two fields share, a computed field that backs no
 column, a composite or relation field with no scalar wire form, a consumer filter that
-names no column at all: each of these is a place where a type could be guessed and the
-guess would sometimes be wrong. An empty schema says "this library does not know", which a
-consumer can handle. A wrong one says something false, and invites validation against it.
+names no column at all: in each of these a *narrower* type could only be guessed, and the
+guess would sometimes be wrong. But `string` is not a guess. A query parameter is a string
+on the wire whatever the server parses it into, so `{}` states less than the protocol
+already guarantees, and a client generator reads it as `mixed` rather than as the one
+thing it certainly is. Refusing to invent a narrowing is right; refusing to write down
+what is already true is just throwing information away.
+
+This is a floor and only a floor. It fills the scalar slot the container leaves open, so a
+`Range` is still a `min`/`max` object and a set is still an array whose `items` the floor
+types. A column-derived type beats it, and a declared constraint beats both.
 
 Separately, each filter **kind** now projects its container shape whether or not it
 declared constraints. A set filter (`WhereIn` and friends) is an array whose OAS style
@@ -48,3 +55,9 @@ never removes any, and never contradicts a declared constraint, so an integrator
 the diff sees `{}` becoming `{"type": …}` and nothing else changing shape. A generated
 client that typed those values as `mixed` will start typing them, which is the point and
 the only thing to review.
+
+With the `string` floor in place, no `filter[<key>]` this library projects carries an
+empty value schema any more. A client generator therefore has a type for every filter
+argument, and the ones it types as `string` are the ones to look at: that is exactly the
+set where declaring a constraint would tell a reader something the projector cannot work
+out on its own.

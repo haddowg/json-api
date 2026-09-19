@@ -371,8 +371,9 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 - A `filter[<key>]` takes its container from the filter kind and its value from declared
   constraints, falling back to `TargetsColumn` matched against the type's own `fields()`
-  **only** when the constraints produced nothing. Never widen that fallback to guess through
-  a relationship path or a pivot prefix
+  **only** when the constraints produced nothing, and to `string` when that resolves no
+  field. Never widen the column fallback to guess through a relationship path or a pivot
+  prefix, and never let the `string` floor overwrite a derived or declared type
   ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
 - A temporal `format` keyword is emitted only when `DateTime::schemaFormat()` confirms the
   field's configured format writes RFC 3339; the projector and `Validation\SchemaCompiler`

@@ -1021,7 +1021,9 @@ final class OperationProjector
      *
      * Where the filter declared **no** value constraints, `$fields` is the fallback:
      * a filter that names the column of one field in the inventory documents as that
-     * field's JSON type (ADR 0138, {@see defaultFilterValueType()}).
+     * field's JSON type, and one that names nothing resolvable documents as `string`,
+     * the type every query parameter has on the wire (ADR 0138,
+     * {@see derivedFilterValueType()}).
      *
      * A server-composed group ({@see \haddowg\JsonApi\Resource\Filter\WhereAll} /
      * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
@@ -1045,10 +1047,7 @@ final class OperationProjector
             // exactly what it declared, so the fallback can never manufacture a
             // contradiction out of an author's own (possibly deliberate) narrowing.
             if ($valueSchema->toArray() === []) {
-                $default = $this->defaultFilterValueType($filter, $fields);
-                if ($default !== null) {
-                    $valueSchema = $valueSchema->withType($default);
-                }
+                $valueSchema = $valueSchema->withType($this->derivedFilterValueType($filter, $fields) ?? 'string');
             }
 
             $shape = $filter instanceof \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
@@ -1068,25 +1067,25 @@ final class OperationProjector
     }
 
     /**
-     * The JSON type to fall back to for a filter whose declared constraints said
-     * nothing about its value, or `null` to leave that value untyped.
+     * The JSON type a filter's value carries when its declared constraints said nothing
+     * about it, or `null` when nothing narrower can be derived. The caller floors that
+     * `null` at `string`, which a query parameter is on the wire whatever the server
+     * parses it into.
      *
      * A **presence-triggered** filter is `string` whatever it targets: the server
-     * decides the match and discards whatever the request carried, so the only true
-     * statement about the value is that it is a query string, and typing it from a
+     * decides the match and discards whatever the request carried, so typing it from a
      * column would tell a client to send something that is never read.
      *
      * Otherwise the filter must name a column ({@see \haddowg\JsonApi\Resource\Filter\TargetsColumn})
      * that **exactly one** field in `$fields` backs, and that field must have a scalar
-     * wire form. Anything else resolves to nothing: a relationship path or a
-     * relationship name, a computed value no field stores, a column two fields share, a
-     * composite or relation field. An untyped parameter says "this library does not
-     * know", which a consumer can work with; a guessed one says something false that a
-     * client would then be validated against. See ADR 0138.
+     * wire form. Anything else derives nothing: a relationship path or a relationship
+     * name, a computed value no field stores, a column two fields share, a composite or
+     * relation field. A guessed narrower type says something false that a client would
+     * then be validated against. See ADR 0138.
      *
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface> $fields
      */
-    private function defaultFilterValueType(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, array $fields): ?string
+    private function derivedFilterValueType(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, array $fields): ?string
     {
         if ($filter instanceof \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter && $filter->isPresenceTriggered()) {
             return 'string';

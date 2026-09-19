@@ -14,10 +14,11 @@ use haddowg\JsonApi\Resource\Field\FieldInterface;
  *
  * The OpenAPI projection reads it to find the field a filter targets and default
  * the `filter[<key>]` value schema to that field's JSON type when the author
- * declared no value constraints — a filter over a `Str` documents as a string
- * rather than as nothing at all. Matching is exact against the type's own field
- * inventory: a column no single field claims resolves to nothing, and the parameter
- * keeps the permissive schema it had (ADR 0138).
+ * declared no value constraints — a filter over an `Integer` documents as an
+ * integer rather than as the bare `string` every query parameter already is.
+ * Matching is exact against the type's own field inventory: a column no single
+ * field claims resolves to nothing, and the value falls back to `string`
+ * (ADR 0138).
  *
  * A filter that compares something else — a relationship path
  * ({@see WhereThrough}), a relationship's existence ({@see WhereHas}), several
