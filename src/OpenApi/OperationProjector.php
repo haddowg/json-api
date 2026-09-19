@@ -1766,19 +1766,16 @@ final class OperationProjector
     }
 
     /**
-     * Adds the enumerated standard error responses (D12), each referencing the shared
-     * error-document component. Statuses are supplied per operation by the caller.
+     * Adds the enumerated standard error responses (D12), each a `$ref` to the shared
+     * `components.responses` entry for its status ({@see ErrorResponseProjector}).
+     * Statuses are supplied per operation by the caller.
      *
      * @param list<string> $statuses
      */
     private function withErrorResponses(Responses $responses, array $statuses): Responses
     {
-        $errorRef = Reference::to('schemas', 'ErrorDocument');
         foreach ($statuses as $status) {
-            $responses = $responses->with($status, Response::ofSchema(
-                self::STATUS_DESCRIPTIONS[$status] ?? 'Error',
-                $errorRef,
-            ));
+            $responses = $responses->with($status, ErrorResponseProjector::reference($status));
         }
 
         return $responses;
@@ -1873,22 +1870,4 @@ final class OperationProjector
 
         return $set;
     }
-
-    /**
-     * Human-readable descriptions for the enumerated error statuses (D12). Required
-     * by the OAS meta-schema (a Response Object's `description` is mandatory). The
-     * numeric-string keys are int at runtime; the lookup in {@see withErrorResponses()}
-     * coerces its string `$status` to match.
-     */
-    private const STATUS_DESCRIPTIONS = [
-        '400' => 'Bad Request — the request was malformed (e.g. an invalid query parameter).',
-        '401' => 'Unauthorized — authentication is required and was missing or invalid.',
-        '403' => 'Forbidden — the request is not authorised.',
-        '404' => 'Not Found — the resource does not exist.',
-        '406' => 'Not Acceptable — the `Accept` header could not be satisfied.',
-        '409' => 'Conflict — the request conflicts with the resource state (e.g. a type or id mismatch).',
-        '415' => 'Unsupported Media Type — the `Content-Type` header is not `application/vnd.api+json`.',
-        '422' => 'Unprocessable Entity — the document failed validation.',
-        '500' => 'Internal Server Error.',
-    ];
 }

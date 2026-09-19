@@ -369,6 +369,12 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates` guards it,
   so do not "tighten" it. `Error::$context` is not projected in any spelling
   ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+- An operation's error responses are `$ref`s into `components.responses`, one component per
+  advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
+  claims that status and the generic `ErrorDocument` when it does not (`401` always). The
+  narrowings keep the leading generic `Error` too, and `ErrorResponseProjectionTest` guards
+  both that and the mixed-status case ADR 0018 produces
+  ([ADR 0139](docs/adr/0139-error-responses-are-shared-components-narrowed-per-status.md)).
 - A `filter[<key>]` takes its container from the filter kind and its value from declared
   constraints, falling back to `TargetsColumn` matched against the type's own `fields()`
   **only** when the constraints produced nothing, and to `string` when that resolves no

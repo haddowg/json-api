@@ -517,7 +517,7 @@ final class OperationProjectorTest extends TestCase
     }
 
     #[Test]
-    public function everyOperationCarriesTheTypesTagsAndCrudErrorsRefTheSharedErrorDocument(): void
+    public function everyOperationCarriesTheTypesTagsAndCrudErrorsRefTheSharedResponseComponents(): void
     {
         $paths = $this->paths();
 
@@ -526,11 +526,12 @@ final class OperationProjectorTest extends TestCase
             self::assertSame(['Articles'], $this->listAt($operation, 'tags'), "{$method} {$path} should be tagged Articles");
         }
 
-        // The create's 422 references the shared error document.
+        // The create's 422 is a bare `$ref` to the shared response component — no inline
+        // description, no inline content.
         $post = $this->arrAt($paths, '/articles', 'post');
         self::assertSame(
-            '#/components/schemas/ErrorDocument',
-            $this->strAt($post, 'responses', '422', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+            ['$ref' => '#/components/responses/UnprocessableEntity'],
+            $this->arrAt($post, 'responses', '422'),
         );
     }
 

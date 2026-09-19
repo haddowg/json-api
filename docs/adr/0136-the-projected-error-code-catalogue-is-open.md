@@ -52,6 +52,16 @@ codes the server cannot raise, the same gating [ADR
 0131](0131-registration-aware-openapi-projection.md) applies to `?withCount` and the
 write components.
 
+**The catalogue is also offered per status**
+([ADR 0139](0139-error-responses-are-shared-components-narrowed-per-status.md)): each error
+response points at an `ErrorDocument<status>` listing only the codes pinned to that status,
+so a `415` no longer advertises 53 codes when one can occur. Every one of those keeps the
+generic branch first, and for a second reason on top of the one above — a document of mixed
+statuses takes the class they round down to
+([ADR 0018](0018-error-document-status-reflects-a-uniform-error-set.md)), so a `400` body
+may carry an error object whose own `status` reads `"422"`. The named set per status is
+deliberately not exhaustive.
+
 ## Considered options
 
 - **A closed `oneOf`.** Rejected above: it makes an application's own error codes invalid

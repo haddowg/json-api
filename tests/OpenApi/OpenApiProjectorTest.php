@@ -790,15 +790,31 @@ final class OpenApiProjectorTest extends TestCase
             $this->strAt($post, 'responses', '200', 'content', $extMediaType, 'schema', '$ref'),
         );
 
-        // The enumerated error responses each reference the shared error document. The atomic op
-        // is secured (bearer default + per-endpoint), so it carries 401 like every other
-        // operation — the effective-security invariant core #99 established (D17).
-        foreach (['400', '401', '403', '404', '406', '409', '415', '422', '500'] as $status) {
+        // The enumerated error responses each reference the shared response component for their
+        // status. The atomic op is secured (bearer default + per-endpoint), so it carries 401
+        // like every other operation — the effective-security invariant core #99 established (D17).
+        $expected = [
+            '400' => 'BadRequest', '401' => 'Unauthorized', '403' => 'Forbidden',
+            '404' => 'NotFound', '406' => 'NotAcceptable', '409' => 'Conflict',
+            '415' => 'UnsupportedMediaType', '422' => 'UnprocessableEntity', '500' => 'InternalServerError',
+        ];
+        foreach ($expected as $status => $component) {
             self::assertSame(
-                '#/components/schemas/ErrorDocument',
-                $this->strAt($post, 'responses', $status, 'content', MediaType::JSON_API, 'schema', '$ref'),
+                '#/components/responses/' . $component,
+                $this->strAt($post, 'responses', (string) $status, '$ref'),
                 "missing/incorrect error response {$status}",
             );
+        }
+
+        // The batch phrases six of them in terms of an operation within it; those carry the
+        // wording as an OAS 3.1 Reference Object description override. The three it phrases
+        // identically to every other endpoint reference the component bare.
+        self::assertSame(
+            'Not Found — an operation targets a resource that does not exist.',
+            $this->strAt($post, 'responses', '404', 'description'),
+        );
+        foreach (['401', '403', '500'] as $status) {
+            self::assertArrayNotHasKey('description', $this->arrAt($post, 'responses', $status));
         }
     }
 
