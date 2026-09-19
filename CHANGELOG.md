@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.1.0](https://github.com/haddowg/json-api/compare/v1.0.0...v1.1.0) (2026-09-19)
+
+
+### Features
+
+* **openapi:** assemble the error catalogue from contributed sources ([#168](https://github.com/haddowg/json-api/issues/168)) ([33f9a79](https://github.com/haddowg/json-api/commit/33f9a79d68a87c0fe93786b5a19092e047911b7b))
+* **openapi:** catalogue error codes as named schema variants ([#162](https://github.com/haddowg/json-api/issues/162)) ([2fd4015](https://github.com/haddowg/json-api/commit/2fd40152d1ed79ea0f0043b3cc9bdd03c9be89a5))
+* **openapi:** declare include and fields on the writes that honour them ([#161](https://github.com/haddowg/json-api/issues/161)) ([c3b0255](https://github.com/haddowg/json-api/commit/c3b0255877819e56d116f13ef6f811ad1a3b19c2))
+* **openapi:** expose the type set a server's projection describes ([#158](https://github.com/haddowg/json-api/issues/158)) ([d57eca7](https://github.com/haddowg/json-api/commit/d57eca710bcf670399d9dc466bf0ead873d76b3d))
+* **openapi:** floor an underivable filter value at string ([#169](https://github.com/haddowg/json-api/issues/169)) ([5d82857](https://github.com/haddowg/json-api/commit/5d82857e554af9996a1a9e148e0e8c5ad0d08abd))
+* **openapi:** share error responses and narrow them per status ([#170](https://github.com/haddowg/json-api/issues/170)) ([adbd13d](https://github.com/haddowg/json-api/commit/adbd13ddd6f6a37530e2cbd0fbd7c2efed9d00c9))
+* **openapi:** stamp a generator contract on every projected document ([#159](https://github.com/haddowg/json-api/issues/159)) ([7c24e9a](https://github.com/haddowg/json-api/commit/7c24e9ab862ceeebb5b08a21c85e5f48aa1b0f83))
+* **openapi:** type a filter value from the field it targets ([#166](https://github.com/haddowg/json-api/issues/166)) ([432f26a](https://github.com/haddowg/json-api/commit/432f26a043e76175d5f981b7a6756b5345226ae4))
+
+
+### Bug Fixes
+
+* **openapi:** describe only what the server actually serves ([#163](https://github.com/haddowg/json-api/issues/163)) ([c579db8](https://github.com/haddowg/json-api/commit/c579db8b5d8a7d63be3ceb3fe5f9660e68fe99ab))
+* **openapi:** emit a temporal format keyword only when the field writes RFC 3339 ([#160](https://github.com/haddowg/json-api/issues/160)) ([ad8990b](https://github.com/haddowg/json-api/commit/ad8990bbbfef848c08e2ee7e5cffac89b4a3f21e))
+* **openapi:** release-scope the generator contract, drop x-error-context ([#165](https://github.com/haddowg/json-api/issues/165)) ([67fc1fd](https://github.com/haddowg/json-api/commit/67fc1fd73b8185ed18f0119956a3f971ca308cb4))
+
+
+### Miscellaneous Chores
+
+* add openapi and atomic-operations to composer keywords ([#156](https://github.com/haddowg/json-api/issues/156)) ([39208da](https://github.com/haddowg/json-api/commit/39208da3c71b54decd4e044ca8131cb0a01fbbbe))
+* tag releases as v-prefixed versions for Packagist ([#154](https://github.com/haddowg/json-api/issues/154)) ([47de1fe](https://github.com/haddowg/json-api/commit/47de1fe54ec1950df14f6a1b18421248ffd532e9))
+
 ## 1.0.0 (2026-07-13)
 
 
