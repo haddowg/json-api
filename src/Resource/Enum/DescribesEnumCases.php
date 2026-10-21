@@ -45,7 +45,7 @@ trait DescribesEnumCases
     public static function descriptions(): array
     {
         $reflection = new \ReflectionEnum(static::class);
-        if (!$reflection->isBacked()) {
+        if ($reflection->getBackingType() === null) {
             return [];
         }
 
