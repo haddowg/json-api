@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\EnumComponentCollector;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
 
 /**
  * A discriminated union attribute: the value is exactly **one of** a set of named
@@ -107,7 +108,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         if ($variant === null) {
             // An unknown/absent discriminator has no variant to render through — emit the
             // stored value as-is rather than silently dropping it.
-            return $value;
+            return JsonObject::of($value);
         }
 
         $nested = [$this->discriminator => $discriminatorValue];

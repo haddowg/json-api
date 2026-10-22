@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\Schema\Error;
 use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 use haddowg\JsonApi\Schema\Link\ErrorLinks;
+use haddowg\JsonApi\Schema\Link\Link;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -85,8 +86,8 @@ final class ErrorTest extends TestCase
             code: 'UNKNOWN_ERROR',
             title: 'Unknown error!',
             detail: 'An unknown error has happened.',
-            source: new ErrorSource('', ''),
-            links: new ErrorLinks(),
+            source: ErrorSource::fromPointer('/data/attributes/name'),
+            links: new ErrorLinks(about: new Link('https://example.com/errors/unknown')),
             meta: ['abc' => 'def'],
         );
 
@@ -94,14 +95,23 @@ final class ErrorTest extends TestCase
             [
                 'id' => '123456789',
                 'meta' => ['abc' => 'def'],
-                'links' => [],
+                'links' => ['about' => 'https://example.com/errors/unknown'],
                 'status' => '500',
                 'code' => 'UNKNOWN_ERROR',
                 'title' => 'Unknown error!',
                 'detail' => 'An unknown error has happened.',
-                'source' => [],
+                'source' => ['pointer' => '/data/attributes/name'],
             ],
             $error->transform(),
         );
+    }
+
+    #[Test]
+    public function transformOmitsAnEmptySourceAndEmptyLinks(): void
+    {
+        // Both are JSON objects; rendered empty they would encode as `[]`.
+        $error = new Error(status: '500', source: new ErrorSource('', ''), links: new ErrorLinks());
+
+        self::assertSame(['status' => '500'], $error->transform());
     }
 }

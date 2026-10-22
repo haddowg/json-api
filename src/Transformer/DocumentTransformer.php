@@ -67,9 +67,9 @@ final class DocumentTransformer
 
     private function transformMetaMembers(ResourceDocumentTransformation|ErrorDocumentTransformation $transformation): void
     {
-        $jsonApi = $transformation->document->getJsonApi();
-        if ($jsonApi !== null) {
-            $transformation->result['jsonapi'] = $jsonApi->transform();
+        $jsonApi = $transformation->document->getJsonApi()?->transform() ?? [];
+        if ($jsonApi !== []) {
+            $transformation->result['jsonapi'] = $jsonApi;
         }
 
         $meta = $transformation->document->getMeta();
@@ -92,9 +92,13 @@ final class DocumentTransformer
         $links = $transformation->document->getLinks();
         if ($links !== null) {
             $existingLinks = $transformation->result['links'] ?? [];
-            $transformation->result['links'] = \is_array($existingLinks)
+            $mergedLinks = \is_array($existingLinks)
                 ? \array_merge($links->transform(), $existingLinks)
                 : $links->transform();
+
+            if ($mergedLinks !== []) {
+                $transformation->result['links'] = $mergedLinks;
+            }
         }
     }
 
@@ -129,7 +133,9 @@ final class DocumentTransformer
     {
         $errors = [];
         foreach ($transformation->document->getErrors() as $error) {
-            $errors[] = $error->transform();
+            $content = $error->transform();
+            // An error with no members is still an error object, not a JSON array.
+            $errors[] = $content === [] ? new \stdClass() : $content;
         }
 
         if ($errors !== []) {

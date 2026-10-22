@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Middleware;
 
 use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
+use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
 use haddowg\JsonApi\Middleware\RequestValidationMiddleware;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
@@ -61,6 +62,45 @@ final class RequestValidationMiddlewareTest extends TestCase
             ->withBody(Stream::create('{"data":{"attributes":{"title":"x"}}}'));
 
         $this->expectException(RequestBodyInvalidJsonApi::class);
+
+        $this->middleware()->process($request, $this->okHandler());
+    }
+
+    #[Test]
+    public function anEmptyAttributesObjectPassesAndTheHandlerKeepsTheAssociativeBody(): void
+    {
+        $captured = null;
+        $request = (new ServerRequest('PATCH', '/articles/1', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('{"data":{"type":"articles","id":"1","attributes":{}}}'));
+
+        $this->middleware()->process($request, $this->okHandler($captured));
+
+        self::assertInstanceOf(JsonApiRequestInterface::class, $captured);
+        self::assertSame(['data' => ['type' => 'articles', 'id' => '1', 'attributes' => []]], $captured->getParsedBody());
+    }
+
+    #[Test]
+    public function anAttributesArrayStillFailsUnderData(): void
+    {
+        $request = (new ServerRequest('PATCH', '/articles/1', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('{"data":{"type":"articles","id":"1","attributes":[]}}'));
+
+        try {
+            $this->middleware()->process($request, $this->okHandler());
+            self::fail('Expected the request to fail validation.');
+        } catch (RequestBodyInvalidJsonApi $exception) {
+            // opis 2.0 reports a oneOf failure only at /data; later versions add /data/attributes.
+            self::assertNotEmpty(\array_intersect(['/data', '/data/attributes'], \array_column($exception->validationErrors, 'property')));
+        }
+    }
+
+    #[Test]
+    public function aScalarBodyIsMissingItsTopLevelMembers(): void
+    {
+        $request = (new ServerRequest('POST', '/articles', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('"x"'));
+
+        $this->expectException(RequiredTopLevelMembersMissing::class);
 
         $this->middleware()->process($request, $this->okHandler());
     }

@@ -59,6 +59,10 @@ The validator exposes two methods, because request and response bodies differ:
 | `validateResponse(mixed $document, array $additionalSchemas = [])` | response schema — a resource requires `type` + `id` | [`ResponseBodyInvalidJsonApi`](../src/Exception/ResponseBodyInvalidJsonApi.php) | `500` |
 
 The `$document` is the decoded body (an array or `stdClass` tree), not raw JSON.
+Prefer the `stdClass` tree from `json_decode($json, false)`. An associative decode
+turns `{}` into `[]`, which then fails any `type: object` check, so a valid
+`"attributes": {}` would be rejected. The validation middleware and
+`SpecCompliance` decode this way themselves.
 A request may legitimately ship a client-generated resource with no `id`:
 
 ```php

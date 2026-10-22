@@ -59,8 +59,9 @@ final readonly class Error
             $content['meta'] = $this->meta;
         }
 
-        if ($this->links !== null) {
-            $content['links'] = $this->links->transform();
+        $links = $this->links?->transform() ?? [];
+        if ($links !== []) {
+            $content['links'] = $links;
         }
 
         if ($this->status !== '') {
@@ -79,8 +80,9 @@ final readonly class Error
             $content['detail'] = $this->detail;
         }
 
-        if ($this->source !== null) {
-            $content['source'] = $this->source->transform();
+        $source = $this->source?->transform() ?? [];
+        if ($source !== []) {
+            $content['source'] = $source;
         }
 
         return $content;

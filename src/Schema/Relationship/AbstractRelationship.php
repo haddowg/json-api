@@ -347,7 +347,7 @@ abstract class AbstractRelationship
         // Transform the relationship link because the relationship field is included
         $relationshipObject = [];
 
-        if ($links !== null) {
+        if ($hasRenderedLinks === true) {
             $relationshipObject['links'] = $renderedLinks;
         }
 

@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\EnumComponentCollector;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
 
 /**
  * A typed nested object attribute stored in a **single** backing value (one JSON
@@ -96,7 +97,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             $nested[$child->name()] = $child->serialize($value, $request, $child->name());
         }
 
-        return $nested;
+        return JsonObject::of($nested);
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed

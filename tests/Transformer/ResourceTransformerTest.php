@@ -113,7 +113,7 @@ final class ResourceTransformerTest extends TestCase
     }
 
     #[Test]
-    public function transformToResourceObjectWithLinks(): void
+    public function transformToResourceObjectOmitsEmptyLinks(): void
     {
         $resource = $this->createResource('', '', [], new ResourceLinks());
 
@@ -123,7 +123,6 @@ final class ResourceTransformerTest extends TestCase
             [
                 'type' => '',
                 'id' => '',
-                'links' => [],
             ],
             $resourceObject,
         );

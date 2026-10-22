@@ -515,6 +515,18 @@ final class TestingUtilitiesTest extends TestCase
     }
 
     #[Test]
+    public function specComplianceAssertionKeepsAnEmptyObjectAnObject(): void
+    {
+        SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":{}}}');
+
+        // opis 2.0 reports a oneOf failure only at /data; later versions add /data/attributes.
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessageMatches('#^Document is not JSON:API spec-compliant:\n  /data(/attributes)?: #m');
+
+        SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":[]}}');
+    }
+
+    #[Test]
     public function specComplianceAssertionFailsForAnInvalidDocument(): void
     {
         $this->expectException(AssertionFailedError::class);

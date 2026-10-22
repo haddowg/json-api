@@ -95,4 +95,12 @@ final class SchemaValueValidatorTest extends TestCase
         self::assertNotNull($errors[0]->source);
         self::assertSame('/data/attributes/contact/address', (string) $errors[0]->source->pointer);
     }
+
+    #[Test]
+    public function anEmptySchemaNodeAcceptsAnyValue(): void
+    {
+        $schema = Schema::ofType('object')->withProperties(['anything' => Schema::create()]);
+
+        self::assertSame([], (new SchemaValueValidator())->validate($schema, ['anything' => 1], '/data/attributes/bag'));
+    }
 }

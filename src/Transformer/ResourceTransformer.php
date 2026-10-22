@@ -146,10 +146,9 @@ final class ResourceTransformer
             }
         }
 
-        // Emit `links` when getLinks() supplied a (possibly empty) container, as
-        // before, when a contributor added a link, or when the convention self was
-        // added.
-        if ($links !== null || $transformed !== []) {
+        // Omit `links` when nothing rendered into it: an empty container would
+        // encode as a JSON array, and the member must be an object.
+        if ($transformed !== []) {
             $transformation->result['links'] = $transformed;
         }
     }

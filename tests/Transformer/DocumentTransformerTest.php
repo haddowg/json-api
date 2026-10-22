@@ -70,18 +70,13 @@ final class DocumentTransformerTest extends TestCase
     }
 
     #[Test]
-    public function transformMetaDocumentWithEmptyLinks(): void
+    public function transformMetaDocumentOmitsEmptyLinks(): void
     {
         $document = $this->createDocument(null, [], new DocumentLinks());
 
         $transformedDocument = $this->toMetaDocument($document, []);
 
-        self::assertEquals(
-            [
-                'links' => [],
-            ],
-            $transformedDocument,
-        );
+        self::assertSame([], $transformedDocument);
     }
 
     #[Test]
@@ -175,18 +170,13 @@ final class DocumentTransformerTest extends TestCase
 
     #[Test]
     #[Group('spec:errors')]
-    public function transformErrorDocumentWithJsonApiObject(): void
+    public function transformErrorDocumentOmitsAnEmptyJsonApiObject(): void
     {
         $document = $this->createErrorDocument(new JsonApiObject(''));
 
         $transformedDocument = $this->toErrorDocument($document);
 
-        self::assertEquals(
-            [
-                'jsonapi' => [],
-            ],
-            $transformedDocument,
-        );
+        self::assertSame([], $transformedDocument);
     }
 
     #[Test]
@@ -209,18 +199,13 @@ final class DocumentTransformerTest extends TestCase
 
     #[Test]
     #[Group('spec:errors')]
-    public function transformErrorDocumentWithLinks(): void
+    public function transformErrorDocumentOmitsEmptyLinks(): void
     {
         $document = $this->createErrorDocument(null, [], new DocumentLinks());
 
         $transformedDocument = $this->toErrorDocument($document);
 
-        self::assertEquals(
-            [
-                'links' => [],
-            ],
-            $transformedDocument,
-        );
+        self::assertSame([], $transformedDocument);
     }
 
     #[Test]
@@ -231,11 +216,12 @@ final class DocumentTransformerTest extends TestCase
 
         $transformedDocument = $this->toErrorDocument($document);
 
+        // An error with no members still encodes as an object.
         self::assertEquals(
             [
                 'errors' => [
-                    [],
-                    [],
+                    new \stdClass(),
+                    new \stdClass(),
                 ],
             ],
             $transformedDocument,

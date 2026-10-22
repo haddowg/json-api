@@ -98,6 +98,18 @@ final class AtomicResultsResponseTest extends TestCase
         self::assertSame(['self' => '/operations'], $body['links']);
     }
 
+    #[Test]
+    public function omitsAnEmptyLinksContainer(): void
+    {
+        $json = AtomicResultsResponse::fromResults([AtomicResult::empty()])
+            ->withLinks(new DocumentLinks())
+            ->toPsrResponse(new StubServer(), StubJsonApiRequest::create())
+            ->getBody()
+            ->getContents();
+
+        self::assertSame('{"atomic:results":[{}],"jsonapi":{"version":"1.1","ext":["https:\\/\\/jsonapi.org\\/ext\\/atomic"]}}', $json);
+    }
+
     /**
      * @return array<string, mixed>
      */

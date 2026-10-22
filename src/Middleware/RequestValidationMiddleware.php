@@ -8,6 +8,7 @@ use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Validation\DocumentValidator;
+use haddowg\JsonApi\Validation\Internal\ObjectDocument;
 use haddowg\JsonApi\Validation\Internal\ProfileSchemaCollector;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -45,17 +46,32 @@ final readonly class RequestValidationMiddleware implements MiddlewareInterface
         // body (throwing RequestBodyInvalidJson on malformed JSON); a null result
         // is an absent/empty body and is left for the handler to reject if it
         // requires one.
-        if ((string) $jsonApiRequest->getBody() !== '') {
+        $rawBody = (string) $jsonApiRequest->getBody();
+        if ($rawBody !== '') {
             $document = $jsonApiRequest->getParsedBody();
 
             if ($document !== null) {
                 $this->validator->validateRequest(
-                    $document,
+                    $this->objectView($rawBody, $document),
                     ProfileSchemaCollector::collect($this->server, $jsonApiRequest),
                 );
             }
         }
 
         return $handler->handle($jsonApiRequest);
+    }
+
+    /**
+     * The body as opis should see it: decoded with objects kept as objects, so a
+     * `{}` is not validated as an array. The handler keeps the associative parsed
+     * body. A framework-parsed body whose raw form is not JSON is validated as is.
+     */
+    private function objectView(string $rawBody, mixed $parsed): mixed
+    {
+        try {
+            return ObjectDocument::decode($rawBody);
+        } catch (\JsonException) {
+            return $parsed;
+        }
     }
 }
