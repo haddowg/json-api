@@ -147,26 +147,50 @@ final class ErrorResponseProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aStatusTheCatalogueClaimsNoCodeForKeepsTheGenericDocument(): void
+    public function aSecuredServersUnauthorizedResponseNarrowsToTheAuthenticationCode(): void
     {
         $document = $this->project($this->fullServer());
 
-        // 401 is the permanent case: no descriptor declares that status, because the
-        // firewall returns it before any of core's exceptions can be raised.
         self::assertSame(
-            '#/components/schemas/ErrorDocument',
+            '#/components/schemas/ErrorDocument401',
             $this->strAt($document, 'components', 'responses', 'Unauthorized', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
-        self::assertArrayNotHasKey('ErrorDocument401', $this->arrAt($document, 'components', 'schemas'));
+        self::assertSame(
+            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/AuthenticationRequiredError']],
+            $this->listAt($document, 'components', 'schemas', 'ErrorDocument401', 'properties', 'errors', 'items', 'anyOf'),
+        );
+    }
 
-        // And the same fallback catches a status whose codes the server's feature set
-        // gated out: every 403 code core catalogues depends on a write surface, which a
-        // read-only server has none of.
-        $readOnly = $this->project($this->readOnlyServer());
-        self::assertSame([], (new ErrorCatalogProjector())->componentsByStatus($this->readOnlyServer())[403] ?? []);
+    #[Test]
+    public function aReadOnlyServersForbiddenResponseNarrowsToAccessDeniedAlone(): void
+    {
+        // Every other 403 code core catalogues needs a write surface; an access denial
+        // does not, so a read-only server's 403 still narrows, to that one code.
+        $document = $this->project($this->readOnlyServer());
+
+        self::assertSame(
+            '#/components/schemas/ErrorDocument403',
+            $this->strAt($document, 'components', 'responses', 'Forbidden', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+        );
+        self::assertSame(
+            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/AccessDeniedError']],
+            $this->listAt($document, 'components', 'schemas', 'ErrorDocument403', 'properties', 'errors', 'items', 'anyOf'),
+        );
+    }
+
+    #[Test]
+    public function aStatusTheCatalogueClaimsNoCodeForKeepsTheGenericDocument(): void
+    {
+        // Core claims every status it advertises, so the fallback is reached through a
+        // catalogue that claims none: an application status, or one whose codes the
+        // server's feature set gated out.
+        $byStatus = [403 => ['AccessDeniedError']];
+
+        self::assertSame('ErrorDocument', ErrorResponseProjector::documentComponent('429', $byStatus));
+        self::assertSame('ErrorDocument403', ErrorResponseProjector::documentComponent('403', $byStatus));
         self::assertSame(
             '#/components/schemas/ErrorDocument',
-            $this->strAt($readOnly, 'components', 'responses', 'Forbidden', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+            $this->strAt(ErrorResponseProjector::components(['409'], $byStatus)['Conflict']->toArray(), 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
     }
 

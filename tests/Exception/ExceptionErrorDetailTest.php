@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Exception;
 
+use haddowg\JsonApi\Exception\AccessDenied;
 use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
+use haddowg\JsonApi\Exception\AuthenticationRequired;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Exception\FullReplacementProhibited;
@@ -249,5 +251,58 @@ final class ExceptionErrorDetailTest extends TestCase
         self::assertNotNull($errors[0]->source);
         self::assertSame('property1', $errors[0]->source->pointer);
         self::assertNull($errors[1]->source);
+    }
+
+    #[Test]
+    public function authenticationRequiredCarriesItsCodeAndTheReasonPhraseTitle(): void
+    {
+        $exception = new AuthenticationRequired();
+        $error = $exception->getErrors()[0];
+
+        self::assertSame(401, $exception->getStatusCode());
+        self::assertSame('401', $error->status);
+        self::assertSame('AUTHENTICATION_REQUIRED', $error->code);
+        self::assertSame('Unauthorized', $error->title);
+        self::assertSame('', $error->detail);
+        self::assertSame('Authentication is required!', $exception->getMessage());
+    }
+
+    #[Test]
+    public function accessDeniedCarriesItsCodeAndTheReasonPhraseTitle(): void
+    {
+        $exception = new AccessDenied();
+        $error = $exception->getErrors()[0];
+
+        self::assertSame(403, $exception->getStatusCode());
+        self::assertSame('403', $error->status);
+        self::assertSame('ACCESS_DENIED', $error->code);
+        self::assertSame('Forbidden', $error->title);
+        self::assertSame('', $error->detail);
+        self::assertSame('Access is denied!', $exception->getMessage());
+    }
+
+    #[Test]
+    public function anAuthFailureRendersNoDetailUnlessGivenOne(): void
+    {
+        self::assertSame(
+            ['status' => '403', 'code' => 'ACCESS_DENIED', 'title' => 'Forbidden'],
+            (new AccessDenied())->getErrors()[0]->transform(),
+        );
+        self::assertSame(
+            ['status' => '401', 'code' => 'AUTHENTICATION_REQUIRED', 'title' => 'Unauthorized', 'detail' => 'Token expired.'],
+            (new AuthenticationRequired('Token expired.'))->getErrors()[0]->transform(),
+        );
+    }
+
+    #[Test]
+    public function anAuthFailureKeepsTheFrameworkExceptionItTranslates(): void
+    {
+        $framework = new \RuntimeException('Full authentication is required to access this resource.');
+
+        $exception = new AuthenticationRequired($framework->getMessage(), $framework);
+
+        self::assertSame($framework, $exception->getPrevious());
+        self::assertSame($framework->getMessage(), $exception->getMessage());
+        self::assertSame($framework->getMessage(), $exception->getErrors()[0]->detail);
     }
 }

@@ -281,8 +281,12 @@ describes in terms of an operation within the batch rather than the request as a
 catalogued code pins its `status` to a `const`, so `ErrorDocument422` is the error document
 whose `errors.items.anyOf` offers only the codes that can arrive with a `422` — and the
 open generic `Error` still leads it. A status the catalogue claims no code for keeps the
-generic `ErrorDocument`: `401` always, because no code core raises declares it (your
-firewall answers first), and any status whose codes your feature set gated out.
+generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
+`403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
+for the adapters to render when the framework's security layer refuses a request
+([ADR 0144](adr/0144-authentication-and-authorization-failures-carry-core-codes.md)), so
+`ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
+write-side `403` codes.
 
 Two things follow, and the second is easy to miss. The `anyOf` is still a catalogue and
 still not a constraint — your own `422` code validates against `ErrorDocument422` for the

@@ -371,7 +371,7 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
-  claims that status and the generic `ErrorDocument` when it does not (`401` always). The
+  claims that status and the generic `ErrorDocument` when it does not. The
   narrowings keep the leading generic `Error` too, and `ErrorResponseProjectionTest` guards
   both that and the mixed-status case ADR 0018 produces
   ([ADR 0139](docs/adr/0139-error-responses-are-shared-components-narrowed-per-status.md)).

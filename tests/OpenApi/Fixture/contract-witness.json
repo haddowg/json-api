@@ -4857,6 +4857,31 @@
     },
     "components": {
         "schemas": {
+            "AccessDeniedError": {
+                "title": "Forbidden",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "ACCESS_DENIED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
             "AdditionProhibitedError": {
                 "title": "Addition is prohibited",
                 "allOf": [
@@ -6320,6 +6345,31 @@
                     }
                 ]
             },
+            "AuthenticationRequiredError": {
+                "title": "Unauthorized",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "AUTHENTICATION_REQUIRED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "401"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
+                ]
+            },
             "ClientGeneratedIdAlreadyExistsError": {
                 "title": "Client generated ID already exists",
                 "allOf": [
@@ -6566,6 +6616,9 @@
                                     "$ref": "#/components/schemas/Error"
                                 },
                                 {
+                                    "$ref": "#/components/schemas/AccessDeniedError"
+                                },
+                                {
                                     "$ref": "#/components/schemas/AdditionProhibitedError"
                                 },
                                 {
@@ -6576,6 +6629,9 @@
                                 },
                                 {
                                     "$ref": "#/components/schemas/AttributeValueInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AuthenticationRequiredError"
                                 },
                                 {
                                     "$ref": "#/components/schemas/ClientGeneratedIdAlreadyExistsError"
@@ -6872,6 +6928,38 @@
                     "errors"
                 ]
             },
+            "ErrorDocument401": {
+                "type": "object",
+                "properties": {
+                    "errors": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "description": "A JSON:API error object in a `401` document. The named branches catalogue the codes this server documents at that status; the leading generic `Error` keeps the list open, so an error carrying an undocumented `code` — or one whose own `status` differs, which happens when a document of mixed statuses takes the status class they round down to — is still a valid error object.",
+                            "anyOf": [
+                                {
+                                    "$ref": "#/components/schemas/Error"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AuthenticationRequiredError"
+                                }
+                            ]
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "errors"
+                ]
+            },
             "ErrorDocument403": {
                 "type": "object",
                 "properties": {
@@ -6883,6 +6971,9 @@
                             "anyOf": [
                                 {
                                     "$ref": "#/components/schemas/Error"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AccessDeniedError"
                                 },
                                 {
                                     "$ref": "#/components/schemas/AdditionProhibitedError"
@@ -9764,7 +9855,7 @@
                 "content": {
                     "application/vnd.api+json": {
                         "schema": {
-                            "$ref": "#/components/schemas/ErrorDocument"
+                            "$ref": "#/components/schemas/ErrorDocument401"
                         }
                     }
                 }
