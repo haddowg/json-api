@@ -515,6 +515,17 @@ final class TestingUtilitiesTest extends TestCase
     }
 
     #[Test]
+    public function specComplianceAssertionKeepsAnEmptyObjectAnObject(): void
+    {
+        SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":{}}}');
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('/data/attributes:');
+
+        SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":[]}}');
+    }
+
+    #[Test]
     public function specComplianceAssertionFailsForAnInvalidDocument(): void
     {
         $this->expectException(AssertionFailedError::class);

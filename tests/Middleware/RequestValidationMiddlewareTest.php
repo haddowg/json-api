@@ -66,6 +66,33 @@ final class RequestValidationMiddlewareTest extends TestCase
     }
 
     #[Test]
+    public function anEmptyAttributesObjectPassesAndTheHandlerKeepsTheAssociativeBody(): void
+    {
+        $captured = null;
+        $request = (new ServerRequest('PATCH', '/articles/1', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('{"data":{"type":"articles","id":"1","attributes":{}}}'));
+
+        $this->middleware()->process($request, $this->okHandler($captured));
+
+        self::assertInstanceOf(JsonApiRequestInterface::class, $captured);
+        self::assertSame(['data' => ['type' => 'articles', 'id' => '1', 'attributes' => []]], $captured->getParsedBody());
+    }
+
+    #[Test]
+    public function anAttributesArrayStillFailsAtItsPointer(): void
+    {
+        $request = (new ServerRequest('PATCH', '/articles/1', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('{"data":{"type":"articles","id":"1","attributes":[]}}'));
+
+        try {
+            $this->middleware()->process($request, $this->okHandler());
+            self::fail('Expected the request to fail validation.');
+        } catch (RequestBodyInvalidJsonApi $exception) {
+            self::assertContains('/data/attributes', \array_column($exception->validationErrors, 'property'));
+        }
+    }
+
+    #[Test]
     public function bodylessRequestPassesThrough(): void
     {
         $captured = null;

@@ -36,7 +36,7 @@ final class SpecCompliance
         ?ServerRequestInterface $request = null,
         ?DocumentValidator $validator = null,
     ): void {
-        $parsed = Decode::toArray($document, $server, $request);
+        $parsed = Decode::toValidatable($document, $server, $request);
         $validator ??= new DocumentValidator(new VendoredSchemaProvider());
 
         try {

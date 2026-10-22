@@ -10,6 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 use haddowg\JsonApi\Validation\DocumentValidator;
+use haddowg\JsonApi\Validation\Internal\ObjectDocument;
 use haddowg\JsonApi\Validation\Internal\ProfileSchemaCollector;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -55,15 +56,19 @@ final readonly class ResponseValidationMiddleware implements MiddlewareInterface
 
         // Delegate JSON well-formedness to the response validator (the same
         // extension point a framework integration reuses); a malformed body —
-        // our own serializer's bug — throws ResponseBodyInvalidJson. The decoded
-        // document is returned so it is not parsed twice.
+        // our own serializer's bug — throws ResponseBodyInvalidJson.
         $document = (new ResponseValidator())->validateJsonBody($response);
-        if ($response->getBody()->isSeekable()) {
-            $response->getBody()->rewind();
-        }
-
         if ($document === null) {
             return $response;
+        }
+
+        // Its associative decode turns `{}` into `[]`, so opis gets an
+        // object-preserving decode of the same body when the body can be re-read.
+        $body = $response->getBody();
+        if ($body->isSeekable()) {
+            $body->rewind();
+            $document = ObjectDocument::decode($body->getContents());
+            $body->rewind();
         }
 
         $jsonApiRequest = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);

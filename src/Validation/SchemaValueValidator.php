@@ -53,14 +53,9 @@ final class SchemaValueValidator
      */
     public function validate(Schema $schema, mixed $value, string $pointerPrefix): array
     {
-        // A schema node always serialises to a JSON object; the guard both satisfies
-        // opis's bool|object|string schema parameter and is defensive.
-        $schemaJson = Helper::toJSON($schema->toArray());
-        if (!\is_object($schemaJson)) {
-            return [];
-        }
-
-        $result = $this->validator->validate(Helper::toJSON($value), $schemaJson);
+        // toJson(), not toArray(): flattening to arrays turns an empty schema node
+        // into `[]`, which opis does not accept as a schema.
+        $result = $this->validator->validate(Helper::toJSON($value), $schema->toJson());
 
         $error = $result->error();
         if ($error === null) {

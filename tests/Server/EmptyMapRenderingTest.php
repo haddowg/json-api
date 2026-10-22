@@ -24,6 +24,10 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
 use haddowg\JsonApi\Schema\Link\ErrorLinks;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Server\Server;
+use haddowg\JsonApi\Testing\SpecCompliance;
+use haddowg\JsonApi\Validation\DocumentValidator;
+use haddowg\JsonApi\Validation\Internal\ObjectDocument;
+use haddowg\JsonApi\Validation\VendoredSchemaProvider;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -61,6 +65,16 @@ final class EmptyMapRenderingTest extends TestCase
         self::assertStringContainsString('"settings":{"label":null}', $attributes);
         // An unknown discriminator renders the stored value as is, still as an object.
         self::assertStringContainsString('"variant":{}', $attributes);
+    }
+
+    #[Test]
+    public function aResponseWithEmptyMapsPassesResponseValidation(): void
+    {
+        $body = $this->body(['preferences' => [], 'shape' => [], 'variant' => []]);
+
+        SpecCompliance::assert($body);
+        (new DocumentValidator(new VendoredSchemaProvider()))->validateResponse(ObjectDocument::decode($body));
+        $this->addToAssertionCount(1);
     }
 
     #[Test]

@@ -59,6 +59,32 @@ final class ResponseValidationMiddlewareTest extends TestCase
     }
 
     #[Test]
+    public function emptyObjectsPassValidation(): void
+    {
+        $body = '{"data":{"type":"accounts","id":"1","attributes":{"preferences":{}},"meta":{}}}';
+
+        $result = $this->middleware()->process(
+            new ServerRequest('GET', '/accounts/1'),
+            $this->handlerReturning($this->jsonApiResponse($body)),
+        );
+
+        self::assertSame($body, (string) $result->getBody());
+    }
+
+    #[Test]
+    public function anAttributesArrayStillFailsAtItsPointer(): void
+    {
+        $response = $this->jsonApiResponse('{"data":{"type":"accounts","id":"1","attributes":[]}}');
+
+        try {
+            $this->middleware()->process(new ServerRequest('GET', '/accounts/1'), $this->handlerReturning($response));
+            self::fail('Expected the response to fail validation.');
+        } catch (ResponseBodyInvalidJsonApi $exception) {
+            self::assertContains('/data/attributes', \array_column($exception->validationErrors, 'property'));
+        }
+    }
+
+    #[Test]
     public function brokenOutgoingDocumentThrowsByDefault(): void
     {
         // Missing id on a response resource is invalid.
