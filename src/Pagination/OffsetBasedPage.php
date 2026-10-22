@@ -32,6 +32,9 @@ final readonly class OffsetBasedPage extends AbstractPage
         public int $offset,
         public int $limit,
         public bool $hasMore = false,
+        public string $offsetKey = 'offset',
+        public string $limitKey = 'limit',
+        public ?string $kind = null,
     ) {
         parent::__construct($items);
     }
@@ -112,6 +115,6 @@ final readonly class OffsetBasedPage extends AbstractPage
 
     private function link(string $uri, string $queryString, int $offset): Link
     {
-        return $this->paginatedLink($uri, $queryString, ['page' => ['offset' => $offset, 'limit' => $this->limit]]);
+        return $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, [$this->offsetKey => $offset, $this->limitKey => $this->limit]));
     }
 }

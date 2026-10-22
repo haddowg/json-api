@@ -576,6 +576,13 @@ Selection is **discriminator-first but not discriminator-only**:
   `page[kind]`.
 - an **absent** `page` uses the `default()`.
 
+A strategy selected over the default carries `page[kind]` in every pagination link it
+renders, so following `first`, `next` or `last` keeps selecting it. Without it, a link
+made only of shared keys (a cursor page's `first` is just `page[size]`) would fall back
+to the default. A link from the default strategy has no `kind`, so a menu leaves the
+wire form of default responses unchanged. A custom strategy gets the same behaviour by
+implementing `SelectableFromMenuInterface`.
+
 Everything else about pagination is unchanged: the handler resolves the wrapper to
 the one concrete strategy for the request up front, then runs the ordinary
 window → slice → count → paginate loop. Because the resolved strategy is a plain

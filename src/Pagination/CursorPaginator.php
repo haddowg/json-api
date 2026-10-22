@@ -37,7 +37,7 @@ use haddowg\JsonApi\Schema\Profile\ProfileInterface;
  *
  * @see https://jsonapi.org/profiles/ethanresnick/cursor-pagination/
  */
-final readonly class CursorPaginator implements PaginatorInterface
+final readonly class CursorPaginator implements PaginatorInterface, SelectableFromMenuInterface
 {
     /**
      * The `page[…]` keys reserved for the cursor tokens; their wire form is
@@ -54,6 +54,7 @@ final readonly class CursorPaginator implements PaginatorInterface
         public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
         public CursorCodec $codec = new CursorCodec(),
         public string $kind = 'cursor',
+        public bool $linksCarryKind = false,
     ) {}
 
     public static function make(): self
@@ -63,12 +64,12 @@ final readonly class CursorPaginator implements PaginatorInterface
 
     public function withDefaultSize(int $defaultSize): self
     {
-        return new self($defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind);
+        return new self($defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind, $this->linksCarryKind);
     }
 
     public function withSizeKey(string $sizeKey): self
     {
-        return new self($this->defaultSize, $sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind);
+        return new self($this->defaultSize, $sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -78,7 +79,7 @@ final readonly class CursorPaginator implements PaginatorInterface
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->defaultSize, $this->sizeKey, $this->profile, \max(0, $max), $this->codec, $this->kind);
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, \max(0, $max), $this->codec, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -88,7 +89,7 @@ final readonly class CursorPaginator implements PaginatorInterface
      */
     public function withKind(string $kind): self
     {
-        return new self($this->defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $kind);
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $kind, $this->linksCarryKind);
     }
 
     /**
@@ -145,6 +146,8 @@ final readonly class CursorPaginator implements PaginatorInterface
             $this->profile,
             $from,
             $to,
+            $this->sizeKey,
+            $this->linkKind(),
         );
     }
 
@@ -185,6 +188,22 @@ final readonly class CursorPaginator implements PaginatorInterface
     public function wantsCount(): bool
     {
         return false;
+    }
+
+    /**
+     * A copy whose page links carry `page[kind]`, so following one keeps selecting this
+     * strategy. A {@see MultiPaginator} uses it when it selects this strategy over its
+     * default, since otherwise a link made only of shared keys would fall back to the
+     * default.
+     */
+    public function selectedFromMenu(): static
+    {
+        return new self($this->defaultSize, $this->sizeKey, $this->profile, $this->maxPerPage, $this->codec, $this->kind, true);
+    }
+
+    private function linkKind(): ?string
+    {
+        return $this->linksCarryKind ? $this->kind : null;
     }
 
     public function kind(): string

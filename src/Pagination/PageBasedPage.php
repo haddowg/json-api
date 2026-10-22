@@ -35,6 +35,9 @@ final readonly class PageBasedPage extends AbstractPage
         public int $page,
         public int $size,
         public bool $hasMore = false,
+        public string $numberKey = 'number',
+        public string $sizeKey = 'size',
+        public ?string $kind = null,
     ) {
         parent::__construct($items);
     }
@@ -112,7 +115,7 @@ final readonly class PageBasedPage extends AbstractPage
 
     private function link(string $uri, string $queryString, int $page): Link
     {
-        return $this->paginatedLink($uri, $queryString, ['page' => ['number' => $page, 'size' => $this->size]]);
+        return $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, [$this->numberKey => $page, $this->sizeKey => $this->size]));
     }
 
     private function lastPage(): int

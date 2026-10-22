@@ -35,6 +35,8 @@ final readonly class FixedPagePage extends AbstractPage
         public int $page,
         public int $size,
         public bool $hasMore = false,
+        public string $numberKey = 'number',
+        public ?string $kind = null,
     ) {
         parent::__construct($items);
     }
@@ -98,7 +100,7 @@ final readonly class FixedPagePage extends AbstractPage
 
     private function link(string $uri, string $queryString, int $page): Link
     {
-        return $this->paginatedLink($uri, $queryString, ['page' => ['number' => $page]]);
+        return $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, [$this->numberKey => $page]));
     }
 
     private function lastPage(): int
