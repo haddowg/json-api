@@ -81,4 +81,26 @@ final class RequestBaseUriTest extends TestCase
         // pair it with; there is no well-formed origin, so it degrades gracefully.
         self::assertSame('', RequestBaseUri::resolve('', new Uri('//music.example/albums')));
     }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function documentCases(): iterable
+    {
+        yield 'a path base under its own mount' => ['/api/v5', 'https://h.example/api/v5/advertisers', '/api/v5/advertisers'];
+        yield 'an absolute base under its own mount' => ['https://canonical.example/api/v5', 'https://h.example/api/v5/advertisers', 'https://canonical.example/api/v5/advertisers'];
+        yield 'a trailing slash on the base' => ['/api/v5/', 'https://h.example/api/v5/advertisers', '/api/v5/advertisers'];
+        yield 'the mount itself' => ['/api/v5', 'https://h.example/api/v5', '/api/v5'];
+        yield 'a path a proxy already stripped' => ['/api/v5', 'https://h.example/advertisers', '/api/v5/advertisers'];
+        yield 'a prefix that is not a whole segment' => ['/api/v5', 'https://h.example/api/v50/advertisers', '/api/v5/api/v50/advertisers'];
+        yield 'a base with no path' => ['https://canonical.example', 'https://h.example/api/v5/advertisers', 'https://canonical.example/api/v5/advertisers'];
+        yield 'no configured base' => ['', 'https://h.example/api/v5/advertisers', 'https://h.example/api/v5/advertisers'];
+    }
+
+    #[Test]
+    #[DataProvider('documentCases')]
+    public function aDocumentLinkCarriesTheMountOnce(string $configured, string $request, string $expected): void
+    {
+        self::assertSame($expected, RequestBaseUri::document($configured, new Uri($request . '?page[number]=2')));
+    }
 }

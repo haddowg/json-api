@@ -569,7 +569,7 @@ abstract class AbstractResponse
             return $result;
         }
 
-        $self = \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()) . $request->getUri()->getPath();
+        $self = \haddowg\JsonApi\Server\RequestBaseUri::document($server->baseUri(), $request->getUri());
         $queryString = $request->getUri()->getQuery();
         if ($queryString !== '') {
             $self .= '?' . $queryString;
