@@ -593,6 +593,10 @@ schema therefore *encodes the selection rule itself*: a unique-key object matche
 exactly one branch, while a shared-key-only object matches several and is invalid
 until `page[kind]` disambiguates it.
 
+Each schema also carries an [`x-paginator`](openapi.md#pagination-strategy-x-paginator)
+extension naming the strategy and its keys, and a menu's names the `default()` kind, so a
+generated client can offer the menu as a typed choice.
+
 ## Custom strategies
 
 Supply your own count-based strategy by implementing `PaginatorInterface` and
@@ -602,7 +606,10 @@ per relation (`paginate()`) or server-wide (`withDefaultPaginator()`); the
 window → slice → count → paginate loop is unchanged. A custom strategy names itself
 via `kind()` and self-describes its `page[…]` object schema via
 `describePageSchema()`, so it composes into a `MultiPaginator` menu and projects its
-real parameters with no central switch.
+real parameters with no central switch. If it reimplements one of the built-in strategies
+under its own keys, stamp the same
+[`x-paginator`](openapi.md#pagination-strategy-x-paginator) extension so a code generator
+types it as that strategy.
 
 ## Next / See also
 

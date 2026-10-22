@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 2
+            "contract": 3
         }
     },
     "servers": [
@@ -299,6 +299,13 @@
                                     "type": "integer",
                                     "description": "The number of resources per page.",
                                     "minimum": 1
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
                                 }
                             }
                         },
@@ -1257,6 +1264,13 @@
                                     "description": "The number of resources per page.",
                                     "minimum": 1
                                 }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
+                                }
                             }
                         },
                         "style": "deepObject",
@@ -1392,6 +1406,13 @@
                                     "type": "integer",
                                     "description": "The number of resources per page.",
                                     "minimum": 1
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
                                 }
                             }
                         },
@@ -2587,7 +2608,14 @@
                                             "const": "page"
                                         }
                                     },
-                                    "additionalProperties": false
+                                    "additionalProperties": false,
+                                    "x-paginator": {
+                                        "strategy": "page",
+                                        "keys": {
+                                            "number": "number",
+                                            "size": "size"
+                                        }
+                                    }
                                 },
                                 {
                                     "type": "object",
@@ -2611,11 +2639,23 @@
                                             "const": "cursor"
                                         }
                                     },
-                                    "additionalProperties": false
+                                    "additionalProperties": false,
+                                    "x-paginator": {
+                                        "strategy": "cursor",
+                                        "keys": {
+                                            "after": "after",
+                                            "before": "before",
+                                            "size": "size"
+                                        }
+                                    }
                                 }
                             ],
                             "discriminator": {
                                 "propertyName": "kind"
+                            },
+                            "x-paginator": {
+                                "strategy": "multi",
+                                "default": "page"
                             }
                         },
                         "style": "deepObject",
@@ -3119,6 +3159,14 @@
                                     "type": "integer",
                                     "description": "The number of resources per page.",
                                     "minimum": 1
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "cursor",
+                                "keys": {
+                                    "after": "after",
+                                    "before": "before",
+                                    "size": "size"
                                 }
                             }
                         },
@@ -4072,6 +4120,13 @@
                                     "type": "integer",
                                     "description": "The number of resources per page.",
                                     "minimum": 1
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
                                 }
                             }
                         },

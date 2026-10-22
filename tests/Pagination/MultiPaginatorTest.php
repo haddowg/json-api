@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Pagination;
 
 use haddowg\JsonApi\Exception\PaginationKindUnknown;
+use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Pagination\CursorBasedPage;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\MultiPaginator;
@@ -186,5 +187,36 @@ final class MultiPaginatorTest extends TestCase
 
         // A key no branch reads is rejected (additionalProperties: false).
         self::assertFalse($validator->validate((object) ['bogus' => 1], $schema)->isValid());
+    }
+
+    #[Test]
+    public function theProjectedMenuNamesItsDefaultAndEachArmItsStrategy(): void
+    {
+        $schema = $this->menu()->describePageSchema();
+
+        self::assertSame(['strategy' => 'multi', 'default' => 'cursor'], $schema->extension('paginator'));
+
+        $arms = $schema->get('oneOf');
+        self::assertIsArray($arms);
+        $strategies = [];
+        foreach ($arms as $arm) {
+            self::assertInstanceOf(Schema::class, $arm);
+            $paginator = $arm->extension('paginator');
+            self::assertIsArray($paginator);
+            $strategies[] = $paginator['strategy'];
+        }
+        self::assertSame(['page', 'offset', 'cursor'], $strategies);
+    }
+
+    #[Test]
+    public function anUnsetDefaultProjectsTheFirstDeclaredKind(): void
+    {
+        $menu = MultiPaginator::make(OffsetPaginator::make(), PagePaginator::make()->withKind('numbered'));
+
+        self::assertSame(['strategy' => 'multi', 'default' => 'offset'], $menu->describePageSchema()->extension('paginator'));
+        self::assertSame(
+            ['strategy' => 'multi', 'default' => 'numbered'],
+            $menu->default('numbered')->describePageSchema()->extension('paginator'),
+        );
     }
 }

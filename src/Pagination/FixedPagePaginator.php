@@ -81,7 +81,8 @@ final readonly class FixedPagePaginator implements PaginatorInterface
     public function describePageSchema(): Schema
     {
         return Schema::ofType('object')
-            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'));
+            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'))
+            ->withExtension('paginator', ['strategy' => 'fixed', 'keys' => ['number' => $this->pageKey]]);
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface

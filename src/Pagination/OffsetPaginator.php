@@ -105,7 +105,8 @@ final readonly class OffsetPaginator implements PaginatorInterface
     {
         return Schema::ofType('object')
             ->withProperty($this->offsetKey, Schema::ofType('integer')->withMinimum(0)->withDescription('The zero-based offset of the first resource.'))
-            ->withProperty($this->limitKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The maximum number of resources to return.'));
+            ->withProperty($this->limitKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The maximum number of resources to return.'))
+            ->withExtension('paginator', ['strategy' => 'offset', 'keys' => ['offset' => $this->offsetKey, 'limit' => $this->limitKey]]);
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface
