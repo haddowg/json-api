@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1](https://github.com/haddowg/json-api/compare/v1.2.0...v1.2.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* answer a scalar request body with 400 instead of a TypeError ([86ce1ef](https://github.com/haddowg/json-api/commit/86ce1ef56815cf81b53ccb777c859e8938b78568))
+* render empty maps and empty object members as JSON objects ([86ce1ef](https://github.com/haddowg/json-api/commit/86ce1ef56815cf81b53ccb777c859e8938b78568))
+* **validation:** validate documents decoded as objects so {} stays an object ([86ce1ef](https://github.com/haddowg/json-api/commit/86ce1ef56815cf81b53ccb777c859e8938b78568))
+
 ## [1.2.0](https://github.com/haddowg/json-api/compare/v1.1.1...v1.2.0) (2026-10-22)
 
 
