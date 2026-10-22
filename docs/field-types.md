@@ -98,7 +98,9 @@ back to a `\DateTimeImmutable`. The default format is ISO-8601
 | `format(string)` | Override the serialization format string (default `\DateTimeInterface::ATOM`). |
 | `before($bound)` / `after($bound)` | `Before` / `After`. |
 | `between($min, $max)` | `Between`. |
-| `useTimezone(string)` | Convert hydrated values into the given timezone before storing. |
+| `inputTimezone(string)` | Convert hydrated values into the given timezone before storing. |
+| `outputTimezone(string)` | Convert serialized values into the given timezone before formatting. See [timezones](#timezones-on-the-way-in-and-out). |
+| `useTimezone(string)` | Deprecated alias of `inputTimezone()`. |
 
 `before()`, `after()` and `between()` accept either a fixed `\DateTimeInterface`
 **or** a `\Closure(): \DateTimeInterface`. A closure bound is evaluated at
@@ -112,7 +114,7 @@ plus a timezone normalisation to UTC.
 ```php
 DateTime::make('releasedAt')
     ->before(static fn(): \DateTimeImmutable => new \DateTimeImmutable())
-    ->useTimezone('UTC')
+    ->inputTimezone('UTC')
     ->sortable();
 ```
 
@@ -120,6 +122,38 @@ Because `new \DateTimeImmutable()` is resolved each time the rule runs, "no futu
 releases" always means *now*, per request — not the moment the resource class was
 loaded. The same closure form works for `after()` and for either bound of
 `between()`.
+
+### Timezones on the way in and out
+
+`inputTimezone()` and `outputTimezone()` act on opposite directions and are
+independent. `inputTimezone()` moves a value the client sent into a zone before it
+reaches your domain object. `outputTimezone()` moves the domain value into a zone
+before it is formatted for the response. Without `outputTimezone()`, a value renders
+in whatever zone it carries.
+
+```php
+// Stored in the enterprise's local zone, always rendered in UTC.
+DateTime::make('createdAt')->outputTimezone('UTC');
+```
+
+The conversion runs on a `\DateTimeImmutable` copy, so a mutable `\DateTime` on your
+entity keeps its zone. An unknown zone name throws an `\InvalidArgumentException`
+when the field is declared, not when the first response renders.
+
+To render every date-time in one zone, set it once on the server with
+[`withOutputTimezone()`](server.md#output-timezone). A field's own
+`outputTimezone()` beats the server's, so one field can still render in another
+zone.
+
+The server default reaches `DateTime` fields only, never `Date` or `Time`. That is
+deliberate. A calendar date stored as midnight in Paris falls on the previous evening
+in UTC, so converting it would render the wrong date. A bare time of day has no date to
+convert against. If a `Date` or `Time` really should move, give that field its own
+`outputTimezone()`.
+
+Under UTC a format with a literal `Z` (`'Y-m-d\TH:i:s\Z'`) is honest, so a field that
+pairs it with `outputTimezone('UTC')` keeps `format: date-time` in the generated
+schemas. Without the conversion the same format is documented as a plain string.
 
 ### What `format()` does to the generated schemas
 
@@ -160,6 +194,9 @@ Date::make('birthDate')->nullable();
 ```
 
 `Y-m-d` is RFC 3339 `full-date`, so the default projects as `format: date`.
+
+A `Date` ignores the server's [default output zone](#timezones-on-the-way-in-and-out),
+because converting a calendar date across zones can move it to another day.
 
 ## `Time`
 

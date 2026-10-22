@@ -16,4 +16,13 @@ final readonly class Time extends DateTime
     {
         return new TimeBuilder($name);
     }
+
+    /**
+     * Ignores the server's default zone: converted across zones, a bare time of day has no date to convert against. Only
+     * this field's own `outputTimezone()` moves its values.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        return $this;
+    }
 }

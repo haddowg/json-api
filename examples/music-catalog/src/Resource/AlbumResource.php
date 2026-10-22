@@ -57,7 +57,7 @@ final class AlbumResource extends AbstractResource
             // Schema. Hydrated values are normalised to UTC.
             DateTime::make('releasedAt')
                 ->before(static fn(): \DateTimeImmutable => new \DateTimeImmutable())
-                ->useTimezone('UTC')
+                ->inputTimezone('UTC')
                 ->sortable(),
             // The Map's children read/write FLAT domain columns (label,
             // catalogueNumber); catalogueNumber is readOnly so it never hydrates.

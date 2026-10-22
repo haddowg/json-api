@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\NoResourceRegistered;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Hydrator\HydratorResolverInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\ProvidesOutputTimezoneInterface;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -34,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface
 {
     /**
      * @var array<string, Entry>
@@ -109,6 +110,13 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
 
     /**
+     * The server's default output zone for `DateTime` attributes, or null for none.
+     * Threaded down from the {@see Server} so the resources it serves can read it
+     * off their injected resolver.
+     */
+    private ?string $outputTimezone = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -118,6 +126,16 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function setResolver(?\Closure $resolver): void
     {
         $this->resolver = $resolver;
+    }
+
+    public function setOutputTimezone(?string $outputTimezone): void
+    {
+        $this->outputTimezone = $outputTimezone;
+    }
+
+    public function outputTimezone(): ?string
+    {
+        return $this->outputTimezone;
     }
 
     /**

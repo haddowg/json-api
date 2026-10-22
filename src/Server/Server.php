@@ -9,6 +9,8 @@ use haddowg\JsonApi\Operation\OperationHandler;
 use haddowg\JsonApi\Operation\Psr7ToOperationHandlerAdapter;
 use haddowg\JsonApi\Pagination\Paginator;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
+use haddowg\JsonApi\Resource\ProvidesOutputTimezoneInterface;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
@@ -43,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface
 {
     private ResourceRegistry $resources;
 
@@ -63,6 +65,13 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     private ?\haddowg\JsonApi\Pagination\PaginatorInterface $defaultPaginator = null;
 
     private ?int $maxIncludeDepth = null;
+
+    /**
+     * The zone `DateTime` attributes render in when the field sets none of its own,
+     * or null to render each value in the zone it carries. Pushed into the
+     * {@see ResourceRegistry}, where resources read it.
+     */
+    private ?string $outputTimezone = null;
 
     /**
      * Whether to reject an unrecognized query-parameter family with a `400`
@@ -512,6 +521,25 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
         return $self;
     }
 
+    /**
+     * Renders every `DateTime` attribute in `$timezone` unless the field sets its own
+     * `outputTimezone()`. `Date` and `Time` attributes are left alone: moving a
+     * calendar date or a time of day into another zone can change its value, so they
+     * convert only when the field asks. Passing `null` (the default) formats each
+     * value in the zone it carries.
+     *
+     * @throws \InvalidArgumentException when PHP does not recognise `$timezone`
+     */
+    public function withOutputTimezone(?string $timezone): self
+    {
+        $self = clone $this;
+        $self->outputTimezone = $timezone === null ? null : TimezoneName::assertValid($timezone, 'withOutputTimezone');
+        $self->resources = clone $this->resources;
+        $self->resources->setOutputTimezone($self->outputTimezone);
+
+        return $self;
+    }
+
     public function withProfile(ProfileInterface $profile): self
     {
         $self = clone $this;
@@ -625,6 +653,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface
     public function errorMessageResolver(): ?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface
     {
         return $this->errorMessageResolver;
+    }
+
+    public function outputTimezone(): ?string
+    {
+        return $this->outputTimezone;
     }
 
     public function maxIncludeDepth(): ?int

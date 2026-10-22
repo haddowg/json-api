@@ -29,7 +29,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * shapes" whose members you only want documented and validated (not hydrated per
  * variant) is a schema-bearing constraint on a pass-through field instead.
  */
-final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSchema
+final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * @param array<string, Obj> $variants
@@ -58,6 +58,20 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
     public function variants(): array
     {
         return $this->variants;
+    }
+
+    /**
+     * Passes the server's default output zone on to every variant, so a `DateTime`
+     * in any of them renders in it too.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        $variants = \array_map(
+            static fn(Obj $variant): Obj => $variant->withDefaultOutputTimezone($timezone),
+            $this->variants,
+        );
+
+        return $variants === $this->variants ? $this : new self($this->state, $this->discriminator, $variants);
     }
 
     /**
