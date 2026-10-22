@@ -23,7 +23,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Its {@see kind()} is `page`; rename it with {@see withKind()} when composing two
  * page strategies in one {@see MultiPaginator} menu.
  */
-final readonly class PagePaginator implements PaginatorInterface
+final readonly class PagePaginator implements PaginatorInterface, SelectableFromMenuInterface
 {
     /**
      * The default page-size cap, applied unless overridden with
@@ -40,6 +40,7 @@ final readonly class PagePaginator implements PaginatorInterface
         public int $maxPerPage = self::DEFAULT_MAX_PER_PAGE,
         public bool $wantsCount = false,
         public string $kind = 'page',
+        public bool $linksCarryKind = false,
     ) {}
 
     public static function make(): self
@@ -49,22 +50,22 @@ final readonly class PagePaginator implements PaginatorInterface
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withPerPageKey(string $perPageKey): self
     {
-        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->pageKey, $perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->pageKey, $this->perPageKey, $defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withDefaultPerPage(int $defaultPerPage): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -74,7 +75,7 @@ final readonly class PagePaginator implements PaginatorInterface
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max), $this->wantsCount, $this->kind);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, \max(0, $max), $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -85,7 +86,7 @@ final readonly class PagePaginator implements PaginatorInterface
      */
     public function withCount(): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, true, $this->kind);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, true, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -95,12 +96,28 @@ final readonly class PagePaginator implements PaginatorInterface
      */
     public function withKind(string $kind): self
     {
-        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $kind);
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $kind, $this->linksCarryKind);
     }
 
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    /**
+     * A copy whose page links carry `page[kind]`, so following one keeps selecting this
+     * strategy. A {@see MultiPaginator} uses it when it selects this strategy over its
+     * default, since otherwise a link made only of shared keys would fall back to the
+     * default.
+     */
+    public function selectedFromMenu(): static
+    {
+        return new self($this->pageKey, $this->perPageKey, $this->defaultPage, $this->defaultPerPage, $this->maxPerPage, $this->wantsCount, $this->kind, true);
+    }
+
+    private function linkKind(): ?string
+    {
+        return $this->linksCarryKind ? $this->kind : null;
     }
 
     public function kind(): string
@@ -137,7 +154,7 @@ final readonly class PagePaginator implements PaginatorInterface
     {
         [$page, $size] = $this->resolvePage($request);
 
-        return new PageBasedPage($items, $totalItems, $page, $size);
+        return new PageBasedPage($items, $totalItems, $page, $size, false, $this->pageKey, $this->perPageKey, $this->linkKind());
     }
 
     /**
@@ -149,7 +166,7 @@ final readonly class PagePaginator implements PaginatorInterface
     {
         [$page, $size] = $this->resolvePage($request);
 
-        return new PageBasedPage($items, null, $page, $size, $hasMore);
+        return new PageBasedPage($items, null, $page, $size, $hasMore, $this->pageKey, $this->perPageKey, $this->linkKind());
     }
 
     /**

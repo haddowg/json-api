@@ -62,6 +62,19 @@ abstract readonly class AbstractPage implements \haddowg\JsonApi\Pagination\Page
     }
 
     /**
+     * The `page` query parameters for one link: the given members under their wire keys,
+     * led by `kind` when the page must keep selecting its strategy from a menu.
+     *
+     * @param array<string, int|string> $members
+     *
+     * @return array{page: array<string, int|string>}
+     */
+    protected static function pageParams(?string $kind, array $members): array
+    {
+        return ['page' => $kind === null ? $members : [MultiPaginator::KIND_KEY => $kind, ...$members]];
+    }
+
+    /**
      * Builds an absolute pagination link by merging `$params` over `$uri`'s own
      * query string and the request's `$queryString`.
      *

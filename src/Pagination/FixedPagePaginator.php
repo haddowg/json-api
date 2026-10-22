@@ -17,7 +17,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Its {@see kind()} is `fixed`; rename it with {@see withKind()} when composing
  * two fixed strategies in one {@see MultiPaginator} menu.
  */
-final readonly class FixedPagePaginator implements PaginatorInterface
+final readonly class FixedPagePaginator implements PaginatorInterface, SelectableFromMenuInterface
 {
     public function __construct(
         public int $size = 15,
@@ -25,6 +25,7 @@ final readonly class FixedPagePaginator implements PaginatorInterface
         public int $defaultPage = 1,
         public bool $wantsCount = false,
         public string $kind = 'fixed',
+        public bool $linksCarryKind = false,
     ) {}
 
     public static function make(int $size = 15): self
@@ -34,17 +35,17 @@ final readonly class FixedPagePaginator implements PaginatorInterface
 
     public function withSize(int $size): self
     {
-        return new self($size, $this->pageKey, $this->defaultPage, $this->wantsCount, $this->kind);
+        return new self($size, $this->pageKey, $this->defaultPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withPageKey(string $pageKey): self
     {
-        return new self($this->size, $pageKey, $this->defaultPage, $this->wantsCount, $this->kind);
+        return new self($this->size, $pageKey, $this->defaultPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withDefaultPage(int $defaultPage): self
     {
-        return new self($this->size, $this->pageKey, $defaultPage, $this->wantsCount, $this->kind);
+        return new self($this->size, $this->pageKey, $defaultPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -55,7 +56,7 @@ final readonly class FixedPagePaginator implements PaginatorInterface
      */
     public function withCount(): self
     {
-        return new self($this->size, $this->pageKey, $this->defaultPage, true, $this->kind);
+        return new self($this->size, $this->pageKey, $this->defaultPage, true, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -65,12 +66,28 @@ final readonly class FixedPagePaginator implements PaginatorInterface
      */
     public function withKind(string $kind): self
     {
-        return new self($this->size, $this->pageKey, $this->defaultPage, $this->wantsCount, $kind);
+        return new self($this->size, $this->pageKey, $this->defaultPage, $this->wantsCount, $kind, $this->linksCarryKind);
     }
 
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    /**
+     * A copy whose page links carry `page[kind]`, so following one keeps selecting this
+     * strategy. A {@see MultiPaginator} uses it when it selects this strategy over its
+     * default, since otherwise a link made only of shared keys would fall back to the
+     * default.
+     */
+    public function selectedFromMenu(): static
+    {
+        return new self($this->size, $this->pageKey, $this->defaultPage, $this->wantsCount, $this->kind, true);
+    }
+
+    private function linkKind(): ?string
+    {
+        return $this->linksCarryKind ? $this->kind : null;
     }
 
     public function kind(): string
@@ -104,7 +121,7 @@ final readonly class FixedPagePaginator implements PaginatorInterface
      */
     public function paginate(JsonApiRequestInterface $request, iterable $items, int $totalItems): FixedPagePage
     {
-        return new FixedPagePage($items, $totalItems, $this->resolvePage($request), $this->size);
+        return new FixedPagePage($items, $totalItems, $this->resolvePage($request), $this->size, false, $this->pageKey, $this->linkKind());
     }
 
     /**
@@ -114,7 +131,7 @@ final readonly class FixedPagePaginator implements PaginatorInterface
      */
     public function paginateWithoutCount(JsonApiRequestInterface $request, iterable $items, bool $hasMore): FixedPagePage
     {
-        return new FixedPagePage($items, null, $this->resolvePage($request), $this->size, $hasMore);
+        return new FixedPagePage($items, null, $this->resolvePage($request), $this->size, $hasMore, $this->pageKey, $this->linkKind());
     }
 
     /**

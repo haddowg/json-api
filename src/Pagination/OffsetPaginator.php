@@ -23,7 +23,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * Its {@see kind()} is `offset`; rename it with {@see withKind()} when composing
  * two offset strategies in one {@see MultiPaginator} menu.
  */
-final readonly class OffsetPaginator implements PaginatorInterface
+final readonly class OffsetPaginator implements PaginatorInterface, SelectableFromMenuInterface
 {
     public function __construct(
         public string $offsetKey = 'offset',
@@ -33,6 +33,7 @@ final readonly class OffsetPaginator implements PaginatorInterface
         public int $maxPerPage = PagePaginator::DEFAULT_MAX_PER_PAGE,
         public bool $wantsCount = false,
         public string $kind = 'offset',
+        public bool $linksCarryKind = false,
     ) {}
 
     public static function make(): self
@@ -42,22 +43,22 @@ final readonly class OffsetPaginator implements PaginatorInterface
 
     public function withOffsetKey(string $offsetKey): self
     {
-        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withLimitKey(string $limitKey): self
     {
-        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->offsetKey, $limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withDefaultOffset(int $defaultOffset): self
     {
-        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->offsetKey, $this->limitKey, $defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     public function withDefaultLimit(int $defaultLimit): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -67,7 +68,7 @@ final readonly class OffsetPaginator implements PaginatorInterface
      */
     public function withMaxPerPage(int $max): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max), $this->wantsCount, $this->kind);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, \max(0, $max), $this->wantsCount, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -78,7 +79,7 @@ final readonly class OffsetPaginator implements PaginatorInterface
      */
     public function withCount(): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, true, $this->kind);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, true, $this->kind, $this->linksCarryKind);
     }
 
     /**
@@ -88,12 +89,28 @@ final readonly class OffsetPaginator implements PaginatorInterface
      */
     public function withKind(string $kind): self
     {
-        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $kind);
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $kind, $this->linksCarryKind);
     }
 
     public function wantsCount(): bool
     {
         return $this->wantsCount;
+    }
+
+    /**
+     * A copy whose page links carry `page[kind]`, so following one keeps selecting this
+     * strategy. A {@see MultiPaginator} uses it when it selects this strategy over its
+     * default, since otherwise a link made only of shared keys would fall back to the
+     * default.
+     */
+    public function selectedFromMenu(): static
+    {
+        return new self($this->offsetKey, $this->limitKey, $this->defaultOffset, $this->defaultLimit, $this->maxPerPage, $this->wantsCount, $this->kind, true);
+    }
+
+    private function linkKind(): ?string
+    {
+        return $this->linksCarryKind ? $this->kind : null;
     }
 
     public function kind(): string
@@ -138,7 +155,7 @@ final readonly class OffsetPaginator implements PaginatorInterface
     {
         $window = $this->window($request);
 
-        return new OffsetBasedPage($items, $totalItems, $window->offset, $window->limit);
+        return new OffsetBasedPage($items, $totalItems, $window->offset, $window->limit, false, $this->offsetKey, $this->limitKey, $this->linkKind());
     }
 
     /**
@@ -150,6 +167,6 @@ final readonly class OffsetPaginator implements PaginatorInterface
     {
         $window = $this->window($request);
 
-        return new OffsetBasedPage($items, null, $window->offset, $window->limit, $hasMore);
+        return new OffsetBasedPage($items, null, $window->offset, $window->limit, $hasMore, $this->offsetKey, $this->limitKey, $this->linkKind());
     }
 }

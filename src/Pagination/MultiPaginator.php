@@ -190,7 +190,7 @@ final class MultiPaginator implements PaginatorInterface
                 throw new PaginationKindUnknown($requestedKind, $this->kinds());
             }
 
-            return $child;
+            return $this->selected($requestedKind, $child);
         }
 
         // 2. A strategy-unique key selects its owner without a discriminator
@@ -198,13 +198,26 @@ final class MultiPaginator implements PaginatorInterface
         foreach ($this->children as $childKind => $child) {
             foreach ($this->uniqueKeys[$childKind] as $key) {
                 if (\array_key_exists($key, $page)) {
-                    return $child;
+                    return $this->selected($childKind, $child);
                 }
             }
         }
 
         // 3. Absent page, or only shared keys — fall back to the declared default.
         return $this->children[$this->defaultKind];
+    }
+
+    /**
+     * The child a request selected. One picked over the default renders links that carry
+     * `page[kind]`, so following them keeps selecting it rather than falling back.
+     */
+    private function selected(string $kind, PaginatorInterface $child): PaginatorInterface
+    {
+        if ($kind === $this->defaultKind || !$child instanceof SelectableFromMenuInterface) {
+            return $child;
+        }
+
+        return $child->selectedFromMenu();
     }
 
     public function window(JsonApiRequestInterface $request): WindowInterface

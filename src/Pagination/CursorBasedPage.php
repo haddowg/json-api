@@ -40,6 +40,8 @@ final readonly class CursorBasedPage extends AbstractPage
         private readonly ?ProfileInterface $profile = null,
         public int|string|null $from = null,
         public int|string|null $to = null,
+        public string $sizeKey = 'size',
+        public ?string $kind = null,
     ) {
         parent::__construct($items);
     }
@@ -48,12 +50,12 @@ final readonly class CursorBasedPage extends AbstractPage
     {
         return [
             'self' => null,
-            'first' => $this->paginatedLink($uri, $queryString, ['page' => ['size' => $this->size]]),
+            'first' => $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, [$this->sizeKey => $this->size])),
             'prev' => $this->hasPrevious
-                ? $this->paginatedLink($uri, $queryString, ['page' => ['before' => $this->cursorBefore, 'size' => $this->size]])
+                ? $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, ['before' => $this->cursorBefore, $this->sizeKey => $this->size]))
                 : null,
             'next' => $this->hasNext
-                ? $this->paginatedLink($uri, $queryString, ['page' => ['after' => $this->cursorAfter, 'size' => $this->size]])
+                ? $this->paginatedLink($uri, $queryString, self::pageParams($this->kind, ['after' => $this->cursorAfter, $this->sizeKey => $this->size]))
                 : null,
             // `last` intentionally omitted for cursor pagination (no total count by design).
             'last' => null,
