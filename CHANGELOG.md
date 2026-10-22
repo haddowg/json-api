@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/haddowg/json-api/compare/v1.1.0...v1.1.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* link documents with the mount once when a server is routed under a prefix ([#173](https://github.com/haddowg/json-api/issues/173)) ([f3804a5](https://github.com/haddowg/json-api/commit/f3804a5e070c6e09715212a35d2a053e7cd92363))
+
 ## [1.1.0](https://github.com/haddowg/json-api/compare/v1.0.0...v1.1.0) (2026-10-21)
 
 
