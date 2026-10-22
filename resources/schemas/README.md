@@ -24,8 +24,8 @@ consume — hence this source).
 
 To refresh, re-download that raw URL over the top of `jsonapi-1.1.json` and run
 `composer test` (the `Validation\*` tests pin the structural expectations the
-provider relies on). **Do not** hand-edit it — the provider applies the one
-transformation it needs at load time (see below).
+provider relies on). **Do not** hand-edit it. The provider applies the two
+transformations it needs at load time (see below).
 
 ### Note on the document-root `unevaluatedProperties`
 
@@ -37,6 +37,18 @@ schema fragment **extend** the set of allowed top-level members (a fragment's
 top-level `properties` are seen by the composite's `unevaluatedProperties`,
 whereas they would be invisible to the base's own root keyword). Nested
 `unevaluatedProperties` in the base are left untouched.
+
+### Note on `definitions.linkUrl`'s `format`
+
+Upstream types a link URL as `"format": "uri"`, which only an absolute URI
+satisfies. JSON:API 1.1 allows a link to be any URI-reference
+([RFC 3986 §4.1](https://www.rfc-editor.org/rfc/rfc3986#section-4.1)), so a
+host-relative `/api/v5/albums?page[number]=2` is a valid link. `VendoredSchemaProvider`
+rewrites that one keyword to `"format": "uri-reference"` at load time; the
+definition's `pattern` is kept as-is. The request schema reaches links only through
+this definition, so it needs no change of its own.
+`VendoredSchemaProviderTest::noLoadedSchemaDemandsAnAbsoluteUri` fails if a refresh
+brings in another `"format": "uri"`, which would then need the same treatment.
 
 ## `jsonapi-1.1-request.json` — authored
 
