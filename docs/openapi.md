@@ -576,6 +576,34 @@ can surface the parameter conditionally; a tool that does not simply ignores an 
 `x-` keyword. The parameter's `description` also states the profile requirement in prose,
 so the constraint is never hidden behind the extension alone.
 
+### Pagination strategy: `x-paginator`
+
+Every key a paginator reads can be renamed (`PagePaginator::make()->withPageKey('p')`), and
+so can its `kind()`. Key names alone therefore can't tell a client which strategy a
+collection uses. Each built-in paginator stamps its page schema with the strategy and the
+key that fills each of its roles:
+
+```json
+"schema": {
+  "type": "object",
+  "properties": { "p": { "type": "integer" }, "size": { "type": "integer" } },
+  "x-paginator": { "strategy": "page", "keys": { "number": "p", "size": "size" } }
+}
+```
+
+| `strategy` | `keys` roles |
+| --- | --- |
+| `page` | `number`, `size` |
+| `offset` | `offset`, `limit` |
+| `cursor` | `after`, `before`, `size` |
+| `fixed` | `number` |
+
+A [`MultiPaginator`](pagination.md#offering-a-menu-of-strategies) menu stamps its `oneOf` with
+`{"strategy": "multi", "default": "<kind>"}`, where `default` is the `kind` the server
+picks when a request names none. Each arm carries its child's own `x-paginator` beside the
+`kind` const that selects it. A custom paginator that stamps nothing is left to whatever a
+generator infers from its key names.
+
 ## Related pages
 
 - [Fields](fields.md) / [field types](field-types.md) — the builder surface

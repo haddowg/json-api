@@ -97,6 +97,13 @@ interface PaginatorInterface
      * composes its children's schemas into a `oneOf`. This replaces the projector's
      * former hardcoded per-kind `match`, so a custom paginator projects its own keys
      * with no central switch.
+     *
+     * The built-in strategies also stamp a schema-level `x-paginator` naming their
+     * strategy and which configured key fills each role, e.g.
+     * `{"strategy": "page", "keys": {"number": "p", "size": "size"}}`, so a code
+     * generator need not guess either from key names. A custom paginator may stamp
+     * the same shape for a built-in strategy it reimplements; one without it is
+     * left to the generator's name-based fallback.
      */
     public function describePageSchema(): Schema;
 

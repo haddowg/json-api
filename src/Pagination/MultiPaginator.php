@@ -174,7 +174,8 @@ final class MultiPaginator implements PaginatorInterface
 
         return Schema::create()
             ->withOneOf($branches)
-            ->withDiscriminator(self::KIND_KEY);
+            ->withDiscriminator(self::KIND_KEY)
+            ->withExtension('paginator', ['strategy' => 'multi', 'default' => $this->defaultKind]);
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface

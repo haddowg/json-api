@@ -56,7 +56,7 @@ final class GeneratorContract
      * class docblock for what warrants it and `docs/openapi.md` for the discipline
      * around it.
      */
-    public const CONTRACT = 2;
+    public const CONTRACT = 3;
 
     /**
      * The `info.x-generator` value.

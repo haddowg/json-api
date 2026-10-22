@@ -203,7 +203,8 @@ final readonly class CursorPaginator implements PaginatorInterface
             ->withProperty(self::AFTER_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately AFTER this position.'))
             ->withProperty(self::BEFORE_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately BEFORE this position.'))
             ->withProperty($this->sizeKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'))
-            ->withExtension('profile', $this->profile->uri());
+            ->withExtension('profile', $this->profile->uri())
+            ->withExtension('paginator', ['strategy' => 'cursor', 'keys' => ['after' => self::AFTER_KEY, 'before' => self::BEFORE_KEY, 'size' => $this->sizeKey]]);
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface

@@ -112,7 +112,8 @@ final readonly class PagePaginator implements PaginatorInterface
     {
         return Schema::ofType('object')
             ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'))
-            ->withProperty($this->perPageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'));
+            ->withProperty($this->perPageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'))
+            ->withExtension('paginator', ['strategy' => 'page', 'keys' => ['number' => $this->pageKey, 'size' => $this->perPageKey]]);
     }
 
     public function resolve(JsonApiRequestInterface $request): PaginatorInterface

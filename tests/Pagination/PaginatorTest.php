@@ -493,6 +493,57 @@ final class PaginatorTest extends TestCase
     }
 
     #[Test]
+    public function describePageSchemaNamesEachStrategyAndTheKeyFillingEachRole(): void
+    {
+        self::assertSame(
+            ['strategy' => 'page', 'keys' => ['number' => 'number', 'size' => 'size']],
+            PagePaginator::make()->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'offset', 'keys' => ['offset' => 'offset', 'limit' => 'limit']],
+            OffsetPaginator::make()->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'cursor', 'keys' => ['after' => 'after', 'before' => 'before', 'size' => 'size']],
+            CursorPaginator::make()->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'fixed', 'keys' => ['number' => 'number']],
+            FixedPagePaginator::make()->describePageSchema()->extension('paginator'),
+        );
+    }
+
+    #[Test]
+    public function describePageSchemaMapsRolesToRekeyedParameters(): void
+    {
+        self::assertSame(
+            ['strategy' => 'page', 'keys' => ['number' => 'p', 'size' => 'per']],
+            PagePaginator::make()->withPageKey('p')->withPerPageKey('per')->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'offset', 'keys' => ['offset' => 'skip', 'limit' => 'take']],
+            OffsetPaginator::make()->withOffsetKey('skip')->withLimitKey('take')->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'cursor', 'keys' => ['after' => 'after', 'before' => 'before', 'size' => 'limit']],
+            CursorPaginator::make()->withSizeKey('limit')->describePageSchema()->extension('paginator'),
+        );
+        self::assertSame(
+            ['strategy' => 'fixed', 'keys' => ['number' => 'p']],
+            FixedPagePaginator::make()->withPageKey('p')->describePageSchema()->extension('paginator'),
+        );
+    }
+
+    #[Test]
+    public function aRenamedKindKeepsItsStrategy(): void
+    {
+        $paginator = PagePaginator::make()->withKind('numbered')->describePageSchema()->extension('paginator');
+
+        self::assertIsArray($paginator);
+        self::assertSame('page', $paginator['strategy']);
+    }
+
+    #[Test]
     public function aSingleStrategyResolvesToItself(): void
     {
         $paginator = PagePaginator::make();
