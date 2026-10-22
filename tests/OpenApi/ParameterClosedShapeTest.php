@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
  * parameter/header only through the typed {@see Parameter} / {@see Header} value
  * objects, whose serialization is a **closed shape** — it can only emit the members
  * the OAS Parameter/Header Objects define (`name`, `in`, `description`, `required`,
- * `deprecated`, `schema`, `style`, `explode`), and no other. This test pins that
+ * `deprecated`, `schema`, `style`, `explode`, `example`), and no other. This test pins that
  * closed shape, so an unevaluated-property regression in the VO model is caught here
  * even though the relaxed meta-schema would let it pass.
  */
@@ -40,7 +40,7 @@ final class ParameterClosedShapeTest extends TestCase
      *
      * @var list<string>
      */
-    private const PARAMETER_MEMBERS = ['name', 'in', 'description', 'required', 'deprecated', 'schema', 'style', 'explode'];
+    private const PARAMETER_MEMBERS = ['name', 'in', 'description', 'required', 'deprecated', 'schema', 'style', 'explode', 'example'];
 
     /**
      * The only members an OAS 3.1 Header Object may carry in the schema-style form.
@@ -60,6 +60,7 @@ final class ParameterClosedShapeTest extends TestCase
             deprecated: true,
             schema: Schema::ofType('string'),
         );
+        $parameter = $parameter->withExample('active');
 
         $this->assertOnlyMembers(self::PARAMETER_MEMBERS, $parameter->toArray());
         $this->assertOnlyMembers(self::PARAMETER_MEMBERS, (array) $parameter->toJson());

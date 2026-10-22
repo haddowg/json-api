@@ -251,7 +251,9 @@ dispatches them **unchanged** — no new handler arm needed, and both the refere
 *are* a `Where`, they compose with its refinement helpers (`default()`, `singular()`,
 extra `constrain(...)`), and each carries its own OpenAPI value schema and a
 generated description ("Matches values greater than or equal to the given number.",
-…) which you can override with `describedAs()`.
+…) which you can override with `describedAs()`. Any value-carrying filter also takes an
+`example(...)`, which becomes the `example` of its `filter[<key>]` parameter in the
+[OpenAPI document](openapi.md#authoring-the-schemas-describedas-and-example).
 
 Their operator is fixed — it *is* the filter's identity — so the third `make()`
 argument exists only for signature parity with `Where::make()`, and passing a

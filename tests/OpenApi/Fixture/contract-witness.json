@@ -43,7 +43,8 @@
                         "description": "Filter by status.",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "example": "published"
                     },
                     {
                         "name": "filter[wordCount]",
@@ -77,7 +78,11 @@
                             }
                         },
                         "style": "deepObject",
-                        "explode": true
+                        "explode": true,
+                        "example": {
+                            "min": 1,
+                            "max": 5
+                        }
                     },
                     {
                         "name": "filter[publishedAt]",
@@ -155,7 +160,11 @@
                             }
                         },
                         "style": "form",
-                        "explode": false
+                        "explode": false,
+                        "example": [
+                            "php",
+                            "json"
+                        ]
                     },
                     {
                         "name": "filter[author.name]",
@@ -3462,7 +3471,8 @@
                         "description": "Filter by status.",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "example": "published"
                     },
                     {
                         "name": "filter[wordCount]",
@@ -3496,7 +3506,11 @@
                             }
                         },
                         "style": "deepObject",
-                        "explode": true
+                        "explode": true,
+                        "example": {
+                            "min": 1,
+                            "max": 5
+                        }
                     },
                     {
                         "name": "filter[publishedAt]",
@@ -3574,7 +3588,11 @@
                             }
                         },
                         "style": "form",
-                        "explode": false
+                        "explode": false,
+                        "example": [
+                            "php",
+                            "json"
+                        ]
                     },
                     {
                         "name": "filter[author.name]",
@@ -3725,7 +3743,8 @@
                         "description": "Filter by status.",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "example": "published"
                     },
                     {
                         "name": "filter[wordCount]",
@@ -3759,7 +3778,11 @@
                             }
                         },
                         "style": "deepObject",
-                        "explode": true
+                        "explode": true,
+                        "example": {
+                            "min": 1,
+                            "max": 5
+                        }
                     },
                     {
                         "name": "filter[publishedAt]",
@@ -3837,7 +3860,11 @@
                             }
                         },
                         "style": "form",
-                        "explode": false
+                        "explode": false,
+                        "example": [
+                            "php",
+                            "json"
+                        ]
                     },
                     {
                         "name": "filter[author.name]",

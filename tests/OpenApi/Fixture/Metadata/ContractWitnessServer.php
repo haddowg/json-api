@@ -190,10 +190,10 @@ final class ContractWitnessServer
             securedOperations: [OperationType::Create, OperationType::Update],
             countable: true,
             filters: [
-                Where::make('status')->describedAs('Filter by status.')->build(),
+                Where::make('status')->describedAs('Filter by status.')->example('published')->build(),
                 Where::make('wordCount')->integer()->build(),
                 Where::make('archived')->fixed(true)->build(),
-                Range::make('rating')->build(),
+                Range::make('rating')->example(['min' => 1, 'max' => 5])->build(),
                 DateRange::make('publishedAt')->build(),
                 new CommaListFilter('labels'),
                 WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
@@ -206,7 +206,7 @@ final class ContractWitnessServer
                 // whose value is read by nobody.
                 Where::make('featured')->build(),
                 Where::make('releasedOn')->build(),
-                WhereIn::make('keywords')->build(),
+                WhereIn::make('keywords')->example(['php', 'json'])->build(),
                 WhereThrough::make('author.name')->build(),
                 WhereNull::make('unpublished', 'publishedAt'),
             ],

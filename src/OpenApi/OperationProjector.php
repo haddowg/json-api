@@ -1032,6 +1032,9 @@ final class OperationProjector
      * declares none — a presence parameter whose description notes the value is
      * server-set, see {@see filterDescription()}.
      *
+     * A declared `->example(...)` ({@see \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter})
+     * becomes the parameter's own `example`, emitted as declared.
+     *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface>   $fields  the inventory of the type the filters run against
      *
@@ -1054,13 +1057,17 @@ final class OperationProjector
                 ? $filter->describeQueryParameter($valueSchema)
                 : new QueryParameterShape($valueSchema);
 
-            $parameters[] = Parameter::query(
+            $parameter = Parameter::query(
                 'filter[' . $filter->key() . ']',
                 $shape->schema,
                 $this->filterDescription($filter),
                 style: $shape->style,
                 explode: $shape->explode,
             );
+            if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
+                $parameter = $parameter->withExample($filter->getExample());
+            }
+            $parameters[] = $parameter;
         }
 
         return $parameters;
