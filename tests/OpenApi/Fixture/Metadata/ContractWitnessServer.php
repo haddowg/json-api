@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
+use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
@@ -15,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\Ok;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
+use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
@@ -54,6 +56,7 @@ use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
+use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Priority;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
@@ -75,15 +78,16 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, both registered profiles, and the Atomic
  * Operations extension. Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
- * the error catalogue gates on.
+ * the error catalogue gates on, and a contributed error code whose descriptor carries a
+ * description and an example detail.
  *
  * Widen it whenever the projector grows a branch it does not reach.
  */
 final class ContractWitnessServer
 {
-    public static function build(): FakeServerMetadata
+    public static function build(): ServerMetadataInterface
     {
-        return new FakeServerMetadata(
+        $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
@@ -117,6 +121,8 @@ final class ContractWitnessServer
             atomicOperations: new FakeAtomicOperationsMetadata('/operations', 'Atomic Operations', [SecurityRequirement::scheme('bearer')]),
             profiles: [CountableProfile::URI, RelationshipQueriesProfile::URI],
         );
+
+        return new ContributingServerMetadata($server, new ClassListErrorSource(SubscriptionExpired::class));
     }
 
     /**

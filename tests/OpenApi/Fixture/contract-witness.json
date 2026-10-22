@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 3
+            "contract": 4
         }
     },
     "servers": [
@@ -6806,6 +6806,9 @@
                                 },
                                 {
                                     "$ref": "#/components/schemas/TopLevelMembersIncompatibleError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/SubscriptionExpiredError"
                                 }
                             ]
                         }
@@ -9218,6 +9221,36 @@
                     "Not yet visible to readers",
                     "Live and public",
                     ""
+                ]
+            },
+            "SubscriptionExpiredError": {
+                "title": "Subscription expired",
+                "description": "The account's subscription has lapsed. Renew it, then retry the request.",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "SUBSCRIPTION_EXPIRED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "402"
+                            },
+                            "detail": {
+                                "type": "string",
+                                "example": "The premium subscription has expired."
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
+                        ]
+                    }
                 ]
             },
             "TagsArticlesRelationship": {
