@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Middleware;
 
 use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
+use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
 use haddowg\JsonApi\Middleware\RequestValidationMiddleware;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Schema\Profile\ProfileRegistry;
@@ -90,6 +91,17 @@ final class RequestValidationMiddlewareTest extends TestCase
         } catch (RequestBodyInvalidJsonApi $exception) {
             self::assertContains('/data/attributes', \array_column($exception->validationErrors, 'property'));
         }
+    }
+
+    #[Test]
+    public function aScalarBodyIsMissingItsTopLevelMembers(): void
+    {
+        $request = (new ServerRequest('POST', '/articles', ['content-type' => 'application/vnd.api+json']))
+            ->withBody(Stream::create('"x"'));
+
+        $this->expectException(RequiredTopLevelMembersMissing::class);
+
+        $this->middleware()->process($request, $this->okHandler());
     }
 
     #[Test]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Request;
 
 use haddowg\JsonApi\Exception\RequestBodyInvalidJson;
+use haddowg\JsonApi\Exception\RequiredTopLevelMembersMissing;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
@@ -251,7 +252,12 @@ abstract class AbstractRequest implements ServerRequestInterface
         return $self;
     }
 
-    /** @return array<string, mixed>|object|null */
+    /**
+     * @return array<string, mixed>|object|null
+     *
+     * @throws RequestBodyInvalidJson         when the raw body is not well-formed JSON
+     * @throws RequiredTopLevelMembersMissing when it is JSON but not an object (`"x"`, `42`, `null`)
+     */
     public function getParsedBody(): array|object|null
     {
         $parsedBody = $this->serverRequest->getParsedBody();
@@ -264,12 +270,18 @@ abstract class AbstractRequest implements ServerRequestInterface
             }
 
             try {
-                /** @var array<string, mixed>|null $decoded */
                 $decoded = \json_decode($rawBody, true, 512, \JSON_THROW_ON_ERROR);
             } catch (\JsonException $e) {
                 throw new RequestBodyInvalidJson($e->getMessage(), $rawBody);
             }
 
+            // Well-formed JSON, but a document is an object: a scalar or `null` body
+            // has none of the required top-level members.
+            if (!\is_array($decoded)) {
+                throw new RequiredTopLevelMembersMissing();
+            }
+
+            /** @var array<string, mixed> $decoded */
             return $decoded;
         }
 
