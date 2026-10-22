@@ -281,8 +281,12 @@ describes in terms of an operation within the batch rather than the request as a
 catalogued code pins its `status` to a `const`, so `ErrorDocument422` is the error document
 whose `errors.items.anyOf` offers only the codes that can arrive with a `422` — and the
 open generic `Error` still leads it. A status the catalogue claims no code for keeps the
-generic `ErrorDocument`: `401` always, because no code core raises declares it (your
-firewall answers first), and any status whose codes your feature set gated out.
+generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
+`403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
+for the adapters to render when the framework's security layer refuses a request
+([ADR 0144](adr/0144-authentication-and-authorization-failures-carry-core-codes.md)), so
+`ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
+write-side `403` codes.
 
 Two things follow, and the second is easy to miss. The `anyOf` is still a catalogue and
 still not a constraint — your own `422` code validates against `ErrorDocument422` for the
@@ -476,9 +480,24 @@ public function fields(): array
 - **`example(mixed)`** sets the schema `example`. A declared `null` is honoured and is
   distinct from "no example".
 
-The same `describedAs()` is available on [filters](filters.md#validating-filter-values)
-(each convenience filter ships a generated default you can override) and on
-[relations](relations.md) via `describedAs()`. Beyond fields, every documentable element
+Filters take both too. A filter's `describedAs()` overrides the generated default every
+convenience filter ships with, and its `example()` becomes the `filter[<key>]` parameter's
+own `example`. That puts it on the Parameter Object rather than the value schema, because
+OAS 3.1 deprecates the Schema Object's `example`
+([ADR 0145](adr/0145-a-filter-example-is-its-parameters-example.md)). Give it the
+parameter's whole value, in the shape the schema describes:
+
+```php
+Where::make('name')->describedAs('Match the artist name.')->example('Radiohead'),
+WhereIn::make('genre')->example(['rock', 'jazz']),
+Range::make('rating')->example(['min' => 3, 'max' => 5]),
+```
+
+The projector emits the example as declared and does not check it against the schema. A
+filter without one is unchanged, and a custom filter opts in by implementing
+`ExemplifiedFilter`.
+
+[Relations](relations.md) take `describedAs()` as well. Beyond fields, every documentable element
 gets a **generated default description** the author may override declaratively: a type's
 resource object via its `description()`, and each CRUD / related / relationship operation
 via a per-operation description override — the projector emits the author's value when

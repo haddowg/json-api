@@ -239,8 +239,8 @@ final class OpenApiProjector
         );
 
         // One narrowing per advertised status the catalogue claims. A status it claims no
-        // code for keeps the generic document — `401` always, and any status whose codes
-        // the server's feature set gated out.
+        // code for keeps the generic document, such as a status whose codes the server's
+        // feature set gated out.
         $byStatus = $catalog->componentsByStatus($server);
         foreach ($errorStatuses as $status) {
             $codes = $byStatus[(int) $status] ?? null;

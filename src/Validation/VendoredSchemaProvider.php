@@ -9,13 +9,18 @@ namespace haddowg\JsonApi\Validation;
  * under `resources/schemas/` and decodes them once (memoized per instance).
  *
  * The response schema is the byte-faithful upstream file; this provider applies
- * the single transformation the validator needs — stripping the document-**root**
- * `unevaluatedProperties` keyword — so that {@see DocumentValidator} can re-apply
- * it on its `allOf` composite instead. That relocation is what lets a profile's
- * schema fragment extend the set of permitted top-level members (a fragment's
- * top-level `properties` are seen by the composite's `unevaluatedProperties`,
- * which they would not be by the base schema's own root keyword). Nested
- * `unevaluatedProperties` are left intact.
+ * two transformations to it at load time:
+ *
+ * - It strips the document-**root** `unevaluatedProperties` keyword so that
+ *   {@see DocumentValidator} can re-apply it on its `allOf` composite instead.
+ *   That relocation is what lets a profile's schema fragment extend the set of
+ *   permitted top-level members (a fragment's top-level `properties` are seen by
+ *   the composite's `unevaluatedProperties`, which they would not be by the base
+ *   schema's own root keyword). Nested `unevaluatedProperties` are left intact.
+ * - It relaxes `definitions.linkUrl` from `format: uri` to `format: uri-reference`.
+ *   JSON:API 1.1 lets a link be any URI-reference (RFC 3986 §4.1), so a
+ *   host-relative `/albums?page[number]=2` is valid, while `uri` demands an
+ *   absolute URI. The request schema reaches links only through this definition.
  *
  * @see resources/schemas/README.md for the upstream source and refresh procedure.
  */
@@ -42,6 +47,12 @@ final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\Schema
             $schema = $this->load('jsonapi-1.1.json');
             // Relocated onto the validator's composite root (see class docblock).
             unset($schema->unevaluatedProperties);
+            // A link may be any URI-reference (see class docblock).
+            $definitions = \get_object_vars($schema)['definitions'] ?? null;
+            $linkUrl = \is_object($definitions) ? (\get_object_vars($definitions)['linkUrl'] ?? null) : null;
+            if ($linkUrl instanceof \stdClass) {
+                $linkUrl->format = 'uri-reference';
+            }
             $this->responseSchema = $schema;
         }
 

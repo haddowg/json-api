@@ -22,8 +22,9 @@ namespace haddowg\JsonApi\OpenApi;
  * **Narrowing.** Each catalogued error code pins its `status` to a `const`, so the codes
  * reachable at a given status are derivable from the catalogue alone. Where the catalogue
  * claims a status the response carries `ErrorDocument<status>`, whose `errors.items.anyOf`
- * offers only those codes; where it claims none — `401` always, since no descriptor
- * declares it — the response falls back to the generic `ErrorDocument`. The narrowed
+ * offers only those codes; where it claims none (an application's own status, or one
+ * whose codes the server's feature set gated out) the response falls back to the generic
+ * `ErrorDocument`. The narrowed
  * variants keep the open generic `Error` branch first, exactly as the generic document
  * does: narrowing sharpens the vocabulary a status publishes, it does not close it
  * ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).

@@ -24,6 +24,7 @@ use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereAll;
 use haddowg\JsonApi\Resource\Filter\WhereAny;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -71,14 +72,14 @@ final class OperationProjectorTest extends TestCase
             tags: ['Articles'],
             securedOperations: [OperationType::Create, OperationType::Update],
             filters: [
-                Where::make('status')->describedAs('Filter by status.')->build(),
+                Where::make('status')->describedAs('Filter by status.')->example('published')->build(),
                 Where::make('wordCount')->integer()->build(),
-                Range::make('rating')->build(),
-                DateRange::make('published')->build(),
+                Range::make('rating')->example(['min' => 1, 'max' => 5])->build(),
+                DateRange::make('published')->example(['min' => '2024-01-01T00:00:00Z'])->build(),
                 new CommaListFilter('labels'),
                 Where::make('archived')->fixed(true)->build(),
                 WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
-                    ->describedAs('Search title or summary.')->build(),
+                    ->describedAs('Search title or summary.')->example('json')->build(),
                 WhereAll::make('urgent', GreaterThan::make('wordCount')->fixed(1000), Boolean::make('featured')->fixed(true))->build(),
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
@@ -170,6 +171,75 @@ final class OperationProjectorTest extends TestCase
         self::assertSame('form', $this->strAt($labels, 'style'));
         self::assertFalse($this->at($labels, 'explode'));
         self::assertSame('array', $this->strAt($labels, 'schema', 'type'));
+    }
+
+    #[Test]
+    public function aFiltersDeclaredExampleBecomesItsParametersExample(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        $status = $this->parameterNamed($get, 'filter[status]');
+        self::assertSame('published', $this->at($status, 'example'));
+        // On the Parameter Object, where OAS 3.1 keeps it, not on the value schema.
+        self::assertArrayNotHasKey('example', $this->arrAt($status, 'schema'));
+
+        // A group carries its own example like any other value-carrying filter.
+        self::assertSame('json', $this->at($this->parameterNamed($get, 'filter[search]'), 'example'));
+    }
+
+    #[Test]
+    public function aStructuredFiltersExampleIsItsWholeDeepObjectValue(): void
+    {
+        $document = $this->projector()->project($this->richServer());
+        $get = $this->arrAt($document->toArray(), 'paths', '/articles', 'get');
+
+        self::assertSame(['min' => 1, 'max' => 5], $this->at($this->parameterNamed($get, 'filter[rating]'), 'example'));
+        self::assertSame(['min' => '2024-01-01T00:00:00Z'], $this->at($this->parameterNamed($get, 'filter[published]'), 'example'));
+
+        // The JSON form keeps a deepObject example an object.
+        self::assertStringContainsString(
+            '"example":{"min":1,"max":5}',
+            $document->toJsonString(),
+        );
+    }
+
+    #[Test]
+    public function aFilterWithNoDeclaredExampleCarriesNone(): void
+    {
+        $get = $this->arrAt($this->paths(), '/articles', 'get');
+
+        // A bare Where, a fixed Where, a fixed group, and a consumer filter that does
+        // not implement ExemplifiedFilter.
+        foreach (['filter[wordCount]', 'filter[archived]', 'filter[urgent]', 'filter[labels]'] as $name) {
+            self::assertArrayNotHasKey('example', $this->parameterNamed($get, $name), $name);
+        }
+    }
+
+    #[Test]
+    public function aSetFiltersListExampleAndADeclaredNullAreEmittedAsDeclared(): void
+    {
+        $server = new FakeServerMetadata(
+            title: 'Catalog',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(
+                type: 'albums',
+                fields: [Id::make()->build(), Str::make('genre')->build(), Str::make('label')->build()],
+                filters: [
+                    WhereIn::make('genre')->example(['rock', 'jazz'])->build(),
+                    Where::make('label')->example(null)->build(),
+                ],
+            )],
+            servers: [],
+        );
+        $get = $this->arrAt($this->projector()->project($server)->toArray(), 'paths', '/albums', 'get');
+
+        $genre = $this->parameterNamed($get, 'filter[genre]');
+        self::assertSame(['rock', 'jazz'], $this->at($genre, 'example'));
+        self::assertSame('array', $this->strAt($genre, 'schema', 'type'));
+
+        $label = $this->parameterNamed($get, 'filter[label]');
+        self::assertArrayHasKey('example', $label);
+        self::assertNull($label['example']);
     }
 
     #[Test]

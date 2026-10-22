@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\RequestBodyInvalidJsonApi;
 use haddowg\JsonApi\Exception\ResponseBodyInvalidJsonApi;
 use haddowg\JsonApi\Validation\DocumentValidator;
 use haddowg\JsonApi\Validation\VendoredSchemaProvider;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -72,6 +73,59 @@ final class DocumentValidatorTest extends TestCase
             'data' => ['type' => 'articles', 'id' => '1'],
             'aggregations' => ['count' => 3],
         ]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function uriReferenceLinks(): iterable
+    {
+        yield 'absolute' => ['https://example.com/api/v5/albums?page[number]=2'];
+        yield 'host-relative' => ['/api/v5/albums?page[number]=2'];
+        yield 'path-relative' => ['albums/1/relationships/artist'];
+        yield 'dot-segment' => ['../albums/1'];
+    }
+
+    #[Test]
+    #[DataProvider('uriReferenceLinks')]
+    public function aLinkMayBeAnyUriReference(string $href): void
+    {
+        $this->validator()->validateResponse([
+            'links' => ['self' => $href, 'next' => ['href' => $href]],
+            'data' => [
+                'type' => 'albums',
+                'id' => '1',
+                'links' => ['self' => $href],
+                'relationships' => ['artist' => ['links' => ['related' => $href]]],
+            ],
+        ]);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function malformedLinks(): iterable
+    {
+        yield 'embedded space' => ['/albums/not a uri'];
+        yield 'bad percent-encoding' => ['/albums/%zz'];
+        yield 'unclosed IP literal' => ['http://[::1/albums'];
+    }
+
+    #[Test]
+    #[DataProvider('malformedLinks')]
+    public function aMalformedLinkIsRejected(string $href): void
+    {
+        try {
+            $this->validator()->validateResponse([
+                'links' => ['self' => $href],
+                'data' => ['type' => 'albums', 'id' => '1'],
+            ]);
+            self::fail('Expected ResponseBodyInvalidJsonApi.');
+        } catch (ResponseBodyInvalidJsonApi $exception) {
+            self::assertContains('/links/self', $this->pointers($exception->validationErrors));
+        }
     }
 
     #[Test]

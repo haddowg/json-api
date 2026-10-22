@@ -18,6 +18,11 @@ namespace haddowg\JsonApi\OpenApi;
  * `filter[<key>][min]`/`[max]` value renders as a `deepObject` parameter
  * (`style: deepObject, explode: true`). Both default to "absent" so every existing
  * parameter (a plain scalar query/path param) serializes exactly as before.
+ *
+ * An `example` is the parameter's whole value, in the shape its `schema` describes
+ * (an object for a `deepObject` parameter). It sits on the Parameter Object rather
+ * than the schema because that is where OAS 3.1 keeps a parameter's example; the Schema
+ * Object's `example` is deprecated there. A declared `null` is honoured.
  */
 final readonly class Parameter implements \JsonSerializable
 {
@@ -32,7 +37,30 @@ final readonly class Parameter implements \JsonSerializable
         public ?bool $explode = null,
         /** @var array<string, mixed> vendor extensions (`x-…`), emitted after the standard keywords */
         private array $extensions = [],
+        private bool $hasExample = false,
+        private mixed $example = null,
     ) {}
+
+    /**
+     * Returns a copy carrying a single `example` value (a `null` example is honoured and
+     * emitted).
+     */
+    public function withExample(mixed $example): self
+    {
+        return new self(
+            $this->name,
+            $this->in,
+            $this->description,
+            $this->required,
+            $this->deprecated,
+            $this->schema,
+            $this->style,
+            $this->explode,
+            $this->extensions,
+            true,
+            $example,
+        );
+    }
 
     /**
      * Sets a vendor extension keyword (the name is normalized to the `x-` prefix), e.g.
@@ -52,6 +80,8 @@ final readonly class Parameter implements \JsonSerializable
             $this->style,
             $this->explode,
             [...$this->extensions, $key => $value],
+            $this->hasExample,
+            $this->example,
         );
     }
 
@@ -99,6 +129,9 @@ final readonly class Parameter implements \JsonSerializable
         }
         if ($this->explode !== null) {
             $out['explode'] = $this->explode;
+        }
+        if ($this->hasExample) {
+            $out['example'] = $this->example;
         }
         foreach ($this->extensions as $key => $value) {
             $out[$key] = $value;

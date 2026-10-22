@@ -69,7 +69,7 @@ final class ErrorCatalogProjector
      * The same variant component names, grouped by the status each pins to a `const` —
      * the input to the per-status `ErrorDocument` narrowing. A status the catalogue never
      * claims is absent from the map, so the narrowing is derivable from the catalogue
-     * alone: `401` is declared by no descriptor and therefore never narrows.
+     * alone.
      *
      * @return array<int, list<string>>
      */

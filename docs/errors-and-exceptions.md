@@ -473,6 +473,27 @@ The `415` / `406` asymmetry is intentional — see
 [content negotiation](content-negotiation.md) for why an unsupported
 `Content-Type` and an unsatisfiable `Accept` get different statuses.
 
+### Authentication & authorization
+
+| Exception | Status | Error code | Source | Thrown when |
+|---|---|---|---|---|
+| `AuthenticationRequired` | 401 | `AUTHENTICATION_REQUIRED` | — | The request carried no credentials, or ones the server rejected. |
+| `AccessDenied` | 403 | `ACCESS_DENIED` | — | An authenticated caller is not allowed to do what the request asks. |
+
+Core never throws these two. Authentication and authorization belong to your framework,
+so the adapter translates its security layer's exceptions into them: the Symfony bundle
+for a firewall `AuthenticationException` or an `AccessDeniedException`, the Laravel
+package for an `AuthenticationException` or an `AuthorizationException`. Both take an
+optional `detail` and the framework exception as `$previous`:
+
+```php
+throw new AccessDenied($debug ? $e->getMessage() : '', $e);
+```
+
+The `detail` is left out of the error object when it is empty. Pass the framework's
+message only when it is safe to show, because it can name the rule that refused the
+request.
+
 ### Resource & lifecycle
 
 | Exception | Status | Error code | Source | Thrown when |

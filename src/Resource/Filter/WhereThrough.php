@@ -26,7 +26,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * correlated EXISTS subquery (never a fetch-join, so it neither hydrates the
  * relation nor multiplies rows).
  */
-final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
+final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 

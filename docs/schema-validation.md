@@ -103,10 +103,17 @@ the validator needs:
   an omitted `id` and a `lid`. Its cross-document `$ref`s reach back into the base,
   so both schemas are registered into the validator's resolver.
 
-The provider applies one transformation the validator needs: it **strips the
-document-root `unevaluatedProperties`** keyword from the response schema so the
-`DocumentValidator` can re-apply it on its own composite. Nested
-`unevaluatedProperties` are left intact. To validate against a different schema set
+The provider applies two transformations to the response schema when it loads it:
+
+- It **strips the document-root `unevaluatedProperties`** keyword so the
+  `DocumentValidator` can re-apply it on its own composite. Nested
+  `unevaluatedProperties` are left intact.
+- It relaxes the link URL definition from `format: uri` to `format: uri-reference`.
+  JSON:API 1.1 lets a link be any URI-reference, so a host-relative
+  `/albums?page[number]=2` validates. A string that isn't a URI-reference at all,
+  such as one with an unencoded space, still fails.
+
+To validate against a different schema set
 (a vendored fork, a tightened in-house variant), implement
 `SchemaProviderInterface` yourself and pass it to the `DocumentValidator`.
 

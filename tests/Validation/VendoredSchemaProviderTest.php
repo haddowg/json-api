@@ -57,11 +57,64 @@ final class VendoredSchemaProviderTest extends TestCase
     }
 
     #[Test]
+    public function linkUrlIsRelaxedToAUriReference(): void
+    {
+        $schema = (new VendoredSchemaProvider())->responseSchema();
+
+        self::assertInstanceOf(\stdClass::class, $schema->definitions ?? null);
+        self::assertInstanceOf(\stdClass::class, $schema->definitions->linkUrl ?? null);
+        self::assertSame('uri-reference', $schema->definitions->linkUrl->format);
+    }
+
+    #[Test]
+    public function vendoredFileRetainsTheUpstreamLinkUrlFormat(): void
+    {
+        $raw = \file_get_contents(\dirname(__DIR__, 2) . '/resources/schemas/jsonapi-1.1.json');
+        self::assertIsString($raw);
+
+        $decoded = \json_decode($raw, false, 512, \JSON_THROW_ON_ERROR);
+        self::assertInstanceOf(\stdClass::class, $decoded);
+        self::assertInstanceOf(\stdClass::class, $decoded->definitions ?? null);
+        self::assertInstanceOf(\stdClass::class, $decoded->definitions->linkUrl ?? null);
+        self::assertSame('uri', $decoded->definitions->linkUrl->format);
+    }
+
+    #[Test]
+    public function noLoadedSchemaDemandsAnAbsoluteUri(): void
+    {
+        // A refreshed upstream file that adds another `format: uri` must be relaxed too.
+        $provider = new VendoredSchemaProvider();
+
+        self::assertSame([], $this->absoluteUriFormats($provider->responseSchema(), ''));
+        self::assertSame([], $this->absoluteUriFormats($provider->requestSchema(), ''));
+    }
+
+    #[Test]
     public function schemasAreMemoizedPerInstance(): void
     {
         $provider = new VendoredSchemaProvider();
 
         self::assertSame($provider->responseSchema(), $provider->responseSchema());
         self::assertSame($provider->requestSchema(), $provider->requestSchema());
+    }
+
+    /**
+     * @return list<string> the JSON pointers of every `format: uri` keyword
+     */
+    private function absoluteUriFormats(mixed $node, string $pointer): array
+    {
+        if (!\is_object($node) && !\is_array($node)) {
+            return [];
+        }
+
+        $found = [];
+        foreach ((array) $node as $key => $child) {
+            if ($key === 'format' && $child === 'uri') {
+                $found[] = $pointer;
+            }
+            $found = [...$found, ...$this->absoluteUriFormats($child, $pointer . '/' . $key)];
+        }
+
+        return $found;
     }
 }

@@ -14,8 +14,9 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * lives on the builders via {@see HasValueConstraints}.
  *
  * The generator reads {@see getDescription()} via an `instanceof DescribedFilter`
- * check and {@see constraints()} via the bare {@see FilterInterface}, so the access
- * stays type-safe rather than reaching into the trait.
+ * check, {@see hasExample()} / {@see getExample()} via `instanceof ExemplifiedFilter`,
+ * and {@see constraints()} via the bare {@see FilterInterface}, so the access stays
+ * type-safe rather than reaching into the trait.
  *
  * @property-read list<ConstraintInterface> $constraints
  * @property-read ?string                   $description

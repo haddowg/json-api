@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see WhereIn}) — the built, readonly value object an adapter consumes. Authors
  * declare one with {@see make()}, which returns a mutable {@see WhereNotInBuilder}.
  */
-final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class WhereNotIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;

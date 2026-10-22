@@ -34,7 +34,7 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * none. Not `final`: the AND/OR distinction is the concrete subclass, dispatched by
  * a handler's `instanceof WhereAll` / `instanceof WhereAny` arm.
  */
-abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
