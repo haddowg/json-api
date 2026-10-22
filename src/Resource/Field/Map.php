@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
 
 /**
  * Exposes a nested JSON object in the resource attributes while spreading its
@@ -77,7 +78,7 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
             $nested[$child->name()] = $child->serialize($model, $request, $child->name());
         }
 
-        return $nested;
+        return JsonObject::of($nested);
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed

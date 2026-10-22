@@ -373,6 +373,10 @@ is an `ArrayHash`, sorted by key for a stable wire shape:
 ArrayHash::make('preferences')->minProperties(0)->maxProperties(20)->sortKeys();
 ```
 
+The value always renders as a JSON object. An empty array renders `{}`, and a
+list-shaped array renders with its indexes as keys (`{"0": "a"}`), so a column
+defaulting to `[]` still matches the field's `type: object`. A `null` stays `null`.
+
 **`Map` vs `ArrayHash`** is the key distinction to get right. Both render a JSON
 object, but `Map` has **declared keys** — each child is its own field, mapping to
 its own flat column, validated and cast independently. `ArrayHash` has **dynamic

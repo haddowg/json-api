@@ -123,7 +123,7 @@ final class AbstractRelationshipTest extends TestCase
     }
 
     #[Test]
-    public function transformWithLinks(): void
+    public function transformOmitsEmptyLinks(): void
     {
         $relationship = $this->createRelationship()
             ->setLinks(new RelationshipLinks());
@@ -137,7 +137,6 @@ final class AbstractRelationshipTest extends TestCase
 
         self::assertEquals(
             [
-                'links' => [],
                 'data' => [],
             ],
             $relationshipObject,

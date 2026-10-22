@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+
 /**
  * A JSON object attribute exposed as a PHP associative array (JSON
  * `type: object`) — the built, readonly value object the engine walks. Authors
@@ -39,6 +41,6 @@ final readonly class ArrayHash extends AbstractFieldValue
             \asort($raw);
         }
 
-        return $raw;
+        return JsonObject::of($raw);
     }
 }

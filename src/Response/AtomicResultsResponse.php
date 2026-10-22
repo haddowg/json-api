@@ -59,11 +59,15 @@ final class AtomicResultsResponse extends AbstractResponse
             $body['meta'] = $this->meta;
         }
 
-        if ($this->links !== null) {
-            $body['links'] = $this->links->transform();
+        $links = $this->links?->transform() ?? [];
+        if ($links !== []) {
+            $body['links'] = $links;
         }
 
-        $body['jsonapi'] = $this->resolveJsonApi($server)->transform();
+        $jsonApi = $this->resolveJsonApi($server)->transform();
+        if ($jsonApi !== []) {
+            $body['jsonapi'] = $jsonApi;
+        }
 
         return new RenderedDocument($body, 200);
     }
