@@ -224,6 +224,38 @@ final class RequestAbsoluteLinksTest extends TestCase
         self::assertSame('/api/albums/1', $this->linkAt($body, 'links', 'self'));
     }
 
+    #[Test]
+    #[Group('spec:pagination')]
+    public function aServerMountedUnderItsBasePathLinksItsDocumentsWithTheMountOnce(): void
+    {
+        // Routes imported under `/api/v5` with `base_uri: /api/v5`: the request path already
+        // carries the mount, and the base contributes it to resource links.
+        $page = new PageBasedPage([new \stdClass()], totalItems: 50, page: 2, size: 10);
+
+        $body = $this->render(
+            DataResponse::fromPage($page, new StubResource('album', '1')),
+            '/api/v5',
+            self::ORIGIN . '/api/v5/albums?page[number]=2&page[size]=10',
+        );
+
+        self::assertSame('/api/v5/album/1', $this->linkAt($body, 'data', 0, 'links', 'self'));
+        self::assertSame('/api/v5/albums?page%5Bnumber%5D=2&page%5Bsize%5D=10', $this->linkAt($body, 'links', 'self'));
+        self::assertSame('/api/v5/albums?page%5Bnumber%5D=3&page%5Bsize%5D=10', $this->linkAt($body, 'links', 'next'));
+    }
+
+    #[Test]
+    public function anAbsoluteBaseWithAMountLinksTheDocumentWithTheMountOnce(): void
+    {
+        $body = $this->render(
+            DataResponse::fromCollection([new \stdClass()], new StubResource('album', '1')),
+            'https://canonical.example/api/v5',
+            self::ORIGIN . '/api/v5/albums?sort=title',
+        );
+
+        self::assertSame('https://canonical.example/api/v5/album/1', $this->linkAt($body, 'data', 0, 'links', 'self'));
+        self::assertSame('https://canonical.example/api/v5/albums?sort=title', $this->linkAt($body, 'links', 'self'));
+    }
+
     // --- helpers --------------------------------------------------------------
 
     /**
@@ -232,7 +264,7 @@ final class RequestAbsoluteLinksTest extends TestCase
      *
      * @param array<string, mixed> $body
      */
-    private function linkAt(array $body, string ...$path): string
+    private function linkAt(array $body, int|string ...$path): string
     {
         $cursor = $body;
         $leaf = \array_key_last($path);
