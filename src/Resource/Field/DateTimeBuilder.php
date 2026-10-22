@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Resource\Field;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
+use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
 /**
  * The mutable **field builder** for an ISO-8601 date-time attribute. Adds the
@@ -27,9 +28,11 @@ class DateTimeBuilder extends AbstractFieldBuilder
 
     protected ?string $useTimezone = null;
 
+    protected ?string $outputTimezone = null;
+
     public function build(): DateTime
     {
-        return new DateTime($this->fieldState(), $this->format, $this->useTimezone);
+        return new DateTime($this->fieldState(), $this->format, $this->useTimezone, $this->outputTimezone);
     }
 
     /**
@@ -73,14 +76,45 @@ class DateTimeBuilder extends AbstractFieldBuilder
     }
 
     /**
-     * Converts hydrated values into the given timezone before storing.
+     * Moves hydrated values into the given timezone before storing.
+     *
+     * @throws \InvalidArgumentException when PHP does not recognise `$timezone`
+     *
+     * @return static
+     */
+    public function inputTimezone(string $timezone): static
+    {
+        $this->useTimezone = TimezoneName::assertValid($timezone, 'inputTimezone');
+
+        return $this;
+    }
+
+    /**
+     * Moves serialized values into the given timezone before formatting. The domain
+     * value is copied first, so a mutable `\DateTime` is never changed. Overrides
+     * the server's default output zone for this field, and is the only way to
+     * convert a `Date` or `Time`.
+     *
+     * @throws \InvalidArgumentException when PHP does not recognise `$timezone`
+     *
+     * @return static
+     */
+    public function outputTimezone(string $timezone): static
+    {
+        $this->outputTimezone = TimezoneName::assertValid($timezone, 'outputTimezone');
+
+        return $this;
+    }
+
+    /**
+     * Moves hydrated values into the given timezone before storing.
+     *
+     * @deprecated use {@see inputTimezone()}, which does the same thing
      *
      * @return static
      */
     public function useTimezone(string $timezone): static
     {
-        $this->useTimezone = $timezone;
-
-        return $this;
+        return $this->inputTimezone($timezone);
     }
 }

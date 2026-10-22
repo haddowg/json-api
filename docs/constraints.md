@@ -155,7 +155,7 @@ forbids a future release date with a closure bound:
 ```php
 DateTime::make('releasedAt')
     ->before(static fn(): \DateTimeImmutable => new \DateTimeImmutable())
-    ->useTimezone('UTC')
+    ->inputTimezone('UTC')
     ->sortable(),
 ```
 

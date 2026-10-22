@@ -5,21 +5,26 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
+use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
 /**
  * An ISO-8601 date-time attribute (with timezone) — the built, readonly value
  * object the engine walks. Authors declare one with {@see make()}, which returns
  * a mutable {@see DateTimeBuilder}; the resource **builds** it into this value
  * object before use. Serializes a `\DateTimeInterface` to a string in
- * {@see $format}; hydrates a string back to a `\DateTimeImmutable`.
+ * {@see $format}, first moving it into {@see $outputTimezone} when one is set;
+ * hydrates a string back to a `\DateTimeImmutable`, moved into
+ * {@see $useTimezone} (the builder's `inputTimezone()`) when one is set.
  *
  * Because {@see $format} is configurable, the class alone does not say what shape
  * reaches the wire — {@see schemaFormat()} answers that, and is what the generated
  * schemas document.
  *
  * Non-final by design: {@see Date} and {@see Time} extend it.
+ *
+ * @phpstan-consistent-constructor
  */
-readonly class DateTime extends AbstractFieldValue
+readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * The RFC 3339 shapes, as the `format` keyword names them. Checked in this order;
@@ -47,17 +52,54 @@ readonly class DateTime extends AbstractFieldValue
         ['2024-09-05 09:08:07.654321', 'UTC'],
     ];
 
+    /**
+     * @param ?string $useTimezone    the zone a hydrated value is moved into
+     * @param ?string $outputTimezone the zone a serialized value is moved into before formatting
+     *
+     * @throws \InvalidArgumentException when either zone is not one PHP recognises
+     */
     public function __construct(
         FieldState $state,
         protected string $format = \DateTimeInterface::ATOM,
         protected ?string $useTimezone = null,
+        protected ?string $outputTimezone = null,
     ) {
         parent::__construct($state);
+
+        if ($useTimezone !== null) {
+            TimezoneName::assertValid($useTimezone, 'inputTimezone');
+        }
+
+        if ($outputTimezone !== null) {
+            TimezoneName::assertValid($outputTimezone, 'outputTimezone');
+        }
     }
 
     public static function make(string $name): DateTimeBuilder
     {
         return new DateTimeBuilder($name);
+    }
+
+    /**
+     * The zone serialized values are moved into before formatting, or `null` to
+     * format each value in the zone it carries.
+     */
+    public function outputTimezone(): ?string
+    {
+        return $this->outputTimezone;
+    }
+
+    /**
+     * Adopts the server's zone only when the field set none of its own, so a field's
+     * `outputTimezone()` always wins.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        if ($this->outputTimezone !== null) {
+            return $this;
+        }
+
+        return new static($this->state, $this->format, $this->useTimezone, $timezone);
     }
 
     /**
@@ -91,7 +133,7 @@ readonly class DateTime extends AbstractFieldValue
      */
     public function sampleWireValue(): string
     {
-        return self::probe(self::PROBES[0])->format($this->format);
+        return $this->inOutputZone(self::probe(self::PROBES[0]))->format($this->format);
     }
 
     /**
@@ -106,7 +148,7 @@ readonly class DateTime extends AbstractFieldValue
     private function renders(string $rule): bool
     {
         foreach (self::PROBES as $spec) {
-            $probe = self::probe($spec);
+            $probe = $this->inOutputZone(self::probe($spec));
             $rendered = $probe->format($this->format);
 
             if ($rule === 'date') {
@@ -145,13 +187,28 @@ readonly class DateTime extends AbstractFieldValue
         return new \DateTimeImmutable($spec[0], new \DateTimeZone($spec[1]));
     }
 
+    /**
+     * The probe as this field would render it: moved into {@see $outputTimezone}
+     * when one is set, so a format that is only honest in that zone (a literal `Z`
+     * under UTC) is judged by what the field really writes.
+     */
+    private function inOutputZone(\DateTimeImmutable $probe): \DateTimeImmutable
+    {
+        return $this->outputTimezone === null ? $probe : $probe->setTimezone(new \DateTimeZone($this->outputTimezone));
+    }
+
     protected function serializeValue(mixed $raw): mixed
     {
-        if ($raw instanceof \DateTimeInterface) {
-            return $raw->format($this->format);
+        if (!$raw instanceof \DateTimeInterface) {
+            return $raw;
         }
 
-        return $raw;
+        if ($this->outputTimezone !== null) {
+            // A copy, so a mutable \DateTime on the domain object is never moved.
+            $raw = \DateTimeImmutable::createFromInterface($raw)->setTimezone(new \DateTimeZone($this->outputTimezone));
+        }
+
+        return $raw->format($this->format);
     }
 
     /**

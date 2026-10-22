@@ -29,7 +29,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * per-child (an un-supplied child keeps its stored value); an explicit `null` clears
  * the whole object.
  */
-final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSchema
+final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -52,6 +52,22 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     public function children(): array
     {
         return $this->children;
+    }
+
+    /**
+     * Passes the server's default output zone on to the children, so a `DateTime`
+     * nested here renders in it too.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        $children = \array_map(
+            static fn(FieldInterface $child): FieldInterface => $child instanceof AcceptsDefaultOutputTimezoneInterface
+                ? $child->withDefaultOutputTimezone($timezone)
+                : $child,
+            $this->children,
+        );
+
+        return $children === $this->children ? $this : new self($this->state, $children);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed

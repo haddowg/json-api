@@ -77,6 +77,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     private ?array $filterCache = null;
 
     /**
+     * Each attribute field as it renders under a server default output zone, keyed by
+     * zone then field name. The original is kept beside it so a field a subclass
+     * rebuilds is never answered from a stale entry.
+     *
+     * @var array<string, array<string, array{\haddowg\JsonApi\Resource\Field\FieldInterface, \haddowg\JsonApi\Resource\Field\FieldInterface}>>
+     */
+    private array $outputTimezoneFieldCache = [];
+
+    /**
      * Whether the primary collection is client-countable via `?withCount=_self_`,
      * set by {@see countable()}. Off by default — counting is opt-in.
      */
@@ -366,7 +375,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         $attributes = [];
+        $outputTimezone = $this->serializerResolver instanceof ProvidesOutputTimezoneInterface
+            ? $this->serializerResolver->outputTimezone()
+            : null;
+
         foreach ($this->attributeFields() as $field) {
+            if ($outputTimezone !== null) {
+                $field = $this->fieldInOutputTimezone($field, $outputTimezone);
+            }
+
             // A write-only field is accepted on write but never rendered: skip it
             // here, alongside the sparse-fieldset filtering, so it appears on no
             // read and a fields[type] parameter naming it cannot resurrect it.
@@ -412,6 +429,26 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         return $attributes;
+    }
+
+    /**
+     * The field as it renders under the server's default output zone.
+     */
+    private function fieldInOutputTimezone(\haddowg\JsonApi\Resource\Field\FieldInterface $field, string $timezone): \haddowg\JsonApi\Resource\Field\FieldInterface
+    {
+        if (!$field instanceof \haddowg\JsonApi\Resource\Field\AcceptsDefaultOutputTimezoneInterface) {
+            return $field;
+        }
+
+        $cached = $this->outputTimezoneFieldCache[$timezone][$field->name()] ?? null;
+        if ($cached !== null && $cached[0] === $field) {
+            return $cached[1];
+        }
+
+        $zoned = $field->withDefaultOutputTimezone($timezone);
+        $this->outputTimezoneFieldCache[$timezone][$field->name()] = [$field, $zoned];
+
+        return $zoned;
     }
 
     public function getDefaultIncludedRelationships(mixed $object): array

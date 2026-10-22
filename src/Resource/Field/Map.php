@@ -19,7 +19,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * (related-model column spread) is out of scope for core — see the Symfony
  * bundle.
  */
-final readonly class Map extends AbstractFieldValue
+final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -42,6 +42,22 @@ final readonly class Map extends AbstractFieldValue
     public function children(): array
     {
         return $this->children;
+    }
+
+    /**
+     * Passes the server's default output zone on to the children, so a `DateTime`
+     * nested here renders in it too.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        $children = \array_map(
+            static fn(FieldInterface $child): FieldInterface => $child instanceof AcceptsDefaultOutputTimezoneInterface
+                ? $child->withDefaultOutputTimezone($timezone)
+                : $child,
+            $this->children,
+        );
+
+        return $children === $this->children ? $this : new self($this->state, $children);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed

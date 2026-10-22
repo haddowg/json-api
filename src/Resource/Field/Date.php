@@ -16,4 +16,13 @@ final readonly class Date extends DateTime
     {
         return new DateBuilder($name);
     }
+
+    /**
+     * Ignores the server's default zone: converted across zones, a calendar date can land on a different day. Only
+     * this field's own `outputTimezone()` moves its values.
+     */
+    public function withDefaultOutputTimezone(string $timezone): static
+    {
+        return $this;
+    }
 }

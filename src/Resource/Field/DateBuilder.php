@@ -15,6 +15,6 @@ final class DateBuilder extends DateTimeBuilder
 
     public function build(): Date
     {
-        return new Date($this->fieldState(), $this->format, $this->useTimezone);
+        return new Date($this->fieldState(), $this->format, $this->useTimezone, $this->outputTimezone);
     }
 }

@@ -77,6 +77,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`). |
 | `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
 | `withMaxIncludeDepth(?int)` | The default [maximum include depth](sparse-fieldsets-and-includes.md#maximum-include-depth) (hops from the primary resource). `null` (the default) or `<= 0` means unlimited; a resource can override it. |
+| `withOutputTimezone(?string)` | The zone every `DateTime` attribute [renders in](#output-timezone) unless the field sets its own (default `null`, no conversion). |
 | `withStrictQueryParameters(bool)` | Whether to reject an [unrecognized query-parameter family](content-negotiation.md#strict-query-parameter-validation-on-by-default) with a `400` (default `true`). `false` ignores unknown families. |
 | `withCustomQueryParameter(string ...$names)` | Registers host [custom query-parameter families](content-negotiation.md#strict-query-parameter-validation-on-by-default) the server recognizes (so strict mode does not reject them). |
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
@@ -104,6 +105,7 @@ The matching accessors read the configuration back:
 | `hydratorFor(string)` / `hasHydratorFor(string)` | The hydrator for a type, or whether one exists. |
 | `resourceFor(string)` / `hasResourceFor(string)` | The `AbstractResource` for a type, or whether one exists. |
 | `relationshipLoadState()` | The injected load-state predicate, or `null`. |
+| `outputTimezone()` | The default output zone, or `null`. |
 | `serving()` | The registered [`serving` handlers](#serving-a-pre-operation-hook), in registration order. |
 
 `serializerFor()` / `hydratorFor()` are the resolution surface your handler uses.
@@ -147,6 +149,32 @@ authority, or an authority with no scheme) — falls back to a host-relative lin
 (`/albums/1`) rather than emitting a broken prefix. To force host-relative output,
 leave `base_uri` empty and serve over such a request, or configure a path-only
 `base_uri` (e.g. `/api`).
+
+## Output timezone
+
+`withOutputTimezone()` converts every `DateTime` attribute into one zone before it is
+formatted. Use it when your storage keeps local times but the API should always
+answer in UTC:
+
+```php
+$server = Server::make()->withOutputTimezone('UTC');
+```
+
+It applies wherever a resource renders its attributes: primary data, `included`,
+attributes flattened from a related model with `on()`, and `DateTime` children of a
+`Map`, `Obj` or `OneOf`. A field that sets its own
+[`outputTimezone()`](field-types.md#timezones-on-the-way-in-and-out) keeps it.
+
+`Date` and `Time` fields are left alone. Converting a calendar date can move it to
+another day, and a time of day has no date to convert against, so those convert only
+when the field asks. A hand-written serializer formats its own values and is not
+affected. An unknown zone name throws an `\InvalidArgumentException` from
+`withOutputTimezone()` itself.
+
+The default is read when a resource renders, through the resolver the server
+injects. A custom `SerializerResolverInterface` that wraps the server's resolver
+should also implement `ProvidesOutputTimezoneInterface` and delegate it, or the
+resources it serves render without the default.
 
 ## Registering types
 
