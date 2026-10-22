@@ -26,6 +26,7 @@ final class RequestBodyInvalidJsonApi extends AbstractJsonApiException implement
             status: 400,
             title: 'Request body is an invalid JSON:API document',
             feature: ErrorFeature::Writes,
+            description: 'The request body is JSON but breaks the JSON:API document structure or the schema the server validates this resource against. Each violation is its own error, with `source.pointer` set where the server could locate it.',
         );
     }
 

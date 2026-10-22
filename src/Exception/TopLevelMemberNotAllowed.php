@@ -21,6 +21,7 @@ final class TopLevelMemberNotAllowed extends AbstractJsonApiException implements
             status: 400,
             title: 'Top-level member is not allowed',
             feature: ErrorFeature::Writes,
+            description: 'The request body has a top-level `included` member but no `data`. Remove `included`, or send it alongside `data`.',
         );
     }
 

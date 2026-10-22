@@ -21,6 +21,7 @@ final class ResourceIdentifierIdMissing extends AbstractJsonApiException impleme
             status: 400,
             title: 'An ID for the resource identifier is missing',
             feature: ErrorFeature::Writes,
+            description: 'A resource identifier in the request has neither an `id` nor a `lid`. Identify each related resource by its `id`, or by a `lid` inside an Atomic Operations request.',
         );
     }
 

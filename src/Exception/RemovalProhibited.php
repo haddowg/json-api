@@ -22,6 +22,7 @@ final class RemovalProhibited extends AbstractJsonApiException implements Descri
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'This relationship does not let a client remove members from it or clear it. Don\'t retry the request; the relationship changes only in the ways the API documents for it.',
         );
     }
 

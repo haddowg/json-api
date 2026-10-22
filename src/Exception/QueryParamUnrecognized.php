@@ -21,6 +21,7 @@ final class QueryParamUnrecognized extends AbstractJsonApiException implements D
             title: 'Query parameter is unrecognized',
             context: ['param' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'The request used a query parameter this endpoint does not recognize. Remove it, or check its spelling against the parameters the API documents.',
         );
     }
 

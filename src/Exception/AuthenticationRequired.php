@@ -33,6 +33,7 @@ final class AuthenticationRequired extends AbstractJsonApiException implements D
             code: 'AUTHENTICATION_REQUIRED',
             status: 401,
             title: 'Unauthorized',
+            description: 'The request carried no credentials, or credentials the server rejected, such as an expired token. Authenticate, then send the request again with valid credentials.',
         );
     }
 

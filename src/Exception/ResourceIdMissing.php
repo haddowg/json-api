@@ -21,6 +21,7 @@ final class ResourceIdMissing extends AbstractJsonApiException implements Descri
             title: 'Resource ID is missing',
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'The update request\'s resource object has no `id`. Include the id of the resource being updated as `data.id`.',
         );
     }
 

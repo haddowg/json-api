@@ -28,6 +28,7 @@ final class LocalIdConflict extends AbstractJsonApiException implements Describe
             title: 'Local id conflict',
             context: ['lid' => ErrorContextType::Str, 'type' => ErrorContextType::Str],
             feature: ErrorFeature::AtomicOperations,
+            description: 'Two operations in the Atomic Operations request create resources of the same type under the same `lid`. Give each resource a batch creates its own `lid`.',
         );
     }
 

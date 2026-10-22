@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
+use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -189,6 +190,36 @@ final class ErrorCatalogProjectionTest extends TestCase
         );
         // The example illustrates `detail`; it does not make the member mandatory.
         self::assertSame(['code', 'status'], $this->listAt($narrowing, 'required'));
+    }
+
+    #[Test]
+    public function coreAndContributedDescriptionsTakeTheSamePath(): void
+    {
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(SubscriptionExpired::class),
+        );
+        $schemas = $this->schemas($server);
+
+        foreach ([InclusionDepthExceeded::describe(), SubscriptionExpired::describe()] as $descriptor) {
+            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
+            $narrowing = $this->listAt($variant, 'allOf')[1];
+            self::assertIsArray($narrowing);
+
+            self::assertSame($descriptor->description, $variant['description'] ?? null);
+            self::assertSame($descriptor->exampleDetail, $this->at($narrowing, 'properties', 'detail', 'example'));
+        }
+    }
+
+    #[Test]
+    public function everyCoreVariantCarriesItsDescription(): void
+    {
+        $schemas = $this->schemas($this->fullServer());
+
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
+            self::assertSame($descriptor->description, $variant['description'] ?? null, $descriptor->code);
+        }
     }
 
     #[Test]

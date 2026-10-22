@@ -21,6 +21,7 @@ final class RequiredTopLevelMembersMissing extends AbstractJsonApiException impl
             status: 400,
             title: 'Required top-level members are missing',
             feature: ErrorFeature::Writes,
+            description: 'The request body is not a JSON object, or has none of the top-level members `data`, `errors` and `meta`. Send a JSON object with the resource under `data`.',
         );
     }
 

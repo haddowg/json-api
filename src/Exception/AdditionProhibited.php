@@ -22,6 +22,7 @@ final class AdditionProhibited extends AbstractJsonApiException implements Descr
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'This relationship does not let a client add members to it. Don\'t retry the request; the relationship changes only in the ways the API documents for it.',
         );
     }
 

@@ -13,4 +13,5 @@ descriptor keeps projecting exactly as before.
 The contract moves to 4. The guard strips `description` strings before comparing, so a
 description alone would not move it, but a `detail` property carrying an `example` is new
 structure. `detail` stays out of `required`: the example illustrates the member and
-promises nothing.
+promises nothing. Every code core ships has a description, and `ErrorCatalogTest` fails
+on a new one without, so the catalogue cannot grow an unexplained code.

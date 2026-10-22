@@ -22,6 +22,7 @@ final class ResourceIdInvalid extends AbstractJsonApiException implements Descri
             context: ['type' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'The resource object\'s `id` is not a string, such as a number. Send `data.id` as a JSON string.',
         );
     }
 

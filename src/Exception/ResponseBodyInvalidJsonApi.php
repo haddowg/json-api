@@ -25,6 +25,7 @@ final class ResponseBodyInvalidJsonApi extends AbstractJsonApiException implemen
             code: 'RESPONSE_BODY_INVALID_JSON_API',
             status: 500,
             title: 'Response body is an invalid JSON:API document',
+            description: 'The server produced a response that breaks the JSON:API document structure, which is a fault on its side. Retrying won\'t help; report it to the API\'s maintainers.',
         );
     }
 

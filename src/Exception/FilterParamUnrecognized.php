@@ -21,6 +21,8 @@ final class FilterParamUnrecognized extends AbstractJsonApiException implements 
             title: 'Filtering parameter is unrecognized',
             context: ['filter' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'The request filtered on a key this endpoint does not declare. Filter only on the keys the API documents for this resource type.',
+            exampleDetail: 'Filtering parameter \'colour\' can\'t be recognized by the endpoint!',
         );
     }
 

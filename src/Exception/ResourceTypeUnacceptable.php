@@ -30,6 +30,7 @@ final class ResourceTypeUnacceptable extends AbstractJsonApiException implements
             context: ['type' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'The `type` in the request is not one this endpoint or relationship accepts. Send the type the endpoint serves, or one the relationship documents for its related resources.',
         );
     }
 

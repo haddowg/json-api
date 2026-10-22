@@ -38,6 +38,8 @@ final class PaginationKindUnknown extends AbstractJsonApiException implements De
             context: ['kind' => ErrorContextType::Str, 'kinds' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             feature: ErrorFeature::PaginationMenu,
+            description: '`page[kind]` names a pagination strategy this collection does not offer. Use one of the strategies the `detail` lists, or leave `page[kind]` out.',
+            exampleDetail: 'The pagination strategy \'page[kind]=offset\' is not supported; use one of: page, cursor.',
         );
     }
 

@@ -30,6 +30,8 @@ final class FieldsetMemberUnrecognized extends AbstractJsonApiException implemen
             title: 'Fieldset member is unrecognized',
             context: ['members' => ErrorContextType::Str, 'type' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'A `fields[TYPE]` parameter names a member that type does not have. Request only the attributes and relationships the type declares.',
+            exampleDetail: 'Fields \'colour\' requested for type \'articles\' can\'t be recognized by the endpoint!',
         );
     }
 

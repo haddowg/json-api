@@ -443,6 +443,11 @@ Every concrete exception lives under the `haddowg\JsonApi\Exception` namespace. 
 error object's `code` member; the **source** column names the error object's
 `source` kind (a `pointer` into the body, a query `parameter`, or none).
 
+The tables say when core throws each one. What a client developer reads instead is the
+code's `description`, written for someone calling your API rather than building it, and
+published on the code's [schema component](openapi.md#the-error-code-catalogue). Read it
+off the descriptor with `FilterParamUnrecognized::describe()->description`.
+
 ### Request body & document structure
 
 | Exception | Status | Error code | Source | Thrown when |

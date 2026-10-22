@@ -32,6 +32,7 @@ final class CursorMalformed extends AbstractJsonApiException implements Describe
             context: ['parameter' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             feature: ErrorFeature::CursorPagination,
+            description: 'The cursor in the named `page` parameter could not be decoded. Use cursors exactly as the server returned them in a previous page\'s `links`; never build or edit one.',
         );
     }
 

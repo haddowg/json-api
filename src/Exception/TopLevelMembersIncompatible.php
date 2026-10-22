@@ -18,6 +18,7 @@ final class TopLevelMembersIncompatible extends AbstractJsonApiException impleme
             status: 400,
             title: 'Top-level members are incompatible',
             feature: ErrorFeature::Writes,
+            description: 'The request body has both `data` and `errors` at the top level, which JSON:API forbids. Send the resource under `data` alone.',
         );
     }
 
