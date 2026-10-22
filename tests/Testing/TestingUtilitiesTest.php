@@ -519,8 +519,9 @@ final class TestingUtilitiesTest extends TestCase
     {
         SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":{}}}');
 
+        // opis 2.0 reports a oneOf failure only at /data; later versions add /data/attributes.
         $this->expectException(AssertionFailedError::class);
-        $this->expectExceptionMessage('/data/attributes:');
+        $this->expectExceptionMessageMatches('#^Document is not JSON:API spec-compliant:\n  /data(/attributes)?: #m');
 
         SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":[]}}');
     }

@@ -72,7 +72,7 @@ final class ResponseValidationMiddlewareTest extends TestCase
     }
 
     #[Test]
-    public function anAttributesArrayStillFailsAtItsPointer(): void
+    public function anAttributesArrayStillFailsUnderData(): void
     {
         $response = $this->jsonApiResponse('{"data":{"type":"accounts","id":"1","attributes":[]}}');
 
@@ -80,7 +80,8 @@ final class ResponseValidationMiddlewareTest extends TestCase
             $this->middleware()->process(new ServerRequest('GET', '/accounts/1'), $this->handlerReturning($response));
             self::fail('Expected the response to fail validation.');
         } catch (ResponseBodyInvalidJsonApi $exception) {
-            self::assertContains('/data/attributes', \array_column($exception->validationErrors, 'property'));
+            // opis 2.0 reports a oneOf failure only at /data; later versions add /data/attributes.
+            self::assertNotEmpty(\array_intersect(['/data', '/data/attributes'], \array_column($exception->validationErrors, 'property')));
         }
     }
 
