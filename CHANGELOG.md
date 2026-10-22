@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/haddowg/json-api/compare/v1.1.1...v1.2.0) (2026-10-22)
+
+
+### Features
+
+* catalogue codes for authentication and authorization failures ([e8f785a](https://github.com/haddowg/json-api/commit/e8f785ad9ebcf6d33bac5d3c40ca3d1f369ead9d))
+* convert date-time attributes to an output timezone ([#178](https://github.com/haddowg/json-api/issues/178)) ([1e8863f](https://github.com/haddowg/json-api/commit/1e8863f37a910b7236956c59dd7a8e410bd644ef))
+* **openapi:** name each page schema's strategy and key roles ([#175](https://github.com/haddowg/json-api/issues/175)) ([5b43b1a](https://github.com/haddowg/json-api/commit/5b43b1a9722103d155bb12720f3901c89a7b8827))
+
+
+### Bug Fixes
+
+* build pagination links from the configured keys and keep a menu's selection ([#177](https://github.com/haddowg/json-api/issues/177)) ([fdbe02e](https://github.com/haddowg/json-api/commit/fdbe02e0648383e4b2dc6b88574fdd9d906b0f78))
+* **openapi:** project a filter's example onto its query parameter ([e8f785a](https://github.com/haddowg/json-api/commit/e8f785ad9ebcf6d33bac5d3c40ca3d1f369ead9d))
+* **validation:** accept any URI-reference as a link ([e8f785a](https://github.com/haddowg/json-api/commit/e8f785ad9ebcf6d33bac5d3c40ca3d1f369ead9d))
+
 ## [1.1.1](https://github.com/haddowg/json-api/compare/v1.1.0...v1.1.1) (2026-10-22)
 
 
