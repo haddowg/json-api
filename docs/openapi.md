@@ -392,6 +392,16 @@ A second sits beside `TypeMetadataInterface`: `DeclaresOperationExtensions` adds
 extensions for a type's operations. See
 [your own extensions](#your-own-extensions-on-operations-paths-parameters-and-responses).
 
+A third sits beside `RelationMetadataInterface`: `DeclaresWriteOnlyRelation` adds
+`isWriteOnly(): bool`. A relation that reports `true` is projected the way a
+[write-only attribute](fields.md#write-only-members) is. It stays in the create and update
+request schemas and keeps its relationship `PATCH`/`POST`/`DELETE`, each documented as a
+`204`. It is left out of the read resource schema, the `fields[type]` and `?withCount`
+enums, and it has no related endpoint and no relationship `GET`. Report `true` only for an
+unconditional `writeOnly()`; a relation write-only by predicate stays in the superset, as
+an attribute does. Metadata that doesn't implement the interface projects every relation
+as readable.
+
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
 resource-object schema and no attribute / write-request components, exactly mirroring the

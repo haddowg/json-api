@@ -121,7 +121,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function exposesRelatedEndpoint(): bool
     {
-        return $this->relationState->exposesRelatedEndpoint;
+        return $this->relationState->exposesRelatedEndpoint && !$this->isWriteOnly();
     }
 
     public function exposesRelationshipEndpoint(): bool
@@ -141,12 +141,13 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function isIncludable(): bool
     {
-        return $this->relationState->isIncludable;
+        return $this->relationState->isIncludable && !$this->isWriteOnly();
     }
 
     public function isIncludableFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllows($this->relationState->isIncludable, $this->relationState->cannotBeIncludedWhen, $request, $model);
+        return !$this->isWriteOnlyFor($request)
+            && $this->resolveAllows($this->relationState->isIncludable, $this->relationState->cannotBeIncludedWhen, $request, $model);
     }
 
     /**
@@ -171,7 +172,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function isCountable(): bool
     {
-        return $this->relationState->isCountable;
+        return $this->relationState->isCountable && !$this->isWriteOnly();
     }
 
     /**

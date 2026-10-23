@@ -107,6 +107,14 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
         $countable = $primary instanceof CountableControlsInterface
             ? $primary->getCountableRelationships($transformation->object)
             : [];
+        // A relation write-only for this request renders no relationship object to
+        // carry a count, so it is not countable here either.
+        if ($primary instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+            $countable = \array_values(\array_filter(
+                $countable,
+                static fn(string $name): bool => $primary->relationNamed($name)?->isWriteOnlyFor($transformation->request) !== true,
+            ));
+        }
 
         $offending = [...$offending, ...\array_values(\array_diff($relationNames, $countable))];
         if ($offending !== []) {

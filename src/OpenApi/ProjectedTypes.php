@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 
 /**
@@ -83,7 +84,7 @@ final class ProjectedTypes
         $related = [];
         foreach ($server->types() as $type) {
             foreach ($type->relations() as $relation) {
-                if (!$relation->exposesRelatedEndpoint()) {
+                if (!$relation->exposesRelatedEndpoint() || ($relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly())) {
                     continue;
                 }
 

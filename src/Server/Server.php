@@ -789,6 +789,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         $this->validateStrictQueryParametersOf($request);
 
         $target = $operation->target();
+        if ($operation instanceof \haddowg\JsonApi\Operation\FetchRelatedOperation
+            || $operation instanceof \haddowg\JsonApi\Operation\FetchRelationshipOperation) {
+            $this->refuseWriteOnlyRelationRead($request, $target);
+        }
         match (true) {
             $operation instanceof \haddowg\JsonApi\Operation\FetchResourceOperation,
             $operation instanceof \haddowg\JsonApi\Operation\CreateResourceOperation,
@@ -818,10 +822,38 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         }
 
         $method = \strtoupper($request->getMethod());
+        if ($method === 'GET' && $target->hasRelationship()) {
+            $this->refuseWriteOnlyRelationRead($request, $target);
+        }
         if (!$target->hasRelationship() && \in_array($method, ['GET', 'POST', 'PATCH'], true)) {
             $this->validateIncludePaths($request, $target, false);
         } elseif ($method === 'GET' && $target->hasRelationship() && !$target->isRelationshipEndpoint) {
             $this->validateIncludePaths($request, $target, true);
+        }
+    }
+
+    /**
+     * Refuses a read of a write-only relation's related or relationship endpoint
+     * with the `404` an undeclared relation gets. The relation stays writable, so
+     * its relationship endpoint still takes `PATCH`/`POST`/`DELETE`.
+     *
+     * @throws \haddowg\JsonApi\Exception\RelationshipNotExists
+     */
+    private function refuseWriteOnlyRelationRead(
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Operation\Target $target,
+    ): void {
+        if ($target->relationship === null || !$this->resources->hasSerializerFor($target->type)) {
+            return;
+        }
+
+        $serializer = $this->resources->serializerFor($target->type);
+        if (!$serializer instanceof AbstractResource) {
+            return;
+        }
+
+        if ($serializer->relationNamed($target->relationship)?->isWriteOnlyFor($request) === true) {
+            throw new \haddowg\JsonApi\Exception\RelationshipNotExists($target->relationship);
         }
     }
 

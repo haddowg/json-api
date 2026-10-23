@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 4
+            "contract": 5
         }
     },
     "servers": [
@@ -222,7 +222,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -250,7 +250,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -400,7 +401,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -428,7 +429,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -578,7 +580,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -606,7 +608,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -765,7 +768,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -793,7 +796,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -1221,7 +1225,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1249,7 +1253,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -2246,6 +2251,458 @@
                 ]
             }
         },
+        "/articles/{id}/relationships/reviewer": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "patch": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Replace the reviewer relationship of a articles",
+                "description": "Fully replaces the `reviewer` relationship of a `articles` with the supplied linkage.",
+                "operationId": "updateRelationship.articles.reviewer",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesReviewerRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The reviewer relationship was updated."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/articles/{id}/relationships/watchers": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "post": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Add to the watchers relationship of a articles",
+                "description": "Adds the supplied members to the `watchers` relationship of a `articles`.",
+                "operationId": "addRelationship.articles.watchers",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The watchers relationship was updated."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Remove from the watchers relationship of a articles",
+                "description": "Removes the supplied members from the `watchers` relationship of a `articles`.",
+                "operationId": "removeRelationship.articles.watchers",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The watchers relationship was updated."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Replace the watchers relationship of a articles",
+                "description": "Fully replaces the `watchers` relationship of a `articles` with the supplied linkage.",
+                "operationId": "updateRelationship.articles.watchers",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The watchers relationship was updated."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/articles/{id}/editor": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the related editor of a articles",
+                "description": "Returns the related `editor` resource of a `articles` (or `null`).",
+                "operationId": "fetchRelated.articles.editor",
+                "parameters": [
+                    {
+                        "name": "filter[name]",
+                        "in": "query",
+                        "description": "Filter the collection by `name`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The related editor resource (or `null`).",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesEditorRelatedDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/articles/{id}/relationships/editor": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the editor relationship of a articles",
+                "description": "Returns the `editor` relationship linkage of a `articles`.",
+                "operationId": "fetchRelationship.articles.editor",
+                "parameters": [
+                    {
+                        "name": "filter[name]",
+                        "in": "query",
+                        "description": "Filter the collection by `name`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The editor relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesEditorRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Replace the editor relationship of a articles",
+                "description": "Fully replaces the `editor` relationship of a `articles` with the supplied linkage.",
+                "operationId": "updateRelationship.articles.editor",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesEditorRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The updated editor relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesEditorRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
         "/articles/{id}/-actions/publish": {
             "parameters": [
                 {
@@ -2288,7 +2745,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2316,7 +2773,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -3632,7 +4090,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3660,7 +4118,8 @@
                                     "tags",
                                     "cover",
                                     "locked",
-                                    "attachments"
+                                    "attachments",
+                                    "editor"
                                 ]
                             }
                         },
@@ -5001,6 +5460,15 @@
                             },
                             "attachments": {
                                 "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
+                            },
+                            "reviewer": {
+                                "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                            },
+                            "watchers": {
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                            },
+                            "editor": {
+                                "$ref": "#/components/schemas/ArticlesEditorRelationship"
                             }
                         }
                     },
@@ -5042,6 +5510,15 @@
                             },
                             "attachments": {
                                 "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
+                            },
+                            "reviewer": {
+                                "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                            },
+                            "watchers": {
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                            },
+                            "editor": {
+                                "$ref": "#/components/schemas/ArticlesEditorRelationship"
                             }
                         }
                     }
@@ -5645,6 +6122,15 @@
                                     },
                                     "attachments": {
                                         "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
+                                    },
+                                    "reviewer": {
+                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                    },
+                                    "watchers": {
+                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                    },
+                                    "editor": {
+                                        "$ref": "#/components/schemas/ArticlesEditorRelationship"
                                     }
                                 }
                             }
@@ -5681,6 +6167,81 @@
                                 "id"
                             ]
                         }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesEditorRelatedDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesEditorRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ArticlesEditorRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "links": {
                         "$ref": "#/components/schemas/Links"
@@ -5767,6 +6328,9 @@
                             },
                             "attachments": {
                                 "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
+                            },
+                            "editor": {
+                                "$ref": "#/components/schemas/ArticlesEditorRelationship"
                             }
                         }
                     },
@@ -5799,6 +6363,54 @@
                 "required": [
                     "type",
                     "id"
+                ]
+            },
+            "ArticlesReviewerRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ArticlesReviewerRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
                 ]
             },
             "ArticlesTagsRelationship": {
@@ -6051,6 +6663,15 @@
                                     },
                                     "attachments": {
                                         "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
+                                    },
+                                    "reviewer": {
+                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                    },
+                                    "watchers": {
+                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                    },
+                                    "editor": {
+                                        "$ref": "#/components/schemas/ArticlesEditorRelationship"
                                     }
                                 }
                             }
@@ -6059,6 +6680,46 @@
                             "type",
                             "id"
                         ]
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesWatchersRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                        }
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ArticlesWatchersRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/PaginationLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
                     }
                 },
                 "required": [

@@ -80,6 +80,13 @@ final class IdentifierResponse extends AbstractResponse
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
     {
+        // A write-only relation's linkage is never echoed back: a mutation of it
+        // answers `204`, which the spec allows when the result matches the request.
+        // A read still falls through and fails as an unknown relationship.
+        if ($this->isWriteOnlyMutation($request)) {
+            return new RenderedDocument([], 204, hasBody: false);
+        }
+
         $document = new SingleResourceDocument(
             $this->parentResource,
             $this->resolveJsonApi($server),
@@ -103,6 +110,16 @@ final class IdentifierResponse extends AbstractResponse
         $result = $this->applyTopLevelSelf($result, $server, $request);
 
         return new RenderedDocument($result, 200);
+    }
+
+    private function isWriteOnlyMutation(JsonApiRequestInterface $request): bool
+    {
+        if (\in_array(\strtoupper($request->getMethod()), ['GET', 'HEAD'], true)
+            || !$this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+            return false;
+        }
+
+        return $this->parentResource->relationNamed($this->relationshipName)?->isWriteOnlyFor($request) === true;
     }
 
     /**

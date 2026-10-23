@@ -179,6 +179,9 @@ declaring both throws a `\LogicException`. Inside a [`Map`](field-types.md#map),
 write-only child is skipped on render just like a top-level write-only field, so it
 too is absent from the nested object.
 
+A relation can be write-only too. See
+[write-only relations](relations.md#write-only-relations).
+
 ## Read-only scoping (gates hydration)
 
 A read-only field is still serialized, but is **silently skipped** during

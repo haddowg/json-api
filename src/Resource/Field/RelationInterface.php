@@ -161,7 +161,8 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * exposed. On by default; suppressed by
      * {@see AbstractRelationBuilder::withoutRelatedEndpoint()}. A suppressed endpoint is
      * enforced by the host as a 404, and its conventional `related` link is omitted
-     * so a rendered link never points at that 404.
+     * so a rendered link never points at that 404. A write-only relation reports
+     * `false`: its related resources are never read back.
      */
     public function exposesRelatedEndpoint(): bool;
 
@@ -202,14 +203,15 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * relation is also excluded from the default-include cascade. Linkage and
      * `self` / `related` links are unaffected. A relation whose includability is a
      * request predicate still reports `true` here; the include path consults
-     * {@see isIncludableFor()}.
+     * {@see isIncludableFor()}. A write-only relation reports `false`.
      */
     public function isIncludable(): bool;
 
     /**
      * Whether this relationship may be included **for this request** — the
      * unconditional flag ({@see isIncludable()}) AND, if an includability predicate
-     * was declared, its negation against the request and the domain `$model`. This
+     * was declared, its negation against the request and the domain `$model`, and
+     * `false` whenever the relation is write-only for the request. This
      * is the gate the include / default-cascade path consults; the OpenAPI path
      * uses the unconditional {@see isIncludable()} (which documents the superset).
      */
@@ -224,7 +226,7 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * `last`). Off by default; opt in via {@see AbstractRelationBuilder::countable()}.
      * This is the single universal gate for any relationship count: a `?withCount`
      * naming a relation that is not countable — or a to-one relation — is rejected
-     * (400).
+     * (400). A write-only relation reports `false`.
      */
     public function isCountable(): bool;
 
