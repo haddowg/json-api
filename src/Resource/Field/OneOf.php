@@ -137,6 +137,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             return Accessor::set($model, $column, null);
         }
 
+        $value = $this->deserializeValue($value);
         if (!\is_array($value)) {
             return $model;
         }
@@ -160,17 +161,28 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         $nested = $existingDiscriminator === $discriminatorValue ? $existing : [];
         $nested[$this->discriminator] = $discriminatorValue;
 
-        foreach ($variant->children() as $child) {
-            if ($child->isReadOnly($creating)) {
-                continue;
+        $nested = JsonObject::hydrateChildren($this->name(), static function () use ($variant, $nested, $value, $data, $request, $creating): mixed {
+            foreach ($variant->children() as $child) {
+                if ($child->isReadOnly($creating)) {
+                    continue;
+                }
+
+                if (\array_key_exists($child->name(), $value)) {
+                    $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
+                }
             }
 
-            if (\array_key_exists($child->name(), $value)) {
-                $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
-            }
-        }
+            return $nested;
+        });
 
         return Accessor::set($model, $column, $nested);
+    }
+
+    protected function deserializeValue(mixed $value): mixed
+    {
+        JsonObject::assertNotList($value, $this->name());
+
+        return $value;
     }
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema

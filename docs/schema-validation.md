@@ -246,7 +246,11 @@ want validation** (dev/CI); they are per-server opt-in.
 - [`RequestValidationMiddleware`](../src/Middleware/RequestValidationMiddleware.php)
   runs **after** body parsing and **before** the handler. A bodyless request (GET,
   bodyless DELETE) passes straight through; a present body is validated and a
-  failure throws `RequestBodyInvalidJsonApi` (`400`).
+  failure throws `RequestBodyInvalidJsonApi` (`400`). It validates against the base
+  schema and the in-scope profile fragments, not a per-resource `SchemaCompiler`
+  schema, so it does not check attribute types. An empty JSON array sent for an
+  object-typed attribute gets through it; see
+  [a JSON array is not an object](field-types.md#a-json-array-is-not-an-object).
 
   ```php
   use haddowg\JsonApi\Middleware\RequestValidationMiddleware;

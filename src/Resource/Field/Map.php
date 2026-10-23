@@ -89,23 +89,33 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
             return $result ?? $model;
         }
 
+        $value = $this->deserializeValue($value);
         if (!\is_array($value)) {
             return $model;
         }
 
-        foreach ($this->children as $child) {
-            // Gate read-only children the same way the resource gates top-level
-            // fields, so a child the author marked readOnly() can't be written
-            // through the nested object.
-            if ($child->isReadOnly($creating)) {
-                continue;
+        return JsonObject::hydrateChildren($this->name(), function () use ($model, $value, $data, $request, $creating): mixed {
+            foreach ($this->children as $child) {
+                // Gate read-only children the same way the resource gates top-level
+                // fields, so a child the author marked readOnly() can't be written
+                // through the nested object.
+                if ($child->isReadOnly($creating)) {
+                    continue;
+                }
+
+                if (\array_key_exists($child->name(), $value)) {
+                    $model = $child->hydrate($model, $value[$child->name()], $data, $request, $creating);
+                }
             }
 
-            if (\array_key_exists($child->name(), $value)) {
-                $model = $child->hydrate($model, $value[$child->name()], $data, $request, $creating);
-            }
-        }
+            return $model;
+        });
+    }
 
-        return $model;
+    protected function deserializeValue(mixed $value): mixed
+    {
+        JsonObject::assertNotList($value, $this->name());
+
+        return $value;
     }
 }

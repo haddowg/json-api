@@ -115,6 +115,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             return Accessor::set($model, $column, null);
         }
 
+        $value = $this->deserializeValue($value);
         if (!\is_array($value)) {
             return $model;
         }
@@ -124,17 +125,28 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         $nested = Accessor::get($model, $column);
         $nested = \is_array($nested) ? $nested : [];
 
-        foreach ($this->children as $child) {
-            if ($child->isReadOnly($creating)) {
-                continue;
+        $nested = JsonObject::hydrateChildren($this->name(), function () use ($nested, $value, $data, $request, $creating): mixed {
+            foreach ($this->children as $child) {
+                if ($child->isReadOnly($creating)) {
+                    continue;
+                }
+
+                if (\array_key_exists($child->name(), $value)) {
+                    $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
+                }
             }
 
-            if (\array_key_exists($child->name(), $value)) {
-                $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
-            }
-        }
+            return $nested;
+        });
 
         return Accessor::set($model, $column, $nested);
+    }
+
+    protected function deserializeValue(mixed $value): mixed
+    {
+        JsonObject::assertNotList($value, $this->name());
+
+        return $value;
     }
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema

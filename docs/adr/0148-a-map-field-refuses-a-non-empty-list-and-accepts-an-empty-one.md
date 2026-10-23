@@ -1,0 +1,3 @@
+# A map field refuses a non-empty list and accepts an empty one
+
+`ArrayHash`, `Map`, `Obj` and `OneOf` project as `type: object`, but a JSON array sent for one was stored and served back as `{"0": …}`, so their cast now throws `AttributeValueInvalid` (422) for a non-empty PHP list, and a composite field re-points a child's failure under its own name. An empty array still passes, because the request body is decoded associatively and `[]` and `{}` both arrive as an empty PHP array; refusing it would also refuse every `{}`, so telling the two apart is left to a check that sees the body with objects kept as objects.
