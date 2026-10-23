@@ -604,6 +604,43 @@ Each schema also carries an [`x-paginator`](openapi.md#pagination-strategy-x-pag
 extension naming the strategy and its keys, and a menu's names the `default()` kind, so a
 generated client can offer the menu as a typed choice.
 
+Each member carries the paginator's own numbers under its configured key, so you don't
+repeat them in an operation description:
+
+| Strategy | Member | `default` | `maximum` |
+| --- | --- | --- | --- |
+| `PagePaginator` | `number` | `defaultPage` | |
+| | `size` | `defaultPerPage` | `maxPerPage` |
+| `OffsetPaginator` | `offset` | `defaultOffset` | |
+| | `limit` | `defaultLimit` | `maxPerPage` |
+| `CursorPaginator` | `size` | `defaultSize` | `maxPerPage` |
+| `FixedPagePaginator` | `number` | `defaultPage` | |
+
+```php
+PagePaginator::make()->withDefaultPerPage(25)->withMaxPerPage(100);
+```
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "number": { "type": "integer", "description": "The page number to retrieve.", "default": 1, "minimum": 1 },
+    "size": { "type": "integer", "description": "The number of resources per page.", "default": 25, "minimum": 1, "maximum": 100 }
+  },
+  "x-paginator": { "strategy": "page", "keys": { "number": "number", "size": "size" } }
+}
+```
+
+`maximum` is the [cap](#capping-the-page-size). The server clamps a larger value rather
+than rejecting it, but the schema states the largest size it serves. With the cap disabled
+(`withMaxPerPage(0)`) there is no `maximum`. A `default` above the cap projects as the cap,
+because that is the size an absent key gets. A `FixedPagePaginator`'s size isn't a query
+parameter, so its `number` description states it instead ("Each page holds 15 resources.").
+
+The numbers come from whichever paginator serves the endpoint: a resource's own
+`pagination()`, else the server default, and on a related endpoint the relation's
+`paginate()`. Each arm of a menu carries its own child's numbers.
+
 ## Custom strategies
 
 Supply your own count-based strategy by implementing `PaginatorInterface` and

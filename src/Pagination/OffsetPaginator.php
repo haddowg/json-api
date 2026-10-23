@@ -120,9 +120,14 @@ final readonly class OffsetPaginator implements PaginatorInterface, SelectableFr
 
     public function describePageSchema(): Schema
     {
+        $limit = Schema::ofType('integer')->withMinimum(1)->withDescription('The maximum number of resources to return.');
+        $limit = $this->maxPerPage > 0
+            ? $limit->withDefault(\min(\max(0, $this->defaultLimit), $this->maxPerPage))->withMaximum($this->maxPerPage)
+            : $limit->withDefault(\max(0, $this->defaultLimit));
+
         return Schema::ofType('object')
-            ->withProperty($this->offsetKey, Schema::ofType('integer')->withMinimum(0)->withDescription('The zero-based offset of the first resource.'))
-            ->withProperty($this->limitKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The maximum number of resources to return.'))
+            ->withProperty($this->offsetKey, Schema::ofType('integer')->withMinimum(0)->withDefault(\max(0, $this->defaultOffset))->withDescription('The zero-based offset of the first resource.'))
+            ->withProperty($this->limitKey, $limit)
             ->withExtension('paginator', ['strategy' => 'offset', 'keys' => ['offset' => $this->offsetKey, 'limit' => $this->limitKey]]);
     }
 

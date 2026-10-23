@@ -97,8 +97,12 @@ final readonly class FixedPagePaginator implements PaginatorInterface, Selectabl
 
     public function describePageSchema(): Schema
     {
+        // The size is the server's, not a query parameter, so it can only be stated in prose.
+        $size = \max(0, $this->size);
+        $description = \sprintf('The page number to retrieve. Each page holds %d %s.', $size, $size === 1 ? 'resource' : 'resources');
+
         return Schema::ofType('object')
-            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'))
+            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDefault(\max(1, $this->defaultPage))->withDescription($description))
             ->withExtension('paginator', ['strategy' => 'fixed', 'keys' => ['number' => $this->pageKey]]);
     }
 

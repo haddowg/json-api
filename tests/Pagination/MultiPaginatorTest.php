@@ -172,6 +172,9 @@ final class MultiPaginatorTest extends TestCase
         // the schema itself is what makes a shared-key-only object ambiguous.
         $schema = $this->menu()->describePageSchema()->toJson();
         $validator = new Validator();
+        // opis writes `default` values into the instance, so one branch's defaults would
+        // leak into the next; JSON Schema treats `default` as an annotation only.
+        $validator->parser()->setOption('allowDefaults', false);
 
         // A unique-key object matches exactly one branch.
         self::assertTrue($validator->validate((object) ['after' => 'abc'], $schema)->isValid());

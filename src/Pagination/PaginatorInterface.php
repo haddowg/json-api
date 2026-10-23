@@ -104,6 +104,10 @@ interface PaginatorInterface
      * generator need not guess either from key names. A custom paginator may stamp
      * the same shape for a built-in strategy it reimplements; one without it is
      * left to the generator's name-based fallback.
+     *
+     * Each built-in member also carries its own `default` (the value assumed when the
+     * key is absent) and, for a client-sized member with the cap enabled, the cap as
+     * `maximum`, so the schema states what the paginator actually serves.
      */
     public function describePageSchema(): Schema;
 

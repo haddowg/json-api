@@ -1626,13 +1626,22 @@ final class OperationProjector
         $schema = Schema::ofType('array')
             ->withItems(Schema::ofType('string')->withEnum($tokens));
 
+        $description = 'A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated.';
+        if (\in_array(CountableProfile::SELF_TOKEN, $tokens, true)) {
+            $description .= ' Request `withCount=' . CountableProfile::SELF_TOKEN . '` to receive the collection total in the top-level `meta.total`'
+                . ' (also in `meta.page.total` when the collection is paginated).';
+        }
+        $relationTokens = \array_values(\array_filter($tokens, static fn(string $token): bool => $token !== CountableProfile::SELF_TOKEN));
+        if ($relationTokens !== []) {
+            $description .= ' Request a relation name, e.g. `withCount=' . $relationTokens[0] . '`, to receive that relation\'s total on each resource'
+                . ' in `relationships.' . $relationTokens[0] . '.meta.total`.';
+        }
+        $description .= ' Allowed tokens: `' . \implode('`, `', $tokens) . '`.';
+
         return Parameter::query(
             'withCount',
             $schema,
-            'A comma-separated list of relationship-count tokens (the Countable profile). '
-            . '`_self_` counts this collection; a relation name counts that relation per item. '
-            . 'Recognised only when the Countable profile is negotiated. Allowed tokens: `'
-            . \implode('`, `', $tokens) . '`.',
+            $description,
             style: ParameterStyle::Form,
             explode: false,
         )->withExtension('profile', CountableProfile::URI);
