@@ -218,10 +218,15 @@ final readonly class CursorPaginator implements PaginatorInterface, SelectableFr
         // this branch (bare, or one arm of a MultiPaginator `oneOf`) belongs to the
         // cursor profile. The VO stays registration-blind — the OpenAPI projector strips
         // the marker when the cursor profile is not registered ({@see \haddowg\JsonApi\OpenApi\OperationProjector}).
+        $size = Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.');
+        $size = $this->maxPerPage > 0
+            ? $size->withDefault(\min(\max(1, $this->defaultSize), $this->maxPerPage))->withMaximum($this->maxPerPage)
+            : $size->withDefault(\max(1, $this->defaultSize));
+
         return Schema::ofType('object')
             ->withProperty(self::AFTER_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately AFTER this position.'))
             ->withProperty(self::BEFORE_KEY, Schema::ofType('string')->withDescription('An opaque cursor; returns the page immediately BEFORE this position.'))
-            ->withProperty($this->sizeKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'))
+            ->withProperty($this->sizeKey, $size)
             ->withExtension('profile', $this->profile->uri())
             ->withExtension('paginator', ['strategy' => 'cursor', 'keys' => ['after' => self::AFTER_KEY, 'before' => self::BEFORE_KEY, 'size' => $this->sizeKey]]);
     }

@@ -1,0 +1,3 @@
+# A page schema states its paginator's defaults and cap
+
+Each built-in paginator puts its own numbers on its page members: `default` is the value an absent key gets, and the page-size cap is a plain `maximum`, left out when the cap is disabled. Without them, apps repeated "25 per page, at most 100" in every operation description. The server clamps a larger size instead of rejecting it, but that is a tolerance, not something to advertise, so the schema states the largest size it serves and adds no "larger values are reduced" note. A `default` configured above the cap projects as the cap, because that is what an absent key is served. A fixed page size is not a parameter, so `FixedPagePaginator` states it in the `number` description, where it constrains nothing.

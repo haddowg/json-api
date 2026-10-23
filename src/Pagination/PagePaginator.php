@@ -127,9 +127,14 @@ final readonly class PagePaginator implements PaginatorInterface, SelectableFrom
 
     public function describePageSchema(): Schema
     {
+        $size = Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.');
+        $size = $this->maxPerPage > 0
+            ? $size->withDefault(\min(\max(0, $this->defaultPerPage), $this->maxPerPage))->withMaximum($this->maxPerPage)
+            : $size->withDefault(\max(0, $this->defaultPerPage));
+
         return Schema::ofType('object')
-            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The page number to retrieve.'))
-            ->withProperty($this->perPageKey, Schema::ofType('integer')->withMinimum(1)->withDescription('The number of resources per page.'))
+            ->withProperty($this->pageKey, Schema::ofType('integer')->withMinimum(1)->withDefault(\max(1, $this->defaultPage))->withDescription('The page number to retrieve.'))
+            ->withProperty($this->perPageKey, $size)
             ->withExtension('paginator', ['strategy' => 'page', 'keys' => ['number' => $this->pageKey, 'size' => $this->perPageKey]]);
     }
 

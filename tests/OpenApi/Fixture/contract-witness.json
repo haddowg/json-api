@@ -303,12 +303,15 @@
                                 "number": {
                                     "type": "integer",
                                     "description": "The page number to retrieve.",
+                                    "default": 1,
                                     "minimum": 1
                                 },
                                 "size": {
                                     "type": "integer",
                                     "description": "The number of resources per page.",
-                                    "minimum": 1
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
                                 }
                             },
                             "x-paginator": {
@@ -325,7 +328,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`, `tags`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`. Allowed tokens: `_self_`, `tags`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1271,12 +1274,15 @@
                                 "number": {
                                     "type": "integer",
                                     "description": "The page number to retrieve.",
+                                    "default": 1,
                                     "minimum": 1
                                 },
                                 "size": {
                                     "type": "integer",
                                     "description": "The number of resources per page.",
-                                    "minimum": 1
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
                                 }
                             },
                             "x-paginator": {
@@ -1293,7 +1299,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1414,12 +1420,15 @@
                                 "number": {
                                     "type": "integer",
                                     "description": "The page number to retrieve.",
+                                    "default": 1,
                                     "minimum": 1
                                 },
                                 "size": {
                                     "type": "integer",
                                     "description": "The number of resources per page.",
-                                    "minimum": 1
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
                                 }
                             },
                             "x-paginator": {
@@ -1436,7 +1445,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3062,12 +3071,15 @@
                                         "number": {
                                             "type": "integer",
                                             "description": "The page number to retrieve.",
+                                            "default": 1,
                                             "minimum": 1
                                         },
                                         "size": {
                                             "type": "integer",
                                             "description": "The number of resources per page.",
-                                            "minimum": 1
+                                            "default": 15,
+                                            "minimum": 1,
+                                            "maximum": 100
                                         },
                                         "kind": {
                                             "type": "string",
@@ -3098,7 +3110,9 @@
                                         "size": {
                                             "type": "integer",
                                             "description": "The number of resources per page.",
-                                            "minimum": 1
+                                            "default": 15,
+                                            "minimum": 1,
+                                            "maximum": 100
                                         },
                                         "kind": {
                                             "type": "string",
@@ -3625,7 +3639,9 @@
                                 "size": {
                                     "type": "integer",
                                     "description": "The number of resources per page.",
-                                    "minimum": 1
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
                                 }
                             },
                             "x-paginator": {
@@ -4129,7 +4145,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `tags`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`. Allowed tokens: `tags`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4600,12 +4616,15 @@
                                 "number": {
                                     "type": "integer",
                                     "description": "The page number to retrieve.",
+                                    "default": 1,
                                     "minimum": 1
                                 },
                                 "size": {
                                     "type": "integer",
                                     "description": "The number of resources per page.",
-                                    "minimum": 1
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
                                 }
                             },
                             "x-paginator": {
@@ -4622,7 +4641,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `clips`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=clips`, to receive that relation's total on each resource in `relationships.clips.meta.total`. Allowed tokens: `clips`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4808,7 +4827,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4904,7 +4923,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of relationship-count tokens (the Countable profile). `_self_` counts this collection; a relation name counts that relation per item. Recognised only when the Countable profile is negotiated. Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
                         "schema": {
                             "type": "array",
                             "items": {

@@ -620,6 +620,13 @@ can surface the parameter conditionally; a tool that does not simply ignores an 
 `x-` keyword. The parameter's `description` also states the profile requirement in prose,
 so the constraint is never hidden behind the extension alone.
 
+The description also says where each requested total lands. On an endpoint that accepts
+`_self_` it reads "Request `withCount=_self_` to receive the collection total in the
+top-level `meta.total` (also in `meta.page.total` when the collection is paginated)". On
+one that accepts relation tokens it names the first, e.g. "Request a relation name, e.g.
+`withCount=comments`, to receive that relation's total on each resource in
+`relationships.comments.meta.total`".
+
 ### Pagination strategy: `x-paginator`
 
 Every key a paginator reads can be renamed (`PagePaginator::make()->withPageKey('p')`), and
@@ -647,6 +654,9 @@ A [`MultiPaginator`](pagination.md#offering-a-menu-of-strategies) menu stamps it
 picks when a request names none. Each arm carries its child's own `x-paginator` beside the
 `kind` const that selects it. A custom paginator that stamps nothing is left to whatever a
 generator infers from its key names.
+
+Each built-in member also carries the paginator's `default` and, for the page size, its cap
+as `maximum`. See [In OpenAPI](pagination.md#in-openapi) on the pagination page.
 
 ### Your own extensions on operations, paths, parameters and responses
 

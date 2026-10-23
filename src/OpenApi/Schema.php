@@ -164,6 +164,15 @@ final class Schema implements \JsonSerializable
         return $this->with('example', $example);
     }
 
+    /**
+     * Sets the `default` keyword: the value the server assumes when the instance is
+     * absent. Annotation only; it never constrains validation.
+     */
+    public function withDefault(mixed $value): self
+    {
+        return $this->with('default', $value);
+    }
+
     public function withPattern(string $pattern): self
     {
         return $this->with('pattern', $pattern);
@@ -432,7 +441,7 @@ final class Schema implements \JsonSerializable
         $order = [
             '$ref',
             'type', 'format', 'title', 'description',
-            'enum', 'const',
+            'enum', 'const', 'default',
             'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
             'minLength', 'maxLength', 'pattern',
             'minItems', 'maxItems', 'uniqueItems', 'items',
