@@ -47,7 +47,8 @@ final class SchemaValueValidator
     /**
      * Validates `$value` against `$schema`, returning one `422` {@see Error} per opis
      * leaf error (empty when it validates). Pointers are `$pointerPrefix` plus the opis
-     * instance pointer.
+     * instance pointer, so a whole-value violation reads exactly `$pointerPrefix` (with an
+     * empty prefix, the RFC 6901 whole-document pointer `''`).
      *
      * @return list<Error>
      */
@@ -67,6 +68,8 @@ final class SchemaValueValidator
             if (!\is_array($messages)) {
                 continue;
             }
+            // opis keys a root-level error `/`; appending that would leave a trailing slash.
+            $pointer = (string) $pointer === '/' ? '' : (string) $pointer;
             foreach ($messages as $message) {
                 if (!\is_string($message)) {
                     continue;
@@ -76,7 +79,7 @@ final class SchemaValueValidator
                     code: 'VALIDATION_FAILED',
                     title: 'Unprocessable Entity',
                     detail: $message,
-                    source: ErrorSource::fromPointer($pointerPrefix . (string) $pointer),
+                    source: ErrorSource::fromPointer($pointerPrefix . $pointer),
                 );
             }
         }
