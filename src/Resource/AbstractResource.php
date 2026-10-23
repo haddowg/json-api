@@ -917,7 +917,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * type's **hidden-inclusive** relation set (a flattened attribute may back onto
      * a {@see \haddowg\JsonApi\Resource\Field\AbstractRelationBuilder::hidden()} relation —
      * the idiomatic internal association) and read via its `readValue()` (honouring
-     * its `column()`/`storedAs()`); each successive segment is resolved on the prior
+     * its `column()`/`storedAs()`), unless an injected
+     * {@see \haddowg\JsonApi\Serializer\ToOneRelationshipLinkageInterface} supplies
+     * the hop's target (a supplied none is a null hop); each successive segment is resolved on the prior
      * segment's related type's serializer, resolved through the injected
      * {@see SerializerResolverInterface}.
      *
@@ -962,7 +964,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 ));
             }
 
-            $current = $relation->readValue($current, $request);
+            $current = \haddowg\JsonApi\Resource\Field\Internal\ToOneTarget::read($relation, $current, $request, $this->serializerResolver);
             if ($current === null) {
                 return null;
             }

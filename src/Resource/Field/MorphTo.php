@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\Internal\ToOneTarget;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 
@@ -42,28 +43,27 @@ final readonly class MorphTo extends AbstractRelationValue
         // load-aware policy, defer that read (and the data member) unless the
         // relationship is included — see AbstractRelationValue::shouldDeferLinkage().
         if ($this->shouldDeferLinkage($model, $resolver)) {
-            $deferredSerializer = null;
-            foreach ($this->relationState->relatedTypes as $type) {
-                if ($resolver->hasSerializerFor($type)) {
-                    $deferredSerializer = $resolver->serializerFor($type);
-
-                    break;
-                }
-            }
+            $deferredSerializer = $this->firstResolvableSerializer($resolver);
 
             if ($deferredSerializer !== null) {
                 $relationship
-                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->state->name), $deferredSerializer)
+                    ->setDataAsCallable(fn(): mixed => ToOneTarget::read($this, $model, $request, $resolver), $deferredSerializer)
                     ->omitDataWhenNotIncluded();
             }
         } else {
-            $related = $this->relatedValue($model, $request, $this->state->name);
-            if ($related !== null) {
-                // Resolve the serializer for whichever declared type reports the
-                // related object's own type (the shared per-relation rule).
-                $serializer = $this->resolveSerializer($related, $resolver);
-                if ($serializer !== null) {
-                    $relationship->setData($related, $serializer);
+            $supplied = ToOneTarget::supplied($this, $model, $request, $resolver);
+            $related = $supplied !== null ? $supplied->target : $this->relatedValue($model, $request, $this->state->name);
+            // Resolve the serializer for whichever declared type reports the
+            // related object's own type (the shared per-relation rule).
+            $serializer = $related !== null ? $this->resolveSerializer($related, $resolver) : null;
+            if ($serializer !== null) {
+                $relationship->setData($related, $serializer);
+            } elseif ($supplied !== null) {
+                // A host-supplied none (or a target of no declared type) renders
+                // `data: null`, which needs a serializer bound to the relationship.
+                $fallback = $this->firstResolvableSerializer($resolver);
+                if ($fallback !== null) {
+                    $relationship->setData(null, $fallback);
                 }
             }
         }
@@ -71,5 +71,16 @@ final readonly class MorphTo extends AbstractRelationValue
         $this->finalizeToOne($relationship, $model, $request);
 
         return $relationship;
+    }
+
+    private function firstResolvableSerializer(SerializerResolverInterface $resolver): ?\haddowg\JsonApi\Serializer\SerializerInterface
+    {
+        foreach ($this->relationState->relatedTypes as $type) {
+            if ($resolver->hasSerializerFor($type)) {
+                return $resolver->serializerFor($type);
+            }
+        }
+
+        return null;
     }
 }

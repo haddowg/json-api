@@ -8,6 +8,7 @@ use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\RelationshipType;
+use haddowg\JsonApi\Resource\Field\Internal\ToOneTarget;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship as OutputToMany;
@@ -330,7 +331,9 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
      * the `data` member (emitting links only) unless the relationship is included,
      * in which case the callable runs and the value is read as today (include-wins).
      * Otherwise the value is read eagerly and the data member is set, exactly as
-     * before.
+     * before. Either way the value comes from an injected
+     * {@see \haddowg\JsonApi\Serializer\ToOneRelationshipLinkageInterface} when it
+     * supplies one, and off the parent otherwise.
      */
     protected function buildToOne(
         mixed $model,
@@ -344,7 +347,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
             $serializer = $resolver->serializerFor($type);
             if ($this->shouldDeferLinkage($model, $resolver)) {
                 $relationship
-                    ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->state->name), $serializer)
+                    ->setDataAsCallable(fn(): mixed => ToOneTarget::read($this, $model, $request, $resolver), $serializer)
                     ->omitDataWhenNotIncluded();
             } else {
                 // Always bind the serializer (even for a null related value) so the
@@ -354,7 +357,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
                 // per the spec. The data member stays sparse in a full resource
                 // document via the transformer's include/current-relationship gate,
                 // so omitting it there is unaffected.
-                $relationship->setData($this->relatedValue($model, $request, $this->state->name), $serializer);
+                $relationship->setData(ToOneTarget::read($this, $model, $request, $resolver), $serializer);
             }
         }
 
