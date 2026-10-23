@@ -765,26 +765,117 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');
         }
 
-        $this->validateStrictQueryParameters($operation);
+        $this->validateQueryParameters($operation);
         $this->fireServing($operation);
 
         return $handler->handle($operation);
     }
 
     /**
-     * Runs strict query-parameter validation for the dispatched operation, when
-     * enabled and the operation is backed by an HTTP request. A programmatic
-     * dispatch with no HTTP message has no query string to validate and is skipped.
+     * Runs the up-front query-parameter validation for the dispatched operation
+     * when it is backed by an HTTP request. A programmatic dispatch with no HTTP
+     * message has no query string to validate and is skipped.
      *
-     * @throws \haddowg\JsonApi\Exception\QueryParamUnrecognized
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
      */
-    private function validateStrictQueryParameters(
+    private function validateQueryParameters(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
     ): void {
         $request = $operation->context()->httpRequest();
-        if ($request instanceof \haddowg\JsonApi\Request\JsonApiRequestInterface) {
-            $this->validateStrictQueryParametersOf($request);
+        if (!$request instanceof \haddowg\JsonApi\Request\JsonApiRequestInterface) {
+            return;
         }
+
+        $this->validateStrictQueryParametersOf($request);
+
+        $target = $operation->target();
+        match (true) {
+            $operation instanceof \haddowg\JsonApi\Operation\FetchResourceOperation,
+            $operation instanceof \haddowg\JsonApi\Operation\CreateResourceOperation,
+            $operation instanceof \haddowg\JsonApi\Operation\UpdateResourceOperation => $this->validateIncludePaths($request, $target, false),
+            $operation instanceof \haddowg\JsonApi\Operation\FetchRelatedOperation => $this->validateIncludePaths($request, $target, true),
+            default => null,
+        };
+    }
+
+    /**
+     * The PSR-15 twin of {@see validateQueryParameters()}, run by the adapter
+     * before it builds the operation. The operation is not built yet, so the
+     * include root comes from the routed {@see \haddowg\JsonApi\Operation\Target}
+     * crossed with the HTTP method, the same shape {@see \haddowg\JsonApi\Operation\OperationFactory}
+     * dispatches on.
+     *
+     * @throws \haddowg\JsonApi\Exception\JsonApiExceptionInterface
+     */
+    private function validateQueryParametersOfRequest(
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+    ): void {
+        $this->validateStrictQueryParametersOf($request);
+
+        $target = $request->getAttribute(\haddowg\JsonApi\Operation\Target::class);
+        if (!$target instanceof \haddowg\JsonApi\Operation\Target) {
+            return;
+        }
+
+        $method = \strtoupper($request->getMethod());
+        if (!$target->hasRelationship() && \in_array($method, ['GET', 'POST', 'PATCH'], true)) {
+            $this->validateIncludePaths($request, $target, false);
+        } elseif ($method === 'GET' && $target->hasRelationship() && !$target->isRelationshipEndpoint) {
+            $this->validateIncludePaths($request, $target, true);
+        }
+    }
+
+    /**
+     * Validates `?include` against the primary type's relation tree before any
+     * data exists, so an empty collection rejects an unknown path exactly as a
+     * populated one does. The primary type is the target's own type, or for a
+     * related endpoint the relation's related type(s). Runs whether or not
+     * strict mode is on, because an unknown include path was never tolerated.
+     *
+     * Order matches the render-time checks it front-runs: the root's allowed
+     * include paths, then the maximum include depth, then unknown and
+     * non-includable segments level by level. A target this server cannot
+     * resolve to a resource is left to the handler (and the render-time check).
+     *
+     * @throws \haddowg\JsonApi\Exception\InclusionUnrecognized
+     * @throws \haddowg\JsonApi\Exception\InclusionNotAllowed
+     * @throws \haddowg\JsonApi\Exception\InclusionDepthExceeded
+     */
+    private function validateIncludePaths(
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Operation\Target $target,
+        bool $related,
+    ): void {
+        $paths = $request->getIncludePaths();
+        if ($paths === [] || !$this->resources->hasSerializerFor($target->type)) {
+            return;
+        }
+
+        $serializer = $this->resources->serializerFor($target->type);
+
+        if ($related) {
+            if (!$serializer instanceof AbstractResource || $target->relationship === null) {
+                return;
+            }
+
+            $relation = $serializer->relationNamed($target->relationship);
+            if ($relation === null) {
+                return;
+            }
+
+            $rootTypes = $relation->relatedTypes();
+            // A polymorphic related endpoint renders through a PolymorphicSerializer,
+            // which has no root whitelist or depth override of its own.
+            $primary = \count($rootTypes) === 1 && $this->resources->hasSerializerFor($rootTypes[0])
+                ? $this->resources->serializerFor($rootTypes[0])
+                : null;
+        } else {
+            $rootTypes = [$target->type];
+            $primary = $serializer;
+        }
+
+        \haddowg\JsonApi\Transformer\IncludePathGuard::rootSafeguards($paths, $primary, $this->maxIncludeDepth);
+        \haddowg\JsonApi\Transformer\IncludePathGuard::validateTree($request, $rootTypes, $this->resources);
     }
 
     /**
@@ -968,7 +1059,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             return new Psr7ToOperationHandlerAdapter(
                 $handler,
                 $this,
-                strictQueryParameters: $this->validateStrictQueryParametersOf(...),
+                strictQueryParameters: $this->validateQueryParametersOfRequest(...),
             );
         }
 

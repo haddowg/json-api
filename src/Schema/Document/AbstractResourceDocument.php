@@ -10,6 +10,7 @@ use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Transformer\IncludePathGuard;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
 
 /**
@@ -45,51 +46,11 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
     ): ?int {
         $this->validateCountedRelationships($transformation, $primary);
 
-        $requestedPaths = $transformation->request->getIncludePaths();
-
-        if ($primary instanceof IncludeControlsInterface) {
-            $allowed = $primary->getAllowedIncludePaths();
-            if ($allowed !== null) {
-                // A requested path is permitted when it is a listed path or an
-                // ancestor of one — listing a deep path (`posts.author`) implies its
-                // intermediates (`posts`) are traversable, so the author need not
-                // enumerate every prefix. A sibling or unlisted nested path
-                // (`posts.comments`) is not implied and is rejected.
-                $offending = \array_values(\array_filter(
-                    $requestedPaths,
-                    static function (string $path) use ($allowed): bool {
-                        foreach ($allowed as $allowedPath) {
-                            if ($allowedPath === $path || \str_starts_with($allowedPath, $path . '.')) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    },
-                ));
-                if ($offending !== []) {
-                    throw new InclusionNotAllowed($offending);
-                }
-            }
-        }
-
-        $override = $primary instanceof IncludeControlsInterface ? $primary->maxIncludeDepth() : null;
-        $effective = $override ?? $transformation->maxIncludeDepth;
-        if ($effective !== null && $effective <= 0) {
-            $effective = null;
-        }
-
-        if ($effective !== null) {
-            $tooDeep = \array_values(\array_filter(
-                $requestedPaths,
-                static fn(string $path): bool => \substr_count($path, '.') + 1 > $effective,
-            ));
-            if ($tooDeep !== []) {
-                throw new InclusionDepthExceeded($tooDeep, $effective);
-            }
-        }
-
-        return $effective;
+        return IncludePathGuard::rootSafeguards(
+            $transformation->request->getIncludePaths(),
+            $primary,
+            $transformation->maxIncludeDepth,
+        );
     }
 
     /**

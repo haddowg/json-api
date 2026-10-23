@@ -25,11 +25,11 @@ use Psr\Http\Server\RequestHandlerInterface;
  * relationship, and if so whether it is the relationship-linkage endpoint).
  *
  * An optional `$strictQueryParameters` hook lets the server run its up-front
- * strict query-parameter validation on this PSR-15 path too — so a `handle()`
- * request gets the same resource- and registry-aware family check
- * {@see \haddowg\JsonApi\Server\Server::dispatch()} runs. It throws
- * {@see \haddowg\JsonApi\Exception\QueryParamUnrecognized} (`400`) for an
- * unrecognized family; `null` (the default) disables it.
+ * query-parameter validation on this PSR-15 path too, so a `handle()` request
+ * gets the same registry-aware checks {@see \haddowg\JsonApi\Server\Server::dispatch()}
+ * runs: the strict family and sparse-fieldset checks, and the `?include` path
+ * check. It throws a `400` JSON:API exception for a rejected parameter; `null`
+ * (the default) disables it.
  */
 final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInterface
 {
