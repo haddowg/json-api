@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/haddowg/json-api/compare/v1.3.0...v1.4.0) (2026-10-23)
+
+
+### Features
+
+* let an adapter supply a to-one relation's target out of band ([#187](https://github.com/haddowg/json-api/issues/187)) ([80aa5b8](https://github.com/haddowg/json-api/commit/80aa5b83bfcf74ed6eb78fd4a7c0501dbfddc291))
+* vendor extensions on OpenAPI operations, path items, parameters and responses ([20bd8ec](https://github.com/haddowg/json-api/commit/20bd8ec6976c99a133f0da0229b6762f1717ae8a))
+
+
+### Bug Fixes
+
+* reject an unknown include path on an empty collection ([20bd8ec](https://github.com/haddowg/json-api/commit/20bd8ec6976c99a133f0da0229b6762f1717ae8a))
+
 ## [1.3.0](https://github.com/haddowg/json-api/compare/v1.2.1...v1.3.0) (2026-10-23)
 
 
