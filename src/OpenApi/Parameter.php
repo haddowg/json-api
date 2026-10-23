@@ -110,6 +110,64 @@ final readonly class Parameter implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    public function withName(string $name): self
+    {
+        return new self($name, $this->in, $this->description, $this->required, $this->deprecated, $this->schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withIn(ParameterLocation $in): self
+    {
+        return new self($this->name, $in, $this->description, $this->required, $this->deprecated, $this->schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withDescription(?string $description): self
+    {
+        return new self($this->name, $this->in, $description, $this->required, $this->deprecated, $this->schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withRequired(?bool $required): self
+    {
+        return new self($this->name, $this->in, $this->description, $required, $this->deprecated, $this->schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withDeprecated(?bool $deprecated): self
+    {
+        return new self($this->name, $this->in, $this->description, $this->required, $deprecated, $this->schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withSchema(Schema|Reference|null $schema): self
+    {
+        return new self($this->name, $this->in, $this->description, $this->required, $this->deprecated, $schema, $this->style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withStyle(?ParameterStyle $style): self
+    {
+        return new self($this->name, $this->in, $this->description, $this->required, $this->deprecated, $this->schema, $style, $this->explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    public function withExplode(?bool $explode): self
+    {
+        return new self($this->name, $this->in, $this->description, $this->required, $this->deprecated, $this->schema, $this->style, $explode, $this->extensions, $this->hasExample, $this->example);
+    }
+
+    /**
+     * Returns a copy without an `example`.
+     */
+    public function withoutExample(): self
+    {
+        return new self($this->name, $this->in, $this->description, $this->required, $this->deprecated, $this->schema, $this->style, $this->explode, $this->extensions);
+    }
+
+    /**
      * A `query` parameter (the JSON:API case: `filter[…]`, `sort`, `include`,
      * `fields[…]`, `page[…]`). An optional `style`/`explode` documents a structured
      * value (a `Range` filter's nested `min`/`max` as a `deepObject`).

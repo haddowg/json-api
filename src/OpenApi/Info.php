@@ -101,6 +101,36 @@ final readonly class Info implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    public function withTitle(string $title): self
+    {
+        return new self($title, $this->version, $this->summary, $this->description, $this->termsOfService, $this->contact, $this->license, $this->extensions);
+    }
+
+    public function withVersion(string $version): self
+    {
+        return new self($this->title, $version, $this->summary, $this->description, $this->termsOfService, $this->contact, $this->license, $this->extensions);
+    }
+
+    public function withSummary(?string $summary): self
+    {
+        return new self($this->title, $this->version, $summary, $this->description, $this->termsOfService, $this->contact, $this->license, $this->extensions);
+    }
+
+    public function withTermsOfService(?string $termsOfService): self
+    {
+        return new self($this->title, $this->version, $this->summary, $this->description, $termsOfService, $this->contact, $this->license, $this->extensions);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

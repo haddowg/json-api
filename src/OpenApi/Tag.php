@@ -19,6 +19,16 @@ final readonly class Tag implements \JsonSerializable
         public ?ExternalDocumentation $externalDocs = null,
     ) {}
 
+    public function withDescription(?string $description): self
+    {
+        return new self($this->name, $description, $this->externalDocs);
+    }
+
+    public function withExternalDocs(?ExternalDocumentation $externalDocs): self
+    {
+        return new self($this->name, $this->description, $externalDocs);
+    }
+
     /**
      * @return array<string, mixed>
      */

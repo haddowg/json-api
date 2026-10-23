@@ -384,6 +384,16 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    /**
      * Drops a vendor extension keyword (`x-…`), returning a new instance. The name is
      * normalized to the `x-` prefix. A no-op when absent. Used by the projector to
      * strip a page-schema `x-profile` marker whose profile the server did not register.

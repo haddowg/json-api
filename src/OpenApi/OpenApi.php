@@ -78,6 +78,24 @@ final readonly class OpenApi implements \JsonSerializable
     }
 
     /**
+     * Returns a copy with one path entry added or replaced.
+     */
+    public function withPath(string $path, PathItem $item): self
+    {
+        return $this->withPaths(($this->paths ?? new Paths())->with($path, $item));
+    }
+
+    public function withExternalDocs(?ExternalDocumentation $externalDocs): self
+    {
+        return new self($this->info, $this->components, $this->openapi, $this->paths, $this->servers, $this->security, $this->tags, $externalDocs, $this->jsonSchemaDialect);
+    }
+
+    public function withJsonSchemaDialect(?string $jsonSchemaDialect): self
+    {
+        return new self($this->info, $this->components, $this->openapi, $this->paths, $this->servers, $this->security, $this->tags, $this->externalDocs, $jsonSchemaDialect);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

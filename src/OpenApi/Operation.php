@@ -86,6 +86,93 @@ final readonly class Operation implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    public function withResponses(Responses $responses): self
+    {
+        return new self($responses, $this->tags, $this->summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    /**
+     * Returns a copy with one status-code (or `default`) response added or replaced.
+     */
+    public function withResponse(string $status, Response|Reference $response): self
+    {
+        return $this->withResponses($this->responses->with($status, $response));
+    }
+
+    /**
+     * @param list<string> $tags
+     */
+    public function withTags(array $tags): self
+    {
+        return new self($this->responses, \array_values($tags), $this->summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    public function withSummary(?string $summary): self
+    {
+        return new self($this->responses, $this->tags, $summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    public function withDescription(?string $description): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    public function withOperationId(?string $operationId): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    public function withExternalDocs(?ExternalDocumentation $externalDocs): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $this->operationId, $externalDocs, $this->parameters, $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    /**
+     * @param list<Parameter|Reference> $parameters
+     */
+    public function withParameters(array $parameters): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $this->operationId, $this->externalDocs, \array_values($parameters), $this->requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    /**
+     * Returns a copy with one parameter added. A {@see Parameter} replaces the one
+     * already there with the same `name` and `in`, keeping its position; a
+     * {@see Reference} is appended.
+     */
+    public function withParameter(Parameter|Reference $parameter): self
+    {
+        return $this->withParameters(self::replaceOrAppend($this->parameters, $parameter));
+    }
+
+    public function withRequestBody(RequestBody|Reference|null $requestBody): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $requestBody, $this->security, $this->deprecated, $this->extensions);
+    }
+
+    /**
+     * @param list<SecurityRequirement>|null $security null inherits the document default; `[]` marks the operation public
+     */
+    public function withSecurity(?array $security): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $security === null ? null : \array_values($security), $this->deprecated, $this->extensions);
+    }
+
+    public function withDeprecated(?bool $deprecated): self
+    {
+        return new self($this->responses, $this->tags, $this->summary, $this->description, $this->operationId, $this->externalDocs, $this->parameters, $this->requestBody, $this->security, $deprecated, $this->extensions);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -162,6 +249,30 @@ final readonly class Operation implements \JsonSerializable
         }
 
         return $object;
+    }
+
+    /**
+     * Replaces the parameter with the same `name` and `in` in place, or appends.
+     * A reference has no name to match, so it is always appended.
+     *
+     * @param list<Parameter|Reference> $parameters
+     *
+     * @return list<Parameter|Reference>
+     */
+    private static function replaceOrAppend(array $parameters, Parameter|Reference $parameter): array
+    {
+        if ($parameter instanceof Parameter) {
+            foreach ($parameters as $i => $existing) {
+                if ($existing instanceof Parameter && $existing->name === $parameter->name && $existing->in === $parameter->in) {
+                    $parameters[$i] = $parameter;
+
+                    return \array_values($parameters);
+                }
+            }
+        }
+        $parameters[] = $parameter;
+
+        return $parameters;
     }
 
     public function jsonSerialize(): \stdClass

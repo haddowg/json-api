@@ -19,6 +19,19 @@ final readonly class Server implements \JsonSerializable
         public array $variables = [],
     ) {}
 
+    public function withDescription(?string $description): self
+    {
+        return new self($this->url, $description, $this->variables);
+    }
+
+    /**
+     * @param array<string, ServerVariable> $variables
+     */
+    public function withVariables(array $variables): self
+    {
+        return new self($this->url, $this->description, $variables);
+    }
+
     /**
      * @return array<string, mixed>
      */

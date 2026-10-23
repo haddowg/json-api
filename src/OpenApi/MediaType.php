@@ -40,6 +40,11 @@ final readonly class MediaType implements \JsonSerializable
         return new self($this->schema, $example, true);
     }
 
+    public function withSchema(Schema|Reference|null $schema): self
+    {
+        return new self($schema, $this->example, $this->hasExample);
+    }
+
     /**
      * @return array<string, mixed>
      */

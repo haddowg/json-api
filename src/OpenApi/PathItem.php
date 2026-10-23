@@ -86,6 +86,52 @@ final readonly class PathItem implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    /**
+     * @param array<string, Operation> $operations lower-cased HTTP method → {@see Operation}
+     */
+    public function withOperations(array $operations): self
+    {
+        return new self(\array_change_key_case($operations, \CASE_LOWER), $this->summary, $this->description, $this->parameters, $this->extensions);
+    }
+
+    public function withSummary(?string $summary): self
+    {
+        return new self($this->operations, $summary, $this->description, $this->parameters, $this->extensions);
+    }
+
+    public function withDescription(?string $description): self
+    {
+        return new self($this->operations, $this->summary, $description, $this->parameters, $this->extensions);
+    }
+
+    /**
+     * @param list<Parameter|Reference> $parameters
+     */
+    public function withParameters(array $parameters): self
+    {
+        return new self($this->operations, $this->summary, $this->description, \array_values($parameters), $this->extensions);
+    }
+
+    /**
+     * Returns a copy with one path-level parameter added. A {@see Parameter} replaces
+     * the one already there with the same `name` and `in`, keeping its position; a
+     * {@see Reference} is appended.
+     */
+    public function withParameter(Parameter|Reference $parameter): self
+    {
+        return $this->withParameters(self::replaceOrAppend($this->parameters, $parameter));
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -134,6 +180,30 @@ final readonly class PathItem implements \JsonSerializable
         }
 
         return $object;
+    }
+
+    /**
+     * Replaces the parameter with the same `name` and `in` in place, or appends.
+     * A reference has no name to match, so it is always appended.
+     *
+     * @param list<Parameter|Reference> $parameters
+     *
+     * @return list<Parameter|Reference>
+     */
+    private static function replaceOrAppend(array $parameters, Parameter|Reference $parameter): array
+    {
+        if ($parameter instanceof Parameter) {
+            foreach ($parameters as $i => $existing) {
+                if ($existing instanceof Parameter && $existing->name === $parameter->name && $existing->in === $parameter->in) {
+                    $parameters[$i] = $parameter;
+
+                    return \array_values($parameters);
+                }
+            }
+        }
+        $parameters[] = $parameter;
+
+        return $parameters;
     }
 
     public function jsonSerialize(): \stdClass

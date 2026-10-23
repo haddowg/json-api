@@ -29,6 +29,35 @@ final readonly class RequestBody implements \JsonSerializable
     }
 
     /**
+     * @param array<string, MediaType> $content media type → {@see MediaType}
+     */
+    public function withContent(array $content): self
+    {
+        return new self($content, $this->description, $this->required);
+    }
+
+    /**
+     * Returns a copy with one media type's body added or replaced.
+     */
+    public function withMediaType(string $mediaType, MediaType $media): self
+    {
+        $content = $this->content;
+        $content[$mediaType] = $media;
+
+        return $this->withContent($content);
+    }
+
+    public function withDescription(?string $description): self
+    {
+        return new self($this->content, $description, $this->required);
+    }
+
+    public function withRequired(?bool $required): self
+    {
+        return new self($this->content, $this->description, $required);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
