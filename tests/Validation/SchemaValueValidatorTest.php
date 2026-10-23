@@ -103,4 +103,63 @@ final class SchemaValueValidatorTest extends TestCase
 
         self::assertSame([], (new SchemaValueValidator())->validate($schema, ['anything' => 1], '/data/attributes/bag'));
     }
+
+    #[Test]
+    public function aWholeValueViolationReportsExactlyThePrefix(): void
+    {
+        $schema = Schema::ofType('object')->withProperties(['theme' => Schema::ofType('string')]);
+
+        $errors = (new SchemaValueValidator())->validate($schema, [], '/data/attributes/settings');
+
+        self::assertSame(['/data/attributes/settings'], $this->pointers($errors));
+    }
+
+    #[Test]
+    public function aWholeValueCompositeViolationReportsExactlyThePrefix(): void
+    {
+        // kind=fax matches no oneOf branch, so opis reports the failure at the value root.
+        $errors = (new SchemaValueValidator())->validate(
+            $this->contactSchema(),
+            ['kind' => 'fax', 'number' => '123'],
+            '/data/attributes/contact',
+        );
+
+        self::assertNotSame([], $errors);
+        self::assertContains('/data/attributes/contact', $this->pointers($errors));
+        foreach ($this->pointers($errors) as $pointer) {
+            self::assertStringEndsNotWith('/', $pointer);
+        }
+    }
+
+    #[Test]
+    public function aNestedViolationReportsThePrefixPlusTheNestedPath(): void
+    {
+        $schema = Schema::ofType('object')->withProperties(['theme' => Schema::ofType('string')]);
+
+        $errors = (new SchemaValueValidator())->validate($schema, ['theme' => 1], '/data/attributes/settings');
+
+        self::assertSame(['/data/attributes/settings/theme'], $this->pointers($errors));
+    }
+
+    #[Test]
+    public function anEmptyPrefixTreatsTheValueAsTheDocumentRoot(): void
+    {
+        // RFC 6901: `''` is the whole document, so a root violation carries the empty
+        // pointer and a nested one the plain child path.
+        $schema = Schema::ofType('object')->withProperties(['theme' => Schema::ofType('string')]);
+        $validator = new SchemaValueValidator();
+
+        self::assertSame([''], $this->pointers($validator->validate($schema, [], '')));
+        self::assertSame(['/theme'], $this->pointers($validator->validate($schema, ['theme' => 1], '')));
+    }
+
+    /**
+     * @param list<\haddowg\JsonApi\Schema\Error\Error> $errors
+     *
+     * @return list<string>
+     */
+    private function pointers(array $errors): array
+    {
+        return \array_map(static fn($error): string => (string) $error->source?->pointer, $errors);
+    }
 }
