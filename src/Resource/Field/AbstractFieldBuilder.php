@@ -108,6 +108,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      */
     protected ?\Closure $fillUsing = null;
 
+    protected bool $guaranteed = false;
+
     /**
      * The context applied to constraints appended while inside an
      * `onCreate()` / `onUpdate()` builder; `null` means {@see Context::always()}.
@@ -506,6 +508,22 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
+     * Asserts that the server renders a non-null value for this field on every read,
+     * whatever a write left out: a column or entity default, a `fillUsing()` that fills
+     * one in, a timestamp the server always sets. The OpenAPI read schema then types the
+     * attribute without `null`. Validation is unchanged; whether a write may send `null`
+     * is still `nullable()`'s call.
+     *
+     * @return static
+     */
+    public function guaranteed(): static
+    {
+        $this->guaranteed = true;
+
+        return $this;
+    }
+
+    /**
      * Sets a human-readable description surfaced by the OpenAPI generator.
      *
      * @return static
@@ -661,6 +679,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
             extractUsing: $this->extractUsing,
             deserializeUsing: $this->deserializeUsing,
             fillUsing: $this->fillUsing,
+            guaranteed: $this->guaranteed,
         );
     }
 

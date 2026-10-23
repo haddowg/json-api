@@ -355,12 +355,17 @@ final class OpenApiProjectorTest extends TestCase
         // The described cases surface a markdown table in the component description.
         self::assertStringContainsString('| Value | Description |', $this->strAt($schemas, 'Status', 'description'));
 
-        // Both usages are a $ref to the one component — no inline enum repeated.
+        // Both usages are a $ref to the one component — no inline enum repeated. Neither
+        // field is required on create, so a response may carry null and the read schema
+        // unions the ref with the null type.
         $articleStatus = $this->arrAt($schemas, 'ArticlesAttributes', 'properties', 'status');
-        self::assertSame('#/components/schemas/Status', $articleStatus['$ref']);
+        self::assertSame([['$ref' => '#/components/schemas/Status'], ['type' => 'null']], $articleStatus['anyOf']);
         self::assertArrayNotHasKey('enum', $articleStatus);
 
-        self::assertSame('#/components/schemas/Status', $this->strAt($schemas, 'PeopleAttributes', 'properties', 'role', '$ref'));
+        self::assertSame(
+            [['$ref' => '#/components/schemas/Status'], ['type' => 'null']],
+            $this->arrAt($schemas, 'PeopleAttributes', 'properties', 'role', 'anyOf'),
+        );
     }
 
     #[Test]

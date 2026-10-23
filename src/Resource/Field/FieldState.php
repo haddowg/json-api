@@ -30,6 +30,7 @@ final readonly class FieldState
      * @param \Closure(mixed, \haddowg\JsonApi\Request\JsonApiRequestInterface, string): mixed|null $extractUsing   computed-value hook
      * @param \Closure(mixed, array<string, mixed>): mixed|null                          $deserializeUsing     deserialize hook
      * @param \Closure(mixed, mixed, array<string, mixed>, string): mixed|null           $fillUsing            fill hook
+     * @param bool                                                                       $guaranteed           the author asserts every rendered value is non-null
      */
     public function __construct(
         public string $name,
@@ -54,5 +55,6 @@ final readonly class FieldState
         public ?\Closure $extractUsing = null,
         public ?\Closure $deserializeUsing = null,
         public ?\Closure $fillUsing = null,
+        public bool $guaranteed = false,
     ) {}
 }

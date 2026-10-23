@@ -125,6 +125,38 @@ abstract readonly class AbstractFieldValue implements FieldInterface
         return $this->state->constraints;
     }
 
+    /**
+     * What a read can promise about this field's rendered value, for the OpenAPI read
+     * schema. `true` means it is never `null`: the author declared `guaranteed()`, or the
+     * `serializeUsing()` / `extractUsing()` hook that produces it declares a return type
+     * without `null`. `false` means it may be `null` whatever was written: it is
+     * flattened through `on()` (any hop may be null), a hook without such a return type
+     * produces it, or a request-aware `readOnlyOnCreate()` lets a create skip it. `null`
+     * means it renders the written value, so the field's write constraints decide.
+     *
+     * @internal
+     */
+    public function readValueGuarantee(): ?bool
+    {
+        if ($this->state->guaranteed) {
+            return true;
+        }
+        if ($this->state->relatedVia !== null) {
+            return false;
+        }
+
+        $hook = $this->state->serializeUsing ?? $this->state->extractUsing;
+        if ($hook !== null) {
+            $type = (new \ReflectionFunction($hook))->getReturnType();
+
+            return $type !== null
+                && !$type->allowsNull()
+                && !($type instanceof \ReflectionNamedType && \in_array($type->getName(), ['void', 'never'], true));
+        }
+
+        return $this->state->readOnlyOnCreateWhen !== null ? false : null;
+    }
+
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {

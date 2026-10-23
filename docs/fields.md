@@ -262,9 +262,35 @@ compose:
 - **Required** (`required*`) gates **validation** — the value is *demanded* if
   the [validation adapter](constraints.md) executes it.
 
-A `readOnly()->nullable()` field is serialized, never accepts a client write, and
-advertises that its value may be null. The two helpers never conflict because
-they act in different phases.
+A `readOnly()->nullable()` field is serialized and never accepts a client write. The
+two helpers never conflict because they act in different phases.
+
+### Null on read: `guaranteed()`
+
+A response can carry `null` for a field no write had to fill: an optional member a
+create left out is stored as `null` and rendered as `null`. So the OpenAPI read schema
+types an attribute without `null` only when the server guarantees a value:
+
+- every create must supply it: `required()` or `requiredOnCreate()`, on a field a create
+  can write (a write that declares `nullable()` still lets `null` in);
+- a `serializeUsing()` / `extractUsing()` / `computedUsing()` closure produces it and
+  declares a return type without `null` (`fn($model): int => …`). An untyped closure
+  could return anything, so it counts as nullable;
+- the author asserts it with `guaranteed()`.
+
+Everything else admits `null` on read, including a read-only field and a value
+[flattened through `on()`](#flattened-related-attributes-on) (any hop in the chain may be
+null). Core can't see a column default, a `fillUsing()` that supplies one, or a timestamp
+the server always sets, so declare those:
+
+```php
+DateTime::make('createdAt')->readOnly()->guaranteed(),
+Str::make('status')->guaranteed(),  // the entity defaults it to 'draft'
+```
+
+`guaranteed()` describes the rendered value only. It changes no validation, and the
+create and update schemas still follow `nullable()`. Declared on a field that can render
+`null`, it makes the document lie to every client generated from it.
 
 ## Enumeration
 

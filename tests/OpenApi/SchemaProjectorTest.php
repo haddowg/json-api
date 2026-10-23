@@ -226,7 +226,15 @@ final class SchemaProjectorTest extends TestCase
         self::assertSame('email', $this->at($this->project(Email::make('e')->build()), 'format'));
         self::assertSame('uri', $this->at($this->project(Url::make('u')->build()), 'format'));
         self::assertSame('uuid', $this->at($this->project(Uuid::make('id')->build()), 'format'));
-        self::assertSame('ipv4', $this->at($this->project(Ip::make('ip')->build()), 'format'));
+        self::assertSame('ipv4', $this->at($this->project(Ip::make('ip')->v4()->build()), 'format'));
+        self::assertSame('ipv6', $this->at($this->project(Ip::make('ip')->v6()->build()), 'format'));
+    }
+
+    #[Test]
+    public function anIpThatAcceptsEitherFamilyProjectsNoFormat(): void
+    {
+        // `ipv4` alone would reject the IPv6 addresses the field accepts.
+        self::assertArrayNotHasKey('format', $this->project(Ip::make('ip')->build()));
     }
 
     #[Test]

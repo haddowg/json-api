@@ -33,10 +33,13 @@ use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\IntegerBuilder;
+use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Filter\Boolean as BooleanFilter;
@@ -154,6 +157,20 @@ final class ContractWitnessServer
                 Time::make('embargoLifts')->build(),
                 Email::make('editorEmail')->build(),
                 Url::make('canonicalUrl')->build(),
+                // Constraint contexts: a create-only bound narrows only the create body, an
+                // update can also write it so the read schema drops it; a field only a
+                // create can write keeps its create-only bound on read; a conditional
+                // `nullable()` widens every schema; an either-family IP carries no format.
+                Str::make('excerpt')->onCreate(static function (StrBuilder $f): void {
+                    $f->maxLength(280);
+                })->build(),
+                Integer::make('revision')->readOnlyOnUpdate()->onCreate(static function (IntegerBuilder $f): void {
+                    $f->min(1);
+                })->build(),
+                Str::make('reviewNote')->when(static fn(mixed $value): bool => $value === null, static function (StrBuilder $f): void {
+                    $f->nullable();
+                })->build(),
+                Ip::make('originIp')->build(),
                 ArrayList::make('keywords')->minItems(1)->maxItems(10)->uniqueItems()->build(),
                 ArrayHash::make('analytics')->nullable()->build(),
                 Map::make('address')->fields(
@@ -164,6 +181,16 @@ final class ContractWitnessServer
                     ->variant('heading', Str::make('text')->required()->build())
                     ->variant('image', Url::make('src')->build())
                     ->build(),
+                // Read nullability: a response promises a non-null value only when the
+                // server guarantees one. An asserted read-only timestamp and a computed
+                // value with a non-null return type are non-null; a plain read-only field
+                // and a value flattened through a to-one are not. A sparse-by-default
+                // member is left out of the read `required`.
+                DateTime::make('createdAt')->readOnly()->guaranteed()->build(),
+                Str::make('legacyRef')->readOnly()->build(),
+                Integer::make('commentCount')->computedUsing(static fn(mixed $model): int => 0)->build(),
+                Str::make('authorName')->on('author')->build(),
+                Integer::make('score')->sparseByDefault()->build(),
             ],
             relations: [
                 new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.'),

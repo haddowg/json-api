@@ -183,6 +183,49 @@ sketch:
   example in the `description`, so a generated client never coerces on a keyword the
   server does not honour. Note that `Time`'s `H:i:s` default carries no offset and so is
   not an RFC 3339 `full-time`.
+- **Constraints, per representation.** Every built-in constraint with a JSON Schema
+  keyword projects it: `minimum` / `maximum` / `exclusiveMinimum` / `exclusiveMaximum` /
+  `multipleOf`, `minLength` / `maxLength` / `pattern`, `minItems` / `maxItems` /
+  `uniqueItems`, `minProperties` / `maxProperties`, `enum`, `not`, and the `email` / `uri`
+  / `uuid` / `ipv4` / `ipv6` formats. Which schema carries a keyword follows the context it
+  is enforced in. The create shape takes the constraints that apply on create, and the
+  update shape those that apply on update. The read shape takes a constraint only when
+  every write that can set the field enforces it, so a create-only `maxLength(280)` on a
+  field an update can also write narrows the create shape and nothing else. A field only a
+  create can write (`readOnlyOnUpdate()`) keeps its create-only bounds on read. `null` goes
+  the other way: the read shape admits it when any write that can set the field does. A
+  filter value takes every constraint the filter declares, whatever its context, because
+  the filter validator runs them all.
+- **`null` on read only when it can happen.** A response attribute admits `null` unless
+  the server guarantees a value, because an optional member a create left out renders as
+  `null`. A value is guaranteed when every create had to supply it (`required()` or
+  `requiredOnCreate()` on a field a create can write, and no write declares `nullable()`),
+  when the closure producing it declares a non-null return type, or when the field
+  declares [`guaranteed()`](fields.md#null-on-read-guaranteed). A read-only field and an
+  [`on()`](fields.md#flattened-related-attributes-on) value admit `null` until asserted. A
+  nullable enum adds `null` to its `enum` list, or unions its `$ref` with `{"type":
+  "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
+  same rule, and the resource `id` is never null. So a client can trust a read type
+  without `null`: that member always carries a value.
+  ([ADR 0156](adr/0156-a-read-attribute-admits-null-unless-the-server-guarantees-a-value.md).)
+- **Presence is a separate promise.** The read shape's `required` lists every attribute a
+  response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
+  `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
+  can omit them. A sparse fieldset can omit any member, so a client that sends one
+  narrows the type itself.
+- **`required()` means non-empty too.** A `Required` field must be present on create and
+  may never be empty, so a required string carries `minLength: 1`, a required list
+  `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each
+  shape the `Required` applies to (a larger declared minimum is kept). A required number
+  or boolean gains nothing.
+- **Conditional rules stay out of the keywords.** A constraint inside `when()` holds only
+  for the requests its condition admits, so none of its keywords project. The schema gets
+  a note in its `description` instead. A conditional `nullable()` does widen the type to
+  admit `null`, since some requests may send it. An `Ip` that accepts either family has no
+  `format`, because `ipv4` alone would reject its IPv6 addresses. An `anyOf` from
+  `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
+  reject values the server accepts.
+  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 
 ### The error-code catalogue
 

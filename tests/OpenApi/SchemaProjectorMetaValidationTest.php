@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\OpenApi\RepresentationContext;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Resource\Field\ArrayList;
@@ -13,6 +14,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
 use Opis\JsonSchema\Errors\ValidationError;
 use Opis\JsonSchema\Helper;
@@ -128,6 +130,50 @@ final class SchemaProjectorMetaValidationTest extends TestCase
         $resolver->registerRaw($schemaObject, $id);
 
         return $validator->validate(Helper::toJSON($data), $id)->error();
+    }
+
+    #[Test]
+    public function aReadSchemaTakesNullExactlyWhereNoValueIsGuaranteed(): void
+    {
+        $schema = $this->projector()->projectAttributes([
+            Str::make('name')->required()->build(),
+            Str::make('nickname')->build(),
+            Str::make('status')->enum(Status::class)->build(),
+            Str::make('authorName')->on('author')->build(),
+            DateTime::make('createdAt')->readOnly()->guaranteed()->build(),
+            Map::make('address')->fields(Str::make('city')->build())->build(),
+        ], RepresentationContext::Read);
+
+        $valid = ['name' => 'Ada', 'nickname' => null, 'status' => null, 'authorName' => null, 'createdAt' => '2024-01-01T00:00:00+00:00', 'address' => null];
+        self::assertNull($this->validate($schema, $valid));
+        self::assertNull($this->validate($schema, [...$valid, 'address' => ['city' => null]]));
+        self::assertNotNull($this->validate($schema, [...$valid, 'name' => null]));
+        self::assertNotNull($this->validate($schema, [...$valid, 'createdAt' => null]));
+        self::assertNotNull($this->validate($schema, [...$valid, 'status' => 'pending']));
+    }
+
+    #[Test]
+    public function aRequiredStringRejectsTheEmptyStringButANullableOneStillTakesNull(): void
+    {
+        $schema = $this->projector()->projectField(Str::make('name')->required()->nullable()->build(), true);
+
+        self::assertNull($this->validate($schema, 'Ada'));
+        self::assertNull($this->validate($schema, null));
+        self::assertNotNull($this->validate($schema, ''));
+    }
+
+    #[Test]
+    public function aConditionallyNullableStringAcceptsNull(): void
+    {
+        $schema = $this->projector()->projectField(
+            Str::make('note')->when(static fn(mixed $value): bool => $value === null, static function (StrBuilder $f): void {
+                $f->nullable();
+            })->build(),
+            true,
+        );
+
+        self::assertNull($this->validate($schema, null));
+        self::assertNull($this->validate($schema, 'text'));
     }
 
     #[Test]

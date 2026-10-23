@@ -222,7 +222,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -242,10 +242,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -404,7 +413,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -424,10 +433,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -583,7 +601,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -603,10 +621,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -771,7 +798,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -791,10 +818,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -1228,7 +1264,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1248,10 +1284,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -2754,7 +2799,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2774,10 +2819,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -4106,7 +4160,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `keywords`, `analytics`, `address`, `block`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4126,10 +4180,19 @@
                                     "embargoLifts",
                                     "editorEmail",
                                     "canonicalUrl",
+                                    "excerpt",
+                                    "revision",
+                                    "reviewNote",
+                                    "originIp",
                                     "keywords",
                                     "analytics",
                                     "address",
                                     "block",
+                                    "createdAt",
+                                    "legacyRef",
+                                    "commentCount",
+                                    "authorName",
+                                    "score",
                                     "author",
                                     "tags",
                                     "cover",
@@ -5663,16 +5726,33 @@
                         "example": "Hello, world"
                     },
                     "slug": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                         "example": "example-slug"
                     },
                     "status": {
-                        "$ref": "#/components/schemas/Status",
-                        "description": "Publication status."
+                        "description": "Publication status.",
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Status"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "priority": {
-                        "$ref": "#/components/schemas/Priority"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Priority"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "wordCount": {
                         "type": [
@@ -5683,15 +5763,24 @@
                         "multipleOf": 10
                     },
                     "rating": {
-                        "type": "number",
+                        "type": [
+                            "number",
+                            "null"
+                        ],
                         "exclusiveMinimum": 0,
                         "exclusiveMaximum": 10
                     },
                     "featured": {
-                        "type": "boolean"
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     },
                     "releasedOn": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date"
                     },
                     "publishedAt": {
@@ -5702,27 +5791,71 @@
                         "format": "date-time"
                     },
                     "syncedAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     },
                     "archivedAt": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "description": "A date/time value written as `05/09/2024 09:08`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
                     },
                     "embargoLifts": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "description": "A date/time value written as `09:08:07`. No standard `format` keyword describes that shape, so parse it literally rather than as an RFC 3339 date-time."
                     },
                     "editorEmail": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "email"
                     },
                     "canonicalUrl": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "uri"
                     },
+                    "excerpt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "revision": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "minimum": 1
+                    },
+                    "reviewNote": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A conditional rule applies to this value; see the resource documentation."
+                    },
+                    "originIp": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "keywords": {
-                        "type": "array",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
                         "minItems": 1,
                         "maxItems": 10,
                         "uniqueItems": true,
@@ -5738,13 +5871,20 @@
                         "additionalProperties": {}
                     },
                     "address": {
-                        "type": "object",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
                         "properties": {
                             "street": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                             },
                             "city": {
-                                "type": "string"
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             }
                         }
                     },
@@ -5754,7 +5894,8 @@
                                 "type": "object",
                                 "properties": {
                                     "text": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "minLength": 1
                                     },
                                     "kind": {
                                         "type": "string",
@@ -5766,7 +5907,10 @@
                                 "type": "object",
                                 "properties": {
                                     "src": {
-                                        "type": "string",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
                                         "format": "uri"
                                     },
                                     "kind": {
@@ -5774,11 +5918,39 @@
                                         "const": "image"
                                     }
                                 }
+                            },
+                            {
+                                "type": "null"
                             }
                         ],
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "legacyRef": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "commentCount": {
+                        "type": "integer"
+                    },
+                    "authorName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "score": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -5796,10 +5968,18 @@
                     "embargoLifts",
                     "editorEmail",
                     "canonicalUrl",
+                    "excerpt",
+                    "revision",
+                    "reviewNote",
+                    "originIp",
                     "keywords",
                     "analytics",
                     "address",
-                    "block"
+                    "block",
+                    "createdAt",
+                    "legacyRef",
+                    "commentCount",
+                    "authorName"
                 ]
             },
             "ArticlesAuthorRelatedDocument": {
@@ -6036,6 +6216,24 @@
                         "type": "string",
                         "format": "uri"
                     },
+                    "excerpt": {
+                        "type": "string",
+                        "maxLength": 280
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "reviewNote": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A conditional rule applies to this value; see the resource documentation."
+                    },
+                    "originIp": {
+                        "type": "string"
+                    },
                     "keywords": {
                         "type": "array",
                         "minItems": 1,
@@ -6056,7 +6254,8 @@
                         "type": "object",
                         "properties": {
                             "street": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                             },
                             "city": {
                                 "type": "string"
@@ -6072,7 +6271,8 @@
                                 "type": "object",
                                 "properties": {
                                     "text": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "minLength": 1
                                     },
                                     "kind": {
                                         "type": "string",
@@ -6104,6 +6304,12 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "authorName": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "integer"
                     }
                 },
                 "required": [
@@ -6591,6 +6797,19 @@
                         "type": "string",
                         "format": "uri"
                     },
+                    "excerpt": {
+                        "type": "string"
+                    },
+                    "reviewNote": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A conditional rule applies to this value; see the resource documentation."
+                    },
+                    "originIp": {
+                        "type": "string"
+                    },
                     "keywords": {
                         "type": "array",
                         "minItems": 1,
@@ -6611,7 +6830,8 @@
                         "type": "object",
                         "properties": {
                             "street": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                             },
                             "city": {
                                 "type": "string"
@@ -6624,7 +6844,8 @@
                                 "type": "object",
                                 "properties": {
                                     "text": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "minLength": 1
                                     },
                                     "kind": {
                                         "type": "string",
@@ -6649,6 +6870,12 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "authorName": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "integer"
                     }
                 }
             },
@@ -8199,7 +8426,10 @@
                 "type": "object",
                 "properties": {
                     "url": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "uri"
                     }
                 },
@@ -8941,10 +9171,18 @@
                 "type": "object",
                 "properties": {
                     "name": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "role": {
-                        "$ref": "#/components/schemas/Status"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Status"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     }
                 },
                 "required": [
@@ -9027,7 +9265,8 @@
                 "type": "object",
                 "properties": {
                     "name": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "role": {
                         "$ref": "#/components/schemas/Status"
@@ -9148,7 +9387,8 @@
                 "type": "object",
                 "properties": {
                     "name": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "role": {
                         "$ref": "#/components/schemas/Status"
@@ -10187,7 +10427,8 @@
                 "type": "object",
                 "properties": {
                     "label": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     }
                 },
                 "required": [
@@ -10221,7 +10462,8 @@
                 "type": "object",
                 "properties": {
                     "label": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     }
                 },
                 "required": [
@@ -10340,7 +10582,8 @@
                 "type": "object",
                 "properties": {
                     "label": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     }
                 }
             },
@@ -10507,11 +10750,17 @@
                 "type": "object",
                 "properties": {
                     "url": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "uri"
                     },
                     "seconds": {
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
