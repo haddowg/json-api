@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/haddowg/json-api/compare/v1.4.0...v1.5.0) (2026-10-23)
+
+
+### Features
+
+* complete withers on the OpenAPI value objects, preserving vendor extensions ([d18a587](https://github.com/haddowg/json-api/commit/d18a587f67f49c3f9ea7bbca93ada52dc29d5a17))
+* project each paginator's defaults and page-size cap onto its page schema ([#190](https://github.com/haddowg/json-api/issues/190)) ([97c5748](https://github.com/haddowg/json-api/commit/97c57487f018126e0b80dcdc63147e9f9568a4d4))
+* project every enforced constraint into the schema it holds for ([beb59e1](https://github.com/haddowg/json-api/commit/beb59e150ff6ed2b8add13badb4195b58bb7c328))
+
+
+### Bug Fixes
+
+* don't render a writeOnly() relation in a response ([d18a587](https://github.com/haddowg/json-api/commit/d18a587f67f49c3f9ea7bbca93ada52dc29d5a17))
+* project a read attribute as nullable unless a value is guaranteed ([beb59e1](https://github.com/haddowg/json-api/commit/beb59e150ff6ed2b8add13badb4195b58bb7c328))
+
 ## [1.4.0](https://github.com/haddowg/json-api/compare/v1.3.0...v1.4.0) (2026-10-23)
 
 
