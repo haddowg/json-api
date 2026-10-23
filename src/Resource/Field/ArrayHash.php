@@ -43,4 +43,11 @@ final readonly class ArrayHash extends AbstractFieldValue
 
         return JsonObject::of($raw);
     }
+
+    protected function deserializeValue(mixed $value): mixed
+    {
+        JsonObject::assertNotList($value, $this->name());
+
+        return $value;
+    }
 }

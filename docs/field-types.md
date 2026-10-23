@@ -377,6 +377,29 @@ The value always renders as a JSON object. An empty array renders `{}`, and a
 list-shaped array renders with its indexes as keys (`{"0": "a"}`), so a column
 defaulting to `[]` still matches the field's `type: object`. A `null` stays `null`.
 
+### A JSON array is not an object
+
+`ArrayHash`, `Map`, `Obj` and `OneOf` all expect a JSON object on write. A non-empty
+JSON array sent for one (`"preferences": [1, 2]`) is refused with a `422`
+`ATTRIBUTE_VALUE_INVALID` whose `detail` ends `expected an object, got a list`. The
+pointer names the field, so a list at the top level points at
+`/data/attributes/preferences`, and a list for an `ArrayHash` child of an `Obj`
+points at `/data/attributes/address/tags`. A `null` for a nullable field, and a
+field left out of the body, are unaffected. A pivot field of one of these types
+refuses a list the same way, through `castWireValue()`. A `fillUsing()` or
+`deserializeUsing()` hook replaces the cast, so it skips the check.
+
+An empty array is the exception. The request body is decoded into associative
+arrays, so `[]` and `{}` both arrive as an empty PHP array and the field can't
+tell which one the client sent. It accepts both. The optional
+[`RequestValidationMiddleware`](schema-validation.md#wiring-it-into-the-middleware-chain)
+doesn't catch `[]` either, because it checks the body against the JSON:API schema
+and profile fragments only, not each attribute's type. To refuse `[]` you need a
+check that sees the body with objects kept as objects: a schema compiled with
+[`SchemaCompiler`](schema-validation.md#per-resource-schemas-schemacompiler) and
+passed to `validateRequest()` (it types `ArrayHash` and `Map` as `object`), or an
+adapter's own object-preserving validation.
+
 **`Map` vs `ArrayHash`** is the key distinction to get right. Both render a JSON
 object, but `Map` has **declared keys** — each child is its own field, mapping to
 its own flat column, validated and cast independently. `ArrayHash` has **dynamic
