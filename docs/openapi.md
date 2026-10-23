@@ -196,6 +196,23 @@ sketch:
   the other way: the read shape admits it when any write that can set the field does. A
   filter value takes every constraint the filter declares, whatever its context, because
   the filter validator runs them all.
+- **`null` on read only when it can happen.** A response attribute admits `null` unless
+  the server guarantees a value, because an optional member a create left out renders as
+  `null`. A value is guaranteed when every create had to supply it (`required()` or
+  `requiredOnCreate()` on a field a create can write, and no write declares `nullable()`),
+  when the closure producing it declares a non-null return type, or when the field
+  declares [`guaranteed()`](fields.md#null-on-read-guaranteed). A read-only field and an
+  [`on()`](fields.md#flattened-related-attributes-on) value admit `null` until asserted. A
+  nullable enum adds `null` to its `enum` list, or unions its `$ref` with `{"type":
+  "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
+  same rule, and the resource `id` is never null. So a client can trust a read type
+  without `null`: that member always carries a value.
+  ([ADR 0156](adr/0156-a-read-attribute-admits-null-unless-the-server-guarantees-a-value.md).)
+- **Presence is a separate promise.** The read shape's `required` lists every attribute a
+  response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
+  `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
+  can omit them. A sparse fieldset can omit any member, so a client that sends one
+  narrows the type itself.
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each

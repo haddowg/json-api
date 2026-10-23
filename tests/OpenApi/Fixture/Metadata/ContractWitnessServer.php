@@ -181,6 +181,16 @@ final class ContractWitnessServer
                     ->variant('heading', Str::make('text')->required()->build())
                     ->variant('image', Url::make('src')->build())
                     ->build(),
+                // Read nullability: a response promises a non-null value only when the
+                // server guarantees one. An asserted read-only timestamp and a computed
+                // value with a non-null return type are non-null; a plain read-only field
+                // and a value flattened through a to-one are not. A sparse-by-default
+                // member is left out of the read `required`.
+                DateTime::make('createdAt')->readOnly()->guaranteed()->build(),
+                Str::make('legacyRef')->readOnly()->build(),
+                Integer::make('commentCount')->computedUsing(static fn(mixed $model): int => 0)->build(),
+                Str::make('authorName')->on('author')->build(),
+                Integer::make('score')->sparseByDefault()->build(),
             ],
             relations: [
                 new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.'),

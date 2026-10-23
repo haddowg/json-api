@@ -20,6 +20,7 @@ use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\When;
 use haddowg\JsonApi\Resource\Enum\DescribedEnum;
+use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -77,8 +78,9 @@ final class SchemaProjector
      * create (POST) or update (PATCH) constraint context; the default `false`
      * projects the update context. Inside a read projection ({@see projectAttributes()}
      * with {@see RepresentationContext::Read}, {@see projectResourceObject()}) a value
-     * keyword is kept only when every write that can set the field enforces it, and
-     * `null` is admitted when any of them accepts it (see {@see narrowingScope()}).
+     * keyword is kept only when every write that can set the field enforces it (see
+     * {@see narrowingScope()}), and `null` is admitted unless the server guarantees a
+     * value (see {@see applyNullability()}).
      *
      * Pass an {@see EnumComponentCollector} when projecting **into a document**: a
      * backed-enum schema is then hoisted into the collector as a reusable named
@@ -142,7 +144,7 @@ final class SchemaProjector
         }
 
         $schema = $this->applyRequiredNonEmpty($schema, $field, $applies);
-        $schema = $this->applyNullable($schema, $field, $this->wideningScope($field, $creating));
+        $schema = $this->applyNullability($schema, $field, $creating);
         $schema = $this->applyDescription($schema, $field, $notes);
 
         return $this->applyExample($schema, $field);
@@ -185,12 +187,14 @@ final class SchemaProjector
      * The `required` array is populated by context:
      * - **Create** — the fields a POST body must carry (a PATCH is partial, so an
      *   update never marks a member required; a response has no request-required notion).
-     * - **Read** — the members **guaranteed present** in a response: every read
-     *   attribute except one whose presence is request-conditional
-     *   ({@see FieldInterface::hasConditionalReadVisibility()} — a `hidden(when:)` /
-     *   `writeOnly(when:)` field stays in this superset schema but may be absent for
-     *   some requests). A consumer then knows a required read member is always there and
-     *   a non-required one may be `undefined`.
+     * - **Read** — the members **guaranteed present** in a response that names no
+     *   `fields[<type>]`: every read attribute except one whose presence is
+     *   request-conditional ({@see FieldInterface::hasConditionalReadVisibility()} — a
+     *   `hidden(when:)` / `writeOnly(when:)` field stays in this superset schema but may
+     *   be absent for some requests) and one that is sparse by default (rendered only when
+     *   a fieldset names it). A consumer then knows a required read member is always there
+     *   and a non-required one may be `undefined`. Presence says nothing about `null`;
+     *   the member's own schema does.
      *
      * @param iterable<FieldInterface> $fields
      */
@@ -213,7 +217,7 @@ final class SchemaProjector
                 if ($this->isRequired($field, true)) {
                     $required[] = $field->name();
                 }
-            } elseif ($context === RepresentationContext::Read && !$field->hasConditionalReadVisibility()) {
+            } elseif ($context === RepresentationContext::Read && !$field->hasConditionalReadVisibility() && !$field->isSparseByDefault()) {
                 $required[] = $field->name();
             }
         }
@@ -701,57 +705,128 @@ final class SchemaProjector
     }
 
     /**
-     * Widens the schema's scalar `type` to allow `null` when the field declares
-     * {@see Nullable} in this context, directly or inside a {@see When}: a conditional
-     * `null` is accepted for some requests, so the superset schema admits it.
+     * Admits `null` into the field's schema when the representation can carry it.
      *
-     * A nullable enumerated field also needs `null` in its `enum` list: JSON
-     * Schema `enum` is an absolute whitelist that overrides the type union, so
-     * without this a declared-nullable enum would reject its own legitimate `null`.
+     * A request body admits it when the field declares {@see Nullable} in that context,
+     * directly or inside a {@see When} (a conditional `null` is accepted for some
+     * requests, so the superset schema admits it).
+     *
+     * A response admits it unless the server guarantees a value. The id always has one.
+     * A value is guaranteed when the field promises it ({@see readGuarantee()}), or when
+     * it renders what was written and every create had to supply it: an unconditional
+     * {@see Required} on create, on a field a create can write. Even then a write that
+     * accepts `null` lets it in, as for a request body. Everything else may render `null`:
+     * an optional field a create left out, a read-only field the server may not have
+     * populated, a value flattened through a to-one chain with a null hop.
+     */
+    private function applyNullability(Schema $schema, FieldInterface $field, bool $creating): Schema
+    {
+        if ($creating || !$this->reading || $field instanceof Id) {
+            return $this->declaresNullable($field, $this->wideningScope($field, $creating)) ? $this->admitNull($schema) : $schema;
+        }
+
+        return match ($this->readGuarantee($field)) {
+            true => $schema,
+            false => $this->admitNull($schema),
+            null => !$this->requiredOnEveryCreate($field) || $this->declaresNullable($field, $this->wideningScope($field, false))
+                ? $this->admitNull($schema)
+                : $schema,
+        };
+    }
+
+    /**
+     * What the field promises about its rendered value, see
+     * {@see AbstractFieldValue::readValueGuarantee()}. A field that does not extend it
+     * makes no promise beyond its write constraints, except that a value flattened
+     * through `on()` can always be `null`.
+     */
+    private function readGuarantee(FieldInterface $field): ?bool
+    {
+        if ($field instanceof AbstractFieldValue) {
+            return $field->readValueGuarantee();
+        }
+
+        return $field->relatedVia() !== null ? false : null;
+    }
+
+    /**
+     * Whether every create must supply the field: an unconditional {@see Required} that
+     * applies on create, on a field a create can write. A `Required` inside a
+     * {@see When} holds for only some requests, so it does not count.
+     */
+    private function requiredOnEveryCreate(FieldInterface $field): bool
+    {
+        if ($field->isReadOnly(true)) {
+            return false;
+        }
+
+        foreach ($field->constraints() as $constraint) {
+            if ($constraint instanceof Required && $constraint->context()->onCreate) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the field declares {@see Nullable} under `$applies`, directly or inside a
+     * {@see When}.
      *
      * @param \Closure(Context): bool $applies
      */
-    private function applyNullable(Schema $schema, FieldInterface $field, \Closure $applies): Schema
+    private function declaresNullable(FieldInterface $field, \Closure $applies): bool
     {
         foreach ($field->constraints() as $constraint) {
-            if (!$this->declaresPresenceRule($constraint, Nullable::class, $applies)) {
-                continue;
+            if ($this->declaresPresenceRule($constraint, Nullable::class, $applies)) {
+                return true;
             }
-            // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
-            // widen; the OAS-3.1 way to make a referenced schema nullable is to
-            // union it with the null type.
-            if (\is_string($schema->get('$ref'))) {
-                return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
-            }
+        }
 
-            if ($schema->hasScalarType()) {
-                $schema = $this->allowNullInEnum($schema->asNullable());
-            }
+        return false;
+    }
 
-            // A combinator must also admit `null` explicitly: widening the type
-            // union is not enough, because `oneOf`/`anyOf`/`allOf` apply regardless
-            // of the `type` keyword (a nullable Shape'd field would otherwise
-            // document a schema that rejects the null it accepts at runtime).
-            $oneOf = $schema->get('oneOf');
-            if (\is_array($oneOf)) {
-                /** @var list<Schema> $oneOf */
-                return $schema->withOneOf([...$oneOf, Schema::ofType('null')]);
-            }
-            $anyOf = $schema->get('anyOf');
-            if (\is_array($anyOf)) {
-                /** @var list<Schema> $anyOf */
-                return $schema->withAnyOf([...$anyOf, Schema::ofType('null')]);
-            }
-            $allOf = $schema->get('allOf');
-            if (\is_array($allOf)) {
-                /** @var list<Schema> $allOf */
-                // A conjunction cannot gain a null branch — hoist it into a
-                // disjunction with the null type instead.
-                return $schema->without('allOf')
-                    ->withAnyOf([Schema::ofType('null'), Schema::create()->withAllOf($allOf)]);
-            }
+    /**
+     * Widens a schema to admit `null`.
+     *
+     * A nullable enumerated field also needs `null` in its `enum` list: JSON
+     * Schema `enum` is an absolute whitelist that overrides the type union, so
+     * without this a nullable enum would reject its own legitimate `null`.
+     */
+    private function admitNull(Schema $schema): Schema
+    {
+        // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
+        // widen; the OAS-3.1 way to make a referenced schema nullable is to
+        // union it with the null type.
+        if (\is_string($schema->get('$ref'))) {
+            return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
+        }
 
-            return $schema;
+        if ($schema->hasScalarType()) {
+            $schema = $this->allowNullInEnum($schema->asNullable());
+        }
+
+        // A combinator must also admit `null` explicitly: widening the type
+        // union is not enough, because `oneOf`/`anyOf`/`allOf` apply regardless
+        // of the `type` keyword (a nullable Shape'd field would otherwise
+        // document a schema that rejects the null it accepts at runtime).
+        $oneOf = $schema->get('oneOf');
+        if (\is_array($oneOf)) {
+            /** @var list<Schema> $oneOf */
+            return $schema->withOneOf([...$oneOf, Schema::ofType('null')]);
+        }
+        $anyOf = $schema->get('anyOf');
+        if (\is_array($anyOf)) {
+            /** @var list<Schema> $anyOf */
+            return $schema->withAnyOf([...$anyOf, Schema::ofType('null')]);
+        }
+        $allOf = $schema->get('allOf');
+        if (\is_array($allOf)) {
+            /** @var list<Schema> $allOf */
+            // A conjunction cannot gain a null branch — hoist it into a
+            // disjunction with the null type instead.
+            return $schema->without('allOf')
+                ->withAnyOf([Schema::ofType('null'), Schema::create()->withAllOf($allOf)]);
         }
 
         return $schema;

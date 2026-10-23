@@ -111,9 +111,10 @@ final class ConstraintContextProjectionTest extends TestCase
             })->build(),
         )->build();
 
+        // The child is optional, so a stored object may lack it and the read admits null.
         $read = $this->attribute($field, RepresentationContext::Read);
         self::assertIsArray($read['properties'] ?? null);
-        self::assertSame(['type' => 'string'], $read['properties']['code'] ?? null);
+        self::assertSame(['type' => ['string', 'null']], $read['properties']['code'] ?? null);
 
         $create = $this->attribute($field, RepresentationContext::Create);
         self::assertIsArray($create['properties'] ?? null);
@@ -197,9 +198,12 @@ final class ConstraintContextProjectionTest extends TestCase
         foreach (RepresentationContext::cases() as $context) {
             $schema = $this->attribute($field, $context);
             self::assertArrayNotHasKey('minLength', $schema, $context->name);
-            self::assertSame('string', $schema['type'] ?? null, $context->name);
             self::assertIsString($schema['description'] ?? null, $context->name);
         }
+        self::assertSame('string', $this->attribute($field, RepresentationContext::Create)['type'] ?? null);
+        self::assertSame('string', $this->attribute($field, RepresentationContext::Update)['type'] ?? null);
+        // A conditional `required()` binds only some creates, so the value is not guaranteed.
+        self::assertSame(['string', 'null'], $this->attribute($field, RepresentationContext::Read)['type'] ?? null);
 
         $create = (new SchemaProjector())->projectAttributes([$field], RepresentationContext::Create)->toArray();
         self::assertSame([], $create['required'] ?? []);
