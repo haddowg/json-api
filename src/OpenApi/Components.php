@@ -54,6 +54,50 @@ final readonly class Components implements \JsonSerializable
         return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $this->headers, $schemes);
     }
 
+    /**
+     * Returns a copy with one response component added/replaced.
+     */
+    public function withResponse(string $name, Response|Reference $response): self
+    {
+        $responses = $this->responses;
+        $responses[$name] = $response;
+
+        return new self($this->schemas, $responses, $this->parameters, $this->requestBodies, $this->headers, $this->securitySchemes);
+    }
+
+    /**
+     * Returns a copy with one parameter component added/replaced.
+     */
+    public function withParameter(string $name, Parameter|Reference $parameter): self
+    {
+        $parameters = $this->parameters;
+        $parameters[$name] = $parameter;
+
+        return new self($this->schemas, $this->responses, $parameters, $this->requestBodies, $this->headers, $this->securitySchemes);
+    }
+
+    /**
+     * Returns a copy with one request-body component added/replaced.
+     */
+    public function withRequestBody(string $name, RequestBody|Reference $requestBody): self
+    {
+        $requestBodies = $this->requestBodies;
+        $requestBodies[$name] = $requestBody;
+
+        return new self($this->schemas, $this->responses, $this->parameters, $requestBodies, $this->headers, $this->securitySchemes);
+    }
+
+    /**
+     * Returns a copy with one header component added/replaced.
+     */
+    public function withHeader(string $name, Header|Reference $header): self
+    {
+        $headers = $this->headers;
+        $headers[$name] = $header;
+
+        return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $headers, $this->securitySchemes);
+    }
+
     public function isEmpty(): bool
     {
         return $this->schemas === []

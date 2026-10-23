@@ -530,11 +530,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         // resolve, else a cannotReplaceFor 403 would degrade to a 404). It is
         // excluded from the *rendered* relationships here, against the request. A
         // sparse-by-default relation is likewise excluded unless the request names it
-        // in `fields[type]` (ADR 0117), symmetric with the attribute path.
+        // in `fields[type]` (ADR 0117), symmetric with the attribute path. A write-only
+        // relation is accepted on write but never rendered, like a write-only attribute.
         $type = $this->getType($object);
         $visible = \array_values(\array_filter(
             $this->relationFields(),
-            fn(RelationInterface $relation): bool => !$relation->isHiddenFor($request, $object)
+            fn(RelationInterface $relation): bool => !$relation->isWriteOnlyFor($request)
+                && !$relation->isHiddenFor($request, $object)
                 && !($relation->isSparseByDefault() && !\in_array($relation->name(), $request->getIncludedFields($type), true)),
         ));
 

@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
@@ -525,7 +526,8 @@ final class OperationProjector
         $idParameter = $this->idPathParameter($type);
 
         foreach ($type->relations() as $relation) {
-            if ($relation->exposesRelatedEndpoint()) {
+            $writeOnly = self::isWriteOnly($relation);
+            if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
                 $paths['/' . $type->uriType() . '/{id}/' . $relation->name()] = (new PathItem(parameters: [$idParameter]))
                     ->withOperation('get', $this->relatedOperation($type, $relation, $server));
             }
@@ -535,11 +537,23 @@ final class OperationProjector
                 foreach ($this->relationshipOperations($type, $relation, $server, $operations) as $method => $operation) {
                     $item = $item->withOperation($method, $operation);
                 }
-                $paths['/' . $type->uriType() . '/{id}/relationships/' . $relation->name()] = $item;
+                // A write-only relation that cannot be mutated either has no operation left.
+                if ($item->operations !== []) {
+                    $paths['/' . $type->uriType() . '/{id}/relationships/' . $relation->name()] = $item;
+                }
             }
         }
 
         return $paths;
+    }
+
+    /**
+     * Whether the relation is declared unconditionally write-only
+     * ({@see DeclaresWriteOnlyRelation}).
+     */
+    private static function isWriteOnly(RelationMetadataInterface $relation): bool
+    {
+        return $relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly();
     }
 
     /**
@@ -637,6 +651,7 @@ final class OperationProjector
         $tags = $type->tags();
 
         $operations = [];
+        $writeOnly = self::isWriteOnly($relation);
 
         // GET — read the relationship linkage (mirrors a fetch). A **monomorphic to-one**
         // relationship endpoint honours the related resource's `filter[]` vocabulary
@@ -664,20 +679,23 @@ final class OperationProjector
         }
         // The relation's declared read security overrides the parent's fetch gate.
         $getSecurity = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
-        $getResponses = (new Responses())
-            ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
-        $operations['get'] = new Operation(
-            responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
-            tags: $tags,
-            summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
-            description: $this->relationDescription(
-                $relation,
-                'Returns the `' . $relation->name() . '` relationship linkage of a `' . $type->type() . '`.',
-            ),
-            operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
-            parameters: $getParameters,
-            security: $getSecurity,
-        );
+        // A write-only relation's linkage is never read back, so it has no GET.
+        if (!$writeOnly) {
+            $getResponses = (new Responses())
+                ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
+            $operations['get'] = new Operation(
+                responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
+                tags: $tags,
+                summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
+                description: $this->relationDescription(
+                    $relation,
+                    'Returns the `' . $relation->name() . '` relationship linkage of a `' . $type->type() . '`.',
+                ),
+                operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
+                parameters: $getParameters,
+                security: $getSecurity,
+            );
+        }
 
         $updatable = isset($allowed[OperationType::Update->value]);
 
@@ -745,11 +763,11 @@ final class OperationProjector
         // mutation security OVERRIDES the parent's update gate.
         $security = $this->relationSecurityFor($relation->securityMutate(), $type, OperationType::Update, $server);
 
-        // The handler always echoes the linkage (`200`); it never returns `204` for these
-        // arms, so the document advertises only `200` (the spec permits a `204`, but this
-        // implementation does not produce one).
-        $responses = (new Responses())
-            ->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef));
+        // The handler echoes the linkage (`200`), except for a write-only relation, whose
+        // linkage is never rendered: that mutation answers `204`.
+        $responses = self::isWriteOnly($relation)
+            ? (new Responses())->with('204', Response::noContent('The ' . $relation->name() . ' relationship was updated.'))
+            : (new Responses())->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef));
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -1339,7 +1357,9 @@ final class OperationProjector
     {
         $members = $this->schemaProjector->readAttributeNames($reachable->fields());
         foreach ($reachable->relations() as $relation) {
-            $members[] = $relation->name();
+            if (!self::isWriteOnly($relation)) {
+                $members[] = $relation->name();
+            }
         }
 
         $items = Schema::ofType('string');
@@ -1732,7 +1752,7 @@ final class OperationProjector
     {
         $names = [];
         foreach ($type->relations() as $relation) {
-            if ($relation->isCountable()) {
+            if ($relation->isCountable() && !self::isWriteOnly($relation)) {
                 $names[] = $relation->name();
             }
         }

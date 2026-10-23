@@ -74,7 +74,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * relation is nonetheless mutable, a standalone type with no field inventory, an
  * unregistered linkage-only related type, every relation shape (to-one, to-many,
  * pivot-backed, polymorphic, endpoint-suppressed,
- * mutation-locked), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
+ * mutation-locked, write-only), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, both registered profiles, and the Atomic
  * Operations extension. Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
@@ -190,6 +190,14 @@ final class ContractWitnessServer
                 // Polymorphic to-many with its related endpoint exposed — the one shape
                 // that needs a per-relation related collection.
                 new FakeRelationMetadata('attachments', ['images', 'videos'], true),
+                // Write-only, as metadata that opts into DeclaresWriteOnlyRelation reports
+                // it: settable on a write, absent from every read, mutated with a `204`.
+                // The fixture states the facts a write-only core relation reports too
+                // (not includable, no related endpoint, not countable).
+                new WriteOnlyRelationMetadata(new FakeRelationMetadata('reviewer', ['people'], false, includable: false, relatedEndpoint: false)),
+                new WriteOnlyRelationMetadata(new FakeRelationMetadata('watchers', ['people'], true, includable: false, relatedEndpoint: false)),
+                // Opted in but readable: projects exactly as a relation that never opted in.
+                new WriteOnlyRelationMetadata(new FakeRelationMetadata('editor', ['people'], false), writeOnly: false),
             ],
             tags: ['Articles'],
             description: 'A blog article.',

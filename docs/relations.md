@@ -492,6 +492,36 @@ This is the per-relation half of the include safeguards; a root-scoped
 allowed-include-paths whitelist and a maximum include depth are documented under
 [sparse fieldsets and includes](sparse-fieldsets-and-includes.md#constraining-includes-the-safeguards).
 
+## Write-only relations
+
+`writeOnly()` works on a relation the way it does on an
+[attribute](fields.md#write-only-members): a client sets it, the server never shows it.
+
+```php
+BelongsTo::make('approver', 'users')->writeOnly(),
+```
+
+A create or update can set it in `relationships`, and its relationship endpoint still
+takes `PATCH`, `POST` and `DELETE` under the usual [mutation gates](#mutation-gates).
+Everything that would read it back behaves as though the relation weren't declared:
+
+- Every response leaves it out of `relationships`. That covers fetches, included
+  resources, related and relationship endpoints, write responses and Atomic Operations
+  results.
+- `?include=approver` is a `400 InclusionUnrecognized`, the error a hidden relation gets.
+- `?withCount=approver` is a `400 RelationshipCountNotAllowed`.
+- `GET …/approver` and `GET …/relationships/approver` are a `404 RelationshipNotExists`.
+- A relationship mutation answers `204 No Content` rather than echoing the linkage.
+
+`fields[type]=approver` is still a recognised member, so strict mode doesn't reject it,
+but it renders nothing, as with a write-only attribute. The relation's static getters
+follow suit: `isIncludable()`, `isCountable()` and `exposesRelatedEndpoint()` report
+`false`.
+
+`writeOnly($when)` takes a request predicate and applies all of the above only to the
+requests it returns `true` for. The static getters then report the permissive value, and
+the [OpenAPI document](openapi.md#the-metadata-contract) describes the readable superset.
+
 ## Per-relation pagination
 
 A to-many relation paginates its related-collection endpoint with `paginate()`:

@@ -156,7 +156,9 @@ final class IncludePathGuard
 
             foreach ($resources as $type => $resource) {
                 $relation = $resource->relationNamed($name);
-                if ($relation === null) {
+                // A write-only relation never renders, so it is as unknown to
+                // `?include` as a hidden one.
+                if ($relation === null || $relation->isWriteOnlyFor($request)) {
                     continue;
                 }
 

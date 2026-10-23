@@ -79,6 +79,59 @@ final readonly class Response implements \JsonSerializable
     }
 
     /**
+     * Every vendor extension, keyed `x-…`.
+     *
+     * @return array<string, mixed>
+     */
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
+
+    public function withDescription(string $description): self
+    {
+        return new self($description, $this->headers, $this->content, $this->extensions);
+    }
+
+    /**
+     * @param array<string, Header|Reference> $headers
+     */
+    public function withHeaders(array $headers): self
+    {
+        return new self($this->description, $headers, $this->content, $this->extensions);
+    }
+
+    /**
+     * Returns a copy with one header added or replaced.
+     */
+    public function withHeader(string $name, Header|Reference $header): self
+    {
+        $headers = $this->headers;
+        $headers[$name] = $header;
+
+        return $this->withHeaders($headers);
+    }
+
+    /**
+     * @param array<string, MediaType> $content media type → {@see MediaType}
+     */
+    public function withContent(array $content): self
+    {
+        return new self($this->description, $this->headers, $content, $this->extensions);
+    }
+
+    /**
+     * Returns a copy with one media type's body added or replaced.
+     */
+    public function withMediaType(string $mediaType, MediaType $media): self
+    {
+        $content = $this->content;
+        $content[$mediaType] = $media;
+
+        return $this->withContent($content);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

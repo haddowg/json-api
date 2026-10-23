@@ -90,7 +90,10 @@ self::assertSame(['2', '3'], $this->linkageIds($response));
 
 All three return `200` with the new linkage in the example, because the handler
 re-reads and renders the mutated relationship; a handler that returns no body
-would render `204` instead (see [responses](responses.md)). A mutation persists —
+would render `204` instead (see [responses](responses.md)). A
+[write-only relation](relations.md#write-only-relations) always answers `204`: the
+`IdentifierResponse` the handler returns renders no body, since its linkage is never
+shown. A mutation persists —
 re-reading the relationship endpoint afterwards shows the change stuck:
 
 ```php

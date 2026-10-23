@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -387,7 +388,7 @@ final class OpenApiProjector
             // document — but only when that endpoint is actually exposed (a monomorphic
             // to-many related endpoint reuses the related type's collection envelope
             // instead).
-            if (!$relation->isToMany() && $relation->exposesRelatedEndpoint()) {
+            if (!$relation->isToMany() && self::exposesRelatedRead($relation)) {
                 $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation);
             }
 
@@ -396,7 +397,7 @@ final class OpenApiProjector
             // collection whose `data.items` is the `anyOf` of every member resource —
             // mirroring the to-one polymorphic related document. Emitted only when the
             // endpoint is exposed (so component emission tracks path emission exactly).
-            if ($relation->isToMany() && $relation->exposesRelatedEndpoint() && \count($relation->relatedTypes()) > 1) {
+            if ($relation->isToMany() && self::exposesRelatedRead($relation) && \count($relation->relatedTypes()) > 1) {
                 $schemas[$relBase . 'RelatedCollection'] = $this->polymorphicRelatedCollectionSchema($relation);
             }
         }
@@ -457,13 +458,21 @@ final class OpenApiProjector
      *
      * @throws RelatedTypeNotRegistered naming the first offending relation
      */
+    /**
+     * Whether a relation's related endpoint is projected: exposed, and not write-only.
+     */
+    private static function exposesRelatedRead(RelationMetadataInterface $relation): bool
+    {
+        return $relation->exposesRelatedEndpoint() && !($relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly());
+    }
+
     private function guardRelatedTypesAreRegistered(ServerMetadataInterface $server): void
     {
         $registered = \array_fill_keys(ProjectedTypes::registered($server), true);
 
         foreach ($server->types() as $type) {
             foreach ($type->relations() as $relation) {
-                if (!$relation->exposesRelatedEndpoint()) {
+                if (!self::exposesRelatedRead($relation)) {
                     continue;
                 }
 
@@ -914,7 +923,11 @@ final class OpenApiProjector
      */
     private function withRelationshipsProperty(Schema $resource, TypeMetadataInterface $type): Schema
     {
-        $relations = $type->relations();
+        // A write-only relation never appears in a response.
+        $relations = \array_filter(
+            $type->relations(),
+            static fn(RelationMetadataInterface $relation): bool => !($relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly()),
+        );
         if ($relations === []) {
             return $resource;
         }

@@ -392,6 +392,16 @@ A second sits beside `TypeMetadataInterface`: `DeclaresOperationExtensions` adds
 extensions for a type's operations. See
 [your own extensions](#your-own-extensions-on-operations-paths-parameters-and-responses).
 
+A third sits beside `RelationMetadataInterface`: `DeclaresWriteOnlyRelation` adds
+`isWriteOnly(): bool`. A relation that reports `true` is projected the way a
+[write-only attribute](fields.md#write-only-members) is. It stays in the create and update
+request schemas and keeps its relationship `PATCH`/`POST`/`DELETE`, each documented as a
+`204`. It is left out of the read resource schema, the `fields[type]` and `?withCount`
+enums, and it has no related endpoint and no relationship `GET`. Report `true` only for an
+unconditional `writeOnly()`; a relation write-only by predicate stays in the superset, as
+an attribute does. Metadata that doesn't implement the interface projects every relation
+as readable.
+
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
 resource-object schema and no attribute / write-request components, exactly mirroring the
@@ -647,6 +657,7 @@ way `Schema::withExtension()` does it, so `withExtension('feature', 'agency')` e
 `x-feature: agency`. A map passed to a constructor's `extensions:` argument must already
 use `x-` keys. The `x-oai-` and `x-oas-` prefixes are reserved by the OpenAPI Initiative,
 and both forms throw an `\InvalidArgumentException` for them.
+`extensions()` returns the whole map, keyed `x-…`. `Info` and `Schema` have it too.
 
 A document decorator can tag a feature-gated operation directly:
 
@@ -663,6 +674,43 @@ custom actions. It then merges `operationExtensions($operation)` over that for e
 operation, so the operation's value wins on a shared key. Metadata that doesn't implement
 the interface projects as before. A framework integration builds the two maps from its
 own resource configuration.
+
+### Changing one member without losing the rest
+
+Change a generated value object through its withers rather than rebuilding it with
+`new`. Every member of `Operation`, `PathItem`, `Response` and `Parameter` has a
+`with<Member>()` wither (`withDescription()`, `withResponses()`, `withParameters()`,
+`withDeprecated()` and so on), and each returns a copy with every other member intact,
+extensions included. A `new Operation(...)` copies only the arguments you pass, so it drops
+whatever an earlier decorator set.
+
+The collection members also take one item at a time:
+
+| Value object | Single-item wither | Replaces |
+|---|---|---|
+| `Operation` | `withResponse($status, $response)` | the response for that status |
+| `Operation`, `PathItem` | `withParameter($parameter)` | the parameter with the same `name` and `in`, in place (a `Reference` is appended) |
+| `PathItem` | `withOperation($method, $operation)` | the operation for that method |
+| `Response`, `RequestBody` | `withMediaType($mediaType, $media)` | that media type's body |
+| `Response` | `withHeader($name, $header)` | that header |
+| `Components` | `withSchema()`, `withResponse()`, `withParameter()`, `withRequestBody()`, `withHeader()`, `withSecurityScheme()` | the component with that name |
+| `OpenApi` | `withPath($path, $item)` | that path |
+
+A decorator that documents rate limiting on an operation another decorator already tagged:
+
+```php
+$item = $document->paths->items['/agencies'];
+$operation = $item->operations['get']
+    ->withResponse('429', Reference::to('responses', 'TooManyRequests'))
+    ->withDescription('Limited to 60 requests a minute.');
+
+$document = $document
+    ->withPath('/agencies', $item->withOperation('get', $operation))
+    ->withComponents($document->components->withResponse('TooManyRequests', new Response('Too Many Requests')));
+```
+
+`x-feature` survives both steps. `Info`, `MediaType`, `RequestBody`, `Tag`, `Server` and
+the `OpenApi` document carry withers for the members a decorator usually changes.
 
 ## Related pages
 
