@@ -38,7 +38,8 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
  *
  * Injected through the {@see \haddowg\JsonApi\Resource\SerializerResolverInterface},
  * mirroring {@see RelationshipPaginationInterface} / {@see RelationshipCountInterface}
- * / {@see RelationshipLoadStateInterface}.
+ * / {@see RelationshipLoadStateInterface}. An implementation that also implements
+ * {@see ToOneRelationshipLinkageInterface} supplies to-one targets too.
  */
 interface RelationshipLinkageInterface
 {

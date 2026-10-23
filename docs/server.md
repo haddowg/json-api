@@ -345,6 +345,59 @@ restores the standalone behaviour: every relation is treated as loaded and its
 linkage data is emitted. See [relations](relations.md) for the policy and the
 predicate contract.
 
+## Supplying to-one targets
+
+By default a to-one relation renders whatever the parent model holds. An adapter
+that loads related rows through its own path, such as a scoped query or a custom
+provider, can hand core the target to render instead, without writing it onto the
+parent. Implement `ToOneRelationshipLinkageInterface` and inject it with
+`withRelationshipLinkage()`:
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
+use haddowg\JsonApi\Schema\Relationship\ToOneRelationshipLinkage;
+use haddowg\JsonApi\Serializer\ToOneRelationshipLinkageInterface;
+
+final class ScopedLinkage implements ToOneRelationshipLinkageInterface
+{
+    public function toOneLinkageForRelationship(mixed $model, RelationInterface $relation, JsonApiRequestInterface $request): ?ToOneRelationshipLinkage
+    {
+        if (!$this->scopes($relation)) {
+            return null; // read the parent as usual
+        }
+
+        $target = $this->loadScoped($model, $relation);
+
+        return $target === null ? ToOneRelationshipLinkage::none() : ToOneRelationshipLinkage::to($target);
+    }
+
+    public function linkageForRelationship(mixed $model, RelationInterface $relation, JsonApiRequestInterface $request): ?RelationshipLinkage
+    {
+        return null; // nothing to supply for to-many relations
+    }
+}
+
+$server = $server->withRelationshipLinkage(new ScopedLinkage(/* … */));
+```
+
+Core asks it for every `BelongsTo`, `HasOne` and `MorphTo`, hidden ones included,
+and uses the answer for the relationship's `data`, for `included`, for the
+`/relationships/{name}` document and for each hop of an [`on()`](fields.md)
+attribute. The three answers mean:
+
+| Return | Renders |
+|---|---|
+| `null` | What the parent holds, exactly as without the seam. |
+| `ToOneRelationshipLinkage::to($target)` | `$target`. A `MorphTo` serializes it by its own type; a target of no declared type renders as none. |
+| `ToOneRelationshipLinkage::none()` | An empty relation, even when the parent holds an object: `data: null`, nothing in `included`, and `null` for an attribute flattened through it. Writing such an attribute fails with `RELATED_ATTRIBUTE_OWNER_MISSING`, as it does for a null hop. |
+
+A relation the [load-state predicate](#relationship-load-state) defers still
+defers, and the seam is asked only when its data renders. Core does not serve the
+related endpoint (`GET /articles/1/author`): your handler reads the related object
+there, so read it through the same scoped path.
+
 ## Wiring faults are exceptions, not error documents
 
 A misconfigured server is a programming error, so the registry throws a

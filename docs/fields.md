@@ -111,6 +111,10 @@ BelongsTo::make('publisher', 'publishers')->hidden(),
   is absent is a **422** (`RelatedAttributeOwnerMissing`, pointing at
   `/data/attributes/<name>`). Flattened attributes hydrate **after** relationships,
   so a first-hop relation associated in the same request body is visible.
+- **Supplied targets.** When the server has a
+  [to-one target seam](server.md#supplying-to-one-targets), each hop reads the
+  target it supplies, on read and write alike. A hop it supplies as none counts as
+  a null hop.
 
 Every segment is validated **fail-loud at boot / container warm-up**: an unknown
 segment, or a **to-many** segment at any depth, is a developer-facing
