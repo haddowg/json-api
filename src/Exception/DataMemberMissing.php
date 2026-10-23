@@ -20,6 +20,7 @@ final class DataMemberMissing extends AbstractJsonApiException implements Descri
             status: 400,
             title: "Missing `data` member at the document's top level",
             feature: ErrorFeature::Writes,
+            description: 'The request document has no top-level `data` member, which this request needs. Send the resource object or relationship linkage under `data`.',
         );
     }
 

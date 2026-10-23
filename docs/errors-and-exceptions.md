@@ -292,13 +292,57 @@ interface DescribedErrorInterface extends JsonApiExceptionInterface
 
 An `ErrorDescriptor` carries the parts that are the same for every occurrence: the `code`,
 the `status`, the default `title`, the names and types of the `context` placeholders, the
-`source` member the exception always fills, and the `ErrorFeature` (if any) the error
-depends on. Every exception core ships implements it **and** renders its errors through
-`ErrorDescriptor::toError()`, so the description and the rendered error cannot disagree.
+`source` member the exception always fills, the `ErrorFeature` (if any) the error depends
+on, and two optional members written for whoever reads the generated document:
+`description` and `exampleDetail`. Every exception core ships implements it **and** renders
+its errors through `ErrorDescriptor::toError()`, so the description and the rendered error
+cannot disagree.
 
 That is what lets the [OpenAPI projection](openapi.md#the-error-code-catalogue) publish a
 named schema component per code without ever constructing an exception. Describing your
 own exception is opt-in and costs nothing if you skip it.
+
+### Telling API consumers what a code means
+
+`title` names the error. It does not tell a client developer what to do when it arrives.
+That goes in `description`: one or two sentences on what happened and what the client
+should do differently. When the `detail` a client receives names something from its own
+request, an `exampleDetail` shows what one looks like.
+
+```php
+use haddowg\JsonApi\Exception\AbstractJsonApiException;
+use haddowg\JsonApi\Exception\DescribedErrorInterface;
+use haddowg\JsonApi\Exception\ErrorDescriptor;
+
+final class PasswordExpired extends AbstractJsonApiException implements DescribedErrorInterface
+{
+    public function __construct()
+    {
+        parent::__construct('Your password has expired.', self::describe()->status);
+    }
+
+    public static function describe(): ErrorDescriptor
+    {
+        return new ErrorDescriptor(
+            code: 'PASSWORD_EXPIRED',
+            status: 401,
+            title: 'Password expired',
+            description: 'The account\'s password has passed its expiry date. Change the password, then sign in again.',
+        );
+    }
+
+    public function getErrors(): array
+    {
+        return [self::describe()->toError(detail: $this->getMessage())];
+    }
+}
+```
+
+The projection writes the description onto the code's `PasswordExpiredError` component and
+the example onto its `detail` property. Neither reaches an error object, so keep the
+guidance out of the default `detail`: a [message resolver](#localizing-and-overriding-error-copy)
+may replace that per locale, and a generated client never sees it. Both arguments are
+optional, and a descriptor without them projects as it always has.
 
 ### Contributing your codes to the catalogue
 
@@ -398,6 +442,11 @@ Every concrete exception lives under the `haddowg\JsonApi\Exception` namespace. 
 **status** is the HTTP status the response carries; the **code** is the JSON:API
 error object's `code` member; the **source** column names the error object's
 `source` kind (a `pointer` into the body, a query `parameter`, or none).
+
+The tables say when core throws each one. What a client developer reads instead is the
+code's `description`, written for someone calling your API rather than building it, and
+published on the code's [schema component](openapi.md#the-error-code-catalogue). Read it
+off the descriptor with `FilterParamUnrecognized::describe()->description`.
 
 ### Request body & document structure
 

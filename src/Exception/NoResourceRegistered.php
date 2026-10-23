@@ -23,6 +23,7 @@ final class NoResourceRegistered extends AbstractJsonApiException implements Des
             status: 500,
             title: 'No resource registered',
             context: ['type' => ErrorContextType::Str],
+            description: 'The server tried to use a resource type it has nothing registered for, which is a configuration fault on its side. Retrying won\'t help; report it to the API\'s maintainers.',
         );
     }
 

@@ -23,6 +23,7 @@ final class QueryParamMalformed extends AbstractJsonApiException implements Desc
             title: 'Query parameter is malformed',
             context: ['param' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'A query parameter has the wrong shape, such as `fields` sent without a type key or `include` sent as a list instead of a comma-separated string. Fix the parameter named in `source.parameter`.',
         );
     }
 

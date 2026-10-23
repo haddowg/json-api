@@ -4,17 +4,29 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Exception;
 
+use haddowg\JsonApi\Exception\AtomicOperationsInvalid;
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\CoreErrorSource;
 use haddowg\JsonApi\Exception\DescribedErrorInterface;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
+use haddowg\JsonApi\Exception\FieldsetMemberUnrecognized;
 use haddowg\JsonApi\Exception\FilterParamUnrecognized;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
+use haddowg\JsonApi\Exception\InclusionUnrecognized;
+use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
+use haddowg\JsonApi\Exception\MediaTypeUnsupported;
+use haddowg\JsonApi\Exception\PaginationKindUnknown;
+use haddowg\JsonApi\Exception\RelatedAttributeOwnerMissing;
+use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
+use haddowg\JsonApi\Exception\ResourceIdConflict;
 use haddowg\JsonApi\Exception\ResourceNotFound;
+use haddowg\JsonApi\Exception\SortParamUnrecognized;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\RivalResourceNotFound;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -104,6 +116,70 @@ final class ErrorCatalogTest extends TestCase
         );
 
         self::assertSame(\array_unique($codes), $codes, 'Two exceptions share an error code.');
+    }
+
+    #[Test]
+    public function everyCodeCoreShipsTellsAConsumerWhatItMeans(): void
+    {
+        $undescribed = [];
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+            if ($descriptor->description === null || \trim($descriptor->description) === '') {
+                $undescribed[] = $descriptor->code;
+            }
+        }
+
+        self::assertSame([], $undescribed, 'These codes need a consumer-facing description on their descriptor.');
+    }
+
+    /**
+     * An example detail is published as what a client will read, so it must be one the
+     * exception actually renders, not a paraphrase that drifts from the template.
+     */
+    #[Test]
+    #[DataProvider('exceptionsRenderingTheirExampleDetail')]
+    public function anExampleDetailIsOneTheExceptionRenders(DescribedErrorInterface $exception): void
+    {
+        $example = $exception::describe()->exampleDetail;
+
+        self::assertNotNull($example);
+        self::assertSame($example, $exception->getErrors()[0]->detail);
+    }
+
+    /**
+     * @return iterable<string, array{DescribedErrorInterface}>
+     */
+    public static function exceptionsRenderingTheirExampleDetail(): iterable
+    {
+        yield 'ATOMIC_OPERATIONS_INVALID' => [new AtomicOperationsInvalid("Unknown atomic operation code 'upsert'.", '/atomic:operations/0/op')];
+        yield 'ATTRIBUTE_VALUE_INVALID' => [new AttributeValueInvalid('publishedAt', 'Failed to parse time string (next blursday) at position 0 (n): The timezone could not be found in the database')];
+        yield 'FIELDSET_MEMBER_UNRECOGNIZED' => [new FieldsetMemberUnrecognized('articles', ['colour'])];
+        yield 'FILTERING_UNRECOGNIZED' => [new FilterParamUnrecognized('colour')];
+        yield 'INCLUSION_DEPTH_EXCEEDED' => [new InclusionDepthExceeded(['author.publisher.country'], 2)];
+        yield 'INCLUSION_UNRECOGNIZED' => [new InclusionUnrecognized(['auther'])];
+        yield 'MEDIA_TYPE_UNACCEPTABLE' => [new MediaTypeUnacceptable('application/vnd.api+json; version=2')];
+        yield 'MEDIA_TYPE_UNSUPPORTED' => [new MediaTypeUnsupported('application/vnd.api+json; charset=utf-8')];
+        yield 'PAGINATION_KIND_UNKNOWN' => [new PaginationKindUnknown('offset', ['page', 'cursor'])];
+        yield 'RELATED_ATTRIBUTE_OWNER_MISSING' => [new RelatedAttributeOwnerMissing('city', 'address')];
+        yield 'RELATIONSHIP_TYPE_INAPPROPRIATE' => [new RelationshipTypeInappropriate('author', 'to-many', 'to-one')];
+        yield 'RESOURCE_ID_CONFLICT' => [new ResourceIdConflict('12', '7')];
+        yield 'SORTING_UNRECOGNIZED' => [new SortParamUnrecognized('popularity')];
+    }
+
+    #[Test]
+    public function everyCodeWithAnExampleDetailIsCheckedAgainstItsException(): void
+    {
+        $exemplified = [];
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+            if ($descriptor->exampleDetail !== null) {
+                $exemplified[] = $descriptor->code;
+            }
+        }
+        \sort($exemplified);
+
+        $checked = \array_keys(\iterator_to_array(self::exceptionsRenderingTheirExampleDetail()));
+        \sort($checked);
+
+        self::assertSame($exemplified, $checked, 'Add the exception to exceptionsRenderingTheirExampleDetail().');
     }
 
     #[Test]

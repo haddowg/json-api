@@ -21,6 +21,8 @@ final class SortParamUnrecognized extends AbstractJsonApiException implements De
             title: 'Sorting parameter is unrecognized',
             context: ['param' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'The `sort` parameter names a field this endpoint cannot sort by. Sort only on the fields the API documents for this resource type.',
+            exampleDetail: 'Sorting parameter \'popularity\' can\'t be recognized by the endpoint!',
         );
     }
 

@@ -175,6 +175,10 @@ final class ErrorCatalogProjector
      * {@see \haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface} replaces it per
      * locale — so core's default is carried as the schema's `title` annotation instead
      * of a `const` the server would then violate.
+     *
+     * A descriptor's consumer-facing `description` becomes the component's description,
+     * and its `exampleDetail` an `example` on `detail`. `detail` is not required: the
+     * example illustrates the member, it does not promise one.
      */
     private function variant(ErrorDescriptor $descriptor): Schema
     {
@@ -191,12 +195,22 @@ final class ErrorCatalogProjector
             $required[] = 'source';
         }
 
-        return Schema::create()
-            ->withTitle($descriptor->title)
-            ->withAllOf([
-                Schema::ref(ComponentNaming::schemaRef('Error')),
-                $narrowing->withRequired($required),
-            ]);
+        if ($descriptor->exampleDetail !== null) {
+            $narrowing = $narrowing->withProperty(
+                'detail',
+                Schema::ofType('string')->withExample($descriptor->exampleDetail),
+            );
+        }
+
+        $variant = Schema::create()->withTitle($descriptor->title);
+        if ($descriptor->description !== null) {
+            $variant = $variant->withDescription($descriptor->description);
+        }
+
+        return $variant->withAllOf([
+            Schema::ref(ComponentNaming::schemaRef('Error')),
+            $narrowing->withRequired($required),
+        ]);
     }
 
     /**

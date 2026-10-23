@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
+use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -20,6 +21,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
+use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContributingServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -164,6 +166,109 @@ final class ErrorCatalogProjectionTest extends TestCase
         );
 
         self::assertArrayHasKey('PaymentRequiredError', $this->schemas($server));
+    }
+
+    // ---- Consumer-facing description ------------------------------------------------
+
+    #[Test]
+    public function aDescriptionAndExampleDetailAreProjectedOntoTheVariant(): void
+    {
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(SubscriptionExpired::class),
+        );
+
+        $variant = $this->arrAt($this->schemas($server), 'SubscriptionExpiredError');
+
+        self::assertSame(SubscriptionExpired::describe()->description, $variant['description'] ?? null);
+
+        $narrowing = $this->listAt($variant, 'allOf')[1];
+        self::assertIsArray($narrowing);
+        self::assertSame(
+            ['type' => 'string', 'example' => 'The premium subscription has expired.'],
+            $this->at($narrowing, 'properties', 'detail'),
+        );
+        // The example illustrates `detail`; it does not make the member mandatory.
+        self::assertSame(['code', 'status'], $this->listAt($narrowing, 'required'));
+    }
+
+    #[Test]
+    public function coreAndContributedDescriptionsTakeTheSamePath(): void
+    {
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(SubscriptionExpired::class),
+        );
+        $schemas = $this->schemas($server);
+
+        foreach ([InclusionDepthExceeded::describe(), SubscriptionExpired::describe()] as $descriptor) {
+            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
+            $narrowing = $this->listAt($variant, 'allOf')[1];
+            self::assertIsArray($narrowing);
+
+            self::assertSame($descriptor->description, $variant['description'] ?? null);
+            self::assertSame($descriptor->exampleDetail, $this->at($narrowing, 'properties', 'detail', 'example'));
+        }
+    }
+
+    #[Test]
+    public function everyCoreVariantCarriesItsDescription(): void
+    {
+        $schemas = $this->schemas($this->fullServer());
+
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
+            self::assertSame($descriptor->description, $variant['description'] ?? null, $descriptor->code);
+        }
+    }
+
+    #[Test]
+    public function aDescriptorWithoutThemProjectsExactlyAsBefore(): void
+    {
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(PaymentRequired::class),
+        );
+
+        self::assertSame(
+            [
+                'title' => 'Payment required',
+                'allOf' => [
+                    ['$ref' => '#/components/schemas/Error'],
+                    [
+                        'type' => 'object',
+                        'properties' => [
+                            'code' => ['type' => 'string', 'const' => 'PAYMENT_REQUIRED'],
+                            'status' => ['type' => 'string', 'const' => '402'],
+                        ],
+                        'required' => ['code', 'status'],
+                    ],
+                ],
+            ],
+            $this->arrAt($this->schemas($server), 'PaymentRequiredError'),
+        );
+    }
+
+    #[Test]
+    public function anErrorMatchingADescribedVariantStillValidates(): void
+    {
+        // The example is an annotation: a real detail that reads differently still validates.
+        $server = new ContributingServerMetadata(
+            $this->fullServer(),
+            new ClassListErrorSource(SubscriptionExpired::class),
+        );
+        $document = (object) [
+            'errors' => [
+                (object) [
+                    'status' => '402',
+                    'code' => 'SUBSCRIPTION_EXPIRED',
+                    'title' => 'Subscription expired',
+                    'detail' => 'The basic subscription has expired.',
+                ],
+            ],
+        ];
+
+        self::assertTrue($this->validateErrorDocument($document, $server));
     }
 
     // ---- The open branch ----------------------------------------------------------
@@ -412,9 +517,9 @@ final class ErrorCatalogProjectionTest extends TestCase
      * Validates `$document` against the projected `ErrorDocument`, with the whole
      * component set registered so every `$ref` resolves.
      */
-    private function validateErrorDocument(object $document): bool
+    private function validateErrorDocument(object $document, ?ServerMetadataInterface $server = null): bool
     {
-        $projected = (new OpenApiProjector())->project($this->fullServer())->toJson();
+        $projected = (new OpenApiProjector())->project($server ?? $this->fullServer())->toJson();
 
         $validator = new Validator();
         $resolver = $validator->resolver();

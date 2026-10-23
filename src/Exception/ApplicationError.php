@@ -17,6 +17,7 @@ final class ApplicationError extends AbstractJsonApiException implements Describ
             code: 'APPLICATION_ERROR',
             status: 500,
             title: 'Application error',
+            description: 'The server failed to handle the request because of a fault on its side, not because of anything in the request. Retrying won\'t help; report it to the API\'s maintainers.',
         );
     }
 

@@ -36,6 +36,7 @@ final class CursorStale extends AbstractJsonApiException implements DescribedErr
             context: ['parameter' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             feature: ErrorFeature::CursorPagination,
+            description: 'The cursor was issued for a different sort order than this request asks for, so it no longer marks a position in these results. Keep `sort` unchanged while paging, or start again from the first page.',
         );
     }
 

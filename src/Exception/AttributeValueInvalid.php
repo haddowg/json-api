@@ -39,6 +39,8 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
             context: ['attribute' => ErrorContextType::Str, 'reason' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'The server could not accept the value of the attribute at `source.pointer`, for example a date-time it cannot parse. Correct the value and send the request again.',
+            exampleDetail: 'The value for attribute "publishedAt" is invalid: Failed to parse time string (next blursday) at position 0 (n): The timezone could not be found in the database',
         );
     }
 

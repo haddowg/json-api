@@ -37,6 +37,8 @@ final class AtomicOperationsInvalid extends AbstractJsonApiException implements 
             title: 'Atomic operations request is invalid',
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::AtomicOperations,
+            description: 'An operation in the Atomic Operations request is malformed: a missing or unknown `op`, or a broken `ref`, `href` or `data`. The server applied none of the batch; fix the operation at `source.pointer` and send the whole batch again.',
+            exampleDetail: 'Unknown atomic operation code \'upsert\'.',
         );
     }
 

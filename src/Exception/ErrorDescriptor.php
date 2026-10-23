@@ -26,16 +26,23 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * sent and never a wire member, so this is where the placeholder shape is published: the
  * OpenAPI projection leaves it out entirely, because a template author writes PHP and a
  * generated document describes only what a client receives.
+ *
+ * `$description` and `$exampleDetail` are the opposite: they exist only for the document.
+ * The description tells an API consumer what the code means and what to do about it, and
+ * the example shows one `detail` a client might read. Neither reaches an error object;
+ * the projection publishes them on the code's schema component.
  */
 final readonly class ErrorDescriptor
 {
     /**
-     * @param string                          $code    the stable machine-readable error code
-     * @param int                             $status  the HTTP status this error responds with
-     * @param string                          $title   the default (pre-localization) short title
-     * @param array<string, ErrorContextType> $context the interpolation placeholders, by name
-     * @param ErrorSourceShape|null           $source  the `source` member always filled, if any
-     * @param ErrorFeature|null               $feature the capability the error depends on, if any
+     * @param string                          $code          the stable machine-readable error code
+     * @param int                             $status        the HTTP status this error responds with
+     * @param string                          $title         the default (pre-localization) short title
+     * @param array<string, ErrorContextType> $context       the interpolation placeholders, by name
+     * @param ErrorSourceShape|null           $source        the `source` member always filled, if any
+     * @param ErrorFeature|null               $feature       the capability the error depends on, if any
+     * @param string|null                     $description   what the code means to an API consumer and what a client should do about it
+     * @param string|null                     $exampleDetail an example `detail` member, for a code whose detail names the request's own context
      */
     public function __construct(
         public string $code,
@@ -44,6 +51,8 @@ final readonly class ErrorDescriptor
         public array $context = [],
         public ?ErrorSourceShape $source = null,
         public ?ErrorFeature $feature = null,
+        public ?string $description = null,
+        public ?string $exampleDetail = null,
     ) {}
 
     /**

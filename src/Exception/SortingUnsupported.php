@@ -20,6 +20,7 @@ final class SortingUnsupported extends AbstractJsonApiException implements Descr
             status: 400,
             title: 'Sorting is unsupported',
             source: ErrorSourceShape::Parameter,
+            description: 'This endpoint does not support sorting. Remove the `sort` parameter.',
         );
     }
 

@@ -33,6 +33,8 @@ final class InclusionDepthExceeded extends AbstractJsonApiException implements D
             title: 'Inclusion depth exceeded',
             context: ['paths' => ErrorContextType::Str, 'maxDepth' => ErrorContextType::Integer],
             source: ErrorSourceShape::Parameter,
+            description: 'An `include` path nests more relationships than the server allows. Shorten the path and fetch the deeper resources with a separate request.',
+            exampleDetail: 'Included paths \'author.publisher.country\' exceed the maximum include depth of 2 permitted by the endpoint!',
         );
     }
 

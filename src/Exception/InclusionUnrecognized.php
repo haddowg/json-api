@@ -27,6 +27,8 @@ final class InclusionUnrecognized extends AbstractJsonApiException implements De
             title: 'Inclusion is unrecognized',
             context: ['paths' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            description: 'An `include` path names a relationship the resource type does not have. Check each path against the relationships the type documents.',
+            exampleDetail: 'Included paths \'auther\' can\'t be recognized by the endpoint!',
         );
     }
 

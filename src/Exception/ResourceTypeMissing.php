@@ -21,6 +21,7 @@ final class ResourceTypeMissing extends AbstractJsonApiException implements Desc
             title: 'Resource type is missing',
             source: ErrorSourceShape::Pointer,
             feature: ErrorFeature::Writes,
+            description: 'The resource object in `data` has no `type`. Add the type of the resource the endpoint serves.',
         );
     }
 

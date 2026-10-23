@@ -21,6 +21,7 @@ final class RequestBodyInvalidJson extends AbstractJsonApiException implements D
             title: 'Request body is an invalid JSON document',
             context: ['message' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
+            description: 'The request body is not well-formed JSON. Fix the syntax the `detail` reports and send the request again.',
         );
     }
 

@@ -196,6 +196,7 @@ components:
   schemas:
     FilteringUnrecognizedError:
       title: Filtering parameter is unrecognized
+      description: The request filtered on a key this endpoint does not declare. Filter only on the keys the API documents for this resource type.
       allOf:
         - $ref: '#/components/schemas/Error'
         - type: object
@@ -203,6 +204,7 @@ components:
             code:   { type: string, const: FILTERING_UNRECOGNIZED }
             status: { type: string, const: '400' }
             source: { type: object, required: [parameter] }
+            detail: { type: string, example: "Filtering parameter 'colour' can't be recognized by the endpoint!" }
           required: [code, status, source]
 ```
 
@@ -213,6 +215,14 @@ can change them. `title` stays a plain string, because a resolver replaces it pe
 core's default is the schema's `title` annotation. `source` names the member the exception
 always fills, so a client can read `source.parameter` without a null check on the codes
 that guarantee it.
+
+The component's `description` says what the code means and what a client should do about
+it, which a generator can carry onto the typed exception it emits. Where the `detail` a
+client receives names part of its own request, the `detail` property carries an `example`
+of one. It stays out of `required`: the example shows the member and promises nothing.
+Every code core ships has a description; your own codes get one from the
+[descriptor](errors-and-exceptions.md#telling-api-consumers-what-a-code-means), and a code
+without one projects with neither member.
 
 What the variant does **not** carry is the error's interpolation context. The
 `{placeholder}` tokens core fills into `title` and `detail` are resolved before the
