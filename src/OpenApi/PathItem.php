@@ -10,20 +10,24 @@ namespace haddowg\JsonApi\OpenApi;
  * them.
  *
  * Modelled now (Slice 2) but only populated by the path/operation projection
- * (Slice 3).
+ * (Slice 3). Vendor extensions (`x-…`) are emitted after the standard members.
  */
 final readonly class PathItem implements \JsonSerializable
 {
     /**
      * @param array<string, Operation>  $operations lower-cased HTTP method → {@see Operation} (`get`/`put`/`post`/`delete`/`options`/`head`/`patch`/`trace`)
      * @param list<Parameter|Reference> $parameters path-level parameters common to every operation
+     * @param array<string, mixed>      $extensions vendor extensions, each key `x-…`
      */
     public function __construct(
         public array $operations = [],
         public ?string $summary = null,
         public ?string $description = null,
         public array $parameters = [],
-    ) {}
+        private array $extensions = [],
+    ) {
+        VendorExtensions::assertValid($extensions);
+    }
 
     /**
      * The HTTP methods a Path Item may carry, in OAS emit order.
@@ -40,7 +44,45 @@ final readonly class PathItem implements \JsonSerializable
         $operations = $this->operations;
         $operations[\strtolower($method)] = $operation;
 
-        return new self($operations, $this->summary, $this->description, $this->parameters);
+        return new self($operations, $this->summary, $this->description, $this->parameters, $this->extensions);
+    }
+
+    /**
+     * Sets a vendor extension. The name is normalised to the `x-` prefix.
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtension(string $name, mixed $value): self
+    {
+        return $this->withExtensions([$name => $value]);
+    }
+
+    /**
+     * Merges several vendor extensions over the existing ones, each name normalised
+     * to the `x-` prefix.
+     *
+     * @param array<string, mixed> $extensions
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtensions(array $extensions): self
+    {
+        return new self(
+            $this->operations,
+            $this->summary,
+            $this->description,
+            $this->parameters,
+            [...$this->extensions, ...VendorExtensions::normalise($extensions)],
+        );
+    }
+
+    /**
+     * Reads a vendor extension, or `null` when absent. The name is normalised to
+     * the `x-` prefix.
+     */
+    public function extension(string $name): mixed
+    {
+        return $this->extensions[\str_starts_with($name, 'x-') ? $name : 'x-' . $name] ?? null;
     }
 
     /**
@@ -63,6 +105,9 @@ final readonly class PathItem implements \JsonSerializable
                 $out[$method] = $this->operations[$method]->toArray();
             }
         }
+        foreach ($this->extensions as $key => $value) {
+            $out[$key] = $value;
+        }
 
         return $out;
     }
@@ -83,6 +128,9 @@ final readonly class PathItem implements \JsonSerializable
             if (isset($this->operations[$method])) {
                 $object->{$method} = $this->operations[$method]->toJson();
             }
+        }
+        foreach ($this->extensions as $key => $value) {
+            $object->{$key} = Serialization::convert($value);
         }
 
         return $object;

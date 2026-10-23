@@ -244,6 +244,25 @@ distinct from this key-level tolerance within a recognized family. (An `include`
 *path* naming an unknown relationship is its own `400 InclusionUnrecognized`,
 covered in [Spec errors](#spec-errors) below.)
 
+### Include paths are checked before any data
+
+`Server` checks every `include` path against the primary type's declared
+relationships before the handler runs, on both `dispatch()` and `handle()`, so
+`GET /albums?include=bogus` is a `400` even when there are no albums. This check
+runs whether or not strict query parameters are on. The primary type is the
+target's type, or the relation's related type on a related endpoint
+(`/albums/1/artist?include=...`). A nested path walks the related types through
+the registry, and a segment after a polymorphic relation is accepted when any of
+its declared types has it. The checks run in the order rendering applies them:
+the root's allowed include paths, then the maximum include depth, then unknown and
+`cannotBeIncluded()` segments, so each request gets the error it got before.
+
+Rendering keeps its own per-resource check. It covers what can't be known without
+an object: a `cannotBeIncluded()` or `hidden()` predicate, a serializer that is
+not an `AbstractResource`, and each member of a polymorphic relation, which must
+itself have the next segment. Relationship-linkage endpoints, custom actions and
+atomic operations are not checked up front.
+
 ## Spec errors
 
 | Exception | Status | When |

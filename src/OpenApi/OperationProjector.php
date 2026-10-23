@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
@@ -85,6 +86,45 @@ final class OperationProjector
         }
 
         foreach ($this->actionPaths($type, $server) as $path => $item) {
+            $paths[$path] = $item;
+        }
+
+        if ($type instanceof DeclaresOperationExtensions) {
+            $paths = $this->withDeclaredExtensions($type, $paths);
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Stamps the type's declared vendor extensions on each of its operations: the
+     * type-wide set everywhere, with a CRUD operation's own set merged over it. The
+     * CRUD operation is recognised by its path and method, the same pairing the
+     * collection and resource path items are built from.
+     *
+     * @param array<string, PathItem> $paths
+     *
+     * @return array<string, PathItem>
+     */
+    private function withDeclaredExtensions(DeclaresOperationExtensions $type, array $paths): array
+    {
+        $crud = [
+            '/' . $type->uriType() => ['get' => OperationType::FetchCollection, 'post' => OperationType::Create],
+            '/' . $type->uriType() . '/{id}' => ['get' => OperationType::FetchOne, 'patch' => OperationType::Update, 'delete' => OperationType::Delete],
+        ];
+        $typeWide = $type->extensions();
+
+        foreach ($paths as $path => $item) {
+            foreach ($item->operations as $method => $operation) {
+                $crudOperation = $crud[$path][$method] ?? null;
+                $extensions = $crudOperation !== null
+                    ? [...$typeWide, ...$type->operationExtensions($crudOperation)]
+                    : $typeWide;
+
+                if ($extensions !== []) {
+                    $item = $item->withOperation($method, $operation->withExtensions($extensions));
+                }
+            }
             $paths[$path] = $item;
         }
 

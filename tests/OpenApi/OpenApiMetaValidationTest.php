@@ -30,6 +30,7 @@ use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\ServerVariable;
 use haddowg\JsonApi\OpenApi\Tag;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContractWitnessServer;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ExtendedTypeMetadata;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -250,6 +251,27 @@ final class OpenApiMetaValidationTest extends TestCase
         // reaches), so it is also the strongest §10 witness available — including the
         // `info.x-generator` stamp, which the meta-schema admits as an Info extension.
         $this->assertValidOpenApiDocument((new OpenApiProjector())->project(ContractWitnessServer::build()));
+    }
+
+    #[Test]
+    public function aDocumentWithOperationVendorExtensionsValidates(): void
+    {
+        // Extensions on every operation kind (CRUD, related, relationship, action),
+        // plus a path-item, parameter and response carrying their own.
+        $document = (new OpenApiProjector())->project(ExtendedTypeMetadata::featureGatedServer());
+        $this->assertValidOpenApiDocument($document);
+
+        $extended = new OpenApi(
+            info: new Info('Extended API', '1.0.0'),
+            components: new Components(),
+            paths: (new Paths())->with('/articles', (new PathItem())
+                ->withExtension('feature', 'agency')
+                ->withOperation('get', (new Operation(
+                    responses: (new Responses())->with('200', (new Response('OK'))->withExtension('cache', ['ttl' => 60])),
+                    parameters: [Parameter::query('sort', Schema::ofType('string'))->withExtension('feature', 'agency')],
+                ))->withExtensions(['feature' => 'agency', 'x-rate-limit' => 100]))),
+        );
+        $this->assertValidOpenApiDocument($extended);
     }
 
     #[Test]
