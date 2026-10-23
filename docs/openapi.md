@@ -183,6 +183,32 @@ sketch:
   example in the `description`, so a generated client never coerces on a keyword the
   server does not honour. Note that `Time`'s `H:i:s` default carries no offset and so is
   not an RFC 3339 `full-time`.
+- **Constraints, per representation.** Every built-in constraint with a JSON Schema
+  keyword projects it: `minimum` / `maximum` / `exclusiveMinimum` / `exclusiveMaximum` /
+  `multipleOf`, `minLength` / `maxLength` / `pattern`, `minItems` / `maxItems` /
+  `uniqueItems`, `minProperties` / `maxProperties`, `enum`, `not`, and the `email` / `uri`
+  / `uuid` / `ipv4` / `ipv6` formats. Which schema carries a keyword follows the context it
+  is enforced in. The create shape takes the constraints that apply on create, and the
+  update shape those that apply on update. The read shape takes a constraint only when
+  every write that can set the field enforces it, so a create-only `maxLength(280)` on a
+  field an update can also write narrows the create shape and nothing else. A field only a
+  create can write (`readOnlyOnUpdate()`) keeps its create-only bounds on read. `null` goes
+  the other way: the read shape admits it when any write that can set the field does. A
+  filter value takes every constraint the filter declares, whatever its context, because
+  the filter validator runs them all.
+- **`required()` means non-empty too.** A `Required` field must be present on create and
+  may never be empty, so a required string carries `minLength: 1`, a required list
+  `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each
+  shape the `Required` applies to (a larger declared minimum is kept). A required number
+  or boolean gains nothing.
+- **Conditional rules stay out of the keywords.** A constraint inside `when()` holds only
+  for the requests its condition admits, so none of its keywords project. The schema gets
+  a note in its `description` instead. A conditional `nullable()` does widen the type to
+  admit `null`, since some requests may send it. An `Ip` that accepts either family has no
+  `format`, because `ipv4` alone would reject its IPv6 addresses. An `anyOf` from
+  `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
+  reject values the server accepts.
+  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 
 ### The error-code catalogue
 

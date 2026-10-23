@@ -10,6 +10,7 @@ use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\CompareField;
 use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
+use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
@@ -60,6 +61,13 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  */
 final class SchemaProjector
 {
+    /**
+     * Set while a read (response) representation is being projected, so a nested
+     * {@see ProvidesFieldSchema} composite recursing through {@see projectField()} with
+     * `$creating = false` still gets read-context constraint resolution.
+     */
+    private bool $reading = false;
+
     public function __construct(
         private readonly EnumDescriptionMode $enumDescriptionMode = EnumDescriptionMode::Both,
     ) {}
@@ -67,7 +75,10 @@ final class SchemaProjector
     /**
      * Projects one attribute field to a JSON Schema node. `$creating` selects the
      * create (POST) or update (PATCH) constraint context; the default `false`
-     * projects the canonical read representation (all always-on constraints).
+     * projects the update context. Inside a read projection ({@see projectAttributes()}
+     * with {@see RepresentationContext::Read}, {@see projectResourceObject()}) a value
+     * keyword is kept only when every write that can set the field enforces it, and
+     * `null` is admitted when any of them accepts it (see {@see narrowingScope()}).
      *
      * Pass an {@see EnumComponentCollector} when projecting **into a document**: a
      * backed-enum schema is then hoisted into the collector as a reusable named
@@ -121,15 +132,17 @@ final class SchemaProjector
         // (default `string`); non-list fields never carry an Each constraint.
         $itemType = $field instanceof ArrayList ? $field->elementType() : 'string';
 
+        $applies = $this->narrowingScope($field, $creating);
         $notes = $this->temporalShapeNotes($field);
         foreach ($field->constraints() as $constraint) {
-            if (!$constraint->context()->appliesTo($creating)) {
+            if (!$applies($constraint->context())) {
                 continue;
             }
-            $schema = $this->applyConstraint($schema, $constraint, $creating, $notes, $collector, $itemType);
+            $schema = $this->applyConstraint($schema, $constraint, $applies, $notes, $collector, $itemType);
         }
 
-        $schema = $this->applyNullable($schema, $field, $creating);
+        $schema = $this->applyRequiredNonEmpty($schema, $field, $applies);
+        $schema = $this->applyNullable($schema, $field, $this->wideningScope($field, $creating));
         $schema = $this->applyDescription($schema, $field, $notes);
 
         return $this->applyExample($schema, $field);
@@ -147,9 +160,8 @@ final class SchemaProjector
      * appended to the resulting `description` exactly as for a field. An empty
      * constraint list yields a permissive `{}` (a filter value of any shape).
      *
-     * Always projects in the **read** context (a `filter[]` value is a query input,
-     * never a create/update body member), so create/update-only constraint contexts
-     * that do not apply to a read are skipped.
+     * A query value has no create/update context, so every constraint projects
+     * whatever {@see Context} it carries. A filter validator enforces them all.
      *
      * @param iterable<ConstraintInterface> $constraints
      */
@@ -157,11 +169,9 @@ final class SchemaProjector
     {
         $schema = Schema::create();
         $notes = [];
+        $always = static fn(Context $context): bool => true;
         foreach ($constraints as $constraint) {
-            if (!$constraint->context()->appliesTo(false)) {
-                continue;
-            }
-            $schema = $this->applyConstraint($schema, $constraint, false, $notes);
+            $schema = $this->applyConstraint($schema, $constraint, $always, $notes);
         }
 
         return $this->withNotes($schema, $notes);
@@ -195,7 +205,9 @@ final class SchemaProjector
                 continue;
             }
 
-            $properties[$field->name()] = $this->projectField($field, $creating, $collector);
+            $properties[$field->name()] = $context === RepresentationContext::Read
+                ? $this->reading(fn(): Schema => $this->projectField($field, false, $collector))
+                : $this->projectField($field, $creating, $collector);
 
             if ($context === RepresentationContext::Create) {
                 if ($this->isRequired($field, true)) {
@@ -329,7 +341,7 @@ final class SchemaProjector
     {
         foreach ($fields as $field) {
             if ($field instanceof Id) {
-                return $this->projectField($field);
+                return $this->reading(fn(): Schema => $this->projectField($field));
             }
         }
 
@@ -411,12 +423,13 @@ final class SchemaProjector
      * be expressed losslessly append a note to `$notes` rather than emitting a
      * keyword.
      *
-     * @param list<string> $notes
-     * @param string       $itemType the JSON type an {@see Each} constraint's item schema
-     *                                starts from (a list's declared element type; default
-     *                                `string`)
+     * @param \Closure(Context): bool $applies  whether a nested constraint's context applies
+     * @param list<string>             $notes
+     * @param string                   $itemType the JSON type an {@see Each} constraint's item schema
+     *                                           starts from (a list's declared element type; default
+     *                                           `string`)
      */
-    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null, string $itemType = 'string'): Schema
+    private function applyConstraint(Schema $schema, ConstraintInterface $constraint, \Closure $applies, array &$notes, ?EnumComponentCollector $collector = null, string $itemType = 'string'): Schema
     {
         switch (true) {
             // A Pattern carrying an OpenAPI-only `documentsAs` type overrides its own
@@ -426,9 +439,9 @@ final class SchemaProjector
                 // In carries enum var-names / descriptions and can hoist a backed enum into
                 // a reusable component — projector-only concerns, so it is not a plain leaf.
             case $constraint instanceof In: return $this->applyEnum($schema, $constraint, $notes, $collector);
-            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $creating, $itemType, $collector));
-            case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $creating, $collector));
-            case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $creating, $notes, $collector);
+            case $constraint instanceof Each: return $schema->withItems($this->eachSchema($constraint, $applies, $itemType, $collector));
+            case $constraint instanceof AtLeastOneOf: return $schema->withAnyOf($this->atLeastOneOfSchema($constraint, $collector));
+            case $constraint instanceof Sequentially: return $this->applySequentially($schema, $constraint, $applies, $notes, $collector);
             case $constraint instanceof Before: return $this->applyDateBound($schema, $constraint->bound, 'must be before', $notes);
             case $constraint instanceof After: return $this->applyDateBound($schema, $constraint->bound, 'must be after', $notes);
             case $constraint instanceof Between:
@@ -585,15 +598,18 @@ final class SchemaProjector
         return false;
     }
 
-    private function eachSchema(Each $each, bool $creating, string $itemType = 'string', ?EnumComponentCollector $collector = null): Schema
+    /**
+     * @param \Closure(Context): bool $applies
+     */
+    private function eachSchema(Each $each, \Closure $applies, string $itemType = 'string', ?EnumComponentCollector $collector = null): Schema
     {
         // Start from the list's declared element type so items carry a JSON type (never
         // an untyped `unknown[]`); the per-item constraints narrow it from there.
         $items = Schema::ofType($itemType);
         $notes = [];
         foreach ($each->constraints as $constraint) {
-            if ($constraint->context()->appliesTo($creating)) {
-                $items = $this->applyConstraint($items, $constraint, $creating, $notes, $collector);
+            if ($applies($constraint->context())) {
+                $items = $this->applyConstraint($items, $constraint, $applies, $notes, $collector);
             }
         }
 
@@ -601,17 +617,18 @@ final class SchemaProjector
     }
 
     /**
+     * Every alternative projects whatever its own {@see Context}: an `anyOf` that
+     * dropped one would reject values the server accepts through it.
+     *
      * @return list<Schema>
      */
-    private function atLeastOneOfSchema(AtLeastOneOf $constraint, bool $creating, ?EnumComponentCollector $collector = null): array
+    private function atLeastOneOfSchema(AtLeastOneOf $constraint, ?EnumComponentCollector $collector = null): array
     {
+        $always = static fn(Context $context): bool => true;
         $alternatives = [];
         foreach ($constraint->constraints as $alternative) {
-            if (!$alternative->context()->appliesTo($creating)) {
-                continue;
-            }
             $notes = [];
-            $alternatives[] = $this->withNotes($this->applyConstraint(Schema::create(), $alternative, $creating, $notes, $collector), $notes);
+            $alternatives[] = $this->withNotes($this->applyConstraint(Schema::create(), $alternative, $always, $notes, $collector), $notes);
         }
 
         return $alternatives;
@@ -621,13 +638,14 @@ final class SchemaProjector
      * Merges a {@see Sequentially}'s wrapped constraints inline (ordering is an
      * execution-only concern, so the schema is their conjunction).
      *
-     * @param list<string> $notes
+     * @param \Closure(Context): bool $applies
+     * @param list<string>             $notes
      */
-    private function applySequentially(Schema $schema, Sequentially $constraint, bool $creating, array &$notes, ?EnumComponentCollector $collector = null): Schema
+    private function applySequentially(Schema $schema, Sequentially $constraint, \Closure $applies, array &$notes, ?EnumComponentCollector $collector = null): Schema
     {
         foreach ($constraint->constraints as $inner) {
-            if ($inner->context()->appliesTo($creating)) {
-                $schema = $this->applyConstraint($schema, $inner, $creating, $notes, $collector);
+            if ($applies($inner->context())) {
+                $schema = $this->applyConstraint($schema, $inner, $applies, $notes, $collector);
             }
         }
 
@@ -684,16 +702,19 @@ final class SchemaProjector
 
     /**
      * Widens the schema's scalar `type` to allow `null` when the field declares
-     * {@see Nullable} in this context.
+     * {@see Nullable} in this context, directly or inside a {@see When}: a conditional
+     * `null` is accepted for some requests, so the superset schema admits it.
      *
      * A nullable enumerated field also needs `null` in its `enum` list: JSON
      * Schema `enum` is an absolute whitelist that overrides the type union, so
      * without this a declared-nullable enum would reject its own legitimate `null`.
+     *
+     * @param \Closure(Context): bool $applies
      */
-    private function applyNullable(Schema $schema, FieldInterface $field, bool $creating): Schema
+    private function applyNullable(Schema $schema, FieldInterface $field, \Closure $applies): Schema
     {
         foreach ($field->constraints() as $constraint) {
-            if (!($constraint instanceof Nullable) || !$constraint->context()->appliesTo($creating)) {
+            if (!$this->declaresPresenceRule($constraint, Nullable::class, $applies)) {
                 continue;
             }
             // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
@@ -815,6 +836,150 @@ final class SchemaProjector
             RepresentationContext::Read => !$field->isWriteOnly(),
             RepresentationContext::Create => !$field->isReadOnly(true),
             RepresentationContext::Update => !$field->isReadOnly(false),
+        };
+    }
+
+    /**
+     * Runs `$projection` as part of a read (response) projection, restoring the
+     * previous mode afterwards.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    private function reading(\Closure $projection): mixed
+    {
+        $previous = $this->reading;
+        $this->reading = true;
+
+        try {
+            return $projection();
+        } finally {
+            $this->reading = $previous;
+        }
+    }
+
+    /**
+     * Which constraint contexts narrow the field's schema.
+     *
+     * A request body takes the constraints of its own context. A response value was
+     * written by a create or an update, so a keyword describes it only when every write
+     * that can set the field enforces it: a create-only `min()` on a field an update can
+     * also set holds for nothing the update wrote. A field no write can set falls back
+     * to the constraints that apply on both.
+     *
+     * @return \Closure(Context): bool
+     */
+    private function narrowingScope(FieldInterface $field, bool $creating): \Closure
+    {
+        if ($creating || !$this->reading) {
+            return static fn(Context $context): bool => $context->appliesTo($creating);
+        }
+
+        [$onCreate, $onUpdate] = $this->writableContexts($field);
+
+        return static fn(Context $context): bool => (!$onCreate || $context->onCreate) && (!$onUpdate || $context->onUpdate);
+    }
+
+    /**
+     * Which constraint contexts let `null` into the field's schema: a request body's own
+     * context, or, for a response, any write that can set the field.
+     *
+     * @return \Closure(Context): bool
+     */
+    private function wideningScope(FieldInterface $field, bool $creating): \Closure
+    {
+        if ($creating || !$this->reading) {
+            return static fn(Context $context): bool => $context->appliesTo($creating);
+        }
+
+        [$onCreate, $onUpdate] = $this->writableContexts($field);
+
+        return static fn(Context $context): bool => ($onCreate && $context->onCreate) || ($onUpdate && $context->onUpdate);
+    }
+
+    /**
+     * @return array{bool, bool} whether a create and an update can write the field
+     */
+    private function writableContexts(FieldInterface $field): array
+    {
+        $onCreate = !$field->isReadOnly(true);
+        $onUpdate = !$field->isReadOnly(false);
+
+        return $onCreate || $onUpdate ? [$onCreate, $onUpdate] : [true, true];
+    }
+
+    /**
+     * Whether `$constraint` is a `$rule` presence marker applying under `$applies`,
+     * either directly or wrapped in a {@see When} (the conditional form a validator
+     * honours for the requests its condition admits).
+     *
+     * @param class-string<ConstraintInterface> $rule
+     * @param \Closure(Context): bool           $applies
+     */
+    private function declaresPresenceRule(ConstraintInterface $constraint, string $rule, \Closure $applies): bool
+    {
+        if (!$applies($constraint->context())) {
+            return false;
+        }
+        if ($constraint instanceof $rule) {
+            return true;
+        }
+        if ($constraint instanceof When) {
+            foreach ($constraint->constraints as $inner) {
+                if ($inner instanceof $rule && $applies($inner->context())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Projects the non-empty half of an unconditional {@see Required}: a required value
+     * may not be an empty string, list or object, in either context (absence is the
+     * other half, carried by the object's `required` list). A boolean or number has no
+     * keyword for it, and a `Required` inside a {@see When} applies only to some
+     * requests, so neither narrows the schema.
+     *
+     * @param \Closure(Context): bool $applies
+     */
+    private function applyRequiredNonEmpty(Schema $schema, FieldInterface $field, \Closure $applies): Schema
+    {
+        $required = false;
+        foreach ($field->constraints() as $constraint) {
+            if ($constraint instanceof Required && $applies($constraint->context())) {
+                $required = true;
+
+                break;
+            }
+        }
+        if (!$required) {
+            return $schema;
+        }
+
+        $keyword = match ($schema->get('type')) {
+            'string' => 'minLength',
+            'array' => 'minItems',
+            'object' => 'minProperties',
+            default => null,
+        };
+        if ($keyword === null) {
+            return $schema;
+        }
+
+        $current = $schema->get($keyword);
+        if (\is_int($current) && $current >= 1) {
+            return $schema;
+        }
+
+        return match ($keyword) {
+            'minLength' => $schema->withMinLength(1),
+            'minItems' => $schema->withMinItems(1),
+            'minProperties' => $schema->withMinProperties(1),
         };
     }
 

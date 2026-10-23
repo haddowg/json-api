@@ -98,7 +98,8 @@ final class ProvidesJsonSchemaTest extends TestCase
             'email' => [new EmailFormat(), ['format' => 'email']],
             'url' => [new UrlFormat(), ['format' => 'uri']],
             'uuid' => [new UuidFormat(), ['format' => 'uuid']],
-            'ipv4' => [new IpFormat(), ['format' => 'ipv4']],
+            'ipv4' => [new IpFormat(4), ['format' => 'ipv4']],
+            'either IP family' => [new IpFormat(), []],
             'ipv6' => [new IpFormat(6), ['format' => 'ipv6']],
         ];
     }

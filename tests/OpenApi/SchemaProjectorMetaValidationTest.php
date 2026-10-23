@@ -13,6 +13,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
 use Opis\JsonSchema\Errors\ValidationError;
 use Opis\JsonSchema\Helper;
@@ -128,6 +129,30 @@ final class SchemaProjectorMetaValidationTest extends TestCase
         $resolver->registerRaw($schemaObject, $id);
 
         return $validator->validate(Helper::toJSON($data), $id)->error();
+    }
+
+    #[Test]
+    public function aRequiredStringRejectsTheEmptyStringButANullableOneStillTakesNull(): void
+    {
+        $schema = $this->projector()->projectField(Str::make('name')->required()->nullable()->build(), true);
+
+        self::assertNull($this->validate($schema, 'Ada'));
+        self::assertNull($this->validate($schema, null));
+        self::assertNotNull($this->validate($schema, ''));
+    }
+
+    #[Test]
+    public function aConditionallyNullableStringAcceptsNull(): void
+    {
+        $schema = $this->projector()->projectField(
+            Str::make('note')->when(static fn(mixed $value): bool => $value === null, static function (StrBuilder $f): void {
+                $f->nullable();
+            })->build(),
+            true,
+        );
+
+        self::assertNull($this->validate($schema, null));
+        self::assertNull($this->validate($schema, 'text'));
     }
 
     #[Test]
