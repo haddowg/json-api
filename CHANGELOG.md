@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/haddowg/json-api/compare/v1.2.1...v1.3.0) (2026-10-23)
+
+
+### Features
+
+* describe every core error code for API consumers ([6b7bc60](https://github.com/haddowg/json-api/commit/6b7bc60340a4ae89d8ce88eb6dd6da9e03646a71))
+* describe what an error code means in its projected component ([6b7bc60](https://github.com/haddowg/json-api/commit/6b7bc60340a4ae89d8ce88eb6dd6da9e03646a71))
+
+
+### Bug Fixes
+
+* reject a JSON array sent for a map-shaped attribute ([#185](https://github.com/haddowg/json-api/issues/185)) ([75f7e16](https://github.com/haddowg/json-api/commit/75f7e168b572eec1f8fb5e4e1596d53605bf7c67))
+* report a whole-value schema violation at the exact pointer prefix ([#183](https://github.com/haddowg/json-api/issues/183)) ([b3437a4](https://github.com/haddowg/json-api/commit/b3437a427534684db30dc810432a3db40a84bbcf))
+
 ## [1.2.1](https://github.com/haddowg/json-api/compare/v1.2.0...v1.2.1) (2026-10-22)
 
 
