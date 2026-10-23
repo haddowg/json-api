@@ -7,18 +7,23 @@ namespace haddowg\JsonApi\OpenApi;
 /**
  * An OpenAPI 3.1 Response Object — a required `description`, plus optional
  * `headers` (e.g. `Location` on a `201`) and a `content` map (omitted for a `204`).
+ * Vendor extensions (`x-…`) are emitted after the standard members.
  */
 final readonly class Response implements \JsonSerializable
 {
     /**
      * @param array<string, Header|Reference> $headers
-     * @param array<string, MediaType>        $content media type → {@see MediaType}
+     * @param array<string, MediaType>        $content    media type → {@see MediaType}
+     * @param array<string, mixed>            $extensions vendor extensions, each key `x-…`
      */
     public function __construct(
         public string $description,
         public array $headers = [],
         public array $content = [],
-    ) {}
+        private array $extensions = [],
+    ) {
+        VendorExtensions::assertValid($extensions);
+    }
 
     /**
      * A response carrying a single JSON:API media type body.
@@ -34,6 +39,43 @@ final readonly class Response implements \JsonSerializable
     public static function noContent(string $description = 'No Content'): self
     {
         return new self($description);
+    }
+
+    /**
+     * Sets a vendor extension. The name is normalised to the `x-` prefix.
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtension(string $name, mixed $value): self
+    {
+        return $this->withExtensions([$name => $value]);
+    }
+
+    /**
+     * Merges several vendor extensions over the existing ones, each name normalised
+     * to the `x-` prefix.
+     *
+     * @param array<string, mixed> $extensions
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtensions(array $extensions): self
+    {
+        return new self(
+            $this->description,
+            $this->headers,
+            $this->content,
+            [...$this->extensions, ...VendorExtensions::normalise($extensions)],
+        );
+    }
+
+    /**
+     * Reads a vendor extension, or `null` when absent. The name is normalised to
+     * the `x-` prefix.
+     */
+    public function extension(string $name): mixed
+    {
+        return $this->extensions[\str_starts_with($name, 'x-') ? $name : 'x-' . $name] ?? null;
     }
 
     /**
@@ -56,6 +98,9 @@ final readonly class Response implements \JsonSerializable
             }
             $out['content'] = $content;
         }
+        foreach ($this->extensions as $key => $value) {
+            $out[$key] = $value;
+        }
 
         return $out;
     }
@@ -77,6 +122,9 @@ final readonly class Response implements \JsonSerializable
                 $content->{$mediaType} = $media->toJson();
             }
             $object->content = $content;
+        }
+        foreach ($this->extensions as $key => $value) {
+            $object->{$key} = Serialization::convert($value);
         }
 
         return $object;

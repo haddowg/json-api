@@ -39,7 +39,9 @@ final readonly class Parameter implements \JsonSerializable
         private array $extensions = [],
         private bool $hasExample = false,
         private mixed $example = null,
-    ) {}
+    ) {
+        VendorExtensions::assertValid($extensions);
+    }
 
     /**
      * Returns a copy carrying a single `example` value (a `null` example is honoured and
@@ -65,11 +67,24 @@ final readonly class Parameter implements \JsonSerializable
     /**
      * Sets a vendor extension keyword (the name is normalized to the `x-` prefix), e.g.
      * `x-profile` on a parameter recognised only under a negotiated JSON:API profile.
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
      */
     public function withExtension(string $name, mixed $value): self
     {
-        $key = \str_starts_with($name, 'x-') ? $name : 'x-' . $name;
+        return $this->withExtensions([$name => $value]);
+    }
 
+    /**
+     * Merges several vendor extensions over the existing ones, each name normalised
+     * to the `x-` prefix.
+     *
+     * @param array<string, mixed> $extensions
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtensions(array $extensions): self
+    {
         return new self(
             $this->name,
             $this->in,
@@ -79,10 +94,19 @@ final readonly class Parameter implements \JsonSerializable
             $this->schema,
             $this->style,
             $this->explode,
-            [...$this->extensions, $key => $value],
+            [...$this->extensions, ...VendorExtensions::normalise($extensions)],
             $this->hasExample,
             $this->example,
         );
+    }
+
+    /**
+     * Reads a vendor extension, or `null` when absent. The name is normalised to
+     * the `x-` prefix.
+     */
+    public function extension(string $name): mixed
+    {
+        return $this->extensions[\str_starts_with($name, 'x-') ? $name : 'x-' . $name] ?? null;
     }
 
     /**

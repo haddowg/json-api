@@ -13,7 +13,8 @@ namespace haddowg\JsonApi\OpenApi;
  * because the contract resolves per-operation tag refs.
  *
  * `responses` is the one required member; everything else is optional and omitted
- * when absent/empty.
+ * when absent/empty. Vendor extensions (`x-…`) are emitted after the standard
+ * members.
  */
 final readonly class Operation implements \JsonSerializable
 {
@@ -21,6 +22,7 @@ final readonly class Operation implements \JsonSerializable
      * @param list<string>                       $tags
      * @param list<Parameter|Reference>          $parameters
      * @param list<SecurityRequirement>|null     $security  null omits the field (inherit the document default); `[]` emits `security: []` — the OAS operation-level public override (no auth); a non-empty list is the OR-ed alternatives
+     * @param array<string, mixed>               $extensions vendor extensions, each key `x-…`
      */
     public function __construct(
         public Responses $responses,
@@ -33,7 +35,55 @@ final readonly class Operation implements \JsonSerializable
         public RequestBody|Reference|null $requestBody = null,
         public ?array $security = null,
         public ?bool $deprecated = null,
-    ) {}
+        private array $extensions = [],
+    ) {
+        VendorExtensions::assertValid($extensions);
+    }
+
+    /**
+     * Sets a vendor extension. The name is normalised to the `x-` prefix, so
+     * `withExtension('feature', 'agency')` emits `x-feature: agency`.
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtension(string $name, mixed $value): self
+    {
+        return $this->withExtensions([$name => $value]);
+    }
+
+    /**
+     * Merges several vendor extensions over the existing ones, each name normalised
+     * as {@see withExtension()} does.
+     *
+     * @param array<string, mixed> $extensions
+     *
+     * @throws \InvalidArgumentException for a reserved `x-oai-`/`x-oas-` name
+     */
+    public function withExtensions(array $extensions): self
+    {
+        return new self(
+            $this->responses,
+            $this->tags,
+            $this->summary,
+            $this->description,
+            $this->operationId,
+            $this->externalDocs,
+            $this->parameters,
+            $this->requestBody,
+            $this->security,
+            $this->deprecated,
+            [...$this->extensions, ...VendorExtensions::normalise($extensions)],
+        );
+    }
+
+    /**
+     * Reads a vendor extension, or `null` when absent. The name is normalised to
+     * the `x-` prefix.
+     */
+    public function extension(string $name): mixed
+    {
+        return $this->extensions[\str_starts_with($name, 'x-') ? $name : 'x-' . $name] ?? null;
+    }
 
     /**
      * @return array<string, mixed>
@@ -69,6 +119,9 @@ final readonly class Operation implements \JsonSerializable
         if ($this->security !== null) {
             $out['security'] = \array_map(static fn(SecurityRequirement $r): array => $r->toArray(), $this->security);
         }
+        foreach ($this->extensions as $key => $value) {
+            $out[$key] = $value;
+        }
 
         return $out;
     }
@@ -103,6 +156,9 @@ final readonly class Operation implements \JsonSerializable
         }
         if ($this->security !== null) {
             $object->security = \array_map(static fn(SecurityRequirement $r): \stdClass => $r->toJson(), $this->security);
+        }
+        foreach ($this->extensions as $key => $value) {
+            $object->{$key} = Serialization::convert($value);
         }
 
         return $object;

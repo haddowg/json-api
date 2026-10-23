@@ -387,6 +387,11 @@ One optional contract sits beside the family: `ContributesErrorCodes` extends
 when it assembles that server's [error catalogue](#the-error-code-catalogue). Metadata
 that does not implement it publishes core's codes and nothing else.
 
+A second sits beside `TypeMetadataInterface`: `DeclaresOperationExtensions` adds
+`extensions(): array` and `operationExtensions(OperationType): array`, the vendor
+extensions for a type's operations. See
+[your own extensions](#your-own-extensions-on-operations-paths-parameters-and-responses).
+
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
 resource-object schema and no attribute / write-request components, exactly mirroring the
@@ -632,6 +637,32 @@ A [`MultiPaginator`](pagination.md#offering-a-menu-of-strategies) menu stamps it
 picks when a request names none. Each arm carries its child's own `x-paginator` beside the
 `kind` const that selects it. A custom paginator that stamps nothing is left to whatever a
 generator infers from its key names.
+
+### Your own extensions on operations, paths, parameters and responses
+
+`Operation`, `PathItem`, `Parameter` and `Response` each carry a map of vendor extensions,
+emitted after their standard members. `withExtension()` sets one, `withExtensions()`
+merges several, and `extension()` reads one back. A name without the prefix gets it, the
+way `Schema::withExtension()` does it, so `withExtension('feature', 'agency')` emits
+`x-feature: agency`. A map passed to a constructor's `extensions:` argument must already
+use `x-` keys. The `x-oai-` and `x-oas-` prefixes are reserved by the OpenAPI Initiative,
+and both forms throw an `\InvalidArgumentException` for them.
+
+A document decorator can tag a feature-gated operation directly:
+
+```php
+$item = $document->paths->items['/agencies'];
+$item = $item->withOperation('get', $item->operations['get']->withExtension('feature', 'agency'));
+$document = $document->withPaths($document->paths->with('/agencies', $item));
+```
+
+To declare them on the type instead, have its metadata implement
+`DeclaresOperationExtensions`. The projector stamps `extensions()` on every operation it
+emits for the type: the CRUD operations, its related and relationship endpoints, and its
+custom actions. It then merges `operationExtensions($operation)` over that for each CRUD
+operation, so the operation's value wins on a shared key. Metadata that doesn't implement
+the interface projects as before. A framework integration builds the two maps from its
+own resource configuration.
 
 ## Related pages
 
