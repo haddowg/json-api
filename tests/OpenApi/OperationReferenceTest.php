@@ -8,10 +8,12 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationReference;
+use haddowg\JsonApi\OpenApi\Paths;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\SpecDescribedByResolver;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -134,5 +136,20 @@ final class OperationReferenceTest extends TestCase
         self::assertNull($resolver->describedBy(OperationReference::fetchCollection('records')));
         self::assertNull($resolver->describedBy(OperationReference::fetchRelated('records', 'tracks')));
         self::assertNull($resolver->describedBy(OperationReference::fetchOne('albums')));
+    }
+
+    #[Test]
+    public function theOperationsMapIsTheOneTheResolverIsBuiltWith(): void
+    {
+        $albums = FakeTypeMetadata::resource('albums', [Id::make()->build()], operations: [OperationType::FetchOne]);
+        $metadata = new FakeServerMetadata('Music', '1', [$albums], atomicOperations: new FakeAtomicOperationsMetadata('/batch'));
+        $document = (new OpenApiProjector())->project($metadata);
+        self::assertInstanceOf(Paths::class, $document->paths);
+
+        $expected = ['/albums/{id}' => ['get'], '/batch' => ['post']];
+        self::assertEqualsCanonicalizing($expected, SpecDescribedByResolver::operationsOf($document));
+        self::assertSame(SpecDescribedByResolver::operationsOf($document), SpecDescribedByResolver::operationsOf($document->paths));
+        self::assertSame(SpecDescribedByResolver::operationsOf($document), SpecDescribedByResolver::fromDocument('/docs.json', $document)->operations());
+        self::assertSame([], SpecDescribedByResolver::operationsOf(new Paths()));
     }
 }
