@@ -924,7 +924,40 @@
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ArticleJobsDocument"
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "article-jobs"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "attributes": {
+                                                    "type": "object"
+                                                },
+                                                "relationships": {
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "id"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/Meta"
+                                        },
+                                        "jsonapi": {
+                                            "$ref": "#/components/schemas/JsonApi"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
                                 }
                             }
                         }

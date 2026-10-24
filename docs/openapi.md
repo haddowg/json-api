@@ -571,9 +571,11 @@ Together the objects reflect the JSON:API
 recommendation in the generated document:
 
 - A write accepted for background processing advertises **`new Accepted('jobs')`** — a
-  `202` whose body is the `jobs` type's document (that type must be registered so its
-  schema exists), plus a `Content-Location` header (the job URL to poll) and a
-  `Retry-After` hint.
+  `202` whose body is the `jobs` type's document, plus a `Content-Location` header (the
+  job URL to poll) and a `Retry-After` hint. Register the job type so the body references
+  its `JobsDocument` component; for a type the server doesn't describe, the projector
+  inlines an open document whose `data.type` is the job type instead of naming a
+  component it never defines. An `ActionResource` body type works the same way.
 - The client polls the job resource; **completion** is a `303 See Other` to the produced
   resource. Model it either as a **fetch-one** on the job type declaring
   `[new Ok(), new SeeOther()]` (the spec-canonical shape: `200` with the job's status while

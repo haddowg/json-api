@@ -261,7 +261,7 @@ final class OperationProjector
 
         $responses = new Responses();
         foreach ($declared as $response) {
-            $responses = $responses->with((string) $response->status(), $this->createSuccessResponse($type, $response));
+            $responses = $responses->with((string) $response->status(), $this->createSuccessResponse($type, $response, $server));
         }
         $security = $this->securityFor($type, OperationType::Create, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
@@ -290,7 +290,7 @@ final class OperationProjector
 
         $responses = new Responses();
         foreach ($declared as $response) {
-            $responses = $responses->with((string) $response->status(), $this->updateSuccessResponse($type, $response));
+            $responses = $responses->with((string) $response->status(), $this->updateSuccessResponse($type, $response, $server));
         }
         $security = $this->securityFor($type, OperationType::Update, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
@@ -334,7 +334,7 @@ final class OperationProjector
      * the created-resource shape (with `Location`), `204` a bodyless create, `202` the
      * async-accept shape.
      */
-    private function createSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    private function createSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response, ServerMetadataInterface $server): Response
     {
         return match ($response->status()) {
             201 => new Response(
@@ -348,7 +348,7 @@ final class OperationProjector
                 )],
             ),
             204 => Response::noContent('The resource was created; no content is returned.'),
-            202 => $this->acceptedResponse($this->jobTypeOf($response)),
+            202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
             default => throw $this->unexpectedResponse(OperationType::Create, $response->status()),
         };
     }
@@ -357,7 +357,7 @@ final class OperationProjector
      * The concrete {@see Response} for one declared update success response. `200` is
      * the updated-resource shape, `204` a bodyless update, `202` the async-accept shape.
      */
-    private function updateSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response): Response
+    private function updateSuccessResponse(TypeMetadataInterface $type, OperationResponseInterface $response, ServerMetadataInterface $server): Response
     {
         return match ($response->status()) {
             200 => Response::ofSchema(
@@ -365,7 +365,7 @@ final class OperationProjector
                 Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
             ),
             204 => Response::noContent('The resource was updated; no content is returned.'),
-            202 => $this->acceptedResponse($this->jobTypeOf($response)),
+            202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
             default => throw $this->unexpectedResponse(OperationType::Update, $response->status()),
         };
     }
@@ -421,7 +421,7 @@ final class OperationProjector
      * The `202 Accepted` async-accept response: the pollable `$jobType` job document,
      * with `Content-Location` (the poll URL) and `Retry-After` (the poll hint) headers.
      */
-    private function acceptedResponse(string $jobType): Response
+    private function acceptedResponse(string $jobType, ServerMetadataInterface $server): Response
     {
         return new Response(
             'The request was accepted for asynchronous processing.',
@@ -435,9 +435,7 @@ final class OperationProjector
                     schema: Schema::ofType('integer'),
                 ),
             ],
-            content: [MediaType::JSON_API => MediaType::ofSchema(
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($jobType) . 'Document')),
-            )],
+            content: [MediaType::JSON_API => MediaType::ofSchema($this->documentSchemaOf($jobType, $server))],
         );
     }
 
@@ -876,7 +874,7 @@ final class OperationProjector
     {
         $responses = new Responses();
         foreach ($action->responds() as $response) {
-            $responses = $responses->with((string) $response->status(), $this->actionSuccessResponse($response));
+            $responses = $responses->with((string) $response->status(), $this->actionSuccessResponse($response, $server));
         }
 
         $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
@@ -899,7 +897,7 @@ final class OperationProjector
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on a `' . $type->type() . '` resource.'),
             operationId: 'action.' . $type->type() . '.' . $action->path(),
             parameters: $this->actionDocumentShapeParameters($action, $server),
-            requestBody: $this->actionRequestBody($action),
+            requestBody: $this->actionRequestBody($action, $server),
             security: $security,
         );
     }
@@ -910,11 +908,11 @@ final class OperationProjector
      * type; `Raw` → a permissive string/binary body under `application/octet-stream`
      * (the author owns the negotiation, so the schema is left open).
      */
-    private function actionRequestBody(ActionMetadataInterface $action): ?RequestBody
+    private function actionRequestBody(ActionMetadataInterface $action, ServerMetadataInterface $server): ?RequestBody
     {
         return match ($action->inputMode()) {
             ActionInputMode::None => null,
-            ActionInputMode::Document => $this->actionDocumentRequestBody($action),
+            ActionInputMode::Document => $this->actionDocumentRequestBody($action, $server),
             ActionInputMode::Raw => new RequestBody(
                 content: ['application/octet-stream' => MediaType::ofSchema(Schema::ofType('string')->withFormat('binary'))],
                 description: 'A raw request body; the action relaxes content-type negotiation and owns the body shape.',
@@ -929,16 +927,47 @@ final class OperationProjector
      * media type. An action declaring `Document` input with no `inputType` degrades to
      * a permissive JSON:API document body.
      */
-    private function actionDocumentRequestBody(ActionMetadataInterface $action): RequestBody
+    private function actionDocumentRequestBody(ActionMetadataInterface $action, ServerMetadataInterface $server): RequestBody
     {
         $inputType = $action->inputType();
-        if ($inputType === null) {
+        $input = $inputType === null ? null : $this->typeNamed($inputType, $server);
+        if ($input === null) {
             return RequestBody::ofSchema(Schema::ofType('object'));
         }
 
+        $base = ComponentNaming::base($input->type());
+
+        // `<Type>CreateRequest` exists only for a type with fields that allows create;
+        // any other registered type falls back to its resource object, as create does.
         return RequestBody::ofSchema(
-            Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($inputType) . 'CreateRequest')),
+            $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
+                ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
+                : Schema::ref(ComponentNaming::schemaRef($base . 'Resource')),
         );
+    }
+
+    /**
+     * The single-resource document schema for `$type`: a `$ref` to its `<Type>Document`
+     * component when the server registers the type, else an inline document whose
+     * `data` is any resource object, so a response never names a component the
+     * document doesn't define.
+     */
+    private function documentSchemaOf(string $type, ServerMetadataInterface $server): Schema
+    {
+        if ($this->typeNamed($type, $server) !== null) {
+            return Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type) . 'Document'));
+        }
+
+        return Schema::ofType('object')
+            ->withProperty('data', Schema::ofType('object')
+                ->withProperty('type', Schema::ofType('string')->withConst($type))
+                ->withProperty('id', Schema::ofType('string'))
+                ->withProperty('attributes', Schema::ofType('object'))
+                ->withProperty('relationships', Schema::ofType('object'))
+                ->withRequired(['type', 'id']))
+            ->withProperty('meta', Schema::ref(ComponentNaming::schemaRef('Meta')))
+            ->withProperty('jsonapi', Schema::ref(ComponentNaming::schemaRef('JsonApi')))
+            ->withRequired(['data']);
     }
 
     /**
@@ -947,19 +976,19 @@ final class OperationProjector
      * meta-only document; {@see NoContent} → `204`; {@see Accepted} → the async `202`;
      * {@see SeeOther} → the `303` completion redirect.
      */
-    private function actionSuccessResponse(ActionResponse $response): Response
+    private function actionSuccessResponse(ActionResponse $response, ServerMetadataInterface $server): Response
     {
         return match (true) {
             $response instanceof ActionResource => Response::ofSchema(
                 'The action result.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($response->bodyType()) . 'Document')),
+                $this->documentSchemaOf($response->bodyType(), $server),
             ),
             $response instanceof MetaResult => Response::ofSchema(
                 'The action result: a meta-only document.',
                 Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
             ),
             $response instanceof NoContent => Response::noContent('The action completed with no content.'),
-            $response instanceof Accepted => $this->acceptedResponse($response->jobType()),
+            $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server),
             $response instanceof SeeOther => $this->seeOtherResponse(),
             default => throw new \LogicException(\sprintf(
                 'Unsupported action response %s (status %d).',

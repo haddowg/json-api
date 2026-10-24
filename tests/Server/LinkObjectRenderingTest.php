@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Server;
 
+use haddowg\JsonApi\Atomic\AtomicResult;
 use haddowg\JsonApi\Exception\ApplicationError;
 use haddowg\JsonApi\OpenApi\DescribedByResolverInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\OperationReference;
 use haddowg\JsonApi\OpenApi\SpecDescribedByResolver;
+use haddowg\JsonApi\Operation\AtomicOperationsOperation;
 use haddowg\JsonApi\Operation\JsonApiOperationInterface;
 use haddowg\JsonApi\Operation\OperationContext;
 use haddowg\JsonApi\Operation\OperationFactory;
 use haddowg\JsonApi\Operation\OperationHandlerInterface;
+use haddowg\JsonApi\Operation\QueryParameters;
 use haddowg\JsonApi\Operation\Target;
 use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Request\JsonApiRequest;
@@ -22,6 +25,7 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Response\AtomicResultsResponse;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
@@ -63,6 +67,7 @@ final class LinkObjectRenderingTest extends TestCase
         '/records/{id}/artist' => ['get'],
         '/records/{id}/relationships/artist' => ['get'],
         '/records/{id}/-actions/publish' => ['post'],
+        '/operations' => ['post'],
     ];
 
     #[Test]
@@ -243,6 +248,61 @@ final class LinkObjectRenderingTest extends TestCase
         self::assertSame(['href' => self::DOCS . '#/paths/~1records/get'], $this->at($body, 'links', 'describedby'));
     }
 
+    #[Test]
+    public function anAtomicResultIsDescribedByTheAtomicEndpoint(): void
+    {
+        $body = $this->dispatchAtomic($this->server(), '/operations');
+
+        self::assertSame(['describedby' => ['href' => self::DOCS . '#/paths/~1operations/post']], $this->at($body, 'links'));
+        // The embedded resource keeps the shape its fragment was rendered with.
+        self::assertSame(['self' => ['href' => self::HOST . '/records/1']], $this->at($body, 'atomic:results', 0, 'data', 'links'));
+    }
+
+    #[Test]
+    public function anAtomicEndpointTheDocumentDoesNotCarryIsNotDescribed(): void
+    {
+        $body = $this->dispatchAtomic($this->server(), '/batch');
+
+        self::assertArrayNotHasKey('links', $body);
+    }
+
+    #[Test]
+    public function anAtomicOperationWithoutItsPathIsNotDescribed(): void
+    {
+        $body = $this->dispatchAtomic($this->server(), null);
+
+        self::assertArrayNotHasKey('links', $body);
+    }
+
+    #[Test]
+    public function anExplicitDescribedbyWinsOverTheAtomicEndpoint(): void
+    {
+        $body = $this->dispatchAtomic(
+            $this->server(),
+            '/operations',
+            static fn(AtomicResultsResponse $response): AtomicResultsResponse => $response->withDescribedby(new Link('/whole-spec.json')),
+        );
+
+        self::assertSame(['describedby' => '/whole-spec.json'], $this->at($body, 'links'));
+    }
+
+    /**
+     * @param (\Closure(AtomicResultsResponse): AtomicResultsResponse)|null $decorate
+     *
+     * @return array<string, mixed>
+     */
+    private function dispatchAtomic(Server $server, ?string $path, ?\Closure $decorate = null): array
+    {
+        $request = new ServerRequest('POST', self::HOST . '/operations');
+        $served = $server->withHandler(new AtomicHandler($decorate ?? static fn(AtomicResultsResponse $response): AtomicResultsResponse => $response));
+        $operation = new AtomicOperationsOperation([], new QueryParameters([], [], [], [], []), new OperationContext($served, $request), $path);
+
+        $response = $served->dispatch($operation)->toPsrResponse($served, $request);
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getBody());
+
+        return $this->decode((string) $response->getBody());
+    }
+
     private static function fetchAlbum(Server $server): DataResponse
     {
         return DataResponse::fromResource(self::album(), $server->serializerFor('albums'));
@@ -330,6 +390,21 @@ final readonly class AlbumHandler implements OperationHandlerInterface
         \assert($server instanceof Server);
 
         return ($this->respond)($server);
+    }
+}
+
+final readonly class AtomicHandler implements OperationHandlerInterface
+{
+    /**
+     * @param \Closure(AtomicResultsResponse): AtomicResultsResponse $decorate
+     */
+    public function __construct(private \Closure $decorate) {}
+
+    public function handle(JsonApiOperationInterface $operation): AtomicResultsResponse
+    {
+        return ($this->decorate)(AtomicResultsResponse::fromResults([
+            AtomicResult::fromDocument(['data' => ['type' => 'albums', 'id' => '1', 'links' => ['self' => ['href' => 'https://music.example/records/1']]]]),
+        ]));
     }
 }
 

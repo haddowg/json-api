@@ -317,10 +317,29 @@ Each link names the operation its target is:
 A document also gains a top-level `links.describedby` pointing at the operation that
 produced it. `Server::dispatch()` and the PSR-15 `handle()` path both record that
 operation on the response they return, so the two render identically; a handler can
-name a different one with `withOperationReference()`, and a `describedby` set through
-`withLinks()` or `withDescribedby()` wins. Error documents get none: they describe the
-failure, not the operation. An Atomic Operations result document gets none either,
-though the resource objects inside it follow the server's link settings.
+name a different one with `withOperationReference()`. Error documents get none: they
+describe the failure, not the operation.
+
+An Atomic Operations result document is described by the atomic endpoint's `POST`
+when the `AtomicOperationsOperation` carries the endpoint's path, the same path its
+`AtomicOperationsMetadataInterface::path()` returns (`/operations`, say). The runtime
+can't work that path out on its own, so the integration that builds the operation
+passes it as the fourth constructor argument; without it, or when the document has no
+such path, the result gets no top-level `describedby`. The resource objects inside the
+results follow the server's link settings either way.
+
+An author's top-level `describedby` always beats the per-operation one. A
+`describedby` set with `withDescribedby()`, or one inside the container given to
+`withLinks()`, is rendered as given and the operation's pointer is dropped. So an
+integration that used `withDescribedby()` to point every document at the whole
+OpenAPI document will hide the per-operation pointer; remove that call once a resolver
+is configured.
+
+An integration that caches the document's operations at warmup can build the map with
+`SpecDescribedByResolver::operationsOf($document)` (it takes the `OpenApi` document or
+its `Paths`) and construct the resolver per request with
+`new SpecDescribedByResolver($url, $operations)`; `operations()` returns the map a
+resolver holds.
 
 A contributor describes its own links by returning an `OperationLink`, which names the
 operation alongside the `href`:

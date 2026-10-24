@@ -40,12 +40,26 @@ final readonly class SpecDescribedByResolver implements DescribedByResolverInter
 
     public static function fromPaths(string $documentUrl, Paths $paths): self
     {
+        return new self($documentUrl, self::operationsOf($paths));
+    }
+
+    /**
+     * The operations a document (or its `paths`) carries, in the shape the constructor
+     * takes, so an adapter can build the map once at warmup and construct the resolver
+     * per request without re-projecting.
+     *
+     * @return array<string, list<string>> path template → the lower-case methods the document carries for it
+     */
+    public static function operationsOf(Paths|OpenApi $source): array
+    {
+        $paths = $source instanceof OpenApi ? ($source->paths ?? new Paths()) : $source;
+
         $operations = [];
         foreach ($paths->items as $path => $item) {
             $operations[$path] = \array_keys($item->operations);
         }
 
-        return new self($documentUrl, $operations);
+        return $operations;
     }
 
     public static function fromMetadata(string $documentUrl, ServerMetadataInterface $metadata, OpenApiProjector $projector = new OpenApiProjector()): self
@@ -56,6 +70,14 @@ final readonly class SpecDescribedByResolver implements DescribedByResolverInter
     public function documentUrl(): string
     {
         return $this->documentUrl;
+    }
+
+    /**
+     * @return array<string, list<string>> path template → the lower-case methods the document carries for it
+     */
+    public function operations(): array
+    {
+        return $this->operations;
     }
 
     public function describedBy(OperationReference $operation): ?string
