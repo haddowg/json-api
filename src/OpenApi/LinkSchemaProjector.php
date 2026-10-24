@@ -130,8 +130,9 @@ final readonly class LinkSchemaProjector
     {
         $uriType = $type->uriType();
         $name = $relation->name();
-        $relationshipOperation = OperationReference::fetchRelationship($uriType, $name);
-        $relationshipPath = $this->examplePath(PathTemplate::relationship($uriType, $name), $type);
+        $segment = RelationFacts::uriFieldName($relation);
+        $relationshipOperation = OperationReference::fetchRelationship($uriType, $segment);
+        $relationshipPath = $this->examplePath(PathTemplate::relationship($uriType, $segment), $type);
 
         $schema = Schema::ofType('object')
             ->withDescription(\sprintf('The `links` of the `%s` relationship object of a resource of type `%s`.', $name, $type->type()));
@@ -143,8 +144,8 @@ final readonly class LinkSchemaProjector
         $writeOnly = $relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly();
         if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
             $schema = $schema->withProperty('related', $this->member(
-                $this->examplePath(PathTemplate::related($uriType, $name), $type),
-                OperationReference::fetchRelated($uriType, $name),
+                $this->examplePath(PathTemplate::related($uriType, $segment), $type),
+                OperationReference::fetchRelated($uriType, $segment),
                 'The related resource data.',
             ));
         }

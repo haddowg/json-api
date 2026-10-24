@@ -290,11 +290,11 @@ final class SchemaProjector
     }
 
     /**
-     * Projects a `belongsToMany` relation's `meta.pivot` object schema (a fused schema backing
-     * BOTH the read linkage and the relationship-mutation request body). A read-only pivot field
-     * (present in responses, ignored in requests) is marked `readOnly: true` so a write client
-     * neither sends nor is required to supply it; a writable, create-required pivot field is listed
-     * in `required` so a new member must carry it (matching the runtime's 422). D18.
+     * Projects a `belongsToMany` relation's **request** `meta.pivot` object: the pivot fields a
+     * relationship mutation or an embedded write may send. A field no write can set is left
+     * out, and a create-required field is listed in `required` so a new member must carry it
+     * (matching the runtime's `422`). Constraints project in the update context, since one
+     * object serves both attaching a member and replacing a set.
      *
      * @param iterable<FieldInterface> $fields
      */
@@ -304,14 +304,41 @@ final class SchemaProjector
         $required = [];
 
         foreach ($fields as $field) {
-            $schema = $this->projectField($field, false, $collector);
             $appearsInCreate = $this->appearsInRepresentation($field, RepresentationContext::Create);
-            $appearsInUpdate = $this->appearsInRepresentation($field, RepresentationContext::Update);
-            if (!$appearsInCreate && !$appearsInUpdate) {
-                $schema = $schema->withReadOnly();
+            if ($field->isHidden() || (!$appearsInCreate && !$this->appearsInRepresentation($field, RepresentationContext::Update))) {
+                continue;
             }
-            $properties[$field->name()] = $schema;
+            $properties[$field->name()] = $this->projectField($field, false, $collector);
             if ($appearsInCreate && $this->isRequired($field, true)) {
+                $required[] = $field->name();
+            }
+        }
+
+        return Schema::ofType('object')
+            ->withProperties($properties)
+            ->withRequired($required);
+    }
+
+    /**
+     * Projects a `belongsToMany` relation's **response** `meta.pivot` object: every pivot field a
+     * rendered linkage identifier carries, read-only ones included and write-only ones left out.
+     * Each field follows the read rules an attribute does, so it admits `null` unless the server
+     * guarantees a value (ADR 0156), and `required` lists every field rendered on every response,
+     * leaving out a `hidden(when:)` / `writeOnly(when:)` one.
+     *
+     * @param iterable<FieldInterface> $fields
+     */
+    public function projectReadPivotObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    {
+        $properties = [];
+        $required = [];
+
+        foreach ($fields as $field) {
+            if ($field->isHidden() || !$this->appearsInRepresentation($field, RepresentationContext::Read)) {
+                continue;
+            }
+            $properties[$field->name()] = $this->reading(fn(): Schema => $this->projectField($field, false, $collector));
+            if (!$field->hasConditionalReadVisibility()) {
                 $required[] = $field->name();
             }
         }

@@ -512,8 +512,10 @@ final class OperationProjector
      * Every relation's exposed related ({@see RelationMetadataInterface::exposesRelatedEndpoint()})
      * and relationship ({@see RelationMetadataInterface::exposesRelationshipEndpoint()})
      * endpoints. The `{relationship}`/`{rel}` segment is **literal** in the projected
-     * document — one path per concrete relation name (`…/{id}/author`, not a parametric
-     * segment). The `{id}` path parameter is shared at the path-item level.
+     * document — one path per concrete relation (`…/{id}/author`, not a parametric
+     * segment), keyed by the relation's URI segment, which is its name unless the metadata
+     * declares another ({@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName}).
+     * The `{id}` path parameter is shared at the path-item level.
      *
      * @param array<string, true> $operations the type's allowed operations as a presence set
      * @return array<string, PathItem>
@@ -526,7 +528,7 @@ final class OperationProjector
         foreach ($type->relations() as $relation) {
             $writeOnly = self::isWriteOnly($relation);
             if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
-                $paths[PathTemplate::related($type->uriType(), $relation->name())] = (new PathItem(parameters: [$idParameter]))
+                $paths[PathTemplate::related($type->uriType(), RelationFacts::uriFieldName($relation))] = (new PathItem(parameters: [$idParameter]))
                     ->withOperation('get', $this->relatedOperation($type, $relation, $server));
             }
 
@@ -537,7 +539,7 @@ final class OperationProjector
                 }
                 // A write-only relation that cannot be mutated either has no operation left.
                 if ($item->operations !== []) {
-                    $paths[PathTemplate::relationship($type->uriType(), $relation->name())] = $item;
+                    $paths[PathTemplate::relationship($type->uriType(), RelationFacts::uriFieldName($relation))] = $item;
                 }
             }
         }
@@ -774,7 +776,11 @@ final class OperationProjector
             summary: $summary,
             description: $this->relationDescription($relation, $defaultDescription),
             operationId: $operationPrefix . '.' . $type->type() . '.' . $relation->name(),
-            requestBody: RequestBody::ofSchema($documentRef),
+            // A pivot-backed relation's request linkage types `meta.pivot` with the request
+            // pivot shape, so it takes its own request document.
+            requestBody: RequestBody::ofSchema(RelationFacts::hasPivot($relation)
+                ? Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . ComponentNaming::base($relation->name()) . 'RelationshipRequest'))
+                : $documentRef),
             security: $security,
         );
     }

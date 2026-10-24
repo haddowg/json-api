@@ -377,12 +377,25 @@ final class OpenApiProjector
         // respond with.
         foreach ($type->relations() as $relation) {
             $relBase = $name . $this->componentBase($relation->name());
-            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $collector, $relBase);
+            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $relBase);
 
             // The relationship-linkage endpoint's document envelope — emitted whenever
             // the relationship endpoint is exposed (the path projection $ref's it).
             if ($relation->exposesRelationshipEndpoint()) {
-                $schemas[$relBase . 'RelationshipDocument'] = $this->relationshipDocumentSchema($relation, $collector);
+                $schemas[$relBase . 'RelationshipDocument'] = $this->relationshipDocumentSchema($relation, $relBase);
+            }
+
+            // A pivot-backed relation's `meta.pivot` reads differently from how it is
+            // written (a response carries read-only pivot fields and promises presence; a
+            // request carries only what a write may set), so its linkage gets a response
+            // and a request shape, and the writes $ref the request ones.
+            if (RelationFacts::hasPivot($relation)) {
+                $schemas[$relBase . 'Pivot'] = $this->schemaProjector->projectReadPivotObject($relation->pivotFields(), $collector);
+                $schemas[$relBase . 'WritePivot'] = $this->schemaProjector->projectPivotObject($relation->pivotFields(), $collector);
+                $schemas[$relBase . 'WriteRelationship'] = $this->writeRelationshipObjectSchema($relation, $relBase);
+                if ($relation->exposesRelationshipEndpoint()) {
+                    $schemas[$relBase . 'RelationshipRequest'] = $this->relationshipRequestSchema($relation, $relBase);
+                }
             }
 
             // The to-one related endpoint renders `data: <Resource> | null` (an empty
@@ -967,9 +980,10 @@ final class OpenApiProjector
     /**
      * The typed `relationships` property for a **write** resource object: a
      * `{type: object, properties}` over the relations settable in that write, each
-     * `$ref`-ing the same per-relation relationship-object component the read side uses
-     * (its optional `meta` also carries a pivot write). A **create** may set any declared
-     * relation's initial linkage, so it lists them all; an **update** replaces an existing
+     * `$ref`-ing the per-relation relationship-object component the read side uses, or a
+     * pivot-backed relation's `<Type><Rel>WriteRelationship`, whose `meta.pivot` takes the
+     * request pivot shape. A write-only relation's property is marked `writeOnly`. A
+     * **create** may set any declared relation's initial linkage, so it lists them all; an **update** replaces an existing
      * association, so it lists only the relations whose replacement is permitted
      * ({@see RelationMetadataInterface::allowsReplace()} — an unconditionally locked
      * relation is omitted). Returns `null` when the write exposes no settable relation,
@@ -983,8 +997,14 @@ final class OpenApiProjector
             if (!$creating && !$relation->allowsReplace()) {
                 continue;
             }
-            $component = $base . $this->componentBase($relation->name()) . 'Relationship';
-            $properties[$relation->name()] = Schema::ref('#/components/schemas/' . $component);
+            $relBase = $base . $this->componentBase($relation->name());
+            $property = Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
+            // A write-only relation is never rendered back, which the response schemas
+            // show only by its absence; say it here, where the relation is.
+            if (RelationFacts::isWriteOnly($relation)) {
+                $property = $property->withWriteOnly();
+            }
+            $properties[$relation->name()] = $property;
         }
 
         if ($properties === []) {
@@ -1079,13 +1099,33 @@ final class OpenApiProjector
      * contribution, both consumer-declared, so the shared permissive `Meta` is the
      * honest projection.
      */
-    private function relationshipObjectSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector, string $relBase): Schema
+    private function relationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
         $schema = Schema::ofType('object')
             ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelationshipLinks'))
-            ->withProperty('data', $this->linkageData($relation, $collector))
+            ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
 
+        return $this->withRelationDescription($schema, $relation);
+    }
+
+    /**
+     * The relationship object a create or update request carries for a pivot-backed
+     * relation: the linkage `data` (required in a request) whose identifiers type
+     * `meta.pivot` with the request pivot shape, plus an optional `meta`.
+     */
+    private function writeRelationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    {
+        $schema = Schema::ofType('object')
+            ->withProperty('data', $this->linkageData($relation, $relBase, writing: true))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['data']);
+
+        return $this->withRelationDescription($schema, $relation);
+    }
+
+    private function withRelationDescription(Schema $schema, RelationMetadataInterface $relation): Schema
+    {
         $description = $relation->description();
 
         return $description !== null && $description !== '' ? $schema->withDescription($description) : $schema;
@@ -1094,10 +1134,11 @@ final class OpenApiProjector
     /**
      * The linkage `data` member for a relation: an array of identifiers for a to-many,
      * a single nullable identifier for a to-one (the empty to-one is `data: null`).
+     * `$writing` selects the request pivot shape over the response one.
      */
-    private function linkageData(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
+    private function linkageData(RelationMetadataInterface $relation, string $relBase, bool $writing): Schema
     {
-        $identifier = $this->linkageIdentifierSchema($relation, $collector);
+        $identifier = $this->linkageIdentifierSchema($relation, $relBase, $writing);
 
         return $relation->isToMany()
             ? Schema::ofType('array')->withItems($identifier)
@@ -1117,13 +1158,28 @@ final class OpenApiProjector
      * does not paginate, so it keeps `Links`. A relationship endpoint returns linkage only —
      * never a compound `included` — so no `included` is described here (core D16).
      */
-    private function relationshipDocumentSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
+    private function relationshipDocumentSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
         $links = $relation->isToMany() ? 'PaginationLinks' : 'Links';
 
         return Schema::ofType('object')
-            ->withProperty('data', $this->linkageData($relation, $collector))
+            ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
             ->withProperty('links', Schema::ref('#/components/schemas/' . $links))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
+            ->withRequired(['data']);
+    }
+
+    /**
+     * The request document a pivot-backed relation's relationship mutations
+     * (`PATCH`/`POST`/`DELETE …/relationships/{rel}`) take: the linkage `data`, typed with
+     * the request pivot shape, plus the optional `meta` and `jsonapi` members. A relation
+     * without pivot data takes its {@see relationshipDocumentSchema()} instead.
+     */
+    private function relationshipRequestSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('data', $this->linkageData($relation, $relBase, writing: true))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1210,7 +1266,7 @@ final class OpenApiProjector
      * type's identifier for a polymorphic one. A relation declaring no related types
      * degrades to a permissive identifier shape.
      */
-    private function linkageIdentifierSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
+    private function linkageIdentifierSchema(RelationMetadataInterface $relation, string $relBase, bool $writing): Schema
     {
         $types = $relation->relatedTypes();
         if ($types === []) {
@@ -1227,7 +1283,7 @@ final class OpenApiProjector
             // linkage identifier's `meta.pivot`. Compose it onto the base identifier via
             // `allOf` — the `$ref` carries `type`/`id`, the narrowing adds the typed
             // `meta` (a `$ref` cannot carry sibling property keywords here).
-            $narrowing = $this->pivotMetaNarrowing($relation, $collector);
+            $narrowing = $this->pivotMetaNarrowing($relation, $relBase, $writing);
 
             return $narrowing === null ? $identifier : Schema::create()->withAllOf([$identifier, $narrowing]);
         }
@@ -1242,27 +1298,19 @@ final class OpenApiProjector
 
     /**
      * The `meta.pivot` narrowing for a pivot-backed (`belongsToMany`) relation's
-     * linkage identifier: an object whose `meta.pivot` types each declared pivot field
-     * via the same {@see SchemaProjector} the attributes use (so a backed-enum pivot
-     * field hoists into the shared enum component). Returns `null` for any relation
-     * without pivot fields.
-     *
-     * The fused pivot object backs both the read linkage (where the runtime always renders the
-     * full pivot) and the relationship-mutation request body. The read/write asymmetry is carried
-     * by JSON-Schema keywords, not by omission: a read-only pivot field is `readOnly: true` (a
-     * client neither sends nor must supply it), and a writable create-required field is listed in
-     * `required` (a new member must carry it) — see {@see SchemaProjector::projectPivotObject()}.
+     * linkage identifier: an object whose `meta.pivot` `$ref`s the relation's response
+     * (`<Type><Rel>Pivot`) or request (`<Type><Rel>WritePivot`) pivot component. Returns
+     * `null` for any relation without pivot fields.
      */
-    private function pivotMetaNarrowing(RelationMetadataInterface $relation, EnumComponentCollector $collector): ?Schema
+    private function pivotMetaNarrowing(RelationMetadataInterface $relation, string $relBase, bool $writing): ?Schema
     {
-        $pivotFields = $relation->pivotFields();
-        if ($pivotFields === []) {
+        if (!RelationFacts::hasPivot($relation)) {
             return null;
         }
 
         return Schema::ofType('object')->withProperty(
             'meta',
-            Schema::ofType('object')->withProperty('pivot', $this->schemaProjector->projectPivotObject($pivotFields, $collector)),
+            Schema::ofType('object')->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . ($writing ? 'WritePivot' : 'Pivot'))),
         );
     }
 

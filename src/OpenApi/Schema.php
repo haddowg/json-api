@@ -237,6 +237,15 @@ final class Schema implements \JsonSerializable
         return $this->with('readOnly', $value);
     }
 
+    /**
+     * Sets the `writeOnly` keyword (JSON Schema 2020-12 / OAS 3.1): the member may be
+     * sent in a request but is never present in a response.
+     */
+    public function withWriteOnly(bool $value = true): self
+    {
+        return $this->with('writeOnly', $value);
+    }
+
     public function withMinProperties(int $value): self
     {
         return $this->with('minProperties', $value);

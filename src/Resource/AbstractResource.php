@@ -1160,6 +1160,29 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * The (non-hidden) relation whose related and relationship endpoints are served
+     * under the URI segment `$uriFieldName`, or `null` when none is. The segment is the
+     * relation's name unless `withUriFieldName()` set another, so a host routing
+     * `/{type}/{id}/{segment}` resolves the segment here and builds its
+     * {@see \haddowg\JsonApi\Operation\Target} with the relation's
+     * {@see \haddowg\JsonApi\Resource\Field\RelationInterface::name()}. A relation renamed
+     * in the URI is not found under its name.
+     */
+    public function relationAtUriFieldName(string $uriFieldName): ?\haddowg\JsonApi\Resource\Field\RelationInterface
+    {
+        foreach ($this->relationFields() as $relation) {
+            $segment = $relation instanceof \haddowg\JsonApi\Resource\Field\AbstractRelationValue
+                ? $relation->uriFieldName()
+                : $relation->name();
+            if ($segment === $uriFieldName) {
+                return $relation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The declared relation named `$name` **including hidden relations** — the
      * hidden-inclusive twin of {@see relationNamed()} (which filters hidden out).
      * A flattened (`on()`) attribute idiomatically names a `hidden()` "internal

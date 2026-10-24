@@ -147,11 +147,27 @@ sketch:
 - **Relationships.** Each declared relation gets a relationship-object component with its
   linkage `data` (a single nullable identifier for a to-one, an array for a to-many; a
   polymorphic relation's identifier is the `oneOf` of its members). A write request lists
-  only the relations settable in that write. Endpoints are emitted per relation, gated by
+  only the relations settable in that write, and marks a write-only relation's property
+  `writeOnly: true`, so a generator can keep it on its input types and off its read types
+  ([ADR 0162](adr/0162-a-write-only-relation-is-marked-writeonly-in-the-write-bodies.md)).
+  Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
   expose `Update`, since that is what it is. A read-only type's relation flags never open
-  one.
+  one. A relation's paths use its [URI field name](relations.md#conventional-links), the
+  segment its links and routes use, so `withUriFieldName('by')` documents
+  `/{type}/{id}/by` ([ADR 0161](adr/0161-a-relations-paths-are-keyed-by-its-uri-field-name.md)).
+- **Pivot data, per direction.** A `belongsToMany` relation's linkage identifiers type
+  their `meta.pivot` with one of two components. `<Type><Rel>Pivot` is what a response
+  renders: every pivot field except a write-only one, each `required` unless its read
+  visibility is request-conditional, and `null` admitted unless the value is guaranteed,
+  as for an attribute. `<Type><Rel>WritePivot` is what a request may send: only the fields
+  a write can set, with the ones every attach must supply in `required`. The response
+  linkage reaches the first through `<Type><Rel>Relationship` and
+  `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
+  through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
+  bodies through `<Type><Rel>RelationshipRequest`
+  ([ADR 0160](adr/0160-a-pivot-has-separate-response-and-request-schemas.md)).
 - **Links, per context.** Each place a link renders gets its own component listing the
   members the server puts there: `<Type>ResourceLinks` (the resource's `self`, plus each
   [action rendered as a link](#links-and-describedby)), `<Type>DocumentLinks` (a single
@@ -503,12 +519,17 @@ extensions for a type's operations. See
 A third sits beside `RelationMetadataInterface`: `DeclaresWriteOnlyRelation` adds
 `isWriteOnly(): bool`. A relation that reports `true` is projected the way a
 [write-only attribute](fields.md#write-only-members) is. It stays in the create and update
-request schemas and keeps its relationship `PATCH`/`POST`/`DELETE`, each documented as a
+request schemas, where its property carries `writeOnly: true`, and keeps its relationship `PATCH`/`POST`/`DELETE`, each documented as a
 `204`. It is left out of the read resource schema, the `fields[type]` and `?withCount`
 enums, and it has no related endpoint and no relationship `GET`. Report `true` only for an
 unconditional `writeOnly()`; a relation write-only by predicate stays in the superset, as
 an attribute does. Metadata that doesn't implement the interface projects every relation
 as readable.
+
+A fourth sits beside it: `DeclaresRelationUriFieldName` adds `uriFieldName(): string`, the
+segment the relation's related and relationship endpoints are served under. Return the
+core relation's `uriFieldName()`, which is the name unless `withUriFieldName()` set one.
+Metadata that doesn't implement it keys every relation's paths by its name.
 
 Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and

@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\ProjectedTypes;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -50,6 +51,25 @@ final class WriteOnlyRelationProjectionTest extends TestCase
         self::assertArrayHasKey('ArticlesReviewerRelationship', $schemas);
         self::assertArrayHasKey('ArticlesReviewerRelationshipDocument', $schemas);
         self::assertArrayNotHasKey('ArticlesReviewerRelatedDocument', $schemas);
+    }
+
+    #[Test]
+    public function aWriteOnlyRelationIsMarkedWriteOnlyInEveryWriteBody(): void
+    {
+        $schemas = $this->arrAt($this->document(atomic: true), 'components', 'schemas');
+
+        $bodies = [
+            'ArticlesCreateRequest' => ['properties', 'data', 'properties', 'relationships', 'properties'],
+            'ArticlesUpdateRequest' => ['properties', 'data', 'properties', 'relationships', 'properties'],
+            'ArticlesAtomicAdd' => ['properties', 'relationships', 'properties'],
+            'ArticlesAtomicUpdate' => ['properties', 'relationships', 'properties'],
+        ];
+        foreach ($bodies as $component => $path) {
+            $relationships = $this->arrAt($schemas, $component, ...$path);
+            foreach (['reviewer' => true, 'watchers' => true, 'author' => null, 'followers' => null] as $name => $writeOnly) {
+                self::assertSame($writeOnly, $this->arrAt($relationships, $name)['writeOnly'] ?? null, $component . '.' . $name);
+            }
+        }
     }
 
     #[Test]
@@ -109,7 +129,7 @@ final class WriteOnlyRelationProjectionTest extends TestCase
     /**
      * @return array<array-key, mixed>
      */
-    private function document(): array
+    private function document(bool $atomic = false): array
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
@@ -129,6 +149,7 @@ final class WriteOnlyRelationProjectionTest extends TestCase
             version: '1.0.0',
             types: [$articles, $people],
             profiles: [CountableProfile::URI],
+            atomicOperations: $atomic ? new FakeAtomicOperationsMetadata('/operations') : null,
         ))->toArray();
 
         // `followers` is readable, so only it reaches the read side of the fixture.
