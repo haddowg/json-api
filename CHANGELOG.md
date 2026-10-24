@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/haddowg/json-api/compare/v1.5.0...v1.5.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* apply a nested child's hidden and per-request visibility rules ([6a04259](https://github.com/haddowg/json-api/commit/6a042599d640d9682b115580213a5c1b45f4388d))
+* list a nested object's always-rendered children as required on read ([6a04259](https://github.com/haddowg/json-api/commit/6a042599d640d9682b115580213a5c1b45f4388d))
+
 ## [1.5.0](https://github.com/haddowg/json-api/compare/v1.4.0...v1.5.0) (2026-10-23)
 
 
