@@ -486,7 +486,9 @@ endpoint answers with `<Type><Rel>RelatedDocument` for a to-one and
 the generic `Links`.
 
 Each links component also carries its members' examples as one whole-object `example`,
-and `LinkObject` carries one of its own. A sampler that reads `additionalProperties` would
+and `LinkObject` carries one of its own: the first registered type's resource URL with
+its example id, plus a `describedby` pointing at that type's fetch-one operation when the
+server renders link objects and names its document URL. A sampler that reads `additionalProperties` would
 otherwise invent `property1`-style links nobody renders; `additionalProperties` stays, so
 a `getLinks()` override can still add any link. The generic `Links` that error documents use gets a
 one-link example for the same reason, and the free-form `Meta` component an empty `{}`.
@@ -818,7 +820,24 @@ list is worse than an integer that cannot drift.
 The bump is a maintainer decision, and CI enforces that it gets made. A guard compares the
 projected structure against the last release tag: a cycle that moves the structure must
 move the contract past what that release shipped, and once it has, later changes in the
-same cycle leave it alone. See the contract discipline in `CLAUDE.md`.
+same cycle leave it alone. Generated prose (`description`, `summary`) and `example`
+values are not structure: a generator reads neither, so changing one moves no contract.
+See the contract discipline in `CLAUDE.md`.
+
+#### Diffing documents across contracts
+
+Contract 9 writes a `$ref` that carries an `example` or `default` as a single-entry
+`allOf` holding the `$ref`, with the example beside it (ADR 0165). That shape means the
+same schema, but `oasdiff breaking` compares the `allOf` wrapper with the bare `$ref` it
+replaced. Between a contract 8 and a contract 9 document it reports about 40 `ERR`
+findings of the form "required property `href` removed", none of them real. Pass
+`--flatten-allof` so oasdiff merges each `allOf` before comparing:
+
+```bash
+oasdiff breaking --flatten-allof contract-8.json contract-9.json
+```
+
+With the flag, the same comparison reports no breaking changes.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
