@@ -159,7 +159,20 @@ final class LinkProjectionTest extends TestCase
         self::assertSame('/api/v5/records/alb-1', $this->at($self, 'example'));
 
         self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'AlbumsTracksRelationshipDocumentLinks'), 'properties', 'next', 'allOf', 0, '$ref'));
-        self::assertSame('/api/v5/', $this->at($this->schema($document, 'LinkObject'), 'example'));
+        self::assertSame('/api/v5/records/alb-1', $this->at($this->schema($document, 'LinkObject'), 'example'));
+    }
+
+    #[Test]
+    public function theSharedLinkObjectExampleIsTheFirstTypesResourceLink(): void
+    {
+        self::assertSame(
+            ['href' => '/api/v5/records/alb-1', 'describedby' => self::DOCS . '#/paths/~1records~1%7Bid%7D/get'],
+            $this->at($this->schema($this->project(), 'LinkObject'), 'example'),
+        );
+        self::assertSame(['href' => '/api/v5/records/alb-1'], $this->at($this->schema($this->project(documentUrl: null), 'LinkObject'), 'example'));
+
+        $empty = new FakeServerMetadata(title: 'Music', version: '1', types: [], servers: [new Server('/api/v5')]);
+        self::assertSame(['href' => '/api/v5/'], $this->at($this->schema((new OpenApiProjector())->project($empty)->toArray(), 'LinkObject'), 'example'));
     }
 
     #[Test]
