@@ -511,12 +511,15 @@ final readonly class LinkSchemaProjector
     private function topLevelLinksSchema(): Schema
     {
         $link = Schema::ref('#/components/schemas/LinkObject');
+        $href = $this->serverUrl . '/';
 
         return Schema::ofType('object')
             ->withProperty('self', $link)
             ->withProperty('related', $link)
             ->withProperty('describedby', $link)
-            ->withAdditionalProperties($link);
+            ->withAdditionalProperties($link)
+            // Without an example, samplers invent extra links from `additionalProperties`.
+            ->withExample(['self' => $this->objects ? ['href' => $href] : $href]);
     }
 
 }

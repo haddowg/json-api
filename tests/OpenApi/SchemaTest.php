@@ -173,4 +173,13 @@ final class SchemaTest extends TestCase
             Schema::ref('#/components/schemas/Status')->withDescription('The status.')->toArray(),
         );
     }
+
+    #[Test]
+    public function anEmptyObjectExampleStaysAnObjectInJson(): void
+    {
+        $schema = Schema::ofType('object')->withExample(new \stdClass());
+
+        self::assertSame('{"type":"object","example":{}}', \json_encode($schema->toJson(), \JSON_THROW_ON_ERROR));
+        self::assertSame(['type' => 'object', 'example' => []], $schema->toArray());
+    }
 }

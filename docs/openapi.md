@@ -488,7 +488,8 @@ the generic `Links`.
 Each links component also carries its members' examples as one whole-object `example`,
 and `LinkObject` carries one of its own. A sampler that reads `additionalProperties` would
 otherwise invent `property1`-style links nobody renders; `additionalProperties` stays, so
-a `getLinks()` override can still add any link.
+a `getLinks()` override can still add any link. The generic `Links` that error documents use gets a
+one-link example for the same reason, and the free-form `Meta` component an empty `{}`.
 
 The pagination members (`first`, `prev`, `next`, `last`) of a collection, of a to-many
 relationship's links and of a to-many related document show the links of page two, built from the page schema of the
