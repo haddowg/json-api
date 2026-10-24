@@ -1,0 +1,3 @@
+# A relation hidden from the caller reads as absent
+
+A `hidden($when)` relation dropped out of the rendered resource but its related endpoint still served the related data, because the pre-dispatch gate can't judge a predicate that takes the parent. `Server::refuseHiddenRelationRead($target, $parent, $request)` is the gate a host calls once it has loaded the parent; it answers `404 RelationshipNotExists`, not `403`, so the relation looks the same at its endpoints as it does in the resource, and an unconditional `hidden()` gets the same answer. `relationNamed()` keeps finding a conditionally hidden relation, so the mutation path still answers its own `403`s rather than a `404`.

@@ -233,6 +233,11 @@ authorization predicates `cannotReplace()`/`cannotRemove()`/`cannotAdd()`/
 `cannotBeIncluded()` take the same `(mixed $model, JsonApiRequestInterface $request)`
 closure — see [relations](relations.md).
 
+A relation hidden from the caller is absent from its related and relationship
+reads too: they answer `404 RelationshipNotExists`, once the handler calls
+`Server::refuseHiddenRelationRead()` after loading the parent. See
+[related endpoints](related-endpoints.md#relations-hidden-from-the-caller).
+
 On a `belongsToMany` pivot field, the `hidden(when:)` predicate receives the related
 member (the far-side resource whose linkage carries `meta.pivot`) rather than the join
 row, and hosts resolve both predicates through `readablePivotFieldsFor()`. See
