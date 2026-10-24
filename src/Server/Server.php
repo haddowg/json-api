@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface
 {
     private ResourceRegistry $resources;
 
@@ -157,6 +157,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
      * same way the linkage resolver is.
      */
     private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
+
+    private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
 
     private bool $linkObjects = true;
 
@@ -571,6 +573,27 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         $self->resources->setOutputTimezone($self->outputTimezone);
 
         return $self;
+    }
+
+    /**
+     * Sets the host's relation authorizer, which decides per parent whether a rendered
+     * relationship carries its data and included resources, and whether a flattened
+     * `on()` attribute may be written onto its related model. Passing `null` (the
+     * default) renders and writes without asking.
+     */
+    public function withRelationAuthorizer(?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer): self
+    {
+        $self = clone $this;
+        $self->relationAuthorizer = $relationAuthorizer;
+        $self->resources = clone $this->resources;
+        $self->resources->setRelationAuthorizer($relationAuthorizer);
+
+        return $self;
+    }
+
+    public function relationAuthorizer(): ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface
+    {
+        return $this->relationAuthorizer;
     }
 
     public function withProfile(ProfileInterface $profile): self

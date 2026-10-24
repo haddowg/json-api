@@ -401,6 +401,53 @@ defers, and the seam is asked only when its data renders. Core does not serve th
 related endpoint (`GET /articles/1/author`): your handler reads the related object
 there, so read it through the same scoped path.
 
+## Authorizing relation data
+
+A host guards a relation's own endpoints itself, but core also reaches relation data
+on its own: the linkage and `included` resources of every rendered relationship, and
+the related model an [`on()`](fields.md#flattened-related-attributes-on) attribute
+writes onto. `withRelationAuthorizer()` lets the host decide those too. Implement
+`RelationAuthorizerInterface`:
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\RelationAuthorizerInterface;
+
+final class RelationGate implements RelationAuthorizerInterface
+{
+    public function canReadRelationship(mixed $model, RelationInterface $relation, JsonApiRequestInterface $request): bool
+    {
+        $rule = $relation->securityRead();
+
+        return !\is_string($rule) || $this->allows($rule, $model, $request);
+    }
+
+    public function canWriteRelatedAttribute(mixed $owner, RelationInterface $relation, FieldInterface $field, mixed $model, JsonApiRequestInterface $request): bool
+    {
+        return $this->mayUpdate($relation->relatedTypes()[0], $owner, $request);
+    }
+}
+
+$server = $server->withRelationAuthorizer(new RelationGate(/* … */));
+```
+
+`canReadRelationship()` is asked once per rendered relationship, on primary and
+included resources alike, with the parent model. When it answers `false` the
+relationship keeps its `links` and renders nothing else: no `data`, no `meta` such as
+the `?withCount` total, and nothing in `included`, so an include path through it is
+pruned for that parent rather than refused. A relationship with no links to render is
+left out. The relation's own endpoints are still the host's to refuse.
+
+`canWriteRelatedAttribute()` is asked before each flattened write, with the related
+model, the last relation of the chain and the resource being hydrated. A `false`
+answer fails the write with `403 ACCESS_DENIED`.
+
+With no authorizer, the default, core renders and writes without asking. A resolver
+that decorates the server's should implement `ProvidesRelationAuthorizerInterface` and
+delegate, or the relationships it builds skip the authorizer.
+
 ## Wiring faults are exceptions, not error documents
 
 A misconfigured server is a programming error, so the registry throws a

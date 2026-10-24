@@ -41,6 +41,9 @@ final readonly class MorphToMany extends AbstractRelationValue
         SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         $relationship = OutputToMany::create();
+        if (!$this->isReadableFor($model, $request, $resolver)) {
+            return $this->withheld($relationship);
+        }
 
         // One decorator drives every member: it resolves the per-member serializer
         // (matching the member's own type against a declared one) and delegates, so

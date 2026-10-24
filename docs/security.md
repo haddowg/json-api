@@ -154,6 +154,11 @@ The library secures the JSON:API surface; the deployment around it is yours.
 - **Authenticate and authorise upstream.** This library does not check identity
   or permissions. Run your auth middleware *outside* the JSON:API chain so an
   unauthenticated or unauthorised request never reaches an operation handler.
+- **Give the server a relation authorizer when relations carry their own rules.**
+  Core renders a relationship's linkage and included resources, and writes an
+  `on()` attribute onto its related model, without reaching your endpoint checks.
+  `Server::withRelationAuthorizer()` lets those paths ask the same rules. See
+  [authorizing relation data](server.md#authorizing-relation-data).
 - **Treat hydrated input as untrusted.** Hydration maps a validated document onto
   your domain object via the allow-list above, but it does not enforce
   business-level authorisation ("may *this* user set *this* field"). Apply those

@@ -91,6 +91,12 @@ abstract class AbstractRelationship
     protected ?\Closure $identifierMeta = null;
 
     /**
+     * Whether this relationship's related data is withheld from the caller: it then
+     * renders only its links and never its `data` or any included resource.
+     */
+    protected bool $dataWithheld = false;
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -290,6 +296,23 @@ abstract class AbstractRelationship
     }
 
     /**
+     * Withholds the related data from the caller: the relationship renders its links
+     * and nothing else, contributes nothing to `included`, and is left out when it has
+     * no links to render.
+     *
+     * @internal Set by the owning relation when the server's relation authorizer
+     *           denies the read.
+     *
+     * @return $this
+     */
+    public function withholdData(): static
+    {
+        $this->dataWithheld = true;
+
+        return $this;
+    }
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -324,6 +347,10 @@ abstract class AbstractRelationship
             : $this->renderConventionLinks($transformation);
         $hasRenderedLinks = $renderedLinks !== [];
         $hasMeta = $this->meta !== [];
+
+        if ($this->dataWithheld) {
+            return $isIncludedField === true && $hasRenderedLinks === true ? ['links' => $renderedLinks] : null;
+        }
 
         // Force the linkage data when the relationship would render neither links nor
         // meta — overriding omitDataWhenNotIncluded so the object is never empty. This
