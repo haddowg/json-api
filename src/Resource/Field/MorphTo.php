@@ -37,6 +37,9 @@ final readonly class MorphTo extends AbstractRelationValue
         SerializerResolverInterface $resolver,
     ): AbstractRelationship {
         $relationship = \haddowg\JsonApi\Schema\Relationship\ToOneRelationship::create();
+        if (!$this->isReadableFor($model, $request, $resolver)) {
+            return $this->withheld($relationship);
+        }
 
         // A polymorphic relation resolves the serializer from the related
         // object's own type, so it must read the related value. Under the

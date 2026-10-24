@@ -507,7 +507,11 @@ BelongsTo::make('billingAccount', 'billing-accounts')
 ```
 
 - **`read`** governs the related read (`GET /{type}/{id}/{rel}`) and the relationship
-  linkage read (`GET …/relationships/{rel}`).
+  linkage read (`GET …/relationships/{rel}`), and, through the server's
+  [relation authorizer](server.md#authorizing-relation-data), the relationship
+  wherever else it renders. For a caller it denies, a fetched or included resource
+  keeps the relationship's `links` but renders no `data` or `meta`, and nothing
+  reaches `included` through it.
 - **`mutate`** governs relationship mutation (`PATCH`/`POST`/`DELETE …/relationships/{rel}`).
 
 Each value mirrors a resource's `security`: an authorization expression **string**
@@ -515,8 +519,8 @@ Each value mirrors a resource's `security`: an authorization expression **string
 firewall enforces it), **`false`** (documented public), or **`null`** (the default —
 inherit the resource's read/update security). A declared value **replaces** the
 parent's gate for that relation; `null` falls back to it. The expression is evaluated
-by the host's authorization layer; core stores the declaration and the OpenAPI
-projection reflects it. See the bundle's authorization guide for how it is enforced.
+by the host's authorization layer, at the endpoints and in the relation authorizer it
+gives the server; core stores the declaration and the OpenAPI projection reflects it. See the bundle's authorization guide for how it is enforced.
 
 ## Includability
 

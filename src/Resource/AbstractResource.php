@@ -882,13 +882,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * entity on flush, the in-memory store shares the reference; no related-persister
      * change). Any null hop in the chain is a 422
      * ({@see RelatedAttributeOwnerMissing}, require-exists): a flattened attribute
-     * never auto-instantiates a related model.
+     * never auto-instantiates a related model. Before each write the server's
+     * {@see RelationAuthorizerInterface} (when the resolver carries one) is asked
+     * whether the caller may write onto that related model; a refusal is a 403.
      *
      * @param mixed $domainObject
      * @param array<string, mixed> $data
      * @return mixed
      *
      * @throws RelatedAttributeOwnerMissing
+     * @throws \haddowg\JsonApi\Exception\AccessDenied
      */
     protected function hydrateRelatedAttributes(mixed $domainObject, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
@@ -911,9 +914,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
-            $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $domainObject, $request);
+            $lastHop = null;
+            $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $domainObject, $request, $lastHop);
             if ($owner === null) {
                 throw new RelatedAttributeOwnerMissing($field->name(), $relatedVia);
+            }
+
+            $authorizer = $this->serializerResolver instanceof \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface
+                ? $this->serializerResolver->relationAuthorizer()
+                : null;
+            if ($authorizer !== null && !$authorizer->canWriteRelatedAttribute($owner, $lastHop, $field, $domainObject, $request)) {
+                throw new \haddowg\JsonApi\Exception\AccessDenied();
             }
 
             // The field writes its own backing member (column() ?? name()) onto the
@@ -948,11 +959,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * mis-reads.
      *
      * @return mixed the final related model, or `null` on any intermediate-null hop
+     * @param-out RelationInterface $lastHop the relation of the last hop walked
      *
      * @throws \LogicException when a segment is undeclared, to-many, or its related
      *                         type cannot be resolved to continue the walk
      */
-    private function resolveRelatedChain(string $attribute, string $path, mixed $model, JsonApiRequestInterface $request): mixed
+    private function resolveRelatedChain(string $attribute, string $path, mixed $model, JsonApiRequestInterface $request, ?RelationInterface &$lastHop = null): mixed
     {
         $segments = \explode('.', $path);
         $current = $model;
@@ -981,6 +993,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 ));
             }
 
+            $lastHop = $relation;
             $current = \haddowg\JsonApi\Resource\Field\Internal\ToOneTarget::read($relation, $current, $request, $this->serializerResolver);
             if ($current === null) {
                 return null;

@@ -342,6 +342,9 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
         SerializerResolverInterface $resolver,
     ): OutputToOne {
         $relationship = OutputToOne::create();
+        if (!$this->isReadableFor($model, $request, $resolver)) {
+            return $this->withheld($relationship);
+        }
 
         $type = $this->relationState->relatedTypes[0] ?? null;
         if ($type !== null && $resolver->hasSerializerFor($type)) {
@@ -378,6 +381,9 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
         SerializerResolverInterface $resolver,
     ): OutputToMany {
         $relationship = OutputToMany::create();
+        if (!$this->isReadableFor($model, $request, $resolver)) {
+            return $this->withheld($relationship);
+        }
 
         $type = $this->relationState->relatedTypes[0] ?? null;
         if ($type !== null && $resolver->hasSerializerFor($type)) {
@@ -548,6 +554,41 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
         }
 
         return $loadState->isRelationshipLoaded($model, $this) === false;
+    }
+
+    /**
+     * Whether the server's {@see \haddowg\JsonApi\Resource\RelationAuthorizerInterface}
+     * lets the caller see this relation's data on `$model`. With no authorizer on the
+     * resolver it does.
+     */
+    protected function isReadableFor(
+        mixed $model,
+        JsonApiRequestInterface $request,
+        SerializerResolverInterface $resolver,
+    ): bool {
+        $authorizer = $resolver instanceof \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface
+            ? $resolver->relationAuthorizer()
+            : null;
+
+        return $authorizer === null || $authorizer->canReadRelationship($model, $this, $request);
+    }
+
+    /**
+     * Turns a fresh relationship into one that renders only its links, for a caller
+     * the relation authorizer denies. No data, count, pagination or identifier meta
+     * is read for it.
+     *
+     * @template T of AbstractRelationship
+     *
+     * @param T $relationship
+     * @return T
+     */
+    protected function withheld(AbstractRelationship $relationship): AbstractRelationship
+    {
+        $this->applyConventionLinks($relationship);
+        $relationship->withholdData();
+
+        return $relationship;
     }
 
     /**

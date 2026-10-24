@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface
 {
     /**
      * @var array<string, Entry>
@@ -117,6 +117,12 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?string $outputTimezone = null;
 
     /**
+     * The host's relation authorizer, or null for none. Threaded down from the
+     * {@see Server} so relations and resources can read it off their resolver.
+     */
+    private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -136,6 +142,16 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function outputTimezone(): ?string
     {
         return $this->outputTimezone;
+    }
+
+    public function setRelationAuthorizer(?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer): void
+    {
+        $this->relationAuthorizer = $relationAuthorizer;
+    }
+
+    public function relationAuthorizer(): ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface
+    {
+        return $this->relationAuthorizer;
     }
 
     /**

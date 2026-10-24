@@ -110,7 +110,12 @@ BelongsTo::make('publisher', 'publishers')->hidden(),
   attribute **never auto-instantiates** a related model: writing one when **any hop**
   is absent is a **422** (`RelatedAttributeOwnerMissing`, pointing at
   `/data/attributes/<name>`). Flattened attributes hydrate **after** relationships,
-  so a first-hop relation associated in the same request body is visible.
+  so a first-hop relation associated in the same request body is visible. That
+  means one body can re-link the relation and write onto the newly linked model, so
+  before each write core asks the server's
+  [relation authorizer](server.md#authorizing-relation-data), when one is set,
+  whether the caller may write onto that related model. A refusal is a
+  `403 ACCESS_DENIED`.
 - **Supplied targets.** When the server has a
   [to-one target seam](server.md#supplying-to-one-targets), each hop reads the
   target it supplies, on read and write alike. A hop it supplies as none counts as
