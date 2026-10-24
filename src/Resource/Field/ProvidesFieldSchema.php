@@ -24,7 +24,9 @@ use haddowg\JsonApi\OpenApi\SchemaProjector;
  *
  * A composite recurses through the passed {@see SchemaProjector} to project its
  * member/child fields, threading the {@see EnumComponentCollector} so a nested
- * enum still registers its shared component.
+ * enum still registers its shared component. An object-shaped composite can hand its
+ * children to {@see SchemaProjector::projectNestedObject()} to get the same
+ * per-representation `required` list {@see Obj} carries.
  */
 interface ProvidesFieldSchema extends FieldInterface
 {

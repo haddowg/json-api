@@ -250,6 +250,13 @@ top-level field is — a `readOnly()` child can't be written through the nested
 object on create or update, and `readOnlyOnCreate()`/`readOnlyOnUpdate()` each gate
 only their own context.
 
+The other visibility rules apply to a child the same way too. A `hidden()` child is
+neither rendered nor written, a `writeOnly()` child is written but never rendered, and
+the request-aware forms (`hidden(when:)`, `writeOnly(when:)`, `readOnly(when:)`) are
+evaluated per request. A `hidden(when:)` predicate receives the value the child reads
+from: the domain object for a `Map` child, the stored object for an `Obj` or `OneOf`
+child.
+
 > `Map::on($relation)` — spreading children across a **related** model rather than
 > the same one — is out of scope for core.
 
@@ -291,7 +298,12 @@ Write semantics on the single value:
   scalars in one array.
 
 In the generated OpenAPI document an `Obj` projects a typed `object` schema built
-from its children (it self-describes via `ProvidesFieldSchema`).
+from its children (it self-describes via `ProvidesFieldSchema`). A `Map` projects the
+same way. The create schema requires each child a create must supply, the update schema
+requires none, and the read schema requires every child the object renders, which is
+all of them except a write-only or request-conditional child. A field with its own
+`serializeUsing()` / `extractUsing()` hook requires no children on read. See
+[presence on read](openapi.md).
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
 declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.

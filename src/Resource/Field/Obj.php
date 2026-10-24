@@ -90,7 +90,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         // — not the domain object — is what each child serializes against.
         $nested = [];
         foreach ($this->children as $child) {
-            if ($child->isWriteOnly()) {
+            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
                 continue;
             }
 
@@ -127,7 +127,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
 
         $nested = JsonObject::hydrateChildren($this->name(), function () use ($nested, $value, $data, $request, $creating): mixed {
             foreach ($this->children as $child) {
-                if ($child->isReadOnly($creating)) {
+                if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
                     continue;
                 }
 
@@ -151,24 +151,6 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $properties = [];
-        $required = [];
-        foreach ($this->children as $child) {
-            if ($child->isHidden()) {
-                continue;
-            }
-
-            $properties[$child->name()] = $projector->projectField($child, $creating, $collector);
-            // Mirror the top-level attributes projection: a required child populates
-            // the object's `required` only in the create context (on update an absent
-            // member means "no change").
-            if ($creating && $projector->isRequired($child, $creating)) {
-                $required[] = $child->name();
-            }
-        }
-
-        return Schema::ofType('object')
-            ->withProperties($properties)
-            ->withRequired($required);
+        return $projector->projectNestedObject($this, $this->children, $creating, $collector);
     }
 }

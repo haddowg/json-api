@@ -157,6 +157,17 @@ abstract readonly class AbstractFieldValue implements FieldInterface
         return $this->state->readOnlyOnCreateWhen !== null ? false : null;
     }
 
+    /**
+     * Whether a `serializeUsing()` or `extractUsing()` hook produces the rendered value,
+     * so its shape is the author's rather than the one the field declares.
+     *
+     * @internal
+     */
+    public function rendersThroughHook(): bool
+    {
+        return $this->state->serializeUsing !== null || $this->state->extractUsing !== null;
+    }
+
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {

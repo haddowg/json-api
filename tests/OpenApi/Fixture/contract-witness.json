@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 5
+            "contract": 6
         }
     },
     "servers": [
@@ -222,7 +222,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -250,6 +250,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -413,7 +414,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -441,6 +442,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -601,7 +603,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -629,6 +631,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -798,7 +801,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -826,6 +829,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -1264,7 +1268,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1292,6 +1296,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -2799,7 +2804,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2827,6 +2832,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -4160,7 +4166,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4188,6 +4194,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "contact",
                                     "createdAt",
                                     "legacyRef",
                                     "commentCount",
@@ -5886,7 +5893,11 @@
                                     "null"
                                 ]
                             }
-                        }
+                        },
+                        "required": [
+                            "street",
+                            "city"
+                        ]
                     },
                     "block": {
                         "oneOf": [
@@ -5901,7 +5912,11 @@
                                         "type": "string",
                                         "const": "heading"
                                     }
-                                }
+                                },
+                                "required": [
+                                    "text",
+                                    "kind"
+                                ]
                             },
                             {
                                 "type": "object",
@@ -5917,7 +5932,11 @@
                                         "type": "string",
                                         "const": "image"
                                     }
-                                }
+                                },
+                                "required": [
+                                    "src",
+                                    "kind"
+                                ]
                             },
                             {
                                 "type": "null"
@@ -5926,6 +5945,51 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "contact": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "nickname": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "phone": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "geo": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "lat": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "lat"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "firstName",
+                            "nickname",
+                            "geo"
+                        ]
                     },
                     "createdAt": {
                         "type": "string",
@@ -5976,6 +6040,7 @@
                     "analytics",
                     "address",
                     "block",
+                    "contact",
                     "createdAt",
                     "legacyRef",
                     "commentCount",
@@ -6303,6 +6368,34 @@
                         ],
                         "discriminator": {
                             "propertyName": "kind"
+                        }
+                    },
+                    "contact": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "nickname": {
+                                "type": "string"
+                            },
+                            "pin": {
+                                "type": "string"
+                            },
+                            "phone": {
+                                "type": "string"
+                            },
+                            "geo": {
+                                "type": "object",
+                                "properties": {
+                                    "lat": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
                         }
                     },
                     "authorName": {
@@ -6869,6 +6962,34 @@
                         ],
                         "discriminator": {
                             "propertyName": "kind"
+                        }
+                    },
+                    "contact": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "firstName": {
+                                "type": "string"
+                            },
+                            "nickname": {
+                                "type": "string"
+                            },
+                            "pin": {
+                                "type": "string"
+                            },
+                            "phone": {
+                                "type": "string"
+                            },
+                            "geo": {
+                                "type": "object",
+                                "properties": {
+                                    "lat": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
                         }
                     },
                     "authorName": {
