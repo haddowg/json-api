@@ -173,12 +173,14 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
             return ErrorResponse::fromException(new ResourceNotFound());
         }
 
+        $request = $this->request($operation->context());
+        $server->refuseHiddenRelationRead($target, $parent, $request);
+
         $relation = $server->resourceFor($type)->relationNamed($relationshipName);
         if ($relation === null || !$relation->exposesRelatedEndpoint()) {
             return ErrorResponse::fromException(new RelationshipNotExists($relationshipName));
         }
 
-        $request = $this->request($operation->context());
         $related = $relation->readValue($parent, $request);
 
         $relatedTypes = $relation->relatedTypes();
@@ -251,6 +253,8 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
         if ($parent === null) {
             return ErrorResponse::fromException(new ResourceNotFound());
         }
+
+        $server->refuseHiddenRelationRead($target, $parent, $this->request($operation->context()));
 
         $relation = $server->resourceFor($type)->relationNamed($relationshipName);
         if ($relation === null || !$relation->exposesRelationshipEndpoint()) {

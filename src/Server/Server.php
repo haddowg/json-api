@@ -876,6 +876,36 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     }
 
     /**
+     * Refuses a read of the related or relationship endpoint of a relation that is
+     * hidden from this caller, with the `404` an undeclared relation gets, so it
+     * looks as absent there as it does from the rendered resource. A `hidden($when)`
+     * predicate needs the parent, so a host calls this after loading the parent and
+     * before reading the related data. Covers an unconditionally hidden relation
+     * too. A target with no relationship, a type this server does not resolve to a
+     * resource, or a relation it does not declare is left alone.
+     *
+     * @throws \haddowg\JsonApi\Exception\RelationshipNotExists
+     */
+    public function refuseHiddenRelationRead(
+        \haddowg\JsonApi\Operation\Target $target,
+        mixed $parent,
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+    ): void {
+        if ($target->relationship === null || !$this->resources->hasSerializerFor($target->type)) {
+            return;
+        }
+
+        $serializer = $this->resources->serializerFor($target->type);
+        if (!$serializer instanceof AbstractResource) {
+            return;
+        }
+
+        if ($serializer->relationNamedIncludingHidden($target->relationship)?->isHiddenFor($request, $parent) === true) {
+            throw new \haddowg\JsonApi\Exception\RelationshipNotExists($target->relationship);
+        }
+    }
+
+    /**
      * Refuses a read of a write-only relation's related or relationship endpoint
      * with the `404` an undeclared relation gets. The relation stays writable, so
      * its relationship endpoint still takes `PATCH`/`POST`/`DELETE`.

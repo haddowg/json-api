@@ -46,6 +46,8 @@ serializer. The single-resource form uses
 ```php
 $parent = $this->loadParent($type, $target->id);
 // …
+$server->refuseHiddenRelationRead($target, $parent, $request);
+
 $relation = $server->resourceFor($type)->relationNamed($relationshipName);
 if ($relation === null || !$relation->exposesRelatedEndpoint()) {
     return ErrorResponse::fromException(new RelationshipNotExists($relationshipName));
@@ -104,6 +106,8 @@ the **parent's** serializer, naming the relationship, with
 [`IdentifierResponse::forRelationship()`](../src/Response/IdentifierResponse.php):
 
 ```php
+$server->refuseHiddenRelationRead($target, $parent, $request);
+
 $relation = $server->resourceFor($type)->relationNamed($relationshipName);
 if ($relation === null || !$relation->exposesRelationshipEndpoint()) {
     return ErrorResponse::fromException(new RelationshipNotExists($relationshipName));
@@ -278,6 +282,18 @@ if ($relation === null || !$relation->exposesRelatedEndpoint()) {
     return ErrorResponse::fromException(new RelationshipNotExists($relationshipName));
 }
 ```
+
+## Relations hidden from the caller
+
+A relation declared `hidden($when)` drops out of the rendered resource for the
+callers its predicate matches, and its two read endpoints answer them the same
+`404 RelationshipNotExists` an undeclared relation gets, so the relation looks
+absent rather than forbidden. The predicate takes the parent model, which only the
+handler has, so the handler calls `Server::refuseHiddenRelationRead($target, $parent,
+$request)` once the parent is loaded and before it reads the related data, as both
+snippets above do. It also refuses an unconditionally `hidden()` relation and leaves
+every other target alone. A write-only relation needs no call: `Server` refuses its
+reads before the handler runs.
 
 ## Compound includes
 
