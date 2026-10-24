@@ -43,8 +43,12 @@ final readonly class LinkSchemaProjector
 
     private ?SpecDescribedByResolver $describedBy;
 
+    private ?TypeMetadataInterface $exampleType;
+
     public function __construct(ServerMetadataInterface $server, Paths $paths)
     {
+        $this->exampleType = $server->types()[0] ?? null;
+
         $this->objects = !$server instanceof DeclaresLinkObjects || $server->rendersLinkObjects();
 
         $servers = $server->servers();
@@ -287,12 +291,25 @@ final readonly class LinkSchemaProjector
      */
     private function member(string $examplePath, OperationReference $operation, string $description, array $page = []): Schema
     {
+        return Schema::ref('#/components/schemas/' . ($this->objects ? 'RenderedLink' : 'LinkObject'))
+            ->withDescription($description . self::HREF_NOTE)
+            ->withExample($this->linkExample($examplePath, $operation, $page));
+    }
+
+    /**
+     * The example of one built link: its `href`, as an object carrying the target
+     * operation's `describedby` when the server renders link objects, else the bare URL.
+     *
+     * @param array<string, int|string> $page
+     *
+     * @return string|array<string, string>
+     */
+    private function linkExample(string $examplePath, OperationReference $operation, array $page = []): string|array
+    {
         $href = $this->serverUrl . $examplePath . ($page === [] ? '' : '?' . \http_build_query(['page' => $page]));
 
         if (!$this->objects) {
-            return Schema::ref('#/components/schemas/LinkObject')
-                ->withDescription($description . self::HREF_NOTE)
-                ->withExample($href);
+            return $href;
         }
 
         $example = ['href' => $href];
@@ -301,9 +318,7 @@ final readonly class LinkSchemaProjector
             $example['describedby'] = $describedBy;
         }
 
-        return Schema::ref('#/components/schemas/RenderedLink')
-            ->withDescription($description . self::HREF_NOTE)
-            ->withExample($example);
+        return $example;
     }
 
     /**
@@ -479,11 +494,16 @@ final readonly class LinkSchemaProjector
             ->withProperty('meta', Schema::ofType('object'))
             ->withRequired(['href']);
 
-        $href = $this->serverUrl . '/';
+        // The first type's resource URL, as a resource object's `self` renders it.
+        $type = $this->exampleType;
+        $root = $this->serverUrl . '/';
+        $example = $type === null
+            ? ($this->objects ? ['href' => $root] : $root)
+            : $this->linkExample($this->examplePath(PathTemplate::resource($type->uriType()), $type), OperationReference::fetchOne($type->uriType()));
 
         return Schema::create()
             ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.')
-            ->withExample($this->objects ? ['href' => $href] : $href)
+            ->withExample($example)
             ->withAnyOf([
                 Schema::ofType('string')->withFormat('uri-reference'),
                 $object,

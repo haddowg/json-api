@@ -19,13 +19,14 @@ declare(strict_types=1);
  * moved" and "the emitted document moved" are the same statement. The contract number
  * comes from the constant itself, read at the tag and in the working tree.
  *
- * Prose is not structure. `description` and `summary` string values are stripped before the
- * comparison, so rewording a generated sentence costs no bump — a generator is never too
- * old to read a changed description. Everything else counts: a member added, renamed or
- * removed, a rewired $ref, a changed const/enum/required set, a new status code, a new
- * vendor extension. The stripping is by key name, so a *user* schema property literally
- * named `description` is only exempted when its value is a string — which a schema object
- * never is.
+ * Prose is not structure, and neither are examples. `description` and `summary` string
+ * values and every `example` are stripped before the comparison, so rewording a generated
+ * sentence or improving a sample costs no bump: a generator reads neither, so it is never
+ * too old for a changed one. Everything else counts: a member added, renamed or removed,
+ * a rewired $ref, a changed const/enum/required set, a new status code, a new vendor
+ * extension. Inside a map keyed by names rather than keywords (a schema's `properties`, a
+ * discriminator `mapping`, `paths`, the `components` sections) a name is never mistaken
+ * for a keyword, so an attribute literally named `example` or `description` still counts.
  *
  * The four verdicts:
  *
@@ -143,10 +144,22 @@ function decodeWitness(string $raw, string $label): array
 }
 
 /**
- * Drops the prose members and the generator stamp, so what remains is the structure a code
- * generator reads.
+ * Members whose value is a map keyed by names (a property, a type, a path, a component)
+ * rather than by keywords.
  */
-function structure(mixed $value): mixed
+const NAMED_MAPS = [
+    'properties', 'patternProperties', 'dependentSchemas', '$defs', 'mapping',
+    'paths', 'webhooks', 'schemas', 'responses', 'parameters', 'examples', 'requestBodies',
+    'headers', 'securitySchemes', 'links', 'callbacks', 'pathItems', 'content', 'encoding',
+    'variables',
+];
+
+/**
+ * Drops the prose members, the examples and the generator stamp, so what remains is the
+ * structure a code generator reads. `$named` marks a map keyed by names, whose keys are
+ * never stripped.
+ */
+function structure(mixed $value, bool $named = false): mixed
 {
     if (!\is_array($value)) {
         return $value;
@@ -154,13 +167,13 @@ function structure(mixed $value): mixed
 
     $out = [];
     foreach ($value as $key => $item) {
-        if (($key === 'description' || $key === 'summary') && \is_string($item)) {
+        if (!$named && (($key === 'description' || $key === 'summary') && \is_string($item) || $key === 'example')) {
             continue;
         }
         if ($key === 'x-generator') {
             continue;
         }
-        $out[$key] = structure($item);
+        $out[$key] = structure($item, !$named && \in_array($key, NAMED_MAPS, true));
     }
 
     return $out;
@@ -220,8 +233,8 @@ if (!$moved) {
         . "  announces a difference that is not there, and every generator that supports {$releasedContract} warns for\n"
         . "  nothing.\n"
         . "  Reset GeneratorContract::CONTRACT to {$releasedContract} and regenerate the witness, or land the\n"
-        . '  structural change the bump was meant to announce. (Reworded description/summary prose is not '
-        . "structure.)",
+        . '  structural change the bump was meant to announce. (Reworded description/summary prose and '
+        . "changed examples are not structure.)",
     );
 }
 

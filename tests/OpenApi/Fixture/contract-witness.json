@@ -11309,7 +11309,8 @@
                     }
                 ],
                 "example": {
-                    "href": "https://api.example.com/"
+                    "href": "https://api.example.com/articles/art-1",
+                    "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
                 }
             },
             "Links": {
