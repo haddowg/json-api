@@ -10,4 +10,6 @@ The links the server builds (by-convention resource and relationship links, the 
 
 ## Consequences
 
-Error documents keep their links as they were and get no top-level `describedby`, since they describe a failure rather than the operation. An Atomic Operations result document gets no top-level `describedby` (the runtime doesn't know the extension's path), while the resource objects inside it follow the server's link settings. A relation whose `withUriFieldName()` differs from its name links to a path the projector doesn't key, so its links carry no `describedby`.
+Error documents keep their links as they were and get no top-level `describedby`, since they describe a failure rather than the operation. An Atomic Operations result document is described by the atomic endpoint's `POST` only when the integration passes that endpoint's path to `AtomicOperationsOperation`, because the runtime can't derive it (the path lives in the OpenAPI metadata, which the server never sees); the resource objects inside it follow the server's link settings. A relation whose `withUriFieldName()` differs from its name links to a path the projector doesn't key, so its links carry no `describedby`.
+
+An author's top-level `describedby`, from `withDescribedby()` or inside `withLinks()`, beats the per-operation one. That keeps an explicit choice explicit, but an integration that used `withDescribedby()` to point every document at the whole OpenAPI document hides the per-operation pointer until it drops that call.

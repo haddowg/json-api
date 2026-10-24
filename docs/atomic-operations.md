@@ -57,7 +57,10 @@ request order. Per the spec a result object carries only **`data`** and/or
 object** `{}`
 ([`AtomicResult`](../src/Atomic/AtomicResult.php),
 [`AtomicResultsResponse`](../src/Response/AtomicResultsResponse.php)). The response
-advertises the extension on its `Content-Type` `ext` parameter.
+advertises the extension on its `Content-Type` `ext` parameter. When the server has a
+`describedby` resolver and the integration built the `AtomicOperationsOperation` with
+its endpoint path, the document's top-level `links.describedby` points at the atomic
+`POST` in the OpenAPI document ([links and meta](links-and-meta.md)).
 
 ### Local ids (`lid`)
 
