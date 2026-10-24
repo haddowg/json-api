@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.0](https://github.com/haddowg/json-api/compare/v1.8.1...v1.9.0) (2026-10-24)
+
+
+### Features
+
+* add a read gate for a relation hidden from the caller ([#210](https://github.com/haddowg/json-api/issues/210)) ([80c8e9f](https://github.com/haddowg/json-api/commit/80c8e9f6997ce098b2e39964a0f26121930718fe))
+* let a host authorize rendered relation data and flattened writes ([#212](https://github.com/haddowg/json-api/issues/212)) ([bbf979a](https://github.com/haddowg/json-api/commit/bbf979aac8a251cac5360aa31fe4a86532f24448))
+
+
+### Bug Fixes
+
+* refuse relationship mutations on a read-only relation ([#209](https://github.com/haddowg/json-api/issues/209)) ([4fda0c4](https://github.com/haddowg/json-api/commit/4fda0c46af77b5534c061b53cd62cd7528f4ef75))
+
 ## [1.8.1](https://github.com/haddowg/json-api/compare/v1.8.0...v1.8.1) (2026-10-24)
 
 
