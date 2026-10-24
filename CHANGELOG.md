@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.0](https://github.com/haddowg/json-api/compare/v1.6.0...v1.7.0) (2026-10-24)
+
+
+### Features
+
+* **openapi:** mark a write-only relation writeOnly in the write bodies ([aea9983](https://github.com/haddowg/json-api/commit/aea9983459a9d717a08bc47a760392c9eaffc303))
+* **openapi:** split a pivot's meta.pivot into response and request schemas ([aea9983](https://github.com/haddowg/json-api/commit/aea9983459a9d717a08bc47a760392c9eaffc303))
+* resolve a pivot member's readable fields per request ([#203](https://github.com/haddowg/json-api/issues/203)) ([3f5e0ff](https://github.com/haddowg/json-api/commit/3f5e0ffd1609c3a75c00a56a5ab7662ae8143e0f))
+
+
+### Bug Fixes
+
+* **openapi:** key a relation's paths by its URI field name so links resolve ([aea9983](https://github.com/haddowg/json-api/commit/aea9983459a9d717a08bc47a760392c9eaffc303))
+
 ## [1.6.0](https://github.com/haddowg/json-api/compare/v1.5.1...v1.6.0) (2026-10-24)
 
 
