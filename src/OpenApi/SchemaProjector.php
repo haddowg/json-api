@@ -392,11 +392,14 @@ final class SchemaProjector
 
     /**
      * The generated default description for a type's resource object, used when the
-     * author declared none.
+     * author declared none. `$singular` names one resource of the type in prose; when
+     * omitted it is inflected from the type name.
      */
-    public static function resourceObjectDescription(string $type): string
+    public static function resourceObjectDescription(string $type, ?string $singular = null): string
     {
-        return 'An `' . $type . '` resource object.';
+        $noun = TypeNoun::fromType($type, $singular)->withArticle();
+
+        return \ucfirst($noun) . ' resource object.';
     }
 
     /**

@@ -447,6 +447,11 @@ final class Schema implements \JsonSerializable
      */
     public function toArray(): array
     {
+        $emitted = $this->emitted();
+        if ($emitted !== $this) {
+            return $emitted->toArray();
+        }
+
         $order = [
             '$ref',
             'type', 'format', 'title', 'description',
@@ -481,6 +486,27 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * The node as it is written out. A `$ref` that carries an `example`, `examples` or
+     * `default` moves into a single-entry `allOf` with every other keyword beside it,
+     * because OAS 3.0 tooling (ReDoc's sampler among it) ignores a `$ref`'s siblings and
+     * would never show them. A `$ref` with no such sibling is written as it is.
+     */
+    private function emitted(): self
+    {
+        $ref = $this->keywords['$ref'] ?? null;
+        if (!\is_string($ref)
+            || !(\array_key_exists('example', $this->keywords) || \array_key_exists('examples', $this->keywords) || \array_key_exists('default', $this->keywords))) {
+            return $this;
+        }
+
+        $allOf = $this->keywords['allOf'] ?? [];
+        /** @var list<self> $allOf */
+        $allOf = \is_array($allOf) ? \array_values($allOf) : [];
+
+        return $this->without('$ref')->withAllOf([self::ref($ref), ...$allOf]);
+    }
+
+    /**
      * The schema as the `stdClass` tree a JSON Schema validator (opis) consumes:
      * every {@see Schema} node (including an **empty** one) becomes a `stdClass`,
      * so an empty schema `{}` encodes as a JSON object — never an array. List
@@ -491,6 +517,11 @@ final class Schema implements \JsonSerializable
      */
     public function toJson(): \stdClass
     {
+        $emitted = $this->emitted();
+        if ($emitted !== $this) {
+            return $emitted->toJson();
+        }
+
         // Recurse over the live keyword graph (not the flattened toArray() form) in
         // the same canonical order, so an empty Schema node becomes an empty object.
         $object = new \stdClass();

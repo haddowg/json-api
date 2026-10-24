@@ -68,8 +68,8 @@ The projection is a small pipeline of **pure** classes in
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
   relationship / related document envelopes, and the per-context links components), the
-  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`,
-  `PaginationLinks`, `Error`, `ErrorDocument` and its per-status narrowings), the
+  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`, `Error`,
+  `ErrorDocument` and its per-status narrowings), the
   per-code error variants, the shared error responses, the named enum components, the
   optional [Atomic Operations](atomic-operations.md) extension components + path, and —
   via the `OperationProjector` — the `paths`.
@@ -433,7 +433,7 @@ discovery, so in those apps the exception above is catalogued by writing it.
 ### Links and `describedby`
 
 The server renders the links it builds as [link objects](links-and-meta.md#built-links-are-link-objects),
-and each links component describes exactly that. Its members `$ref` `RenderedLink`, the
+and each links component describes exactly that. Its members point at `RenderedLink`, the
 object form the server renders (`href`, plus `describedby` and `meta` when present), and
 carry an example:
 
@@ -443,16 +443,16 @@ carry an example:
   "description": "The `links` of a resource object of type `albums`.",
   "properties": {
     "self": {
-      "$ref": "#/components/schemas/RenderedLink",
       "description": "The resource's own URL. …",
+      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
       "example": {
         "href": "/api/v5/albums/1",
         "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D/get"
       }
     },
     "publish": {
-      "$ref": "#/components/schemas/RenderedLink",
       "description": "The `publish` action on this resource. …",
+      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
       "example": {
         "href": "/api/v5/albums/1/-actions/publish",
         "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D~1-actions~1publish/post"
@@ -471,14 +471,55 @@ absolute to the request host unless the server pins its links to a configured ba
 nobody mistakes the example's form for the wire's. The `describedby` in an example is
 present only when the metadata names the document's URL and the document carries the
 operation; it is built from the same path templates the projector keys `paths` by, so the
-two can't drift. `additionalProperties` stays the open `LinkObject` (a string, a link
+two can't drift.
+
+Every context gets its own links component. Beside a type's `<Type>ResourceLinks`,
+`<Type>DocumentLinks` and `<Type>CollectionLinks` and each relation's
+`<Type><Rel>RelationshipLinks`, a relation's endpoints have their own documents' links:
+`<Type><Rel>RelationshipDocumentLinks` lists what the relationship endpoint renders at the
+top level (the relationship's `self` and `related`, `describedby`, and the pages of a
+paginated to-many), and `<Type><Rel>RelatedDocumentLinks` what the related endpoint
+renders (its own URL as `self`, `describedby`, and the pages of a to-many). The related
+endpoint answers with `<Type><Rel>RelatedDocument` for a to-one and
+`<Type><Rel>RelatedCollection` for a to-many, so its examples show
+`/advertisers/1042/agencies`, never the agencies collection's URL. Error documents keep
+the generic `Links`.
+
+Each links component also carries its members' examples as one whole-object `example`,
+and `LinkObject` carries one of its own. A sampler that reads `additionalProperties` would
+otherwise invent `property1`-style links nobody renders; `additionalProperties` stays, so
+a `getLinks()` override can still add any link.
+
+The pagination members (`first`, `prev`, `next`, `last`) of a collection, of a to-many
+relationship's links and of a to-many related document show the links of page two, built from the page schema of the
+paginator in force there, under its configured keys and default size, with brackets
+percent-encoded as a rendered link encodes them: `?page%5Bnumber%5D=3&page%5Bsize%5D=15`
+for `next` under a page paginator, `page[offset]`/`page[limit]` under an offset one, and
+`page[after]`/`page[before]` cursors under a cursor one. A menu shows its default strategy,
+whose links carry no `page[kind]`. A cursor page never renders `last`, so that member keeps
+the bare URL, as does every member of an unpaginated collection, and the whole-object
+example leaves out any page member the paginator never renders.
+
+`additionalProperties` stays the open `LinkObject` (a string, a link
 object or `null`), because a `getLinks()` override can add any link in any shape.
 
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
 strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
-to strings gets no `RenderedLink`; its members `$ref` `LinkObject` and their examples are
+to strings gets no `RenderedLink`; its members point at `LinkObject` and their examples are
 plain strings.
+
+#### A `$ref` with an example is wrapped in `allOf`
+
+Wherever a schema `$ref`s a component and also carries an `example`, `examples` or
+`default`, the document writes the `$ref` as the single entry of an `allOf`, with the
+other keywords beside it: `{"description": …, "allOf": [{"$ref": …}], "example": …}`. OAS
+3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
+example sampler among them, ignore them and would show a sample of the bare component
+instead. Today that covers every link member above, and an attribute whose enum is a
+named component when the field declares an example. A `$ref` with no such sibling is
+written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
+as that `$ref`.
 
 ## The metadata contract
 
@@ -530,6 +571,11 @@ A fourth sits beside it: `DeclaresRelationUriFieldName` adds `uriFieldName(): st
 segment the relation's related and relationship endpoints are served under. Return the
 core relation's `uriFieldName()`, which is the name unless `withUriFieldName()` set one.
 Metadata that doesn't implement it keys every relation's paths by its name.
+
+A fifth sits beside `TypeMetadataInterface`: `DeclaresSingularName` adds
+`singularName(): ?string`, the noun the [generated prose](#how-generated-prose-names-a-type)
+uses for one resource of the type. Mirror the resource's `getSingularName()`. Metadata that
+doesn't implement it, or returns `null`, gets the inflected singular of the type name.
 
 Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
@@ -670,6 +716,48 @@ present, a short generated sentence otherwise, never a blank. Because a request-
 per-caller condition cannot be baked into a cached schema, a *conditionally* hidden or
 prohibited field/verb is documented as the **superset** — the union of what any caller
 may see or do (see the [request-aware predicates](fields.md) note).
+
+### How generated prose names a type
+
+A generated summary or description that means one resource names it in the singular, with
+its article: `GET /advertisers/{id}` reads "Fetch an advertiser", and its related endpoint
+"Fetch the related agencies of an advertiser". A collection keeps the plural: "List
+advertisers". Wording that names the type itself, such as "a resource object of type
+`advertisers`", keeps the type name as declared.
+
+The type name renders as lower-case words, split at `-`, `_` and camelCase boundaries, so
+`export-jobs` and `exportJobs` both read "export jobs" and "an export job". An all-caps
+word keeps its case. The singular inflects the last word with `doctrine/inflector`, which
+handles the common irregulars (`people` reads "person").
+
+The article is "an" before a vowel letter and "a" otherwise, with three exceptions: a word
+that starts with a consonant sound takes "a" ("a user", "a unique code", "a one-off
+charge"), a silent `h` takes "an" ("an hour"), and an all-caps acronym follows the spoken
+name of its first letter ("an SDK release", "a URL alias").
+
+When the inflection is wrong or reads badly, override `getSingularName()` on the resource:
+
+```php
+final class MediaResource extends AbstractResource
+{
+    protected static string $type = 'media';
+
+    public function getSingularName(): ?string
+    {
+        return 'media item';
+    }
+}
+```
+
+Return the noun as words, without an article; the projector picks "a" or "an" from it. The
+framework integration reads it through `DeclaresSingularName`.
+
+Generated parameter descriptions also leave out what the parameter's schema already says.
+The allowed `sort` tokens, `include` paths, `fields[TYPE]` members and `withCount` tokens
+are each the `items` enum, so the prose explains the encoding (a comma-separated list, `-`
+for descending, the profile that must be negotiated, where a count lands) and stops there.
+A backed enum's `value → description` table stays, because it carries what each value
+means, which an `enum` cannot.
 
 ## Vendor extensions
 

@@ -351,9 +351,9 @@ final class OpenApiProjector
             if ($allowsUpdate) {
                 $schemas[$name . 'UpdateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Update, $collector);
             }
-            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
+            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description() ?? SchemaProjector::resourceObjectDescription($type->type(), TypeNoun::of($type)->singular), '#/components/schemas/' . $name . 'Attributes');
         } else {
-            $resource = $this->permissiveResourceObject($type->type(), $type->description());
+            $resource = $this->permissiveResourceObject($type->type(), $type->description() ?? SchemaProjector::resourceObjectDescription($type->type(), TypeNoun::of($type)->singular));
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
         $resource = $this->withLinksAndSharedMeta($resource, $name);
@@ -400,20 +400,17 @@ final class OpenApiProjector
 
             // The to-one related endpoint renders `data: <Resource> | null` (an empty
             // to-one is `data: null`), so it needs a per-relation nullable related
-            // document — but only when that endpoint is actually exposed (a monomorphic
-            // to-many related endpoint reuses the related type's collection envelope
-            // instead).
+            // document — but only when that endpoint is actually exposed.
             if (!$relation->isToMany() && self::exposesRelatedRead($relation)) {
-                $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation);
+                $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation, $relBase);
             }
 
-            // A **polymorphic** to-many related endpoint cannot reuse a single member's
-            // collection (its members span types), so it gets a per-relation related
-            // collection whose `data.items` is the `anyOf` of every member resource —
-            // mirroring the to-one polymorphic related document. Emitted only when the
-            // endpoint is exposed (so component emission tracks path emission exactly).
-            if ($relation->isToMany() && self::exposesRelatedRead($relation) && \count($relation->relatedTypes()) > 1) {
-                $schemas[$relBase . 'RelatedCollection'] = $this->polymorphicRelatedCollectionSchema($relation);
+            // A to-many related endpoint gets a per-relation related collection, so its
+            // links describe the related URL and a polymorphic relation's members span
+            // types. Emitted only when the endpoint is exposed (so component emission
+            // tracks path emission exactly).
+            if ($relation->isToMany() && self::exposesRelatedRead($relation)) {
+                $schemas[$relBase . 'RelatedCollection'] = $this->relatedCollectionSchema($relation, $relBase);
             }
         }
 
@@ -574,7 +571,7 @@ final class OpenApiProjector
                 : Schema::ofType('object'))
             ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
-            ->withDescription('The resource object an `add` operation creates.');
+            ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
 
         if ($type->allowsClientId()) {
             // A client `id` is permitted: `id`, `lid`, or neither (server-assigned),
@@ -617,7 +614,7 @@ final class OpenApiProjector
                 : Schema::ofType('object'))
             ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: false) ?? Schema::ofType('object'))
             ->withRequired(['type'])
-            ->withDescription('The resource object an `update` operation writes.')
+            ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `update` operation writes.')
             ->withOneOf([
                 Schema::create()->withTitle('By id')->withRequired(['id']),
                 Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
@@ -657,7 +654,7 @@ final class OpenApiProjector
     private function atomicOperationSchema(ServerMetadataInterface $server): Schema
     {
         $ref = Schema::ofType('object')
-            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; an optional `relationship` narrows the target to that relationship.')
+            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.')
             ->withProperty('type', Schema::ofType('string'))
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string')->withDescription('A local id referencing a resource created earlier in the same batch.'))
@@ -687,7 +684,7 @@ final class OpenApiProjector
     private function atomicResultSchema(ServerMetadataInterface $server): Schema
     {
         return Schema::ofType('object')
-            ->withDescription('The result fragment of one operation. Carries `data` and/or `meta` only; an empty object `{}` is valid (e.g. a `remove`).')
+            ->withDescription('The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.')
             ->withProperty('data', $this->atomicResultDataSchema($server))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
     }
@@ -1151,20 +1148,17 @@ final class OpenApiProjector
      * `{jsonapi?, links?, data: <linkage>, meta?}` — the top-level document around the
      * bare linkage (`data` is the array / nullable-identifier of {@see linkageData()}).
      *
-     * A **to-many** relationship endpoint is a queryable, paginated linkage collection
-     * (ADR 0096): its `links` carry the pagination members (`first`/`prev`/`next`/`last`),
-     * so it `$ref`s the typed `PaginationLinks` rather than the permissive `Links`, making
-     * those links discoverable/typed for a client and code generator. A to-one relationship
-     * does not paginate, so it keeps `Links`. A relationship endpoint returns linkage only —
+     * Its `links` are the per-relation `<Base><Rel>RelationshipDocumentLinks`: the
+     * relationship's own `self`/`related`, `describedby`, and, for a paginated to-many
+     * (a queryable linkage collection, ADR 0096), the pagination members. A relationship
+     * endpoint returns linkage only —
      * never a compound `included` — so no `included` is described here (core D16).
      */
     private function relationshipDocumentSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
-        $links = $relation->isToMany() ? 'PaginationLinks' : 'Links';
-
         return Schema::ofType('object')
             ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $links))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelationshipDocumentLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1192,7 +1186,7 @@ final class OpenApiProjector
      * relation `$ref`s the related type's resource component; a polymorphic one unions
      * each member's resource (`anyOf`); either way widened with `null`.
      */
-    private function relatedToOneDocumentSchema(RelationMetadataInterface $relation): Schema
+    private function relatedToOneDocumentSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
         $schema = Schema::ofType('object')
             ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)));
@@ -1204,32 +1198,31 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelatedDocumentLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
     }
 
     /**
-     * The **related collection** envelope a **polymorphic** to-many related endpoint
-     * (`GET /{type}/{id}/{rel}`) responds with: like the resource-collection document
-     * but with `data.items` the `anyOf` of every member type's resource (a real
-     * response may mix members), so each member validates. A monomorphic to-many reuses
-     * the related type's plain `<RelatedType>Collection` instead and never reaches here.
+     * The **related collection** envelope a to-many related endpoint
+     * (`GET /{type}/{id}/{rel}`) responds with: like the resource-collection document,
+     * with `data.items` the related type's resource (the `anyOf` of every member type's
+     * resource for a polymorphic relation, since a real response may mix members) and
+     * `links` the related endpoint's own, so their examples carry the related URL.
      */
-    private function polymorphicRelatedCollectionSchema(RelationMetadataInterface $relation): Schema
+    private function relatedCollectionSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
         $schema = Schema::ofType('object')
             ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)));
 
-        // A polymorphic to-many declares no shared related includable path, so `included`
-        // is described only when the relation actually exposes one.
+        // `included` is described only when the relation exposes a related includable path.
         if ($relation->relatedIncludablePaths() !== []) {
             $schema = $schema->withProperty('included', $this->includedSchema());
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelatedDocumentLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);

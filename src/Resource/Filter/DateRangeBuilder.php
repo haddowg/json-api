@@ -39,7 +39,7 @@ final class DateRangeBuilder extends RangeBuilder
         return (new static($key, $column))
             ->deserializeUsing(static fn(mixed $value): mixed => self::toDateTime($value))
             ->pattern(self::ISO_8601)
-            ->describedAs('Matches values within the given inclusive date-time range (min/max ISO-8601, either optional).');
+            ->describedAs('Matches values within the given inclusive date-time range.');
     }
 
     public function build(): DateRange

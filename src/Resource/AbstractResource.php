@@ -286,6 +286,21 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * The noun the generated OpenAPI prose uses for one resource of this type, as
+     * words and without an article (`media item`, `person`). Returning `null` (the
+     * default) lets the generator inflect it from the type name, so `agencies` reads
+     * "an agency" and `export-jobs` "an export job". Override when the inflection is
+     * wrong or awkward for your type.
+     *
+     * Consumed by the adapter's OpenAPI metadata source through
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresSingularName}, not core's projector.
+     */
+    public function getSingularName(): ?string
+    {
+        return null;
+    }
+
+    /**
      * An optional human-readable description for one of this resource's CRUD
      * operations, surfaced on that operation in the generated OpenAPI document.
      * Returning `null` (the default) lets the generator emit a sensible generated

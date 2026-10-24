@@ -213,7 +213,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'List ' . $type->type(),
+            summary: 'List ' . TypeNoun::of($type)->plural,
             description: $this->crudOperationDescription($type, OperationType::FetchCollection),
             operationId: 'fetchCollection.' . $type->type(),
             parameters: $parameters,
@@ -239,7 +239,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'Fetch a ' . $type->type(),
+            summary: 'Fetch ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::FetchOne),
             operationId: 'fetchOne.' . $type->type(),
             parameters: $parameters,
@@ -269,7 +269,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'Create a ' . $type->type(),
+            summary: 'Create ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: 'create.' . $type->type(),
             parameters: $this->declaresStatus($declared, 201) ? $this->documentShapeParameters($type, $server) : [],
@@ -298,7 +298,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'Update a ' . $type->type(),
+            summary: 'Update ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: 'update.' . $type->type(),
             parameters: $this->declaresStatus($declared, 200) ? $this->documentShapeParameters($type, $server) : [],
@@ -320,7 +320,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'Delete a ' . $type->type(),
+            summary: 'Delete ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Delete),
             operationId: 'delete.' . $type->type(),
             security: $security,
@@ -338,7 +338,7 @@ final class OperationProjector
     {
         return match ($response->status()) {
             201 => new Response(
-                'The created ' . $type->type() . ' resource.',
+                'The created ' . TypeNoun::of($type)->singular . '.',
                 headers: ['Location' => new Header(
                     'The URL of the created resource.',
                     schema: Schema::ofType('string')->withFormat('uri-reference'),
@@ -361,7 +361,7 @@ final class OperationProjector
     {
         return match ($response->status()) {
             200 => Response::ofSchema(
-                'The updated ' . $type->type() . ' resource.',
+                'The updated ' . TypeNoun::of($type)->singular . '.',
                 Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
             ),
             204 => Response::noContent('The resource was updated; no content is returned.'),
@@ -394,7 +394,7 @@ final class OperationProjector
     {
         return match ($response->status()) {
             200 => Response::ofSchema(
-                'The requested ' . $type->type() . ' resource.',
+                'The requested ' . TypeNoun::of($type)->singular . '.',
                 Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
             ),
             303 => $this->seeOtherResponse(),
@@ -410,7 +410,7 @@ final class OperationProjector
     {
         return match ($response->status()) {
             200 => Response::ofSchema(
-                'A collection of ' . $type->type() . ' resources.',
+                'A collection of ' . TypeNoun::of($type)->plural . '.',
                 Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Collection')),
             ),
             default => throw $this->unexpectedResponse(OperationType::FetchCollection, $response->status()),
@@ -495,14 +495,14 @@ final class OperationProjector
             return $declared;
         }
 
-        $name = $type->type();
+        $noun = TypeNoun::of($type);
 
         return match ($operation) {
-            OperationType::FetchCollection => 'Returns a paginated collection of `' . $name . '` resources.',
-            OperationType::FetchOne => 'Returns a single `' . $name . '` resource by its `id`.',
-            OperationType::Create => 'Creates a new `' . $name . '` resource from the supplied attributes and relationships.',
-            OperationType::Update => 'Updates an existing `' . $name . '` resource, applying the supplied attributes and relationships.',
-            OperationType::Delete => 'Deletes the `' . $name . '` resource identified by its `id`.',
+            OperationType::FetchCollection => 'Returns a ' . ($type->pageSchema() !== null ? 'paginated ' : '') . 'collection of ' . $noun->plural . '.',
+            OperationType::FetchOne => 'Returns a single ' . $noun->singular . ' by its `id`.',
+            OperationType::Create => 'Creates a new ' . $noun->singular . ' from the supplied attributes and relationships.',
+            OperationType::Update => 'Updates an existing ' . $noun->singular . ', applying the supplied attributes and relationships.',
+            OperationType::Delete => 'Deletes the ' . $noun->singular . ' identified by its `id`.',
         };
     }
 
@@ -574,7 +574,7 @@ final class OperationProjector
         $fieldsParameters = $this->relatedFieldsParameters($relation, $server);
 
         if ($relation->isToMany()) {
-            $responseRef = $this->relatedCollectionResponseRef($relation, $relBase);
+            $responseRef = $this->relatedCollectionResponseRef($relBase);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
@@ -598,7 +598,7 @@ final class OperationProjector
                 [$includeParameter],
                 $fieldsParameters,
             );
-            $successDescription = 'The related ' . $relation->name() . ' resource (or `null`).';
+            $successDescription = 'The related ' . $relation->name() . ' resource.';
         }
 
         // A related read mirrors a fetch, but the relation's own declared read security
@@ -613,12 +613,12 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $type->tags(),
-            summary: 'Fetch the related ' . $relation->name() . ' of a ' . $type->type(),
+            summary: 'Fetch the related ' . $relation->name() . ' of ' . TypeNoun::of($type)->withArticle(),
             description: $this->relationDescription(
                 $relation,
                 $relation->isToMany()
-                    ? 'Returns the related `' . $relation->name() . '` resources of a `' . $type->type() . '`.'
-                    : 'Returns the related `' . $relation->name() . '` resource of a `' . $type->type() . '` (or `null`).',
+                    ? 'Returns the related `' . $relation->name() . '` resources of ' . TypeNoun::of($type)->withArticle() . '.'
+                    : 'Returns the related `' . $relation->name() . '` resource of ' . TypeNoun::of($type)->withArticle() . '.',
             ),
             operationId: 'fetchRelated.' . $type->type() . '.' . $relation->name(),
             parameters: $parameters,
@@ -652,6 +652,7 @@ final class OperationProjector
 
         $operations = [];
         $writeOnly = self::isWriteOnly($relation);
+        $parent = TypeNoun::of($type)->withArticle();
 
         // GET — read the relationship linkage (mirrors a fetch). A **monomorphic to-one**
         // relationship endpoint honours the related resource's `filter[]` vocabulary
@@ -686,10 +687,10 @@ final class OperationProjector
             $operations['get'] = new Operation(
                 responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
                 tags: $tags,
-                summary: 'Fetch the ' . $relation->name() . ' relationship of a ' . $type->type(),
+                summary: 'Fetch the ' . $relation->name() . ' relationship of ' . $parent,
                 description: $this->relationDescription(
                     $relation,
-                    'Returns the `' . $relation->name() . '` relationship linkage of a `' . $type->type() . '`.',
+                    'Returns the `' . $relation->name() . '` relationship linkage of ' . $parent . '.',
                 ),
                 operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
                 parameters: $getParameters,
@@ -705,8 +706,8 @@ final class OperationProjector
                 $type,
                 $relation,
                 $server,
-                'Replace the ' . $relation->name() . ' relationship of a ' . $type->type(),
-                'Fully replaces the `' . $relation->name() . '` relationship of a `' . $type->type() . '` with the supplied linkage.',
+                'Replace the ' . $relation->name() . ' relationship of ' . $parent,
+                'Fully replaces the `' . $relation->name() . '` relationship of ' . $parent . ' with the supplied linkage.',
                 'updateRelationship',
                 $documentRef,
             );
@@ -719,8 +720,8 @@ final class OperationProjector
                     $type,
                     $relation,
                     $server,
-                    'Add to the ' . $relation->name() . ' relationship of a ' . $type->type(),
-                    'Adds the supplied members to the `' . $relation->name() . '` relationship of a `' . $type->type() . '`.',
+                    'Add to the ' . $relation->name() . ' relationship of ' . $parent,
+                    'Adds the supplied members to the `' . $relation->name() . '` relationship of ' . $parent . '.',
                     'addRelationship',
                     $documentRef,
                 );
@@ -730,8 +731,8 @@ final class OperationProjector
                     $type,
                     $relation,
                     $server,
-                    'Remove from the ' . $relation->name() . ' relationship of a ' . $type->type(),
-                    'Removes the supplied members from the `' . $relation->name() . '` relationship of a `' . $type->type() . '`.',
+                    'Remove from the ' . $relation->name() . ' relationship of ' . $parent,
+                    'Removes the supplied members from the `' . $relation->name() . '` relationship of ' . $parent . '.',
                     'removeRelationship',
                     $documentRef,
                 );
@@ -798,40 +799,13 @@ final class OperationProjector
 
     /**
      * The `200` response `$ref` for a to-many related-collection endpoint
-     * (`GET /{uriType}/{id}/{rel}`).
-     *
-     * A **monomorphic** relation (one related type) reuses that type's
-     * `<RelatedType>Collection` envelope; a relation declaring no related types
-     * degrades to a collection keyed by the relation's own name (matching the
-     * synthetic unregistered-related emission). A **polymorphic** relation (more than
-     * one related type) cannot reuse a single member's collection — its members span
-     * types — so it `$ref`s a **per-relation** `<Base><Rel>RelatedCollection` document
-     * whose `data.items` is the `anyOf` of every member resource (emitted by the
-     * {@see OpenApiProjector}, mirroring the to-one polymorphic related document).
+     * (`GET /{uriType}/{id}/{rel}`): the per-relation `<Base><Rel>RelatedCollection`
+     * document, whose `data.items` is the related resource (the `anyOf` of every member
+     * for a polymorphic relation) and whose `links` are the related endpoint's own.
      */
-    private function relatedCollectionResponseRef(RelationMetadataInterface $relation, string $relBase): Schema
+    private function relatedCollectionResponseRef(string $relBase): Schema
     {
-        if (\count($relation->relatedTypes()) > 1) {
-            return Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedCollection'));
-        }
-
-        $relatedBase = $this->relatedComponentBase($relation);
-
-        return Schema::ref(ComponentNaming::schemaRef($relatedBase . 'Collection'));
-    }
-
-    /**
-     * The component-name base for a relation's single related resource component. A
-     * monomorphic relation names the single related type; a relation with no declared
-     * types at all degrades to the relation's own name. Polymorphic relations are handled
-     * separately by {@see relatedCollectionResponseRef()} / the per-member resolution,
-     * never here.
-     */
-    private function relatedComponentBase(RelationMetadataInterface $relation): string
-    {
-        $types = $relation->relatedTypes();
-
-        return $types === [] ? ComponentNaming::base($relation->name()) : ComponentNaming::base($types[0]);
+        return Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedCollection'));
     }
 
     // ---- Custom-action endpoints (stage B) --------------------------------------
@@ -900,7 +874,9 @@ final class OperationProjector
             // generated default — so an action (the least path-inferable operation) is never the
             // only operation left undescribed (D19).
             summary: $action->summary() ?? ('Invoke the `' . $action->path() . '` action'),
-            description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on a `' . $type->type() . '` resource.'),
+            description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on ' . ($action->scope() === ActionScope::Resource
+                ? TypeNoun::of($type)->withArticle()
+                : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
             operationId: 'action.' . $type->type() . '.' . $action->path(),
             parameters: $this->actionDocumentShapeParameters($action, $server),
             requestBody: $this->actionRequestBody($action, $server),
@@ -1268,8 +1244,7 @@ final class OperationProjector
         return Parameter::query(
             'sort',
             $schema,
-            'A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `'
-            . \implode('`, `', $tokens) . '`.',
+            'A comma-separated list of sort fields. Prefix a field with `-` for descending order.',
             style: ParameterStyle::Form,
             explode: false,
         );
@@ -1296,8 +1271,7 @@ final class OperationProjector
         return Parameter::query(
             'include',
             $schema,
-            'A comma-separated list of relationship paths to include in a compound document. Allowed paths: `'
-            . \implode('`, `', $includablePaths) . '`.',
+            'A comma-separated list of relationship paths to include in a compound document.',
             style: ParameterStyle::Form,
             explode: false,
         );
@@ -1403,8 +1377,7 @@ final class OperationProjector
         return Parameter::query(
             'fields[' . $reachable->type() . ']',
             Schema::ofType('array')->withItems($items),
-            'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).'
-            . ($members === [] ? '' : ' Allowed members: `' . \implode('`, `', $members) . '`.'),
+            'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).',
             style: ParameterStyle::Form,
             explode: false,
         );
@@ -1669,7 +1642,6 @@ final class OperationProjector
             $description .= ' Request a relation name, e.g. `withCount=' . $relationTokens[0] . '`, to receive that relation\'s total on each resource'
                 . ' in `relationships.' . $relationTokens[0] . '.meta.total`.';
         }
-        $description .= ' Allowed tokens: `' . \implode('`, `', $tokens) . '`.';
 
         return Parameter::query(
             'withCount',
@@ -1844,7 +1816,7 @@ final class OperationProjector
         return Parameter::path(
             'id',
             $schema,
-            'The `' . $type->type() . '` resource identifier.',
+            'The `id` of the ' . TypeNoun::of($type)->singular . '.',
         );
     }
 

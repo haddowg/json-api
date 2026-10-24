@@ -46,7 +46,10 @@ final class LinkProjectionTest extends TestCase
             ],
             $this->at($links, 'properties', 'self', 'example'),
         );
-        self::assertSame('#/components/schemas/RenderedLink', $this->at($links, 'properties', 'self', '$ref'));
+        // The example sits beside the link shape, so the `$ref` moves into an `allOf`
+        // where tooling that ignores a `$ref`'s siblings still shows it.
+        self::assertSame('#/components/schemas/RenderedLink', $this->at($links, 'properties', 'self', 'allOf', 0, '$ref'));
+        self::assertArrayNotHasKey('$ref', $this->arrAt($links, 'properties', 'self'));
         self::assertSame(
             [
                 'href' => '/api/v5/records/alb-1/-actions/publish',
@@ -79,7 +82,7 @@ final class LinkProjectionTest extends TestCase
         $collection = $this->schema($document, 'AlbumsCollectionLinks');
         self::assertSame(['self', 'describedby', 'first', 'prev', 'next', 'last'], \array_keys($this->arrAt($collection, 'properties')));
         self::assertSame(
-            ['href' => '/api/v5/records', 'describedby' => self::DOCS . '#/paths/~1records/get'],
+            ['href' => '/api/v5/records?page%5Bnumber%5D=3&page%5Bsize%5D=15', 'describedby' => self::DOCS . '#/paths/~1records/get'],
             $this->at($collection, 'properties', 'next', 'example'),
         );
         self::assertSame('#/components/schemas/AlbumsCollectionLinks', $this->at($this->schema($document, 'AlbumsCollection'), 'properties', 'links', '$ref'));
@@ -152,10 +155,11 @@ final class LinkProjectionTest extends TestCase
         self::assertArrayNotHasKey('RenderedLink', $this->arrAt($document, 'components', 'schemas'));
 
         $self = $this->arrAt($this->schema($document, 'AlbumsResourceLinks'), 'properties', 'self');
-        self::assertSame('#/components/schemas/LinkObject', $this->at($self, '$ref'));
+        self::assertSame('#/components/schemas/LinkObject', $this->at($self, 'allOf', 0, '$ref'));
         self::assertSame('/api/v5/records/alb-1', $this->at($self, 'example'));
 
-        self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'PaginationLinks'), 'properties', 'next', '$ref'));
+        self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'AlbumsTracksRelationshipDocumentLinks'), 'properties', 'next', 'allOf', 0, '$ref'));
+        self::assertSame('/api/v5/', $this->at($this->schema($document, 'LinkObject'), 'example'));
     }
 
     #[Test]
@@ -187,9 +191,9 @@ final class LinkProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theContractIsEight(): void
+    public function theContractIsNine(): void
     {
-        self::assertSame(8, GeneratorContract::CONTRACT);
+        self::assertSame(9, GeneratorContract::CONTRACT);
     }
 
     /**

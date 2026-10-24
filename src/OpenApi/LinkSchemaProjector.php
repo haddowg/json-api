@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 
 /**
@@ -29,6 +30,10 @@ use haddowg\JsonApi\Resource\Field\Id;
 final readonly class LinkSchemaProjector
 {
     private const PAGINATION = ['first', 'prev', 'next', 'last'];
+
+    private const EXAMPLE_CURSOR_AFTER = 'eyJpZCI6MjB9';
+
+    private const EXAMPLE_CURSOR_BEFORE = 'eyJpZCI6MTF9';
 
     private const HREF_NOTE = ' The example uses the document\'s server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.';
 
@@ -66,7 +71,6 @@ final readonly class LinkSchemaProjector
         }
 
         $components['Links'] = $this->topLevelLinksSchema();
-        $components['PaginationLinks'] = $this->paginationLinksSchema();
 
         return $components;
     }
@@ -101,26 +105,35 @@ final readonly class LinkSchemaProjector
                 \sprintf('The `%s` action on this resource.', $action->path()),
             ));
         }
-        $components[$base . 'ResourceLinks'] = $resource->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+        $components[$base . 'ResourceLinks'] = self::withObjectExample($resource)->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
 
         $document = Schema::ofType('object')
             ->withDescription(\sprintf('The top-level `links` of a document whose primary data is one resource of type `%s`.', $type->type()))
             ->withProperty('self', $this->member($resourcePath, OperationReference::fetchOne($uriType), 'The URL that produced the document.'));
         $document = $this->withDescribedByMember($document, OperationReference::fetchOne($uriType));
-        $components[$base . 'DocumentLinks'] = $document->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+        $components[$base . 'DocumentLinks'] = self::withObjectExample($document)->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
 
         $collectionOperation = OperationReference::fetchCollection($uriType);
         $collection = Schema::ofType('object')
             ->withDescription(\sprintf('The top-level `links` of a document whose primary data is a collection of type `%s`.', $type->type()))
             ->withProperty('self', $this->member($collectionPath, $collectionOperation, 'The URL that produced the document.'));
         $collection = $this->withDescribedByMember($collection, $collectionOperation);
+        $pageQueries = self::pageExampleQueries($type->pageSchema());
         foreach (self::PAGINATION as $name) {
-            $collection = $collection->withProperty($name, $this->member($collectionPath, $collectionOperation, \sprintf('The `%s` page of the collection, when there is one.', $name)));
+            $collection = $collection->withProperty($name, $this->member($collectionPath, $collectionOperation, \sprintf('The `%s` page of the collection, when there is one.', $name), $pageQueries[$name] ?? []));
         }
-        $components[$base . 'CollectionLinks'] = $collection->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+        $components[$base . 'CollectionLinks'] = self::withObjectExample($collection, self::unrenderedPages($pageQueries))
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
 
         foreach ($type->relations() as $relation) {
-            $components[$base . ComponentNaming::base($relation->name()) . 'RelationshipLinks'] = $this->relationshipLinks($type, $relation);
+            $relBase = $base . ComponentNaming::base($relation->name());
+            $components[$relBase . 'RelationshipLinks'] = $this->relationshipLinks($type, $relation);
+            if ($relation->exposesRelationshipEndpoint()) {
+                $components[$relBase . 'RelationshipDocumentLinks'] = $this->relationshipDocumentLinks($type, $relation);
+            }
+            if ($relation->exposesRelatedEndpoint() && !($relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly())) {
+                $components[$relBase . 'RelatedDocumentLinks'] = $this->relatedDocumentLinks($type, $relation);
+            }
         }
 
         return $components;
@@ -150,13 +163,102 @@ final readonly class LinkSchemaProjector
             ));
         }
 
+        $pageQueries = [];
         if ($relation->isToMany() && $relation->exposesRelationshipEndpoint() && $relation->pageSchema() !== null) {
+            $pageQueries = self::pageExampleQueries($relation->pageSchema());
             foreach (self::PAGINATION as $page) {
-                $schema = $schema->withProperty($page, $this->member($relationshipPath, $relationshipOperation, \sprintf('The `%s` page of the relationship\'s linkage, when there is one.', $page)));
+                $schema = $schema->withProperty($page, $this->member($relationshipPath, $relationshipOperation, \sprintf('The `%s` page of the relationship\'s linkage, when there is one.', $page), $pageQueries[$page] ?? []));
             }
         }
 
-        return $schema->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+        return self::withObjectExample($schema, self::unrenderedPages($pageQueries))
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+    }
+
+    /**
+     * The top-level `links` of the relationship endpoint's document. The server renders
+     * the relationship object's own links there, so it lists the same members, plus the
+     * document's `describedby`.
+     */
+    private function relationshipDocumentLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
+    {
+        $relationshipOperation = OperationReference::fetchRelationship($type->uriType(), RelationFacts::uriFieldName($relation));
+        $links = $this->relationshipLinks($type, $relation)
+            ->withDescription(\sprintf('The top-level `links` of the `%s` relationship endpoint\'s document for a resource of type `%s`.', $relation->name(), $type->type()));
+        $links = $this->withDescribedByMember($links, $relationshipOperation);
+
+        return self::withObjectExample($links, self::unrenderedPages(
+            $relation->isToMany() && $relation->pageSchema() !== null ? self::pageExampleQueries($relation->pageSchema()) : [],
+        ));
+    }
+
+    /**
+     * The top-level `links` of the related endpoint's document: its own URL, its
+     * `describedby` and, for a paginated to-many, the pages of the related collection.
+     */
+    private function relatedDocumentLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
+    {
+        $uriType = $type->uriType();
+        $segment = RelationFacts::uriFieldName($relation);
+        $relatedOperation = OperationReference::fetchRelated($uriType, $segment);
+        $relatedPath = $this->examplePath(PathTemplate::related($uriType, $segment), $type);
+
+        $schema = Schema::ofType('object')
+            ->withDescription(\sprintf('The top-level `links` of the `%s` related endpoint\'s document for a resource of type `%s`.', $relation->name(), $type->type()))
+            ->withProperty('self', $this->member($relatedPath, $relatedOperation, 'The URL that produced the document.'));
+        $schema = $this->withDescribedByMember($schema, $relatedOperation);
+
+        $pageQueries = [];
+        if ($relation->isToMany() && $relation->pageSchema() !== null) {
+            $pageQueries = self::pageExampleQueries($relation->pageSchema());
+            foreach (self::PAGINATION as $page) {
+                $schema = $schema->withProperty($page, $this->member($relatedPath, $relatedOperation, \sprintf('The `%s` page of the related collection, when there is one.', $page), $pageQueries[$page] ?? []));
+            }
+        }
+
+        return self::withObjectExample($schema, self::unrenderedPages($pageQueries))
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+    }
+
+    /**
+     * Sets the links object's own `example` to its members' examples, so a sampler that
+     * would otherwise invent `additionalProperties` entries shows the links a response
+     * carries. `$omit` names members a response never renders together with the rest.
+     *
+     * @param list<string> $omit
+     */
+    private static function withObjectExample(Schema $links, array $omit = []): Schema
+    {
+        $properties = $links->get('properties');
+        if (!\is_array($properties)) {
+            return $links;
+        }
+
+        $example = [];
+        foreach ($properties as $name => $member) {
+            if (!$member instanceof Schema || \in_array($name, $omit, true)) {
+                continue;
+            }
+            $value = $member->get('example');
+            if ($value !== null) {
+                $example[(string) $name] = $value;
+            }
+        }
+
+        return $example === [] ? $links : $links->withExample($example);
+    }
+
+    /**
+     * The pagination members a page with these example queries never renders: every one
+     * the paginator gave no example for (all of them when it is unknown or absent).
+     *
+     * @param array<string, array<string, int|string>> $pageQueries
+     *
+     * @return list<string>
+     */
+    private static function unrenderedPages(array $pageQueries): array
+    {
+        return \array_values(\array_diff(self::PAGINATION, \array_keys($pageQueries)));
     }
 
     /**
@@ -179,10 +281,13 @@ final readonly class LinkSchemaProjector
 
     /**
      * One built link member: the link shape the server renders, with an example.
+     *
+     * @param array<string, int|string> $page the example's `page[…]` members, encoded the
+     *                                        way a rendered pagination link encodes them
      */
-    private function member(string $examplePath, OperationReference $operation, string $description): Schema
+    private function member(string $examplePath, OperationReference $operation, string $description, array $page = []): Schema
     {
-        $href = $this->serverUrl . $examplePath;
+        $href = $this->serverUrl . $examplePath . ($page === [] ? '' : '?' . \http_build_query(['page' => $page]));
 
         if (!$this->objects) {
             return Schema::ref('#/components/schemas/LinkObject')
@@ -199,6 +304,130 @@ final readonly class LinkSchemaProjector
         return Schema::ref('#/components/schemas/RenderedLink')
             ->withDescription($description . self::HREF_NOTE)
             ->withExample($example);
+    }
+
+    /**
+     * Example `page[…]` members for each pagination link, read from the page schema's
+     * `x-paginator` extension so they use the paginator's configured keys and default
+     * size. The examples show the links of page two. A menu uses its default strategy,
+     * whose links carry no `page[kind]`. A strategy the schema doesn't describe gets
+     * none, and so does a cursor's `last`, which a cursor page never renders.
+     *
+     * @return array<string, array<string, int|string>>
+     */
+    private static function pageExampleQueries(?Schema $pageSchema): array
+    {
+        if ($pageSchema === null) {
+            return [];
+        }
+
+        $paginator = $pageSchema->extension('paginator');
+        if (\is_array($paginator) && ($paginator['strategy'] ?? null) === 'multi') {
+            $pageSchema = self::defaultMenuBranch($pageSchema, $paginator['default'] ?? null);
+            $paginator = $pageSchema?->extension('paginator');
+        }
+        if ($pageSchema === null || !\is_array($paginator) || !\is_array($paginator['keys'] ?? null)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $keys */
+        $keys = $paginator['keys'];
+        $key = static fn(string $role): ?string => isset($keys[$role]) && \is_string($keys[$role]) ? $keys[$role] : null;
+        $size = static function (?string $sizeKey) use ($pageSchema): array {
+            if ($sizeKey === null) {
+                return [];
+            }
+            $default = self::propertyDefault($pageSchema, $sizeKey);
+
+            return $default === null ? [] : [$sizeKey => $default];
+        };
+
+        switch ($paginator['strategy'] ?? null) {
+            case 'page':
+            case 'fixed':
+                $number = $key('number');
+                if ($number === null) {
+                    return [];
+                }
+                $sized = $size($key('size'));
+
+                return [
+                    'first' => [$number => 1, ...$sized],
+                    'prev' => [$number => 1, ...$sized],
+                    'next' => [$number => 3, ...$sized],
+                    'last' => [$number => 5, ...$sized],
+                ];
+            case 'offset':
+                $offset = $key('offset');
+                $limitKey = $key('limit');
+                if ($offset === null || $limitKey === null) {
+                    return [];
+                }
+                $limit = self::propertyDefault($pageSchema, $limitKey) ?? 10;
+
+                return [
+                    'first' => [$offset => 0, $limitKey => $limit],
+                    'prev' => [$offset => 0, $limitKey => $limit],
+                    'next' => [$offset => 2 * $limit, $limitKey => $limit],
+                    'last' => [$offset => 4 * $limit, $limitKey => $limit],
+                ];
+            case 'cursor':
+                $after = $key('after');
+                $before = $key('before');
+                if ($after === null || $before === null) {
+                    return [];
+                }
+                $sized = $size($key('size'));
+
+                return [
+                    'first' => $sized,
+                    'prev' => [$before => self::EXAMPLE_CURSOR_BEFORE, ...$sized],
+                    'next' => [$after => self::EXAMPLE_CURSOR_AFTER, ...$sized],
+                ];
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * The menu branch for the default strategy, or the first branch when no default
+     * is named.
+     */
+    private static function defaultMenuBranch(Schema $menu, mixed $default): ?Schema
+    {
+        $branches = $menu->get('oneOf');
+        if (!\is_array($branches) || $branches === []) {
+            return null;
+        }
+
+        foreach ($branches as $branch) {
+            if (!$branch instanceof Schema) {
+                continue;
+            }
+            $properties = $branch->get('properties');
+            $kind = \is_array($properties) && ($properties[MultiPaginator::KIND_KEY] ?? null) instanceof Schema
+                ? $properties[MultiPaginator::KIND_KEY]->get('const')
+                : null;
+            if ($kind === $default) {
+                return $branch;
+            }
+        }
+
+        $first = \reset($branches);
+
+        return $first instanceof Schema ? $first : null;
+    }
+
+    /**
+     * The integer `default` of one property of a page schema, when it declares one.
+     */
+    private static function propertyDefault(Schema $pageSchema, string $property): ?int
+    {
+        $properties = $pageSchema->get('properties');
+        $schema = \is_array($properties) ? ($properties[$property] ?? null) : null;
+        $default = $schema instanceof Schema ? $schema->get('default') : null;
+
+        return \is_int($default) ? $default : null;
     }
 
     /**
@@ -234,7 +463,7 @@ final readonly class LinkSchemaProjector
             ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
             ->withProperty('rel', Schema::ofType('string'))
             ->withProperty('describedby', Schema::create()
-                ->withDescription('A link to a description document for the link\'s target: a URI-reference, or a link object.')
+                ->withDescription('A link to a description document for the link\'s target.')
                 ->withAnyOf([
                     Schema::ofType('string')->withFormat('uri-reference'),
                     Schema::ofType('object')
@@ -250,8 +479,11 @@ final readonly class LinkSchemaProjector
             ->withProperty('meta', Schema::ofType('object'))
             ->withRequired(['href']);
 
+        $href = $this->serverUrl . '/';
+
         return Schema::create()
-            ->withDescription('A JSON:API link: a string URI, a link object, or null (e.g. an absent pagination link).')
+            ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.')
+            ->withExample($this->objects ? ['href' => $href] : $href)
             ->withAnyOf([
                 Schema::ofType('string')->withFormat('uri-reference'),
                 $object,
@@ -287,21 +519,4 @@ final readonly class LinkSchemaProjector
             ->withAdditionalProperties($link);
     }
 
-    /**
-     * The top-level `links` of a paginated document that isn't a type's own collection
-     * (a to-many relationship document): `self`, `describedby` and the pagination links,
-     * all built by the server.
-     */
-    private function paginationLinksSchema(): Schema
-    {
-        $link = Schema::ref('#/components/schemas/' . ($this->objects ? 'RenderedLink' : 'LinkObject'));
-
-        return Schema::ofType('object')
-            ->withProperty('self', $link)
-            ->withProperty('describedby', $link)
-            ->withProperty('first', $link)
-            ->withProperty('prev', $link)
-            ->withProperty('next', $link)
-            ->withProperty('last', $link);
-    }
 }

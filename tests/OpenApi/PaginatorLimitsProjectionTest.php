@@ -109,7 +109,8 @@ final class PaginatorLimitsProjectionTest extends TestCase
         $collection = $this->withCountDescription('/articles');
         self::assertStringContainsString('Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).', $collection);
         self::assertStringContainsString('Request a relation name, e.g. `withCount=comments`, to receive that relation\'s total on each resource in `relationships.comments.meta.total`.', $collection);
-        self::assertStringEndsWith('Allowed tokens: `_self_`, `comments`.', $collection);
+        // The tokens live in the items enum, so the prose doesn't list them.
+        self::assertStringNotContainsString('Allowed tokens', $collection);
 
         // The related endpoint counts its own collection and the related type's relations.
         $related = $this->withCountDescription('/articles/{id}/comments');
