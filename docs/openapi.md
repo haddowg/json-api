@@ -875,8 +875,9 @@ $body = json_encode($artifact->prune($document), JSON_THROW_ON_ERROR | JSON_UNES
 installed version of this package or of a package named in the codec's first argument,
 so stale artifacts left behind by a deploy fall back to a fresh build. Decoding allows
 only the OpenAPI value objects, `stdClass` and enums. If an `example()`, a default or an
-extension value holds another object, `encode()` throws `LogicException` unless its class
-is passed in the second argument, `allowedClasses`.
+extension value holds another object, `encode()` throws `UnserializableValue` unless its
+class is passed in the second argument, `allowedClasses`. It's a `LogicException` whose
+`$class` names the rejected class, so an adapter can report it without parsing the message.
 
 `prune()` drops what the decorators orphaned: path items with no operations left, tags no
 remaining operation uses, and components the undecorated paths reached that nothing

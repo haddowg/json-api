@@ -12,6 +12,7 @@ use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\Serve\ServeArtifact;
 use haddowg\JsonApi\OpenApi\Serve\ServeArtifactCodec;
+use haddowg\JsonApi\OpenApi\Serve\UnserializableValue;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContractWitnessServer;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
 use haddowg\JsonApi\Tests\OpenApi\Serve\Fixture\Tripwire;
@@ -104,6 +105,17 @@ final class ServeArtifactCodecTest extends TestCase
         $this->expectExceptionMessage(Tripwire::class);
 
         (new ServeArtifactCodec())->encode(self::artifact(Schema::ofType('string')->withExample(new Tripwire())));
+    }
+
+    #[Test]
+    public function theRejectedClassIsNamedOnTheException(): void
+    {
+        try {
+            (new ServeArtifactCodec())->encode(self::artifact(Schema::ofType('string')->withExample(new Tripwire())));
+            self::fail('Expected an UnserializableValue.');
+        } catch (UnserializableValue $e) {
+            self::assertSame(Tripwire::class, $e->class);
+        }
     }
 
     #[Test]

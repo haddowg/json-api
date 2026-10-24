@@ -76,7 +76,7 @@ final readonly class ServeArtifactCodec
     }
 
     /**
-     * @throws \LogicException when the document holds an object outside the allow-list
+     * @throws UnserializableValue when the document holds an object outside the allow-list
      */
     public function encode(ServeArtifact $artifact): string
     {
@@ -173,10 +173,7 @@ final readonly class ServeArtifactCodec
                 continue;
             }
 
-            throw new \LogicException(\sprintf(
-                'The OpenAPI document holds an instance of "%s", which a serve artifact can\'t unserialize. Pass it in $allowedClasses or keep objects out of example, default and extension values.',
-                $class,
-            ));
+            throw new UnserializableValue($class);
         }
 
         return \array_keys($enums);
