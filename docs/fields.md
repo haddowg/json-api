@@ -233,6 +233,11 @@ authorization predicates `cannotReplace()`/`cannotRemove()`/`cannotAdd()`/
 `cannotBeIncluded()` take the same `(mixed $model, JsonApiRequestInterface $request)`
 closure — see [relations](relations.md).
 
+On a `belongsToMany` pivot field, the `hidden(when:)` predicate receives the related
+member (the far-side resource whose linkage carries `meta.pivot`) rather than the join
+row, and hosts resolve both predicates through `readablePivotFieldsFor()`. See
+[rendering pivot fields](relations.md#rendering-pivot-fields--the-metapivot-linkage-shape).
+
 ## Presence (gates validation)
 
 The presence helpers declare whether a member must appear, and whether it may be

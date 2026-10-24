@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+
 /**
  * A pivot-backed to-many relationship (`belongsToMany`) — the built, readonly value
  * object the engine walks. Same serialization and constraint surface as
@@ -82,6 +84,9 @@ final readonly class BelongsToMany extends HasMany
      * member, `null` when the join row holds none, which is what the projected response
      * pivot schema promises. Declaration order is preserved.
      *
+     * This is the request-independent superset the OpenAPI projection documents. A
+     * host rendering a member calls {@see readablePivotFieldsFor()} instead.
+     *
      * @return list<FieldInterface>
      */
     public function readablePivotFields(): array
@@ -89,6 +94,25 @@ final readonly class BelongsToMany extends HasMany
         return \array_values(\array_filter(
             $this->pivotFields,
             static fn(FieldInterface $field): bool => !$field->isHidden() && !$field->isWriteOnly(),
+        ));
+    }
+
+    /**
+     * The pivot fields one rendered member carries under `meta.pivot` for this request:
+     * every field that is neither hidden ({@see FieldInterface::isHiddenFor()}) nor
+     * write-only ({@see FieldInterface::isWriteOnlyFor()}). A pivot field's
+     * `hidden(when:)` predicate receives `$relatedMember`, the far-side resource whose
+     * linkage or resource object carries the `meta.pivot`, never the join row. Call it
+     * once per rendered member. Declaration order is preserved.
+     *
+     * @return list<FieldInterface>
+     */
+    public function readablePivotFieldsFor(JsonApiRequestInterface $request, mixed $relatedMember): array
+    {
+        return \array_values(\array_filter(
+            $this->pivotFields,
+            static fn(FieldInterface $field): bool => !$field->isWriteOnlyFor($request)
+                && !$field->isHiddenFor($request, $relatedMember),
         ));
     }
 

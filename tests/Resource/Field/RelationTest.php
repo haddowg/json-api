@@ -497,6 +497,49 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function belongsToManyReadablePivotFieldsForAppliesWriteOnlyPerRequest(): void
+    {
+        $position = Integer::make('position')->build();
+        $secret = Str::make('secret')->writeOnly()->build();
+        $note = Str::make('note')->writeOnly(
+            static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
+        )->build();
+
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position, $secret, $note)->build();
+        $admin = StubJsonApiRequest::create([], ['X-Role' => 'admin']);
+
+        // The static superset keeps the conditionally write-only field.
+        self::assertSame([$position, $note], $relation->readablePivotFields());
+        self::assertSame([$position], $relation->readablePivotFieldsFor(new StubJsonApiRequest(), null));
+        self::assertSame([$position, $note], $relation->readablePivotFieldsFor($admin, null));
+    }
+
+    #[Test]
+    public function belongsToManyPivotHiddenPredicateReceivesTheRelatedMember(): void
+    {
+        $seen = [];
+        $position = Integer::make('position')->build();
+        $internal = Str::make('internal')->hidden()->build();
+        $rating = Integer::make('rating')->hidden(
+            static function (mixed $model, JsonApiRequestInterface $request) use (&$seen): bool {
+                $seen[] = $model;
+
+                return \is_array($model) && ($model['private'] ?? false) === true;
+            },
+        )->build();
+
+        $relation = BelongsToMany::make('tracks', 'tracks')->fields($position, $internal, $rating)->build();
+        $request = new StubJsonApiRequest();
+        $public = ['id' => '7', 'private' => false];
+        $private = ['id' => '9', 'private' => true];
+
+        self::assertSame([$position, $rating], $relation->readablePivotFieldsFor($request, $public));
+        self::assertSame([$position], $relation->readablePivotFieldsFor($request, $private));
+        self::assertSame([$public, $private], $seen);
+        self::assertSame([$position, $rating], $relation->readablePivotFields());
+    }
+
+    #[Test]
     public function belongsToManyHasNoPivotThroughByDefault(): void
     {
         $relation = BelongsToMany::make('roles', 'roles')->build();
