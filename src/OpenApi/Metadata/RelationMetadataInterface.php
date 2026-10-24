@@ -72,7 +72,8 @@ interface RelationMetadataInterface
     /**
      * Whether full replacement (`PATCH` the relationship, or a `data` member in a
      * whole-resource write) is permitted — gates the relationship-mutation request
-     * body in the Slice-3 path projection.
+     * body in the Slice-3 path projection. `false` for a relation that is
+     * unconditionally read-only on update, as for the other two mutation flags.
      */
     public function allowsReplace(): bool;
 

@@ -186,6 +186,10 @@ BelongsToMany::make('playlists', 'playlists')
 | `cannotAdd()` | `allowsAdd()` | `Add` | `AdditionProhibited` | `ADDITION_PROHIBITED` |
 | `cannotRemove()` | `allowsRemove()` | `Remove` | `RemovalProhibited` | `REMOVAL_PROHIBITED` |
 
+A relation marked `readOnly()` or `readOnlyOnUpdate()` fails all three gates, since a
+relationship mutation is an update of the parent. A `readOnly($when)` predicate fails
+them for the requests it matches. `readOnlyOnCreate()` leaves them open.
+
 A `PATCH` to the prohibited relation is rejected; the other two verbs still work:
 
 ```php
@@ -218,8 +222,8 @@ These gates are applied by [`AbstractResource::hydrateRelationship()`](../src/Re
 the single-named-relationship path the relationship endpoints drive — so if you mutate
 through it rather than owning the object-graph write yourself, those `403`s come for
 free. Note the scope: a relationship **embedded in a whole-resource write**
-(`hydrateRelationships()`) applies only the read-only skip, **not** the replace/add/remove
-gate, so re-gating an embedded full replacement is the framework adapter's job — the
+(`hydrateRelationships()`) silently skips a read-only relation and applies **no**
+replace/add/remove gate, so re-gating an embedded full replacement is the framework adapter's job — the
 Symfony bundle enforces `cannotReplace()` on an embedded `PATCH`. See [hydrators](hydrators.md).
 
 ## Cardinality enforcement

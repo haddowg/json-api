@@ -482,6 +482,14 @@ All three are allowed by default. See
 [relationship-mutation](relationship-mutation.md) for how the endpoints map to
 these gates.
 
+`readOnly()` and `readOnlyOnUpdate()` close all three. A relationship mutation
+changes an existing resource, so a relation that is read-only on update rejects
+`PATCH`, `POST` and `DELETE` on its relationship endpoint with the matching `403`,
+and its static `allowsReplace()`/`allowsAdd()`/`allowsRemove()` report `false`, which
+drops those verbs from the [OpenAPI document](openapi.md). `readOnlyOnCreate()`
+leaves the endpoint open. A `readOnly($when)` predicate is checked per request: the
+verbs stay in the document and a caller the predicate matches gets the `403`.
+
 ## Per-relation security
 
 A relation's endpoints are authorized by the parent resource's security by default.

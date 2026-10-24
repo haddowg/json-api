@@ -105,8 +105,9 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * this relation in a whole-resource body). On by default; opt out via
      * {@see AbstractRelationBuilder::cannotReplace()}. A prohibited replacement is a
      * {@see \haddowg\JsonApi\Exception\FullReplacementProhibited} (403). A relation
-     * whose replace gate is a request predicate still reports `true` here (it is
-     * not unconditionally prohibited); the mutation path consults
+     * that is unconditionally read-only on update reports `false`. A relation
+     * whose replace gate (or read-only state) is a request predicate still reports
+     * `true` here (it is not unconditionally prohibited); the mutation path consults
      * {@see allowsReplaceFor()}.
      */
     public function allowsReplace(): bool;
@@ -130,8 +131,9 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
 
     /**
      * Whether full replacement is permitted **for this request** — the
-     * unconditional flag ({@see allowsReplace()}) AND, if a replace predicate was
-     * declared, its negation against the request and the domain `$model`. This is
+     * unconditional flag ({@see allowsReplace()}) AND the relation is not read-only
+     * on update for the request AND, if a replace predicate was declared, its
+     * negation against the request and the domain `$model`. This is
      * the gate the relationship-mutation path consults; the OpenAPI path uses the
      * unconditional {@see allowsReplace()} (which documents the superset).
      */
@@ -142,16 +144,18 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * `DELETE` to a to-many relationship endpoint, or clearing a to-one
      * (`data: null`). On by default; opt out via
      * {@see AbstractRelationBuilder::cannotRemove()}. A prohibited removal is a
-     * {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403). A relation whose
-     * remove gate is a request predicate still reports `true` here; the mutation
-     * path consults {@see allowsRemoveFor()}.
+     * {@see \haddowg\JsonApi\Exception\RemovalProhibited} (403). A relation that is
+     * unconditionally read-only on update reports `false`. A relation whose remove
+     * gate is a request predicate still reports `true` here; the mutation path
+     * consults {@see allowsRemoveFor()}.
      */
     public function allowsRemove(): bool;
 
     /**
      * Whether removal is permitted **for this request** — the unconditional flag
-     * ({@see allowsRemove()}) AND, if a remove predicate was declared, its negation
-     * against the request and the domain `$model`. This is the gate the
+     * ({@see allowsRemove()}) AND the relation is not read-only on update for the
+     * request AND, if a remove predicate was declared, its negation against the
+     * request and the domain `$model`. This is the gate the
      * relationship-mutation path consults.
      */
     public function allowsRemoveFor(JsonApiRequestInterface $request, mixed $model): bool;
@@ -179,16 +183,18 @@ interface RelationInterface extends \haddowg\JsonApi\Resource\Field\FieldInterfa
      * Whether additions to this (to-many) relationship are **unconditionally**
      * permitted — a `POST` to its relationship endpoint. On by default; opt out
      * via {@see AbstractRelationBuilder::cannotAdd()}. A prohibited addition is an
-     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). A relation whose
-     * add gate is a request predicate still reports `true` here; the mutation path
-     * consults {@see allowsAddFor()}.
+     * {@see \haddowg\JsonApi\Exception\AdditionProhibited} (403). A relation that is
+     * unconditionally read-only on update reports `false`. A relation whose add gate
+     * is a request predicate still reports `true` here; the mutation path consults
+     * {@see allowsAddFor()}.
      */
     public function allowsAdd(): bool;
 
     /**
      * Whether additions are permitted **for this request** — the unconditional flag
-     * ({@see allowsAdd()}) AND, if an add predicate was declared, its negation
-     * against the request and the domain `$model`. This is the gate the
+     * ({@see allowsAdd()}) AND the relation is not read-only on update for the
+     * request AND, if an add predicate was declared, its negation against the
+     * request and the domain `$model`. This is the gate the
      * relationship-mutation path consults.
      */
     public function allowsAddFor(JsonApiRequestInterface $request, mixed $model): bool;
