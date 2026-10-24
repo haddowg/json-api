@@ -189,16 +189,19 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
     {
         $branches = [];
         foreach ($this->variants as $variantName => $shape) {
-            $schema = $shape->projectFieldSchema($projector, $creating, $collector);
+            // The union is the parent, so its own serializeUsing()/extractUsing() hook
+            // keeps the variants' children out of the read `required`.
+            $schema = $projector->projectNestedObject($this, $shape->children(), $creating, $collector);
 
-            // Each branch carries the discriminator as a const property (and, on create,
-            // in `required`) so a consumer can match the value to its variant.
+            // Each branch carries the discriminator as a const property (and, on create
+            // and on a read the union renders itself, in `required`) so a consumer can
+            // match the value to its variant.
             /** @var array<string, Schema> $properties */
             $properties = \is_array($schema->get('properties')) ? $schema->get('properties') : [];
             $properties[$this->discriminator] = Schema::ofType('string')->withConst($variantName);
             $schema = $schema->withProperties($properties);
 
-            if ($creating) {
+            if ($creating || ($projector->isReading() && !$this->rendersThroughHook())) {
                 /** @var list<string> $required */
                 $required = \is_array($schema->get('required')) ? \array_values($schema->get('required')) : [];
                 if (!\in_array($this->discriminator, $required, true)) {

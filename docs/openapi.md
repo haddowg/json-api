@@ -212,7 +212,14 @@ sketch:
   response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
   `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
   can omit them. A sparse fieldset can omit any member, so a client that sends one
-  narrows the type itself.
+  narrows the type itself. The rule recurses into `Map`, `Obj` and `OneOf` values: a
+  nested object lists every child it renders, leaving out a write-only child (absent from
+  the read `properties` too) and a `hidden(when:)` / `writeOnly(when:)` one, and a
+  `OneOf` branch also requires its discriminator. A nested object whose
+  `serializeUsing()` or `extractUsing()` hook builds the value lists none, since the
+  hook decides its shape. A nullable nested object can still be `null`; when it is
+  present, its required children are there
+  ([ADR 0157](adr/0157-a-nested-objects-read-required-lists-the-children-it-always-renders.md)).
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each

@@ -99,27 +99,65 @@ final class SchemaProjector
             return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
         }
 
-        $schema = $this->typeSchema($field);
-
-        if ($field instanceof Map) {
-            $properties = [];
-            $required = [];
-            foreach ($field->children() as $child) {
-                if ($child->isHidden()) {
-                    continue;
-                }
-                $properties[$child->name()] = $this->projectField($child, $creating, $collector);
-                // Mirror the top-level attributes projection: a required child
-                // populates the Map object's `required` only in the create context
-                // (on update an absent member means "no change").
-                if ($creating && $this->isRequired($child, $creating)) {
-                    $required[] = $child->name();
-                }
-            }
-            $schema = $schema->withProperties($properties)->withRequired($required);
-        }
+        $schema = $field instanceof Map
+            ? $this->projectNestedObject($field, $field->children(), $creating, $collector)
+            : $this->typeSchema($field);
 
         return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+    }
+
+    /**
+     * Projects a nested object's children ({@see Map}, {@see Obj}, or an application's own
+     * {@see ProvidesFieldSchema} composite) to a `{type: object, properties, required}`
+     * node, following the same per-representation rules as {@see projectAttributes()}:
+     *
+     * - **Create** lists each child a create must supply.
+     * - **Update** lists none, since an absent member means "no change".
+     * - **Read** lists every child the parent always renders: all of them except a
+     *   write-only one, a `hidden(when:)` / `writeOnly(when:)` one, and every child of a
+     *   parent whose `serializeUsing()` / `extractUsing()` hook produces its own shape. A
+     *   write-only child is left out of the read `properties` too.
+     *
+     * A hidden child is never projected. Presence says nothing about `null`; the child's
+     * own schema does.
+     *
+     * @param iterable<FieldInterface> $children
+     */
+    public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null): Schema
+    {
+        $reading = $this->reading && !$creating;
+        $authorShaped = $parent instanceof AbstractFieldValue && $parent->rendersThroughHook();
+        $properties = [];
+        $required = [];
+        foreach ($children as $child) {
+            if ($child->isHidden() || ($reading && $child->isWriteOnly())) {
+                continue;
+            }
+            $properties[$child->name()] = $this->projectField($child, $creating, $collector);
+
+            $isRequired = match (true) {
+                $creating => $this->isRequired($child, true),
+                $reading => !$authorShaped && !$child->hasConditionalReadVisibility(),
+                default => false,
+            };
+            if ($isRequired) {
+                $required[] = $child->name();
+            }
+        }
+
+        return Schema::ofType('object')
+            ->withProperties($properties)
+            ->withRequired($required);
+    }
+
+    /**
+     * Whether a read (response) representation is being projected, so a
+     * {@see ProvidesFieldSchema} composite can tell a read from an update, which both
+     * reach it with `$creating = false`.
+     */
+    public function isReading(): bool
+    {
+        return $this->reading;
     }
 
     /**
@@ -1061,8 +1099,8 @@ final class SchemaProjector
     /**
      * Whether the field carries a {@see Required} constraint applying in the given
      * context. Public so a self-describing composite ({@see ProvidesFieldSchema})
-     * can populate its object `required` from its children exactly as the built-in
-     * {@see Obj}/{@see Map} projection does.
+     * can populate its object `required` from its children; prefer
+     * {@see projectNestedObject()}, which also covers the read representation.
      */
     public function isRequired(FieldInterface $field, bool $creating): bool
     {

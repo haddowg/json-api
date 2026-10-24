@@ -298,7 +298,12 @@ Write semantics on the single value:
   scalars in one array.
 
 In the generated OpenAPI document an `Obj` projects a typed `object` schema built
-from its children (it self-describes via `ProvidesFieldSchema`).
+from its children (it self-describes via `ProvidesFieldSchema`). A `Map` projects the
+same way. The create schema requires each child a create must supply, the update schema
+requires none, and the read schema requires every child the object renders, which is
+all of them except a write-only or request-conditional child. A field with its own
+`serializeUsing()` / `extractUsing()` hook requires no children on read. See
+[presence on read](openapi.md).
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
 declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.

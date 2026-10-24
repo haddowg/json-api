@@ -24,6 +24,7 @@ use haddowg\JsonApi\OpenApi\Tag;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -36,6 +37,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\IntegerBuilder;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -181,6 +183,16 @@ final class ContractWitnessServer
                     ->variant('heading', Str::make('text')->required()->build())
                     ->variant('image', Url::make('src')->build())
                     ->build(),
+                // Read presence inside a nested object: every child the runtime always
+                // renders is required, recursively; a write-only child is not rendered and
+                // a request-conditional one may be absent.
+                Obj::make('contact')->nullable()->fields(
+                    Str::make('firstName')->guaranteed()->build(),
+                    Str::make('nickname')->build(),
+                    Str::make('pin')->writeOnly()->build(),
+                    Str::make('phone')->hidden(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)->build(),
+                    Obj::make('geo')->fields(Integer::make('lat')->build())->build(),
+                )->build(),
                 // Read nullability: a response promises a non-null value only when the
                 // server guarantees one. An asserted read-only timestamp and a computed
                 // value with a non-null return type are non-null; a plain read-only field

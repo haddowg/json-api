@@ -151,24 +151,6 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $properties = [];
-        $required = [];
-        foreach ($this->children as $child) {
-            if ($child->isHidden()) {
-                continue;
-            }
-
-            $properties[$child->name()] = $projector->projectField($child, $creating, $collector);
-            // Mirror the top-level attributes projection: a required child populates
-            // the object's `required` only in the create context (on update an absent
-            // member means "no change").
-            if ($creating && $projector->isRequired($child, $creating)) {
-                $required[] = $child->name();
-            }
-        }
-
-        return Schema::ofType('object')
-            ->withProperties($properties)
-            ->withRequired($required);
+        return $projector->projectNestedObject($this, $this->children, $creating, $collector);
     }
 }
