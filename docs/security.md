@@ -110,6 +110,9 @@ client's keys. This is a structural guard against mass-assignment.
   [`PlaylistResource`](../examples/music-catalog/src/Resource/PlaylistResource.php)
   `slug` is `readOnly()` for the same reason — it is derived server-side by the
   custom hydrator, never client-written.
+  A read-only relation is also closed at its relationship endpoint: a `PATCH`,
+  `POST` or `DELETE` to `/{type}/{id}/relationships/{rel}` of a relation that is
+  read-only on update is a `403`. See [mutation gates](relations.md#mutation-gates).
 
 - **A client-generated `id` is rejected unless opted in.** A `POST` that supplies
   its own `id` is rejected with `ClientGeneratedIdNotSupported` unless the `Id`

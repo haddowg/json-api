@@ -268,6 +268,65 @@ final class RequestAwarePredicatesTest extends TestCase
         self::assertTrue($relation->isIncludableFor($this->guest(), null));
     }
 
+    // ---- readOnly() closes the relationship-mutation gates --------------------
+
+    #[Test]
+    public function aReadOnlyRelationAllowsNoMutation(): void
+    {
+        $relation = HasMany::make('tags', 'tags')->readOnly()->build();
+
+        self::assertFalse($relation->allowsReplace());
+        self::assertFalse($relation->allowsAdd());
+        self::assertFalse($relation->allowsRemove());
+        self::assertFalse($relation->allowsReplaceFor($this->admin(), null));
+        self::assertFalse($relation->allowsAddFor($this->admin(), null));
+        self::assertFalse($relation->allowsRemoveFor($this->admin(), null));
+    }
+
+    #[Test]
+    public function aReadOnlyOnUpdateRelationAllowsNoMutation(): void
+    {
+        $relation = BelongsTo::make('owner', 'users')->readOnlyOnUpdate()->build();
+
+        self::assertFalse($relation->allowsReplace());
+        self::assertFalse($relation->allowsRemove());
+        self::assertFalse($relation->allowsReplaceFor($this->guest(), null));
+        self::assertFalse($relation->allowsRemoveFor($this->guest(), null));
+    }
+
+    #[Test]
+    public function aReadOnlyOnCreateRelationStaysMutable(): void
+    {
+        $relation = HasMany::make('tags', 'tags')->readOnlyOnCreate()->build();
+
+        self::assertTrue($relation->allowsReplace());
+        self::assertTrue($relation->allowsAdd());
+        self::assertTrue($relation->allowsRemove());
+        self::assertTrue($relation->allowsReplaceFor($this->guest(), null));
+        self::assertTrue($relation->allowsAddFor($this->guest(), null));
+        self::assertTrue($relation->allowsRemoveFor($this->guest(), null));
+    }
+
+    #[Test]
+    public function aReadOnlyPredicateGatesMutationPerRequest(): void
+    {
+        $relation = HasMany::make('tags', 'tags')->readOnly(
+            static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
+        )->build();
+
+        // Not unconditionally read-only, so the static gates stay permissive.
+        self::assertTrue($relation->allowsReplace());
+        self::assertTrue($relation->allowsAdd());
+        self::assertTrue($relation->allowsRemove());
+
+        self::assertFalse($relation->allowsReplaceFor($this->guest(), null));
+        self::assertFalse($relation->allowsAddFor($this->guest(), null));
+        self::assertFalse($relation->allowsRemoveFor($this->guest(), null));
+        self::assertTrue($relation->allowsReplaceFor($this->admin(), null));
+        self::assertTrue($relation->allowsAddFor($this->admin(), null));
+        self::assertTrue($relation->allowsRemoveFor($this->admin(), null));
+    }
+
     private function admin(): StubJsonApiRequest
     {
         return StubJsonApiRequest::create([], ['X-Role' => 'admin']);

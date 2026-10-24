@@ -886,6 +886,78 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function patchReplaceOfAReadOnlyToOneIsRejected(): void
+    {
+        $resource = new ReadOnlyRelationResource();
+        $request = $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\FullReplacementProhibited::class);
+        $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
+    }
+
+    #[Test]
+    public function patchClearOfAReadOnlyToOneIsRejected(): void
+    {
+        $resource = new ReadOnlyRelationResource();
+        $request = $this->createRequest('PATCH', ['data' => null]);
+
+        $this->expectException(\haddowg\JsonApi\Exception\RemovalProhibited::class);
+        $resource->hydrateRelationship('owner', $request, ['owner' => '1']);
+    }
+
+    /**
+     * @param class-string<\Throwable> $expected
+     */
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\TestWith(['PATCH', 'tags', \haddowg\JsonApi\Exception\FullReplacementProhibited::class])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['POST', 'tags', \haddowg\JsonApi\Exception\AdditionProhibited::class])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['DELETE', 'tags', \haddowg\JsonApi\Exception\RemovalProhibited::class])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['PATCH', 'pins', \haddowg\JsonApi\Exception\FullReplacementProhibited::class])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['POST', 'pins', \haddowg\JsonApi\Exception\AdditionProhibited::class])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['DELETE', 'pins', \haddowg\JsonApi\Exception\RemovalProhibited::class])]
+    public function aReadOnlyToManyRefusesEveryRelationshipMutation(string $method, string $relation, string $expected): void
+    {
+        $resource = new ReadOnlyRelationResource();
+        $request = $this->createRequest($method, ['data' => [['type' => 'tags', 'id' => '5']]]);
+
+        $this->expectException($expected);
+        $resource->hydrateRelationship($relation, $request, [$relation => ['1']]);
+    }
+
+    #[Test]
+    public function aReadOnlyOnCreateToManyStaysMutableThroughItsRelationshipEndpoint(): void
+    {
+        $resource = new ReadOnlyRelationResource();
+        $request = $this->createRequest('POST', ['data' => [['type' => 'tags', 'id' => '5']]]);
+
+        $model = $resource->hydrateRelationship('labels', $request, ['labels' => ['1']]);
+
+        self::assertIsArray($model);
+        self::assertSame(['1', '5'], $model['labels']);
+    }
+
+    #[Test]
+    public function aConditionallyReadOnlyRelationIsMutableOnlyForCallersItIsNotReadOnlyFor(): void
+    {
+        $resource = new ReadOnlyRelationResource();
+
+        try {
+            $resource->hydrateRelationship('editor', $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']]), ['editor' => '1']);
+            self::fail('expected FullReplacementProhibited for a non-admin');
+        } catch (\haddowg\JsonApi\Exception\FullReplacementProhibited) {
+            $this->addToAssertionCount(1);
+        }
+
+        $model = $resource->hydrateRelationship(
+            'editor',
+            $this->createRequest('PATCH', ['data' => ['type' => 'users', 'id' => '9']], ['X-Role' => 'admin']),
+            ['editor' => '1'],
+        );
+        self::assertIsArray($model);
+        self::assertSame('9', $model['editor']);
+    }
+
+    #[Test]
     public function onAttributeFlattensTheRelatedModelOnRead(): void
     {
         $resource = new FlattenedResource();
@@ -1804,6 +1876,29 @@ final class RestrictedResource extends AbstractResource
             HasMany::make('pinned', 'tags')->cannotAdd(),
             // A to-one that may be replaced but never cleared.
             BelongsTo::make('owner', 'users')->cannotReplace()->cannotRemove(),
+        ];
+    }
+}
+
+/**
+ * A resource whose relations are read-only in each supported way, for the
+ * relationship-endpoint mutation gates.
+ */
+final class ReadOnlyRelationResource extends AbstractResource
+{
+    public static string $type = 'read_only_relations';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('owner', 'users')->readOnly(),
+            HasMany::make('tags', 'tags')->readOnly(),
+            HasMany::make('pins', 'tags')->readOnlyOnUpdate(),
+            HasMany::make('labels', 'tags')->readOnlyOnCreate(),
+            BelongsTo::make('editor', 'users')->readOnly(
+                static fn(JsonApiRequestInterface $request): bool => $request->getHeaderLine('X-Role') !== 'admin',
+            ),
         ];
     }
 }

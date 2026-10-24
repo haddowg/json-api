@@ -101,22 +101,22 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function allowsReplace(): bool
     {
-        return $this->relationState->allowsReplace;
+        return $this->relationState->allowsReplace && !$this->isReadOnly(false);
     }
 
     public function allowsReplaceFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllows($this->relationState->allowsReplace, $this->relationState->cannotReplaceWhen, $request, $model);
+        return $this->resolveAllowsMutation($this->relationState->allowsReplace, $this->relationState->cannotReplaceWhen, $request, $model);
     }
 
     public function allowsRemove(): bool
     {
-        return $this->relationState->allowsRemove;
+        return $this->relationState->allowsRemove && !$this->isReadOnly(false);
     }
 
     public function allowsRemoveFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllows($this->relationState->allowsRemove, $this->relationState->cannotRemoveWhen, $request, $model);
+        return $this->resolveAllowsMutation($this->relationState->allowsRemove, $this->relationState->cannotRemoveWhen, $request, $model);
     }
 
     public function exposesRelatedEndpoint(): bool
@@ -131,12 +131,12 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function allowsAdd(): bool
     {
-        return $this->relationState->allowsAdd;
+        return $this->relationState->allowsAdd && !$this->isReadOnly(false);
     }
 
     public function allowsAddFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllows($this->relationState->allowsAdd, $this->relationState->cannotAddWhen, $request, $model);
+        return $this->resolveAllowsMutation($this->relationState->allowsAdd, $this->relationState->cannotAddWhen, $request, $model);
     }
 
     public function isIncludable(): bool
@@ -574,6 +574,17 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
                 $this->relationState->exposesRelatedEndpoint,
             );
         }
+    }
+
+    /**
+     * A relationship mutation changes an existing resource, so a relation that is
+     * read-only on update for this request permits none.
+     *
+     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $predicate
+     */
+    private function resolveAllowsMutation(bool $allows, ?\Closure $predicate, JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return !$this->isReadOnlyFor(false, $request) && $this->resolveAllows($allows, $predicate, $request, $model);
     }
 
     /**
