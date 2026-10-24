@@ -79,7 +79,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * relation is nonetheless mutable, a standalone type with no field inventory, an
  * unregistered linkage-only related type, every relation shape (to-one, to-many,
  * pivot-backed, polymorphic, endpoint-suppressed,
- * mutation-locked, write-only), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
+ * mutation-locked, write-only, served under a renamed URI segment), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, both registered profiles, the Atomic
  * Operations extension, and described link objects (a document URL, an id example and an
@@ -220,12 +220,20 @@ final class ContractWitnessServer
                     sorts: [SortByField::make('label')],
                     relatedIncludablePaths: ['articles'],
                     // A pivot-backed (belongsToMany) relation: the linkage identifier
-                    // carries a typed `meta.pivot`.
+                    // carries a typed `meta.pivot`, with a response shape (read-only fields
+                    // in, presence and read nullability per field) and a request shape
+                    // (only what a write may set, create-required fields required).
                     pivotFields: [
-                        Integer::make('position')->build(),
+                        Integer::make('position')->required()->build(),
                         Boolean::make('primary')->build(),
+                        DateTime::make('taggedAt')->readOnly()->guaranteed()->build(),
+                        Str::make('taggedBy')->readOnly()->build(),
+                        Str::make('reason')->writeOnly()->build(),
                     ],
                 ),
+                // Served under a URI segment other than its name: its paths and links use
+                // the segment, its member and operation ids the name.
+                new UriFieldNameRelationMetadata(new FakeRelationMetadata('publisher', ['people'], false), 'published-by'),
                 // Relationship-only: no related endpoint, so no related document envelope.
                 new FakeRelationMetadata('cover', ['images'], false, relatedEndpoint: false),
                 // Mutation-locked: read-only linkage, omitted from the update request.

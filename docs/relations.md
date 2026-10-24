@@ -178,26 +178,28 @@ The same `meta.pivot` rides the full related resource on the related read
 top-level `meta`, alongside any intrinsic meta the type's serializer emits. Core
 stays storage-agnostic: it carries the field definitions, and the host adapter
 (the Symfony bundle's Doctrine adapter) reads the join row and supplies the typed
-values it renders under `pivot`.
+values it renders under `pivot`. The host renders every pivot field except a hidden or
+write-only one (`readablePivotFields()`), on every member, `null` when the join row
+holds no value. That is what the projected `<Type><Rel>Pivot` schema promises.
 
 ### Writing pivot fields — the linkage `meta` convention
 
 A pivot field is **writable by default**; opt a server-owned column out with
 `->readOnly()` (or `->readOnlyOnUpdate()` / `->readOnlyOnCreate()` for a
 context-scoped opt-out). Pivot values are written through the JSON:API
-**resource-identifier `meta`** on each linkage member — the spec allows a
-resource identifier to carry `meta`:
+**resource-identifier `meta`** on each linkage member, under the same `pivot`
+key they render under (the spec allows a resource identifier to carry `meta`):
 
 ```http
 POST /playlists/1/relationships/orderedTracks
-{ "data": [ { "type": "tracks", "id": "7", "meta": { "position": 3 } } ] }
+{ "data": [ { "type": "tracks", "id": "7", "meta": { "pivot": { "position": 3 } } } ] }
 ```
 
 ```http
 PATCH /playlists/1/relationships/orderedTracks
 { "data": [
-  { "type": "tracks", "id": "7", "meta": { "position": 1 } },
-  { "type": "tracks", "id": "9", "meta": { "position": 2 } }
+  { "type": "tracks", "id": "7", "meta": { "pivot": { "position": 1 } } },
+  { "type": "tracks", "id": "9", "meta": { "pivot": { "position": 2 } } }
 ] }
 ```
 
@@ -375,6 +377,11 @@ The URI segment defaults to the relation name; override it with
 ```php
 BelongsTo::make('artist', 'artists')->withUriFieldName('by'),
 ```
+
+The endpoints are then `/albums/{id}/by` and `/albums/{id}/relationships/by`, and not the
+name. The relationship member in `relationships` stays `artist`. A host resolving a URL
+segment to a relation calls `relationAtUriFieldName($segment)` on the resource, and builds
+its `Target` with the relation's `name()`.
 
 Links are gated by **endpoint exposure**: if you suppress a relation's endpoint
 (below), the matching link is omitted so a rendered link never points at a `404`.

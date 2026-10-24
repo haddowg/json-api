@@ -77,6 +77,22 @@ final readonly class BelongsToMany extends HasMany
     }
 
     /**
+     * The pivot fields a rendered linkage member carries under `meta.pivot`: every
+     * field that is neither hidden nor write-only. A host renders each of them on every
+     * member, `null` when the join row holds none, which is what the projected response
+     * pivot schema promises. Declaration order is preserved.
+     *
+     * @return list<FieldInterface>
+     */
+    public function readablePivotFields(): array
+    {
+        return \array_values(\array_filter(
+            $this->pivotFields,
+            static fn(FieldInterface $field): bool => !$field->isHidden() && !$field->isWriteOnly(),
+        ));
+    }
+
+    /**
      * The declared pivot association entity (the
      * {@see BelongsToManyBuilder::through()} override), or `null` when none was
      * declared.

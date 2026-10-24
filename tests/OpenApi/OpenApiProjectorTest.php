@@ -15,7 +15,9 @@ use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\Tag;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Boolean;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -161,27 +163,42 @@ final class OpenApiProjectorTest extends TestCase
         $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks, $tags]);
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
 
-        // The pivot relation's linkage identifier — in BOTH the embedded relationship
-        // object and the relationship-document envelope — is an `allOf` of the base
-        // identifier `$ref` plus a typed, OPTIONAL `meta.pivot`.
-        foreach (['PlaylistsOrderedTracksRelationship', 'PlaylistsOrderedTracksRelationshipDocument'] as $component) {
+        // The pivot relation's linkage identifier is an `allOf` of the base identifier
+        // `$ref` plus an OPTIONAL `meta.pivot`: the response pivot shape in the embedded
+        // relationship object and the relationship-document envelope, the request pivot
+        // shape in the write relationship object and the relationship request document.
+        $shapes = [
+            'PlaylistsOrderedTracksRelationship' => 'PlaylistsOrderedTracksPivot',
+            'PlaylistsOrderedTracksRelationshipDocument' => 'PlaylistsOrderedTracksPivot',
+            'PlaylistsOrderedTracksWriteRelationship' => 'PlaylistsOrderedTracksWritePivot',
+            'PlaylistsOrderedTracksRelationshipRequest' => 'PlaylistsOrderedTracksWritePivot',
+        ];
+        foreach ($shapes as $component => $pivotComponent) {
             $identifier = $this->arrAt($schemas, $component, 'properties', 'data', 'items');
             self::assertArrayHasKey('allOf', $identifier, $component);
 
             $base = $this->arrAt($identifier, 'allOf', '0');
             self::assertSame('#/components/schemas/TracksResourceIdentifier', $base['$ref'] ?? null, $component);
 
-            $pivot = $this->arrAt($identifier, 'allOf', '1', 'properties', 'meta', 'properties', 'pivot');
+            $pivotRef = $this->arrAt($identifier, 'allOf', '1', 'properties', 'meta', 'properties', 'pivot');
+            self::assertSame('#/components/schemas/' . $pivotComponent, $pivotRef['$ref'] ?? null, $component);
+        }
+
+        foreach (['PlaylistsOrderedTracksPivot', 'PlaylistsOrderedTracksWritePivot'] as $component) {
+            $pivot = $this->arrAt($schemas, $component);
             self::assertSame('object', $pivot['type'] ?? null, $component);
 
             $position = $this->arrAt($pivot, 'properties', 'position');
-            self::assertSame('integer', $position['type'] ?? null, $component);
             self::assertSame('The track position.', $position['description'] ?? null, $component);
-
             self::assertArrayHasKey('featured', $this->arrAt($pivot, 'properties'), $component);
-            // Shared by the read response + the mutation request body, so nothing is required.
-            self::assertArrayNotHasKey('required', $pivot, $component);
         }
+
+        // Read: every rendered pivot field is present, and `null` unless guaranteed.
+        self::assertSame(['position', 'featured'], $this->listAt($schemas, 'PlaylistsOrderedTracksPivot', 'required'));
+        self::assertSame(['integer', 'null'], $this->at($schemas, 'PlaylistsOrderedTracksPivot', 'properties', 'position', 'type'));
+        // Write: nothing is create-required, and a value is non-null unless declared nullable.
+        self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'PlaylistsOrderedTracksWritePivot'));
+        self::assertSame('integer', $this->at($schemas, 'PlaylistsOrderedTracksWritePivot', 'properties', 'position', 'type'));
 
         // A non-pivot to-many keeps the bare `$ref` linkage (no `allOf`, no meta typing).
         $tagsLinkage = $this->arrAt($schemas, 'PlaylistsTagsRelationship', 'properties', 'data', 'items');
@@ -190,7 +207,7 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function itMarksReadOnlyPivotFieldsReadOnlyAndRequiredPivotFieldsRequired(): void
+    public function itSplitsThePivotIntoAResponseAndARequestShape(): void
     {
         $playlists = FakeTypeMetadata::resource(
             type: 'playlists',
@@ -199,6 +216,10 @@ final class OpenApiProjectorTest extends TestCase
                 FakeRelationMetadata::toMany('orderedTracks', ['tracks'], pivotFields: [
                     Integer::make('position')->required()->build(),
                     Str::make('addedAt')->readOnly()->build(),
+                    DateTime::make('linkedAt')->readOnly()->guaranteed()->build(),
+                    Str::make('secret')->writeOnly()->build(),
+                    Str::make('note')->hidden(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)->build(),
+                    Str::make('internal')->hidden()->build(),
                 ]),
             ],
         );
@@ -206,24 +227,45 @@ final class OpenApiProjectorTest extends TestCase
         $server = new FakeServerMetadata(title: 'Catalog', version: '1.0.0', types: [$playlists, $tracks]);
         $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
 
-        $pivot = $this->arrAt(
-            $schemas,
-            'PlaylistsOrderedTracksRelationship',
-            'properties',
-            'data',
-            'items',
-            'allOf',
-            '1',
-            'properties',
-            'meta',
-            'properties',
-            'pivot',
-        );
-        // A writable, create-required pivot field is required (a new member must carry it) — D18.
-        self::assertSame(['position'], $this->listAt($pivot, 'required'));
-        // A read-only pivot field is marked readOnly (a write client neither sends nor must supply it).
-        self::assertTrue($this->arrAt($pivot, 'properties', 'addedAt')['readOnly'] ?? null);
-        self::assertArrayNotHasKey('readOnly', $this->arrAt($pivot, 'properties', 'position'));
+        // The response shape lists every rendered field (read-only ones too, never a
+        // write-only or hidden one) and requires all but the request-conditional one. A
+        // create-required or guaranteed field is non-null; a plain read-only one is not.
+        $read = $this->arrAt($schemas, 'PlaylistsOrderedTracksPivot');
+        self::assertSame(['position', 'addedAt', 'linkedAt', 'note'], \array_keys($this->arrAt($read, 'properties')));
+        self::assertSame(['position', 'addedAt', 'linkedAt'], $this->listAt($read, 'required'));
+        self::assertSame('integer', $this->at($read, 'properties', 'position', 'type'));
+        self::assertSame(['string', 'null'], $this->at($read, 'properties', 'addedAt', 'type'));
+        self::assertSame('string', $this->at($read, 'properties', 'linkedAt', 'type'));
+
+        // The request shape carries only what a write may set, and requires what every
+        // attach must supply (D18).
+        $write = $this->arrAt($schemas, 'PlaylistsOrderedTracksWritePivot');
+        self::assertSame(['position', 'secret', 'note'], \array_keys($this->arrAt($write, 'properties')));
+        self::assertSame(['position'], $this->listAt($write, 'required'));
+        self::assertArrayNotHasKey('readOnly', $this->arrAt($write, 'properties', 'position'));
+
+        // Every write takes the request shape: the create and update bodies' relationship
+        // object, and each relationship mutation's request body.
+        foreach (['PlaylistsCreateRequest', 'PlaylistsUpdateRequest'] as $component) {
+            self::assertSame(
+                '#/components/schemas/PlaylistsOrderedTracksWriteRelationship',
+                $this->at($schemas, $component, 'properties', 'data', 'properties', 'relationships', 'properties', 'orderedTracks', '$ref'),
+            );
+        }
+        $paths = $this->arrAt($this->projector()->project($server)->toArray(), 'paths');
+        foreach (['patch', 'post', 'delete'] as $method) {
+            self::assertSame(
+                '#/components/schemas/PlaylistsOrderedTracksRelationshipRequest',
+                $this->at($paths, '/playlists/{id}/relationships/orderedTracks', $method, 'requestBody', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+                $method,
+            );
+            // The echoed linkage is a response, so it keeps the response shape.
+            self::assertSame(
+                '#/components/schemas/PlaylistsOrderedTracksRelationshipDocument',
+                $this->at($paths, '/playlists/{id}/relationships/orderedTracks', $method, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
+                $method,
+            );
+        }
     }
 
     #[Test]

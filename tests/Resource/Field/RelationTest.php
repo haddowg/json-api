@@ -484,6 +484,19 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function belongsToManyRendersEveryPivotFieldButHiddenAndWriteOnlyOnes(): void
+    {
+        $position = Integer::make('position')->build();
+        $addedAt = DateTimeField::make('addedAt')->readOnly()->build();
+        $secret = Str::make('secret')->writeOnly()->build();
+        $internal = Str::make('internal')->hidden()->build();
+
+        $relation = BelongsToMany::make('roles', 'roles')->fields($position, $addedAt, $secret, $internal)->build();
+
+        self::assertSame([$position, $addedAt], $relation->readablePivotFields());
+    }
+
+    #[Test]
     public function belongsToManyHasNoPivotThroughByDefault(): void
     {
         $relation = BelongsToMany::make('roles', 'roles')->build();

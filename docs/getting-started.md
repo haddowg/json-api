@@ -234,6 +234,11 @@ return match ($count) {
 };
 ```
 
+The relationship segment is the relation's URI segment, which is its name unless the
+relation [renamed it](relations.md#conventional-links). A router serving renamed relations
+looks the segment up with `$server->resourceFor($type)->relationAtUriFieldName($segment)`
+and passes the relation's `name()` to the `Target`.
+
 `Target($type, $id, $relationship, $isRelationshipEndpoint)` is the router-agnostic
 endpoint identifier — `hasId()` / `hasRelationship()` distinguish the shapes. Once
 built, the router attaches it before delegating — `$handler->handle($request->withAttribute(Target::class, $target))`

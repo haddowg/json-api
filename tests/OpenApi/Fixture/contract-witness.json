@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 7
+            "contract": 8
         }
     },
     "servers": [
@@ -222,7 +222,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -258,6 +258,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -414,7 +415,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -450,6 +451,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -603,7 +605,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -639,6 +641,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -801,7 +804,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -837,6 +840,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -1301,7 +1305,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1337,6 +1341,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -1585,7 +1590,7 @@
                     "content": {
                         "application/vnd.api+json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ArticlesTagsRelationshipDocument"
+                                "$ref": "#/components/schemas/ArticlesTagsRelationshipRequest"
                             }
                         }
                     },
@@ -1647,7 +1652,7 @@
                     "content": {
                         "application/vnd.api+json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ArticlesTagsRelationshipDocument"
+                                "$ref": "#/components/schemas/ArticlesTagsRelationshipRequest"
                             }
                         }
                     },
@@ -1709,7 +1714,7 @@
                     "content": {
                         "application/vnd.api+json": {
                             "schema": {
-                                "$ref": "#/components/schemas/ArticlesTagsRelationshipDocument"
+                                "$ref": "#/components/schemas/ArticlesTagsRelationshipRequest"
                             }
                         }
                     },
@@ -1722,6 +1727,210 @@
                             "application/vnd.api+json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ArticlesTagsRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
+        "/articles/{id}/published-by": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the related publisher of a articles",
+                "description": "Returns the related `publisher` resource of a `articles` (or `null`).",
+                "operationId": "fetchRelated.articles.publisher",
+                "parameters": [
+                    {
+                        "name": "filter[name]",
+                        "in": "query",
+                        "description": "Filter the collection by `name`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The related publisher resource (or `null`).",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesPublisherRelatedDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/articles/{id}/relationships/published-by": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `articles` resource identifier.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the publisher relationship of a articles",
+                "description": "Returns the `publisher` relationship linkage of a `articles`.",
+                "operationId": "fetchRelationship.articles.publisher",
+                "parameters": [
+                    {
+                        "name": "filter[name]",
+                        "in": "query",
+                        "description": "Filter the collection by `name`.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The publisher relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesPublisherRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Replace the publisher relationship of a articles",
+                "description": "Fully replaces the `publisher` relationship of a `articles` with the supplied linkage.",
+                "operationId": "updateRelationship.articles.publisher",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesPublisherRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The updated publisher relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesPublisherRelationshipDocument"
                                 }
                             }
                         }
@@ -2837,7 +3046,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2873,6 +3082,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -4199,7 +4409,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4235,6 +4445,7 @@
                                     "score",
                                     "author",
                                     "tags",
+                                    "publisher",
                                     "cover",
                                     "locked",
                                     "attachments",
@@ -5572,7 +5783,10 @@
                                 "$ref": "#/components/schemas/ArticlesAuthorRelationship"
                             },
                             "tags": {
-                                "$ref": "#/components/schemas/ArticlesTagsRelationship"
+                                "$ref": "#/components/schemas/ArticlesTagsWriteRelationship"
+                            },
+                            "publisher": {
+                                "$ref": "#/components/schemas/ArticlesPublisherRelationship"
                             },
                             "cover": {
                                 "$ref": "#/components/schemas/ArticlesCoverRelationship"
@@ -5584,10 +5798,12 @@
                                 "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
                             },
                             "reviewer": {
-                                "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                "$ref": "#/components/schemas/ArticlesReviewerRelationship",
+                                "writeOnly": true
                             },
                             "watchers": {
-                                "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationship",
+                                "writeOnly": true
                             },
                             "editor": {
                                 "$ref": "#/components/schemas/ArticlesEditorRelationship"
@@ -5625,7 +5841,10 @@
                                 "$ref": "#/components/schemas/ArticlesAuthorRelationship"
                             },
                             "tags": {
-                                "$ref": "#/components/schemas/ArticlesTagsRelationship"
+                                "$ref": "#/components/schemas/ArticlesTagsWriteRelationship"
+                            },
+                            "publisher": {
+                                "$ref": "#/components/schemas/ArticlesPublisherRelationship"
                             },
                             "cover": {
                                 "$ref": "#/components/schemas/ArticlesCoverRelationship"
@@ -5634,10 +5853,12 @@
                                 "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
                             },
                             "reviewer": {
-                                "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                "$ref": "#/components/schemas/ArticlesReviewerRelationship",
+                                "writeOnly": true
                             },
                             "watchers": {
-                                "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                "$ref": "#/components/schemas/ArticlesWatchersRelationship",
+                                "writeOnly": true
                             },
                             "editor": {
                                 "$ref": "#/components/schemas/ArticlesEditorRelationship"
@@ -6586,7 +6807,10 @@
                                         "$ref": "#/components/schemas/ArticlesAuthorRelationship"
                                     },
                                     "tags": {
-                                        "$ref": "#/components/schemas/ArticlesTagsRelationship"
+                                        "$ref": "#/components/schemas/ArticlesTagsWriteRelationship"
+                                    },
+                                    "publisher": {
+                                        "$ref": "#/components/schemas/ArticlesPublisherRelationship"
                                     },
                                     "cover": {
                                         "$ref": "#/components/schemas/ArticlesCoverRelationship"
@@ -6598,10 +6822,12 @@
                                         "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
                                     },
                                     "reviewer": {
-                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship",
+                                        "writeOnly": true
                                     },
                                     "watchers": {
-                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship",
+                                        "writeOnly": true
                                     },
                                     "editor": {
                                         "$ref": "#/components/schemas/ArticlesEditorRelationship"
@@ -6845,6 +7071,106 @@
                     "$ref": "#/components/schemas/LinkObject"
                 }
             },
+            "ArticlesPublisherRelatedDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesPublisherRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/ArticlesPublisherRelationshipLinks"
+                    },
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ArticlesPublisherRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/Links"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesPublisherRelationshipLinks": {
+                "type": "object",
+                "description": "The `links` of the `publisher` relationship object of a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "$ref": "#/components/schemas/RenderedLink",
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/published-by",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                        }
+                    },
+                    "related": {
+                        "$ref": "#/components/schemas/RenderedLink",
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/published-by",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                }
+            },
             "ArticlesResource": {
                 "type": "object",
                 "description": "A blog article.",
@@ -6868,6 +7194,9 @@
                             },
                             "tags": {
                                 "$ref": "#/components/schemas/ArticlesTagsRelationship"
+                            },
+                            "publisher": {
+                                "$ref": "#/components/schemas/ArticlesPublisherRelationship"
                             },
                             "cover": {
                                 "$ref": "#/components/schemas/ArticlesCoverRelationship"
@@ -7003,6 +7332,36 @@
                     "$ref": "#/components/schemas/LinkObject"
                 }
             },
+            "ArticlesTagsPivot": {
+                "type": "object",
+                "properties": {
+                    "position": {
+                        "type": "integer"
+                    },
+                    "primary": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "taggedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "taggedBy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "position",
+                    "primary",
+                    "taggedAt",
+                    "taggedBy"
+                ]
+            },
             "ArticlesTagsRelationship": {
                 "type": "object",
                 "properties": {
@@ -7023,15 +7382,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "pivot": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "position": {
-                                                            "type": "integer"
-                                                        },
-                                                        "primary": {
-                                                            "type": "boolean"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/ArticlesTagsPivot"
                                                 }
                                             }
                                         }
@@ -7062,15 +7413,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "pivot": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "position": {
-                                                            "type": "integer"
-                                                        },
-                                                        "primary": {
-                                                            "type": "boolean"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/ArticlesTagsPivot"
                                                 }
                                             }
                                         }
@@ -7149,6 +7492,94 @@
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
                 }
+            },
+            "ArticlesTagsRelationshipRequest": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/components/schemas/TagsResourceIdentifier"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pivot": {
+                                                    "$ref": "#/components/schemas/ArticlesTagsWritePivot"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesTagsWritePivot": {
+                "type": "object",
+                "properties": {
+                    "position": {
+                        "type": "integer"
+                    },
+                    "primary": {
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "position"
+                ]
+            },
+            "ArticlesTagsWriteRelationship": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/components/schemas/TagsResourceIdentifier"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pivot": {
+                                                    "$ref": "#/components/schemas/ArticlesTagsWritePivot"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
             },
             "ArticlesUpdateAttributes": {
                 "type": "object",
@@ -7352,7 +7783,10 @@
                                         "$ref": "#/components/schemas/ArticlesAuthorRelationship"
                                     },
                                     "tags": {
-                                        "$ref": "#/components/schemas/ArticlesTagsRelationship"
+                                        "$ref": "#/components/schemas/ArticlesTagsWriteRelationship"
+                                    },
+                                    "publisher": {
+                                        "$ref": "#/components/schemas/ArticlesPublisherRelationship"
                                     },
                                     "cover": {
                                         "$ref": "#/components/schemas/ArticlesCoverRelationship"
@@ -7361,10 +7795,12 @@
                                         "$ref": "#/components/schemas/ArticlesAttachmentsRelationship"
                                     },
                                     "reviewer": {
-                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship"
+                                        "$ref": "#/components/schemas/ArticlesReviewerRelationship",
+                                        "writeOnly": true
                                     },
                                     "watchers": {
-                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship"
+                                        "$ref": "#/components/schemas/ArticlesWatchersRelationship",
+                                        "writeOnly": true
                                     },
                                     "editor": {
                                         "$ref": "#/components/schemas/ArticlesEditorRelationship"

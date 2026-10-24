@@ -382,7 +382,9 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   prefix, and never let the `string` floor overwrite a derived or declared type
   ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
 - A link's `describedby` fragment and the projector's `paths` keys both come from
-  `PathTemplate`; never spell a path template inline on either side. A built link renders
+  `PathTemplate`; never spell a path template inline on either side. A relation's segment
+  in both is its URI field name, never its member name
+  ([ADR 0161](docs/adr/0161-a-relations-paths-are-keyed-by-its-uri-field-name.md)). A built link renders
   through `Schema\Link\Internal\LinkRendering`; an author-supplied link container never
   does, so it keeps its own shape
   ([ADR 0158](docs/adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).

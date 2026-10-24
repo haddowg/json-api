@@ -17,7 +17,9 @@ use haddowg\JsonApi\Operation\JsonApiOperationInterface;
 use haddowg\JsonApi\Operation\RemoveFromRelationshipOperation;
 use haddowg\JsonApi\Operation\UpdateRelationshipOperation;
 use haddowg\JsonApi\Operation\UpdateResourceOperation;
+use haddowg\JsonApi\Resource\Field\AbstractRelationValue;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Serializer\DeclaresRelationsInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
@@ -94,7 +96,8 @@ final readonly class OperationReference
      *
      * The URI segment is the type's {@see UriTypeAwareInterface::uriType()} when its
      * registered serializer declares one, else the JSON:API type, the same fallback the
-     * by-convention links use.
+     * by-convention links use. A relationship target names the relation, and its segment
+     * is that relation's {@see AbstractRelationValue::uriFieldName()}.
      */
     public static function forOperation(JsonApiOperationInterface $operation, SerializerResolverInterface $resolver): ?self
     {
@@ -106,7 +109,7 @@ final readonly class OperationReference
 
         $target = $operation->target();
         $uriType = self::uriTypeOf($target->type, $resolver);
-        $relationship = $target->relationship ?? '';
+        $relationship = $target->relationship === null ? '' : self::uriFieldNameOf($target->type, $target->relationship, $resolver);
 
         return match (true) {
             $operation instanceof FetchResourceOperation => $target->hasId()
@@ -150,6 +153,18 @@ final readonly class OperationReference
             static fn(array $match): string => \rawurlencode($match[0]),
             $this->pointer(),
         );
+    }
+
+    private static function uriFieldNameOf(string $type, string $relationship, SerializerResolverInterface $resolver): string
+    {
+        if (!$resolver->hasSerializerFor($type)) {
+            return $relationship;
+        }
+
+        $serializer = $resolver->serializerFor($type);
+        $relation = $serializer instanceof DeclaresRelationsInterface ? $serializer->relationNamedIncludingHidden($relationship) : null;
+
+        return $relation instanceof AbstractRelationValue ? $relation->uriFieldName() : $relationship;
     }
 
     private static function uriTypeOf(string $type, SerializerResolverInterface $resolver): string
