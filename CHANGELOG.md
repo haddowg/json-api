@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.0](https://github.com/haddowg/json-api/compare/v1.5.1...v1.6.0) (2026-10-24)
+
+
+### Features
+
+* describe atomic results by the atomic endpoint's operation ([af85bbe](https://github.com/haddowg/json-api/commit/af85bbe3c0ebb960612da19abda66cb15fee01cb))
+* expose the operations map SpecDescribedByResolver is built from ([af85bbe](https://github.com/haddowg/json-api/commit/af85bbe3c0ebb960612da19abda66cb15fee01cb))
+* **openapi:** add the serve-time helpers adapters share ([#197](https://github.com/haddowg/json-api/issues/197)) ([5015d4f](https://github.com/haddowg/json-api/commit/5015d4f52a9d20cab6150403c34f1a7cef436194))
+* **openapi:** name the rejected class on a typed serve-artifact exception ([#199](https://github.com/haddowg/json-api/issues/199)) ([bb23a02](https://github.com/haddowg/json-api/commit/bb23a02b03abb0fa04539c489f076d2dfd7a27ac))
+* render built links as link objects with an OpenAPI describedby ([#195](https://github.com/haddowg/json-api/issues/195)) ([2cb1324](https://github.com/haddowg/json-api/commit/2cb1324d432e83001aca74ea1c8f6813ca5b425f))
+
+
+### Bug Fixes
+
+* never reference a document component the projector doesn't define ([af85bbe](https://github.com/haddowg/json-api/commit/af85bbe3c0ebb960612da19abda66cb15fee01cb))
+
 ## [1.5.1](https://github.com/haddowg/json-api/compare/v1.5.0...v1.5.1) (2026-10-24)
 
 
