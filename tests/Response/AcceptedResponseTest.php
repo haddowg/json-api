@@ -30,7 +30,7 @@ final class AcceptedResponseTest extends TestCase
                 'data' => [
                     'type' => 'queue-jobs',
                     'id' => '5234',
-                    'links' => ['self' => '/queue-jobs/5234'],
+                    'links' => ['self' => ['href' => '/queue-jobs/5234']],
                     'attributes' => ['status' => 'processing'],
                 ],
                 'jsonapi' => ['version' => '1.1'],

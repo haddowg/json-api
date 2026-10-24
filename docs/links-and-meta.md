@@ -114,8 +114,10 @@ and [relations](relations.md)). You only reach for `getLinks()` when you want a
 
 ## Link forms
 
-A link serializes one of two ways, and the library picks for you based on whether
-it carries meta:
+The links the server builds for you (the [auto-emitted ones below](#auto-emitted-links-you-dont-set-by-hand))
+render as link objects by default; see [built links are link objects](#built-links-are-link-objects).
+A link you build yourself serializes one of two ways, and the library picks for you based on
+whether it carries meta:
 
 - **A bare URL string** — a [`Link`](../src/Schema/Link/Link.php)
   with no `meta` renders as a plain string (`"https://music.example/charts/top-100"`).
@@ -138,7 +140,7 @@ member is optional and omitted when empty:
 | `rel` | the link's relation type |
 | `title` | a human-readable label |
 | `type` | the media type of the target |
-| `hreflang` | the target's language |
+| `hreflang` | the target's language (the OpenAPI schema also allows a list) |
 | `meta` | free-form meta on the link itself |
 | `describedby` | a `Link` to a description (e.g. a schema) of the target |
 
@@ -244,6 +246,98 @@ spec-recommended (SHOULD) and on by default:
 
 The `DocumentLinks` pagination parameters remain available for the rare case of a
 hand-built, non-paginated document, but `fromPage()` is the common path.
+
+- **Contributed links.** A framework integration can add resource links your
+  `getLinks()` doesn't know about through a `ResourceLinkContributorInterface`,
+  such as a custom action's link. A key your `getLinks()` already sets wins.
+
+## Built links are link objects
+
+Every link in the list above renders as a JSON:API 1.1 link object rather than a
+bare string:
+
+```json
+"links": {
+  "self": {
+    "href": "https://music.example/albums/1",
+    "describedby": "/api/docs.json#/paths/~1albums~1%7Bid%7D/get"
+  }
+}
+```
+
+A link you supply yourself, through `getLinks()`, a relation's `setLinks()` or a
+response's `withLinks()`, keeps the shape you gave it, so a plain `Link` there is
+still a bare string. The `201` `Location` header your handler sets stays a plain URI;
+it never was a document link.
+
+JSON:API requires a client to accept either form, so a conforming client reads both.
+Code that read a built link as a string (`$body['data']['links']['self']` used as a
+URL, say) now needs its `href`. To keep strings, opt the server out:
+
+```php
+$server = Server::make()->withLinkObjects(false);
+```
+
+The opt-out covers the same built links and nothing else.
+
+### describedby: the OpenAPI operation behind a link
+
+Give the server a `DescribedByResolverInterface` and each built link object gains a
+`describedby` member: a URI-reference to the operation in your served
+[OpenAPI document](openapi.md) that describes the link's target. Core ships
+`SpecDescribedByResolver`, which pairs the document's URL with the set of operations
+the document carries:
+
+```php
+use haddowg\JsonApi\OpenApi\SpecDescribedByResolver;
+
+$server = $server->withDescribedByResolver(
+    SpecDescribedByResolver::fromMetadata('/api/docs.json', $metadata),
+);
+```
+
+The reference is the document URL plus a JSON Pointer fragment naming the path and
+method: `/api/docs.json#/paths/~1albums~1%7Bid%7D/get` (`/` escapes to `~1`, `~` to
+`~0`, and `{`/`}` are percent-encoded). The path is the projector's own path key,
+relative to the document's server URL, so a mount prefix lives in the document URL,
+never in the fragment. A host-relative document URL gives host-relative references; an
+absolute one is used as given. An operation the document doesn't carry gets no
+`describedby`, so a link never points at a fragment that isn't there.
+
+Each link names the operation its target is:
+
+| Link | `describedby` points at |
+| --- | --- |
+| resource `self` | `GET /{type}/{id}` |
+| relationship `self`, and a relationship's pagination links | `GET /{type}/{id}/relationships/{rel}` |
+| relationship `related` | `GET /{type}/{id}/{rel}` |
+| top-level `self` and pagination links | the operation that produced the document |
+| a contributed `OperationLink` | the operation it names (an action link names the action's method and path) |
+
+A document also gains a top-level `links.describedby` pointing at the operation that
+produced it. `Server::dispatch()` and the PSR-15 `handle()` path both record that
+operation on the response they return, so the two render identically; a handler can
+name a different one with `withOperationReference()`, and a `describedby` set through
+`withLinks()` or `withDescribedby()` wins. Error documents get none: they describe the
+failure, not the operation. An Atomic Operations result document gets none either,
+though the resource objects inside it follow the server's link settings.
+
+A contributor describes its own links by returning an `OperationLink`, which names the
+operation alongside the `href`:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\OperationReference;
+use haddowg\JsonApi\Schema\Link\OperationLink;
+
+return ['publish' => new OperationLink(
+    $url,
+    OperationReference::action('albums', 'publish', ActionScope::Resource, 'POST'),
+)];
+```
+
+With no resolver (the default), links are still link objects, just without `describedby`
+([ADR 0158](adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
 
 ## Server-level defaults: the jsonapi object
 

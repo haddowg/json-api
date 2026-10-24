@@ -73,12 +73,12 @@ final class OperationProjector
         if ($operations !== []) {
             $collection = $this->collectionPathItem($type, $server, $operations);
             if ($collection !== null) {
-                $paths['/' . $type->uriType()] = $collection;
+                $paths[PathTemplate::collection($type->uriType())] = $collection;
             }
 
             $resource = $this->resourcePathItem($type, $server, $operations);
             if ($resource !== null) {
-                $paths['/' . $type->uriType() . '/{id}'] = $resource;
+                $paths[PathTemplate::resource($type->uriType())] = $resource;
             }
         }
 
@@ -110,8 +110,8 @@ final class OperationProjector
     private function withDeclaredExtensions(DeclaresOperationExtensions $type, array $paths): array
     {
         $crud = [
-            '/' . $type->uriType() => ['get' => OperationType::FetchCollection, 'post' => OperationType::Create],
-            '/' . $type->uriType() . '/{id}' => ['get' => OperationType::FetchOne, 'patch' => OperationType::Update, 'delete' => OperationType::Delete],
+            PathTemplate::collection($type->uriType()) => ['get' => OperationType::FetchCollection, 'post' => OperationType::Create],
+            PathTemplate::resource($type->uriType()) => ['get' => OperationType::FetchOne, 'patch' => OperationType::Update, 'delete' => OperationType::Delete],
         ];
         $typeWide = $type->extensions();
 
@@ -528,7 +528,7 @@ final class OperationProjector
         foreach ($type->relations() as $relation) {
             $writeOnly = self::isWriteOnly($relation);
             if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
-                $paths['/' . $type->uriType() . '/{id}/' . $relation->name()] = (new PathItem(parameters: [$idParameter]))
+                $paths[PathTemplate::related($type->uriType(), $relation->name())] = (new PathItem(parameters: [$idParameter]))
                     ->withOperation('get', $this->relatedOperation($type, $relation, $server));
             }
 
@@ -539,7 +539,7 @@ final class OperationProjector
                 }
                 // A write-only relation that cannot be mutated either has no operation left.
                 if ($item->operations !== []) {
-                    $paths['/' . $type->uriType() . '/{id}/relationships/' . $relation->name()] = $item;
+                    $paths[PathTemplate::relationship($type->uriType(), $relation->name())] = $item;
                 }
             }
         }
@@ -847,9 +847,7 @@ final class OperationProjector
 
         foreach ($type->actions() as $action) {
             $resourceScoped = $action->scope() === ActionScope::Resource;
-            $path = $resourceScoped
-                ? '/' . $type->uriType() . '/{id}/-actions/' . $action->path()
-                : '/' . $type->uriType() . '/-actions/' . $action->path();
+            $path = PathTemplate::action($type->uriType(), $action->path(), $action->scope());
 
             $item = $resourceScoped
                 ? new PathItem(parameters: [$this->idPathParameter($type)])

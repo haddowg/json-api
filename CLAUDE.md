@@ -381,6 +381,11 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   field. Never widen the column fallback to guess through a relationship path or a pivot
   prefix, and never let the `string` floor overwrite a derived or declared type
   ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
+- A link's `describedby` fragment and the projector's `paths` keys both come from
+  `PathTemplate`; never spell a path template inline on either side. A built link renders
+  through `Schema\Link\Internal\LinkRendering`; an author-supplied link container never
+  does, so it keeps its own shape
+  ([ADR 0158](docs/adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
 - A temporal `format` keyword is emitted only when `DateTime::schemaFormat()` confirms the
   field's configured format writes RFC 3339; the projector and `Validation\SchemaCompiler`
   both defer to it rather than switching on the field class. Never derive a `pattern` from a

@@ -43,6 +43,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             '',
             $transformation->baseUri,
             $maxIncludeDepth,
+            $transformation->linkRendering,
         );
         $data = new SingleResourceData();
 
@@ -76,6 +77,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             $transformation->requestedRelationshipName,
             $transformation->baseUri,
             $maxIncludeDepth,
+            $transformation->linkRendering,
         );
 
         return $transformer->transformToRelationshipObject($resourceTransformation, $data);

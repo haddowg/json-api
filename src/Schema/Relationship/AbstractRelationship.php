@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Schema\Relationship;
 
+use haddowg\JsonApi\OpenApi\OperationReference;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
@@ -318,8 +319,9 @@ abstract class AbstractRelationship
         // contain at least one of `links` / `meta` / `data` (JSON:API), so whether it
         // would otherwise render any links or meta decides whether the (lazy) linkage
         // data must be forced to avoid an empty `{}` object.
-        $links = $this->links ?? $this->conventionLinks($transformation);
-        $renderedLinks = $links?->transform() ?? [];
+        $renderedLinks = $this->links !== null
+            ? $this->links->transform()
+            : $this->renderConventionLinks($transformation);
         $hasRenderedLinks = $renderedLinks !== [];
         $hasMeta = $this->meta !== [];
 
@@ -389,15 +391,7 @@ abstract class AbstractRelationship
             return null;
         }
 
-        // The path segment is the parent's URI type (so a resource whose JSON:API
-        // type differs from its URL segment links correctly); a serializer that is
-        // not URI-type-aware falls back to its JSON:API type, as before.
-        $parentType = $parent instanceof UriTypeAwareInterface
-            ? $parent->uriType()
-            : $parent->getType($transformation->object);
-        if ($parentType === '') {
-            $parentType = $transformation->resourceType;
-        }
+        $parentType = $this->conventionParentType($transformation);
 
         $parentId = $parent->getId($transformation->object);
         if ($parentType === '' || $parentId === '') {
@@ -413,6 +407,57 @@ abstract class AbstractRelationship
             $this->conventionLinksRelated ? new Link($base . '/' . $uriFieldName) : null,
             $this->paginationLinks($selfHref),
         );
+    }
+
+    /**
+     * The parent's URI segment: its URI type (so a resource whose JSON:API type differs
+     * from its URL segment links correctly), else its JSON:API type, else the
+     * transformation's resolved type.
+     */
+    private function conventionParentType(ResourceTransformation $transformation): string
+    {
+        $parent = $transformation->resource;
+        if ($parent === null) {
+            return '';
+        }
+
+        $parentType = $parent instanceof UriTypeAwareInterface
+            ? $parent->uriType()
+            : $parent->getType($transformation->object);
+
+        return $parentType !== '' ? $parentType : $transformation->resourceType;
+    }
+
+    /**
+     * The rendered convention links, in the server's link form: `self` and the
+     * pagination links are described by the relationship endpoint's `GET`, `related`
+     * by the related endpoint's.
+     *
+     * @return array<string, mixed>
+     */
+    private function renderConventionLinks(ResourceTransformation $transformation): array
+    {
+        $links = $this->conventionLinks($transformation);
+        if ($links === null) {
+            return [];
+        }
+
+        $rendered = $links->transform();
+        $rendering = $transformation->linkRendering;
+        $uriFieldName = $this->conventionLinksUriFieldName;
+        if ($rendering === null || $uriFieldName === null) {
+            return $rendered;
+        }
+
+        $parentType = $this->conventionParentType($transformation);
+        $relationship = OperationReference::fetchRelationship($parentType, $uriFieldName);
+        $related = OperationReference::fetchRelated($parentType, $uriFieldName);
+
+        foreach ($rendered as $name => $link) {
+            $rendered[$name] = $rendering->upgrade($link, $name === 'related' ? $related : $relationship);
+        }
+
+        return $rendered;
     }
 
     /**

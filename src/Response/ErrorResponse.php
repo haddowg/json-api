@@ -116,4 +116,9 @@ final class ErrorResponse extends AbstractResponse
 
         return \strtr($template, $replacements);
     }
+
+    protected function describesOperation(): bool
+    {
+        return false;
+    }
 }

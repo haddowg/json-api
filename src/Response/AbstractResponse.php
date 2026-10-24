@@ -49,6 +49,14 @@ abstract class AbstractResponse
      */
     protected ?\haddowg\JsonApi\Schema\Link\Link $describedby = null;
 
+    /**
+     * The OpenAPI operation that produced this response, which the top-level `self`,
+     * the pagination links and the top-level `describedby` are described by. Stamped by
+     * {@see \haddowg\JsonApi\Server\Server::dispatch()} (and the PSR-15 adapter) from
+     * the dispatched operation when the handler didn't set one.
+     */
+    protected ?\haddowg\JsonApi\OpenApi\OperationReference $operationReference = null;
+
     protected ?JsonApiObject $jsonApi = null;
 
     /**
@@ -145,6 +153,24 @@ abstract class AbstractResponse
         $self->describedby = $describedby;
 
         return $self;
+    }
+
+    /**
+     * Names the OpenAPI operation that produced this response, so its top-level links
+     * can carry a `describedby` pointing at it. Dispatch sets this from the operation it
+     * served, so a handler only sets it to override that.
+     */
+    public function withOperationReference(?\haddowg\JsonApi\OpenApi\OperationReference $operation): static
+    {
+        $self = clone $this;
+        $self->operationReference = $operation;
+
+        return $self;
+    }
+
+    public function operationReference(): ?\haddowg\JsonApi\OpenApi\OperationReference
+    {
+        return $this->operationReference;
     }
 
     public function withJsonApi(?JsonApiObject $jsonApi): static
@@ -259,6 +285,7 @@ abstract class AbstractResponse
         $body = $this->applyProfiles($rendered->body, $profiles, $jsonApiRequest);
         $body = $this->applyExtensions($body);
         $body = $this->applyDescribedby($body);
+        $body = $this->applyOperationDescribedby($body, $server);
         $body = $this->orderTopLevelMembers($body);
 
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
@@ -500,6 +527,49 @@ abstract class AbstractResponse
     }
 
     /**
+     * Adds the top-level `describedby` pointing at the operation that produced the
+     * document, when the server has a resolver that describes it. A `describedby` the
+     * body already carries (from {@see withLinks()} or {@see withDescribedby()}) wins.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array<string, mixed>
+     */
+    private function applyOperationDescribedby(array $body, ServerInterface $server): array
+    {
+        if (!$this->describesOperation()) {
+            return $body;
+        }
+
+        /** @var array<string, mixed> $links */
+        $links = $body['links'] ?? [];
+        if (isset($links['describedby'])) {
+            return $body;
+        }
+
+        $describedBy = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server)
+            ->documentDescribedBy($this->operationReference);
+        if ($describedBy === null) {
+            return $body;
+        }
+
+        $links['describedby'] = $describedBy;
+        $body['links'] = $links;
+
+        return $body;
+    }
+
+    /**
+     * Whether this document gets a top-level `describedby` for the operation that
+     * produced it. An error document describes the failure, not the operation, so
+     * {@see ErrorResponse} opts out.
+     */
+    protected function describesOperation(): bool
+    {
+        return true;
+    }
+
+    /**
      * The response `Content-Type`, echoing the applied profile URIs in the
      * `profile` media-type parameter when any profiles are applied, and the
      * applied extension URIs in the `ext` media-type parameter when a response
@@ -575,7 +645,8 @@ abstract class AbstractResponse
             $self .= '?' . $queryString;
         }
 
-        $links['self'] = $self;
+        $links['self'] = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server)
+            ->render($self, $this->operationReference);
         $result['links'] = $links;
 
         return $result;

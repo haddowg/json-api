@@ -40,10 +40,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '42',
-                    'links' => ['self' => '/author/42'],
+                    'links' => ['self' => ['href' => '/author/42']],
                     'attributes' => ['name' => 'Ada'],
                 ],
-                'links' => ['self' => '/'],
+                'links' => ['self' => ['href' => '/']],
                 'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
@@ -115,10 +115,10 @@ final class RelatedResponseTest extends TestCase
         self::assertSame(
             [
                 'data' => [
-                    ['type' => 'comment', 'id' => '10', 'links' => ['self' => '/comment/10']],
-                    ['type' => 'comment', 'id' => '20', 'links' => ['self' => '/comment/20']],
+                    ['type' => 'comment', 'id' => '10', 'links' => ['self' => ['href' => '/comment/10']]],
+                    ['type' => 'comment', 'id' => '20', 'links' => ['self' => ['href' => '/comment/20']]],
                 ],
-                'links' => ['self' => '/'],
+                'links' => ['self' => ['href' => '/']],
                 'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
@@ -167,11 +167,11 @@ final class RelatedResponseTest extends TestCase
 
         $links = $body['links'];
         self::assertIsArray($links);
-        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=2&page%5Bsize%5D=10', $links['self']);
-        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['first']);
-        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['prev']);
-        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=3&page%5Bsize%5D=10', $links['next']);
-        self::assertSame('https://api.test/articles/1/comments?page%5Bnumber%5D=5&page%5Bsize%5D=10', $links['last']);
+        self::assertSame(['href' => 'https://api.test/articles/1/comments?page%5Bnumber%5D=2&page%5Bsize%5D=10'], $links['self']);
+        self::assertSame(['href' => 'https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10'], $links['first']);
+        self::assertSame(['href' => 'https://api.test/articles/1/comments?page%5Bnumber%5D=1&page%5Bsize%5D=10'], $links['prev']);
+        self::assertSame(['href' => 'https://api.test/articles/1/comments?page%5Bnumber%5D=3&page%5Bsize%5D=10'], $links['next']);
+        self::assertSame(['href' => 'https://api.test/articles/1/comments?page%5Bnumber%5D=5&page%5Bsize%5D=10'], $links['last']);
 
         $meta = $body['meta'];
         self::assertIsArray($meta);
@@ -181,7 +181,7 @@ final class RelatedResponseTest extends TestCase
         );
 
         self::assertSame(
-            [['type' => 'comment', 'id' => '1', 'links' => ['self' => 'https://api.test/comment/1']]],
+            [['type' => 'comment', 'id' => '1', 'links' => ['self' => ['href' => 'https://api.test/comment/1']]]],
             $body['data'],
         );
     }
@@ -228,10 +228,10 @@ final class RelatedResponseTest extends TestCase
                 'data' => [
                     'type' => 'author',
                     'id' => '7',
-                    'links' => ['self' => '/author/7'],
+                    'links' => ['self' => ['href' => '/author/7']],
                     'attributes' => ['name' => 'Lovelace'],
                 ],
-                'links' => ['self' => '/'],
+                'links' => ['self' => ['href' => '/']],
                 'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode(

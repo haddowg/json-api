@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface
 {
     private ResourceRegistry $resources;
 
@@ -157,6 +157,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
      * same way the linkage resolver is.
      */
     private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
+
+    private bool $linkObjects = true;
+
+    private ?\haddowg\JsonApi\OpenApi\DescribedByResolverInterface $describedByResolver = null;
 
     /**
      * The lazy instantiation factory threaded into the {@see ResourceRegistry}, or
@@ -522,6 +526,35 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     }
 
     /**
+     * Whether the links the server builds (the by-convention resource and relationship
+     * links, the top-level `self`, pagination links and contributed links) render as
+     * JSON:API link objects (`{"href": …}`), the default, or as bare URI strings.
+     * Links an author supplies through `getLinks()` keep the shape the author gave them
+     * either way.
+     */
+    public function withLinkObjects(bool $enabled = true): self
+    {
+        $self = clone $this;
+        $self->linkObjects = $enabled;
+
+        return $self;
+    }
+
+    /**
+     * Sets the resolver that gives each built link object a `describedby` pointing at
+     * the OpenAPI operation that describes the link's target, and each document a
+     * top-level `links.describedby` pointing at the operation that produced it. `null`
+     * (the default) renders no `describedby`.
+     */
+    public function withDescribedByResolver(?\haddowg\JsonApi\OpenApi\DescribedByResolverInterface $resolver): self
+    {
+        $self = clone $this;
+        $self->describedByResolver = $resolver;
+
+        return $self;
+    }
+
+    /**
      * Renders every `DateTime` attribute in `$timezone` unless the field sets its own
      * `outputTimezone()`. `Date` and `Time` attributes are left alone: moving a
      * calendar date or a time of day into another zone can change its value, so they
@@ -730,6 +763,16 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         return $this->resourceLinkContributor;
     }
 
+    public function rendersLinkObjects(): bool
+    {
+        return $this->linkObjects;
+    }
+
+    public function describedByResolver(): ?\haddowg\JsonApi\OpenApi\DescribedByResolverInterface
+    {
+        return $this->describedByResolver;
+    }
+
     public function hydratorFor(string $type): HydratorInterface
     {
         return $this->resources->hydratorFor($type);
@@ -768,7 +811,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         $this->validateQueryParameters($operation);
         $this->fireServing($operation);
 
-        return $handler->handle($operation);
+        return \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($handler->handle($operation), $operation, $this);
     }
 
     /**

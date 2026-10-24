@@ -44,6 +44,16 @@ readonly class Link
     }
 
     /**
+     * The href with the base URI prepended, as {@see transform()} renders it.
+     *
+     * @internal
+     */
+    public function resolvedHref(string $baseUri): string
+    {
+        return self::prefix($this->href, $baseUri);
+    }
+
+    /**
      * Prepends the base URI to a relative href. An empty href is left as-is (an
      * absent link), and an href that is already absolute — it carries a scheme
      * (`https://…`) or is protocol-relative (`//host/…`) — is returned untouched, so

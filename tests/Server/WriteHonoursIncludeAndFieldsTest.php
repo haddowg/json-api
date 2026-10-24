@@ -50,7 +50,7 @@ final class WriteHonoursIncludeAndFieldsTest extends TestCase
             [[
                 'type' => 'people',
                 'id' => '9',
-                'links' => ['self' => '/people/9'],
+                'links' => ['self' => ['href' => '/people/9']],
                 // `fields[people]=name` dropped `email` from the included resource, so the
                 // sparse fieldset reached a write's response too.
                 'attributes' => ['name' => 'Ada'],

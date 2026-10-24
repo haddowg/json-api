@@ -44,6 +44,7 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
         public string $baseUri = '',
         public ?int $maxIncludeDepth = null,
         public ?bool $countableSelfOverride = null,
+        public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

@@ -35,11 +35,14 @@ trait AppliesPaginationTrait
         $uri = \haddowg\JsonApi\Server\RequestBaseUri::document($server->baseUri(), $request->getUri());
         $queryString = $request->getUri()->getQuery();
 
+        $rendering = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server);
+
         /** @var array<string, mixed> $links */
         $links = $result['links'] ?? [];
         foreach ($page->linkSet($uri, $queryString) as $rel => $link) {
             if ($link instanceof Link) {
-                $links[$rel] = $link->transform('');
+                // The page's own links all address the operation that produced it.
+                $links[$rel] = $rendering->render($link->resolvedHref(''), $this->operationReference, $link->meta);
             }
         }
         if ($links !== []) {

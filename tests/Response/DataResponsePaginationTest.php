@@ -30,11 +30,11 @@ final class DataResponsePaginationTest extends TestCase
 
         $links = $body['links'];
         self::assertIsArray($links);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=2&page%5Bsize%5D=10', $links['self']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['first']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10', $links['prev']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=3&page%5Bsize%5D=10', $links['next']);
-        self::assertSame('https://api.test/users?page%5Bnumber%5D=5&page%5Bsize%5D=10', $links['last']);
+        self::assertSame(['href' => 'https://api.test/users?page%5Bnumber%5D=2&page%5Bsize%5D=10'], $links['self']);
+        self::assertSame(['href' => 'https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10'], $links['first']);
+        self::assertSame(['href' => 'https://api.test/users?page%5Bnumber%5D=1&page%5Bsize%5D=10'], $links['prev']);
+        self::assertSame(['href' => 'https://api.test/users?page%5Bnumber%5D=3&page%5Bsize%5D=10'], $links['next']);
+        self::assertSame(['href' => 'https://api.test/users?page%5Bnumber%5D=5&page%5Bsize%5D=10'], $links['last']);
 
         $meta = $body['meta'];
         self::assertIsArray($meta);
@@ -44,7 +44,7 @@ final class DataResponsePaginationTest extends TestCase
         );
 
         self::assertSame(
-            [['type' => 'user', 'id' => '1', 'links' => ['self' => 'https://api.test/user/1']]],
+            [['type' => 'user', 'id' => '1', 'links' => ['self' => ['href' => 'https://api.test/user/1']]]],
             $body['data'],
         );
     }

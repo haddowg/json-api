@@ -9,6 +9,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 
 /**
@@ -17,7 +18,7 @@ use haddowg\JsonApi\OpenApi\Metadata\NoContent;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements ActionMetadataInterface
+final class FakeActionMetadata implements DeclaresActionLink
 {
     /**
      * @param list<string>                  $methods
@@ -36,7 +37,13 @@ final class FakeActionMetadata implements ActionMetadataInterface
         private readonly array $tags = [],
         private readonly ?string $summary = null,
         private readonly ?string $description = null,
+        private readonly ?string $linkName = null,
     ) {}
+
+    public function linkName(): ?string
+    {
+        return $this->linkName;
+    }
 
     public function path(): string
     {

@@ -260,7 +260,7 @@ final class RequestAbsoluteLinksTest extends TestCase
 
     /**
      * Walks `$path` through the decoded body, asserting an array at each hop, and
-     * returns the string at the leaf.
+     * returns the `href` of the link object at the leaf.
      *
      * @param array<string, mixed> $body
      */
@@ -274,9 +274,10 @@ final class RequestAbsoluteLinksTest extends TestCase
             $value = $cursor[$key];
 
             if ($i === $leaf) {
-                self::assertIsString($value);
+                self::assertIsArray($value);
+                self::assertIsString($value['href'] ?? null);
 
-                return $value;
+                return $value['href'];
             }
 
             self::assertIsArray($value);

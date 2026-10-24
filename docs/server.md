@@ -83,6 +83,8 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withPsr17(ResponseFactoryInterface, StreamFactoryInterface)` | The PSR-17 factories used to emit the PSR-7 response. |
 | `withContainer(ContainerInterface\|callable)` | The [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
 | `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) a lazy relation consults. |
+| `withLinkObjects(bool)` | Whether the links the server builds render as [link objects](links-and-meta.md#built-links-are-link-objects) (default `true`) or bare strings. |
+| `withDescribedByResolver(?DescribedByResolverInterface)` | The resolver that gives each built link, and each document, a [`describedby`](links-and-meta.md#describedby-the-openapi-operation-behind-a-link) into the served OpenAPI document (default `null`, none). |
 | `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) for its declared `$type`, with optional serializer/hydrator [overrides](capability-composition.md). |
 | `registerSerializerHydrator(string $type, ?string $serializer, ?string $hydrator)` | Registers a [bare serializer + hydrator pair](capability-composition.md) under an explicit `$type`, no Resource. |
 | `withProfile(ProfileInterface)` | Registers a [profile](profiles.md). |
@@ -105,6 +107,7 @@ The matching accessors read the configuration back:
 | `hydratorFor(string)` / `hasHydratorFor(string)` | The hydrator for a type, or whether one exists. |
 | `resourceFor(string)` / `hasResourceFor(string)` | The `AbstractResource` for a type, or whether one exists. |
 | `relationshipLoadState()` | The injected load-state predicate, or `null`. |
+| `rendersLinkObjects()` / `describedByResolver()` | The link form, and the `describedby` resolver or `null` (the `ConfiguresLinksInterface` contract a custom `ServerInterface` can implement too). |
 | `outputTimezone()` | The default output zone, or `null`. |
 | `serving()` | The registered [`serving` handlers](#serving-a-pre-operation-hook), in registration order. |
 

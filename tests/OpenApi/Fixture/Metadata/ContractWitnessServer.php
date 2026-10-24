@@ -81,8 +81,9 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * pivot-backed, polymorphic, endpoint-suppressed,
  * mutation-locked, write-only), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
- * scope, non-default success responses, both registered profiles, and the Atomic
- * Operations extension. Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
+ * scope, non-default success responses, both registered profiles, the Atomic
+ * Operations extension, and described link objects (a document URL, an id example and an
+ * action rendered as a resource link). Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
  * the error catalogue gates on, and a contributed error code whose descriptor carries a
  * description and an example detail.
  *
@@ -127,7 +128,10 @@ final class ContractWitnessServer
             profiles: [CountableProfile::URI, RelationshipQueriesProfile::URI],
         );
 
-        return new ContributingServerMetadata($server, new ClassListErrorSource(SubscriptionExpired::class));
+        return new LinkDeclaringServerMetadata(
+            new ContributingServerMetadata($server, new ClassListErrorSource(SubscriptionExpired::class)),
+            documentUrl: '/docs/openapi.json',
+        );
     }
 
     /**
@@ -140,7 +144,7 @@ final class ContractWitnessServer
         return FakeTypeMetadata::resource(
             type: 'articles',
             fields: [
-                Id::make()->build(),
+                Id::make()->example('art-1')->build(),
                 Str::make('title')->required()->minLength(3)->maxLength(120)->describedAs('The article headline.')->example('Hello, world')->build(),
                 Slug::make('slug')->build(),
                 Str::make('status')->enum(Status::class)->describedAs('Publication status.')->build(),
@@ -265,7 +269,7 @@ final class ContractWitnessServer
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             actions: [
-                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article'),
+                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', linkName: 'publish'),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles'], description: 'Save a draft revision.'),
                 new FakeActionMetadata('stats', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles']),
