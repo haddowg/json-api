@@ -68,8 +68,8 @@ The projection is a small pipeline of **pure** classes in
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
   relationship / related document envelopes, and the per-context links components), the
-  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`,
-  `PaginationLinks`, `Error`, `ErrorDocument` and its per-status narrowings), the
+  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`, `Error`,
+  `ErrorDocument` and its per-status narrowings), the
   per-code error variants, the shared error responses, the named enum components, the
   optional [Atomic Operations](atomic-operations.md) extension components + path, and —
   via the `OperationProjector` — the `paths`.
@@ -473,14 +473,32 @@ present only when the metadata names the document's URL and the document carries
 operation; it is built from the same path templates the projector keys `paths` by, so the
 two can't drift.
 
-The pagination members (`first`, `prev`, `next`, `last`) of a collection and of a to-many
-relationship's links show the links of page two, built from the page schema of the
+Every context gets its own links component. Beside a type's `<Type>ResourceLinks`,
+`<Type>DocumentLinks` and `<Type>CollectionLinks` and each relation's
+`<Type><Rel>RelationshipLinks`, a relation's endpoints have their own documents' links:
+`<Type><Rel>RelationshipDocumentLinks` lists what the relationship endpoint renders at the
+top level (the relationship's `self` and `related`, `describedby`, and the pages of a
+paginated to-many), and `<Type><Rel>RelatedDocumentLinks` what the related endpoint
+renders (its own URL as `self`, `describedby`, and the pages of a to-many). The related
+endpoint answers with `<Type><Rel>RelatedDocument` for a to-one and
+`<Type><Rel>RelatedCollection` for a to-many, so its examples show
+`/advertisers/1042/agencies`, never the agencies collection's URL. Error documents keep
+the generic `Links`.
+
+Each links component also carries its members' examples as one whole-object `example`,
+and `LinkObject` carries one of its own. A sampler that reads `additionalProperties` would
+otherwise invent `property1`-style links nobody renders; `additionalProperties` stays, so
+a `getLinks()` override can still add any link.
+
+The pagination members (`first`, `prev`, `next`, `last`) of a collection, of a to-many
+relationship's links and of a to-many related document show the links of page two, built from the page schema of the
 paginator in force there, under its configured keys and default size, with brackets
 percent-encoded as a rendered link encodes them: `?page%5Bnumber%5D=3&page%5Bsize%5D=15`
 for `next` under a page paginator, `page[offset]`/`page[limit]` under an offset one, and
 `page[after]`/`page[before]` cursors under a cursor one. A menu shows its default strategy,
 whose links carry no `page[kind]`. A cursor page never renders `last`, so that member keeps
-the bare URL, as does every member of an unpaginated collection.
+the bare URL, as does every member of an unpaginated collection, and the whole-object
+example leaves out any page member the paginator never renders.
 
 `additionalProperties` stays the open `LinkObject` (a string, a link
 object or `null`), because a `getLinks()` override can add any link in any shape.

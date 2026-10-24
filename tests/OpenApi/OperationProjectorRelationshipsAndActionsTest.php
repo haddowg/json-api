@@ -170,7 +170,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         $get = $this->arrAt($this->paths(), '/articles/{id}/tags', 'get');
 
         self::assertSame(
-            '#/components/schemas/TagsCollection',
+            '#/components/schemas/ArticlesTagsRelatedCollection',
             $this->strAt($get, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
 
@@ -353,14 +353,19 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     }
 
     #[Test]
-    public function aMonomorphicToManyRelatedCollectionStillRefsTheRelatedTypesPlainCollection(): void
+    public function aMonomorphicToManyRelatedCollectionHasItsOwnEnvelope(): void
     {
-        // A single related type keeps reusing its own `<RelatedType>Collection` envelope.
+        // A single related type still gets a per-relation envelope, so its top-level links
+        // describe the related URL rather than the related type's own collection.
         $get = $this->arrAt($this->paths(), '/articles/{id}/tags', 'get');
         self::assertSame(
-            '#/components/schemas/TagsCollection',
+            '#/components/schemas/ArticlesTagsRelatedCollection',
             $this->strAt($get, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
+
+        $collection = $this->arrAt($this->projector()->project($this->richServer())->toArray(), 'components', 'schemas', 'ArticlesTagsRelatedCollection');
+        self::assertSame('#/components/schemas/TagsResource', $this->strAt($collection, 'properties', 'data', 'items', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesTagsRelatedDocumentLinks', $this->strAt($collection, 'properties', 'links', '$ref'));
     }
 
     // ---- Relationship-linkage endpoints + mutation gating -----------------------

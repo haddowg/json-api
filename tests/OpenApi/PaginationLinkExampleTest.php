@@ -80,6 +80,81 @@ final class PaginationLinkExampleTest extends TestCase
         self::assertSame('/api/albums/1/relationships/tracks?page%5Boffset%5D=6&page%5Blimit%5D=3', $this->href($links, 'next'));
     }
 
+    #[Test]
+    public function aLinksObjectCarriesItsMembersAsOneExample(): void
+    {
+        $links = $this->collectionLinks(CursorPaginator::make()->withDefaultSize(30)->describePageSchema());
+
+        $example = $links['example'] ?? null;
+        self::assertIsArray($example);
+        // A cursor page never renders `last`, so the whole-object example leaves it out.
+        self::assertSame(['self', 'first', 'prev', 'next'], \array_keys($example));
+        self::assertSame($this->href($links, 'next'), $this->exampleHref($example, 'next'));
+    }
+
+    #[Test]
+    public function theRelationshipDocumentListsTheRelationshipsLinksAndItsPages(): void
+    {
+        $document = $this->project(PagePaginator::make()->describePageSchema(), PagePaginator::make()->withDefaultPerPage(4)->describePageSchema(), '/api/docs.json');
+        $links = $this->component($document, 'AlbumsTracksRelationshipDocumentLinks');
+
+        $example = $links['example'] ?? null;
+        self::assertIsArray($example);
+        self::assertSame(['self', 'related', 'first', 'prev', 'next', 'last', 'describedby'], \array_keys($example));
+        self::assertSame(
+            ['href' => '/api/albums/1/relationships/tracks', 'describedby' => '/api/docs.json#/paths/~1albums~1%7Bid%7D~1relationships~1tracks/get'],
+            $example['self'],
+        );
+        self::assertSame(
+            ['href' => '/api/albums/1/tracks', 'describedby' => '/api/docs.json#/paths/~1albums~1%7Bid%7D~1tracks/get'],
+            $example['related'],
+        );
+        self::assertSame('/api/albums/1/relationships/tracks?page%5Bnumber%5D=3&page%5Bsize%5D=4', $this->exampleHref($example, 'next'));
+        self::assertSame(['href' => '/api/docs.json#/paths/~1albums~1%7Bid%7D~1relationships~1tracks/get'], $example['describedby']);
+    }
+
+    #[Test]
+    public function theRelatedDocumentListsTheRelatedUrlAndItsPages(): void
+    {
+        $document = $this->project(PagePaginator::make()->describePageSchema(), OffsetPaginator::make()->withDefaultLimit(3)->describePageSchema(), '/api/docs.json');
+        $links = $this->component($document, 'AlbumsTracksRelatedDocumentLinks');
+
+        $example = $links['example'] ?? null;
+        self::assertIsArray($example);
+        self::assertSame(['self', 'describedby', 'first', 'prev', 'next', 'last'], \array_keys($example));
+        self::assertSame(
+            ['href' => '/api/albums/1/tracks', 'describedby' => '/api/docs.json#/paths/~1albums~1%7Bid%7D~1tracks/get'],
+            $example['self'],
+        );
+        self::assertSame('/api/albums/1/tracks?page%5Boffset%5D=6&page%5Blimit%5D=3', $this->exampleHref($example, 'next'));
+
+        $collection = $this->component($document, 'AlbumsTracksRelatedCollection');
+        self::assertSame(['$ref' => '#/components/schemas/AlbumsTracksRelatedDocumentLinks'], $this->member($collection, 'links'));
+    }
+
+    /**
+     * @param array<array-key, mixed> $example
+     */
+    private function exampleHref(array $example, string $member): string
+    {
+        $link = $example[$member] ?? null;
+        self::assertIsArray($link);
+        self::assertIsString($link['href'] ?? null);
+
+        return $link['href'];
+    }
+
+    /**
+     * @param array<array-key, mixed> $schema
+     */
+    private function member(array $schema, string $name): mixed
+    {
+        $properties = $schema['properties'] ?? null;
+        self::assertIsArray($properties);
+
+        return $properties[$name] ?? null;
+    }
+
     /**
      * @return array<array-key, mixed>
      */
@@ -91,7 +166,7 @@ final class PaginationLinkExampleTest extends TestCase
     /**
      * @return array<array-key, mixed>
      */
-    private function project(Schema $pageSchema, ?Schema $tracksPageSchema = null): array
+    private function project(Schema $pageSchema, ?Schema $tracksPageSchema = null, ?string $documentUrl = null): array
     {
         $albums = FakeTypeMetadata::resource(
             type: 'albums',
@@ -106,7 +181,7 @@ final class PaginationLinkExampleTest extends TestCase
             servers: [new Server('/api')],
         );
 
-        $json = (new OpenApiProjector())->project(new LinkDeclaringServerMetadata($server, true, null))->toJsonString();
+        $json = (new OpenApiProjector())->project(new LinkDeclaringServerMetadata($server, true, $documentUrl))->toJsonString();
         $decoded = \json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
 

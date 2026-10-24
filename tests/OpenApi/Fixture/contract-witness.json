@@ -1408,7 +1408,7 @@
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/TagsCollection"
+                                    "$ref": "#/components/schemas/ArticlesTagsRelatedCollection"
                                 }
                             }
                         }
@@ -2138,7 +2138,7 @@
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PeopleCollection"
+                                    "$ref": "#/components/schemas/ArticlesLockedRelatedCollection"
                                 }
                             }
                         }
@@ -4480,7 +4480,7 @@
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ArticlesCollection"
+                                    "$ref": "#/components/schemas/TagsArticlesRelatedCollection"
                                 }
                             }
                         }
@@ -5162,7 +5162,7 @@
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/VideosCollection"
+                                    "$ref": "#/components/schemas/ImagesClipsRelatedCollection"
                                 }
                             }
                         }
@@ -5909,7 +5909,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ArticlesAttachmentsRelatedDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -5921,6 +5921,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesAttachmentsRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `attachments` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/attachments",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/attachments",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                    }
+                }
             },
             "ArticlesAttachmentsRelationship": {
                 "type": "object",
@@ -5963,7 +6004,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ArticlesAttachmentsRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -5975,6 +6016,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesAttachmentsRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `attachments` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/attachments",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/attachments",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/attachments",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/attachments",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
+                    }
+                }
             },
             "ArticlesAttachmentsRelationshipLinks": {
                 "type": "object",
@@ -6007,6 +6105,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/attachments",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/attachments",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
+                    }
                 }
             },
             "ArticlesAttributes": {
@@ -6349,7 +6457,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesAuthorRelatedDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -6361,6 +6469,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesAuthorRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `author` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/author",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/author",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                    }
+                }
             },
             "ArticlesAuthorRelationship": {
                 "type": "object",
@@ -6398,7 +6547,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesAuthorRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -6410,6 +6559,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesAuthorRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `author` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/author",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/author",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/author",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/author",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
+                    }
+                }
             },
             "ArticlesAuthorRelationshipLinks": {
                 "type": "object",
@@ -6442,6 +6648,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/author",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/author",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
+                    }
                 }
             },
             "ArticlesCollection": {
@@ -6563,6 +6779,31 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1articles/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/articles?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/articles?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/articles?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/articles?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles/get"
+                    }
                 }
             },
             "ArticlesCoverRelationship": {
@@ -6600,7 +6841,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesCoverRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -6612,6 +6853,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesCoverRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `cover` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/cover",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/cover",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
+                    }
+                }
             },
             "ArticlesCoverRelationshipLinks": {
                 "type": "object",
@@ -6632,6 +6914,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/cover",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
+                    }
                 }
             },
             "ArticlesCreateAttributes": {
@@ -6962,6 +7250,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
+                    }
                 }
             },
             "ArticlesEditorRelatedDocument": {
@@ -6978,7 +7275,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesEditorRelatedDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -6990,6 +7287,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesEditorRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `editor` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/editor",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/editor",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                    }
+                }
             },
             "ArticlesEditorRelationship": {
                 "type": "object",
@@ -7026,7 +7364,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesEditorRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7038,6 +7376,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesEditorRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `editor` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/editor",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/editor",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/editor",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/editor",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
+                    }
+                }
             },
             "ArticlesEditorRelationshipLinks": {
                 "type": "object",
@@ -7070,6 +7465,80 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/editor",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/editor",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
+                    }
+                }
+            },
+            "ArticlesLockedRelatedCollection": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeopleResource"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/ArticlesLockedRelatedDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesLockedRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `locked` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/locked",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/locked",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                    }
                 }
             },
             "ArticlesLockedRelationship": {
@@ -7099,7 +7568,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ArticlesLockedRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7111,6 +7580,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesLockedRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `locked` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/locked",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/locked",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/locked",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/locked",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
+                    }
+                }
             },
             "ArticlesLockedRelationshipLinks": {
                 "type": "object",
@@ -7143,6 +7669,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/locked",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/locked",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
+                    }
                 }
             },
             "ArticlesPublisherRelatedDocument": {
@@ -7159,7 +7695,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesPublisherRelatedDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7171,6 +7707,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesPublisherRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `publisher` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/published-by",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/published-by",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                    }
+                }
             },
             "ArticlesPublisherRelationship": {
                 "type": "object",
@@ -7207,7 +7784,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesPublisherRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7219,6 +7796,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesPublisherRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `publisher` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/published-by",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/published-by",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/published-by",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/published-by",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                    }
+                }
             },
             "ArticlesPublisherRelationshipLinks": {
                 "type": "object",
@@ -7251,6 +7885,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/published-by",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/published-by",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
+                    }
                 }
             },
             "ArticlesResource": {
@@ -7356,6 +8000,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
+                    },
+                    "publish": {
+                        "href": "https://api.example.com/articles/art-1/-actions/publish",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1-actions~1publish/post"
+                    }
                 }
             },
             "ArticlesReviewerRelationship": {
@@ -7393,7 +8047,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/ArticlesReviewerRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7405,6 +8059,31 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesReviewerRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `reviewer` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/reviewer"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/reviewer"
+                    }
+                }
             },
             "ArticlesReviewerRelationshipLinks": {
                 "type": "object",
@@ -7424,6 +8103,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/reviewer"
+                    }
                 }
             },
             "ArticlesTagsPivot": {
@@ -7455,6 +8139,152 @@
                     "taggedAt",
                     "taggedBy"
                 ]
+            },
+            "ArticlesTagsRelatedCollection": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TagsResource"
+                        }
+                    },
+                    "included": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "type",
+                                "id"
+                            ]
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/ArticlesTagsRelatedDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesTagsRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `tags` related endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "first": {
+                        "description": "The `first` page of the related collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "prev": {
+                        "description": "The `prev` page of the related collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "next": {
+                        "description": "The `next` page of the related collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "last": {
+                        "description": "The `last` page of the related collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/articles/art-1/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    }
+                }
             },
             "ArticlesTagsRelationship": {
                 "type": "object",
@@ -7517,7 +8347,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ArticlesTagsRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7529,6 +8359,127 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesTagsRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `tags` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/tags",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/tags",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                        }
+                    },
+                    "first": {
+                        "description": "The `first` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    },
+                    "prev": {
+                        "description": "The `prev` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    },
+                    "next": {
+                        "description": "The `next` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    },
+                    "last": {
+                        "description": "The `last` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                            "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    }
+                }
             },
             "ArticlesTagsRelationshipLinks": {
                 "type": "object",
@@ -7609,6 +8560,32 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/articles/art-1/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
+                    }
                 }
             },
             "ArticlesTagsRelationshipRequest": {
@@ -7968,7 +8945,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ArticlesWatchersRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -7980,6 +8957,31 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ArticlesWatchersRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `watchers` relationship endpoint's document for a resource of type `articles`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/articles/art-1/relationships/watchers"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/watchers"
+                    }
+                }
             },
             "ArticlesWatchersRelationshipLinks": {
                 "type": "object",
@@ -7999,6 +9001,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/articles/art-1/relationships/watchers"
+                    }
                 }
             },
             "AtomicOperation": {
@@ -9448,6 +10455,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/healthcheck"
+                    }
                 }
             },
             "HealthcheckDocument": {
@@ -9488,6 +10500,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/healthcheck/1"
+                    }
                 }
             },
             "HealthcheckResource": {
@@ -9553,6 +10570,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/healthcheck/1"
+                    }
                 }
             },
             "ImagesAttributes": {
@@ -9569,6 +10591,70 @@
                 "required": [
                     "url"
                 ]
+            },
+            "ImagesClipsRelatedCollection": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VideosResource"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/ImagesClipsRelatedDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ImagesClipsRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `clips` related endpoint's document for a resource of type `images`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/images/1/clips",
+                            "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images/1/clips",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                    }
+                }
             },
             "ImagesClipsRelationship": {
                 "type": "object",
@@ -9597,7 +10683,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/ImagesClipsRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -9609,6 +10695,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "ImagesClipsRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `clips` relationship endpoint's document for a resource of type `images`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/images/1/relationships/clips",
+                            "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/images/1/clips",
+                            "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images/1/relationships/clips",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/images/1/clips",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
+                    }
+                }
             },
             "ImagesClipsRelationshipLinks": {
                 "type": "object",
@@ -9641,6 +10784,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images/1/relationships/clips",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/images/1/clips",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
+                    }
                 }
             },
             "ImagesCollection": {
@@ -9744,6 +10897,31 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images",
+                        "describedby": "/docs/openapi.json#/paths/~1images/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1images/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/images?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1images/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/images?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1images/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/images?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1images/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/images?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1images/get"
+                    }
                 }
             },
             "ImagesDocument": {
@@ -9796,6 +10974,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images/1",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
+                    }
                 }
             },
             "ImagesResource": {
@@ -9870,6 +11057,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/images/1",
+                        "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
+                    }
                 }
             },
             "InclusionDepthExceededError": {
@@ -10114,7 +11307,10 @@
                     {
                         "type": "null"
                     }
-                ]
+                ],
+                "example": {
+                    "href": "https://api.example.com/"
+                }
             },
             "Links": {
                 "type": "object",
@@ -10378,29 +11574,6 @@
                     }
                 ]
             },
-            "PaginationLinks": {
-                "type": "object",
-                "properties": {
-                    "self": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    },
-                    "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    },
-                    "first": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    },
-                    "prev": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    },
-                    "next": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    },
-                    "last": {
-                        "$ref": "#/components/schemas/RenderedLink"
-                    }
-                }
-            },
             "PeopleAtomicAdd": {
                 "type": "object",
                 "description": "The person resource object an `add` operation creates.",
@@ -10630,6 +11803,31 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/people",
+                        "describedby": "/docs/openapi.json#/paths/~1people/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1people/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/people?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1people/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/people?page%5Bnumber%5D=1&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1people/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/people?page%5Bnumber%5D=3&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1people/get"
+                    },
+                    "last": {
+                        "href": "https://api.example.com/people?page%5Bnumber%5D=5&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1people/get"
+                    }
                 }
             },
             "PeopleCompanyRelationship": {
@@ -10667,7 +11865,7 @@
                         ]
                     },
                     "links": {
-                        "$ref": "#/components/schemas/Links"
+                        "$ref": "#/components/schemas/PeopleCompanyRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -10679,6 +11877,47 @@
                 "required": [
                     "data"
                 ]
+            },
+            "PeopleCompanyRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `company` relationship endpoint's document for a resource of type `people`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/people/1/relationships/company",
+                            "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/people/1/relationships/company",
+                        "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
+                    }
+                }
             },
             "PeopleCompanyRelationshipLinks": {
                 "type": "object",
@@ -10699,6 +11938,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/people/1/relationships/company",
+                        "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
+                    }
                 }
             },
             "PeopleCreateAttributes": {
@@ -10800,6 +12045,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/people/1",
+                        "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
+                    }
                 }
             },
             "PeopleResource": {
@@ -10874,6 +12128,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/people/1",
+                        "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
+                    }
                 }
             },
             "PeopleUpdateAttributes": {
@@ -11791,6 +13051,70 @@
                     }
                 ]
             },
+            "TagsArticlesRelatedCollection": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ArticlesResource"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/TagsArticlesRelatedDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "TagsArticlesRelatedDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `articles` related endpoint's document for a resource of type `tags`.",
+                "properties": {
+                    "self": {
+                        "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/tags/1/articles",
+                            "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags/1/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                    }
+                }
+            },
             "TagsArticlesRelationship": {
                 "type": "object",
                 "properties": {
@@ -11818,7 +13142,7 @@
                         }
                     },
                     "links": {
-                        "$ref": "#/components/schemas/PaginationLinks"
+                        "$ref": "#/components/schemas/TagsArticlesRelationshipDocumentLinks"
                     },
                     "meta": {
                         "$ref": "#/components/schemas/Meta"
@@ -11830,6 +13154,63 @@
                 "required": [
                     "data"
                 ]
+            },
+            "TagsArticlesRelationshipDocumentLinks": {
+                "type": "object",
+                "description": "The top-level `links` of the `articles` relationship endpoint's document for a resource of type `tags`.",
+                "properties": {
+                    "self": {
+                        "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/tags/1/relationships/articles",
+                            "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
+                        }
+                    },
+                    "related": {
+                        "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "https://api.example.com/tags/1/articles",
+                            "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                        }
+                    },
+                    "describedby": {
+                        "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
+                        "example": {
+                            "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
+                        }
+                    }
+                },
+                "additionalProperties": {
+                    "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags/1/relationships/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/tags/1/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
+                    }
+                }
             },
             "TagsArticlesRelationshipLinks": {
                 "type": "object",
@@ -11862,6 +13243,16 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags/1/relationships/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
+                    },
+                    "related": {
+                        "href": "https://api.example.com/tags/1/articles",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
+                    }
                 }
             },
             "TagsAtomicAdd": {
@@ -12082,6 +13473,27 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags",
+                        "describedby": "/docs/openapi.json#/paths/~1tags/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1tags/get"
+                    },
+                    "first": {
+                        "href": "https://api.example.com/tags?page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1tags/get"
+                    },
+                    "prev": {
+                        "href": "https://api.example.com/tags?page%5Bbefore%5D=eyJpZCI6MTF9&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1tags/get"
+                    },
+                    "next": {
+                        "href": "https://api.example.com/tags?page%5Bafter%5D=eyJpZCI6MjB9&page%5Bsize%5D=15",
+                        "describedby": "/docs/openapi.json#/paths/~1tags/get"
+                    }
                 }
             },
             "TagsCreateAttributes": {
@@ -12181,6 +13593,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags/1",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
+                    }
                 }
             },
             "TagsResource": {
@@ -12255,6 +13676,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/tags/1",
+                        "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
+                    }
                 }
             },
             "TagsUpdateAttributes": {
@@ -12548,6 +13975,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/videos",
+                        "describedby": "/docs/openapi.json#/paths/~1videos/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1videos/get"
+                    }
                 }
             },
             "VideosCreateAttributes": {
@@ -12636,6 +14072,15 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/videos/1",
+                        "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
+                    },
+                    "describedby": {
+                        "href": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
+                    }
                 }
             },
             "VideosResource": {
@@ -12705,6 +14150,12 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/videos/1",
+                        "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
+                    }
                 }
             },
             "VideosUpdateAttributes": {

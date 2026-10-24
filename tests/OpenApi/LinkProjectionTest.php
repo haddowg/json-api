@@ -158,7 +158,8 @@ final class LinkProjectionTest extends TestCase
         self::assertSame('#/components/schemas/LinkObject', $this->at($self, 'allOf', 0, '$ref'));
         self::assertSame('/api/v5/records/alb-1', $this->at($self, 'example'));
 
-        self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'PaginationLinks'), 'properties', 'next', '$ref'));
+        self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'AlbumsTracksRelationshipDocumentLinks'), 'properties', 'next', 'allOf', 0, '$ref'));
+        self::assertSame('/api/v5/', $this->at($this->schema($document, 'LinkObject'), 'example'));
     }
 
     #[Test]

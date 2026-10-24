@@ -574,7 +574,7 @@ final class OperationProjector
         $fieldsParameters = $this->relatedFieldsParameters($relation, $server);
 
         if ($relation->isToMany()) {
-            $responseRef = $this->relatedCollectionResponseRef($relation, $relBase);
+            $responseRef = $this->relatedCollectionResponseRef($relBase);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
@@ -799,40 +799,13 @@ final class OperationProjector
 
     /**
      * The `200` response `$ref` for a to-many related-collection endpoint
-     * (`GET /{uriType}/{id}/{rel}`).
-     *
-     * A **monomorphic** relation (one related type) reuses that type's
-     * `<RelatedType>Collection` envelope; a relation declaring no related types
-     * degrades to a collection keyed by the relation's own name (matching the
-     * synthetic unregistered-related emission). A **polymorphic** relation (more than
-     * one related type) cannot reuse a single member's collection — its members span
-     * types — so it `$ref`s a **per-relation** `<Base><Rel>RelatedCollection` document
-     * whose `data.items` is the `anyOf` of every member resource (emitted by the
-     * {@see OpenApiProjector}, mirroring the to-one polymorphic related document).
+     * (`GET /{uriType}/{id}/{rel}`): the per-relation `<Base><Rel>RelatedCollection`
+     * document, whose `data.items` is the related resource (the `anyOf` of every member
+     * for a polymorphic relation) and whose `links` are the related endpoint's own.
      */
-    private function relatedCollectionResponseRef(RelationMetadataInterface $relation, string $relBase): Schema
+    private function relatedCollectionResponseRef(string $relBase): Schema
     {
-        if (\count($relation->relatedTypes()) > 1) {
-            return Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedCollection'));
-        }
-
-        $relatedBase = $this->relatedComponentBase($relation);
-
-        return Schema::ref(ComponentNaming::schemaRef($relatedBase . 'Collection'));
-    }
-
-    /**
-     * The component-name base for a relation's single related resource component. A
-     * monomorphic relation names the single related type; a relation with no declared
-     * types at all degrades to the relation's own name. Polymorphic relations are handled
-     * separately by {@see relatedCollectionResponseRef()} / the per-member resolution,
-     * never here.
-     */
-    private function relatedComponentBase(RelationMetadataInterface $relation): string
-    {
-        $types = $relation->relatedTypes();
-
-        return $types === [] ? ComponentNaming::base($relation->name()) : ComponentNaming::base($types[0]);
+        return Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedCollection'));
     }
 
     // ---- Custom-action endpoints (stage B) --------------------------------------

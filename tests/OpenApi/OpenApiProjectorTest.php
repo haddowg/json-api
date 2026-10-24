@@ -316,7 +316,7 @@ final class OpenApiProjectorTest extends TestCase
         $schemas = $this->schemas();
 
         // Shared.
-        foreach (['JsonApi', 'Meta', 'Links', 'PaginationLinks', 'Error', 'ErrorSource', 'ErrorDocument'] as $shared) {
+        foreach (['JsonApi', 'Meta', 'Links', 'Error', 'ErrorSource', 'ErrorDocument'] as $shared) {
             self::assertArrayHasKey($shared, $schemas, "missing shared component {$shared}");
         }
 
@@ -411,20 +411,20 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function theToManyRelationshipDocumentTypesItsPaginationLinks(): void
+    public function theRelationshipDocumentTypesItsOwnLinks(): void
     {
-        // A to-many relationship endpoint is a paginated linkage collection (ADR 0096),
-        // so its document `links` is the typed `PaginationLinks`, not the permissive
-        // `Links`; a to-one relationship does not paginate and keeps `Links`. Neither
-        // describes a compound `included` (a relationship endpoint is linkage-only) — D16.
+        // Each relationship endpoint's document lists the links the server renders there:
+        // the relationship's own `self`/`related`, `describedby`, and the pages of a
+        // paginated to-many (ADR 0096). Neither describes a compound `included` (a
+        // relationship endpoint is linkage-only) — D16.
         $schemas = $this->schemas();
 
         self::assertSame(
-            '#/components/schemas/PaginationLinks',
+            '#/components/schemas/ArticlesTagsRelationshipDocumentLinks',
             $this->strAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties', 'links', '$ref'),
         );
         self::assertSame(
-            '#/components/schemas/Links',
+            '#/components/schemas/ArticlesAuthorRelationshipDocumentLinks',
             $this->strAt($schemas, 'ArticlesAuthorRelationshipDocument', 'properties', 'links', '$ref'),
         );
         self::assertArrayNotHasKey('included', $this->arrAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties'));
