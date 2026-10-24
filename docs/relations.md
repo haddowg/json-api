@@ -141,6 +141,8 @@ public function fields(FieldInterface ...$fields): static
 public function pivotFields(): array              // list<FieldInterface>
 public function pivotField(string $name): ?FieldInterface
 public function writablePivotFields(bool $creating): array  // list<FieldInterface>
+public function readablePivotFields(): array      // list<FieldInterface>
+public function readablePivotFieldsFor(JsonApiRequestInterface $request, mixed $relatedMember): array
 ```
 
 One declaration drives every pivot concern:
@@ -179,8 +181,32 @@ top-level `meta`, alongside any intrinsic meta the type's serializer emits. Core
 stays storage-agnostic: it carries the field definitions, and the host adapter
 (the Symfony bundle's Doctrine adapter) reads the join row and supplies the typed
 values it renders under `pivot`. The host renders every pivot field except a hidden or
-write-only one (`readablePivotFields()`), on every member, `null` when the join row
-holds no value. That is what the projected `<Type><Rel>Pivot` schema promises.
+write-only one, on every member, `null` when the join row holds no value. That is what
+the projected `<Type><Rel>Pivot` schema promises.
+
+`readablePivotFields()` is the request-independent list the OpenAPI schema documents.
+It drops only the unconditionally hidden and write-only fields, so a field declared
+with `hidden(when:)` or `writeOnly(when:)` stays in it. When rendering a member, a host
+calls `readablePivotFieldsFor($request, $member)` once per member and renders exactly
+the fields it returns. It applies `writeOnly(when:)` against the request and
+`hidden(when:)` against the member.
+
+A pivot field's `hidden(when:)` predicate receives the **related member**, the
+far-side resource whose linkage (or related-read resource object) carries the
+`meta.pivot`, as its model argument. It never receives the join row: that is a
+Doctrine entity on one adapter, an Eloquent pivot model on another and a plain array
+in a test double, so a predicate written against it would only work on one host.
+
+```php
+// The playlist's `tracks` pivot hides `rating` on explicit tracks for a guest.
+BelongsToMany::make('tracks', 'tracks')->fields(
+    Integer::make('position'),
+    Integer::make('rating')->hidden(
+        static fn(mixed $track, JsonApiRequestInterface $request): bool
+            => $track->isExplicit() && $request->getHeaderLine('X-Role') !== 'admin',
+    ),
+),
+```
 
 ### Writing pivot fields — the linkage `meta` convention
 
