@@ -839,6 +839,63 @@ $document = $document
 `x-feature` survives both steps. `Info`, `MediaType`, `RequestBody`, `Tag`, `Server` and
 the `OpenApi` document carry withers for the members a decorator usually changes.
 
+## Serving a decorated document (for adapter authors)
+
+An adapter that lets applications change the served document per request (a `servers`
+entry per host, operations hidden for one tenant) builds on four classes in
+`haddowg\JsonApi\OpenApi\Serve`. They take strings and `stdClass` trees and know nothing
+about HTTP messages, so the decorator interfaces, the controller and the cache location
+stay in the adapter. Using them keeps every adapter pruning and tagging the same way.
+
+At warm-up, wrap the built document in a `ServeArtifact` and encode it beside the JSON:
+
+```php
+$artifact = ServeArtifact::of($document);
+$codec = new ServeArtifactCodec(['acme/json-api-adapter']);
+
+file_put_contents("$dir/default.json", $json = $document->toJsonString(true));
+file_put_contents("$dir/default.hash", EntityTag::hash($json));
+file_put_contents("$dir/default.serve", $codec->encode($artifact));
+```
+
+On a request, decode it, run the decorators, then prune:
+
+```php
+$artifact = $codec->decode($bytes) ?? ServeArtifact::of($factory->build());
+$document = $artifact->document;
+foreach ($decorators as $decorator) {
+    $document = $decorator->decorate($document, $request);
+}
+$body = json_encode($artifact->prune($document), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+```
+
+`decode()` returns `null` when the bytes are unreadable or were written by another
+installed version of this package or of a package named in the codec's first argument,
+so stale artifacts left behind by a deploy fall back to a fresh build. Decoding allows
+only the OpenAPI value objects, `stdClass` and enums. If an `example()`, a default or an
+extension value holds another object, `encode()` throws `LogicException` unless its class
+is passed in the second argument, `allowedClasses`.
+
+`prune()` drops what the decorators orphaned: path items with no operations left, tags no
+remaining operation uses, and components the undecorated paths reached that nothing
+reaches now, following `$ref`s and discriminator mappings. A component the undecorated
+document never referenced, or one a decorator added, is kept along with everything it
+references. Security schemes are never pruned. A relationship whose related type lost
+its endpoints keeps its schema, since the parent still renders that linkage.
+
+`EntityTag` builds the `ETag`:
+
+- `EntityTag::hash($bytes)` for the stored artifact when no decorator runs, or for the
+  final body.
+- `EntityTag::keyed($artifactHash, $keys)` when every decorator can give a cache key
+  for the request. `$keys` lists `[decorator class, key]` pairs in the order the
+  decorators run, and the tag can be checked before anything is decoded. If any
+  decorator has no key, fall back to the body hash, because a partial key would let two
+  different bodies share a tag.
+- `EntityTag::matches($etag, $ifNoneMatch)` compares against the raw `If-None-Match`
+  header value. It matches weakly, so a `W/` tag from a compressing CDN still matches,
+  and `*` matches anything.
+
 ## Related pages
 
 - [Fields](fields.md) / [field types](field-types.md) — the builder surface
