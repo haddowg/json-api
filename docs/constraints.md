@@ -18,8 +18,8 @@ construct one directly — the fluent field builders append them for you, so
 Three consumers read it instead:
 
 - the **`SchemaCompiler`** ([validation](schema-validation.md#per-resource-schemas-schemacompiler))
-  compiles the *structural* subset into a per-resource JSON Schema, so the
-  document-validation layer tightens request bodies for free;
+  compiles the *structural* subset into a per-resource JSON Schema that you
+  pass to the document validator to tighten a request body;
 - the **`SchemaProjector`** ([OpenAPI](openapi.md)) projects the same structural
   subset into the published OpenAPI 3.1 / JSON Schema document;
 - a **framework adapter** translates the *full* set into its native validator and

@@ -212,8 +212,9 @@ $devServer = $base
     ->withHandler($handler);
 ```
 
-See [schema validation](schema-validation.md) for the schema model and the
-per-resource schema compiler these middleware compose in.
+See [schema validation](schema-validation.md) for the schema model. The
+middleware compose in the in-scope profile fragments only; to check a body
+against a per-resource `SchemaCompiler` schema, call the validator directly.
 
 ## What the suite does and does not touch
 
