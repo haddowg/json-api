@@ -228,7 +228,9 @@ final class OpenApiProjector
         );
         $schemas['Meta'] = Schema::ofType('object')
             ->withDescription('A JSON:API meta object: a free-form set of non-standard members.')
-            ->withAdditionalProperties(Schema::create());
+            ->withAdditionalProperties(Schema::create())
+            // Without an example, samplers fill the open object with invented keys.
+            ->withExample(new \stdClass());
         foreach ($links->sharedComponents() as $name => $schema) {
             $schemas[$name] = $schema;
         }

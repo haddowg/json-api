@@ -1329,4 +1329,15 @@ final class OpenApiProjectorTest extends TestCase
 
         return $validator;
     }
+
+    #[Test]
+    public function theOpenSharedObjectsCarryAnExample(): void
+    {
+        // Without one, a sampler fills `additionalProperties` with invented keys.
+        $document = \json_decode($this->projector()->project($this->server())->toJsonString(), false, 512, \JSON_THROW_ON_ERROR);
+        self::assertInstanceOf(\stdClass::class, $document);
+
+        self::assertEquals(new \stdClass(), $document->components->schemas->Meta->example);
+        self::assertObjectHasProperty('self', $document->components->schemas->Links->example);
+    }
 }

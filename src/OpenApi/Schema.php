@@ -581,6 +581,11 @@ final class Schema implements \JsonSerializable
             return \array_map(static fn(mixed $item): mixed => self::normalize($item), $value);
         }
 
+        // An object-valued example (`{}`) flattens like a nested schema does; toJson() keeps the object.
+        if ($value instanceof \stdClass) {
+            return self::normalize(\get_object_vars($value));
+        }
+
         return $value;
     }
 

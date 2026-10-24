@@ -11327,6 +11327,11 @@
                 },
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
+                },
+                "example": {
+                    "self": {
+                        "href": "https://api.example.com/"
+                    }
                 }
             },
             "LocalIdConflictError": {
@@ -11491,7 +11496,8 @@
             "Meta": {
                 "type": "object",
                 "description": "A JSON:API meta object: a free-form set of non-standard members.",
-                "additionalProperties": {}
+                "additionalProperties": {},
+                "example": {}
             },
             "MetaDocument": {
                 "type": "object",
