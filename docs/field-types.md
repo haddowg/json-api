@@ -250,6 +250,13 @@ top-level field is — a `readOnly()` child can't be written through the nested
 object on create or update, and `readOnlyOnCreate()`/`readOnlyOnUpdate()` each gate
 only their own context.
 
+The other visibility rules apply to a child the same way too. A `hidden()` child is
+neither rendered nor written, a `writeOnly()` child is written but never rendered, and
+the request-aware forms (`hidden(when:)`, `writeOnly(when:)`, `readOnly(when:)`) are
+evaluated per request. A `hidden(when:)` predicate receives the value the child reads
+from: the domain object for a `Map` child, the stored object for an `Obj` or `OneOf`
+child.
+
 > `Map::on($relation)` — spreading children across a **related** model rather than
 > the same one — is out of scope for core.
 

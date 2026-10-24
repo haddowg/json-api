@@ -69,9 +69,9 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
 
         $nested = [];
         foreach ($this->children as $child) {
-            // Skip a write-only child the same way the resource skips a write-only
-            // top-level field: it is accepted on write but never rendered.
-            if ($child->isWriteOnly()) {
+            // Skip a hidden or write-only child the same way the resource skips such a
+            // top-level field, including one whose rule is a per-request predicate.
+            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $model)) {
                 continue;
             }
 
@@ -99,7 +99,7 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
                 // Gate read-only children the same way the resource gates top-level
                 // fields, so a child the author marked readOnly() can't be written
                 // through the nested object.
-                if ($child->isReadOnly($creating)) {
+                if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
                     continue;
                 }
 

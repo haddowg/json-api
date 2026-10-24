@@ -113,7 +113,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
 
         $nested = [$this->discriminator => $discriminatorValue];
         foreach ($variant->children() as $child) {
-            if ($child->isWriteOnly()) {
+            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
                 continue;
             }
 
@@ -163,7 +163,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
 
         $nested = JsonObject::hydrateChildren($this->name(), static function () use ($variant, $nested, $value, $data, $request, $creating): mixed {
             foreach ($variant->children() as $child) {
-                if ($child->isReadOnly($creating)) {
+                if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
                     continue;
                 }
 
