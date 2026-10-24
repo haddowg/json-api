@@ -266,6 +266,8 @@ new instance:
 | `withHeaders(array $headers)` | replaces all extra HTTP response headers |
 | `withEncodeOptions(int $encodeOptions)` | per-response `json_encode` flags (overrides the server default) |
 | `withStatus(int $status)` | overrides the rendered default status (e.g. `201` on create) |
+| `withDescribedby(?Link $describedby)` | the top-level `links.describedby` |
+| `withOperationReference(?OperationReference $operation)` | the OpenAPI operation the top-level links' [`describedby`](links-and-meta.md#describedby-the-openapi-operation-behind-a-link) points at (dispatch sets it for you) |
 
 ```php
 use haddowg\JsonApi\Schema\Link\DocumentLinks;

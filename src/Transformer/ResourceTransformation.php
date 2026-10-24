@@ -35,5 +35,8 @@ final class ResourceTransformation
         public string $currentRelationshipName,
         public string $baseUri = '',
         public ?int $maxIncludeDepth = null,
+        // How the built links render; null keeps bare strings, the shape a
+        // transformation built outside a response has always produced.
+        public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
     ) {}
 }

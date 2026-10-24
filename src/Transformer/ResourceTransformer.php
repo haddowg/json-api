@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Transformer;
 use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
+use haddowg\JsonApi\OpenApi\OperationReference;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
@@ -129,7 +130,9 @@ final class ResourceTransformer
         $contributed = $this->contributedLinks($transformation);
         foreach ($contributed as $name => $link) {
             if (isset($transformed[$name]) === false) {
-                $transformed[$name] = $link->transform($transformation->baseUri);
+                $transformed[$name] = $transformation->linkRendering !== null
+                    ? $transformation->linkRendering->renderLink($link, $transformation->baseUri)
+                    : $link->transform($transformation->baseUri);
             }
         }
 
@@ -142,7 +145,9 @@ final class ResourceTransformer
         if (isset($transformed['self']) === false) {
             $self = $this->conventionSelfLink($transformation);
             if ($self !== null) {
-                $transformed['self'] = $self;
+                $transformed['self'] = $transformation->linkRendering !== null
+                    ? $transformation->linkRendering->render($self, OperationReference::fetchOne($this->conventionUriType($transformation)))
+                    : $self;
             }
         }
 
@@ -206,17 +211,30 @@ final class ResourceTransformer
             return null;
         }
 
-        $uriType = $resource instanceof UriTypeAwareInterface
-            ? $resource->uriType()
-            : $resource->getType($transformation->object);
-        if ($uriType === '') {
-            $uriType = $transformation->resourceType;
-        }
+        $uriType = $this->conventionUriType($transformation);
         if ($uriType === '') {
             return null;
         }
 
         return $transformation->baseUri . '/' . $uriType . '/' . $id;
+    }
+
+    /**
+     * The URI segment the convention links use: the serializer's URI type, else its
+     * JSON:API type, else the transformation's resolved type.
+     */
+    private function conventionUriType(ResourceTransformation $transformation): string
+    {
+        $resource = $transformation->resource;
+        if ($resource === null) {
+            return '';
+        }
+
+        $uriType = $resource instanceof UriTypeAwareInterface
+            ? $resource->uriType()
+            : $resource->getType($transformation->object);
+
+        return $uriType !== '' ? $uriType : $transformation->resourceType;
     }
 
     private function transformAttributesObject(ResourceTransformation $transformation): void

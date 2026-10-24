@@ -67,8 +67,9 @@ The projection is a small pipeline of **pure** classes in
   (`openapi` / `info` / `servers` / `tags` / security schemes), the full component set
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
-  relationship / related document envelopes), the shared components (`JsonApi`, `Meta`,
-  `Links`, `PaginationLinks`, `Error`, `ErrorDocument` and its per-status narrowings), the
+  relationship / related document envelopes, and the per-context links components), the
+  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`,
+  `PaginationLinks`, `Error`, `ErrorDocument` and its per-status narrowings), the
   per-code error variants, the shared error responses, the named enum components, the
   optional [Atomic Operations](atomic-operations.md) extension components + path, and —
   via the `OperationProjector` — the `paths`.
@@ -151,6 +152,13 @@ sketch:
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
   expose `Update`, since that is what it is. A read-only type's relation flags never open
   one.
+- **Links, per context.** Each place a link renders gets its own component listing the
+  members the server puts there: `<Type>ResourceLinks` (the resource's `self`, plus each
+  [action rendered as a link](#links-and-describedby)), `<Type>DocumentLinks` (a single
+  document's `self` and `describedby`), `<Type>CollectionLinks` (a collection's `self`,
+  `describedby` and pagination links) and `<Type><Rel>RelationshipLinks` (the `self` and
+  `related` its exposed endpoints allow, and pagination links for a paginated to-many).
+  See [links and `describedby`](#links-and-describedby).
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
@@ -406,6 +414,56 @@ raise it and nowhere else, and two classes claiming one `code` are refused rathe
 silently merged. The Symfony and Laravel integrations wire a source from their own
 discovery, so in those apps the exception above is catalogued by writing it.
 
+### Links and `describedby`
+
+The server renders the links it builds as [link objects](links-and-meta.md#built-links-are-link-objects),
+and each links component describes exactly that. Its members `$ref` `RenderedLink`, the
+object form the server renders (`href`, plus `describedby` and `meta` when present), and
+carry an example:
+
+```json
+"AlbumsResourceLinks": {
+  "type": "object",
+  "description": "The `links` of a resource object of type `albums`.",
+  "properties": {
+    "self": {
+      "$ref": "#/components/schemas/RenderedLink",
+      "description": "The resource's own URL. …",
+      "example": {
+        "href": "/api/v5/albums/1",
+        "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D/get"
+      }
+    },
+    "publish": {
+      "$ref": "#/components/schemas/RenderedLink",
+      "description": "The `publish` action on this resource. …",
+      "example": {
+        "href": "/api/v5/albums/1/-actions/publish",
+        "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D~1-actions~1publish/post"
+      }
+    }
+  },
+  "additionalProperties": { "$ref": "#/components/schemas/LinkObject" }
+}
+```
+
+An example is the document's first server URL as it stands plus the member's path, with
+the type's `Id` [example](#authoring-the-schemas-describedas-and-example) (else `1`) in
+place of `{id}`. A relative server URL (`/api/v5`) gives host-relative examples and an
+absolute one absolute examples. Each member's description says that a response's `href` is
+absolute to the request host unless the server pins its links to a configured base URI, so
+nobody mistakes the example's form for the wire's. The `describedby` in an example is
+present only when the metadata names the document's URL and the document carries the
+operation; it is built from the same path templates the projector keys `paths` by, so the
+two can't drift. `additionalProperties` stays the open `LinkObject` (a string, a link
+object or `null`), because a `getLinks()` override can add any link in any shape.
+
+`LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
+URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
+strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
+to strings gets no `RenderedLink`; its members `$ref` `LinkObject` and their examples are
+plain strings.
+
 ## The metadata contract
 
 Core owns the JSON:API→OAS *semantics*, but most of the *data* — the API title and base
@@ -451,6 +509,15 @@ enums, and it has no related endpoint and no relationship `GET`. Report `true` o
 unconditional `writeOnly()`; a relation write-only by predicate stays in the superset, as
 an attribute does. Metadata that doesn't implement the interface projects every relation
 as readable.
+
+Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
+`rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
+`documentUrl(): ?string`, the URI-reference the document is served at, which every
+`describedby` points into. Metadata that doesn't implement it projects link objects without
+`describedby`, which is what a server renders by default. `DeclaresActionLink` extends
+`ActionMetadataInterface` with `linkName(): ?string`: a resource-scope action that returns a
+name is listed under it in its type's `<Type>ResourceLinks`, described by its first declared
+method.
 
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive

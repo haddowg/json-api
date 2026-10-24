@@ -55,8 +55,10 @@ final class OpenApiProjector
         $paths = $this->paths($server);
         $errorStatuses = ErrorResponseProjector::referencedStatuses($paths);
 
+        $links = new LinkSchemaProjector($server, $paths);
+
         $schemas = [];
-        $this->addSharedComponents($schemas, $server, $errorStatuses);
+        $this->addSharedComponents($schemas, $server, $errorStatuses, $links);
 
         // The shared meta-document component is referenced by an action that declares a
         // MetaResult response and by a delete that declares a `200` meta-only success
@@ -73,7 +75,7 @@ final class OpenApiProjector
         $collector = new EnumComponentCollector(\array_keys($schemas));
 
         foreach ($server->types() as $type) {
-            $this->addTypeComponents($schemas, $type, $collector);
+            $this->addTypeComponents($schemas, $type, $collector, $links);
         }
 
         // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
@@ -217,7 +219,7 @@ final class OpenApiProjector
      * @param array<string, Schema> $schemas
      * @param list<string>          $errorStatuses
      */
-    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server, array $errorStatuses): void
+    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server, array $errorStatuses, LinkSchemaProjector $links): void
     {
         $schemas['JsonApi'] = $this->jsonApiObjectSchema(
             $server->jsonApiVersion(),
@@ -227,9 +229,9 @@ final class OpenApiProjector
         $schemas['Meta'] = Schema::ofType('object')
             ->withDescription('A JSON:API meta object: a free-form set of non-standard members.')
             ->withAdditionalProperties(Schema::create());
-        $schemas['LinkObject'] = $this->linkObjectSchema();
-        $schemas['Links'] = $this->topLevelLinksSchema();
-        $schemas['PaginationLinks'] = $this->paginationLinksSchema();
+        foreach ($links->sharedComponents() as $name => $schema) {
+            $schemas[$name] = $schema;
+        }
         $schemas['ErrorSource'] = $this->errorSourceSchema();
         $schemas['Error'] = $this->errorObjectSchema();
 
@@ -322,7 +324,7 @@ final class OpenApiProjector
      *
      * @param array<string, Schema> $schemas
      */
-    private function addTypeComponents(array &$schemas, TypeMetadataInterface $type, EnumComponentCollector $collector): void
+    private function addTypeComponents(array &$schemas, TypeMetadataInterface $type, EnumComponentCollector $collector, LinkSchemaProjector $links): void
     {
         $name = $this->componentBase($type->type());
         $fields = $type->fields();
@@ -354,7 +356,7 @@ final class OpenApiProjector
             $resource = $this->permissiveResourceObject($type->type(), $type->description());
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
-        $resource = $this->withSharedLinksAndMeta($resource);
+        $resource = $this->withLinksAndSharedMeta($resource, $name);
         $schemas[$name . 'Resource'] = $resource;
 
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
@@ -375,7 +377,7 @@ final class OpenApiProjector
         // respond with.
         foreach ($type->relations() as $relation) {
             $relBase = $name . $this->componentBase($relation->name());
-            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $collector);
+            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $collector, $relBase);
 
             // The relationship-linkage endpoint's document envelope — emitted whenever
             // the relationship endpoint is exposed (the path projection $ref's it).
@@ -408,6 +410,10 @@ final class OpenApiProjector
         $includable = $type->includablePaths() !== [];
         $schemas[$name . 'Document'] = $this->singleDocumentSchema($name, $includable);
         $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name, $includable);
+
+        foreach ($links->typeComponents($type, $name) as $component => $schema) {
+            $schemas[$component] = $schema;
+        }
     }
 
     /**
@@ -944,20 +950,17 @@ final class OpenApiProjector
 
     /**
      * Replaces the resource object's permissive `links`/`meta` placeholders with `$ref`s
-     * to the shared `Links`/`Meta` components — the same components the document-level
-     * `links`/`meta` already `$ref`. A resource object's `links` carry the conventional
-     * `self` (plus any `asLink` action links via the component's open additional
-     * properties), which is exactly `Links`; no pagination appears on a resource object,
-     * so `Links` and not `PaginationLinks` is correct.
+     * to the type's own `<Type>ResourceLinks` (its `self` plus any action links) and the
+     * shared `Meta`.
      *
      * Applied only in the OpenAPI-document path (which owns the shared components); the
      * standalone `/schemas.json` projection has no components and keeps the inline
      * permissive objects {@see SchemaProjector::projectResourceObject()} produces.
      */
-    private function withSharedLinksAndMeta(Schema $resource): Schema
+    private function withLinksAndSharedMeta(Schema $resource, string $base): Schema
     {
         return $resource
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'ResourceLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
     }
 
@@ -1069,18 +1072,17 @@ final class OpenApiProjector
      * to-many; a polymorphic relation's identifier is a `oneOf` of its member
      * identifiers.
      *
-     * `links` `$ref`s the shared `Links` component (a relationship object carries the
-     * conventional `self`/`related` pair — links-by-convention, default on — which are
-     * exactly what `Links` describes; it never carries pagination, so `Links` and not
-     * `PaginationLinks` is correct). `meta` `$ref`s the shared `Meta` component; it may
+     * `links` `$ref`s the relation's own `<Type><Rel>RelationshipLinks`, which lists the
+     * by-convention `self`/`related` links the relation's exposed endpoints allow and the
+     * pagination links of a paginated to-many. `meta` `$ref`s the shared `Meta` component; it may
      * carry a `belongsToMany` relation's `pivot` object and any `identifierMeta()`
      * contribution, both consumer-declared, so the shared permissive `Meta` is the
      * honest projection.
      */
-    private function relationshipObjectSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector): Schema
+    private function relationshipObjectSchema(RelationMetadataInterface $relation, EnumComponentCollector $collector, string $relBase): Schema
     {
         $schema = Schema::ofType('object')
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelationshipLinks'))
             ->withProperty('data', $this->linkageData($relation, $collector))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
 
@@ -1303,7 +1305,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/Links'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'DocumentLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1323,7 +1325,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/PaginationLinks'))
+            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'CollectionLinks'))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1415,55 +1417,6 @@ final class OpenApiProjector
         }
 
         return false;
-    }
-
-    /**
-     * A JSON:API link: either a URI string, or a link object `{href, ...}`.
-     */
-    private function linkObjectSchema(): Schema
-    {
-        $object = Schema::ofType('object')
-            ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
-            ->withProperty('rel', Schema::ofType('string'))
-            ->withProperty('title', Schema::ofType('string'))
-            ->withProperty('type', Schema::ofType('string'))
-            ->withProperty('meta', Schema::ofType('object'))
-            ->withRequired(['href']);
-
-        return Schema::create()
-            ->withDescription('A JSON:API link: a string URI, a link object, or null (e.g. an absent pagination link).')
-            ->withAnyOf([
-                Schema::ofType('string')->withFormat('uri-reference'),
-                $object,
-                Schema::ofType('null'),
-            ]);
-    }
-
-    /**
-     * The top-level `links` member: `self` / `related` plus arbitrary further links.
-     */
-    private function topLevelLinksSchema(): Schema
-    {
-        return Schema::ofType('object')
-            ->withProperty('self', Schema::ref('#/components/schemas/LinkObject'))
-            ->withProperty('related', Schema::ref('#/components/schemas/LinkObject'))
-            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
-    }
-
-    /**
-     * The collection-level `links`: pagination `first` / `prev` / `next` / `last`
-     * (each nullable) plus `self`.
-     */
-    private function paginationLinksSchema(): Schema
-    {
-        $link = Schema::ref('#/components/schemas/LinkObject');
-
-        return Schema::ofType('object')
-            ->withProperty('self', $link)
-            ->withProperty('first', $link)
-            ->withProperty('prev', $link)
-            ->withProperty('next', $link)
-            ->withProperty('last', $link);
     }
 
     /**

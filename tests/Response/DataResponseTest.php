@@ -35,10 +35,10 @@ final class DataResponseTest extends TestCase
                 'data' => [
                     'type' => 'user',
                     'id' => '1',
-                    'links' => ['self' => '/user/1'],
+                    'links' => ['self' => ['href' => '/user/1']],
                     'attributes' => ['name' => 'Vader'],
                 ],
-                'links' => ['self' => '/'],
+                'links' => ['self' => ['href' => '/']],
                 'jsonapi' => ['version' => '1.1'],
             ],
             $this->decode($psr->getBody()->getContents()),
@@ -58,8 +58,8 @@ final class DataResponseTest extends TestCase
 
         self::assertSame(200, $psr->getStatusCode());
         self::assertArrayHasKey('data', $body);
-        self::assertSame([['type' => 'user', 'id' => '1', 'links' => ['self' => '/user/1']]], $body['data']);
-        self::assertSame(['self' => '/'], $body['links']);
+        self::assertSame([['type' => 'user', 'id' => '1', 'links' => ['self' => ['href' => '/user/1']]]], $body['data']);
+        self::assertSame(['self' => ['href' => '/']], $body['links']);
     }
 
     #[Test]
@@ -95,7 +95,7 @@ final class DataResponseTest extends TestCase
             [
                 'type' => 'user',
                 'id' => '1',
-                'links' => ['self' => '/user/1'],
+                'links' => ['self' => ['href' => '/user/1']],
                 'attributes' => ['name' => 'Vader'],
                 'relationships' => [
                     'father' => ['data' => ['type' => 'user', 'id' => '2']],
@@ -107,7 +107,7 @@ final class DataResponseTest extends TestCase
             [[
                 'type' => 'user',
                 'id' => '2',
-                'links' => ['self' => '/user/2'],
+                'links' => ['self' => ['href' => '/user/2']],
                 'attributes' => ['name' => 'Grandfather'],
             ]],
             $body['included'],
@@ -139,7 +139,7 @@ final class DataResponseTest extends TestCase
             $base->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),
         );
         self::assertArrayNotHasKey('meta', $original);
-        self::assertSame(['self' => '/'], $original['links']);
+        self::assertSame(['self' => ['href' => '/']], $original['links']);
         self::assertSame(['version' => '1.1'], $original['jsonapi']);
     }
 
@@ -205,7 +205,7 @@ final class DataResponseTest extends TestCase
         // describedby is merged into the top-level links alongside the by-convention self,
         // without the caller reconstructing links.
         self::assertSame(
-            ['self' => '/', 'describedby' => 'https://api.example.com/openapi.json'],
+            ['self' => ['href' => '/'], 'describedby' => 'https://api.example.com/openapi.json'],
             $body['links'],
         );
     }
@@ -224,7 +224,7 @@ final class DataResponseTest extends TestCase
         );
 
         // The author's describedby is left untouched; the by-convention self is still added.
-        self::assertSame(['describedby' => '/author-spec', 'self' => '/'], $body['links']);
+        self::assertSame(['describedby' => '/author-spec', 'self' => ['href' => '/']], $body['links']);
     }
 
     #[Test]

@@ -103,6 +103,7 @@ final class IdentifierResponse extends AbstractResponse
             [],
             \haddowg\JsonApi\Server\RequestBaseUri::resolve($server->baseUri(), $request->getUri()),
             $server->maxIncludeDepth(),
+            linkRendering: \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server),
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;

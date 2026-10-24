@@ -412,19 +412,19 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function theRelationshipAndResourceObjectsRefTheSharedLinksAndMetaComponents(): void
+    public function theRelationshipAndResourceObjectsRefTheirOwnLinksAndTheSharedMetaComponents(): void
     {
         $schemas = $this->schemas();
 
-        // A relationship object's links carry the conventional self/related pair (not
-        // pagination), so it $refs the shared `Links`; its meta $refs the shared `Meta`
-        // (it may carry pivot / identifierMeta) — no more bare `{type: object}` (D22).
-        self::assertSame('#/components/schemas/Links', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
+        // A relationship object's links $ref its own per-relation links component (the
+        // members that relation renders); its meta $refs the shared `Meta` (it may carry
+        // pivot / identifierMeta) — no more bare `{type: object}` (D22).
+        self::assertSame('#/components/schemas/ArticlesAuthorRelationshipLinks', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
         self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'meta', '$ref'));
 
-        // The resource object's links/meta likewise $ref the shared components, matching
-        // the document-level links/meta.
-        self::assertSame('#/components/schemas/Links', $this->strAt($schemas, 'ArticlesResource', 'properties', 'links', '$ref'));
+        // The resource object's links $ref the type's resource links component; its meta
+        // the shared `Meta`.
+        self::assertSame('#/components/schemas/ArticlesResourceLinks', $this->strAt($schemas, 'ArticlesResource', 'properties', 'links', '$ref'));
         self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesResource', 'properties', 'meta', '$ref'));
     }
 

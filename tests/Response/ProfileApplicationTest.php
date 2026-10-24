@@ -60,7 +60,7 @@ final class ProfileApplicationTest extends TestCase
         self::assertSame('', $psr->getHeaderLine('Vary'));
         // No profile applied, so no jsonapi.profile — but the document still carries
         // the by-convention top-level self link.
-        self::assertSame(['self' => '/users/1'], $body['links']);
+        self::assertSame(['self' => ['href' => '/users/1']], $body['links']);
     }
 
     #[Test]

@@ -128,7 +128,12 @@ final class TopLevelSelfLinkTest extends TestCase
 
         $links = $decoded['links'] ?? [];
         self::assertIsArray($links);
+        // The convention self renders as a link object; a hand-set one keeps the
+        // string its author gave it.
         $self = $links['self'] ?? null;
+        if (\is_array($self)) {
+            $self = $self['href'] ?? null;
+        }
         self::assertIsString($self);
 
         return $self;

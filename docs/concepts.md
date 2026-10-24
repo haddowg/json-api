@@ -173,6 +173,8 @@ A **link** is a URL, optionally enriched with `meta` or the JSON:API 1.1 link
 object members (`rel`, `describedby`, `title`, `type`, `hreflang`). A link
 serializes in one of two forms: a **bare string** (`"href"`) when it is just a
 URL, or a **link object** (`{href, meta, …}`) when it carries extra members. The
+links the server builds itself always render as link objects unless the server
+[opts out](links-and-meta.md#built-links-are-link-objects). The
 base type is `Schema\Link\Link`; `LinkObject` and `ProfileLinkObject` extend it for
 the richer forms.
 
