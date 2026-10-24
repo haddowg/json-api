@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0](https://github.com/haddowg/json-api/compare/v1.7.0...v1.8.0) (2026-10-24)
+
+
+### Features
+
+* **openapi:** let a type declare the singular noun generated prose uses ([5d0af7d](https://github.com/haddowg/json-api/commit/5d0af7d4314a5b4710d10bff103d70b343a76a82))
+
+
+### Bug Fixes
+
+* **openapi:** give each endpoint document its own links with whole-object examples ([5d0af7d](https://github.com/haddowg/json-api/commit/5d0af7d4314a5b4710d10bff103d70b343a76a82))
+* **openapi:** give the open Meta and Links components an example ([#206](https://github.com/haddowg/json-api/issues/206)) ([89ec950](https://github.com/haddowg/json-api/commit/89ec950d3551bc7918ef9da943f3b931dde8def7))
+* **openapi:** name one resource in the singular and stop restating the schema in prose ([5d0af7d](https://github.com/haddowg/json-api/commit/5d0af7d4314a5b4710d10bff103d70b343a76a82))
+* **openapi:** show link and enum examples in tools that ignore siblings of a ref ([5d0af7d](https://github.com/haddowg/json-api/commit/5d0af7d4314a5b4710d10bff103d70b343a76a82))
+
 ## [1.7.0](https://github.com/haddowg/json-api/compare/v1.6.0...v1.7.0) (2026-10-24)
 
 
