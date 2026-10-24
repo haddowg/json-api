@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/haddowg/json-api/compare/v1.8.0...v1.8.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **openapi:** show a real resource link in the LinkObject example ([14eb462](https://github.com/haddowg/json-api/commit/14eb4623eea51b4c6c3b45daf0a2a7b390aa2ed6))
+
 ## [1.8.0](https://github.com/haddowg/json-api/compare/v1.7.0...v1.8.0) (2026-10-24)
 
 
