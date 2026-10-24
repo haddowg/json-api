@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 8
+            "contract": 9
         }
     },
     "servers": [
@@ -5981,16 +5981,24 @@
                 "description": "The `links` of the `attachments` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/attachments",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1attachments/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/attachments",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1attachments/get"
@@ -6028,7 +6036,8 @@
                             {
                                 "type": "null"
                             }
-                        ]
+                        ],
+                        "example": "published"
                     },
                     "priority": {
                         "anyOf": [
@@ -6407,16 +6416,24 @@
                 "description": "The `links` of the `author` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/author",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1author/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/author",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1author/get"
@@ -6473,49 +6490,73 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles",
                             "describedby": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles",
+                            "href": "https://api.example.com/articles?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles",
+                            "href": "https://api.example.com/articles?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles",
+                            "href": "https://api.example.com/articles?page%5Bnumber%5D=3&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles",
+                            "href": "https://api.example.com/articles?page%5Bnumber%5D=5&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles/get"
                         }
                     }
@@ -6577,8 +6618,12 @@
                 "description": "The `links` of the `cover` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/cover",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1cover/get"
@@ -6605,8 +6650,13 @@
                         "example": "example-slug"
                     },
                     "status": {
-                        "$ref": "#/components/schemas/Status",
-                        "description": "Publication status."
+                        "description": "Publication status.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Status"
+                            }
+                        ],
+                        "example": "published"
                     },
                     "priority": {
                         "$ref": "#/components/schemas/Priority"
@@ -6887,16 +6937,24 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
                         }
@@ -6986,16 +7044,24 @@
                 "description": "The `links` of the `editor` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/editor",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1editor/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/editor",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1editor/get"
@@ -7051,16 +7117,24 @@
                 "description": "The `links` of the `locked` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/locked",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1locked/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/locked",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1locked/get"
@@ -7151,16 +7225,24 @@
                 "description": "The `links` of the `publisher` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/published-by",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1published-by/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/published-by",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1published-by/get"
@@ -7248,16 +7330,24 @@
                 "description": "The `links` of a resource object of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D/get"
                         }
                     },
                     "publish": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `publish` action on this resource. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/-actions/publish",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1-actions~1publish/post"
@@ -7321,8 +7411,12 @@
                 "description": "The `links` of the `reviewer` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/reviewer"
                         }
@@ -7441,50 +7535,74 @@
                 "description": "The `links` of the `tags` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/tags",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/tags",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1tags/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles/art-1/relationships/tags",
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles/art-1/relationships/tags",
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles/art-1/relationships/tags",
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=3&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the relationship's linkage, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/articles/art-1/relationships/tags",
+                            "href": "https://api.example.com/articles/art-1/relationships/tags?page%5Bnumber%5D=5&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1articles~1%7Bid%7D~1relationships~1tags/get"
                         }
                     }
@@ -7597,8 +7715,13 @@
                         "example": "example-slug"
                     },
                     "status": {
-                        "$ref": "#/components/schemas/Status",
-                        "description": "Publication status."
+                        "description": "Publication status.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Status"
+                            }
+                        ],
+                        "example": "published"
                     },
                     "priority": {
                         "$ref": "#/components/schemas/Priority"
@@ -7863,8 +7986,12 @@
                 "description": "The `links` of the `watchers` relationship object of a resource of type `articles`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/articles/art-1/relationships/watchers"
                         }
@@ -9264,36 +9391,56 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `healthcheck`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck"
                         }
@@ -9328,8 +9475,12 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `healthcheck`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck/1"
                         }
@@ -9389,8 +9540,12 @@
                 "description": "The `links` of a resource object of type `healthcheck`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/healthcheck/1"
                         }
@@ -9460,16 +9615,24 @@
                 "description": "The `links` of the `clips` relationship object of a resource of type `images`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/images/1/relationships/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/images/1/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
@@ -9508,49 +9671,73 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `images`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/images",
                             "describedby": "/docs/openapi.json#/paths/~1images/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1images/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/images",
+                            "href": "https://api.example.com/images?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1images/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/images",
+                            "href": "https://api.example.com/images?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1images/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/images",
+                            "href": "https://api.example.com/images?page%5Bnumber%5D=3&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1images/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/images",
+                            "href": "https://api.example.com/images?page%5Bnumber%5D=5&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1images/get"
                         }
                     }
@@ -9584,16 +9771,24 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `images`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/images/1",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                         }
@@ -9661,8 +9856,12 @@
                 "description": "The `links` of a resource object of type `images`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/images/1",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
@@ -10358,49 +10557,73 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `people`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/people",
                             "describedby": "/docs/openapi.json#/paths/~1people/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1people/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/people",
+                            "href": "https://api.example.com/people?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1people/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/people",
+                            "href": "https://api.example.com/people?page%5Bnumber%5D=1&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1people/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/people",
+                            "href": "https://api.example.com/people?page%5Bnumber%5D=3&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1people/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/people",
+                            "href": "https://api.example.com/people?page%5Bnumber%5D=5&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1people/get"
                         }
                     }
@@ -10462,8 +10685,12 @@
                 "description": "The `links` of the `company` relationship object of a resource of type `people`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/people/1/relationships/company",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
@@ -10548,16 +10775,24 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `people`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/people/1",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                         }
@@ -10625,8 +10860,12 @@
                 "description": "The `links` of a resource object of type `people`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/people/1",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
@@ -11597,16 +11836,24 @@
                 "description": "The `links` of the `articles` relationship object of a resource of type `tags`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The relationship's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags/1/relationships/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
                         }
                     },
                     "related": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The related resource data. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags/1/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
@@ -11762,47 +12009,71 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `tags`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags",
                             "describedby": "/docs/openapi.json#/paths/~1tags/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1tags/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/tags",
+                            "href": "https://api.example.com/tags?page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1tags/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/tags",
+                            "href": "https://api.example.com/tags?page%5Bbefore%5D=eyJpZCI6MTF9&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1tags/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
-                            "href": "https://api.example.com/tags",
+                            "href": "https://api.example.com/tags?page%5Bafter%5D=eyJpZCI6MjB9&page%5Bsize%5D=15",
                             "describedby": "/docs/openapi.json#/paths/~1tags/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags",
                             "describedby": "/docs/openapi.json#/paths/~1tags/get"
@@ -11885,16 +12156,24 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `tags`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags/1",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                         }
@@ -11962,8 +12241,12 @@
                 "description": "The `links` of a resource object of type `tags`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/tags/1",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
@@ -12192,47 +12475,71 @@
                 "description": "The top-level `links` of a document whose primary data is a collection of type `videos`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos",
                             "describedby": "/docs/openapi.json#/paths/~1videos/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1videos/get"
                         }
                     },
                     "first": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `first` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos",
                             "describedby": "/docs/openapi.json#/paths/~1videos/get"
                         }
                     },
                     "prev": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `prev` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos",
                             "describedby": "/docs/openapi.json#/paths/~1videos/get"
                         }
                     },
                     "next": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `next` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos",
                             "describedby": "/docs/openapi.json#/paths/~1videos/get"
                         }
                     },
                     "last": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The `last` page of the collection, when there is one. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos",
                             "describedby": "/docs/openapi.json#/paths/~1videos/get"
@@ -12304,16 +12611,24 @@
                 "description": "The top-level `links` of a document whose primary data is one resource of type `videos`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The URL that produced the document. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos/1",
                             "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                         }
                     },
                     "describedby": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The OpenAPI operation that describes the document.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                         }
@@ -12376,8 +12691,12 @@
                 "description": "The `links` of a resource object of type `videos`.",
                 "properties": {
                     "self": {
-                        "$ref": "#/components/schemas/RenderedLink",
                         "description": "The resource's own URL. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RenderedLink"
+                            }
+                        ],
                         "example": {
                             "href": "https://api.example.com/videos/1",
                             "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"

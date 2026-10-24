@@ -148,7 +148,7 @@ final class ContractWitnessServer
                 Id::make()->example('art-1')->build(),
                 Str::make('title')->required()->minLength(3)->maxLength(120)->describedAs('The article headline.')->example('Hello, world')->build(),
                 Slug::make('slug')->build(),
-                Str::make('status')->enum(Status::class)->describedAs('Publication status.')->build(),
+                Str::make('status')->enum(Status::class)->describedAs('Publication status.')->example('published')->build(),
                 Integer::make('priority')->enum(Priority::class)->build(),
                 Integer::make('wordCount')->nullable()->min(0)->multipleOf(10)->build(),
                 Decimal::make('rating')->exclusiveMin(0.0)->exclusiveMax(10.0)->build(),

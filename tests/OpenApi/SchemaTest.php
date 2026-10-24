@@ -142,4 +142,35 @@ final class SchemaTest extends TestCase
         $json = \json_encode($schema->toJson(), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES);
         self::assertSame('{"$ref":"#/components/schemas/Status","description":"A status."}', $json);
     }
+
+    #[Test]
+    public function aRefWithAnExampleOrDefaultIsWrittenAsASingleEntryAllOf(): void
+    {
+        $withExample = Schema::ref('#/components/schemas/Link')->withDescription('A link.')->withExample(['href' => '/a']);
+
+        self::assertSame(
+            ['description' => 'A link.', 'allOf' => [['$ref' => '#/components/schemas/Link']], 'example' => ['href' => '/a']],
+            $withExample->toArray(),
+        );
+        self::assertSame(
+            '{"description":"A link.","allOf":[{"$ref":"#/components/schemas/Link"}],"example":{"href":"/a"}}',
+            \json_encode($withExample->toJson(), \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR),
+        );
+        self::assertSame(
+            ['default' => 'draft', 'allOf' => [['$ref' => '#/components/schemas/Status']]],
+            Schema::ref('#/components/schemas/Status')->withDefault('draft')->toArray(),
+        );
+        // Still a `$ref` to the projector that built it.
+        self::assertSame('#/components/schemas/Link', $withExample->get('$ref'));
+    }
+
+    #[Test]
+    public function aRefWithoutAnExampleOrDefaultKeepsItsSiblings(): void
+    {
+        self::assertSame(['$ref' => '#/components/schemas/Status'], Schema::ref('#/components/schemas/Status')->toArray());
+        self::assertSame(
+            ['$ref' => '#/components/schemas/Status', 'description' => 'The status.'],
+            Schema::ref('#/components/schemas/Status')->withDescription('The status.')->toArray(),
+        );
+    }
 }

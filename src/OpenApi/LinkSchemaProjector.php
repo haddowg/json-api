@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 
 /**
@@ -29,6 +30,10 @@ use haddowg\JsonApi\Resource\Field\Id;
 final readonly class LinkSchemaProjector
 {
     private const PAGINATION = ['first', 'prev', 'next', 'last'];
+
+    private const EXAMPLE_CURSOR_AFTER = 'eyJpZCI6MjB9';
+
+    private const EXAMPLE_CURSOR_BEFORE = 'eyJpZCI6MTF9';
 
     private const HREF_NOTE = ' The example uses the document\'s server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.';
 
@@ -114,8 +119,9 @@ final readonly class LinkSchemaProjector
             ->withDescription(\sprintf('The top-level `links` of a document whose primary data is a collection of type `%s`.', $type->type()))
             ->withProperty('self', $this->member($collectionPath, $collectionOperation, 'The URL that produced the document.'));
         $collection = $this->withDescribedByMember($collection, $collectionOperation);
+        $pageQueries = self::pageExampleQueries($type->pageSchema());
         foreach (self::PAGINATION as $name) {
-            $collection = $collection->withProperty($name, $this->member($collectionPath, $collectionOperation, \sprintf('The `%s` page of the collection, when there is one.', $name)));
+            $collection = $collection->withProperty($name, $this->member($collectionPath, $collectionOperation, \sprintf('The `%s` page of the collection, when there is one.', $name), $pageQueries[$name] ?? []));
         }
         $components[$base . 'CollectionLinks'] = $collection->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
 
@@ -151,8 +157,9 @@ final readonly class LinkSchemaProjector
         }
 
         if ($relation->isToMany() && $relation->exposesRelationshipEndpoint() && $relation->pageSchema() !== null) {
+            $pageQueries = self::pageExampleQueries($relation->pageSchema());
             foreach (self::PAGINATION as $page) {
-                $schema = $schema->withProperty($page, $this->member($relationshipPath, $relationshipOperation, \sprintf('The `%s` page of the relationship\'s linkage, when there is one.', $page)));
+                $schema = $schema->withProperty($page, $this->member($relationshipPath, $relationshipOperation, \sprintf('The `%s` page of the relationship\'s linkage, when there is one.', $page), $pageQueries[$page] ?? []));
             }
         }
 
@@ -179,10 +186,13 @@ final readonly class LinkSchemaProjector
 
     /**
      * One built link member: the link shape the server renders, with an example.
+     *
+     * @param array<string, int|string> $page the example's `page[…]` members, encoded the
+     *                                        way a rendered pagination link encodes them
      */
-    private function member(string $examplePath, OperationReference $operation, string $description): Schema
+    private function member(string $examplePath, OperationReference $operation, string $description, array $page = []): Schema
     {
-        $href = $this->serverUrl . $examplePath;
+        $href = $this->serverUrl . $examplePath . ($page === [] ? '' : '?' . \http_build_query(['page' => $page]));
 
         if (!$this->objects) {
             return Schema::ref('#/components/schemas/LinkObject')
@@ -199,6 +209,130 @@ final readonly class LinkSchemaProjector
         return Schema::ref('#/components/schemas/RenderedLink')
             ->withDescription($description . self::HREF_NOTE)
             ->withExample($example);
+    }
+
+    /**
+     * Example `page[…]` members for each pagination link, read from the page schema's
+     * `x-paginator` extension so they use the paginator's configured keys and default
+     * size. The examples show the links of page two. A menu uses its default strategy,
+     * whose links carry no `page[kind]`. A strategy the schema doesn't describe gets
+     * none, and so does a cursor's `last`, which a cursor page never renders.
+     *
+     * @return array<string, array<string, int|string>>
+     */
+    private static function pageExampleQueries(?Schema $pageSchema): array
+    {
+        if ($pageSchema === null) {
+            return [];
+        }
+
+        $paginator = $pageSchema->extension('paginator');
+        if (\is_array($paginator) && ($paginator['strategy'] ?? null) === 'multi') {
+            $pageSchema = self::defaultMenuBranch($pageSchema, $paginator['default'] ?? null);
+            $paginator = $pageSchema?->extension('paginator');
+        }
+        if ($pageSchema === null || !\is_array($paginator) || !\is_array($paginator['keys'] ?? null)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $keys */
+        $keys = $paginator['keys'];
+        $key = static fn(string $role): ?string => isset($keys[$role]) && \is_string($keys[$role]) ? $keys[$role] : null;
+        $size = static function (?string $sizeKey) use ($pageSchema): array {
+            if ($sizeKey === null) {
+                return [];
+            }
+            $default = self::propertyDefault($pageSchema, $sizeKey);
+
+            return $default === null ? [] : [$sizeKey => $default];
+        };
+
+        switch ($paginator['strategy'] ?? null) {
+            case 'page':
+            case 'fixed':
+                $number = $key('number');
+                if ($number === null) {
+                    return [];
+                }
+                $sized = $size($key('size'));
+
+                return [
+                    'first' => [$number => 1, ...$sized],
+                    'prev' => [$number => 1, ...$sized],
+                    'next' => [$number => 3, ...$sized],
+                    'last' => [$number => 5, ...$sized],
+                ];
+            case 'offset':
+                $offset = $key('offset');
+                $limitKey = $key('limit');
+                if ($offset === null || $limitKey === null) {
+                    return [];
+                }
+                $limit = self::propertyDefault($pageSchema, $limitKey) ?? 10;
+
+                return [
+                    'first' => [$offset => 0, $limitKey => $limit],
+                    'prev' => [$offset => 0, $limitKey => $limit],
+                    'next' => [$offset => 2 * $limit, $limitKey => $limit],
+                    'last' => [$offset => 4 * $limit, $limitKey => $limit],
+                ];
+            case 'cursor':
+                $after = $key('after');
+                $before = $key('before');
+                if ($after === null || $before === null) {
+                    return [];
+                }
+                $sized = $size($key('size'));
+
+                return [
+                    'first' => $sized,
+                    'prev' => [$before => self::EXAMPLE_CURSOR_BEFORE, ...$sized],
+                    'next' => [$after => self::EXAMPLE_CURSOR_AFTER, ...$sized],
+                ];
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * The menu branch for the default strategy, or the first branch when no default
+     * is named.
+     */
+    private static function defaultMenuBranch(Schema $menu, mixed $default): ?Schema
+    {
+        $branches = $menu->get('oneOf');
+        if (!\is_array($branches) || $branches === []) {
+            return null;
+        }
+
+        foreach ($branches as $branch) {
+            if (!$branch instanceof Schema) {
+                continue;
+            }
+            $properties = $branch->get('properties');
+            $kind = \is_array($properties) && ($properties[MultiPaginator::KIND_KEY] ?? null) instanceof Schema
+                ? $properties[MultiPaginator::KIND_KEY]->get('const')
+                : null;
+            if ($kind === $default) {
+                return $branch;
+            }
+        }
+
+        $first = \reset($branches);
+
+        return $first instanceof Schema ? $first : null;
+    }
+
+    /**
+     * The integer `default` of one property of a page schema, when it declares one.
+     */
+    private static function propertyDefault(Schema $pageSchema, string $property): ?int
+    {
+        $properties = $pageSchema->get('properties');
+        $schema = \is_array($properties) ? ($properties[$property] ?? null) : null;
+        $default = $schema instanceof Schema ? $schema->get('default') : null;
+
+        return \is_int($default) ? $default : null;
     }
 
     /**

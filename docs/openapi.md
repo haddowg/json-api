@@ -433,7 +433,7 @@ discovery, so in those apps the exception above is catalogued by writing it.
 ### Links and `describedby`
 
 The server renders the links it builds as [link objects](links-and-meta.md#built-links-are-link-objects),
-and each links component describes exactly that. Its members `$ref` `RenderedLink`, the
+and each links component describes exactly that. Its members point at `RenderedLink`, the
 object form the server renders (`href`, plus `describedby` and `meta` when present), and
 carry an example:
 
@@ -443,16 +443,16 @@ carry an example:
   "description": "The `links` of a resource object of type `albums`.",
   "properties": {
     "self": {
-      "$ref": "#/components/schemas/RenderedLink",
       "description": "The resource's own URL. …",
+      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
       "example": {
         "href": "/api/v5/albums/1",
         "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D/get"
       }
     },
     "publish": {
-      "$ref": "#/components/schemas/RenderedLink",
       "description": "The `publish` action on this resource. …",
+      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
       "example": {
         "href": "/api/v5/albums/1/-actions/publish",
         "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D~1-actions~1publish/post"
@@ -471,14 +471,37 @@ absolute to the request host unless the server pins its links to a configured ba
 nobody mistakes the example's form for the wire's. The `describedby` in an example is
 present only when the metadata names the document's URL and the document carries the
 operation; it is built from the same path templates the projector keys `paths` by, so the
-two can't drift. `additionalProperties` stays the open `LinkObject` (a string, a link
+two can't drift.
+
+The pagination members (`first`, `prev`, `next`, `last`) of a collection and of a to-many
+relationship's links show the links of page two, built from the page schema of the
+paginator in force there, under its configured keys and default size, with brackets
+percent-encoded as a rendered link encodes them: `?page%5Bnumber%5D=3&page%5Bsize%5D=15`
+for `next` under a page paginator, `page[offset]`/`page[limit]` under an offset one, and
+`page[after]`/`page[before]` cursors under a cursor one. A menu shows its default strategy,
+whose links carry no `page[kind]`. A cursor page never renders `last`, so that member keeps
+the bare URL, as does every member of an unpaginated collection.
+
+`additionalProperties` stays the open `LinkObject` (a string, a link
 object or `null`), because a `getLinks()` override can add any link in any shape.
 
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
 strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
-to strings gets no `RenderedLink`; its members `$ref` `LinkObject` and their examples are
+to strings gets no `RenderedLink`; its members point at `LinkObject` and their examples are
 plain strings.
+
+#### A `$ref` with an example is wrapped in `allOf`
+
+Wherever a schema `$ref`s a component and also carries an `example`, `examples` or
+`default`, the document writes the `$ref` as the single entry of an `allOf`, with the
+other keywords beside it: `{"description": …, "allOf": [{"$ref": …}], "example": …}`. OAS
+3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
+example sampler among them, ignore them and would show a sample of the bare component
+instead. Today that covers every link member above, and an attribute whose enum is a
+named component when the field declares an example. A `$ref` with no such sibling is
+written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
+as that `$ref`.
 
 ## The metadata contract
 
