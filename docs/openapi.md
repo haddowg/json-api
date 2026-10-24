@@ -531,6 +531,11 @@ segment the relation's related and relationship endpoints are served under. Retu
 core relation's `uriFieldName()`, which is the name unless `withUriFieldName()` set one.
 Metadata that doesn't implement it keys every relation's paths by its name.
 
+A fifth sits beside `TypeMetadataInterface`: `DeclaresSingularName` adds
+`singularName(): ?string`, the noun the [generated prose](#how-generated-prose-names-a-type)
+uses for one resource of the type. Mirror the resource's `getSingularName()`. Metadata that
+doesn't implement it, or returns `null`, gets the inflected singular of the type name.
+
 Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
 `documentUrl(): ?string`, the URI-reference the document is served at, which every
@@ -670,6 +675,48 @@ present, a short generated sentence otherwise, never a blank. Because a request-
 per-caller condition cannot be baked into a cached schema, a *conditionally* hidden or
 prohibited field/verb is documented as the **superset** — the union of what any caller
 may see or do (see the [request-aware predicates](fields.md) note).
+
+### How generated prose names a type
+
+A generated summary or description that means one resource names it in the singular, with
+its article: `GET /advertisers/{id}` reads "Fetch an advertiser", and its related endpoint
+"Fetch the related agencies of an advertiser". A collection keeps the plural: "List
+advertisers". Wording that names the type itself, such as "a resource object of type
+`advertisers`", keeps the type name as declared.
+
+The type name renders as lower-case words, split at `-`, `_` and camelCase boundaries, so
+`export-jobs` and `exportJobs` both read "export jobs" and "an export job". An all-caps
+word keeps its case. The singular inflects the last word with `doctrine/inflector`, which
+handles the common irregulars (`people` reads "person").
+
+The article is "an" before a vowel letter and "a" otherwise, with three exceptions: a word
+that starts with a consonant sound takes "a" ("a user", "a unique code", "a one-off
+charge"), a silent `h` takes "an" ("an hour"), and an all-caps acronym follows the spoken
+name of its first letter ("an SDK release", "a URL alias").
+
+When the inflection is wrong or reads badly, override `getSingularName()` on the resource:
+
+```php
+final class MediaResource extends AbstractResource
+{
+    protected static string $type = 'media';
+
+    public function getSingularName(): ?string
+    {
+        return 'media item';
+    }
+}
+```
+
+Return the noun as words, without an article; the projector picks "a" or "an" from it. The
+framework integration reads it through `DeclaresSingularName`.
+
+Generated parameter descriptions also leave out what the parameter's schema already says.
+The allowed `sort` tokens, `include` paths, `fields[TYPE]` members and `withCount` tokens
+are each the `items` enum, so the prose explains the encoding (a comma-separated list, `-`
+for descending, the profile that must be negotiated, where a count lands) and stops there.
+A backed enum's `value → description` table stays, because it carries what each value
+means, which an `enum` cannot.
 
 ## Vendor extensions
 

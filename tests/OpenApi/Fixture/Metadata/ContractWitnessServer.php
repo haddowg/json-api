@@ -101,7 +101,8 @@ final class ContractWitnessServer
                 self::people(),
                 self::tags(),
                 self::images(),
-                self::videos(),
+                // Names one video in prose through the opt-in singular-name seam.
+                new SingularNameTypeMetadata(self::videos(), 'video clip'),
                 FakeTypeMetadata::standalone('healthcheck', tags: ['Ops']),
             ],
             description: 'Every projector branch the witness can reach, in one document.',

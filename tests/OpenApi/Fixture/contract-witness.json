@@ -5369,8 +5369,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Create a video",
-                "description": "Creates a new video from the supplied attributes and relationships.",
+                "summary": "Create a video clip",
+                "description": "Creates a new video clip from the supplied attributes and relationships.",
                 "operationId": "create.videos",
                 "parameters": [
                     {
@@ -5403,7 +5403,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "The created video.",
+                        "description": "The created video clip.",
                         "headers": {
                             "Location": {
                                 "description": "The URL of the created resource.",
@@ -5456,7 +5456,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `id` of the video.",
+                    "description": "The `id` of the video clip.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -5467,8 +5467,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Fetch a video",
-                "description": "Returns a single video by its `id`.",
+                "summary": "Fetch a video clip",
+                "description": "Returns a single video clip by its `id`.",
                 "operationId": "fetchOne.videos",
                 "parameters": [
                     {
@@ -5491,7 +5491,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested video.",
+                        "description": "The requested video clip.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -5524,8 +5524,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Delete a video",
-                "description": "Deletes the video identified by its `id`.",
+                "summary": "Delete a video clip",
+                "description": "Deletes the video clip identified by its `id`.",
                 "operationId": "delete.videos",
                 "responses": {
                     "204": {
@@ -5555,8 +5555,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Update a video",
-                "description": "Updates an existing video, applying the supplied attributes and relationships.",
+                "summary": "Update a video clip",
+                "description": "Updates an existing video clip, applying the supplied attributes and relationships.",
                 "operationId": "update.videos",
                 "requestBody": {
                     "content": {
@@ -12072,7 +12072,7 @@
             },
             "VideosAtomicAdd": {
                 "type": "object",
-                "description": "The video resource object an `add` operation creates.",
+                "description": "The video clip resource object an `add` operation creates.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -12096,7 +12096,7 @@
             },
             "VideosAtomicUpdate": {
                 "type": "object",
-                "description": "The video resource object an `update` operation writes.",
+                "description": "The video clip resource object an `update` operation writes.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -12325,7 +12325,7 @@
             },
             "VideosResource": {
                 "type": "object",
-                "description": "A video resource object.",
+                "description": "A video clip resource object.",
                 "properties": {
                     "type": {
                         "type": "string",

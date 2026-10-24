@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use Doctrine\Inflector\Inflector;
 use Doctrine\Inflector\InflectorFactory;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresSingularName;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 
 /**
@@ -14,7 +15,8 @@ use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
  *
  * The type name splits into lower-case words at `-`, `_`, spaces and camelCase
  * boundaries (`export-jobs` and `exportJobs` both read "export jobs"); an all-caps word
- * keeps its case. The singular inflects the last word only.
+ * keeps its case. The singular inflects the last word only, unless the metadata declares
+ * one ({@see DeclaresSingularName}), which is used as written.
  *
  * @internal
  */
@@ -43,7 +45,7 @@ final readonly class TypeNoun
 
     public static function of(TypeMetadataInterface $type): self
     {
-        return self::fromType($type->type());
+        return self::fromType($type->type(), $type instanceof DeclaresSingularName ? $type->singularName() : null);
     }
 
     public static function fromType(string $type, ?string $singular = null): self
