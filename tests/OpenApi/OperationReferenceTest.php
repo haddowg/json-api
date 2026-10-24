@@ -152,4 +152,23 @@ final class OperationReferenceTest extends TestCase
         self::assertSame(SpecDescribedByResolver::operationsOf($document), SpecDescribedByResolver::fromDocument('/docs.json', $document)->operations());
         self::assertSame([], SpecDescribedByResolver::operationsOf(new Paths()));
     }
+
+    #[Test]
+    public function theAtomicEndpointIsDescribedWhenTheDocumentCarriesIt(): void
+    {
+        $metadata = new FakeServerMetadata('Music', '1', [], atomicOperations: new FakeAtomicOperationsMetadata('/operations'));
+        $resolver = SpecDescribedByResolver::fromMetadata('/api/docs.json', $metadata);
+
+        self::assertSame('/api/docs.json#/paths/~1operations/post', $resolver->describedBy(OperationReference::atomic('/operations')));
+        self::assertNull($resolver->describedBy(OperationReference::atomic('/batch')));
+    }
+
+    #[Test]
+    public function aDocumentWithoutTheAtomicEndpointDoesNotDescribeIt(): void
+    {
+        $albums = FakeTypeMetadata::resource('albums', [Id::make()->build()], operations: [OperationType::FetchOne]);
+        $resolver = SpecDescribedByResolver::fromMetadata('/api/docs.json', new FakeServerMetadata('Music', '1', [$albums]));
+
+        self::assertNull($resolver->describedBy(OperationReference::atomic('/operations')));
+    }
 }

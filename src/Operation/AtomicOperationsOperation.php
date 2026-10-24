@@ -28,11 +28,16 @@ final readonly class AtomicOperationsOperation implements JsonApiOperationInterf
 
     /**
      * @param list<OperationDescriptor> $descriptors
+     * @param string|null               $path        the endpoint's path as the OpenAPI document keys it
+     *                                               (the value {@see \haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface::path()}
+     *                                               returns, e.g. `/operations`), so the result document can be
+     *                                               described by its operation; `null` when the caller doesn't know it
      */
     public function __construct(
         private array $descriptors,
         private QueryParameters $queryParameters,
         private OperationContext $context,
+        private ?string $path = null,
     ) {
         // A synthetic, inert target: the atomic batch has no single primary
         // resource, so the type is the extension namespace sentinel and there is
@@ -53,6 +58,15 @@ final readonly class AtomicOperationsOperation implements JsonApiOperationInterf
     public function context(): OperationContext
     {
         return $this->context;
+    }
+
+    /**
+     * The endpoint's path as the OpenAPI document keys it, or `null` when the caller
+     * that built the operation didn't supply it.
+     */
+    public function path(): ?string
+    {
+        return $this->path;
     }
 
     /**

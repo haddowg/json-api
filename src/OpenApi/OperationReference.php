@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\Operation\AddToRelationshipOperation;
+use haddowg\JsonApi\Operation\AtomicOperationsOperation;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\CustomActionOperation;
 use haddowg\JsonApi\Operation\DeleteResourceOperation;
@@ -78,9 +79,18 @@ final readonly class OperationReference
     }
 
     /**
+     * The Atomic Operations endpoint's `POST`, at `$path` as the document keys it (the
+     * value {@see Metadata\AtomicOperationsMetadataInterface::path()} returns).
+     */
+    public static function atomic(string $path): self
+    {
+        return new self($path, 'post');
+    }
+
+    /**
      * The operation a dispatched JSON:API operation was served as, or `null` when it
-     * has no single path in the document (an Atomic Operations batch, whose endpoint
-     * path the runtime doesn't know).
+     * has no single path in the document (an Atomic Operations batch built without its
+     * endpoint path).
      *
      * The URI segment is the type's {@see UriTypeAwareInterface::uriType()} when its
      * registered serializer declares one, else the JSON:API type, the same fallback the
@@ -88,6 +98,12 @@ final readonly class OperationReference
      */
     public static function forOperation(JsonApiOperationInterface $operation, SerializerResolverInterface $resolver): ?self
     {
+        if ($operation instanceof AtomicOperationsOperation) {
+            $path = $operation->path();
+
+            return $path === null ? null : self::atomic($path);
+        }
+
         $target = $operation->target();
         $uriType = self::uriTypeOf($target->type, $resolver);
         $relationship = $target->relationship ?? '';

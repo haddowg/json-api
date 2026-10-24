@@ -68,4 +68,14 @@ final class AtomicOperationsOperationTest extends TestCase
     {
         self::assertTrue((new \ReflectionClass(AtomicOperationsOperation::class))->isReadOnly());
     }
+
+    #[Test]
+    public function carriesTheEndpointPathWhenGivenOne(): void
+    {
+        $query = new QueryParameters([], [], [], [], []);
+        $context = new OperationContext(new StubServer());
+
+        self::assertNull((new AtomicOperationsOperation([], $query, $context))->path());
+        self::assertSame('/operations', (new AtomicOperationsOperation([], $query, $context, '/operations'))->path());
+    }
 }
