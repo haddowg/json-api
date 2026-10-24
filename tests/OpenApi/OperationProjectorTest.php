@@ -263,7 +263,7 @@ final class OperationProjectorTest extends TestCase
         self::assertSame('deepObject', $this->strAt($rating, 'style'));
         self::assertTrue($this->at($rating, 'explode'));
         self::assertSame(
-            'Matches values within the given inclusive numeric range (min/max, either optional).',
+            'Matches values within the given inclusive numeric range.',
             $this->strAt($rating, 'description'),
         );
 

@@ -351,9 +351,9 @@ final class OpenApiProjector
             if ($allowsUpdate) {
                 $schemas[$name . 'UpdateAttributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Update, $collector);
             }
-            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description(), '#/components/schemas/' . $name . 'Attributes');
+            $resource = $this->schemaProjector->projectResourceObject($type->type(), $fields, $collector, $type->description() ?? SchemaProjector::resourceObjectDescription($type->type(), TypeNoun::of($type)->singular), '#/components/schemas/' . $name . 'Attributes');
         } else {
-            $resource = $this->permissiveResourceObject($type->type(), $type->description());
+            $resource = $this->permissiveResourceObject($type->type(), $type->description() ?? SchemaProjector::resourceObjectDescription($type->type(), TypeNoun::of($type)->singular));
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
         $resource = $this->withLinksAndSharedMeta($resource, $name);
@@ -574,7 +574,7 @@ final class OpenApiProjector
                 : Schema::ofType('object'))
             ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
-            ->withDescription('The resource object an `add` operation creates.');
+            ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
 
         if ($type->allowsClientId()) {
             // A client `id` is permitted: `id`, `lid`, or neither (server-assigned),
@@ -617,7 +617,7 @@ final class OpenApiProjector
                 : Schema::ofType('object'))
             ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: false) ?? Schema::ofType('object'))
             ->withRequired(['type'])
-            ->withDescription('The resource object an `update` operation writes.')
+            ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `update` operation writes.')
             ->withOneOf([
                 Schema::create()->withTitle('By id')->withRequired(['id']),
                 Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
@@ -657,7 +657,7 @@ final class OpenApiProjector
     private function atomicOperationSchema(ServerMetadataInterface $server): Schema
     {
         $ref = Schema::ofType('object')
-            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; an optional `relationship` narrows the target to that relationship.')
+            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.')
             ->withProperty('type', Schema::ofType('string'))
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string')->withDescription('A local id referencing a resource created earlier in the same batch.'))
@@ -687,7 +687,7 @@ final class OpenApiProjector
     private function atomicResultSchema(ServerMetadataInterface $server): Schema
     {
         return Schema::ofType('object')
-            ->withDescription('The result fragment of one operation. Carries `data` and/or `meta` only; an empty object `{}` is valid (e.g. a `remove`).')
+            ->withDescription('The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.')
             ->withProperty('data', $this->atomicResultDataSchema($server))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
     }

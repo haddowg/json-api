@@ -234,7 +234,7 @@ final readonly class LinkSchemaProjector
             ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
             ->withProperty('rel', Schema::ofType('string'))
             ->withProperty('describedby', Schema::create()
-                ->withDescription('A link to a description document for the link\'s target: a URI-reference, or a link object.')
+                ->withDescription('A link to a description document for the link\'s target.')
                 ->withAnyOf([
                     Schema::ofType('string')->withFormat('uri-reference'),
                     Schema::ofType('object')
@@ -251,7 +251,7 @@ final readonly class LinkSchemaProjector
             ->withRequired(['href']);
 
         return Schema::create()
-            ->withDescription('A JSON:API link: a string URI, a link object, or null (e.g. an absent pagination link).')
+            ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.')
             ->withAnyOf([
                 Schema::ofType('string')->withFormat('uri-reference'),
                 $object,

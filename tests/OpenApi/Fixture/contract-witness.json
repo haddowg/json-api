@@ -65,7 +65,7 @@
                     {
                         "name": "filter[rating]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive numeric range (min/max, either optional).",
+                        "description": "Matches values within the given inclusive numeric range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -87,7 +87,7 @@
                     {
                         "name": "filter[publishedAt]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive date-time range (min/max ISO-8601, either optional).",
+                        "description": "Matches values within the given inclusive date-time range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -185,7 +185,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `title`, `-title`, `wordCount`, `-wordCount`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -204,7 +204,7 @@
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -222,7 +222,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -272,7 +272,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -290,7 +290,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -339,7 +339,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`. Allowed tokens: `_self_`, `tags`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -360,7 +360,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A collection of articles resources.",
+                        "description": "A collection of articles.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -390,14 +390,14 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Create a articles",
-                "description": "Creates a new `articles` resource from the supplied attributes and relationships.",
+                "summary": "Create an article",
+                "description": "Creates a new article from the supplied attributes and relationships.",
                 "operationId": "create.articles",
                 "parameters": [
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -415,7 +415,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -465,7 +465,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -483,7 +483,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -510,7 +510,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "The created articles resource.",
+                        "description": "The created article.",
                         "headers": {
                             "Location": {
                                 "description": "The URL of the created resource.",
@@ -568,7 +568,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -580,14 +580,14 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch a articles",
-                "description": "Returns a single `articles` resource by its `id`.",
+                "summary": "Fetch an article",
+                "description": "Returns a single article by its `id`.",
                 "operationId": "fetchOne.articles",
                 "parameters": [
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -605,7 +605,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -655,7 +655,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -673,7 +673,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -693,7 +693,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested articles resource.",
+                        "description": "The requested article.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -738,8 +738,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Delete a articles",
-                "description": "Deletes the `articles` resource identified by its `id`.",
+                "summary": "Delete an article",
+                "description": "Deletes the article identified by its `id`.",
                 "operationId": "delete.articles",
                 "responses": {
                     "204": {
@@ -779,14 +779,14 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Update a articles",
-                "description": "Updates an existing `articles` resource, applying the supplied attributes and relationships.",
+                "summary": "Update an article",
+                "description": "Updates an existing article, applying the supplied attributes and relationships.",
                 "operationId": "update.articles",
                 "parameters": [
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -804,7 +804,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -854,7 +854,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -872,7 +872,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -899,7 +899,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "The updated articles resource.",
+                        "description": "The updated article.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -1006,7 +1006,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1018,7 +1018,7 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related author of a articles",
+                "summary": "Fetch the related author of an article",
                 "description": "Who wrote it.",
                 "operationId": "fetchRelated.articles.author",
                 "parameters": [
@@ -1033,7 +1033,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1051,7 +1051,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The related author resource (or `null`).",
+                        "description": "The related author resource.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -1086,7 +1086,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1098,7 +1098,7 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the author relationship of a articles",
+                "summary": "Fetch the author relationship of an article",
                 "description": "Who wrote it.",
                 "operationId": "fetchRelationship.articles.author",
                 "parameters": [
@@ -1146,7 +1146,7 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the author relationship of a articles",
+                "summary": "Replace the author relationship of an article",
                 "description": "Who wrote it.",
                 "operationId": "updateRelationship.articles.author",
                 "requestBody": {
@@ -1210,7 +1210,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1222,8 +1222,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related tags of a articles",
-                "description": "Returns the related `tags` resources of a `articles`.",
+                "summary": "Fetch the related tags of an article",
+                "description": "Returns the related `tags` resources of an article.",
                 "operationId": "fetchRelated.articles.tags",
                 "parameters": [
                     {
@@ -1253,7 +1253,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `id`, `-id`, `label`, `-label`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1272,7 +1272,7 @@
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `articles`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1288,7 +1288,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1305,7 +1305,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1387,7 +1387,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1439,7 +1439,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1451,8 +1451,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the tags relationship of a articles",
-                "description": "Returns the `tags` relationship linkage of a `articles`.",
+                "summary": "Fetch the tags relationship of an article",
+                "description": "Returns the `tags` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.tags",
                 "parameters": [
                     {
@@ -1482,7 +1482,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `id`, `-id`, `label`, `-label`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1533,7 +1533,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1583,8 +1583,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Add to the tags relationship of a articles",
-                "description": "Adds the supplied members to the `tags` relationship of a `articles`.",
+                "summary": "Add to the tags relationship of an article",
+                "description": "Adds the supplied members to the `tags` relationship of an article.",
                 "operationId": "addRelationship.articles.tags",
                 "requestBody": {
                     "content": {
@@ -1645,8 +1645,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Remove from the tags relationship of a articles",
-                "description": "Removes the supplied members from the `tags` relationship of a `articles`.",
+                "summary": "Remove from the tags relationship of an article",
+                "description": "Removes the supplied members from the `tags` relationship of an article.",
                 "operationId": "removeRelationship.articles.tags",
                 "requestBody": {
                     "content": {
@@ -1707,8 +1707,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the tags relationship of a articles",
-                "description": "Fully replaces the `tags` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the tags relationship of an article",
+                "description": "Fully replaces the `tags` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.tags",
                 "requestBody": {
                     "content": {
@@ -1771,7 +1771,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1783,8 +1783,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related publisher of a articles",
-                "description": "Returns the related `publisher` resource of a `articles` (or `null`).",
+                "summary": "Fetch the related publisher of an article",
+                "description": "Returns the related `publisher` resource of an article.",
                 "operationId": "fetchRelated.articles.publisher",
                 "parameters": [
                     {
@@ -1798,7 +1798,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1816,7 +1816,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The related publisher resource (or `null`).",
+                        "description": "The related publisher resource.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -1851,7 +1851,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1863,8 +1863,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the publisher relationship of a articles",
-                "description": "Returns the `publisher` relationship linkage of a `articles`.",
+                "summary": "Fetch the publisher relationship of an article",
+                "description": "Returns the `publisher` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.publisher",
                 "parameters": [
                     {
@@ -1911,8 +1911,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the publisher relationship of a articles",
-                "description": "Fully replaces the `publisher` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the publisher relationship of an article",
+                "description": "Fully replaces the `publisher` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.publisher",
                 "requestBody": {
                     "content": {
@@ -1975,7 +1975,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -1987,8 +1987,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the cover relationship of a articles",
-                "description": "Returns the `cover` relationship linkage of a `articles`.",
+                "summary": "Fetch the cover relationship of an article",
+                "description": "Returns the `cover` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.cover",
                 "responses": {
                     "200": {
@@ -2025,8 +2025,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the cover relationship of a articles",
-                "description": "Fully replaces the `cover` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the cover relationship of an article",
+                "description": "Fully replaces the `cover` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.cover",
                 "requestBody": {
                     "content": {
@@ -2089,7 +2089,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2101,8 +2101,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related locked of a articles",
-                "description": "Returns the related `locked` resources of a `articles`.",
+                "summary": "Fetch the related locked of an article",
+                "description": "Returns the related `locked` resources of an article.",
                 "operationId": "fetchRelated.articles.locked",
                 "parameters": [
                     {
@@ -2116,7 +2116,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2169,7 +2169,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2181,8 +2181,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the locked relationship of a articles",
-                "description": "Returns the `locked` relationship linkage of a `articles`.",
+                "summary": "Fetch the locked relationship of an article",
+                "description": "Returns the `locked` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.locked",
                 "parameters": [
                     {
@@ -2231,7 +2231,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2243,14 +2243,14 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related attachments of a articles",
-                "description": "Returns the related `attachments` resources of a `articles`.",
+                "summary": "Fetch the related attachments of an article",
+                "description": "Returns the related `attachments` resources of an article.",
                 "operationId": "fetchRelated.articles.attachments",
                 "parameters": [
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2267,7 +2267,7 @@
                     {
                         "name": "fields[videos]",
                         "in": "query",
-                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2319,7 +2319,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2331,8 +2331,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the attachments relationship of a articles",
-                "description": "Returns the `attachments` relationship linkage of a `articles`.",
+                "summary": "Fetch the attachments relationship of an article",
+                "description": "Returns the `attachments` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.attachments",
                 "responses": {
                     "200": {
@@ -2369,8 +2369,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Add to the attachments relationship of a articles",
-                "description": "Adds the supplied members to the `attachments` relationship of a `articles`.",
+                "summary": "Add to the attachments relationship of an article",
+                "description": "Adds the supplied members to the `attachments` relationship of an article.",
                 "operationId": "addRelationship.articles.attachments",
                 "requestBody": {
                     "content": {
@@ -2431,8 +2431,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Remove from the attachments relationship of a articles",
-                "description": "Removes the supplied members from the `attachments` relationship of a `articles`.",
+                "summary": "Remove from the attachments relationship of an article",
+                "description": "Removes the supplied members from the `attachments` relationship of an article.",
                 "operationId": "removeRelationship.articles.attachments",
                 "requestBody": {
                     "content": {
@@ -2493,8 +2493,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the attachments relationship of a articles",
-                "description": "Fully replaces the `attachments` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the attachments relationship of an article",
+                "description": "Fully replaces the `attachments` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.attachments",
                 "requestBody": {
                     "content": {
@@ -2557,7 +2557,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2569,8 +2569,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the reviewer relationship of a articles",
-                "description": "Fully replaces the `reviewer` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the reviewer relationship of an article",
+                "description": "Fully replaces the `reviewer` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.reviewer",
                 "requestBody": {
                     "content": {
@@ -2626,7 +2626,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2638,8 +2638,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Add to the watchers relationship of a articles",
-                "description": "Adds the supplied members to the `watchers` relationship of a `articles`.",
+                "summary": "Add to the watchers relationship of an article",
+                "description": "Adds the supplied members to the `watchers` relationship of an article.",
                 "operationId": "addRelationship.articles.watchers",
                 "requestBody": {
                     "content": {
@@ -2693,8 +2693,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Remove from the watchers relationship of a articles",
-                "description": "Removes the supplied members from the `watchers` relationship of a `articles`.",
+                "summary": "Remove from the watchers relationship of an article",
+                "description": "Removes the supplied members from the `watchers` relationship of an article.",
                 "operationId": "removeRelationship.articles.watchers",
                 "requestBody": {
                     "content": {
@@ -2748,8 +2748,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the watchers relationship of a articles",
-                "description": "Fully replaces the `watchers` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the watchers relationship of an article",
+                "description": "Fully replaces the `watchers` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.watchers",
                 "requestBody": {
                     "content": {
@@ -2805,7 +2805,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2817,8 +2817,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the related editor of a articles",
-                "description": "Returns the related `editor` resource of a `articles` (or `null`).",
+                "summary": "Fetch the related editor of an article",
+                "description": "Returns the related `editor` resource of an article.",
                 "operationId": "fetchRelated.articles.editor",
                 "parameters": [
                     {
@@ -2832,7 +2832,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2850,7 +2850,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The related editor resource (or `null`).",
+                        "description": "The related editor resource.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -2885,7 +2885,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -2897,8 +2897,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Fetch the editor relationship of a articles",
-                "description": "Returns the `editor` relationship linkage of a `articles`.",
+                "summary": "Fetch the editor relationship of an article",
+                "description": "Returns the `editor` relationship linkage of an article.",
                 "operationId": "fetchRelationship.articles.editor",
                 "parameters": [
                     {
@@ -2945,8 +2945,8 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Replace the editor relationship of a articles",
-                "description": "Fully replaces the `editor` relationship of a `articles` with the supplied linkage.",
+                "summary": "Replace the editor relationship of an article",
+                "description": "Fully replaces the `editor` relationship of an article with the supplied linkage.",
                 "operationId": "updateRelationship.articles.editor",
                 "requestBody": {
                     "content": {
@@ -3009,7 +3009,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -3022,13 +3022,13 @@
                     "Articles"
                 ],
                 "summary": "Publish the article",
-                "description": "Invokes the `publish` custom action on a `articles` resource.",
+                "description": "Invokes the `publish` custom action on an article.",
                 "operationId": "action.articles.publish",
                 "parameters": [
                     {
                         "name": "include",
                         "in": "query",
-                        "description": "A comma-separated list of relationship paths to include in a compound document. Allowed paths: `author`, `tags`, `author.company`.",
+                        "description": "A comma-separated list of relationship paths to include in a compound document.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3046,7 +3046,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3096,7 +3096,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3114,7 +3114,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3178,7 +3178,7 @@
                     "Articles"
                 ],
                 "summary": "Invoke the `import` action",
-                "description": "Invokes the `import` custom action on a `articles` resource.",
+                "description": "Invokes the `import` custom action on the articles collection.",
                 "operationId": "action.articles.import",
                 "requestBody": {
                     "description": "A raw request body; the action relaxes content-type negotiation and owns the body shape.",
@@ -3225,7 +3225,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `articles` resource identifier.",
+                    "description": "The `id` of the article.",
                     "required": true,
                     "schema": {
                         "type": "string",
@@ -3287,7 +3287,7 @@
                     "Articles"
                 ],
                 "summary": "Invoke the `stats` action",
-                "description": "Invokes the `stats` custom action on a `articles` resource.",
+                "description": "Invokes the `stats` custom action on the articles collection.",
                 "operationId": "action.articles.stats",
                 "responses": {
                     "200": {
@@ -3333,7 +3333,7 @@
                     "People"
                 ],
                 "summary": "List people",
-                "description": "Returns a paginated collection of `people` resources.",
+                "description": "Returns a paginated collection of people.",
                 "operationId": "fetchCollection.people",
                 "parameters": [
                     {
@@ -3347,7 +3347,7 @@
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3451,7 +3451,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A collection of people resources.",
+                        "description": "A collection of people.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -3479,14 +3479,14 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Create a people",
-                "description": "Creates a new `people` resource from the supplied attributes and relationships.",
+                "summary": "Create a person",
+                "description": "Creates a new person from the supplied attributes and relationships.",
                 "operationId": "create.people",
                 "parameters": [
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3514,7 +3514,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "The created people resource.",
+                        "description": "The created person.",
                         "headers": {
                             "Location": {
                                 "description": "The URL of the created resource.",
@@ -3567,7 +3567,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `people` resource identifier.",
+                    "description": "The `id` of the person.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -3578,14 +3578,14 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Fetch a people",
-                "description": "Returns a single `people` resource by its `id`.",
+                "summary": "Fetch a person",
+                "description": "Returns a single person by its `id`.",
                 "operationId": "fetchOne.people",
                 "parameters": [
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3606,7 +3606,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested people resource.",
+                        "description": "The requested person.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -3639,8 +3639,8 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Delete a people",
-                "description": "Deletes the `people` resource identified by its `id`.",
+                "summary": "Delete a person",
+                "description": "Deletes the person identified by its `id`.",
                 "operationId": "delete.people",
                 "responses": {
                     "204": {
@@ -3670,14 +3670,14 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Update a people",
-                "description": "Updates an existing `people` resource, applying the supplied attributes and relationships.",
+                "summary": "Update a person",
+                "description": "Updates an existing person, applying the supplied attributes and relationships.",
                 "operationId": "update.people",
                 "parameters": [
                     {
                         "name": "fields[people]",
                         "in": "query",
-                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets). Allowed members: `name`, `role`, `company`.",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3705,7 +3705,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "The updated people resource.",
+                        "description": "The updated person.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -3749,7 +3749,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `people` resource identifier.",
+                    "description": "The `id` of the person.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -3760,8 +3760,8 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Fetch the company relationship of a people",
-                "description": "Returns the `company` relationship linkage of a `people`.",
+                "summary": "Fetch the company relationship of a person",
+                "description": "Returns the `company` relationship linkage of a person.",
                 "operationId": "fetchRelationship.people.company",
                 "responses": {
                     "200": {
@@ -3798,8 +3798,8 @@
                 "tags": [
                     "People"
                 ],
-                "summary": "Replace the company relationship of a people",
-                "description": "Fully replaces the `company` relationship of a `people` with the supplied linkage.",
+                "summary": "Replace the company relationship of a person",
+                "description": "Fully replaces the `company` relationship of a person with the supplied linkage.",
                 "operationId": "updateRelationship.people.company",
                 "requestBody": {
                     "content": {
@@ -3858,7 +3858,7 @@
                     "Tags"
                 ],
                 "summary": "List tags",
-                "description": "Returns a paginated collection of `tags` resources.",
+                "description": "Returns a paginated collection of tags.",
                 "operationId": "fetchCollection.tags",
                 "parameters": [
                     {
@@ -3893,7 +3893,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `id`, `-id`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3910,7 +3910,7 @@
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -3965,7 +3965,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A collection of tags resources.",
+                        "description": "A collection of tags.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -3995,8 +3995,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Create a tags",
-                "description": "Creates a new `tags` resource from the supplied attributes and relationships.",
+                "summary": "Create a tag",
+                "description": "Creates a new tag from the supplied attributes and relationships.",
                 "operationId": "create.tags",
                 "requestBody": {
                     "content": {
@@ -4047,7 +4047,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `tags` resource identifier.",
+                    "description": "The `id` of the tag.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -4058,14 +4058,14 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Fetch a tags",
-                "description": "Returns a single `tags` resource by its `id`.",
+                "summary": "Fetch a tag",
+                "description": "Returns a single tag by its `id`.",
                 "operationId": "fetchOne.tags",
                 "parameters": [
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4085,7 +4085,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested tags resource.",
+                        "description": "The requested tag.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -4118,8 +4118,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Delete a tags",
-                "description": "Deletes the `tags` resource identified by its `id`.",
+                "summary": "Delete a tag",
+                "description": "Deletes the tag identified by its `id`.",
                 "operationId": "delete.tags",
                 "responses": {
                     "204": {
@@ -4149,14 +4149,14 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Update a tags",
-                "description": "Updates an existing `tags` resource, applying the supplied attributes and relationships.",
+                "summary": "Update a tag",
+                "description": "Updates an existing tag, applying the supplied attributes and relationships.",
                 "operationId": "update.tags",
                 "parameters": [
                     {
                         "name": "fields[tags]",
                         "in": "query",
-                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets). Allowed members: `label`, `articles`.",
+                        "description": "A comma-separated list of `tags` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4183,7 +4183,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "The updated tags resource.",
+                        "description": "The updated tag.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -4227,7 +4227,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `tags` resource identifier.",
+                    "description": "The `id` of the tag.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -4238,8 +4238,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Fetch the related articles of a tags",
-                "description": "Returns the related `articles` resources of a `tags`.",
+                "summary": "Fetch the related articles of a tag",
+                "description": "Returns the related `articles` resources of a tag.",
                 "operationId": "fetchRelated.tags.articles",
                 "parameters": [
                     {
@@ -4270,7 +4270,7 @@
                     {
                         "name": "filter[rating]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive numeric range (min/max, either optional).",
+                        "description": "Matches values within the given inclusive numeric range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -4292,7 +4292,7 @@
                     {
                         "name": "filter[publishedAt]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive date-time range (min/max ISO-8601, either optional).",
+                        "description": "Matches values within the given inclusive date-time range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -4390,7 +4390,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `title`, `-title`, `wordCount`, `-wordCount`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4409,7 +4409,7 @@
                     {
                         "name": "fields[articles]",
                         "in": "query",
-                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets). Allowed members: `title`, `slug`, `status`, `priority`, `wordCount`, `rating`, `featured`, `releasedOn`, `publishedAt`, `syncedAt`, `archivedAt`, `embargoLifts`, `editorEmail`, `canonicalUrl`, `excerpt`, `revision`, `reviewNote`, `originIp`, `keywords`, `analytics`, `address`, `block`, `contact`, `createdAt`, `legacyRef`, `commentCount`, `authorName`, `score`, `author`, `tags`, `publisher`, `cover`, `locked`, `attachments`, `editor`.",
+                        "description": "A comma-separated list of `articles` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4459,7 +4459,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`. Allowed tokens: `tags`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=tags`, to receive that relation's total on each resource in `relationships.tags.meta.total`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4511,7 +4511,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `tags` resource identifier.",
+                    "description": "The `id` of the tag.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -4522,8 +4522,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Fetch the articles relationship of a tags",
-                "description": "Returns the `articles` relationship linkage of a `tags`.",
+                "summary": "Fetch the articles relationship of a tag",
+                "description": "Returns the `articles` relationship linkage of a tag.",
                 "operationId": "fetchRelationship.tags.articles",
                 "parameters": [
                     {
@@ -4554,7 +4554,7 @@
                     {
                         "name": "filter[rating]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive numeric range (min/max, either optional).",
+                        "description": "Matches values within the given inclusive numeric range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -4576,7 +4576,7 @@
                     {
                         "name": "filter[publishedAt]",
                         "in": "query",
-                        "description": "Matches values within the given inclusive date-time range (min/max ISO-8601, either optional).",
+                        "description": "Matches values within the given inclusive date-time range.",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -4674,7 +4674,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order. Allowed tokens: `title`, `-title`, `wordCount`, `-wordCount`.",
+                        "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4726,8 +4726,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Add to the articles relationship of a tags",
-                "description": "Adds the supplied members to the `articles` relationship of a `tags`.",
+                "summary": "Add to the articles relationship of a tag",
+                "description": "Adds the supplied members to the `articles` relationship of a tag.",
                 "operationId": "addRelationship.tags.articles",
                 "requestBody": {
                     "content": {
@@ -4783,8 +4783,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Remove from the articles relationship of a tags",
-                "description": "Removes the supplied members from the `articles` relationship of a `tags`.",
+                "summary": "Remove from the articles relationship of a tag",
+                "description": "Removes the supplied members from the `articles` relationship of a tag.",
                 "operationId": "removeRelationship.tags.articles",
                 "requestBody": {
                     "content": {
@@ -4840,8 +4840,8 @@
                 "tags": [
                     "Tags"
                 ],
-                "summary": "Replace the articles relationship of a tags",
-                "description": "Fully replaces the `articles` relationship of a `tags` with the supplied linkage.",
+                "summary": "Replace the articles relationship of a tag",
+                "description": "Fully replaces the `articles` relationship of a tag with the supplied linkage.",
                 "operationId": "updateRelationship.tags.articles",
                 "requestBody": {
                     "content": {
@@ -4900,13 +4900,13 @@
                     "Media"
                 ],
                 "summary": "List images",
-                "description": "Returns a paginated collection of `images` resources.",
+                "description": "Returns a paginated collection of images.",
                 "operationId": "fetchCollection.images",
                 "parameters": [
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4955,7 +4955,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=clips`, to receive that relation's total on each resource in `relationships.clips.meta.total`. Allowed tokens: `clips`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request a relation name, e.g. `withCount=clips`, to receive that relation's total on each resource in `relationships.clips.meta.total`.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -4975,7 +4975,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A collection of images resources.",
+                        "description": "A collection of images.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -5007,7 +5007,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `images` resource identifier.",
+                    "description": "The `id` of the image.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -5018,14 +5018,14 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Fetch a images",
-                "description": "Returns a single `images` resource by its `id`.",
+                "summary": "Fetch an image",
+                "description": "Returns a single image by its `id`.",
                 "operationId": "fetchOne.images",
                 "parameters": [
                     {
                         "name": "fields[images]",
                         "in": "query",
-                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets). Allowed members: `url`, `clips`.",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5045,7 +5045,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested images resource.",
+                        "description": "The requested image.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -5080,7 +5080,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `images` resource identifier.",
+                    "description": "The `id` of the image.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -5091,8 +5091,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Fetch the related clips of a images",
-                "description": "Returns the related `clips` resources of a `images`.",
+                "summary": "Fetch the related clips of an image",
+                "description": "Returns the related `clips` resources of an image.",
                 "operationId": "fetchRelated.images.clips",
                 "parameters": [
                     {
@@ -5124,7 +5124,7 @@
                     {
                         "name": "fields[videos]",
                         "in": "query",
-                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5141,7 +5141,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5193,7 +5193,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `images` resource identifier.",
+                    "description": "The `id` of the image.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -5204,8 +5204,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Fetch the clips relationship of a images",
-                "description": "Returns the `clips` relationship linkage of a `images`.",
+                "summary": "Fetch the clips relationship of an image",
+                "description": "Returns the `clips` relationship linkage of an image.",
                 "operationId": "fetchRelationship.images.clips",
                 "parameters": [
                     {
@@ -5237,7 +5237,7 @@
                     {
                         "name": "withCount",
                         "in": "query",
-                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated). Allowed tokens: `_self_`.",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5290,7 +5290,7 @@
                     "Media"
                 ],
                 "summary": "List videos",
-                "description": "Returns a paginated collection of `videos` resources.",
+                "description": "Returns a collection of videos.",
                 "operationId": "fetchCollection.videos",
                 "parameters": [
                     {
@@ -5322,7 +5322,7 @@
                     {
                         "name": "fields[videos]",
                         "in": "query",
-                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5339,7 +5339,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A collection of videos resources.",
+                        "description": "A collection of videos.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -5369,14 +5369,14 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Create a videos",
-                "description": "Creates a new `videos` resource from the supplied attributes and relationships.",
+                "summary": "Create a video",
+                "description": "Creates a new video from the supplied attributes and relationships.",
                 "operationId": "create.videos",
                 "parameters": [
                     {
                         "name": "fields[videos]",
                         "in": "query",
-                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5403,7 +5403,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "The created videos resource.",
+                        "description": "The created video.",
                         "headers": {
                             "Location": {
                                 "description": "The URL of the created resource.",
@@ -5456,7 +5456,7 @@
                 {
                     "name": "id",
                     "in": "path",
-                    "description": "The `videos` resource identifier.",
+                    "description": "The `id` of the video.",
                     "required": true,
                     "schema": {
                         "type": "string"
@@ -5467,14 +5467,14 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Fetch a videos",
-                "description": "Returns a single `videos` resource by its `id`.",
+                "summary": "Fetch a video",
+                "description": "Returns a single video by its `id`.",
                 "operationId": "fetchOne.videos",
                 "parameters": [
                     {
                         "name": "fields[videos]",
                         "in": "query",
-                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets). Allowed members: `url`, `seconds`.",
+                        "description": "A comma-separated list of `videos` fields to return (sparse fieldsets).",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -5491,7 +5491,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The requested videos resource.",
+                        "description": "The requested video.",
                         "content": {
                             "application/vnd.api+json": {
                                 "schema": {
@@ -5524,8 +5524,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Delete a videos",
-                "description": "Deletes the `videos` resource identified by its `id`.",
+                "summary": "Delete a video",
+                "description": "Deletes the video identified by its `id`.",
                 "operationId": "delete.videos",
                 "responses": {
                     "204": {
@@ -5555,8 +5555,8 @@
                 "tags": [
                     "Media"
                 ],
-                "summary": "Update a videos",
-                "description": "Updates an existing `videos` resource, applying the supplied attributes and relationships.",
+                "summary": "Update a video",
+                "description": "Updates an existing video, applying the supplied attributes and relationships.",
                 "operationId": "update.videos",
                 "requestBody": {
                     "content": {
@@ -5763,7 +5763,7 @@
             },
             "ArticlesAtomicAdd": {
                 "type": "object",
-                "description": "The resource object an `add` operation creates.",
+                "description": "The article resource object an `add` operation creates.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -5818,7 +5818,7 @@
             },
             "ArticlesAtomicUpdate": {
                 "type": "object",
-                "description": "The resource object an `update` operation writes.",
+                "description": "The article resource object an `update` operation writes.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -7889,7 +7889,7 @@
                     },
                     "ref": {
                         "type": "object",
-                        "description": "A structural reference to the operation's target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; an optional `relationship` narrows the target to that relationship.",
+                        "description": "A structural reference to the operation's target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.",
                         "properties": {
                             "type": {
                                 "type": "string"
@@ -8084,7 +8084,7 @@
             },
             "AtomicResult": {
                 "type": "object",
-                "description": "The result fragment of one operation. Carries `data` and/or `meta` only; an empty object `{}` is valid (e.g. a `remove`).",
+                "description": "The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.",
                 "properties": {
                     "data": {
                         "description": "The created or updated resource (or its identifier) the operation returns.",
@@ -9341,7 +9341,7 @@
             },
             "HealthcheckResource": {
                 "type": "object",
-                "description": "An `healthcheck` resource object.",
+                "description": "A healthcheck resource object.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -9605,7 +9605,7 @@
             },
             "ImagesResource": {
                 "type": "object",
-                "description": "An `images` resource object.",
+                "description": "An image resource object.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -9848,7 +9848,7 @@
                 }
             },
             "LinkObject": {
-                "description": "A JSON:API link: a string URI, a link object, or null (e.g. an absent pagination link).",
+                "description": "A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.",
                 "anyOf": [
                     {
                         "type": "string",
@@ -9865,7 +9865,7 @@
                                 "type": "string"
                             },
                             "describedby": {
-                                "description": "A link to a description document for the link's target: a URI-reference, or a link object.",
+                                "description": "A link to a description document for the link's target.",
                                 "anyOf": [
                                     {
                                         "type": "string",
@@ -10204,7 +10204,7 @@
             },
             "PeopleAtomicAdd": {
                 "type": "object",
-                "description": "The resource object an `add` operation creates.",
+                "description": "The person resource object an `add` operation creates.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -10256,7 +10256,7 @@
             },
             "PeopleAtomicUpdate": {
                 "type": "object",
-                "description": "The resource object an `update` operation writes.",
+                "description": "The person resource object an `update` operation writes.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -10569,7 +10569,7 @@
             },
             "PeopleResource": {
                 "type": "object",
-                "description": "An `people` resource object.",
+                "description": "A person resource object.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -11619,7 +11619,7 @@
             },
             "TagsAtomicAdd": {
                 "type": "object",
-                "description": "The resource object an `add` operation creates.",
+                "description": "The tag resource object an `add` operation creates.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -11671,7 +11671,7 @@
             },
             "TagsAtomicUpdate": {
                 "type": "object",
-                "description": "The resource object an `update` operation writes.",
+                "description": "The tag resource object an `update` operation writes.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -11906,7 +11906,7 @@
             },
             "TagsResource": {
                 "type": "object",
-                "description": "An `tags` resource object.",
+                "description": "A tag resource object.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -12072,7 +12072,7 @@
             },
             "VideosAtomicAdd": {
                 "type": "object",
-                "description": "The resource object an `add` operation creates.",
+                "description": "The video resource object an `add` operation creates.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -12096,7 +12096,7 @@
             },
             "VideosAtomicUpdate": {
                 "type": "object",
-                "description": "The resource object an `update` operation writes.",
+                "description": "The video resource object an `update` operation writes.",
                 "properties": {
                     "type": {
                         "type": "string",
@@ -12325,7 +12325,7 @@
             },
             "VideosResource": {
                 "type": "object",
-                "description": "An `videos` resource object.",
+                "description": "A video resource object.",
                 "properties": {
                     "type": {
                         "type": "string",

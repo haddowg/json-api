@@ -681,7 +681,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertSame('Publish the article', $this->strAt($publish, 'summary'));
         // No declared description → a generated default (never left undescribed, D19).
         self::assertSame(
-            'Invokes the `publish` custom action on a `articles` resource.',
+            'Invokes the `publish` custom action on an article.',
             $this->strAt($publish, 'description'),
         );
     }
@@ -695,7 +695,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         self::assertSame('Invoke the `import` action', $this->strAt($import, 'summary'));
         self::assertSame(
-            'Invokes the `import` custom action on a `articles` resource.',
+            'Invokes the `import` custom action on the articles collection.',
             $this->strAt($import, 'description'),
         );
     }

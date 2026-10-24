@@ -29,6 +29,6 @@ final class Boolean extends WhereBuilder
         return parent::make($key, $column, '=')
             ->asBoolean()
             ->boolean()
-            ->describedAs('Matches the given boolean (true or false).');
+            ->describedAs('Matches the given boolean.');
     }
 }

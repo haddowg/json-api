@@ -646,11 +646,11 @@ final class OpenApiProjectorTest extends TestCase
         // `articles` declared `description: 'A blog article.'` → surfaced verbatim.
         self::assertSame('A blog article.', $this->strAt($schemas, 'ArticlesResource', 'description'));
 
-        // `tags` declared no description → the generated default naming the type.
-        self::assertSame('An `tags` resource object.', $this->strAt($schemas, 'TagsResource', 'description'));
+        // `tags` declared no description → the generated default naming one tag.
+        self::assertSame('A tag resource object.', $this->strAt($schemas, 'TagsResource', 'description'));
 
         // A standalone (fieldless) type's permissive resource object is described too.
-        self::assertSame('An `healthcheck` resource object.', $this->strAt($schemas, 'HealthcheckResource', 'description'));
+        self::assertSame('A healthcheck resource object.', $this->strAt($schemas, 'HealthcheckResource', 'description'));
     }
 
     #[Test]
@@ -659,23 +659,23 @@ final class OpenApiProjectorTest extends TestCase
         $paths = $this->arrAt($this->projector()->project($this->server())->toArray(), 'paths');
 
         self::assertSame(
-            'Returns a paginated collection of `articles` resources.',
+            'Returns a paginated collection of articles.',
             $this->strAt($paths, '/articles', 'get', 'description'),
         );
         self::assertSame(
-            'Returns a single `articles` resource by its `id`.',
+            'Returns a single article by its `id`.',
             $this->strAt($paths, '/articles/{id}', 'get', 'description'),
         );
         self::assertSame(
-            'Creates a new `articles` resource from the supplied attributes and relationships.',
+            'Creates a new article from the supplied attributes and relationships.',
             $this->strAt($paths, '/articles', 'post', 'description'),
         );
         self::assertSame(
-            'Updates an existing `articles` resource, applying the supplied attributes and relationships.',
+            'Updates an existing article, applying the supplied attributes and relationships.',
             $this->strAt($paths, '/articles/{id}', 'patch', 'description'),
         );
         self::assertSame(
-            'Deletes the `articles` resource identified by its `id`.',
+            'Deletes the article identified by its `id`.',
             $this->strAt($paths, '/articles/{id}', 'delete', 'description'),
         );
     }
@@ -697,7 +697,7 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame('Browse the article catalogue.', $this->strAt($paths, '/articles', 'get', 'description'));
         // … and the others still get their generated default.
         self::assertSame(
-            'Returns a single `articles` resource by its `id`.',
+            'Returns a single article by its `id`.',
             $this->strAt($paths, '/articles/{id}', 'get', 'description'),
         );
     }
@@ -715,23 +715,23 @@ final class OpenApiProjectorTest extends TestCase
 
         // `tags` declared no description → operation-specific generated defaults.
         self::assertSame(
-            'Returns the related `tags` resources of a `articles`.',
+            'Returns the related `tags` resources of an article.',
             $this->strAt($paths, '/articles/{id}/tags', 'get', 'description'),
         );
         self::assertSame(
-            'Returns the `tags` relationship linkage of a `articles`.',
+            'Returns the `tags` relationship linkage of an article.',
             $this->strAt($paths, '/articles/{id}/relationships/tags', 'get', 'description'),
         );
         self::assertSame(
-            'Fully replaces the `tags` relationship of a `articles` with the supplied linkage.',
+            'Fully replaces the `tags` relationship of an article with the supplied linkage.',
             $this->strAt($paths, '/articles/{id}/relationships/tags', 'patch', 'description'),
         );
         self::assertSame(
-            'Adds the supplied members to the `tags` relationship of a `articles`.',
+            'Adds the supplied members to the `tags` relationship of an article.',
             $this->strAt($paths, '/articles/{id}/relationships/tags', 'post', 'description'),
         );
         self::assertSame(
-            'Removes the supplied members from the `tags` relationship of a `articles`.',
+            'Removes the supplied members from the `tags` relationship of an article.',
             $this->strAt($paths, '/articles/{id}/relationships/tags', 'delete', 'description'),
         );
     }

@@ -867,7 +867,7 @@ final class SchemaProjectorTest extends TestCase
     {
         $schema = $this->projector()->projectResourceObject('articles', $this->fields())->toArray();
 
-        self::assertSame('An `articles` resource object.', $this->at($schema, 'description'));
+        self::assertSame('An article resource object.', $this->at($schema, 'description'));
     }
 
     #[Test]

@@ -38,7 +38,7 @@ class RangeBuilder implements FilterBuilderInterface
         return (new static($key, $column))
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches values within the given inclusive numeric range (min/max, either optional).');
+            ->describedAs('Matches values within the given inclusive numeric range.');
     }
 
     public function build(): Range
