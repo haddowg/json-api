@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/haddowg/json-api/compare/v1.9.0...v1.10.0) (2026-10-25)
+
+
+### Features
+
+* render a polymorphic to-many's members from the out-of-band linkage seam ([#213](https://github.com/haddowg/json-api/issues/213)) ([3bf0298](https://github.com/haddowg/json-api/commit/3bf0298aa102661575c6a817bdfa86ec7fa6898c))
+
 ## [1.9.0](https://github.com/haddowg/json-api/compare/v1.8.1...v1.9.0) (2026-10-24)
 
 
