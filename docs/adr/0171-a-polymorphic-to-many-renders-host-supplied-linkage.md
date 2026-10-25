@@ -1,0 +1,3 @@
+# A polymorphic to-many renders host-supplied linkage
+
+`MorphToMany` read its members straight off the model, so a host that narrows a relation's members, for example to the rows each member type's provider admits, could supply them for a monomorphic to-many through `RelationshipLinkageInterface` but not for a polymorphic one, short of writing them onto the parent, which a shared in-memory parent can't take. It now asks the same seam first and renders the supplied members as its linkage and `included`, reading the model only when nothing is supplied, so hosts narrow both kinds the same way and nothing changes for a host that supplies nothing.

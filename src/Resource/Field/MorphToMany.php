@@ -54,7 +54,13 @@ final readonly class MorphToMany extends AbstractRelationValue
                 ?? throw new \LogicException(\sprintf('No declared type of the "%s" relationship serializes the related object.', $this->state->name));
         });
 
-        if ($this->shouldDeferLinkage($model, $resolver)) {
+        // Out-of-band linkage, as for a monomorphic to-many: a host may supply this
+        // relation's members per (parent, relation), for example narrowed to the rows
+        // each member type's provider admits, without writing them onto the parent.
+        $linkage = $this->relationshipLinkage($model, $request, $resolver);
+        if ($linkage !== null) {
+            $relationship->setData($linkage->data, $serializer);
+        } elseif ($this->shouldDeferLinkage($model, $resolver)) {
             $relationship
                 ->setDataAsCallable(fn(): mixed => $this->relatedValue($model, $request, $this->state->name), $serializer)
                 ->omitDataWhenNotIncluded();

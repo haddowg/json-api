@@ -348,6 +348,16 @@ restores the standalone behaviour: every relation is treated as loaded and its
 linkage data is emitted. See [relations](relations.md) for the policy and the
 predicate contract.
 
+## Supplying to-many members
+
+`linkageForRelationship()` on the same seam supplies a to-many relation's members for a
+parent, for a `HasMany`, `BelongsToMany` and `MorphToMany` alike. Return a
+`RelationshipLinkage` holding the members to render, or `null` to read the parent as
+usual. The supplied members are the relationship's `data` and what it adds to
+`included`, so a host can render a narrowed set, such as the rows a scoped provider
+admits for each member type of a polymorphic relation, without writing it onto the
+parent.
+
 ## Supplying to-one targets
 
 By default a to-one relation renders whatever the parent model holds. An adapter
