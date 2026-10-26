@@ -129,6 +129,7 @@ final readonly class Id extends AbstractFieldValue
             return (string) $this->encoder->encode($raw);
         }
 
-        return $raw === null ? null : (\is_scalar($raw) ? (string) $raw : $raw);
+        // A Stringable key, such as a Uuid object, is its string form on the wire.
+        return $raw === null ? null : (\is_scalar($raw) || $raw instanceof \Stringable ? (string) $raw : $raw);
     }
 }
