@@ -57,12 +57,13 @@ final class OperationExampleProjector
     }
 
     /**
-     * The shared error responses with an example holding one error, built from the first
-     * code catalogued for the status: a document listing every code a status can carry
-     * reads as noise wherever the example is quoted. A status no catalogued code claims
-     * gets none.
+     * The shared error responses with an example holding one error: the status's
+     * representative code ({@see REPRESENTATIVE_CODES}) when the catalogue has it, else
+     * the first code catalogued for the status. A document listing every code a status
+     * can carry reads as noise wherever the example is quoted. A status no catalogued
+     * code claims gets none.
      *
-     * @param array<string, Response>               $components   response component name → response
+     * @param array<string, Response>                                               $components   response component name → response
      * @param array<int, non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor>> $descriptors status → descriptors, in catalogue order
      *
      * @return array<string, Response>
@@ -76,7 +77,7 @@ final class OperationExampleProjector
                 continue;
             }
 
-            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument($byStatus[0]));
+            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument(self::representative($status, $byStatus)));
             foreach ($misses as [$code, $field]) {
                 $this->recordMiss($name, $code, $field);
             }
@@ -86,6 +87,36 @@ final class OperationExampleProjector
         }
 
         return $components;
+    }
+
+    /**
+     * The core code each shared error response's example prefers, in order, when the
+     * catalogue has it: the error a reader most likely meets at that status on any of the
+     * operations sharing the response. Catalogue order sorts by class name, which would
+     * show an atomic-batch error for every `400` and a missing relationship for every `404`.
+     */
+    private const REPRESENTATIVE_CODES = [
+        400 => ['QUERY_PARAM_MALFORMED', 'REQUEST_BODY_INVALID_JSON_API'],
+        403 => ['ACCESS_DENIED'],
+        404 => ['RESOURCE_NOT_FOUND'],
+        409 => ['RESOURCE_TYPE_UNACCEPTABLE'],
+        422 => ['ATTRIBUTE_VALUE_INVALID'],
+    ];
+
+    /**
+     * @param non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor> $descriptors
+     */
+    private static function representative(int $status, array $descriptors): \haddowg\JsonApi\Exception\ErrorDescriptor
+    {
+        foreach (self::REPRESENTATIVE_CODES[$status] ?? [] as $code) {
+            foreach ($descriptors as $descriptor) {
+                if ($descriptor->code === $code) {
+                    return $descriptor;
+                }
+            }
+        }
+
+        return $descriptors[0];
     }
 
     /**

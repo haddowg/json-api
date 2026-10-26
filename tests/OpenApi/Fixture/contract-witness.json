@@ -13624,7 +13624,7 @@
                                     "parameter"
                                 ],
                                 "example": {
-                                    "parameter": "page"
+                                    "parameter": "include"
                                 }
                             }
                         },
@@ -15670,11 +15670,10 @@
                             "errors": [
                                 {
                                     "status": "400",
-                                    "code": "ATOMIC_OPERATIONS_INVALID",
-                                    "title": "Atomic operations request is invalid",
-                                    "detail": "Unknown atomic operation code 'upsert'.",
+                                    "code": "QUERY_PARAM_MALFORMED",
+                                    "title": "Query parameter is malformed",
                                     "source": {
-                                        "pointer": "/atomic:operations/0/op"
+                                        "parameter": "include"
                                     }
                                 }
                             ],
@@ -15740,8 +15739,8 @@
                             "errors": [
                                 {
                                     "status": "404",
-                                    "code": "RELATIONSHIP_NOT_EXISTS",
-                                    "title": "The requested relationship does not exist!"
+                                    "code": "RESOURCE_NOT_FOUND",
+                                    "title": "Resource not found"
                                 }
                             ],
                             "jsonapi": {
@@ -15788,10 +15787,10 @@
                             "errors": [
                                 {
                                     "status": "409",
-                                    "code": "CLIENT_GENERATED_ID_ALREADY_EXISTS",
-                                    "title": "Client generated ID already exists",
+                                    "code": "RESOURCE_TYPE_UNACCEPTABLE",
+                                    "title": "Resource type is unacceptable",
                                     "source": {
-                                        "pointer": "/data/id"
+                                        "pointer": "/data/type"
                                     }
                                 }
                             ],

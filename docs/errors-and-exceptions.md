@@ -347,8 +347,8 @@ optional, and a descriptor without them projects as it always has.
 A descriptor that declares a `source` should also give `exampleSource`, one value of that
 member: `/data/attributes/title` for a pointer, `include` for a parameter. Each shared error
 response in the document carries an [example](openapi.md#operation-examples) holding one
-error, from the first code catalogued at its status, and that example needs a value for the
-`source` the code always fills. Without one, the response gets no example and the projector
+error, and when that error is your code (the first catalogued at a status core has no
+preferred code for) the example needs a value for the `source` the code always fills. Without one, the response gets no example and the projector
 reports the gap. Every code core ships declares one.
 
 ### Contributing your codes to the catalogue

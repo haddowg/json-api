@@ -225,6 +225,21 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
+    public function anErrorResponsePrefersTheCodeAReaderMostLikelyMeets(): void
+    {
+        $document = $this->project([$this->articles()]);
+        $code = static fn(string $response): mixed => self::at($document, 'components', 'responses', $response, 'content', 'application/vnd.api+json', 'example', 'errors', '0', 'code');
+
+        self::assertSame('QUERY_PARAM_MALFORMED', $code('BadRequest'));
+        self::assertSame('ACCESS_DENIED', $code('Forbidden'));
+        self::assertSame('RESOURCE_NOT_FOUND', $code('NotFound'));
+        self::assertSame('RESOURCE_TYPE_UNACCEPTABLE', $code('Conflict'));
+        self::assertSame('ATTRIBUTE_VALUE_INVALID', $code('UnprocessableEntity'));
+        // A status with no preferred code keeps the first one catalogued.
+        self::assertSame('MEDIA_TYPE_UNSUPPORTED', $code('UnsupportedMediaType'));
+    }
+
+    #[Test]
     public function aContributedCodeLaterInTheCatalogueLeavesTheExampleAlone(): void
     {
         $server = new ContributingServerMetadata($this->server([$this->articles()]), new ClassListErrorSource(QuotaParameterRejected::class));
