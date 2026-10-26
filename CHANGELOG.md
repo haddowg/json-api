@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/haddowg/json-api/compare/v1.12.1...v1.13.0) (2026-10-26)
+
+
+### Features
+
+* generate operation examples from declared field examples ([#227](https://github.com/haddowg/json-api/issues/227)) ([f9730d6](https://github.com/haddowg/json-api/commit/f9730d6369f1d0939d3046a41655c08f3424647a))
+
+
+### Bug Fixes
+
+* report missing examples only for parts an override leaves generated ([#229](https://github.com/haddowg/json-api/issues/229)) ([30b12a8](https://github.com/haddowg/json-api/commit/30b12a860acd5dd69eb609ce083b906150359c0d))
+
 ## [1.12.1](https://github.com/haddowg/json-api/compare/v1.12.0...v1.12.1) (2026-10-26)
 
 
