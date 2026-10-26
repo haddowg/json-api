@@ -21,6 +21,12 @@ A single declared member of a **Resource** — an attribute or a **Relation**.
 A **Field** that links to another resource type (belongs-to, has-many, polymorphic).
 _Avoid_: association. (The output-emitted and input-parsed forms are distinct — see Flagged ambiguities.)
 
+**Declared link**:
+A named member of a **Resource**'s resource-object `links`, declared next to its fields so
+the OpenAPI projection can describe it; its `meta` members are **Fields**.
+_Avoid_: custom link, extra link. (Distinct from a link `getLinks()` returns at runtime, which
+the projection cannot name.)
+
 **Constraint**:
 Inert validation metadata attached to a **Field**; the core never executes it.
 _Avoid_: rule, assertion.

@@ -112,6 +112,121 @@ and [relations](relations.md)). You only reach for `getLinks()` when you want a
 `self` link the library can't derive, or an extra custom relation alongside it — a
 `self` you set here wins over the convention.
 
+## Declared links
+
+A link that belongs to every resource of a type, and that clients should find documented,
+is better declared than built in `getLinks()`. Declare it in `links()`, next to
+`fields()`, and the server renders it while the [OpenAPI document](openapi.md#links-and-describedby)
+describes it by name. A file whose bytes are uploaded to a signed URL is the usual case:
+the URL, the method and headers to send, and when the URL expires belong in the file's
+`links`, not its attributes.
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\ArrayHash;
+use haddowg\JsonApi\Resource\Field\DateTime;
+use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
+
+final class FileResource extends AbstractResource
+{
+    public static string $type = 'files';
+
+    public function fields(): array { /* … */ }
+
+    public function links(): array
+    {
+        return [
+            DeclaredLink::make('upload')
+                ->describedAs('Where to PUT the file\'s bytes, until it is uploaded.')
+                ->meta(
+                    Str::make('method')->in(['PUT'])->guaranteed()
+                        ->describedAs('The HTTP method to upload with.')->example('PUT'),
+                    ArrayHash::make('headers')->guaranteed()
+                        ->describedAs('Headers the upload must send.')->example(['Content-Type' => 'image/png']),
+                    DateTime::make('expiresAt')->guaranteed()
+                        ->describedAs('When the URL stops working.')->example('2026-10-26T12:00:00+00:00'),
+                )
+                ->linkUsing(function (mixed $file, JsonApiRequestInterface $request): ?array {
+                    \assert($file instanceof File);
+                    if ($file->isUploaded() || !$this->canUpload($file, $request)) {
+                        return null;
+                    }
+                    $signed = $this->uploads->sign($file);
+
+                    return [
+                        'href' => $signed->url,
+                        'meta' => ['method' => 'PUT', 'headers' => $signed->headers, 'expiresAt' => $signed->expiresAt],
+                    ];
+                })
+                ->example('https://uploads.example.com/f-1?signature=abc'),
+            DeclaredLink::make('download')
+                ->hrefUsing(fn(mixed $file, JsonApiRequestInterface $request): ?string => $file instanceof File && $file->isUploaded()
+                    ? '/files/' . $file->id . '/content'
+                    : null)
+                ->example('https://api.example.com/files/f-1/content'),
+        ];
+    }
+}
+```
+
+```json
+"links": {
+  "upload": {
+    "href": "https://uploads.example.com/f-1?signature=…",
+    "meta": {
+      "method": "PUT",
+      "headers": { "Content-Type": "image/png" },
+      "expiresAt": "2026-10-26T12:00:00+00:00"
+    }
+  },
+  "self": { "href": "https://api.example.com/files/f-1" }
+}
+```
+
+`DeclaredLink::make()` returns a builder, the way `Str::make()` does, and `links()` may
+return builders or built links:
+
+| Method | Does |
+| --- | --- |
+| `hrefUsing(fn($model, $request): ?string)` | builds the href for one resource |
+| `metaUsing(fn($model, $request): array)` | returns the meta values, keyed by member name; runs only when there is an href |
+| `linkUsing(fn($model, $request): string\|array\|null)` | one call for both: `null`, the href, or `['href' => …, 'meta' => […]]` |
+| `meta(...$fields)` | declares the `meta` members |
+| `describedAs()` / `example()` | the OpenAPI description and example `href` |
+| `rel()`, `title()`, `type()`, `hreflang()`, `describedBy()` | static link-object members; `type` is the target's media type |
+
+An href that resolves to `null`, or to an empty string, leaves the link out of that
+resource's `links`. That is how a link is hidden per viewer or per state: return `null`
+when the caller may not use it, or when it doesn't apply yet.
+
+Each meta member is a field, so it brings its schema, description and example with it,
+and its value renders the way that field renders an attribute. The member reads its value
+from the array the closure returned as it would read a model: a `DateTime` is formatted
+and follows the server's [output zone](server.md), a declared member missing from the
+array renders `null`, and a key no member declares is dropped. `hidden()` hides a member,
+and `hidden(when:)` hides it per request and model. A relation or an `Id` can't be a meta
+member.
+
+A link with no meta members and no static member renders as a bare URL string. Declaring
+any of them makes it a link object on every response, even one where every meta member is
+hidden, so its shape doesn't depend on the data. A relative href gets the server's base
+URI, as the built links do; the server's [link-object setting](#built-links-are-link-objects)
+doesn't change a declared link's shape.
+
+Declared links merge with the resource's other links. When two supply the same name, the
+first of these wins:
+
+1. a link `getLinks()` returns;
+2. a declared link;
+3. a contributed link, such as a custom action's link;
+4. the by-convention `self`.
+
+`self` can't be declared; use `getLinks()` or `emitsSelfLink()` for that. Sparse fieldsets
+select attributes and relationships, never links, so a `fields[files]` parameter leaves
+declared links alone.
+
 ## Link forms
 
 The links the server builds for you (the [auto-emitted ones below](#auto-emitted-links-you-dont-set-by-hand))
@@ -249,7 +364,8 @@ hand-built, non-paginated document, but `fromPage()` is the common path.
 
 - **Contributed links.** A framework integration can add resource links your
   `getLinks()` doesn't know about through a `ResourceLinkContributorInterface`,
-  such as a custom action's link. A key your `getLinks()` already sets wins.
+  such as a custom action's link. A key your `getLinks()` already sets, or a
+  [declared link](#declared-links) of the same name, wins.
 
 ## Built links are link objects
 

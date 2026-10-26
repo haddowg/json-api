@@ -12,6 +12,7 @@ use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface;
 use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
@@ -120,6 +121,16 @@ final class ResourceTransformer
         $links = $transformation->resource->getLinks($transformation->object, $transformation->request);
 
         $transformed = $links !== null ? $links->transform() : [];
+
+        // Declared links keep the shape their declaration gives them, and a name the
+        // author's getLinks() already set wins over them.
+        if ($transformation->resource instanceof RendersDeclaredLinksInterface) {
+            foreach ($transformation->resource->renderDeclaredLinks($transformation->object, $transformation->request) as $name => $link) {
+                if (isset($transformed[$name]) === false) {
+                    $transformed[$name] = $link->transform($transformation->baseUri);
+                }
+            }
+        }
 
         // Merge any out-of-band resource-link contribution (a framework binding's
         // router-generated links) ALONGSIDE the author's getLinks() — but never

@@ -7,12 +7,14 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkObjects;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
 
 /**
  * Projects the `links` schemas: the shared link shapes, and one links component per
@@ -84,7 +86,7 @@ final readonly class LinkSchemaProjector
      *
      * @return array<string, Schema>
      */
-    public function typeComponents(TypeMetadataInterface $type, string $base): array
+    public function typeComponents(TypeMetadataInterface $type, string $base, SchemaProjector $fields = new SchemaProjector(), ?EnumComponentCollector $collector = null): array
     {
         $uriType = $type->uriType();
         $resourcePath = $this->examplePath(PathTemplate::resource($uriType), $type);
@@ -95,6 +97,8 @@ final readonly class LinkSchemaProjector
         $resource = Schema::ofType('object')
             ->withDescription(\sprintf('The `links` of a resource object of type `%s`.', $type->type()))
             ->withProperty('self', $this->member($resourcePath, OperationReference::fetchOne($uriType), 'The resource\'s own URL.'));
+
+        $actionLinks = [];
         foreach ($type->actions() as $action) {
             if (!$action instanceof DeclaresActionLink || $action->scope() !== ActionScope::Resource) {
                 continue;
@@ -103,6 +107,22 @@ final readonly class LinkSchemaProjector
             if ($name === null || $name === '' || $action->methods() === []) {
                 continue;
             }
+            $actionLinks[$name] = $action;
+        }
+
+        foreach (self::declaredLinksOf($type) as $link) {
+            if (isset($actionLinks[$link->name])) {
+                throw new \LogicException(\sprintf(
+                    'Type "%s" declares the link "%s", which its "%s" action also renders as a resource link. Rename one of them.',
+                    $type->type(),
+                    $link->name,
+                    $actionLinks[$link->name]->path(),
+                ));
+            }
+            $resource = $resource->withProperty($link->name, $this->declaredLinkSchema($link, $fields, $collector));
+        }
+
+        foreach ($actionLinks as $name => $action) {
             $resource = $resource->withProperty($name, $this->member(
                 $this->examplePath(PathTemplate::action($uriType, $action->path(), ActionScope::Resource), $type),
                 OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0]),
@@ -141,6 +161,111 @@ final readonly class LinkSchemaProjector
         }
 
         return $components;
+    }
+
+    /**
+     * The links a type's metadata declares, or none when it does not implement
+     * {@see DeclaresResourceLinks}.
+     *
+     * @return list<DeclaredLink>
+     */
+    public static function declaredLinksOf(TypeMetadataInterface $type): array
+    {
+        return $type instanceof DeclaresResourceLinks ? $type->declaredLinks() : [];
+    }
+
+    /**
+     * Whether any type of the server declares a link, which the document's generator
+     * contract reflects ({@see GeneratorContract::DECLARED_LINKS}).
+     */
+    public static function serverDeclaresLinks(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            if (self::declaredLinksOf($type) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * One declared link's member of `<Type>ResourceLinks`. A link that renders as a bare
+     * string takes the open `LinkObject` union, as any author-supplied link does. One that
+     * renders as a link object gets its own object schema: `href`, each static member as a
+     * `const`, and a `meta` object whose members follow the read rules an attribute does.
+     */
+    private function declaredLinkSchema(DeclaredLink $link, SchemaProjector $fields, ?EnumComponentCollector $collector): Schema
+    {
+        $description = $link->description ?? \sprintf('The `%s` link, absent when it does not apply to the resource.', $link->name);
+        $example = self::declaredLinkExample($link);
+
+        if (!$link->rendersAsObject()) {
+            $schema = Schema::ref('#/components/schemas/LinkObject')->withDescription($description);
+
+            return $example === null ? $schema : $schema->withExample($example);
+        }
+
+        $schema = Schema::ofType('object')
+            ->withDescription($description)
+            ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'));
+        $required = ['href'];
+        foreach ($link->staticMembers() as $member => $value) {
+            $schema = $schema->withProperty($member, Schema::ofType('string')->withConst($value));
+            $required[] = $member;
+        }
+        if ($link->meta !== []) {
+            $meta = $fields->projectReadObject($link->meta, $collector);
+            $schema = $schema->withProperty('meta', $meta);
+            $metaRequired = $meta->get('required');
+            if (\is_array($metaRequired) && $metaRequired !== []) {
+                $required[] = 'meta';
+            }
+        }
+        if ($link->describedBy !== null) {
+            $schema = $schema->withProperty('describedby', Schema::ofType('string')->withFormat('uri-reference'));
+            $required[] = 'describedby';
+        }
+        $schema = $schema->withRequired($required);
+
+        return $example === null ? $schema : $schema->withExample($example);
+    }
+
+    /**
+     * A declared link's example as a response renders it: the declared `href` example, and
+     * for a link object its static members and every meta member's own example. `null`
+     * when any of those is undeclared; nothing is invented in its place.
+     *
+     * @return string|array<string, mixed>|null
+     */
+    public static function declaredLinkExample(DeclaredLink $link): string|array|null
+    {
+        if ($link->example === null) {
+            return null;
+        }
+        if (!$link->rendersAsObject()) {
+            return $link->example;
+        }
+
+        $example = ['href' => $link->example, ...$link->staticMembers()];
+        $meta = [];
+        foreach ($link->meta as $member) {
+            if ($member->isHidden() || $member->isWriteOnly()) {
+                continue;
+            }
+            if (!$member->hasExample()) {
+                return null;
+            }
+            $meta[$member->name()] = $member->getExample();
+        }
+        if ($meta !== []) {
+            $example['meta'] = $meta;
+        }
+        if ($link->describedBy !== null) {
+            $example['describedby'] = $link->describedBy;
+        }
+
+        return $example;
     }
 
     private function relationshipLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema

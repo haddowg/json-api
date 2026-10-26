@@ -330,6 +330,18 @@ final class SchemaProjector
      */
     public function projectReadPivotObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
     {
+        return $this->projectReadObject($fields, $collector);
+    }
+
+    /**
+     * Projects a set of fields a response renders as one object, such as a pivot's
+     * `meta.pivot` or a declared link's `meta`, under the read rules
+     * {@see projectReadPivotObject()} describes.
+     *
+     * @param iterable<FieldInterface> $fields
+     */
+    public function projectReadObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    {
         $properties = [];
         $required = [];
 

@@ -74,7 +74,7 @@ final class ContractWitnessTest extends TestCase
     }
 
     /**
-     * The same server without its raw action responses, accepted bodies and examples: the
+     * The same server without its raw action responses, accepted bodies, examples and declared links: the
      * shape every document shares, stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
      * this file, so a change that moves every document cannot hide behind a scoped bump.
      */
@@ -99,7 +99,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
@@ -108,8 +108,8 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT, GeneratorContract::ACCEPTED_BODIES, GeneratorContract::EXAMPLES), GeneratorContract::CONTRACT);
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true));
+        self::assertSame(['contract' => GeneratorContract::DECLARED_LINKS], GeneratorContract::toArray(declaredLinks: true));
         // A scoped tier never stamps below the baseline, which may since have overtaken it.
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::EXAMPLES)], GeneratorContract::toArray(examples: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT)], GeneratorContract::toArray(rawContent: true));
@@ -120,6 +120,6 @@ final class ContractWitnessTest extends TestCase
      */
     private function project(bool $scoped = true): string
     {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped))->toJsonString(pretty: true) . "\n";
+        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
     }
 }

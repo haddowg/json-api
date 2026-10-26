@@ -506,6 +506,48 @@ example leaves out any page member the paginator never renders.
 `additionalProperties` stays the open `LinkObject` (a string, a link
 object or `null`), because a `getLinks()` override can add any link in any shape.
 
+A resource's [declared links](links-and-meta.md#declared-links) are named properties of its
+`<Type>ResourceLinks`, none of them required, since a link whose href resolves to `null` is
+left out. A link with `meta` members or a static member, one of `rel`, `title`, `type`,
+`hreflang` and `describedby`, gets its own object schema: `href`, each static member as a
+`const`, and a `meta` object whose properties are the declared members, each projected the
+way an attribute is on a read, with its type, constraints, description and example. `meta`
+lists as required every member a request cannot hide, and the link lists `meta` when
+there is one. A link with neither takes the open `LinkObject` union, as an author-supplied
+link does:
+
+```json
+"FilesResourceLinks": {
+  "type": "object",
+  "properties": {
+    "self": { "…": "…" },
+    "upload": {
+      "type": "object",
+      "description": "Where to PUT the file's bytes.",
+      "properties": {
+        "href": { "type": "string", "format": "uri-reference" },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string", "enum": ["PUT"], "example": "PUT" },
+            "headers": { "type": "object", "additionalProperties": {}, "example": { "Content-Type": "image/png" } },
+            "expiresAt": { "type": "string", "format": "date-time", "example": "2026-10-26T12:00:00+00:00" }
+          },
+          "required": ["method", "headers", "expiresAt"]
+        }
+      },
+      "required": ["href", "meta"],
+      "example": { "href": "https://uploads.example.com/f-1?signature=…", "meta": { "…": "…" } }
+    }
+  },
+  "additionalProperties": { "$ref": "#/components/schemas/LinkObject" }
+}
+```
+
+A declared link may not share its name with an action's link, the one
+[`DeclaresActionLink`](#the-metadata-contract) names. The projection fails rather than
+describing one of them wrongly.
+
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
 strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
@@ -566,6 +608,12 @@ The examples show what the server sends and accepts:
   gets, the parameter and the profile included. Any other collection shows the count-free
   page. An unpaginated collection carries `meta.total`,
   which the server always renders for one.
+- A resource's [declared links](links-and-meta.md#declared-links) are in its `links`,
+  each built from its `href` example and its meta members' examples. A declared link is
+  part of what a read renders by default, the way an attribute is, so a link with no `href`
+  example, or a rendered meta member with no example, is a miss like any other: the
+  operation gets no example and the `MissingExample` names `links.<name>` or
+  `links.<name>.meta.<member>`.
 - A relationship endpoint carries the linkage document, and a relationship mutation the
   linkage it writes.
 - A custom action's response is built from the type its `ActionResource` names, and its
@@ -704,7 +752,9 @@ Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface`
 `describedby`, which is what a server renders by default. `DeclaresActionLink` extends
 `ActionMetadataInterface` with `linkName(): ?string`: a resource-scope action that returns a
 name is listed under it in its type's `<Type>ResourceLinks`, described by its first declared
-method.
+method. `DeclaresResourceLinks` extends `TypeMetadataInterface` with
+`declaredLinks(): list<DeclaredLink>`: return the resource's `allLinks()`. Metadata that
+doesn't implement it projects no declared links.
 
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
@@ -1034,12 +1084,15 @@ accepted request bodies (`ACCEPTED_BODIES`, 11) and raw action responses (`RAW_C
 10), each stamped only on a document that used it while the baseline was 9. Contract 13
 then moved the shape every document shares, giving every core error code a `detail`
 narrowing with its example, so the baseline is 13 and every document carries 13. The
-scoped constants still name the contract that introduced each structure, and a later
-scoped bump would sit above 13 the same way.
+scoped constants still name the contract that introduced each structure.
+
+Declared resource links, `DECLARED_LINKS` or 14, are the first scoped structure above that
+baseline: a document whose types declare a link carries 14, and every other document
+still carries 13, unchanged.
 
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
-witness, projected from the same server without its raw results, accepted bodies and
-examples, lets the CI guard hold `BASELINE` to that rule.
+witness, projected from the same server without its raw results, accepted bodies,
+examples and declared links, lets the CI guard hold `BASELINE` to that rule.
 
 #### Diffing documents across contracts
 

@@ -49,10 +49,11 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are three scoped
+ * is warned only by the documents that contain it. There are four scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
- * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), and the worked example
- * on an operation's request and responses ({@see EXAMPLES}). A change that moves every
+ * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
+ * on an operation's request and responses ({@see EXAMPLES}), and the named links a
+ * resource declares ({@see DECLARED_LINKS}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -66,7 +67,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 13;
+    public const CONTRACT = 14;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -101,17 +102,26 @@ final class GeneratorContract
     public const EXAMPLES = 12;
 
     /**
+     * The contract that introduced declared resource links: a named property of a type's
+     * `<Type>ResourceLinks` per link its resources declare, a link object carrying a typed
+     * `meta` where the link has meta members. A document carries it only when a type
+     * declares a link.
+     */
+    public const DECLARED_LINKS = 14;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
      */
-    public static function toArray(bool $rawContent = false, bool $acceptedBodies = false, bool $examples = false): array
+    public static function toArray(bool $rawContent = false, bool $acceptedBodies = false, bool $examples = false, bool $declaredLinks = false): array
     {
         return ['contract' => \max(
             self::BASELINE,
             $rawContent ? self::RAW_CONTENT : self::BASELINE,
             $acceptedBodies ? self::ACCEPTED_BODIES : self::BASELINE,
             $examples ? self::EXAMPLES : self::BASELINE,
+            $declaredLinks ? self::DECLARED_LINKS : self::BASELINE,
         )];
     }
 }
