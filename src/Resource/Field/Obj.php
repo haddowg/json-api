@@ -78,7 +78,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         }
 
         if ($this->state->extractUsing !== null) {
-            return ($this->state->extractUsing)($model, $request, $name);
+            return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
         }
 
         $value = Accessor::get($model, $this->state->column ?? $name);
@@ -90,14 +90,66 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         // — not the domain object — is what each child serializes against.
         $nested = [];
         foreach ($this->children as $child) {
-            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
-                continue;
+            if ($this->rendersChild($child, $value, $request)) {
+                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
             }
-
-            $nested[$child->name()] = $child->serialize($value, $request, $child->name());
         }
 
         return JsonObject::of($nested);
+    }
+
+    /**
+     * Runs the declared children over a value an `extractUsing()` / `computedUsing()`
+     * hook produced, so each child formats its own key just as it does from a stored
+     * value. A declared child the value does not carry stays absent, a hidden or
+     * write-only one is dropped, and a key no child declares passes through untouched.
+     */
+    private function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    {
+        if ($value instanceof \JsonSerializable) {
+            $value = $value->jsonSerialize();
+        }
+        if (!\is_array($value) && !\is_object($value)) {
+            return $value;
+        }
+
+        $members = \is_array($value) ? $value : \get_object_vars($value);
+        $children = [];
+        foreach ($this->children as $child) {
+            $children[$child->column() ?? $child->name()] = $child;
+        }
+
+        $nested = [];
+        foreach ($members as $key => $member) {
+            $child = $children[$key] ?? null;
+            if ($child === null) {
+                $nested[$key] = $member;
+
+                continue;
+            }
+
+            unset($children[$key]);
+            if ($this->rendersChild($child, $value, $request)) {
+                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
+            }
+        }
+
+        // A child with its own hook needs no key, and an object can expose a declared
+        // child through a getter rather than a property.
+        foreach ($children as $key => $child) {
+            $present = ($child instanceof AbstractFieldValue && $child->rendersThroughHook())
+                || (\is_object($value) && Accessor::get($value, (string) $key) !== null);
+            if ($present && $this->rendersChild($child, $value, $request)) {
+                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
+            }
+        }
+
+        return JsonObject::of($nested);
+    }
+
+    private function rendersChild(FieldInterface $child, mixed $value, JsonApiRequestInterface $request): bool
+    {
+        return !$child->isWriteOnlyFor($request) && !$child->isHiddenFor($request, $value);
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
