@@ -696,14 +696,14 @@ case and punctuation, `ActionDeclarations` rejects with a `\LogicException`:
 
 - one action path declared at both the resource and the collection scope, which would give
   both the same id;
-- an action path that flattens to one of the words above (`ActionDeclarations::RESERVED_NAMES`)
-  or to one of the type's relation names, so `fetch-one` and `Owner` are refused beside an
-  `owner` relation;
+- an action path that flattens to one of the words above (`ActionDeclarations::RESERVED_NAMES`),
+  so `fetch-one` and `Delete` are refused. A relation's name is not reserved, so an `owner`
+  action can sit beside an `owner` relation;
 - two actions whose ids differ only in case or punctuation, such as `export-all` and
   `exportAll`.
 
 The projector checks every type it projects. A framework integration should also call
-`ActionDeclarations::validate($type, $actions, $relationNames)` when it registers a type's
+`ActionDeclarations::validate($type, $actions)` when it registers a type's
 actions, so the mistake fails at boot rather than when the document is first generated.
 
 ## The metadata contract

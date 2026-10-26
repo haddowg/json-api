@@ -311,7 +311,7 @@ final class ContractWitnessServer
                         new RawResult('application/pdf', binary: true, headers: ['Content-Disposition' => 'Names the downloaded file.']),
                         new RawResult('application/json', schema: ArticleSummary::class),
                     ], tags: ['Articles']),
-                    new FakeActionMetadata('thumbnail', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
+                    new FakeActionMetadata('cover', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
                         new RawResult('image/png', binary: true, headers: ['Cache-Control' => new Header('How long the image may be cached.', required: true)]),
                     ], tags: ['Articles']),
                     // An action accepting several request bodies, one per schema form.

@@ -89,15 +89,14 @@ final class ActionIdentityAndSafetyTest extends TestCase
         foreach (ActionDeclarations::RESERVED_NAMES as $name) {
             yield $name => [$name, 'the "' . $name . '" operation'];
         }
-        yield 'a relation name' => ['owner', 'the "owner" relation'];
-        yield 'a relation name in another case' => ['Owner', 'the "owner" relation'];
+        yield 'an operation name in another case' => ['Delete', 'the "delete" operation'];
         yield 'a hyphenated operation name' => ['fetch-one', 'the "fetchOne" operation'];
-        yield 'a snake-cased relation name' => ['shared_with', 'the "sharedWith" relation'];
+        yield 'a snake-cased operation name' => ['add_relationship', 'the "addRelationship" operation'];
     }
 
     #[Test]
     #[DataProvider('clashingNames')]
-    public function anActionNamedLikeAnOperationOrARelationIsRejected(string $path, string $clash): void
+    public function anActionNamedLikeAnOperationIsRejected(string $path, string $clash): void
     {
         $type = $this->files([new FakeActionMetadata($path)]);
 
@@ -105,6 +104,15 @@ final class ActionIdentityAndSafetyTest extends TestCase
         $this->expectExceptionMessage(\sprintf('The "%s" action on type "files" is named like %s, so a consumer that flattens operation ids could not tell them apart. Give the action a different name.', $path, $clash));
 
         $this->project([$type]);
+    }
+
+    #[Test]
+    public function anActionMayShareItsNameWithARelation(): void
+    {
+        $paths = $this->paths([$this->files([new FakeActionMetadata('owner', ['GET'])])]);
+
+        self::assertSame('action.files.owner', $paths['/files/{id}/-actions/owner']['get']['operationId']);
+        self::assertSame('fetchRelated.files.owner', $paths['/files/{id}/owner']['get']['operationId']);
     }
 
     #[Test]

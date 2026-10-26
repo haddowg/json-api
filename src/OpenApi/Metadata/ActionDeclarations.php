@@ -20,8 +20,7 @@ use haddowg\JsonApi\OpenApi\VendorExtensions;
  *
  * - one type may not declare the same action path at both scopes, since both would get
  *   the same id;
- * - an action path may not read as one of the operation-id words in {@see RESERVED_NAMES}
- *   or as one of the type's relation names;
+ * - an action path may not read as one of the operation-id words in {@see RESERVED_NAMES};
  * - no two of the type's action ids may flatten to the same name;
  * - an action may not be declared both read-only and destructive;
  * - the action's own vendor extension names must be valid.
@@ -49,18 +48,14 @@ final class ActionDeclarations
      * Checks one type's action declarations.
      *
      * @param iterable<ActionMetadataInterface> $actions
-     * @param iterable<string>                  $relationNames the type's relation names
      *
      * @throws \LogicException naming the type and the action at fault
      */
-    public static function validate(string $type, iterable $actions, iterable $relationNames = []): void
+    public static function validate(string $type, iterable $actions): void
     {
         $reserved = [];
         foreach (self::RESERVED_NAMES as $name) {
             $reserved[self::flatten($name)] = 'the "' . $name . '" operation';
-        }
-        foreach ($relationNames as $name) {
-            $reserved[self::flatten($name)] ??= 'the "' . $name . '" relation';
         }
 
         $scopes = [];
@@ -120,18 +115,13 @@ final class ActionDeclarations
     }
 
     /**
-     * {@see validate()} for a type's metadata, reading its actions and relation names.
+     * {@see validate()} for a type's metadata.
      *
      * @throws \LogicException
      */
     public static function validateType(TypeMetadataInterface $type): void
     {
-        $relationNames = [];
-        foreach ($type->relations() as $relation) {
-            $relationNames[] = $relation->name();
-        }
-
-        self::validate($type->type(), $type->actions(), $relationNames);
+        self::validate($type->type(), $type->actions());
     }
 
     /**

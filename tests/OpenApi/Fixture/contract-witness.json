@@ -3906,7 +3906,7 @@
                 }
             }
         },
-        "/articles/{id}/-actions/thumbnail": {
+        "/articles/{id}/-actions/cover": {
             "parameters": [
                 {
                     "name": "id",
@@ -3923,9 +3923,9 @@
                 "tags": [
                     "Articles"
                 ],
-                "summary": "Invoke the `thumbnail` action",
-                "description": "Invokes the `thumbnail` custom action on an article.",
-                "operationId": "action.articles.thumbnail",
+                "summary": "Invoke the `cover` action",
+                "description": "Invokes the `cover` custom action on an article.",
+                "operationId": "action.articles.cover",
                 "responses": {
                     "200": {
                         "description": "The action result.",
