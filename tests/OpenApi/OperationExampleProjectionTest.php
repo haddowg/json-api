@@ -312,6 +312,74 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
+    public function anOverrideReplacingEveryPartReportsNothingMissing(): void
+    {
+        // The linkage of a relation to a type this server does not register cannot be
+        // generated, so only the overrides make these operations exemplified.
+        $type = FakeTypeMetadata::resource(
+            'people',
+            [Id::make()->example('per-1')->build()],
+            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
+            operationExamples: [
+                'fetchRelationship.company' => new OperationExample(responses: [200 => ['data' => ['type' => 'companies', 'id' => 'c-1']]]),
+                'updateRelationship.company' => new OperationExample(
+                    request: ['data' => ['type' => 'companies', 'id' => 'c-2']],
+                    responses: [200 => ['data' => ['type' => 'companies', 'id' => 'c-2']]],
+                ),
+            ],
+        );
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$type]));
+        $document = $projection->document->toArray();
+
+        self::assertSame(['data' => ['type' => 'companies', 'id' => 'c-1']], self::responseExample($document, '/people/{id}/relationships/company', 'get', '200'));
+        self::assertSame(['data' => ['type' => 'companies', 'id' => 'c-2']], self::requestExample($document, '/people/{id}/relationships/company', 'patch'));
+        $operations = \array_map(static fn(MissingExample $m): string => $m->operation, $projection->missingExamples);
+        self::assertNotContains('fetchRelationship.people.company', $operations);
+        self::assertNotContains('updateRelationship.people.company', $operations);
+    }
+
+    #[Test]
+    public function anOverrideReplacingSomePartsStillReportsTheOnesItLeavesAlone(): void
+    {
+        $fields = [Id::make()->example('n-1')->build(), Str::make('views')->readOnly()->build()];
+        $replaced = FakeTypeMetadata::resource('replaced', $fields, operationExamples: [
+            'create' => new OperationExample(responses: [201 => ['data' => ['type' => 'replaced', 'id' => 'n-1']]]),
+        ]);
+        $untouched = FakeTypeMetadata::resource('untouched', $fields, operationExamples: [
+            'create' => new OperationExample(request: ['data' => ['type' => 'untouched']]),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$replaced, $untouched]));
+        $document = $projection->document->toArray();
+        $missing = \array_map(static fn(MissingExample $m): string => (string) $m, $projection->missingExamples);
+
+        // The create request never carries the read-only field, so once the response that
+        // needs it is replaced, the request is generated and nothing is missing.
+        self::assertSame(['data' => ['type' => 'replaced']], self::requestExample($document, '/replaced', 'post'));
+        self::assertNotContains('create.replaced has no example: "replaced" declares no example for "views".', $missing);
+
+        // Replacing only the request leaves the generated response, which still needs it.
+        self::assertSame(['data' => ['type' => 'untouched']], self::requestExample($document, '/untouched', 'post'));
+        self::assertNull(self::responseExample($document, '/untouched', 'post', '201'));
+        self::assertContains('create.untouched has no example: "untouched" declares no example for "views".', $missing);
+    }
+
+    #[Test]
+    public function anOverrideRemovingAPartReportsNothingMissingForIt(): void
+    {
+        $type = FakeTypeMetadata::resource('notes', [Id::make()->example('n-1')->build(), Str::make('views')->readOnly()->build()], operationExamples: [
+            'create' => new OperationExample(responses: [201 => false]),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$type]));
+        $document = $projection->document->toArray();
+
+        self::assertSame(['data' => ['type' => 'notes']], self::requestExample($document, '/notes', 'post'));
+        self::assertNull(self::responseExample($document, '/notes', 'post', '201'));
+        $operations = \array_map(static fn(MissingExample $m): string => $m->operation, $projection->missingExamples);
+        self::assertNotContains('create.notes', $operations);
+        self::assertContains('fetchOne.notes', $operations);
+    }
+
+    #[Test]
     public function anOverrideNamingAnOperationTheTypeDoesNotExposeFails(): void
     {
         $type = FakeTypeMetadata::resource('notes', [Id::make()->example('n-1')->build()], operationExamples: ['remove' => false]);

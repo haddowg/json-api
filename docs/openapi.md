@@ -592,7 +592,9 @@ To replace or switch off an operation's example, type metadata implements
 `fetchRelationship.<relation>`, `updateRelationship.<relation>`,
 `addRelationship.<relation>` and `removeRelationship.<relation>`. A `false` or `null` value
 switches that operation's example off. An `OperationExample` replaces the parts it names
-and leaves the rest generated:
+and leaves the rest generated. Only the parts left generated need declared examples, so a
+`MissingExample` is never reported for a part the override replaces or removes, and an
+operation whose override covers every part reports nothing:
 
 ```php
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
