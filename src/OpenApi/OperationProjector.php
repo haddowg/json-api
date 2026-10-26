@@ -971,8 +971,7 @@ final class OperationProjector
                 $accepted->binary => Schema::ofType('string')->withFormat('binary'),
                 \is_string($accepted->schema) => Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($accepted->schema))),
                 \is_array($accepted->schema) => Schema::fromArray($accepted->schema),
-                $accepted->essence() === 'multipart/form-data' => Schema::ofType('object'),
-                default => Schema::ofType('string')->withFormat('binary'),
+                default => self::defaultAcceptedSchema($accepted->essence()),
             };
             $content[$accepted->essence()] = MediaType::ofSchema($schema);
         }
@@ -982,6 +981,22 @@ final class OperationProjector
             description: 'The request body, in one of the media types the action accepts.',
             required: $action->inputMode() === ActionInputMode::Document,
         );
+    }
+
+    /**
+     * The schema of an accepted body that declares none, by media-type family: text is a
+     * string, JSON any JSON value, a form an object, and anything else opaque bytes.
+     */
+    private static function defaultAcceptedSchema(string $essence): Schema
+    {
+        [$type, $subtype] = \explode('/', $essence, 2);
+
+        return match (true) {
+            $type === 'text' => Schema::ofType('string'),
+            $essence === 'application/json', \str_ends_with($subtype, '+json') => Schema::create(),
+            $essence === 'multipart/form-data', $essence === 'application/x-www-form-urlencoded' => Schema::ofType('object'),
+            default => Schema::ofType('string')->withFormat('binary'),
+        };
     }
 
     /**

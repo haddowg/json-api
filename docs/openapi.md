@@ -703,8 +703,11 @@ The media type may end in a wildcard, such as `image/*`, and parameters are drop
 the key. A JSON:API entry, `application/vnd.api+json` by default or any entry declared with
 `document: true`, carries the action's request document. `binary: true` gives a binary
 string, `schema` takes an inline array or a `DescribesRawBody` class emitted as a component
-the way a raw response's is, and an entry with none of them is an open object for
-`multipart/form-data` and a binary string otherwise. The body is required only when the
+the way a raw response's is. An entry with none of them takes a default from its media
+type: a string for `text/*`, any JSON value (`{}`) for `application/json` and any `+json`
+type, an open object for `multipart/form-data` and `application/x-www-form-urlencoded`,
+and a binary string for anything else, such as `image/*` or `application/pdf`. A wildcard
+follows its family, so `text/*` is a string. The body is required only when the
 action's input mode is `Document`, and the operation lists the `415` a `Content-Type` it
 does not accept gets.
 
