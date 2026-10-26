@@ -12,7 +12,9 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedBodies;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionSafety;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 
@@ -22,13 +24,14 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample
+final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample, DeclaresActionSafety, DeclaresActionExtensions
 {
     /**
      * @param list<string>                  $methods
      * @param non-empty-list<ActionResponse>|null $responds
      * @param list<string>                  $tags
      * @param list<AcceptedBody>            $accepts
+     * @param array<string, mixed>          $extensions
      */
     public function __construct(
         private readonly string $path,
@@ -45,7 +48,31 @@ final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBo
         private readonly ?string $linkName = null,
         private readonly array $accepts = [],
         private readonly OperationExample|false|null $example = null,
+        private readonly ?bool $readOnly = null,
+        private readonly ?bool $destructive = null,
+        private readonly ?bool $idempotent = null,
+        private readonly array $extensions = [],
     ) {}
+
+    public function readOnly(): ?bool
+    {
+        return $this->readOnly;
+    }
+
+    public function destructive(): ?bool
+    {
+        return $this->destructive;
+    }
+
+    public function idempotent(): ?bool
+    {
+        return $this->idempotent;
+    }
+
+    public function extensions(): array
+    {
+        return $this->extensions;
+    }
 
     public function example(): OperationExample|false|null
     {

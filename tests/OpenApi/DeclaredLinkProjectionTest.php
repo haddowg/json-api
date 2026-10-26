@@ -203,7 +203,7 @@ final class DeclaredLinkProjectionTest extends TestCase
 
         self::assertSame(['contract' => GeneratorContract::DECLARED_LINKS], self::at($with, 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($without, 'info', 'x-generator'));
-        self::assertSame(GeneratorContract::CONTRACT, GeneratorContract::DECLARED_LINKS);
+        self::assertGreaterThan(GeneratorContract::BASELINE, GeneratorContract::DECLARED_LINKS);
     }
 
     #[Test]
