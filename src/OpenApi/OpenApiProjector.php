@@ -6,7 +6,9 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
@@ -237,13 +239,23 @@ final class OpenApiProjector
      */
     private function info(ServerMetadataInterface $server, bool $examples): Info
     {
+        $actions = $this->actionStructures($server);
+
         return (new Info(
             title: $server->title(),
             version: $server->version(),
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server), examples: $examples, declaredLinks: LinkSchemaProjector::serverDeclaresLinks($server)));
+        ))->withExtension('generator', GeneratorContract::toArray(
+            rawContent: $this->usesRawContent($server),
+            acceptedBodies: $this->declaresAcceptedBodies($server),
+            examples: $examples,
+            declaredLinks: LinkSchemaProjector::serverDeclaresLinks($server),
+            actionMethodIds: $actions['actionMethodIds'],
+            actionSafety: $actions['actionSafety'],
+            actionExtensions: $actions['actionExtensions'],
+        ));
     }
 
     /**
@@ -369,6 +381,29 @@ final class OpenApiProjector
         }
 
         return false;
+    }
+
+    /**
+     * Which of the action structures the document's generator contract reflects the
+     * server's actions use: an action answering to several methods
+     * ({@see GeneratorContract::ACTION_METHOD_IDS}), declared safety
+     * ({@see GeneratorContract::ACTION_SAFETY}) and an action's own vendor extensions
+     * ({@see GeneratorContract::ACTION_EXTENSIONS}).
+     *
+     * @return array{actionMethodIds: bool, actionSafety: bool, actionExtensions: bool}
+     */
+    private function actionStructures(ServerMetadataInterface $server): array
+    {
+        $uses = ['actionMethodIds' => false, 'actionSafety' => false, 'actionExtensions' => false];
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                $uses['actionMethodIds'] = $uses['actionMethodIds'] || \count(\array_unique(\array_map(\strtolower(...), $action->methods()))) > 1;
+                $uses['actionSafety'] = $uses['actionSafety'] || ActionDeclarations::safety($action) !== [];
+                $uses['actionExtensions'] = $uses['actionExtensions'] || ($action instanceof DeclaresActionExtensions && $action->extensions() !== []);
+            }
+        }
+
+        return $uses;
     }
 
     /**

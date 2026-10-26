@@ -6,11 +6,13 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
@@ -68,6 +70,8 @@ final class OperationProjector
      */
     public function projectType(TypeMetadataInterface $type, ServerMetadataInterface $server): array
     {
+        ActionDeclarations::validateType($type);
+
         $operations = $this->allowedOperations($type);
 
         $paths = [];
@@ -124,8 +128,9 @@ final class OperationProjector
                     ? [...$typeWide, ...$type->operationExtensions($crudOperation)]
                     : $typeWide;
 
+                // An action's own extensions are already on its operation, and win.
                 if ($extensions !== []) {
-                    $item = $item->withOperation($method, $operation->withExtensions($extensions));
+                    $item = $item->withOperation($method, $operation->withExtensions([...VendorExtensions::normalise($extensions), ...$operation->extensions()]));
                 }
             }
             $paths[$path] = $item;
@@ -835,7 +840,7 @@ final class OperationProjector
 
             $operation = $this->actionOperation($type, $action, $server);
             foreach ($action->methods() as $httpMethod) {
-                $item = $item->withOperation(\strtolower($httpMethod), $operation);
+                $item = $item->withOperation(\strtolower($httpMethod), $operation->withOperationId(ActionDeclarations::operationId($type->type(), $action, $httpMethod)));
             }
 
             $paths[$path] = $item;
@@ -891,11 +896,28 @@ final class OperationProjector
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on ' . ($action->scope() === ActionScope::Resource
                 ? TypeNoun::of($type)->withArticle()
                 : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
-            operationId: 'action.' . $type->type() . '.' . $action->path(),
             parameters: $this->actionDocumentShapeParameters($action, $server),
             requestBody: $this->actionRequestBody($action, $server),
             security: $security,
+            extensions: self::actionExtensions($action),
         );
+    }
+
+    /**
+     * The action's own vendor extensions, then its declared safety as `x-safety`, which
+     * wins over an extension of the same name.
+     *
+     * @return array<string, mixed>
+     */
+    private static function actionExtensions(ActionMetadataInterface $action): array
+    {
+        $extensions = $action instanceof DeclaresActionExtensions ? VendorExtensions::normalise($action->extensions()) : [];
+        $safety = ActionDeclarations::safety($action);
+        if ($safety !== []) {
+            $extensions['x-safety'] = $safety;
+        }
+
+        return $extensions;
     }
 
     /**

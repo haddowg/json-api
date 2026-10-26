@@ -14,7 +14,7 @@ fixtures and no framework.
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
 schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
-extensions it emits (`x-generator`, `x-enum-*`, `x-profile`). For *serving* the document,
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`). For *serving* the document,
 the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
@@ -678,6 +678,34 @@ switches generation off for the whole document.
 Examples arrived with contract 12, as a scoped structure; see
 [the generator contract](#a-bump-scoped-to-some-documents).
 
+## Operation ids
+
+Every operation carries an `operationId` built from the type name, and from the relation or
+action name where there is one:
+
+| Operation | `operationId` |
+|---|---|
+| fetch collection, fetch one, create, update, delete | `fetchCollection.<type>`, `fetchOne.<type>`, `create.<type>`, `update.<type>`, `delete.<type>` |
+| related read | `fetchRelated.<type>.<relation>` |
+| relationship read, replace, add, remove | `fetchRelationship.<type>.<relation>`, `updateRelationship.…`, `addRelationship.…`, `removeRelationship.…` |
+| custom action | `action.<type>.<path>`, or `action.<type>.<path>.<method>` when the action answers to more than one method |
+| Atomic Operations | `atomic.operations` |
+
+So the ids stay unique, even for a consumer that flattens them into names by dropping
+case and punctuation, `ActionDeclarations` rejects with a `\LogicException`:
+
+- one action path declared at both the resource and the collection scope, which would give
+  both the same id;
+- an action path that flattens to one of the words above (`ActionDeclarations::RESERVED_NAMES`)
+  or to one of the type's relation names, so `fetch-one` and `Owner` are refused beside an
+  `owner` relation;
+- two actions whose ids differ only in case or punctuation, such as `export-all` and
+  `exportAll`.
+
+The projector checks every type it projects. A framework integration should also call
+`ActionDeclarations::validate($type, $actions, $relationNames)` when it registers a type's
+actions, so the mistake fails at boot rather than when the document is first generated.
+
 ## The metadata contract
 
 Core owns the JSON:API→OAS *semantics*, but most of the *data* — the API title and base
@@ -755,6 +783,12 @@ name is listed under it in its type's `<Type>ResourceLinks`, described by its fi
 method. `DeclaresResourceLinks` extends `TypeMetadataInterface` with
 `declaredLinks(): list<DeclaredLink>`: return the resource's `allLinks()`. Metadata that
 doesn't implement it projects no declared links.
+
+Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `readOnly()`,
+`destructive()` and `idempotent()`, each `?bool`, which project as
+[`x-safety`](#action-safety-x-safety). `DeclaresActionExtensions` adds `extensions(): array`,
+the action's own vendor extensions. Action metadata that implements neither projects as
+before.
 
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
@@ -1090,9 +1124,17 @@ Declared resource links, `DECLARED_LINKS` or 14, are the first scoped structure 
 baseline: a document whose types declare a link carries 14, and every other document
 still carries 13, unchanged.
 
+Contract 15 adds three more for custom actions. A document carries it when an action
+answers to several methods, since those now get one [operation id](#operation-ids) per
+method (`ACTION_METHOD_IDS`), when an action declares its [safety](#action-safety-x-safety)
+(`ACTION_SAFETY`), or when an action declares its own
+[extensions](#your-own-extensions-on-operations-paths-parameters-and-responses)
+(`ACTION_EXTENSIONS`). A document using none of them still carries 13.
+
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,
-examples and declared links, lets the CI guard hold `BASELINE` to that rule.
+examples, declared links and those action declarations, lets the CI guard hold `BASELINE`
+to that rule.
 
 #### Diffing documents across contracts
 
@@ -1144,6 +1186,28 @@ top-level `meta.total` (also in `meta.page.total` when the collection is paginat
 one that accepts relation tokens it names the first, e.g. "Request a relation name, e.g.
 `withCount=comments`, to receive that relation's total on each resource in
 `relationships.comments.meta.total`".
+
+### Action safety: `x-safety`
+
+A custom action's method doesn't say whether it changes anything. A search sent as `POST`
+reads like a write. Action metadata that implements `DeclaresActionSafety` declares it
+instead, through three methods that each return `?bool`: `readOnly()`, `destructive()` and
+`idempotent()`. The projector stamps the declared flags on the action's operation, one
+object per operation, and leaves out any flag that returns `null`:
+
+```json
+"/files/{id}/-actions/purge": {
+  "post": {
+    "operationId": "action.files.purge",
+    "x-safety": { "destructive": true, "idempotent": true }
+  }
+}
+```
+
+An action that declares none of the three gets no `x-safety`, and CRUD operations never
+get one. An action declared both read-only and destructive fails with a `\LogicException`.
+A document whose actions declare safety carries contract 15 (see
+[scoped contracts](#a-bump-scoped-to-some-documents)).
 
 ### Pagination strategy: `x-paginator`
 
@@ -1202,6 +1266,21 @@ custom actions. It then merges `operationExtensions($operation)` over that for e
 operation, so the operation's value wins on a shared key. Metadata that doesn't implement
 the interface projects as before. A framework integration builds the two maps from its
 own resource configuration.
+
+An action declares its own with action metadata that implements `DeclaresActionExtensions`,
+whose `extensions()` returns the map. It lands on that action's operation only, merged over
+the type-wide set, so the action's value wins on a shared key. A link to an
+[Arazzo](https://spec.openapis.org/arazzo/latest.html) workflow is the usual case:
+
+```php
+public function extensions(): array
+{
+    return ['workflows' => ['source' => 'workflows.arazzo.yaml', 'workflowId' => 'purgeFile']];
+}
+```
+
+A declared [`x-safety`](#action-safety-x-safety) wins over an extension of the same name. A
+document whose actions declare their own extensions carries contract 15.
 
 ### Changing one member without losing the rest
 

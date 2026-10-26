@@ -107,14 +107,17 @@ final class ContractWitnessServer
      *                         baseline witness switches off for the same reason
      * @param bool $declaredLinks whether the images declare their resource links, which the
      *                            baseline witness leaves out for the same reason
+     * @param bool $actionDeclarations whether the articles carry the actions answering to
+     *                                 several methods or declaring safety or their own
+     *                                 extensions, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent),
+                self::articles($rawContent, $actionDeclarations),
                 self::people(),
                 self::tags(),
                 self::images($declaredLinks),
@@ -158,7 +161,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -308,7 +311,7 @@ final class ContractWitnessServer
                         new RawResult('application/pdf', binary: true, headers: ['Content-Disposition' => 'Names the downloaded file.']),
                         new RawResult('application/json', schema: ArticleSummary::class),
                     ], tags: ['Articles']),
-                    new FakeActionMetadata('cover', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
+                    new FakeActionMetadata('thumbnail', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
                         new RawResult('image/png', binary: true, headers: ['Cache-Control' => new Header('How long the image may be cached.', required: true)]),
                     ], tags: ['Articles']),
                     // An action accepting several request bodies, one per schema form.
@@ -318,6 +321,13 @@ final class ContractWitnessServer
                         new AcceptedBody('multipart/form-data', schema: ['type' => 'object']),
                         new AcceptedBody('application/json', schema: ArticleImportRow::class),
                     ]),
+                ] : []),
+                ...($actionDeclarations ? [
+                    // One action answering to two methods, and declared safety, whole and partial,
+                    // beside an action's own extensions.
+                    new FakeActionMetadata('export', ['GET', 'POST'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: false),
+                    new FakeActionMetadata('preview', ['GET'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', tags: ['Articles'], example: false, readOnly: true, destructive: false, idempotent: true),
+                    new FakeActionMetadata('purge', ['POST'], ActionScope::Resource, ActionInputMode::None, tags: ['Articles'], destructive: true, extensions: ['workflows' => ['source' => 'workflows.arazzo.yaml', 'workflowId' => 'purgeArticle']]),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],

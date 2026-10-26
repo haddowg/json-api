@@ -49,11 +49,13 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are four scoped
+ * is warned only by the documents that contain it. There are seven scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
- * on an operation's request and responses ({@see EXAMPLES}), and the named links a
- * resource declares ({@see DECLARED_LINKS}). A change that moves every
+ * on an operation's request and responses ({@see EXAMPLES}), the named links a
+ * resource declares ({@see DECLARED_LINKS}), the per-method operation ids of an action
+ * answering to several methods ({@see ACTION_METHOD_IDS}), an action's declared safety
+ * ({@see ACTION_SAFETY}) and its own vendor extensions ({@see ACTION_EXTENSIONS}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -67,7 +69,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 14;
+    public const CONTRACT = 15;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -110,18 +112,51 @@ final class GeneratorContract
     public const DECLARED_LINKS = 14;
 
     /**
+     * The contract that gave each method of an action answering to several its own
+     * operation id, `action.<type>.<path>.<method>`, where every method had shared
+     * `action.<type>.<path>`. A document carries it only when such an action exists, so
+     * every other document keeps its ids and its stamp.
+     */
+    public const ACTION_METHOD_IDS = 15;
+
+    /**
+     * The contract that introduced an action's declared safety: the `x-safety` extension
+     * on its operation, an object holding whichever of `readOnly`, `destructive` and
+     * `idempotent` the action declares. A document carries it only when an action
+     * declares one.
+     */
+    public const ACTION_SAFETY = 15;
+
+    /**
+     * The contract that introduced an action's own vendor extensions, merged over the
+     * type-wide ones on its operation. A document carries it only when an action declares
+     * one.
+     */
+    public const ACTION_EXTENSIONS = 15;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
      */
-    public static function toArray(bool $rawContent = false, bool $acceptedBodies = false, bool $examples = false, bool $declaredLinks = false): array
-    {
+    public static function toArray(
+        bool $rawContent = false,
+        bool $acceptedBodies = false,
+        bool $examples = false,
+        bool $declaredLinks = false,
+        bool $actionMethodIds = false,
+        bool $actionSafety = false,
+        bool $actionExtensions = false,
+    ): array {
         return ['contract' => \max(
             self::BASELINE,
             $rawContent ? self::RAW_CONTENT : self::BASELINE,
             $acceptedBodies ? self::ACCEPTED_BODIES : self::BASELINE,
             $examples ? self::EXAMPLES : self::BASELINE,
             $declaredLinks ? self::DECLARED_LINKS : self::BASELINE,
+            $actionMethodIds ? self::ACTION_METHOD_IDS : self::BASELINE,
+            $actionSafety ? self::ACTION_SAFETY : self::BASELINE,
+            $actionExtensions ? self::ACTION_EXTENSIONS : self::BASELINE,
         )];
     }
 }
