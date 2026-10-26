@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/haddowg/json-api/compare/v1.15.1...v1.15.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* join a relative link href to the base URI with a slash ([#238](https://github.com/haddowg/json-api/issues/238)) ([df3b16d](https://github.com/haddowg/json-api/commit/df3b16d4a89eb588fc1fa7f1b1e530fb75486f76))
+
 ## [1.15.1](https://github.com/haddowg/json-api/compare/v1.15.0...v1.15.1) (2026-10-26)
 
 
