@@ -56,7 +56,7 @@ final class OpenApiProjectorTest extends TestCase
      * `comments` to-one (`author` → person|article), plus a standalone serializer
      * type with no field inventory.
      */
-    private function server(): FakeServerMetadata
+    private function server(bool $examples = true): FakeServerMetadata
     {
         $articles = FakeTypeMetadata::resource(
             type: 'articles',
@@ -113,6 +113,7 @@ final class OpenApiProjectorTest extends TestCase
             tags: [new Tag('Articles', 'Blog articles'), new Tag('People')],
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
+            generatesExamples: $examples,
         );
     }
 
@@ -298,12 +299,17 @@ final class OpenApiProjectorTest extends TestCase
     #[Test]
     public function everyDocumentCarriesTheGeneratorContract(): void
     {
-        foreach ([$this->server(), new FakeServerMetadata('Bare', '0.1', [])] as $server) {
+        foreach ([$this->server(examples: false), new FakeServerMetadata('Bare', '0.1', [])] as $server) {
             $info = $this->arrAt($this->projector()->project($server)->toArray(), 'info');
 
-            // Neither server answers an action with a raw body, so both carry the baseline.
+            // Neither server answers an action with a raw body or carries an example (the
+            // bare one has no operation to give one), so both carry the baseline.
             self::assertSame(['contract' => GeneratorContract::BASELINE], $info['x-generator']);
         }
+
+        // Generating examples is the default, and a document carrying one says so.
+        $info = $this->arrAt($this->projector()->project($this->server())->toArray(), 'info');
+        self::assertSame(['contract' => GeneratorContract::EXAMPLES], $info['x-generator']);
 
         // It carries compatibility signalling and nothing else — no generator name, no
         // package version. The JSON:API version stays where it belongs, on the JsonApi

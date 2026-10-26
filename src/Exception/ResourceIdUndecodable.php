@@ -28,6 +28,7 @@ final class ResourceIdUndecodable extends AbstractJsonApiException implements De
             title: 'Resource ID is undecodable',
             context: ['id' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/id',
             feature: ErrorFeature::Writes,
             description: 'The client-generated `id` is not in a format the server can decode into one of its own ids. Send an `id` in the format the API documents for this resource type.',
         );

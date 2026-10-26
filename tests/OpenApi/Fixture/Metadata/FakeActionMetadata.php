@@ -11,8 +11,10 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedBodies;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
+use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 
 /**
  * An in-core {@see ActionMetadataInterface} fixture. For convenience `responds`
@@ -20,7 +22,7 @@ use haddowg\JsonApi\OpenApi\Metadata\NoContent;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies
+final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample
 {
     /**
      * @param list<string>                  $methods
@@ -42,7 +44,13 @@ final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBo
         private readonly ?string $description = null,
         private readonly ?string $linkName = null,
         private readonly array $accepts = [],
+        private readonly OperationExample|false|null $example = null,
     ) {}
+
+    public function example(): OperationExample|false|null
+    {
+        return $this->example;
+    }
 
     public function accepts(): array
     {

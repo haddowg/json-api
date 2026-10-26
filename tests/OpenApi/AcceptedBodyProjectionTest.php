@@ -186,7 +186,7 @@ final class AcceptedBodyProjectionTest extends TestCase
         )];
 
         /** @var array<string, mixed> */
-        return (new OpenApiProjector())->project(new FakeServerMetadata('Accepts', '1', $types))->toArray();
+        return (new OpenApiProjector())->project(new FakeServerMetadata('Accepts', '1', $types, generatesExamples: false))->toArray();
     }
 
     private static function at(mixed $value, string ...$keys): mixed

@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 
 /**
@@ -17,7 +18,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
  * existing implementation, which is how a framework integration adds one without
  * rewriting the metadata it already builds.
  */
-final readonly class ContributingServerMetadata implements ContributesErrorCodes
+final readonly class ContributingServerMetadata implements ContributesErrorCodes, DeclaresExampleGeneration
 {
     /** @var list<ErrorCatalogSourceInterface> */
     private array $sources;
@@ -27,6 +28,11 @@ final readonly class ContributingServerMetadata implements ContributesErrorCodes
         ErrorCatalogSourceInterface ...$sources,
     ) {
         $this->sources = \array_values($sources);
+    }
+
+    public function generatesExamples(): bool
+    {
+        return !$this->inner instanceof DeclaresExampleGeneration || $this->inner->generatesExamples();
     }
 
     /**

@@ -42,6 +42,7 @@ final class RelatedAttributeOwnerMissing extends AbstractJsonApiException implem
             title: 'Related attribute owner missing',
             context: ['attribute' => ErrorContextType::Str, 'relation' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/attributes/city',
             feature: ErrorFeature::Writes,
             description: 'The request wrote an attribute the server stores on a related resource, and that related resource does not exist. Set the relationship first, or leave the attribute out.',
             exampleDetail: 'Cannot write attribute "city": its related "address" is not present.',

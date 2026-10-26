@@ -27,6 +27,7 @@ final class RelationshipTypeInappropriate extends AbstractJsonApiException imple
             status: 400,
             title: 'Relationship type is inappropriate',
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/relationships/author',
             feature: ErrorFeature::Writes,
             description: 'The relationship data has the wrong cardinality: a list for a to-one relationship, a single identifier for a to-many one, or a `POST` or `DELETE` to a to-one relationship endpoint. Send linkage that matches the relationship.',
             exampleDetail: 'The provided relationship \'author\' is of type of to-many, but to-one is expected!',

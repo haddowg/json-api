@@ -23,6 +23,7 @@ final class ClientGeneratedIdNotSupported extends AbstractJsonApiException imple
             status: 403,
             title: 'Client generated ID is not supported',
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/id',
             feature: ErrorFeature::Writes,
             description: 'The create request supplied an `id`, but this resource type assigns its own ids. Leave `data.id` out and the server generates one.',
         );

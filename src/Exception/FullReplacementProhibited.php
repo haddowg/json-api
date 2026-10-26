@@ -21,6 +21,7 @@ final class FullReplacementProhibited extends AbstractJsonApiException implement
             title: 'Full replacement is prohibited',
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/relationships/tags',
             feature: ErrorFeature::Writes,
             description: 'This relationship cannot be replaced as a whole, for example by a `PATCH` to its relationship endpoint. Add or remove individual members instead, if the relationship allows that.',
         );
