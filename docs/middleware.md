@@ -21,7 +21,7 @@ Six classes, with exact constructor signatures:
 | Middleware | Constructor | Role |
 |---|---|---|
 | `ErrorHandlerMiddleware` | `(ServerInterface $server, bool $debug = false, ?LoggerInterface $logger = null)` | Outermost. Turns any thrown exception into an [error document](errors-and-exceptions.md). |
-| `ContentNegotiationMiddleware` | `(string ...$supportedExtensions)` | Validates the JSON:API media type, negotiates extensions, validates query params. |
+| `ContentNegotiationMiddleware` | `(string ...$supportedExtensions)` | Validates the JSON:API media type, requires it on writes, negotiates extensions, validates query params. |
 | `RequestBodyParsingMiddleware` | `()` | Forces an early JSON decode and checks the top-level member rules, so a malformed or non-conformant body fails at the edge. |
 | `RequestValidationMiddleware` _(optional, dev/CI)_ | `(ServerInterface $server, DocumentValidator $validator)` | Validates the request body against the JSON:API JSON Schema. |
 | `ResponseValidationMiddleware` _(optional, dev/CI)_ | `(ServerInterface $server, DocumentValidator $validator, bool $throwOnViolation = true, ?LoggerInterface $logger = null)` | Validates the rendered response document. |
@@ -68,7 +68,8 @@ middleware below it:
    response. A successful response from below passes through unchanged.
 2. **`ContentNegotiationMiddleware`** — validates the `Content-Type` / `Accept`
    media-type parameters and negotiates extensions (`415` / `406`), then validates
-   query parameters (`400`). See [content negotiation](content-negotiation.md).
+   query parameters (`400`). A write must send `Content-Type:
+   application/vnd.api+json`; a missing header or another media type is a `415`. See [content negotiation](content-negotiation.md).
 3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode and checks the
    top-level member rules, so a malformed or non-conformant body surfaces as a
    `400` here rather than inside the handler. A bodyless request passes through.

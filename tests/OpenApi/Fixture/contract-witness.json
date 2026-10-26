@@ -11459,7 +11459,7 @@
             },
             "MediaTypeUnsupportedError": {
                 "title": "The provided media type is unsupported",
-                "description": "The `Content-Type` is `application/vnd.api+json` with a media type parameter other than `ext` or `profile`, or with an `ext` the server does not support. Send `Content-Type: application/vnd.api+json` with only the parameters the server supports.",
+                "description": "The `Content-Type` is missing or names a media type the endpoint does not accept, or is `application/vnd.api+json` with a media type parameter other than `ext` or `profile`, or with an `ext` the server does not support. Send a JSON:API document as `Content-Type: application/vnd.api+json` with only the parameters the server supports.",
                 "allOf": [
                     {
                         "$ref": "#/components/schemas/Error"

@@ -15,18 +15,19 @@ knowing it makes the failure modes obvious.
 
 `Negotiation\RequestValidator` is the public entry point for everything described
 here. It is a thin, stateless object whose only state is the server's
-supported-extension set, and its four methods map one-to-one onto the four checks:
+supported-extension set, and each method maps onto one check:
 
 | Method | Checks | On failure |
 | --- | --- | --- |
-| `negotiate()` | `Content-Type` / `Accept` media-type parameters + extension support | `415` / `406` |
+| `negotiate()` | `Content-Type` / `Accept` media-type parameters + extension support, and optionally a JSON:API `Content-Type` | `415` / `406` |
+| `negotiateContentType()` | a raw-bodied action's `Content-Type` against the media types it accepts | `415` |
 | `validateQueryParams()` | the JSON:API query-parameter families | `400` `QueryParamUnrecognized` |
 | `validateJsonBody()` | the request body is well-formed JSON | `400` `RequestBodyInvalidJson` |
 | `validateTopLevelMembers()` | the body's top-level `data` / `errors` / `meta` structure | `400` |
 
 The shipped middleware split these across two stages:
-[`ContentNegotiationMiddleware`](middleware.md) runs `negotiate()` +
-`validateQueryParams()` on every request, and `RequestBodyParsingMiddleware` runs
+[`ContentNegotiationMiddleware`](middleware.md) runs `negotiate()` (strictly on a
+write) + `validateQueryParams()` on every request, and `RequestBodyParsingMiddleware` runs
 `validateJsonBody()` + `validateTopLevelMembers()` once a body is present. A
 framework integration can reuse the same methods in its own middleware. The
 underlying `@internal Request\MediaType` is the rule engine for the media-type
@@ -73,6 +74,43 @@ different subtype), or asserts it with no parameters, is acceptable — negotiat
 only polices the JSON:API media type's own parameters. The parser is quote-aware,
 so a comma inside a quoted `profile` / `ext` value never splits one media-type
 instance into two.
+
+## A write must say it is JSON:API
+
+The parameter rule above lets a `Content-Type` through when it does not name
+JSON:API at all, or is missing. That is right for a `GET`, which has no body, but a
+write carries a document, and a document sent as `text/plain` or as a form is not one.
+Pass `strictContentType: true` to `negotiate()` and the header must be present and be
+`application/vnd.api+json`, with only `ext` / `profile` parameters, or the request
+is a **415** (`MediaTypeUnsupported`):
+
+```php
+$validator->negotiate($request, strictContentType: true);
+```
+
+`ContentNegotiationMiddleware` does this for every unsafe method (`POST`, `PATCH`,
+`PUT`, `DELETE`), except a `DELETE` with no body, which is how a resource is deleted
+and which clients send without a `Content-Type`. A framework integration applies the
+same rule to its own routes: CRUD and relationship writes, and custom actions whose
+input is a JSON:API document or nothing at all.
+
+A custom action that takes a raw body accepts other media types, so it skips the
+JSON:API assertion and matches the body against the media types it declares instead:
+
+```php
+$validator->negotiate($request, requireJsonApiContentType: false);
+$match = $validator->negotiateContentType($request, ['text/csv', 'image/*']);
+```
+
+`negotiateContentType()` compares `type/subtype` only, so a `charset` or multipart
+`boundary` never stops a match, and it picks the most specific entry: `image/png`
+before `image/*` before `*/*`. It is a `415` when the header is missing, names two
+media types, or matches nothing. The three media types a browser sends cross-origin
+without a CORS preflight, `text/plain`, `multipart/form-data` and
+`application/x-www-form-urlencoded`, are a `415` too unless the action lists them by
+name: `text/*` or `*/*` never opts an action into them. The lower-level
+`ContentTypeMatcher::match()` returns the same `ContentTypeMatch` without throwing,
+with `corsSafelisted` and `isExplicit()` for an integration that wants its own rule.
 
 In practice your requests just assert the bare media type and pass, as the example
 suite does on every read and write — see the request helpers in
