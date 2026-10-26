@@ -17,6 +17,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
@@ -72,32 +73,18 @@ final class OperationProjector
     {
         ActionDeclarations::validateType($type);
 
-        $operations = $this->allowedOperations($type);
+        $operations = OperationEnumerator::forType($type);
 
         $paths = [];
-
-        if ($operations !== []) {
-            $collection = $this->collectionPathItem($type, $server, $operations);
-            if ($collection !== null) {
-                $paths[PathTemplate::collection($type->uriType())] = $collection;
-            }
-
-            $resource = $this->resourcePathItem($type, $server, $operations);
-            if ($resource !== null) {
-                $paths[PathTemplate::resource($type->uriType())] = $resource;
-            }
-        }
-
-        foreach ($this->relationshipPaths($type, $server, $operations) as $path => $item) {
-            $paths[$path] = $item;
-        }
-
-        foreach ($this->actionPaths($type, $server) as $path => $item) {
-            $paths[$path] = $item;
+        foreach ($operations as $operation) {
+            $item = $paths[$operation->path] ?? (OperationEnumerator::isResourceScoped($operation)
+                ? new PathItem(parameters: [$this->idPathParameter($type)])
+                : new PathItem());
+            $paths[$operation->path] = $item->withOperation($operation->method, $this->operation($type, $operation, $server));
         }
 
         if ($type instanceof DeclaresOperationExtensions) {
-            $paths = $this->withDeclaredExtensions($type, $paths);
+            $paths = $this->withDeclaredExtensions($type, $operations, $paths);
         }
 
         return $paths;
@@ -105,100 +92,64 @@ final class OperationProjector
 
     /**
      * Stamps the type's declared vendor extensions on each of its operations: the
-     * type-wide set everywhere, with a CRUD operation's own set merged over it. The
-     * CRUD operation is recognised by its path and method, the same pairing the
-     * collection and resource path items are built from.
+     * type-wide set everywhere, with a CRUD operation's own set merged over it.
      *
-     * @param array<string, PathItem> $paths
+     * @param list<EnumeratedOperation> $operations
+     * @param array<string, PathItem>   $paths
      *
      * @return array<string, PathItem>
      */
-    private function withDeclaredExtensions(DeclaresOperationExtensions $type, array $paths): array
+    private function withDeclaredExtensions(DeclaresOperationExtensions $type, array $operations, array $paths): array
     {
-        $crud = [
-            PathTemplate::collection($type->uriType()) => ['get' => OperationType::FetchCollection, 'post' => OperationType::Create],
-            PathTemplate::resource($type->uriType()) => ['get' => OperationType::FetchOne, 'patch' => OperationType::Update, 'delete' => OperationType::Delete],
-        ];
         $typeWide = $type->extensions();
 
-        foreach ($paths as $path => $item) {
-            foreach ($item->operations as $method => $operation) {
-                $crudOperation = $crud[$path][$method] ?? null;
-                $extensions = $crudOperation !== null
-                    ? [...$typeWide, ...$type->operationExtensions($crudOperation)]
-                    : $typeWide;
+        foreach ($operations as $enumerated) {
+            $crudOperation = $enumerated->key->kind->operationType();
+            $extensions = $crudOperation !== null
+                ? [...$typeWide, ...$type->operationExtensions($crudOperation)]
+                : $typeWide;
 
-                // An action's own extensions are already on its operation, and win.
-                if ($extensions !== []) {
-                    $item = $item->withOperation($method, $operation->withExtensions([...VendorExtensions::normalise($extensions), ...$operation->extensions()]));
-                }
+            // An action's own extensions are already on its operation, and win.
+            $item = $paths[$enumerated->path];
+            $operation = $item->operations[$enumerated->method];
+            if ($extensions !== []) {
+                $paths[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withExtensions([...VendorExtensions::normalise($extensions), ...$operation->extensions()]));
             }
-            $paths[$path] = $item;
         }
 
         return $paths;
     }
 
-    // ---- Path items -------------------------------------------------------------
-
     /**
-     * The collection-scoped path item (`/{uriType}`): `GET` (fetch collection) and/or
-     * `POST` (create), whichever the allow-list permits.
-     *
-     * @param array<string, true> $operations the allowed operations as a presence set
+     * Builds one enumerated operation.
      */
-    private function collectionPathItem(TypeMetadataInterface $type, ServerMetadataInterface $server, array $operations): ?PathItem
+    private function operation(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): Operation
     {
-        $item = new PathItem();
-        $any = false;
+        $relation = $operation->relation;
+        $action = $operation->action;
+        $id = $operation->operationId;
+        $tags = $operation->tags;
 
-        if (isset($operations[OperationType::FetchCollection->value])) {
-            $item = $item->withOperation('get', $this->fetchCollectionOperation($type, $server));
-            $any = true;
-        }
-        if (isset($operations[OperationType::Create->value])) {
-            $item = $item->withOperation('post', $this->createOperation($type, $server));
-            $any = true;
-        }
-
-        return $any ? $item : null;
-    }
-
-    /**
-     * The resource-scoped path item (`/{uriType}/{id}`): `GET` / `PATCH` / `DELETE`,
-     * whichever the allow-list permits. The `{id}` path parameter is shared at the
-     * path-item level (it applies to every method).
-     *
-     * @param array<string, true> $operations the allowed operations as a presence set
-     */
-    private function resourcePathItem(TypeMetadataInterface $type, ServerMetadataInterface $server, array $operations): ?PathItem
-    {
-        $methods = [];
-        if (isset($operations[OperationType::FetchOne->value])) {
-            $methods['get'] = $this->fetchOneOperation($type, $server);
-        }
-        if (isset($operations[OperationType::Update->value])) {
-            $methods['patch'] = $this->updateOperation($type, $server);
-        }
-        if (isset($operations[OperationType::Delete->value])) {
-            $methods['delete'] = $this->deleteOperation($type, $server);
-        }
-
-        if ($methods === []) {
-            return null;
-        }
-
-        $item = new PathItem(parameters: [$this->idPathParameter($type)]);
-        foreach ($methods as $method => $operation) {
-            $item = $item->withOperation($method, $operation);
-        }
-
-        return $item;
+        return match (true) {
+            $operation->key->kind === OperationKind::FetchCollection => $this->fetchCollectionOperation($type, $server, $id, $tags),
+            $operation->key->kind === OperationKind::Create => $this->createOperation($type, $server, $id, $tags),
+            $operation->key->kind === OperationKind::FetchOne => $this->fetchOneOperation($type, $server, $id, $tags),
+            $operation->key->kind === OperationKind::Update => $this->updateOperation($type, $server, $id, $tags),
+            $operation->key->kind === OperationKind::Delete => $this->deleteOperation($type, $server, $id, $tags),
+            $action !== null => $this->actionOperation($type, $action, $server)->withOperationId($id),
+            $relation === null => throw new \LogicException(\sprintf('The "%s" operation names no relation.', $operation->key->name())),
+            $operation->key->kind === OperationKind::FetchRelated => $this->relatedOperation($type, $relation, $server, $id, $tags),
+            $operation->key->kind === OperationKind::FetchRelationship => $this->relationshipFetchOperation($type, $relation, $server, $id, $tags),
+            default => $this->relationshipMutationOperation($type, $relation, $operation->key->kind, $server, $id, $tags),
+        };
     }
 
     // ---- Operations -------------------------------------------------------------
 
-    private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
+    /**
+     * @param list<string> $tags
+     */
+    private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $parameters = $this->concatParameters(
             $this->filterParameters($type->filters(), $type->fields()),
@@ -219,16 +170,19 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'List ' . TypeNoun::of($type)->plural,
             description: $this->crudOperationDescription($type, OperationType::FetchCollection),
-            operationId: 'fetchCollection.' . $type->type(),
+            operationId: $operationId,
             parameters: $parameters,
             security: $security,
         );
     }
 
-    private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
+    /**
+     * @param list<string> $tags
+     */
+    private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $parameters = $this->concatParameters(
             $this->documentShapeParameters($type, $server),
@@ -245,16 +199,19 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'Fetch ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::FetchOne),
-            operationId: 'fetchOne.' . $type->type(),
+            operationId: $operationId,
             parameters: $parameters,
             security: $security,
         );
     }
 
-    private function createOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
+    /**
+     * @param list<string> $tags
+     */
+    private function createOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $base = ComponentNaming::base($type->type());
 
@@ -275,17 +232,20 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'Create ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Create),
-            operationId: 'create.' . $type->type(),
+            operationId: $operationId,
             parameters: $this->declaresStatus($declared, 201) ? $this->documentShapeParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
     }
 
-    private function updateOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
+    /**
+     * @param list<string> $tags
+     */
+    private function updateOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $base = ComponentNaming::base($type->type());
 
@@ -304,17 +264,20 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'Update ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Update),
-            operationId: 'update.' . $type->type(),
+            operationId: $operationId,
             parameters: $this->declaresStatus($declared, 200) ? $this->documentShapeParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
     }
 
-    private function deleteOperation(TypeMetadataInterface $type, ServerMetadataInterface $server): Operation
+    /**
+     * @param list<string> $tags
+     */
+    private function deleteOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $security = $this->securityFor($type, OperationType::Delete, $server);
 
@@ -326,10 +289,10 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'Delete ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Delete),
-            operationId: 'delete.' . $type->type(),
+            operationId: $operationId,
             security: $security,
         );
     }
@@ -516,45 +479,6 @@ final class OperationProjector
     // ---- Relationship & related endpoints (stage B) -----------------------------
 
     /**
-     * Every relation's exposed related ({@see RelationMetadataInterface::exposesRelatedEndpoint()})
-     * and relationship ({@see RelationMetadataInterface::exposesRelationshipEndpoint()})
-     * endpoints. The `{relationship}`/`{rel}` segment is **literal** in the projected
-     * document — one path per concrete relation (`…/{id}/author`, not a parametric
-     * segment), keyed by the relation's URI segment, which is its name unless the metadata
-     * declares another ({@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName}).
-     * The `{id}` path parameter is shared at the path-item level.
-     *
-     * @param array<string, true> $operations the type's allowed operations as a presence set
-     * @return array<string, PathItem>
-     */
-    private function relationshipPaths(TypeMetadataInterface $type, ServerMetadataInterface $server, array $operations): array
-    {
-        $paths = [];
-        $idParameter = $this->idPathParameter($type);
-
-        foreach ($type->relations() as $relation) {
-            $writeOnly = self::isWriteOnly($relation);
-            if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
-                $paths[PathTemplate::related($type->uriType(), RelationFacts::uriFieldName($relation))] = (new PathItem(parameters: [$idParameter]))
-                    ->withOperation('get', $this->relatedOperation($type, $relation, $server));
-            }
-
-            if ($relation->exposesRelationshipEndpoint()) {
-                $item = new PathItem(parameters: [$idParameter]);
-                foreach ($this->relationshipOperations($type, $relation, $server, $operations) as $method => $operation) {
-                    $item = $item->withOperation($method, $operation);
-                }
-                // A write-only relation that cannot be mutated either has no operation left.
-                if ($item->operations !== []) {
-                    $paths[PathTemplate::relationship($type->uriType(), RelationFacts::uriFieldName($relation))] = $item;
-                }
-            }
-        }
-
-        return $paths;
-    }
-
-    /**
      * Whether the relation is declared unconditionally write-only
      * ({@see DeclaresWriteOnlyRelation}).
      */
@@ -569,8 +493,10 @@ final class OperationProjector
      * nullable related document for a to-one). A to-many related collection reuses the
      * CRUD query parameters scoped to the relation's own filters/sorts/pagination/
      * includes (§4.4).
+     *
+     * @param list<string> $tags
      */
-    private function relatedOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server): Operation
+    private function relatedOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
         $base = ComponentNaming::base($type->type());
         $relBase = $base . ComponentNaming::base($relation->name());
@@ -619,7 +545,7 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: 'Fetch the related ' . $relation->name() . ' of ' . TypeNoun::of($type)->withArticle(),
             description: $this->relationDescription(
                 $relation,
@@ -627,7 +553,7 @@ final class OperationProjector
                     ? 'Returns the related `' . $relation->name() . '` resources of ' . TypeNoun::of($type)->withArticle() . '.'
                     : 'Returns the related `' . $relation->name() . '` resource of ' . TypeNoun::of($type)->withArticle() . '.',
             ),
-            operationId: 'fetchRelated.' . $type->type() . '.' . $relation->name(),
+            operationId: $operationId,
             parameters: $parameters,
             // A related read mirrors a fetch — it carries security iff fetch-one does.
             security: $security,
@@ -635,40 +561,22 @@ final class OperationProjector
     }
 
     /**
-     * The relationship-linkage operations on `…/relationships/{rel}`: `GET` (read
-     * linkage — always when the endpoint is exposed), plus the mutating verbs gated by
-     * the relation's mutation flags: `PATCH` (replace, when {@see allowsReplace()}),
-     * and — to-many only — `POST` (add, {@see allowsAdd()}) and `DELETE` (remove,
-     * {@see allowsRemove()}).
+     * The relationship-linkage read (`GET …/relationships/{rel}`), which mirrors a fetch.
      *
-     * The relation flags are the narrower half of the gate. A relationship mutation is an
-     * update of the parent resource — it derives its security from the parent's
-     * {@see OperationType::Update}, and a host routes it off the parent's update — so a
-     * type whose allow-list omits `Update` exposes no mutating verb here however
-     * permissive its relations are.
-     *
-     * @param array<string, true> $allowed the type's allowed operations as a presence set
-     * @return array<string, Operation> lower-cased HTTP method → operation
+     * @param list<string> $tags
      */
-    private function relationshipOperations(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, array $allowed): array
+    private function relationshipFetchOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags): Operation
     {
-        $base = ComponentNaming::base($type->type());
-        $relBase = $base . ComponentNaming::base($relation->name());
-        $documentRef = Schema::ref(ComponentNaming::schemaRef($relBase . 'RelationshipDocument'));
-        $tags = $type->tags();
-
-        $operations = [];
-        $writeOnly = self::isWriteOnly($relation);
+        $documentRef = $this->relationshipDocumentRef($type, $relation);
         $parent = TypeNoun::of($type)->withArticle();
 
-        // GET — read the relationship linkage (mirrors a fetch). A **monomorphic to-one**
-        // relationship endpoint honours the related resource's `filter[]` vocabulary
-        // (a relation filter that excludes the target nulls the linkage). A
-        // **monomorphic to-many** relationship endpoint is a real queryable, paginated
-        // linkage collection at parity with the related endpoint: `filter[]`/`sort`/
-        // `page` (+`withCount` when countable) scope against the same merged vocabulary,
-        // the page-1 linkage rendering with the relationship object's pagination links
-        // (ADR 0096). A **polymorphic** relationship endpoint (to-one or to-many — members
+        // A **monomorphic to-one** relationship endpoint honours the related resource's
+        // `filter[]` vocabulary (a relation filter that excludes the target nulls the
+        // linkage). A **monomorphic to-many** relationship endpoint is a real queryable,
+        // paginated linkage collection at parity with the related endpoint: `filter[]`/
+        // `sort`/`page` (+`withCount` when countable) scope against the same merged
+        // vocabulary, the page-1 linkage rendering with the relationship object's
+        // pagination links (ADR 0096). A **polymorphic** relationship endpoint (to-one or to-many — members
         // span types, no single related provider or shared vocabulary) takes no query
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {
@@ -687,66 +595,26 @@ final class OperationProjector
         }
         // The relation's declared read security overrides the parent's fetch gate.
         $getSecurity = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
-        // A write-only relation's linkage is never read back, so it has no GET.
-        if (!$writeOnly) {
-            $getResponses = (new Responses())
-                ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
-            $operations['get'] = new Operation(
-                responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
-                tags: $tags,
-                summary: 'Fetch the ' . $relation->name() . ' relationship of ' . $parent,
-                description: $this->relationDescription(
-                    $relation,
-                    'Returns the `' . $relation->name() . '` relationship linkage of ' . $parent . '.',
-                ),
-                operationId: 'fetchRelationship.' . $type->type() . '.' . $relation->name(),
-                parameters: $getParameters,
-                security: $getSecurity,
-            );
-        }
+        $getResponses = (new Responses())
+            ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
 
-        $updatable = isset($allowed[OperationType::Update->value]);
-
-        // PATCH — full replacement of the relationship.
-        if ($updatable && $relation->allowsReplace()) {
-            $operations['patch'] = $this->relationshipMutationOperation(
-                $type,
+        return new Operation(
+            responses: $this->withErrorResponses($getResponses, $this->authStatuses(['400', '403', '404', '406', '500'], $getSecurity, $server->defaultSecurity())),
+            tags: $tags,
+            summary: 'Fetch the ' . $relation->name() . ' relationship of ' . $parent,
+            description: $this->relationDescription(
                 $relation,
-                $server,
-                'Replace the ' . $relation->name() . ' relationship of ' . $parent,
-                'Fully replaces the `' . $relation->name() . '` relationship of ' . $parent . ' with the supplied linkage.',
-                'updateRelationship',
-                $documentRef,
-            );
-        }
+                'Returns the `' . $relation->name() . '` relationship linkage of ' . $parent . '.',
+            ),
+            operationId: $operationId,
+            parameters: $getParameters,
+            security: $getSecurity,
+        );
+    }
 
-        // POST / DELETE — to-many add / remove only (a to-one has no add/remove verbs).
-        if ($updatable && $relation->isToMany()) {
-            if ($relation->allowsAdd()) {
-                $operations['post'] = $this->relationshipMutationOperation(
-                    $type,
-                    $relation,
-                    $server,
-                    'Add to the ' . $relation->name() . ' relationship of ' . $parent,
-                    'Adds the supplied members to the `' . $relation->name() . '` relationship of ' . $parent . '.',
-                    'addRelationship',
-                    $documentRef,
-                );
-            }
-            if ($relation->allowsRemove()) {
-                $operations['delete'] = $this->relationshipMutationOperation(
-                    $type,
-                    $relation,
-                    $server,
-                    'Remove from the ' . $relation->name() . ' relationship of ' . $parent,
-                    'Removes the supplied members from the `' . $relation->name() . '` relationship of ' . $parent . '.',
-                    'removeRelationship',
-                    $documentRef,
-                );
-            }
-        }
-
-        return $operations;
+    private function relationshipDocumentRef(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
+    {
+        return Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . ComponentNaming::base($relation->name()) . 'RelationshipDocument'));
     }
 
     /**
@@ -757,16 +625,35 @@ final class OperationProjector
      * It takes no `?include` / `fields[<type>]`: the echoed document is linkage-only, and
      * {@see \haddowg\JsonApi\Transformer\DocumentTransformer::transformRelationshipDataMembers()}
      * emits no `included` member for it however the request is spelled.
+     *
+     * @param list<string> $tags
      */
     private function relationshipMutationOperation(
         TypeMetadataInterface $type,
         RelationMetadataInterface $relation,
+        OperationKind $kind,
         ServerMetadataInterface $server,
-        string $summary,
-        string $defaultDescription,
-        string $operationPrefix,
-        Schema $documentRef,
+        string $operationId,
+        array $tags,
     ): Operation {
+        $documentRef = $this->relationshipDocumentRef($type, $relation);
+        $parent = TypeNoun::of($type)->withArticle();
+        [$summary, $defaultDescription] = match ($kind) {
+            OperationKind::UpdateRelationship => [
+                'Replace the ' . $relation->name() . ' relationship of ' . $parent,
+                'Fully replaces the `' . $relation->name() . '` relationship of ' . $parent . ' with the supplied linkage.',
+            ],
+            OperationKind::AddRelationship => [
+                'Add to the ' . $relation->name() . ' relationship of ' . $parent,
+                'Adds the supplied members to the `' . $relation->name() . '` relationship of ' . $parent . '.',
+            ],
+            OperationKind::RemoveRelationship => [
+                'Remove from the ' . $relation->name() . ' relationship of ' . $parent,
+                'Removes the supplied members from the `' . $relation->name() . '` relationship of ' . $parent . '.',
+            ],
+            default => throw new \LogicException(\sprintf('"%s" is not a relationship mutation.', $kind->value)),
+        };
+
         // A relationship mutation mirrors an update, but the relation's own declared
         // mutation security OVERRIDES the parent's update gate.
         $security = $this->relationSecurityFor($relation->securityMutate(), $type, OperationType::Update, $server);
@@ -780,10 +667,10 @@ final class OperationProjector
 
         return new Operation(
             responses: $responses,
-            tags: $type->tags(),
+            tags: $tags,
             summary: $summary,
             description: $this->relationDescription($relation, $defaultDescription),
-            operationId: $operationPrefix . '.' . $type->type() . '.' . $relation->name(),
+            operationId: $operationId,
             // A pivot-backed relation's request linkage types `meta.pivot` with the request
             // pivot shape, so it takes its own request document.
             requestBody: RequestBody::ofSchema(RelationFacts::hasPivot($relation)
@@ -816,38 +703,6 @@ final class OperationProjector
     }
 
     // ---- Custom-action endpoints (stage B) --------------------------------------
-
-    /**
-     * Every custom-action {@see PathItem} for the type (§4.5): one path per action
-     * under the `-actions` segment — `/{uriType}/{id}/-actions/{path}` for a
-     * resource-scoped action, `/{uriType}/-actions/{path}` for a collection-scoped one
-     * — carrying the action's declared method(s). A resource-scoped action shares the
-     * `{id}` path parameter at the path-item level.
-     *
-     * @return array<string, PathItem>
-     */
-    private function actionPaths(TypeMetadataInterface $type, ServerMetadataInterface $server): array
-    {
-        $paths = [];
-
-        foreach ($type->actions() as $action) {
-            $resourceScoped = $action->scope() === ActionScope::Resource;
-            $path = PathTemplate::action($type->uriType(), $action->path(), $action->scope());
-
-            $item = $resourceScoped
-                ? new PathItem(parameters: [$this->idPathParameter($type)])
-                : new PathItem();
-
-            $operation = $this->actionOperation($type, $action, $server);
-            foreach ($action->methods() as $httpMethod) {
-                $item = $item->withOperation(\strtolower($httpMethod), $operation->withOperationId(ActionDeclarations::operationId($type->type(), $action, $httpMethod)));
-            }
-
-            $paths[$path] = $item;
-        }
-
-        return $paths;
-    }
 
     /**
      * One custom action's operation (§4.5): its input mode → `requestBody`
@@ -2057,21 +1912,5 @@ final class OperationProjector
         $default = $server->defaultSecurity();
 
         return $default === [] ? null : $default;
-    }
-
-    /**
-     * The allowed operations as a presence set keyed by the {@see OperationType}
-     * backing value, for O(1) membership checks.
-     *
-     * @return array<string, true>
-     */
-    private function allowedOperations(TypeMetadataInterface $type): array
-    {
-        $set = [];
-        foreach ($type->operations() as $operation) {
-            $set[$operation->value] = true;
-        }
-
-        return $set;
     }
 }

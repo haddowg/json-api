@@ -143,14 +143,7 @@ final class ActionDeclarations
      */
     public static function safety(ActionMetadataInterface $action): array
     {
-        if (!$action instanceof DeclaresActionSafety) {
-            return [];
-        }
-
-        return \array_filter(
-            ['readOnly' => $action->readOnly(), 'destructive' => $action->destructive(), 'idempotent' => $action->idempotent()],
-            static fn(?bool $flag): bool => $flag !== null,
-        );
+        return OperationSafety::of($action)?->toArray() ?? [];
     }
 
     /**

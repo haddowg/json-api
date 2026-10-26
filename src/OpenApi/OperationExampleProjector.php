@@ -13,6 +13,8 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -142,78 +144,31 @@ final class OperationExampleProjector
 
     private function type(TypeMetadataInterface $type, Paths $paths): Paths
     {
-        $builder = $this->builder;
-        $uriType = $type->uriType();
         $overrides = $type instanceof DeclaresOperationExamples ? $type->operationExamples() : [];
         $known = [];
+        $actions = [];
 
-        $collection = PathTemplate::collection($uriType);
-        $resource = PathTemplate::resource($uriType);
+        foreach (OperationEnumerator::forType($type) as $enumerated) {
+            if ($enumerated->action !== null) {
+                $actions[] = $enumerated;
+                continue;
+            }
 
-        /** @var list<array{string, string, string, Parts}> $operations */
-        $operations = [
-            [$collection, 'get', 'fetchCollection', [
-                'request' => null,
-                'responses' => [200 => fn(): array => $builder->collectionDocument($type, $collection, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type)],
-            ]],
-            [$collection, 'post', 'create', [
-                'request' => fn(): array => $builder->writeDocument($type, creating: true),
-                'responses' => [
-                    201 => fn(): array => $builder->resourceDocument($type, $collection, OperationReference::create($uriType)),
-                    ...$this->jobResponses($type, OperationType::Create),
-                ],
-            ]],
-            [$resource, 'get', 'fetchOne', [
-                'request' => null,
-                'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::fetchOne($uriType))],
-            ]],
-            [$resource, 'patch', 'update', [
-                'request' => fn(): array => $builder->writeDocument($type, creating: false),
-                'responses' => [
-                    200 => fn(): array => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::update($uriType)),
-                    ...$this->jobResponses($type, OperationType::Update),
-                ],
-            ]],
-            [$resource, 'delete', 'delete', ['request' => null, 'responses' => []]],
-        ];
-
-        foreach ($type->relations() as $relation) {
-            $segment = RelationFacts::uriFieldName($relation);
-            $name = $relation->name();
-            $related = PathTemplate::related($uriType, $segment);
-            $relationship = PathTemplate::relationship($uriType, $segment);
-            $echo = [
-                'request' => fn(): array => $builder->relationshipRequest($type, $relation),
-                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: false)],
-            ];
-
-            $operations[] = [$related, 'get', 'fetchRelated.' . $name, [
-                'request' => null,
-                'responses' => [200 => fn(): array => $builder->relatedDocument($type, $relation)],
-            ]];
-            $operations[] = [$relationship, 'get', 'fetchRelationship.' . $name, [
-                'request' => null,
-                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: true)],
-            ]];
-            $operations[] = [$relationship, 'patch', 'updateRelationship.' . $name, $echo];
-            $operations[] = [$relationship, 'post', 'addRelationship.' . $name, $echo];
-            $operations[] = [$relationship, 'delete', 'removeRelationship.' . $name, $echo];
-        }
-
-        foreach ($operations as [$path, $method, $name, $generate]) {
-            $item = $paths->items[$path] ?? null;
-            $operation = $item?->operations[$method] ?? null;
+            $item = $paths->items[$enumerated->path] ?? null;
+            $operation = $item?->operations[$enumerated->method] ?? null;
             if ($item === null || $operation === null) {
                 continue;
             }
+            $name = $enumerated->key->name();
             $known[$name] = true;
 
             $override = \array_key_exists($name, $overrides) ? ($overrides[$name] ?? false) : null;
-            $paths = $paths->with($path, $item->withOperation($method, $this->operation($operation, $generate, $override, $name)));
+            $paths = $paths->with($enumerated->path, $item->withOperation($enumerated->method, $this->operation($operation, $this->parts($type, $enumerated), $override, $name)));
         }
 
         foreach (\array_keys($overrides) as $name) {
-            if (!isset($known[$name])) {
+            $key = OperationKey::tryFromName((string) $name);
+            if ($key === null || !isset($known[$key->name()])) {
                 throw new \InvalidArgumentException(\sprintf(
                     'The type "%s" declares an example for the operation "%s", which it does not expose. Name one of: %s.',
                     $type->type(),
@@ -223,56 +178,103 @@ final class OperationExampleProjector
             }
         }
 
-        foreach ($type->actions() as $action) {
-            $paths = $this->action($type, $action, $paths);
+        foreach ($actions as $enumerated) {
+            $paths = $this->action($type, $enumerated, $paths);
         }
 
         return $paths;
     }
 
-    private function action(TypeMetadataInterface $type, ActionMetadataInterface $action, Paths $paths): Paths
+    /**
+     * The builders of a CRUD, related or relationship operation's examples.
+     *
+     * @return Parts
+     */
+    private function parts(TypeMetadataInterface $type, EnumeratedOperation $enumerated): array
     {
         $builder = $this->builder;
-        $path = PathTemplate::action($type->uriType(), $action->path(), $action->scope());
+        $uriType = $type->uriType();
+        $path = $enumerated->path;
+        $relation = $enumerated->relation;
+
+        if ($relation === null) {
+            return match ($enumerated->key->kind) {
+                OperationKind::FetchCollection => [
+                    'request' => null,
+                    'responses' => [200 => fn(): array => $builder->collectionDocument($type, $path, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type)],
+                ],
+                OperationKind::Create => [
+                    'request' => fn(): array => $builder->writeDocument($type, creating: true),
+                    'responses' => [
+                        201 => fn(): array => $builder->resourceDocument($type, $path, OperationReference::create($uriType)),
+                        ...$this->jobResponses($type, OperationType::Create),
+                    ],
+                ],
+                OperationKind::FetchOne => [
+                    'request' => null,
+                    'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), OperationReference::fetchOne($uriType))],
+                ],
+                OperationKind::Update => [
+                    'request' => fn(): array => $builder->writeDocument($type, creating: false),
+                    'responses' => [
+                        200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), OperationReference::update($uriType)),
+                        ...$this->jobResponses($type, OperationType::Update),
+                    ],
+                ],
+                default => ['request' => null, 'responses' => []],
+            };
+        }
+
+        return match ($enumerated->key->kind) {
+            OperationKind::FetchRelated => [
+                'request' => null,
+                'responses' => [200 => fn(): array => $builder->relatedDocument($type, $relation)],
+            ],
+            OperationKind::FetchRelationship => [
+                'request' => null,
+                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: true)],
+            ],
+            default => [
+                'request' => fn(): array => $builder->relationshipRequest($type, $relation),
+                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: false)],
+            ],
+        };
+    }
+
+    private function action(TypeMetadataInterface $type, EnumeratedOperation $enumerated, Paths $paths): Paths
+    {
+        $builder = $this->builder;
+        $action = $enumerated->action;
+        $path = $enumerated->path;
         $item = $paths->items[$path] ?? null;
-        if ($item === null) {
+        $operation = $item?->operations[$enumerated->method] ?? null;
+        if ($action === null || $item === null || $operation === null) {
             return $paths;
         }
 
         $override = $action instanceof DeclaresActionExample ? $action->example() : null;
-
-        foreach ($action->methods() as $httpMethod) {
-            $method = \strtolower($httpMethod);
-            $operation = $item->operations[$method] ?? null;
-            if ($operation === null) {
-                continue;
-            }
-
-            $reference = OperationReference::action($type->uriType(), $action->path(), $action->scope(), $httpMethod);
-            $responses = [];
-            foreach ($action->responds() as $response) {
-                if ($response instanceof ActionResource) {
-                    $body = $builder->type($response->bodyType());
-                    if ($body !== null) {
-                        $responses[200] = fn(): array => $builder->resourceDocument(
-                            $body,
-                            $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
-                            $reference,
-                        );
-                    }
-                } elseif ($response instanceof Accepted) {
-                    $job = $builder->type($response->jobType());
-                    if ($job !== null) {
-                        $responses[202] = fn(): array => $builder->resourceDocument($job, '', $reference, selfLink: false);
-                    }
+        $reference = $enumerated->reference();
+        $responses = [];
+        foreach ($action->responds() as $response) {
+            if ($response instanceof ActionResource) {
+                $body = $builder->type($response->bodyType());
+                if ($body !== null) {
+                    $responses[200] = fn(): array => $builder->resourceDocument(
+                        $body,
+                        $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
+                        $reference,
+                    );
+                }
+            } elseif ($response instanceof Accepted) {
+                $job = $builder->type($response->jobType());
+                if ($job !== null) {
+                    $responses[202] = fn(): array => $builder->resourceDocument($job, '', $reference, selfLink: false);
                 }
             }
-            $generate = ['request' => $this->actionRequest($action), 'responses' => $responses];
-
-            $item = $item->withOperation($method, $this->operation($operation, $generate, $override, 'action.' . $action->path()));
         }
+        $generate = ['request' => $this->actionRequest($action), 'responses' => $responses];
 
-        return $paths->with($path, $item);
+        return $paths->with($path, $item->withOperation($enumerated->method, $this->operation($operation, $generate, $override, 'action.' . $action->path())));
     }
 
     /**
