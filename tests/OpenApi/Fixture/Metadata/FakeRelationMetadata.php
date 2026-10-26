@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
@@ -14,7 +16,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted
 {
     /**
      * @param list<string>          $relatedTypes
@@ -42,7 +44,19 @@ final class FakeRelationMetadata implements RelationMetadataInterface
         private readonly string|bool|null $securityRead = null,
         private readonly string|bool|null $securityMutate = null,
         private readonly array $pivotFields = [],
+        private readonly ?string $exampleId = null,
+        private readonly bool $alwaysCounts = false,
     ) {}
+
+    public function exampleId(): ?string
+    {
+        return $this->exampleId;
+    }
+
+    public function alwaysCounts(): bool
+    {
+        return $this->alwaysCounts;
+    }
 
     /**
      * @param list<string> $relatedTypes

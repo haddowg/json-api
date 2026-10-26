@@ -7,6 +7,8 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -104,16 +106,16 @@ final class ExampleDocumentBuilder
 
     /**
      * A document whose primary data is a page of `$type` resources, produced by a
-     * request to `$path`. `$countable` says whether the collection can carry its total,
-     * which the example then shows, as a client asking for it with `withCount` gets it.
+     * request to `$path`. `$collection` is the type or relation whose collection it is,
+     * which says whether that collection carries its total (see {@see paginated()}).
      *
      * @return array<string, mixed>
      */
-    public function collectionDocument(TypeMetadataInterface $type, string $path, OperationReference $operation, ?Schema $pageSchema, bool $countable): array
+    public function collectionDocument(TypeMetadataInterface $type, string $path, OperationReference $operation, ?Schema $pageSchema, TypeMetadataInterface|RelationMetadataInterface $collection): array
     {
         $document = ['data' => [$this->resource($type)]];
 
-        return $this->paginated($document, $path, $operation, $pageSchema, $countable, 1);
+        return $this->paginated($document, $path, $operation, $pageSchema, $collection, 1);
     }
 
     /**
@@ -133,7 +135,7 @@ final class ExampleDocumentBuilder
                 return [];
             }
 
-            return $this->collectionDocument($related, $path, $operation, $relation->pageSchema(), $relation->isCountable());
+            return $this->collectionDocument($related, $path, $operation, $relation->pageSchema(), $relation);
         }
 
         return $this->finish(
@@ -158,7 +160,8 @@ final class ExampleDocumentBuilder
 
         $linkage = $this->linkage($owner, $relation, RepresentationContext::Read);
         if ($linkage === false) {
-            $this->miss($relation->relatedTypes()[0] ?? $relation->name(), 'id');
+            // The related type is not registered here, so only the relation can name an id.
+            $this->miss($owner->type(), $relation->name());
             $linkage = null;
         }
 
@@ -168,7 +171,7 @@ final class ExampleDocumentBuilder
         if ($reading && $relation->isToMany() && $relation->pageSchema() !== null) {
             $document['links'] = $links;
 
-            return $this->paginated($document, $path, $operation, $relation->pageSchema(), $relation->isCountable(), \is_array($linkage) ? \count($linkage) : 0);
+            return $this->paginated($document, $path, $operation, $relation->pageSchema(), $relation, \is_array($linkage) ? \count($linkage) : 0);
         }
 
         $links['self'] ??= $this->links->renderedLink($path, $operation);
@@ -185,7 +188,8 @@ final class ExampleDocumentBuilder
     {
         $linkage = $this->linkage($owner, $relation, RepresentationContext::Update);
         if ($linkage === false) {
-            $this->miss($relation->relatedTypes()[0] ?? $relation->name(), 'id');
+            // The related type is not registered here, so only the relation can name an id.
+            $this->miss($owner->type(), $relation->name());
             $linkage = null;
         }
 
@@ -305,6 +309,16 @@ final class ExampleDocumentBuilder
      */
     public function id(TypeMetadataInterface $type): string
     {
+        $id = self::idExample($type);
+        if ($id === null) {
+            $this->miss($type->type(), 'id');
+        }
+
+        return $id ?? '';
+    }
+
+    private static function idExample(TypeMetadataInterface $type): ?string
+    {
         foreach ($type->fields() as $field) {
             if ($field instanceof Id && $field->hasExample()) {
                 $example = $field->getExample();
@@ -314,9 +328,7 @@ final class ExampleDocumentBuilder
             }
         }
 
-        $this->miss($type->type(), 'id');
-
-        return '';
+        return null;
     }
 
     /**
@@ -391,19 +403,30 @@ final class ExampleDocumentBuilder
     /**
      * A relation's linkage `data`: one identifier of its (first) related type, in a list
      * for a to-many, carrying the pivot fields a pivot-backed relation renders or accepts
-     * in `meta.pivot`. `false` when the related type is not registered here, so there is
-     * no id to show.
+     * in `meta.pivot`. The id is the related type's `Id` example, else the id example the
+     * relation declares ({@see DeclaresRelationExampleId}). `false` when the related type
+     * is not registered here and the relation declares none, so there is no id to show.
      *
      * @return array<string, mixed>|list<array<string, mixed>>|false
      */
     private function linkage(TypeMetadataInterface $owner, RelationMetadataInterface $relation, RepresentationContext $context): array|false
     {
-        $related = $this->relatedType($owner, $relation);
-        if ($related === null) {
+        $relatedType = $relation->relatedTypes()[0] ?? null;
+        if ($relatedType === null) {
+            return false;
+        }
+        $declared = $relation instanceof DeclaresRelationExampleId ? $relation->exampleId() : null;
+        $related = $this->type($relatedType);
+        if ($related === null && $declared === null) {
             return false;
         }
 
-        $identifier = ['type' => $related->type(), 'id' => $this->id($related)];
+        $id = $related === null ? null : self::idExample($related);
+        if ($id === null && $declared === null && $related !== null) {
+            $this->miss($related->type(), 'id');
+        }
+
+        $identifier = ['type' => $relatedType, 'id' => $id ?? $declared ?? ''];
         if (RelationFacts::hasPivot($relation)) {
             $pivot = [];
             foreach ($relation->pivotFields() as $field) {
@@ -512,12 +535,20 @@ final class ExampleDocumentBuilder
      * of a collection a request to `$path` produced. An unpaginated collection is fetched
      * whole, so it always carries its total.
      *
+     * A paginated collection carries its total when its paginator always counts
+     * ({@see DeclaresAlwaysCounted}), as every request then gets it. Otherwise a countable
+     * collection on a server that registers the Countable profile shows the total a
+     * `withCount=_self_` request gets, and any other shows the count-free page.
+     *
      * @param array<string, mixed> $document
      *
      * @return array<string, mixed>
      */
-    private function paginated(array $document, string $path, OperationReference $operation, ?Schema $pageSchema, bool $countable, int $count): array
+    private function paginated(array $document, string $path, OperationReference $operation, ?Schema $pageSchema, TypeMetadataInterface|RelationMetadataInterface $collection, int $count): array
     {
+        $always = $collection instanceof DeclaresAlwaysCounted && $collection->alwaysCounts();
+        $requested = !$always && $collection->isCountable() && \in_array(CountableProfile::URI, $this->server->profiles(), true);
+
         /** @var array<string, mixed> $links */
         $links = $document['links'] ?? [];
         unset($document['links']);
@@ -530,7 +561,7 @@ final class ExampleDocumentBuilder
 
         $data = $document['data'] ?? null;
         $first = \is_array($data) && \is_array($data[0] ?? null) ? $data[0]['id'] ?? null : null;
-        $page = $this->page($pageSchema, $countable && \in_array(CountableProfile::URI, $this->server->profiles(), true), \is_string($first) ? $first : null);
+        $page = $this->page($pageSchema, $always || $requested, \is_string($first) ? $first : null);
         if ($page === null) {
             $links['self'] = $this->links->renderedLink($path, $operation);
 
@@ -538,7 +569,7 @@ final class ExampleDocumentBuilder
         }
 
         $query = $page['request'];
-        if ($page['total'] !== null) {
+        if ($requested && $page['total'] !== null) {
             $query[CountableProfile::FAMILY] = CountableProfile::SELF_TOKEN;
         }
         foreach ($page['links'] as $name => $members) {
@@ -550,7 +581,7 @@ final class ExampleDocumentBuilder
         $meta['page'] = $page['meta'];
 
         $profiles = [];
-        if ($page['total'] !== null) {
+        if ($requested && $page['total'] !== null) {
             $profiles[] = CountableProfile::URI;
         }
         if ($page['profile'] !== null && \in_array($page['profile'], $this->server->profiles(), true)) {

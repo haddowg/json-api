@@ -55,5 +55,6 @@ final readonly class RelationState
         public bool $paginationDisabled = false,
         public array $relationFilters = [],
         public array $relationSorts = [],
+        public ?string $exampleId = null,
     ) {}
 }

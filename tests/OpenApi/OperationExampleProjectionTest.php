@@ -21,6 +21,7 @@ use haddowg\JsonApi\OpenApi\Paths;
 use haddowg\JsonApi\OpenApi\Projection;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\Pagination\CursorPaginator;
+use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\OffsetPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
@@ -224,6 +225,48 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aRelationsExampleIdFillsLinkageNoRelatedTypeGivesAnIdFor(): void
+    {
+        $people = FakeTypeMetadata::resource('people', [Id::make()->example('per-1')->build()], relations: [
+            // Not registered on this server.
+            new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false, exampleId: 'co-1'),
+            // Registered, with no Id example of its own.
+            new FakeRelationMetadata('team', ['teams'], false, exampleId: 'team-1'),
+            // Registered with an Id example, which wins.
+            new FakeRelationMetadata('manager', ['people'], false, exampleId: 'ignored'),
+        ]);
+        $teams = FakeTypeMetadata::resource('teams', [Id::make()->build()]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$people, $teams]));
+        $document = $projection->document->toArray();
+
+        $read = self::responseExample($document, '/people/{id}', 'get', '200');
+        self::assertSame(['type' => 'companies', 'id' => 'co-1'], self::at($read, 'data', 'relationships', 'company', 'data'));
+        self::assertSame(['type' => 'teams', 'id' => 'team-1'], self::at($read, 'data', 'relationships', 'team', 'data'));
+        self::assertSame(['type' => 'people', 'id' => 'per-1'], self::at($read, 'data', 'relationships', 'manager', 'data'));
+        self::assertSame(['type' => 'companies', 'id' => 'co-1'], self::at(self::requestExample($document, '/people', 'post'), 'data', 'relationships', 'company', 'data'));
+        self::assertSame(['data' => ['type' => 'companies', 'id' => 'co-1']], self::requestExample($document, '/people/{id}/relationships/company', 'patch'));
+        self::assertSame(['type' => 'companies', 'id' => 'co-1'], self::at(self::responseExample($document, '/people/{id}/relationships/company', 'get', '200'), 'data'));
+
+        // Only the related endpoint still misses: it renders a team resource, whose id is
+        // the team type's own and not the relation's.
+        $people = \array_filter($projection->missingExamples, static fn(MissingExample $m): bool => \str_ends_with($m->operation, '.people') || \str_contains($m->operation, '.people.'));
+        self::assertEquals([new MissingExample('fetchRelated.people.team', 'teams', 'id')], \array_values($people));
+    }
+
+    #[Test]
+    public function linkageToAnUnregisteredTypeWithNoExampleIdIsReportedOnTheRelation(): void
+    {
+        $people = FakeTypeMetadata::resource('people', [Id::make()->example('per-1')->build()], relations: [
+            new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$people]));
+
+        self::assertContainsEquals(new MissingExample('fetchRelationship.people.company', 'people', 'company'), $projection->missingExamples);
+        // A read renders the relation's links alone, as an unloaded linkage does.
+        self::assertSame(['links'], \array_keys(self::arr(self::at(self::responseExample($projection->document->toArray(), '/people/{id}', 'get', '200'), 'data', 'relationships', 'company'))));
+    }
+
+    #[Test]
     public function aCountableCollectionShowsTheTotalItsCountedPageRenders(): void
     {
         $type = FakeTypeMetadata::resource('tags', [Id::make()->example('tag-1')->build()], countable: true);
@@ -243,6 +286,50 @@ final class OperationExampleProjectionTest extends TestCase
             'page' => ['currentPage' => 2, 'perPage' => 15, 'from' => 16, 'to' => 30, 'total' => 75, 'lastPage' => 5],
         ], self::at($collection, 'meta'));
         self::assertSame(['version' => '1.1', 'profile' => [CountableProfile::URI]], self::at($collection, 'jsonapi'));
+    }
+
+    #[Test]
+    public function anAlwaysCountingCollectionShowsItsTotalWithoutBeingAsked(): void
+    {
+        // No Countable profile and no `withCount`: the paginator counts every request.
+        $type = FakeTypeMetadata::resource('tags', [Id::make()->example('tag-1')->build()], alwaysCounts: true);
+        $collection = self::responseExample($this->project([$type]), '/tags', 'get', '200');
+
+        $page = static fn(int $number): array => ['href' => 'https://api.example.com/tags?page%5Bnumber%5D=' . $number . '&page%5Bsize%5D=15'];
+        self::assertSame(['self' => $page(2), 'first' => $page(1), 'prev' => $page(1), 'next' => $page(3), 'last' => $page(5)], self::at($collection, 'links'));
+        self::assertSame([
+            'total' => 75,
+            'page' => ['currentPage' => 2, 'perPage' => 15, 'from' => 16, 'to' => 30, 'total' => 75, 'lastPage' => 5],
+        ], self::at($collection, 'meta'));
+        self::assertSame(['version' => '1.1'], self::at($collection, 'jsonapi'));
+    }
+
+    #[Test]
+    public function anAlwaysCountingRelationShowsItsRelatedTotal(): void
+    {
+        $articles = FakeTypeMetadata::resource('articles', [Id::make()->example('art-1')->build()], relations: [
+            new FakeRelationMetadata('tags', ['tags'], true, pageSchema: OffsetPaginator::make()->describePageSchema(), alwaysCounts: true),
+        ]);
+        $tags = FakeTypeMetadata::resource('tags', [Id::make()->example('tag-1')->build()]);
+        $related = self::responseExample($this->project([$articles, $tags]), '/articles/{id}/tags', 'get', '200');
+
+        self::assertSame(['offset' => 15, 'limit' => 15, 'from' => 16, 'to' => 30, 'total' => 75], self::at($related, 'meta', 'page'));
+        self::assertSame(75, self::at($related, 'meta', 'total'));
+        self::assertArrayHasKey('last', self::arr(self::at($related, 'links')));
+    }
+
+    #[Test]
+    public function aMenuCountsAsItsDefaultStrategyAndACursorNever(): void
+    {
+        $fields = [Id::make()->example('t-1')->build()];
+        $document = $this->project([
+            FakeTypeMetadata::resource('pages', $fields, pageSchema: (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(), alwaysCounts: true),
+            FakeTypeMetadata::resource('cursors', $fields, pageSchema: (new MultiPaginator(CursorPaginator::make(), PagePaginator::make()))->describePageSchema(), alwaysCounts: true),
+        ]);
+
+        self::assertSame(5, self::at(self::responseExample($document, '/pages', 'get', '200'), 'meta', 'page', 'lastPage'));
+        self::assertNull(self::at(self::responseExample($document, '/cursors', 'get', '200'), 'meta', 'total'));
+        self::assertSame(['first', 'prev', 'next', 'self'], \array_keys(self::arr(self::at(self::responseExample($document, '/cursors', 'get', '200'), 'links'))));
     }
 
     #[Test]

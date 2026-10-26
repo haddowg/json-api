@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
@@ -23,7 +24,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples, DeclaresAlwaysCounted
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -63,7 +64,13 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         private readonly array $publicOperations = [],
         private readonly array $responses = [],
         private readonly array $operationExamples = [],
+        private readonly bool $alwaysCounts = false,
     ) {}
+
+    public function alwaysCounts(): bool
+    {
+        return $this->alwaysCounts;
+    }
 
     public function operationExamples(): array
     {
@@ -108,6 +115,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         array $publicOperations = [],
         array $responses = [],
         array $operationExamples = [],
+        bool $alwaysCounts = false,
     ): self {
         return new self(
             type: $type,
@@ -138,6 +146,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
             publicOperations: $publicOperations,
             responses: $responses,
             operationExamples: $operationExamples,
+            alwaysCounts: $alwaysCounts,
         );
     }
 

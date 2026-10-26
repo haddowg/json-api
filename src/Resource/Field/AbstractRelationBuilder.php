@@ -108,6 +108,8 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 
     protected bool $isCountable = false;
 
+    protected ?string $exampleId = null;
+
     /**
      * The per-relation resolver that contributes `meta` to each linkage identifier
      * object this relation renders, set by {@see identifierMeta()}. Parent-aware:
@@ -423,6 +425,21 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * Declares the related resource id this relation's linkage shows in generated
+     * examples. The OpenAPI projection uses the related type's own `Id` example when it
+     * has one, and this where it does not: a related type the server does not register,
+     * or one whose `Id` declares no example. Render-neutral, like `example()`.
+     *
+     * @return static
+     */
+    public function exampleId(string|int $id): static
+    {
+        $this->exampleId = (string) $id;
+
+        return $this;
+    }
+
+    /**
      * Declares per-relation `meta` for the **resource identifier objects** this
      * relation renders in its linkage — the `{type, id, meta}` form that appears
      * under a relationship's `data`, on every member of a to-many and on a to-one's
@@ -549,6 +566,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             paginationDisabled: $this->paginationDisabled,
             relationFilters: $this->relationFilters,
             relationSorts: $this->relationSorts,
+            exampleId: $this->exampleId,
         );
     }
 }

@@ -11,3 +11,5 @@ Examples get a scoped contract tier, `EXAMPLES = 12`, stamped only on a document
 A composite's children describe its example whenever they render its value, which includes a `computedUsing()` or `extractUsing()` value; only a `serializeUsing()` hook makes the shape the author's and needs the field's own example. Treating every hook as author-shaped had left computed objects without examples even when each child declared one.
 
 Every core error code now declares an `exampleDetail`, checked against the detail its exception renders, so each error example shows one. The catalogue projects that example as a `detail` narrowing on the code's component, which changes the components every document shares, so contract 13 raises `BASELINE` to `CONTRACT` and the `EXAMPLES` tier no longer distinguishes a document.
+
+ADR 0177 adds two opt-in metadata facts the examples read: whether a collection's paginator always counts, and an id example a relation declares for linkage the related type cannot give.
