@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -16,6 +17,7 @@ use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 
 /**
@@ -24,7 +26,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples, DeclaresAlwaysCounted
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -40,6 +42,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
      * @param list<OperationType>             $publicOperations
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
+     * @param list<DeclaredLink>              $declaredLinks
      */
     public function __construct(
         private readonly string $type,
@@ -65,11 +68,17 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         private readonly array $responses = [],
         private readonly array $operationExamples = [],
         private readonly bool $alwaysCounts = false,
+        private readonly array $declaredLinks = [],
     ) {}
 
     public function alwaysCounts(): bool
     {
         return $this->alwaysCounts;
+    }
+
+    public function declaredLinks(): array
+    {
+        return $this->declaredLinks;
     }
 
     public function operationExamples(): array
@@ -89,6 +98,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
      * @param list<string>                    $includablePaths
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      * @param list<OperationType>             $publicOperations  the operations explicitly declared public (security: [])
+     * @param list<DeclaredLink>              $declaredLinks
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      */
@@ -116,6 +126,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         array $responses = [],
         array $operationExamples = [],
         bool $alwaysCounts = false,
+        array $declaredLinks = [],
     ): self {
         return new self(
             type: $type,
@@ -147,6 +158,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
             responses: $responses,
             operationExamples: $operationExamples,
             alwaysCounts: $alwaysCounts,
+            declaredLinks: $declaredLinks,
         );
     }
 

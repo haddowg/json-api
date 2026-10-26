@@ -243,7 +243,7 @@ final class OpenApiProjector
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server), examples: $examples));
+        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server), examples: $examples, declaredLinks: LinkSchemaProjector::serverDeclaresLinks($server)));
     }
 
     /**
@@ -543,7 +543,7 @@ final class OpenApiProjector
         $schemas[$name . 'Document'] = $this->singleDocumentSchema($name, $includable);
         $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name, $includable);
 
-        foreach ($links->typeComponents($type, $name) as $component => $schema) {
+        foreach ($links->typeComponents($type, $name, $this->schemaProjector, $collector) as $component => $schema) {
             $schemas[$component] = $schema;
         }
     }

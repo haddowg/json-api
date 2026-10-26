@@ -62,6 +62,7 @@ use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -104,8 +105,10 @@ final class ContractWitnessServer
      *                         document using no scoped structure keeps
      * @param bool $examples   whether the server generates operation examples, which the
      *                         baseline witness switches off for the same reason
+     * @param bool $declaredLinks whether the images declare their resource links, which the
+     *                            baseline witness leaves out for the same reason
      */
-    public static function build(bool $rawContent = true, bool $examples = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -114,7 +117,7 @@ final class ContractWitnessServer
                 self::articles($rawContent),
                 self::people(),
                 self::tags(),
-                self::images(),
+                self::images($declaredLinks),
                 // Names one video in prose through the opt-in singular-name seam.
                 new SingularNameTypeMetadata(self::videos(), 'video clip'),
                 FakeTypeMetadata::standalone('healthcheck', tags: ['Ops']),
@@ -400,7 +403,7 @@ final class ContractWitnessServer
      * not open a relationship mutation — the type has no `Update` for one to ride on, so
      * `/images/{id}/relationships/clips` is `GET`-only.
      */
-    private static function images(): FakeTypeMetadata
+    private static function images(bool $declaredLinks): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'images',
@@ -408,6 +411,28 @@ final class ContractWitnessServer
             relations: [FakeRelationMetadata::toMany('clips', ['videos'])],
             tags: ['Media'],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
+            // Declared links: a link object with static members and typed meta (one
+            // member a request may hide, so `meta` lists only the others as required),
+            // and a bare-string link.
+            declaredLinks: $declaredLinks ? [
+                DeclaredLink::make('download')
+                    ->describedAs('Where to fetch the original file.')
+                    ->title('Original')
+                    ->type('image/png')
+                    ->meta(
+                        Str::make('method')->in(['GET'])->guaranteed()->describedAs('The HTTP method to use.')->example('GET'),
+                        DateTime::make('expiresAt')->guaranteed()->describedAs('When the URL stops working.')->example('2026-10-26T12:00:00+00:00'),
+                        ArrayHash::make('headers')->hidden(static fn(mixed $model, JsonApiRequestInterface $request): bool => false)->example(['Range' => 'bytes=0-']),
+                    )
+                    ->hrefUsing(static fn(mixed $model, JsonApiRequestInterface $request): ?string => null)
+                    ->metaUsing(static fn(mixed $model, JsonApiRequestInterface $request): array => [])
+                    ->example('https://cdn.example.com/originals/img-1.png')
+                    ->build(),
+                DeclaredLink::make('thumbnail')
+                    ->hrefUsing(static fn(mixed $model, JsonApiRequestInterface $request): ?string => null)
+                    ->example('https://cdn.example.com/thumbs/img-1.png')
+                    ->build(),
+            ] : [],
         );
     }
 

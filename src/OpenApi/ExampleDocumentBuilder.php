@@ -20,6 +20,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
 /**
@@ -347,6 +348,10 @@ final class ExampleDocumentBuilder
         $uriType = $type->uriType();
         $links = ['self' => $this->links->renderedLink($this->path(PathTemplate::resource($uriType), $id), OperationReference::fetchOne($uriType))];
 
+        foreach (LinkSchemaProjector::declaredLinksOf($type) as $link) {
+            $links[$link->name] = $this->declaredLink($type, $link);
+        }
+
         foreach ($type->actions() as $action) {
             if (!$action instanceof DeclaresActionLink || $action->scope() !== ActionScope::Resource) {
                 continue;
@@ -362,6 +367,40 @@ final class ExampleDocumentBuilder
         }
 
         return $links;
+    }
+
+    /**
+     * A declared link as a response renders it, from its `href` example and each meta
+     * member's example. A declared link is part of the resource's default rendering, the
+     * way an attribute is, so a missing example is a miss like any other.
+     *
+     * @return string|array<string, mixed>
+     */
+    private function declaredLink(TypeMetadataInterface $type, DeclaredLink $link): string|array
+    {
+        $path = 'links.' . $link->name;
+        if ($link->example === null) {
+            $this->miss($type->type(), $path);
+        }
+        if (!$link->rendersAsObject()) {
+            return $link->example ?? '';
+        }
+
+        $value = ['href' => $link->example ?? '', ...$link->staticMembers()];
+        $meta = [];
+        foreach ($link->meta as $member) {
+            if ($this->appears($member, RepresentationContext::Read)) {
+                $meta[$member->name()] = $this->value($member, RepresentationContext::Read, $type->type(), $path . '.meta.' . $member->name());
+            }
+        }
+        if ($meta !== []) {
+            $value['meta'] = $meta;
+        }
+        if ($link->describedBy !== null) {
+            $value['describedby'] = $link->describedBy;
+        }
+
+        return $value;
     }
 
     /**

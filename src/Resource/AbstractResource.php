@@ -48,7 +48,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface
 {
     use RendersRelationsTrait;
 
@@ -76,6 +76,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @var list<\haddowg\JsonApi\Resource\Filter\FilterInterface>|null
      */
     private ?array $filterCache = null;
+
+    /**
+     * @var list<\haddowg\JsonApi\Resource\Link\DeclaredLink>|null
+     */
+    private ?array $linkCache = null;
 
     /**
      * Each attribute field as it renders under a server default output zone, keyed by
@@ -375,6 +380,61 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;
+    }
+
+    /**
+     * The named links each resource object carries beside its `self`, declared the way
+     * {@see fields()} declares attributes so the OpenAPI projection can describe them.
+     * Each entry may be a {@see \haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder}
+     * (what `DeclaredLink::make(…)->…` returns) or a built
+     * {@see \haddowg\JsonApi\Resource\Link\DeclaredLink}. Default: none.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Link\DeclaredLink|\haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder>
+     */
+    public function links(): array
+    {
+        return [];
+    }
+
+    /**
+     * The resource's **built** declared links: every {@see links()} entry frozen into its
+     * value object, cached for the resource's lifetime. This is what the renderer and an
+     * adapter's OpenAPI metadata read. Two links with one name are a wiring error.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Link\DeclaredLink>
+     */
+    final public function allLinks(): array
+    {
+        if ($this->linkCache === null) {
+            $links = [];
+            foreach ($this->links() as $link) {
+                $link = $link instanceof \haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder ? $link->build() : $link;
+                if (isset($links[$link->name])) {
+                    throw new \LogicException(\sprintf('Resource "%s" declares the link "%s" twice.', static::class, $link->name));
+                }
+                $links[$link->name] = $link;
+            }
+            $this->linkCache = \array_values($links);
+        }
+
+        return $this->linkCache;
+    }
+
+    public function renderDeclaredLinks(mixed $object, JsonApiRequestInterface $request): array
+    {
+        $outputTimezone = $this->serializerResolver instanceof ProvidesOutputTimezoneInterface
+            ? $this->serializerResolver->outputTimezone()
+            : null;
+
+        $rendered = [];
+        foreach ($this->allLinks() as $link) {
+            $resolved = $link->resolve($object, $request, $outputTimezone);
+            if ($resolved !== null) {
+                $rendered[$link->name] = $resolved;
+            }
+        }
+
+        return $rendered;
     }
 
     /**

@@ -17,7 +17,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * {@see \haddowg\JsonApi\Schema\Relationship\ToManyRelationship}, or a host's
  * related-resource collection.
  */
-final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface
 {
     /**
      * @param \Closure(mixed): SerializerInterface $serializerFor resolves the
@@ -43,6 +43,13 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return $this->for($object)->getLinks($object, $request);
+    }
+
+    public function renderDeclaredLinks(mixed $object, JsonApiRequestInterface $request): array
+    {
+        $serializer = $this->for($object);
+
+        return $serializer instanceof RendersDeclaredLinksInterface ? $serializer->renderDeclaredLinks($object, $request) : [];
     }
 
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
