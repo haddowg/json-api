@@ -67,4 +67,23 @@ final class LinkTest extends TestCase
 
         self::assertSame('//cdn.example/asset.png', $link->transform('https://api.example'));
     }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function transformJoinsAPathWithoutALeadingSlashToTheBase(): void
+    {
+        $link = new Link('uploads/1');
+
+        self::assertSame('https://api.example/v5/uploads/1', $link->transform('https://api.example/v5'));
+        self::assertSame('https://api.example/v5/uploads/1', $link->transform('https://api.example/v5/'));
+        self::assertSame('uploads/1', $link->transform(''));
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function transformAppendsAQueryOrFragmentHrefDirectly(): void
+    {
+        self::assertSame('https://api.example/v5?page=2', (new Link('?page=2'))->transform('https://api.example/v5'));
+        self::assertSame('https://api.example/v5#top', (new Link('#top'))->transform('https://api.example/v5'));
+    }
 }

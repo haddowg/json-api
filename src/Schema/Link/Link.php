@@ -58,7 +58,8 @@ readonly class Link
      * absent link), and an href that is already absolute — it carries a scheme
      * (`https://…`) or is protocol-relative (`//host/…`) — is returned untouched, so
      * an author-supplied absolute URL (a common shape for an error `about`/`type`
-     * documentation link) is never corrupted by a base prefix.
+     * documentation link) is never corrupted by a base prefix. A path href without a
+     * leading slash (`uploads/1`) is joined to a non-empty base with one.
      *
      * @internal
      */
@@ -66,6 +67,10 @@ readonly class Link
     {
         if ($href === '' || self::isAbsolute($href)) {
             return $href;
+        }
+
+        if ($baseUri !== '' && !\str_ends_with($baseUri, '/') && !\in_array($href[0], ['/', '?', '#', '{'], true)) {
+            return $baseUri . '/' . $href;
         }
 
         return $baseUri . $href;
