@@ -68,8 +68,9 @@ middleware below it:
    response. A successful response from below passes through unchanged.
 2. **`ContentNegotiationMiddleware`** — validates the `Content-Type` / `Accept`
    media-type parameters and negotiates extensions (`415` / `406`), then validates
-   query parameters (`400`). A write must send `Content-Type:
-   application/vnd.api+json`; a missing header or another media type is a `415`. See [content negotiation](content-negotiation.md).
+   query parameters (`400`). Every `POST`, and any other write with a
+   body, must send `Content-Type: application/vnd.api+json`; a missing header or
+   another media type is a `415`. See [content negotiation](content-negotiation.md).
 3. **`RequestBodyParsingMiddleware`** — forces an early JSON decode and checks the
    top-level member rules, so a malformed or non-conformant body surfaces as a
    `400` here rather than inside the handler. A bodyless request passes through.

@@ -88,9 +88,9 @@ is a **415** (`MediaTypeUnsupported`):
 $validator->negotiate($request, strictContentType: true);
 ```
 
-`ContentNegotiationMiddleware` does this for every unsafe method (`POST`, `PATCH`,
-`PUT`, `DELETE`), except a `DELETE` with no body, which is how a resource is deleted
-and which clients send without a `Content-Type`. A framework integration applies the
+`ContentNegotiationMiddleware` does this for every `POST`, with or without a body,
+and for any other unsafe method (`PATCH`, `PUT`, `DELETE`) that has a body. A
+bodyless `DELETE`, such as a resource delete, needs no `Content-Type`. A framework integration applies the
 same rule to its own routes: CRUD and relationship writes, and custom actions whose
 input is a JSON:API document or nothing at all.
 
