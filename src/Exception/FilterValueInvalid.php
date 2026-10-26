@@ -45,6 +45,7 @@ final class FilterValueInvalid extends AbstractJsonApiException implements Descr
             status: 400,
             title: 'Filter value is invalid',
             source: ErrorSourceShape::Parameter,
+            exampleSource: 'filter[rating]',
             description: 'A `filter[...]` value fails the constraints that filter declares, for example text where a number is expected. Correct the value of the parameter named in `source.parameter`; each failed constraint is its own error.',
         );
     }

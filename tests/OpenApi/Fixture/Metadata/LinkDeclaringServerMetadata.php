@@ -9,6 +9,7 @@ use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkObjects;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 
@@ -16,7 +17,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
  * Server metadata that declares how its links render, wrapped round an existing
  * implementation. It passes through any error codes the inner metadata contributes.
  */
-final readonly class LinkDeclaringServerMetadata implements DeclaresLinkObjects, ContributesErrorCodes
+final readonly class LinkDeclaringServerMetadata implements DeclaresLinkObjects, ContributesErrorCodes, DeclaresExampleGeneration
 {
     public function __construct(
         private ServerMetadataInterface $inner,
@@ -32,6 +33,11 @@ final readonly class LinkDeclaringServerMetadata implements DeclaresLinkObjects,
     public function documentUrl(): ?string
     {
         return $this->documentUrl;
+    }
+
+    public function generatesExamples(): bool
+    {
+        return !$this->inner instanceof DeclaresExampleGeneration || $this->inner->generatesExamples();
     }
 
     public function errorSources(): iterable

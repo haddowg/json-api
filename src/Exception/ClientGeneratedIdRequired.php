@@ -20,6 +20,7 @@ final class ClientGeneratedIdRequired extends AbstractJsonApiException implement
             status: 403,
             title: 'Required client generated ID',
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/id',
             feature: ErrorFeature::ClientGeneratedIds,
             description: 'This resource type expects the client to choose the id, and the create request supplied none. Add `data.id` in the format the API documents and send the request again.',
         );

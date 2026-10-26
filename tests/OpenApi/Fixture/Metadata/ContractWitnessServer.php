@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\Ok;
+use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
@@ -101,8 +102,10 @@ final class ContractWitnessServer
      * @param bool $rawContent whether the articles carry their raw-body actions; the
      *                         baseline witness leaves them out, so it shows the shape a
      *                         document using no scoped structure keeps
+     * @param bool $examples   whether the server generates operation examples, which the
+     *                         baseline witness switches off for the same reason
      */
-    public static function build(bool $rawContent = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -138,6 +141,7 @@ final class ContractWitnessServer
             externalDocs: new ExternalDocumentation('https://example.com/docs', 'The narrative guide'),
             atomicOperations: new FakeAtomicOperationsMetadata('/operations', 'Atomic Operations', [SecurityRequirement::scheme('bearer')]),
             profiles: [CountableProfile::URI, RelationshipQueriesProfile::URI],
+            generatesExamples: $examples,
         );
 
         return new LinkDeclaringServerMetadata(
@@ -289,10 +293,10 @@ final class ContractWitnessServer
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             actions: [
-                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', linkName: 'publish'),
+                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', linkName: 'publish', example: false),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles'], description: 'Save a draft revision.'),
-                new FakeActionMetadata('stats', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles']),
+                new FakeActionMetadata('stats', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: new OperationExample(responses: [200 => ['meta' => ['published' => 12]]])),
                 ...($rawContent ? [
                     // A JSON:API response with raw siblings in each schema form, and a raw-only action.
                     new FakeActionMetadata('report', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [
@@ -316,6 +320,14 @@ final class ContractWitnessServer
             includablePaths: ['author', 'tags', 'author.company'],
             idPattern: 'art-[0-9]+',
             operationDescriptions: [OperationType::FetchCollection->value => 'List every article the caller may read.'],
+            // Example overrides: a meta-only delete the projector cannot exemplify, and a
+            // fetch-one whose generated example (missing, like every other article
+            // operation's) is replaced outright.
+            operationExamples: [
+                'delete' => new OperationExample(responses: [200 => ['meta' => ['deleted' => true]]]),
+                'fetchOne' => new OperationExample(responses: [200 => ['data' => ['type' => 'articles', 'id' => 'art-1']]]),
+                'fetchRelationship.cover' => false,
+            ],
             responses: [
                 OperationType::FetchOne->value => [new Ok(), new SeeOther()],
                 OperationType::Update->value => [new Ok(), new Accepted('article-jobs')],
@@ -336,8 +348,9 @@ final class ContractWitnessServer
         return FakeTypeMetadata::resource(
             type: 'people',
             fields: [
-                Id::make()->build(),
-                Str::make('name')->required()->build(),
+                Id::make()->example('per-1')->build(),
+                Str::make('name')->required()->example('Ada Lovelace')->build(),
+                // No example, so every people operation reports it missing and has none.
                 Str::make('role')->enum(Status::class)->build(),
             ],
             relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
@@ -360,8 +373,8 @@ final class ContractWitnessServer
         return FakeTypeMetadata::resource(
             type: 'tags',
             fields: [
-                Id::make()->build(),
-                Str::make('label')->required()->build(),
+                Id::make()->example('tag-1')->build(),
+                Str::make('label')->required()->example('php')->build(),
             ],
             relations: [new FakeRelationMetadata('articles', ['articles'], true)],
             tags: ['Tags'],
@@ -391,7 +404,7 @@ final class ContractWitnessServer
     {
         return FakeTypeMetadata::resource(
             type: 'images',
-            fields: [Id::make()->build(), Url::make('url')->build()],
+            fields: [Id::make()->example('img-1')->build(), Url::make('url')->example('https://cdn.example.com/cover.png')->build()],
             relations: [FakeRelationMetadata::toMany('clips', ['videos'])],
             tags: ['Media'],
             operations: [OperationType::FetchCollection, OperationType::FetchOne],
@@ -406,7 +419,7 @@ final class ContractWitnessServer
     {
         return FakeTypeMetadata::resource(
             type: 'videos',
-            fields: [Id::make()->build(), Url::make('url')->build(), Integer::make('seconds')->build()],
+            fields: [Id::make()->example('vid-1')->build(), Url::make('url')->example('https://cdn.example.com/intro.mp4')->build(), Integer::make('seconds')->example(90)->build()],
             filters: [
                 WhereNotIn::make('seconds')->delimiter('|')->build(),
                 WhereIdIn::make()->build(),

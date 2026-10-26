@@ -34,6 +34,7 @@ final class InclusionNotAllowed extends AbstractJsonApiException implements Desc
             title: 'Inclusion is not allowed',
             context: ['paths' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
+            exampleSource: 'include',
             description: 'An `include` path names a relationship that exists but may not be included from this request. Remove the path and fetch the related resources with a separate request.',
         );
     }

@@ -524,6 +524,99 @@ named component when the field declares an example. A `$ref` with no such siblin
 written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
 as that `$ref`.
 
+### Operation examples
+
+Every operation's request body and success responses carry a whole worked `example` on
+their `application/vnd.api+json` media type, and so does each shared error response. The
+projector builds them from the examples you already declare, the `example()` on each field
+and the `exampleDetail` / `exampleSource` on each error descriptor, so they follow the
+fields as they change and nobody maintains a second copy. A code generator or an MCP tool
+description can quote one as is.
+
+The examples show what the server sends and accepts:
+
+- A create or update request carries the members that write can set. A read-only field is
+  left out and a write-only one is in. A create carries `id` only when the type's
+  [id policy](resources.md) allows or requires a client id; an update always carries it.
+  Each relationship the write can set is there too.
+- A response resource carries what a read renders without a sparse fieldset: no write-only
+  or sparse-by-default member. Its `id` is the `Id` field's example. Its `links`, and each
+  relationship's `self` and `related`, are the URLs the server builds under the document's
+  first server URL, in the server's link form, with their `describedby` when the server
+  [describes its links](#links-and-describedby).
+- A nested `Obj` or `Map` with no example of its own is built from its children's
+  examples, and a `OneOf` from its first variant. A declared `null` example stays `null`.
+- Linkage is built from the related type's `Id` example. A polymorphic relation shows its
+  first related type, and a relation to a type the server does not register shows its links
+  and no `data`.
+- A collection holds one resource and shows page two of a larger set: the `self`, `first`,
+  `prev` and `next` links its paginator renders, and its `meta.page`. A countable
+  collection on a server that registers the Countable profile shows what a
+  `withCount=_self_` request gets: `last`, `meta.total` and `meta.page.total`. Any other
+  collection shows the count-free page. An unpaginated collection carries `meta.total`,
+  which the server always renders for one.
+- A relationship endpoint carries the linkage document, and a relationship mutation the
+  linkage it writes.
+- A custom action's response is built from the type its `ActionResource` names, and its
+  request body from its input type when the input is a resource document. A `RawResult`
+  keeps its own `example`.
+- An error response carries one error, with its code's `status`, `code`, `title`,
+  `exampleDetail` and `source`. The response is shared by every operation that can answer
+  with that status, so the code is the one a reader most likely meets there:
+  `QUERY_PARAM_MALFORMED` (else `REQUEST_BODY_INVALID_JSON_API`) for a `400`,
+  `ACCESS_DENIED` for a `403`, `RESOURCE_NOT_FOUND` for a `404`,
+  `RESOURCE_TYPE_UNACCEPTABLE` for a `409` and `ATTRIBUTE_VALUE_INVALID` for a `422`. Any
+  other status, or one whose preferred code the server cannot raise, shows the first code
+  catalogued for it. Listing every code would bury the shape under a long list wherever the
+  example is quoted.
+
+Nothing is invented. When any value an operation's examples need has no declared example,
+that operation gets none, and the projector says which field was missing:
+
+```php
+$projection = (new OpenApiProjector())->projectWithDiagnostics($metadata);
+
+$projection->document;        // the OpenApi document
+$projection->missingExamples; // list<MissingExample>
+```
+
+Each `MissingExample` names the `operation` (its `operationId`, or the response component
+for an error response), the `type` and the `field`, such as `address.street` or
+`tags.pivot.position`, and `message()` reads as a sentence. An export command can print
+them as warnings, or fail on any under a strict flag. `project()` returns the document
+alone.
+
+To replace or switch off an operation's example, type metadata implements
+`DeclaresOperationExamples` and returns a map keyed by operation name: `fetchCollection`,
+`fetchOne`, `create`, `update`, `delete`, and for a relation `fetchRelated.<relation>`,
+`fetchRelationship.<relation>`, `updateRelationship.<relation>`,
+`addRelationship.<relation>` and `removeRelationship.<relation>`. A `false` or `null` value
+switches that operation's example off. An `OperationExample` replaces the parts it names
+and leaves the rest generated:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
+
+public function operationExamples(): array
+{
+    return [
+        'delete' => new OperationExample(responses: [200 => ['meta' => ['deleted' => true]]]),
+        'update' => false,
+    ];
+}
+```
+
+`request` takes the request document, or `false` for none. `responses` maps a success
+status to its document, or to `false`. A name the type does not expose, or a status the
+operation does not answer with a JSON:API document, fails the projection. Action metadata
+implements `DeclaresActionExample` instead, whose `example()` returns one
+`OperationExample`, `false`, or `null` to keep the generated one. Server metadata that
+implements `DeclaresExampleGeneration` and returns `false` from `generatesExamples()`
+switches generation off for the whole document.
+
+A document carrying any of these examples is stamped with contract 12; see
+[the generator contract](#a-bump-scoped-to-some-documents).
+
 ## The metadata contract
 
 Core owns the JSON:API→OAS *semantics*, but most of the *data* — the API title and base
@@ -579,6 +672,11 @@ A fifth sits beside `TypeMetadataInterface`: `DeclaresSingularName` adds
 `singularName(): ?string`, the noun the [generated prose](#how-generated-prose-names-a-type)
 uses for one resource of the type. Mirror the resource's `getSingularName()`. Metadata that
 doesn't implement it, or returns `null`, gets the inflected singular of the type name.
+
+Three more shape the [operation examples](#operation-examples): `DeclaresOperationExamples`
+beside `TypeMetadataInterface`, `DeclaresActionExample` beside `ActionMetadataInterface`, and
+`DeclaresExampleGeneration` beside `ServerMetadataInterface`. Metadata that implements none
+of them gets every example the projector can build.
 
 Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
@@ -903,7 +1001,8 @@ The bump is a maintainer decision, and CI enforces that it gets made. A guard co
 projected structure against the last release tag: a cycle that moves the structure must
 move the contract past what that release shipped, and once it has, later changes in the
 same cycle leave it alone. Generated prose (`description`, `summary`) and `example`
-values are not structure: a generator reads neither, so changing one moves no contract.
+values are not structure, so changing one moves no contract. Whether a media type carries
+an `example` at all is, because a generator reads an operation's examples.
 See the contract discipline in `CLAUDE.md`.
 
 #### A bump scoped to some documents
@@ -911,14 +1010,18 @@ See the contract discipline in `CLAUDE.md`.
 A structure only some servers use can move the contract for those documents alone.
 `GeneratorContract::CONTRACT` is the highest contract a document can carry, and
 `GeneratorContract::BASELINE` is what a document using none of the scoped structures
-carries. There are two scoped structures. A document whose actions declare accepted
-request bodies carries `ACCEPTED_BODIES` (11), one declaring a `RawResult` but no accepted
-bodies carries `RAW_CONTENT` (10), and every other document carries the baseline (9). A
-generator that cannot read one of them is warned only by the documents that contain it.
+carries. There are three scoped structures. A document carrying an
+[operation example](#operation-examples) carries `EXAMPLES` (12); otherwise one whose
+actions declare accepted request bodies carries `ACCEPTED_BODIES` (11), one declaring a
+`RawResult` but no accepted bodies carries `RAW_CONTENT` (10), and every other document
+carries the baseline (9). A generator that cannot read one of them is warned only by the
+documents that contain it. Examples are generated by default, so most documents carry 12;
+one whose server switches generation off, or whose operations all lack a declared example,
+keeps its earlier stamp.
 
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
-witness, projected from the same server without its raw results and accepted bodies, lets the CI guard hold
-`BASELINE` to that rule.
+witness, projected from the same server without its raw results, accepted bodies and
+examples, lets the CI guard hold `BASELINE` to that rule.
 
 #### Diffing documents across contracts
 

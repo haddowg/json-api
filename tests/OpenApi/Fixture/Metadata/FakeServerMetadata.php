@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -19,7 +20,7 @@ use haddowg\JsonApi\OpenApi\Tag;
  * An in-core {@see ServerMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeServerMetadata implements ServerMetadataInterface
+final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration
 {
     /**
      * @param list<TypeMetadataInterface>      $types
@@ -44,7 +45,13 @@ final class FakeServerMetadata implements ServerMetadataInterface
         private readonly ?ExternalDocumentation $externalDocs = null,
         private readonly ?AtomicOperationsMetadataInterface $atomicOperations = null,
         private readonly array $profiles = [],
+        private readonly bool $generatesExamples = true,
     ) {}
+
+    public function generatesExamples(): bool
+    {
+        return $this->generatesExamples;
+    }
 
     public function title(): string
     {

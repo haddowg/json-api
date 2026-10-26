@@ -26,6 +26,7 @@ final class ResourceIdConflict extends AbstractJsonApiException implements Descr
             title: 'Resource id conflict',
             context: ['documentId' => ErrorContextType::Str, 'endpointId' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/id',
             feature: ErrorFeature::Writes,
             description: 'The `id` in the update body is not the `id` in the URL. Send the id of the resource the URL addresses as `data.id`.',
             exampleDetail: 'Resource id \'12\' does not match the endpoint id \'7\'!',

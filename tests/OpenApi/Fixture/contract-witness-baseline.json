@@ -5724,7 +5724,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/relationships/tags"
+                                }
                             }
                         },
                         "required": [
@@ -9178,7 +9181,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/atomic:operations/0/op"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -9313,7 +9319,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/attributes/publishedAt"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -9376,7 +9385,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             }
                         },
                         "required": [
@@ -9409,7 +9421,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             }
                         },
                         "required": [
@@ -9442,7 +9457,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             }
                         },
                         "required": [
@@ -9494,7 +9512,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "page[after]"
+                                }
                             }
                         },
                         "required": [
@@ -9527,7 +9548,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "page[after]"
+                                }
                             }
                         },
                         "required": [
@@ -10252,7 +10276,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "fields"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -10289,7 +10316,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "filter[rating]"
+                                }
                             }
                         },
                         "required": [
@@ -10322,7 +10352,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "filter[colour]"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -10359,7 +10392,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/relationships/tags"
+                                }
                             }
                         },
                         "required": [
@@ -10585,7 +10621,8 @@
                             "string",
                             "null"
                         ],
-                        "format": "uri"
+                        "format": "uri",
+                        "example": "https://cdn.example.com/cover.png"
                     }
                 },
                 "required": [
@@ -10627,7 +10664,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1/clips",
+                            "href": "https://api.example.com/images/img-1/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                         }
                     },
@@ -10648,7 +10685,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/images/1/clips",
+                        "href": "https://api.example.com/images/img-1/clips",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                     },
                     "describedby": {
@@ -10708,7 +10745,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1/relationships/clips",
+                            "href": "https://api.example.com/images/img-1/relationships/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
                         }
                     },
@@ -10720,7 +10757,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1/clips",
+                            "href": "https://api.example.com/images/img-1/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                         }
                     },
@@ -10741,11 +10778,11 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/images/1/relationships/clips",
+                        "href": "https://api.example.com/images/img-1/relationships/clips",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
                     },
                     "related": {
-                        "href": "https://api.example.com/images/1/clips",
+                        "href": "https://api.example.com/images/img-1/clips",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                     },
                     "describedby": {
@@ -10765,7 +10802,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1/relationships/clips",
+                            "href": "https://api.example.com/images/img-1/relationships/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
                         }
                     },
@@ -10777,7 +10814,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1/clips",
+                            "href": "https://api.example.com/images/img-1/clips",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                         }
                     }
@@ -10787,11 +10824,11 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/images/1/relationships/clips",
+                        "href": "https://api.example.com/images/img-1/relationships/clips",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1relationships~1clips/get"
                     },
                     "related": {
-                        "href": "https://api.example.com/images/1/clips",
+                        "href": "https://api.example.com/images/img-1/clips",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D~1clips/get"
                     }
                 }
@@ -10956,7 +10993,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1",
+                            "href": "https://api.example.com/images/img-1",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                         }
                     },
@@ -10977,7 +11014,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/images/1",
+                        "href": "https://api.example.com/images/img-1",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                     },
                     "describedby": {
@@ -10994,7 +11031,8 @@
                         "const": "images"
                     },
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "img-1"
                     },
                     "attributes": {
                         "$ref": "#/components/schemas/ImagesAttributes"
@@ -11050,7 +11088,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/images/1",
+                            "href": "https://api.example.com/images/img-1",
                             "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                         }
                     }
@@ -11060,7 +11098,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/images/1",
+                        "href": "https://api.example.com/images/img-1",
                         "describedby": "/docs/openapi.json#/paths/~1images~1%7Bid%7D/get"
                     }
                 }
@@ -11087,7 +11125,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "include"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -11124,7 +11165,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "include"
+                                }
                             }
                         },
                         "required": [
@@ -11157,7 +11201,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "include"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -11194,7 +11241,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "include"
+                                }
                             }
                         },
                         "required": [
@@ -11409,7 +11459,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/lid"
+                                }
                             }
                         },
                         "required": [
@@ -11442,7 +11495,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "accept"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -11479,7 +11535,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "content-type"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -11566,7 +11625,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "page[kind]"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -11691,7 +11753,8 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "Ada Lovelace"
                     },
                     "role": {
                         "anyOf": [
@@ -11897,7 +11960,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/people/1/relationships/company",
+                            "href": "https://api.example.com/people/per-1/relationships/company",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
                         }
                     },
@@ -11918,7 +11981,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/people/1/relationships/company",
+                        "href": "https://api.example.com/people/per-1/relationships/company",
                         "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
                     },
                     "describedby": {
@@ -11938,7 +12001,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/people/1/relationships/company",
+                            "href": "https://api.example.com/people/per-1/relationships/company",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
                         }
                     }
@@ -11948,7 +12011,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/people/1/relationships/company",
+                        "href": "https://api.example.com/people/per-1/relationships/company",
                         "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D~1relationships~1company/get"
                     }
                 }
@@ -11958,7 +12021,8 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "Ada Lovelace"
                     },
                     "role": {
                         "$ref": "#/components/schemas/Status"
@@ -12034,7 +12098,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/people/1",
+                            "href": "https://api.example.com/people/per-1",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                         }
                     },
@@ -12055,7 +12119,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/people/1",
+                        "href": "https://api.example.com/people/per-1",
                         "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                     },
                     "describedby": {
@@ -12072,7 +12136,8 @@
                         "const": "people"
                     },
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "per-1"
                     },
                     "attributes": {
                         "$ref": "#/components/schemas/PeopleAttributes"
@@ -12128,7 +12193,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/people/1",
+                            "href": "https://api.example.com/people/per-1",
                             "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                         }
                     }
@@ -12138,7 +12203,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/people/1",
+                        "href": "https://api.example.com/people/per-1",
                         "describedby": "/docs/openapi.json#/paths/~1people~1%7Bid%7D/get"
                     }
                 }
@@ -12148,7 +12213,8 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "Ada Lovelace"
                     },
                     "role": {
                         "$ref": "#/components/schemas/Status"
@@ -12222,7 +12288,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "include"
+                                }
                             }
                         },
                         "required": [
@@ -12255,7 +12324,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "colour"
+                                }
                             }
                         },
                         "required": [
@@ -12288,7 +12360,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/attributes/city"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -12325,7 +12400,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "withCount"
+                                }
                             }
                         },
                         "required": [
@@ -12384,7 +12462,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/relationships/author"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -12421,7 +12502,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/relationships/tags"
+                                }
                             }
                         },
                         "required": [
@@ -12552,7 +12636,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -12589,7 +12676,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             }
                         },
                         "required": [
@@ -12622,7 +12712,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data"
+                                }
                             }
                         },
                         "required": [
@@ -12655,7 +12748,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/id"
+                                }
                             }
                         },
                         "required": [
@@ -12844,7 +12940,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data"
+                                }
                             }
                         },
                         "required": [
@@ -12877,7 +12976,10 @@
                                 "type": "object",
                                 "required": [
                                     "pointer"
-                                ]
+                                ],
+                                "example": {
+                                    "pointer": "/data/type"
+                                }
                             }
                         },
                         "required": [
@@ -12962,7 +13064,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "sort"
+                                }
                             },
                             "detail": {
                                 "type": "string",
@@ -12999,7 +13104,10 @@
                                 "type": "object",
                                 "required": [
                                     "parameter"
-                                ]
+                                ],
+                                "example": {
+                                    "parameter": "sort"
+                                }
                             }
                         },
                         "required": [
@@ -13093,7 +13201,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1/articles",
+                            "href": "https://api.example.com/tags/tag-1/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                         }
                     },
@@ -13114,7 +13222,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/tags/1/articles",
+                        "href": "https://api.example.com/tags/tag-1/articles",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                     },
                     "describedby": {
@@ -13174,7 +13282,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1/relationships/articles",
+                            "href": "https://api.example.com/tags/tag-1/relationships/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
                         }
                     },
@@ -13186,7 +13294,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1/articles",
+                            "href": "https://api.example.com/tags/tag-1/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                         }
                     },
@@ -13207,11 +13315,11 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/tags/1/relationships/articles",
+                        "href": "https://api.example.com/tags/tag-1/relationships/articles",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
                     },
                     "related": {
-                        "href": "https://api.example.com/tags/1/articles",
+                        "href": "https://api.example.com/tags/tag-1/articles",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                     },
                     "describedby": {
@@ -13231,7 +13339,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1/relationships/articles",
+                            "href": "https://api.example.com/tags/tag-1/relationships/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
                         }
                     },
@@ -13243,7 +13351,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1/articles",
+                            "href": "https://api.example.com/tags/tag-1/articles",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                         }
                     }
@@ -13253,11 +13361,11 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/tags/1/relationships/articles",
+                        "href": "https://api.example.com/tags/tag-1/relationships/articles",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1relationships~1articles/get"
                     },
                     "related": {
-                        "href": "https://api.example.com/tags/1/articles",
+                        "href": "https://api.example.com/tags/tag-1/articles",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D~1articles/get"
                     }
                 }
@@ -13372,7 +13480,8 @@
                 "properties": {
                     "label": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "php"
                     }
                 },
                 "required": [
@@ -13508,7 +13617,8 @@
                 "properties": {
                     "label": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "php"
                     }
                 },
                 "required": [
@@ -13582,7 +13692,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1",
+                            "href": "https://api.example.com/tags/tag-1",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                         }
                     },
@@ -13603,7 +13713,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/tags/1",
+                        "href": "https://api.example.com/tags/tag-1",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                     },
                     "describedby": {
@@ -13620,7 +13730,8 @@
                         "const": "tags"
                     },
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "tag-1"
                     },
                     "attributes": {
                         "$ref": "#/components/schemas/TagsAttributes"
@@ -13676,7 +13787,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/tags/1",
+                            "href": "https://api.example.com/tags/tag-1",
                             "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                         }
                     }
@@ -13686,7 +13797,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/tags/1",
+                        "href": "https://api.example.com/tags/tag-1",
                         "describedby": "/docs/openapi.json#/paths/~1tags~1%7Bid%7D/get"
                     }
                 }
@@ -13696,7 +13807,8 @@
                 "properties": {
                     "label": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "example": "php"
                     }
                 }
             },
@@ -13867,13 +13979,15 @@
                             "string",
                             "null"
                         ],
-                        "format": "uri"
+                        "format": "uri",
+                        "example": "https://cdn.example.com/intro.mp4"
                     },
                     "seconds": {
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "example": 90
                     }
                 },
                 "required": [
@@ -13998,10 +14112,12 @@
                 "properties": {
                     "url": {
                         "type": "string",
-                        "format": "uri"
+                        "format": "uri",
+                        "example": "https://cdn.example.com/intro.mp4"
                     },
                     "seconds": {
-                        "type": "integer"
+                        "type": "integer",
+                        "example": 90
                     }
                 }
             },
@@ -14061,7 +14177,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/videos/1",
+                            "href": "https://api.example.com/videos/vid-1",
                             "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                         }
                     },
@@ -14082,7 +14198,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/videos/1",
+                        "href": "https://api.example.com/videos/vid-1",
                         "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                     },
                     "describedby": {
@@ -14099,7 +14215,8 @@
                         "const": "videos"
                     },
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "vid-1"
                     },
                     "attributes": {
                         "$ref": "#/components/schemas/VideosAttributes"
@@ -14150,7 +14267,7 @@
                             }
                         ],
                         "example": {
-                            "href": "https://api.example.com/videos/1",
+                            "href": "https://api.example.com/videos/vid-1",
                             "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                         }
                     }
@@ -14160,7 +14277,7 @@
                 },
                 "example": {
                     "self": {
-                        "href": "https://api.example.com/videos/1",
+                        "href": "https://api.example.com/videos/vid-1",
                         "describedby": "/docs/openapi.json#/paths/~1videos~1%7Bid%7D/get"
                     }
                 }
@@ -14170,10 +14287,12 @@
                 "properties": {
                     "url": {
                         "type": "string",
-                        "format": "uri"
+                        "format": "uri",
+                        "example": "https://cdn.example.com/intro.mp4"
                     },
                     "seconds": {
-                        "type": "integer"
+                        "type": "integer",
+                        "example": 90
                     }
                 }
             },

@@ -85,6 +85,22 @@ final class ErrorCatalogProjector
     }
 
     /**
+     * The descriptors this server can raise, grouped by status, in catalogue order. The
+     * first at each status is what that shared error response's example shows.
+     *
+     * @return array<int, non-empty-list<ErrorDescriptor>>
+     */
+    public function descriptorsByStatus(ServerMetadataInterface $server): array
+    {
+        $byStatus = [];
+        foreach ($this->raisable($server) as $descriptor) {
+            $byStatus[$descriptor->status][] = $descriptor;
+        }
+
+        return $byStatus;
+    }
+
+    /**
      * The catalogue this server publishes: core's codes first, then whatever its metadata
      * contributes. Assembled per server, so an application's errors appear only on the
      * servers it registered them for.
@@ -189,10 +205,11 @@ final class ErrorCatalogProjector
             ->withProperty('status', Schema::ofType('string')->withConst((string) $descriptor->status));
 
         if ($descriptor->source !== null) {
-            $narrowing = $narrowing->withProperty(
-                'source',
-                Schema::ofType('object')->withRequired([$descriptor->source->value]),
-            );
+            $source = Schema::ofType('object')->withRequired([$descriptor->source->value]);
+            if ($descriptor->exampleSource !== null) {
+                $source = $source->withExample([$descriptor->source->value => $descriptor->exampleSource]);
+            }
+            $narrowing = $narrowing->withProperty('source', $source);
             $required[] = 'source';
         }
 

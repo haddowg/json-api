@@ -293,8 +293,8 @@ interface DescribedErrorInterface extends JsonApiExceptionInterface
 An `ErrorDescriptor` carries the parts that are the same for every occurrence: the `code`,
 the `status`, the default `title`, the names and types of the `context` placeholders, the
 `source` member the exception always fills, the `ErrorFeature` (if any) the error depends
-on, and two optional members written for whoever reads the generated document:
-`description` and `exampleDetail`. Every exception core ships implements it **and** renders
+on, and three optional members written for whoever reads the generated document:
+`description`, `exampleDetail` and `exampleSource`. Every exception core ships implements it **and** renders
 its errors through `ErrorDescriptor::toError()`, so the description and the rendered error
 cannot disagree.
 
@@ -343,6 +343,13 @@ the example onto its `detail` property. Neither reaches an error object, so keep
 guidance out of the default `detail`: a [message resolver](#localizing-and-overriding-error-copy)
 may replace that per locale, and a generated client never sees it. Both arguments are
 optional, and a descriptor without them projects as it always has.
+
+A descriptor that declares a `source` should also give `exampleSource`, one value of that
+member: `/data/attributes/title` for a pointer, `include` for a parameter. Each shared error
+response in the document carries an [example](openapi.md#operation-examples) holding one
+error, and when that error is your code (the first catalogued at a status core has no
+preferred code for) the example needs a value for the `source` the code always fills. Without one, the response gets no example and the projector
+reports the gap. Every code core ships declares one.
 
 ### Contributing your codes to the catalogue
 

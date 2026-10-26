@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
@@ -46,6 +47,15 @@ final class OpenApiProjector
      * Builds the OpenAPI document for `$server`.
      */
     public function project(ServerMetadataInterface $server): OpenApi
+    {
+        return $this->projectWithDiagnostics($server)->document;
+    }
+
+    /**
+     * Builds the OpenAPI document for `$server`, with a {@see MissingExample} for each
+     * value an operation's example needed and found no declared example for.
+     */
+    public function projectWithDiagnostics(ServerMetadataInterface $server): Projection
     {
         // Refuse before building anything: a related endpoint pointed at a type this
         // server does not register has no honest projection (see the method).
@@ -125,15 +135,25 @@ final class OpenApiProjector
             $parameters[RelationshipQueriesProfile::FAMILY] = $this->operationProjector->relatedQueryParameterComponent();
         }
 
+        $responses = ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server));
+
+        // Examples go on last: they read the finished paths and the error catalogue, and
+        // change nothing a schema or a path is built from.
+        $examples = self::generatesExamples($server) ? new OperationExampleProjector($server, $links) : null;
+        if ($examples !== null) {
+            $paths = $examples->paths($paths);
+            $responses = $examples->errorResponses($responses, $this->errorCatalogProjector->descriptorsByStatus($server));
+        }
+
         $components = new Components(
             schemas: $schemas,
-            responses: ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server)),
+            responses: $responses,
             parameters: $parameters,
             securitySchemes: $server->securitySchemes(),
         );
 
         $document = new OpenApi(
-            info: $this->info($server),
+            info: $this->info($server, $examples?->emitted() ?? false),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -141,7 +161,19 @@ final class OpenApiProjector
             externalDocs: $server->externalDocs(),
         );
 
-        return $paths->isEmpty() ? $document : $document->withPaths($paths);
+        return new Projection(
+            $paths->isEmpty() ? $document : $document->withPaths($paths),
+            $examples?->missingExamples() ?? [],
+        );
+    }
+
+    /**
+     * Whether the server wants operation examples generated: yes, unless its metadata
+     * switches them off.
+     */
+    private static function generatesExamples(ServerMetadataInterface $server): bool
+    {
+        return !$server instanceof DeclaresExampleGeneration || $server->generatesExamples();
     }
 
     /**
@@ -203,7 +235,7 @@ final class OpenApiProjector
      * metadata-driven: it describes the structure this library emits, so a server has
      * nothing to say about it.
      */
-    private function info(ServerMetadataInterface $server): Info
+    private function info(ServerMetadataInterface $server, bool $examples): Info
     {
         return (new Info(
             title: $server->title(),
@@ -211,7 +243,7 @@ final class OpenApiProjector
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server)));
+        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server), examples: $examples));
     }
 
     /**

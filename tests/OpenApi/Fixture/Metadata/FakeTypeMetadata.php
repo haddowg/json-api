@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
+use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -21,7 +23,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -36,6 +38,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      * @param list<OperationType>             $publicOperations
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
+     * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      */
     public function __construct(
         private readonly string $type,
@@ -59,7 +62,13 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         private readonly array $operationDescriptions = [],
         private readonly array $publicOperations = [],
         private readonly array $responses = [],
+        private readonly array $operationExamples = [],
     ) {}
+
+    public function operationExamples(): array
+    {
+        return $this->operationExamples;
+    }
 
     /**
      * @param list<FieldInterface>            $fields
@@ -74,6 +83,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
      * @param array<string, string>           $operationDescriptions per-operation description overrides, keyed by {@see OperationType::value}
      * @param list<OperationType>             $publicOperations  the operations explicitly declared public (security: [])
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
+     * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      */
     public static function resource(
         string $type,
@@ -97,6 +107,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
         array $operationDescriptions = [],
         array $publicOperations = [],
         array $responses = [],
+        array $operationExamples = [],
     ): self {
         return new self(
             type: $type,
@@ -126,6 +137,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface
             operationDescriptions: $operationDescriptions,
             publicOperations: $publicOperations,
             responses: $responses,
+            operationExamples: $operationExamples,
         );
     }
 

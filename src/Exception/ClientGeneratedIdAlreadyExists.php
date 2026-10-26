@@ -21,6 +21,7 @@ final class ClientGeneratedIdAlreadyExists extends AbstractJsonApiException impl
             title: 'Client generated ID already exists',
             context: ['id' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/id',
             feature: ErrorFeature::ClientGeneratedIds,
             description: 'A resource of this type already has the `id` the create request supplied. Generate a new id and send the request again, or update the existing resource instead.',
         );

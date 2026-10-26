@@ -394,6 +394,10 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   through `Schema\Link\Internal\LinkRendering`; an author-supplied link container never
   does, so it keeps its own shape
   ([ADR 0158](docs/adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
+- An operation example is built only from declared field and error-descriptor examples. A
+  value with no declared example drops that operation's example and records a
+  `MissingExample`; never fill it with a type-derived placeholder
+  ([ADR 0176](docs/adr/0176-operation-examples-are-built-from-declared-examples-and-never-invented.md)).
 - A temporal `format` keyword is emitted only when `DateTime::schemaFormat()` confirms the
   field's configured format writes RFC 3339; the projector and `Validation\SchemaCompiler`
   both defer to it rather than switching on the field class. Never derive a `pattern` from a

@@ -306,19 +306,49 @@ final readonly class LinkSchemaProjector
      */
     private function linkExample(string $examplePath, OperationReference $operation, array $page = []): string|array
     {
-        $href = $this->serverUrl . $examplePath . ($page === [] ? '' : '?' . \http_build_query(['page' => $page]));
+        return $this->renderedLink($examplePath, $operation, $page === [] ? [] : ['page' => $page]);
+    }
+
+    /**
+     * A built link to `$path` under the document's first server URL, rendered the way the
+     * server renders the links it builds: a link object carrying the target operation's
+     * `describedby` when the server renders link objects, else the bare URL.
+     *
+     * @param array<string, mixed> $query
+     *
+     * @return string|array<string, string>
+     */
+    public function renderedLink(string $path, ?OperationReference $operation, array $query = []): string|array
+    {
+        $href = $this->serverUrl . $path . ($query === [] ? '' : '?' . \http_build_query($query));
 
         if (!$this->objects) {
             return $href;
         }
 
         $example = ['href' => $href];
-        $describedBy = $this->describedBy?->describedBy($operation);
+        $describedBy = $operation === null ? null : $this->describedBy?->describedBy($operation);
         if ($describedBy !== null) {
             $example['describedby'] = $describedBy;
         }
 
         return $example;
+    }
+
+    /**
+     * The top-level `describedby` of a document `$operation` produced, or `null` when the
+     * server does not describe its documents.
+     *
+     * @return string|array<string, string>|null
+     */
+    public function documentDescribedBy(OperationReference $operation): string|array|null
+    {
+        $describedBy = $this->describedBy?->describedBy($operation);
+        if ($describedBy === null) {
+            return null;
+        }
+
+        return $this->objects ? ['href' => $describedBy] : $describedBy;
     }
 
     /**
@@ -330,7 +360,7 @@ final readonly class LinkSchemaProjector
      *
      * @return array<string, array<string, int|string>>
      */
-    private static function pageExampleQueries(?Schema $pageSchema): array
+    public static function pageExampleQueries(?Schema $pageSchema): array
     {
         if ($pageSchema === null) {
             return [];
@@ -408,7 +438,7 @@ final readonly class LinkSchemaProjector
      * The menu branch for the default strategy, or the first branch when no default
      * is named.
      */
-    private static function defaultMenuBranch(Schema $menu, mixed $default): ?Schema
+    public static function defaultMenuBranch(Schema $menu, mixed $default): ?Schema
     {
         $branches = $menu->get('oneOf');
         if (!\is_array($branches) || $branches === []) {
@@ -436,7 +466,7 @@ final readonly class LinkSchemaProjector
     /**
      * The integer `default` of one property of a page schema, when it declares one.
      */
-    private static function propertyDefault(Schema $pageSchema, string $property): ?int
+    public static function propertyDefault(Schema $pageSchema, string $property): ?int
     {
         $properties = $pageSchema->get('properties');
         $schema = \is_array($properties) ? ($properties[$property] ?? null) : null;

@@ -36,6 +36,7 @@ final class AttributeWriteProhibited extends AbstractJsonApiException implements
             title: 'Attribute write is prohibited',
             context: ['attribute' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
+            exampleSource: '/data/attributes/createdAt',
             feature: ErrorFeature::ReadOnlyAttributeRejection,
             description: 'The request body sent an attribute the client cannot write in this request, such as a read-only or computed one. Remove the member from `data.attributes` and send the request again.',
             exampleDetail: "Attribute 'createdAt' cannot be written in this request!",

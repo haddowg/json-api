@@ -19,10 +19,12 @@ declare(strict_types=1);
  * moved" and "the emitted document moved" are the same statement. The contract number
  * comes from the constant itself, read at the tag and in the working tree.
  *
- * Prose is not structure, and neither are examples. `description` and `summary` string
- * values and every `example` are stripped before the comparison, so rewording a generated
- * sentence or improving a sample costs no bump: a generator reads neither, so it is never
- * too old for a changed one. Everything else counts: a member added, renamed or removed,
+ * Prose is not structure, and neither are example values. `description` and `summary`
+ * string values and every `example` value are stripped before the comparison, so rewording
+ * a generated sentence or improving a sample costs no bump: a generator is never too old
+ * for a changed one. Whether a media type carries an example at all is structure, though,
+ * because a generator reads an operation's request and response examples: a media type's
+ * `example` is kept as `true`, so one appearing or disappearing still counts. Everything else counts: a member added, renamed or removed,
  * a rewired $ref, a changed const/enum/required set, a new status code, a new vendor
  * extension. Inside a map keyed by names rather than keywords (a schema's `properties`, a
  * discriminator `mapping`, `paths`, the `components` sections) a name is never mistaken
@@ -163,11 +165,11 @@ const NAMED_MAPS = [
 ];
 
 /**
- * Drops the prose members, the examples and the generator stamp, so what remains is the
- * structure a code generator reads. `$named` marks a map keyed by names, whose keys are
- * never stripped.
+ * Drops the prose members, the example values and the generator stamp, so what remains is
+ * the structure a code generator reads. `$named` marks a map keyed by names, whose keys are
+ * never stripped, and `$mediaTypes` a `content` map, whose entries are media types.
  */
-function structure(mixed $value, bool $named = false): mixed
+function structure(mixed $value, bool $named = false, bool $mediaTypes = false): mixed
 {
     if (!\is_array($value)) {
         return $value;
@@ -175,13 +177,36 @@ function structure(mixed $value, bool $named = false): mixed
 
     $out = [];
     foreach ($value as $key => $item) {
+        if ($mediaTypes) {
+            $out[$key] = mediaTypeStructure($item);
+
+            continue;
+        }
         if (!$named && (($key === 'description' || $key === 'summary') && \is_string($item) || $key === 'example')) {
             continue;
         }
         if ($key === 'x-generator') {
             continue;
         }
-        $out[$key] = structure($item, !$named && \in_array($key, NAMED_MAPS, true));
+        $out[$key] = structure($item, !$named && \in_array($key, NAMED_MAPS, true), !$named && $key === 'content');
+    }
+
+    return $out;
+}
+
+/**
+ * A media type's structure: its example's value is not structure, but whether it has one
+ * is, so the example is kept as `true`.
+ */
+function mediaTypeStructure(mixed $media): mixed
+{
+    if (!\is_array($media)) {
+        return $media;
+    }
+
+    $out = structure($media);
+    if (\is_array($out) && \array_key_exists('example', $media)) {
+        $out['example'] = true;
     }
 
     return $out;
@@ -282,7 +307,7 @@ if (!$moved) {
         . "  nothing.\n"
         . "  Reset GeneratorContract::CONTRACT to {$releasedContract} and regenerate the witness, or land the\n"
         . '  structural change the bump was meant to announce. (Reworded description/summary prose and '
-        . "changed examples are not structure.)",
+        . "changed example values are not structure.)",
     );
 }
 

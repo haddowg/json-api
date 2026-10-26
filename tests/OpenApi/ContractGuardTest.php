@@ -72,6 +72,29 @@ final class ContractGuardTest extends TestCase
     }
 
     #[Test]
+    public function aChangedMediaTypeExampleIsNotStructure(): void
+    {
+        $this->release(['data' => ['type' => 'articles', 'id' => '1']]);
+        $this->writeWitness(self::link(), response: ['data' => ['type' => 'articles', 'id' => '2']]);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(0, $status, $output);
+    }
+
+    #[Test]
+    public function aMediaTypeGainingAnExampleIsStructure(): void
+    {
+        $this->release(null);
+        $this->writeWitness(self::link(), response: ['data' => ['type' => 'articles', 'id' => '1']]);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(1, $status, $output);
+        self::assertStringContainsString('Bump GeneratorContract::CONTRACT to 4', $output);
+    }
+
+    #[Test]
     public function aStructuralChangeStillFails(): void
     {
         $link = self::link();
@@ -198,14 +221,35 @@ final class ContractGuardTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $link
+     * Re-releases the witness as a second tag, with a response whose media type carries
+     * `$example` (or no example when `null`).
      */
-    private function writeWitness(array $link, string $path = self::WITNESS): void
+    private function release(mixed $example): void
     {
+        $this->writeWitness(self::link(), response: $example);
+        $this->git('add', '.');
+        $this->git('commit', '-q', '-m', 'release 1.0.1');
+        $this->git('tag', 'v1.0.1');
+    }
+
+    /**
+     * @param array<string, mixed> $link
+     * @param mixed                $response the example on a response's media type; `false` for no response
+     */
+    private function writeWitness(array $link, string $path = self::WITNESS, mixed $response = false): void
+    {
+        $components = ['schemas' => ['Link' => $link]];
+        if ($response !== false) {
+            $media = ['schema' => ['$ref' => '#/components/schemas/Link']];
+            if ($response !== null) {
+                $media['example'] = $response;
+            }
+            $components['responses'] = ['Ok' => ['description' => 'OK', 'content' => ['application/vnd.api+json' => $media]]];
+        }
         $witness = [
             'openapi' => '3.1.0',
             'info' => ['title' => 'Witness', 'version' => '1', 'x-generator' => ['contract' => 3]],
-            'components' => ['schemas' => ['Link' => $link]],
+            'components' => $components,
         ];
         \file_put_contents($this->repo . '/' . $path, \json_encode($witness, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES));
     }

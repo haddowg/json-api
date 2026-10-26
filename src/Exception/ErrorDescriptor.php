@@ -27,10 +27,12 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * OpenAPI projection leaves it out entirely, because a template author writes PHP and a
  * generated document describes only what a client receives.
  *
- * `$description` and `$exampleDetail` are the opposite: they exist only for the document.
- * The description tells an API consumer what the code means and what to do about it, and
- * the example shows one `detail` a client might read. Neither reaches an error object;
- * the projection publishes them on the code's schema component.
+ * `$description`, `$exampleDetail` and `$exampleSource` are the opposite: they exist only
+ * for the document. The description tells an API consumer what the code means and what to
+ * do about it, the example detail shows one `detail` a client might read, and the example
+ * source one value of the `source` member `$source` names. None of them reaches an error
+ * object; the projection publishes them on the code's schema component and in the example
+ * of each error response that can carry the code.
  */
 final readonly class ErrorDescriptor
 {
@@ -43,6 +45,7 @@ final readonly class ErrorDescriptor
      * @param ErrorFeature|null               $feature       the capability the error depends on, if any
      * @param string|null                     $description   what the code means to an API consumer and what a client should do about it
      * @param string|null                     $exampleDetail an example `detail` member, for a code whose detail names the request's own context
+     * @param string|null                     $exampleSource an example value of the `source` member `$source` names, such as `/data/attributes/title` or `include`
      */
     public function __construct(
         public string $code,
@@ -53,6 +56,7 @@ final readonly class ErrorDescriptor
         public ?ErrorFeature $feature = null,
         public ?string $description = null,
         public ?string $exampleDetail = null,
+        public ?string $exampleSource = null,
     ) {}
 
     /**

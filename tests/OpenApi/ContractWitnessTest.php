@@ -74,14 +74,14 @@ final class ContractWitnessTest extends TestCase
     }
 
     /**
-     * The same server without its raw action responses: the shape every document shares,
-     * stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
+     * The same server without its raw action responses, accepted bodies and examples: the
+     * shape every document shares, stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
      * this file, so a change that moves every document cannot hide behind a scoped bump.
      */
     #[Test]
     public function theBaselineDocumentMatchesTheCommittedBaselineWitness(): void
     {
-        $projected = $this->project(rawContent: false);
+        $projected = $this->project(scoped: false);
 
         if (\getenv('UPDATE_CONTRACT_WITNESS') !== false) {
             \file_put_contents(self::BASELINE_WITNESS, $projected);
@@ -99,7 +99,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
@@ -108,16 +108,17 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT, GeneratorContract::ACCEPTED_BODIES), GeneratorContract::CONTRACT);
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true));
+        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT, GeneratorContract::ACCEPTED_BODIES, GeneratorContract::EXAMPLES), GeneratorContract::CONTRACT);
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true));
+        self::assertSame(['contract' => GeneratorContract::EXAMPLES], GeneratorContract::toArray(examples: true));
         self::assertSame(['contract' => GeneratorContract::RAW_CONTENT], GeneratorContract::toArray(rawContent: true));
     }
 
     /**
      * @throws \JsonException
      */
-    private function project(bool $rawContent = true): string
+    private function project(bool $scoped = true): string
     {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build($rawContent))->toJsonString(pretty: true) . "\n";
+        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped))->toJsonString(pretty: true) . "\n";
     }
 }
