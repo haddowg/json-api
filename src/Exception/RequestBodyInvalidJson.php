@@ -19,6 +19,7 @@ final class RequestBodyInvalidJson extends AbstractJsonApiException implements D
             code: 'REQUEST_BODY_INVALID_JSON',
             status: 400,
             title: 'Request body is an invalid JSON document',
+            exampleDetail: 'Request body is an invalid JSON document: \'Syntax error\'!',
             context: ['message' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
             description: 'The request body is not well-formed JSON. Fix the syntax the `detail` reports and send the request again.',

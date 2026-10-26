@@ -41,7 +41,7 @@ final class RawResultProjectionTest extends TestCase
             self::at($document, ...$responses, ...['201', 'content', 'application/json']),
         );
         self::assertSame(ArticleSummary::jsonSchema(), self::at($document, 'components', 'schemas', 'ArticleSummary'));
-        self::assertSame(['contract' => GeneratorContract::RAW_CONTENT], self::at($document, 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(rawContent: true), self::at($document, 'info', 'x-generator'));
     }
 
     #[Test]

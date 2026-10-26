@@ -35,6 +35,7 @@ final class LocalIdNotSupported extends AbstractJsonApiException implements Desc
             code: 'LOCAL_ID_NOT_SUPPORTED',
             status: 400,
             title: 'Local id is not supported',
+            exampleDetail: 'A local id (lid) is only supported within an Atomic Operations request; a standalone request must identify a resource by id.',
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/lid',
             feature: ErrorFeature::Writes,

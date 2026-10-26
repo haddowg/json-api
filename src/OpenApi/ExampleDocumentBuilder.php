@@ -467,8 +467,9 @@ final class ExampleDocumentBuilder
             return $field->getExample();
         }
 
-        // A read hook shapes the value itself, so its children say nothing about it.
-        $hooked = $context === RepresentationContext::Read && $field instanceof AbstractFieldValue && $field->rendersThroughHook();
+        // A serialize hook shapes the read value itself, so its children say nothing about
+        // it. A computed or extracted value still renders through the children.
+        $hooked = $context === RepresentationContext::Read && $field instanceof AbstractFieldValue && $field->rendersThroughSerializeHook();
 
         if (!$hooked && $field instanceof OneOf) {
             foreach ($field->variants() as $variant => $shape) {

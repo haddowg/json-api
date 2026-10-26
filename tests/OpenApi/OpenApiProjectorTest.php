@@ -309,7 +309,7 @@ final class OpenApiProjectorTest extends TestCase
 
         // Generating examples is the default, and a document carrying one says so.
         $info = $this->arrAt($this->projector()->project($this->server())->toArray(), 'info');
-        self::assertSame(['contract' => GeneratorContract::EXAMPLES], $info['x-generator']);
+        self::assertSame(GeneratorContract::toArray(examples: true), $info['x-generator']);
 
         // It carries compatibility signalling and nothing else — no generator name, no
         // package version. The JSON:API version stays where it belongs, on the JsonApi

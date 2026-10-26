@@ -17,6 +17,7 @@ final class ResourceNotFound extends AbstractJsonApiException implements Describ
             code: 'RESOURCE_NOT_FOUND',
             status: 404,
             title: 'Resource not found',
+            exampleDetail: 'The requested resource is not found!',
             description: 'The resource the request addresses does not exist. Check the type and id in the URL; a deleted resource stays not found.',
         );
     }

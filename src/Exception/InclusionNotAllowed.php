@@ -32,6 +32,7 @@ final class InclusionNotAllowed extends AbstractJsonApiException implements Desc
             code: 'INCLUSION_NOT_ALLOWED',
             status: 400,
             title: 'Inclusion is not allowed',
+            exampleDetail: 'Included paths \'author.company\' are not allowed by the endpoint!',
             context: ['paths' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'include',

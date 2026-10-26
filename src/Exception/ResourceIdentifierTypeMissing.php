@@ -20,6 +20,7 @@ final class ResourceIdentifierTypeMissing extends AbstractJsonApiException imple
             code: 'RESOURCE_IDENTIFIER_TYPE_MISSING',
             status: 400,
             title: 'A type for the resource identifier is missing',
+            exampleDetail: 'A type for the resource identifier must be included!',
             feature: ErrorFeature::Writes,
             description: 'A resource identifier in the request has no `type`. Add the related resource\'s `type` to every identifier.',
         );

@@ -46,7 +46,7 @@ final class AcceptedBodyProjectionTest extends TestCase
             'required' => false,
         ], $body);
         self::assertSame(ArticleImportRow::jsonSchema(), self::at($document, 'components', 'schemas', 'ArticleImportRow'));
-        self::assertSame(['contract' => GeneratorContract::ACCEPTED_BODIES], self::at($document, 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(acceptedBodies: true), self::at($document, 'info', 'x-generator'));
         self::assertNotNull(self::at($document, 'paths', '/reports/-actions/import', 'post', 'responses', '415'));
     }
 

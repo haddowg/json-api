@@ -33,6 +33,7 @@ final class CursorStale extends AbstractJsonApiException implements DescribedErr
             code: 'CURSOR_STALE',
             status: 400,
             title: 'Cursor is stale',
+            exampleDetail: 'The cursor supplied in \'page[after]\' was built for a different sort order and can no longer be used.',
             context: ['parameter' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'page[after]',

@@ -19,6 +19,7 @@ final class ResponseBodyInvalidJson extends AbstractJsonApiException implements 
             code: 'RESPONSE_BODY_INVALID_JSON',
             status: 500,
             title: 'Response body is an invalid JSON document',
+            exampleDetail: 'Response body is an invalid JSON document: \'Syntax error\'!',
             description: 'The server produced a response body that is not valid JSON, which is a fault on its side. Retrying won\'t help; report it to the API\'s maintainers.',
         );
     }

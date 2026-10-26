@@ -34,6 +34,7 @@ final class AccessDenied extends AbstractJsonApiException implements DescribedEr
             code: 'ACCESS_DENIED',
             status: 403,
             title: 'Forbidden',
+            exampleDetail: 'Access is denied!',
             description: 'The caller is authenticated but not permitted to do what the request asks. Retrying with the same credentials will fail the same way; act as a user who holds the permission, or don\'t make the request.',
         );
     }

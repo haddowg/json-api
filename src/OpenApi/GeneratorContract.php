@@ -66,14 +66,16 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 12;
+    public const CONTRACT = 13;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
      * the shape every document shares. Bump it, with {@see CONTRACT}, when a change moves
-     * that shape.
+     * that shape. Contract 13 did, giving every core error code a `detail` narrowing with
+     * its example, so every document now carries at least 13 and the scoped tiers below
+     * name only the contract that first introduced each structure.
      */
-    public const BASELINE = 9;
+    public const BASELINE = 13;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

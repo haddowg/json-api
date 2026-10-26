@@ -34,6 +34,7 @@ final class RelationshipCountNotAllowed extends AbstractJsonApiException impleme
             code: 'RELATIONSHIP_COUNT_NOT_ALLOWED',
             status: 400,
             title: 'Relationship count is not allowed',
+            exampleDetail: 'Counted relationships \'author\' are not countable to-many relationships of this resource!',
             context: ['names' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'withCount',

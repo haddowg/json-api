@@ -17,6 +17,7 @@ final class ResourceIdentifierIdInvalid extends AbstractJsonApiException impleme
             code: 'RESOURCE_IDENTIFIER_ID_INVALID',
             status: 400,
             title: 'Resource identifier ID is invalid',
+            exampleDetail: 'The resource ID must be a string instead of integer!',
             context: ['type' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
             description: 'A resource identifier in the request carries an `id` that is not a string, such as a number. Send every `id` as a JSON string.',

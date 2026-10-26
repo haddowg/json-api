@@ -19,6 +19,7 @@ final class InclusionUnsupported extends AbstractJsonApiException implements Des
             code: 'INCLUSION_UNSUPPORTED',
             status: 400,
             title: 'Inclusion is unsupported',
+            exampleDetail: 'Inclusion is not supported by the endpoint!',
             source: ErrorSourceShape::Parameter,
             exampleSource: 'include',
             description: 'This endpoint does not support the `include` parameter. Remove it and fetch related resources with separate requests.',

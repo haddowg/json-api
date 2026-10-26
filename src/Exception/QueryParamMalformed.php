@@ -21,6 +21,7 @@ final class QueryParamMalformed extends AbstractJsonApiException implements Desc
             code: 'QUERY_PARAM_MALFORMED',
             status: 400,
             title: 'Query parameter is malformed',
+            exampleDetail: 'Query parameter \'include\' is malformed!',
             context: ['param' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'include',

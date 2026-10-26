@@ -168,6 +168,18 @@ abstract readonly class AbstractFieldValue implements FieldInterface
         return $this->state->serializeUsing !== null || $this->state->extractUsing !== null;
     }
 
+    /**
+     * Whether a `serializeUsing()` hook produces the rendered value outright. An
+     * `extractUsing()` / `computedUsing()` hook only supplies the value a composite's
+     * children then render, so it does not count.
+     *
+     * @internal
+     */
+    public function rendersThroughSerializeHook(): bool
+    {
+        return $this->state->serializeUsing !== null;
+    }
+
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {

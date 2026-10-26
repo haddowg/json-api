@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\Exception\ClassListErrorSource;
+use haddowg\JsonApi\Exception\CoreErrorSource;
+use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\OpenApi\ExampleDocumentBuilder;
 use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\LinkSchemaProjector;
@@ -21,10 +23,16 @@ use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\OffsetPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
+use haddowg\JsonApi\Resource\Field\ArrayHash;
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContributingServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
@@ -108,6 +116,80 @@ final class OperationExampleProjectionTest extends TestCase
 
         $create = self::requestExample($document, '/places', 'post');
         self::assertSame(['street' => '1 Main St', 'pin' => '1234', 'geo' => ['lat' => 51]], self::at($create, 'data', 'attributes', 'address'));
+    }
+
+    #[Test]
+    public function aComputedNullableObjectIsBuiltFromItsChildren(): void
+    {
+        // A computed value still renders through the declared children, so their examples
+        // describe it; only a serialize hook shapes the value itself.
+        $type = FakeTypeMetadata::resource('uploads', [
+            Id::make()->example('up-1')->build(),
+            Obj::make('upload')->nullable()->computedUsing(static fn(mixed $model): array => [])->fields(
+                Url::make('url')->example('https://uploads.example.com/abc')->build(),
+                Str::make('method')->example('PUT')->build(),
+                ArrayHash::make('headers')->example(['Content-Type' => 'text/csv'])->build(),
+                DateTime::make('expiresAt')->example('2026-01-01T00:00:00+00:00')->build(),
+            )->build(),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$type]));
+
+        self::assertSame([
+            'url' => 'https://uploads.example.com/abc',
+            'method' => 'PUT',
+            'headers' => ['Content-Type' => 'text/csv'],
+            'expiresAt' => '2026-01-01T00:00:00+00:00',
+        ], self::at(self::responseExample($projection->document->toArray(), '/uploads/{id}', 'get', '200'), 'data', 'attributes', 'upload'));
+        self::assertSame([], $projection->missingExamples);
+    }
+
+    #[Test]
+    public function everyCompositeIsBuiltFromItsChildrenOrItsOwnExample(): void
+    {
+        $type = FakeTypeMetadata::resource('composites', [
+            Id::make()->example('c-1')->build(),
+            ArrayList::make('keywords')->example(['php', 'json'])->build(),
+            ArrayHash::make('labels')->nullable()->example(['en' => 'Hello'])->build(),
+            Map::make('address')->nullable()->fields(Str::make('city')->example('Leeds')->build())->build(),
+            Map::make('computedAddress')->computedUsing(static fn(mixed $model): array => [])->fields(Str::make('city')->example('York')->build())->build(),
+            Obj::make('geo')->nullable()->fields(Integer::make('lat')->example(53)->build())->build(),
+            OneOf::make('block')->discriminator('kind')
+                ->variant('heading', Str::make('text')->example('Intro')->build())
+                ->variant('image', Url::make('src')->example('https://cdn.example.com/a.png')->build())
+                ->build(),
+            Obj::make('settings')->example(['theme' => 'dark'])->build(),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$type]));
+
+        self::assertSame([
+            'keywords' => ['php', 'json'],
+            'labels' => ['en' => 'Hello'],
+            'address' => ['city' => 'Leeds'],
+            'computedAddress' => ['city' => 'York'],
+            'geo' => ['lat' => 53],
+            'block' => ['kind' => 'heading', 'text' => 'Intro'],
+            'settings' => ['theme' => 'dark'],
+        ], self::at(self::responseExample($projection->document->toArray(), '/composites/{id}', 'get', '200'), 'data', 'attributes'));
+        self::assertSame([], $projection->missingExamples);
+    }
+
+    #[Test]
+    public function aCompositeWithNothingToBuildFromIsMissing(): void
+    {
+        $type = FakeTypeMetadata::resource('composites', [
+            Id::make()->example('c-1')->build(),
+            ArrayList::make('keywords')->build(),
+            ArrayHash::make('labels')->build(),
+            // A serialize hook shapes the value itself, so its children say nothing about it.
+            Obj::make('summary')->serializeUsing(static fn(mixed $model): array => [])->fields(Str::make('text')->example('Hi')->build())->build(),
+        ]);
+        $projection = (new OpenApiProjector())->projectWithDiagnostics($this->server([$type]));
+        $missing = \array_map(static fn(MissingExample $m): string => $m->field, \array_filter(
+            $projection->missingExamples,
+            static fn(MissingExample $m): bool => $m->operation === 'fetchOne.composites',
+        ));
+
+        self::assertSame(['keywords', 'labels', 'summary'], \array_values($missing));
     }
 
     #[Test]
@@ -222,6 +304,26 @@ final class OperationExampleProjectionTest extends TestCase
 
         // A status catalogues many codes; the example shows one error, never the whole list.
         self::assertCount(1, self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example', 'errors')));
+    }
+
+    #[Test]
+    public function everyCoreCodeDeclaresAnExampleDetail(): void
+    {
+        $representative = (new \ReflectionClassConstant(OperationExampleProjector::class, 'REPRESENTATIVE_CODES'))->getValue();
+        self::assertIsArray($representative);
+        $codes = [];
+        foreach ((new ErrorCatalog(new CoreErrorSource()))->descriptors() as $descriptor) {
+            $codes[$descriptor->code] = $descriptor;
+            self::assertNotNull($descriptor->exampleDetail, $descriptor->code . ' declares no exampleDetail.');
+        }
+        foreach ($representative as $preferred) {
+            self::assertIsArray($preferred);
+            foreach ($preferred as $code) {
+                self::assertIsString($code);
+                self::assertArrayHasKey($code, $codes, $code . ' is a representative code core does not catalogue.');
+                self::assertNotNull($codes[$code]->exampleDetail, $code . ' is shown as a representative example but declares no exampleDetail.');
+            }
+        }
     }
 
     #[Test]
@@ -405,7 +507,7 @@ final class OperationExampleProjectionTest extends TestCase
     #[Test]
     public function aDocumentWithAnExampleCarriesTheExamplesContract(): void
     {
-        self::assertSame(['contract' => GeneratorContract::EXAMPLES], self::at($this->project([$this->articles()]), 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(examples: true), self::at($this->project([$this->articles()]), 'info', 'x-generator'));
     }
 
     private function articles(): TypeMetadataInterface

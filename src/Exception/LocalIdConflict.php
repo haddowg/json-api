@@ -26,6 +26,7 @@ final class LocalIdConflict extends AbstractJsonApiException implements Describe
             code: 'LOCAL_ID_CONFLICT',
             status: 400,
             title: 'Local id conflict',
+            exampleDetail: 'Local id \'new-article\' is already registered for type \'articles\'!',
             context: ['lid' => ErrorContextType::Str, 'type' => ErrorContextType::Str],
             feature: ErrorFeature::AtomicOperations,
             description: 'Two operations in the Atomic Operations request create resources of the same type under the same `lid`. Give each resource a batch creates its own `lid`.',

@@ -19,6 +19,7 @@ final class ResourceIdMissing extends AbstractJsonApiException implements Descri
             code: 'RESOURCE_ID_MISSING',
             status: 400,
             title: 'Resource ID is missing',
+            exampleDetail: 'A resource ID must be included in the document!',
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data',
             feature: ErrorFeature::Writes,

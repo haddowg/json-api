@@ -26,6 +26,7 @@ final class ResourceIdUndecodable extends AbstractJsonApiException implements De
             code: 'RESOURCE_ID_UNDECODABLE',
             status: 422,
             title: 'Resource ID is undecodable',
+            exampleDetail: 'The resource ID \'not-an-id\' could not be decoded!',
             context: ['id' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/id',
