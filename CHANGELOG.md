@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/haddowg/json-api/compare/v1.15.0...v1.15.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* let spec validation accept named resource links beside self ([#236](https://github.com/haddowg/json-api/issues/236)) ([633b3c2](https://github.com/haddowg/json-api/commit/633b3c28d52f3b7a49794fa22b61fc910574f247))
+
 ## [1.15.0](https://github.com/haddowg/json-api/compare/v1.14.0...v1.15.0) (2026-10-26)
 
 
