@@ -67,7 +67,12 @@ Str::make('displayTitle')
 pattern above: it marks the field `computed()` (no backing column), sets the value
 closure, and marks it `readOnly()` on both create and update (a derived value has
 nothing to write back). The closure receives `(mixed $model, $request, string $name)`
-and owns the serialized output — no per-type cast is applied — so the two lines
+and returns the value, which goes through the field's own cast just as a stored
+column does: a `DateTime` formats a `\DateTimeInterface`, an `Integer` casts a numeric
+string, an `Obj` or `OneOf` runs its declared children. A value already in wire form
+passes through unchanged, so a closure returning a formatted date string is not
+re-parsed. A computed `Id` is taken as already encoded and never run through its
+encoder. Use `serializeUsing()` to own the output with no cast at all. The two lines
 
 ```php
 Str::make('displayTitle')->computed()->readOnly()->extractUsing($fn),
@@ -75,8 +80,8 @@ Str::make('displayTitle')->computedUsing($fn),
 ```
 
 are equivalent. The lower-level `computed()` / `extractUsing()` / `serializeUsing()`
-primitives remain available for cases the sugar does not cover (e.g. a computed
-field that is *not* read-only, or one that wants per-type casting via `extractUsing`).
+primitives remain available for cases the sugar does not cover, such as a computed
+field that is *not* read-only.
 
 ### Flattened related attributes: `on()`
 

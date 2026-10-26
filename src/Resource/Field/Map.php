@@ -67,15 +67,28 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
             return ($this->state->serializeUsing)($model, $request, $name);
         }
 
+        // A computed map spreads its children over the computed value instead of the
+        // domain object, so each child still serializes through its own cast.
+        $source = $model;
+        if ($this->state->extractUsing !== null) {
+            $source = ($this->state->extractUsing)($model, $request, $name);
+            if ($source instanceof \JsonSerializable) {
+                $source = $source->jsonSerialize();
+            }
+            if (!\is_array($source) && !\is_object($source)) {
+                return $source;
+            }
+        }
+
         $nested = [];
         foreach ($this->children as $child) {
             // Skip a hidden or write-only child the same way the resource skips such a
             // top-level field, including one whose rule is a per-request predicate.
-            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $model)) {
+            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $source)) {
                 continue;
             }
 
-            $nested[$child->name()] = $child->serialize($model, $request, $child->name());
+            $nested[$child->name()] = $child->serialize($source, $request, $child->name());
         }
 
         return JsonObject::of($nested);

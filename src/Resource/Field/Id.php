@@ -123,6 +123,15 @@ final readonly class Id extends AbstractFieldValue
         return \vsprintf('%s%s-%s-%s-%s-%s%s%s', \str_split(\bin2hex($bytes), 4));
     }
 
+    /**
+     * A computed id is taken as already encoded: running the encoder over a value the
+     * closure may have encoded itself would encode it twice.
+     */
+    protected function serializeComputedValue(mixed $value): mixed
+    {
+        return $value === null ? null : (\is_scalar($value) || $value instanceof \Stringable ? (string) $value : $value);
+    }
+
     protected function serializeValue(mixed $raw): mixed
     {
         if ($this->encoder !== null && $raw !== null) {

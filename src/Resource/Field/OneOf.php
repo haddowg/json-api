@@ -91,7 +91,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         }
 
         if ($this->state->extractUsing !== null) {
-            return ($this->state->extractUsing)($model, $request, $name);
+            return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
         }
 
         $value = Accessor::get($model, $this->state->column ?? $name);
@@ -121,6 +121,29 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         }
 
         return $nested;
+    }
+
+    /**
+     * Renders a computed value through the variant its discriminator names, as {@see Obj}
+     * renders a computed object: each declared child serializes its own key and an
+     * undeclared key, the discriminator among them, passes through. A value naming no
+     * variant is emitted as it is, like a stored one.
+     */
+    private function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    {
+        if ($value instanceof \JsonSerializable) {
+            $value = $value->jsonSerialize();
+        }
+        if (!\is_array($value) && !\is_object($value)) {
+            return $value;
+        }
+
+        $variant = $this->variantFor(Accessor::get($value, $this->discriminator));
+        if ($variant === null) {
+            return \is_array($value) ? JsonObject::of($value) : $value;
+        }
+
+        return $variant->serializeComputed($value, $request);
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed

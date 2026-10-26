@@ -175,12 +175,23 @@ abstract readonly class AbstractFieldValue implements FieldInterface
         }
 
         if ($this->state->extractUsing !== null) {
-            return ($this->state->extractUsing)($model, $request, $name);
+            return $this->serializeComputedValue(($this->state->extractUsing)($model, $request, $name));
         }
 
         $raw = Accessor::get($model, $this->state->column ?? $name);
 
         return $this->serializeValue($raw);
+    }
+
+    /**
+     * The cast applied to an `extractUsing()` / `computedUsing()` value: the field's own
+     * {@see serializeValue()}. Each cast passes a value already in wire form through
+     * unchanged, so a closure may return either the domain value or its wire form; a
+     * field whose cast is not idempotent on its wire form overrides this.
+     */
+    protected function serializeComputedValue(mixed $value): mixed
+    {
+        return $this->serializeValue($value);
     }
 
     /**
