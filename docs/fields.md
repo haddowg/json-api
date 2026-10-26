@@ -273,7 +273,8 @@ Read-only and required look adjacent but gate opposite directions, and they
 compose:
 
 - **Read-only** (`readOnly*`) gates **hydration** — the value is *skipped* if
-  present.
+  present, or refused with a `403` on a server that
+  [rejects read-only attributes](server.md#rejecting-read-only-attributes).
 - **Required** (`required*`) gates **validation** — the value is *demanded* if
   the [validation adapter](constraints.md) executes it.
 

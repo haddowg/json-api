@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface
 {
     private ResourceRegistry $resources;
 
@@ -159,6 +159,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
 
     private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
+
+    private bool $rejectsReadOnlyAttributes = false;
 
     private bool $linkObjects = true;
 
@@ -594,6 +596,27 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     public function relationAuthorizer(): ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface
     {
         return $this->relationAuthorizer;
+    }
+
+    /**
+     * Rejects a write body that sends an attribute the client cannot write in that
+     * request (read-only, computed, or read-only on this verb or by its predicate) with
+     * a `403 ATTRIBUTE_WRITE_PROHIBITED`, one error per attribute. Off by default, which
+     * ignores such attributes; the spec allows either.
+     */
+    public function withReadOnlyAttributesRejected(bool $reject = true): self
+    {
+        $self = clone $this;
+        $self->rejectsReadOnlyAttributes = $reject;
+        $self->resources = clone $this->resources;
+        $self->resources->setRejectsReadOnlyAttributes($reject);
+
+        return $self;
+    }
+
+    public function rejectsReadOnlyAttributes(): bool
+    {
+        return $this->rejectsReadOnlyAttributes;
     }
 
     public function withProfile(ProfileInterface $profile): self

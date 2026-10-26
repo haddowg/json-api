@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Exception\AdditionProhibited;
+use haddowg\JsonApi\Exception\AttributeWriteProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
 use haddowg\JsonApi\Exception\DataMemberMissing;
@@ -718,6 +719,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws DataMemberMissing
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
+     * @throws AttributeWriteProhibited
      */
     protected function hydrateForCreate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -728,6 +730,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
         /** @var array<string, mixed> $data */
         $this->validateType($data);
+
+        $this->rejectReadOnlyAttributes($data, $request, true);
 
         $domainObject = $this->hydrateId($domainObject, $data);
         $domainObject = $this->hydrateAttributes($domainObject, $data, $request, true);
@@ -746,6 +750,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws DataMemberMissing
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
+     * @throws AttributeWriteProhibited
      */
     protected function hydrateForUpdate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -757,11 +762,49 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         /** @var array<string, mixed> $data */
         $this->validateType($data);
 
+        $this->rejectReadOnlyAttributes($data, $request, false);
+
         $domainObject = $this->hydrateAttributes($domainObject, $data, $request, false);
         $domainObject = $this->hydrateRelationships($domainObject, $request, false);
 
         // Flattened (`on()`) attributes hydrate LAST (see hydrateForCreate()).
         return $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
+    }
+
+    /**
+     * Refuses a body that sends an attribute the client cannot write in this request,
+     * when the server opted in through its resolver
+     * ({@see RejectsReadOnlyAttributesInterface}). Runs before anything is hydrated, so
+     * a refused write leaves the domain object untouched, and names every offending
+     * attribute at once. A server that did not opt in ignores such attributes, as
+     * {@see hydrateAttributes()} always has.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws AttributeWriteProhibited
+     */
+    protected function rejectReadOnlyAttributes(array $data, JsonApiRequestInterface $request, bool $creating): void
+    {
+        $resolver = $this->serializerResolver;
+        if (!$resolver instanceof RejectsReadOnlyAttributesInterface || !$resolver->rejectsReadOnlyAttributes()) {
+            return;
+        }
+
+        $attributes = $data['attributes'] ?? null;
+        if (!\is_array($attributes)) {
+            return;
+        }
+
+        $prohibited = [];
+        foreach ($this->attributeFields() as $field) {
+            if (\array_key_exists($field->name(), $attributes) && $field->isReadOnlyFor($creating, $request)) {
+                $prohibited[] = $field->name();
+            }
+        }
+
+        if ($prohibited !== []) {
+            throw new AttributeWriteProhibited($prohibited);
+        }
     }
 
     /**

@@ -55,4 +55,11 @@ enum ErrorFeature: string
      * batch). Everything that parses or hydrates a request document hangs off this.
      */
     case Writes = 'writes';
+
+    /**
+     * The server rejects a read-only attribute sent in a write body instead of ignoring
+     * it, and exposes at least one write. Off unless the server metadata opts in through
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection}.
+     */
+    case ReadOnlyAttributeRejection = 'read-only-attribute-rejection';
 }

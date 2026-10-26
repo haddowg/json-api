@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
@@ -235,6 +236,9 @@ final class ErrorCatalogProjector
                 static fn($type): bool => $type->allowsClientId(),
             ),
             ErrorFeature::Writes => $this->exposesAWrite($server),
+            ErrorFeature::ReadOnlyAttributeRejection => $server instanceof DeclaresReadOnlyAttributeRejection
+                && $server->rejectsReadOnlyAttributes()
+                && $this->exposesAWrite($server),
         };
     }
 
