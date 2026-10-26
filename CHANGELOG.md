@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/haddowg/json-api/compare/v1.11.0...v1.12.0) (2026-10-26)
+
+
+### Features
+
+* let an action declare the request bodies it accepts ([#223](https://github.com/haddowg/json-api/issues/223)) ([18ee4bb](https://github.com/haddowg/json-api/commit/18ee4bb0465e856d35b3dec1d398f908adab164c))
+
 ## [1.11.0](https://github.com/haddowg/json-api/compare/v1.10.0...v1.11.0) (2026-10-26)
 
 
