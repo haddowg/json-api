@@ -29,6 +29,8 @@ use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
  * switch off parts of that.
  *
  * @internal
+ *
+ * @phpstan-type Parts array{request: (\Closure(): mixed)|null, responses: array<int, \Closure(): mixed>}
  */
 final class OperationExampleProjector
 {
@@ -148,31 +150,31 @@ final class OperationExampleProjector
         $collection = PathTemplate::collection($uriType);
         $resource = PathTemplate::resource($uriType);
 
-        /** @var list<array{string, string, string, \Closure(): array{request: mixed, responses: array<int|string, mixed>}}> $operations */
+        /** @var list<array{string, string, string, Parts}> $operations */
         $operations = [
-            [$collection, 'get', 'fetchCollection', fn(): array => [
+            [$collection, 'get', 'fetchCollection', [
                 'request' => null,
-                'responses' => [200 => $builder->collectionDocument($type, $collection, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type->isCountable())],
+                'responses' => [200 => fn(): array => $builder->collectionDocument($type, $collection, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type->isCountable())],
             ]],
-            [$collection, 'post', 'create', fn(): array => [
-                'request' => $builder->writeDocument($type, creating: true),
+            [$collection, 'post', 'create', [
+                'request' => fn(): array => $builder->writeDocument($type, creating: true),
                 'responses' => [
-                    201 => $builder->resourceDocument($type, $collection, OperationReference::create($uriType)),
+                    201 => fn(): array => $builder->resourceDocument($type, $collection, OperationReference::create($uriType)),
                     ...$this->jobResponses($type, OperationType::Create),
                 ],
             ]],
-            [$resource, 'get', 'fetchOne', fn(): array => [
+            [$resource, 'get', 'fetchOne', [
                 'request' => null,
-                'responses' => [200 => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::fetchOne($uriType))],
+                'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::fetchOne($uriType))],
             ]],
-            [$resource, 'patch', 'update', fn(): array => [
-                'request' => $builder->writeDocument($type, creating: false),
+            [$resource, 'patch', 'update', [
+                'request' => fn(): array => $builder->writeDocument($type, creating: false),
                 'responses' => [
-                    200 => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::update($uriType)),
+                    200 => fn(): array => $builder->resourceDocument($type, $builder->path($resource, $builder->id($type)), OperationReference::update($uriType)),
                     ...$this->jobResponses($type, OperationType::Update),
                 ],
             ]],
-            [$resource, 'delete', 'delete', static fn(): array => ['request' => null, 'responses' => []]],
+            [$resource, 'delete', 'delete', ['request' => null, 'responses' => []]],
         ];
 
         foreach ($type->relations() as $relation) {
@@ -180,18 +182,18 @@ final class OperationExampleProjector
             $name = $relation->name();
             $related = PathTemplate::related($uriType, $segment);
             $relationship = PathTemplate::relationship($uriType, $segment);
-            $echo = fn(): array => [
-                'request' => $builder->relationshipRequest($type, $relation),
-                'responses' => [200 => $builder->relationshipDocument($type, $relation, reading: false)],
+            $echo = [
+                'request' => fn(): array => $builder->relationshipRequest($type, $relation),
+                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: false)],
             ];
 
-            $operations[] = [$related, 'get', 'fetchRelated.' . $name, fn(): array => [
+            $operations[] = [$related, 'get', 'fetchRelated.' . $name, [
                 'request' => null,
-                'responses' => [200 => $builder->relatedDocument($type, $relation)],
+                'responses' => [200 => fn(): array => $builder->relatedDocument($type, $relation)],
             ]];
-            $operations[] = [$relationship, 'get', 'fetchRelationship.' . $name, fn(): array => [
+            $operations[] = [$relationship, 'get', 'fetchRelationship.' . $name, [
                 'request' => null,
-                'responses' => [200 => $builder->relationshipDocument($type, $relation, reading: true)],
+                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: true)],
             ]];
             $operations[] = [$relationship, 'patch', 'updateRelationship.' . $name, $echo];
             $operations[] = [$relationship, 'post', 'addRelationship.' . $name, $echo];
@@ -246,25 +248,26 @@ final class OperationExampleProjector
                 continue;
             }
 
-            $generate = function () use ($builder, $type, $action, $path, $httpMethod): array {
-                $responses = [];
-                foreach ($action->responds() as $response) {
-                    if ($response instanceof ActionResource) {
-                        $body = $builder->type($response->bodyType());
-                        if ($body !== null) {
-                            $self = $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path;
-                            $responses[200] = $builder->resourceDocument($body, $self, OperationReference::action($type->uriType(), $action->path(), $action->scope(), $httpMethod));
-                        }
-                    } elseif ($response instanceof Accepted) {
-                        $job = $builder->type($response->jobType());
-                        if ($job !== null) {
-                            $responses[202] = $builder->resourceDocument($job, '', OperationReference::action($type->uriType(), $action->path(), $action->scope(), $httpMethod), selfLink: false);
-                        }
+            $reference = OperationReference::action($type->uriType(), $action->path(), $action->scope(), $httpMethod);
+            $responses = [];
+            foreach ($action->responds() as $response) {
+                if ($response instanceof ActionResource) {
+                    $body = $builder->type($response->bodyType());
+                    if ($body !== null) {
+                        $responses[200] = fn(): array => $builder->resourceDocument(
+                            $body,
+                            $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
+                            $reference,
+                        );
+                    }
+                } elseif ($response instanceof Accepted) {
+                    $job = $builder->type($response->jobType());
+                    if ($job !== null) {
+                        $responses[202] = fn(): array => $builder->resourceDocument($job, '', $reference, selfLink: false);
                     }
                 }
-
-                return ['request' => $this->actionRequest($action), 'responses' => $responses];
-            };
+            }
+            $generate = ['request' => $this->actionRequest($action), 'responses' => $responses];
 
             $item = $item->withOperation($method, $this->operation($operation, $generate, $override, 'action.' . $action->path()));
         }
@@ -273,12 +276,13 @@ final class OperationExampleProjector
     }
 
     /**
-     * The request document of an action whose input is a resource document: the input
-     * type's create request, or its resource object when that type cannot be created.
+     * The builder of an action's request document, when its input is a resource document:
+     * the input type's create request, or its resource object when that type cannot be
+     * created.
      *
-     * @return array<string, mixed>|null
+     * @return (\Closure(): array<string, mixed>)|null
      */
-    private function actionRequest(ActionMetadataInterface $action): ?array
+    private function actionRequest(ActionMetadataInterface $action): ?\Closure
     {
         $document = $action->inputMode() === ActionInputMode::Document;
         foreach (AcceptedBody::of($action) as $accepted) {
@@ -291,14 +295,14 @@ final class OperationExampleProjector
         }
 
         return $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
-            ? $this->builder->writeDocument($input, creating: true)
-            : ['data' => $this->builder->resource($input)];
+            ? fn(): array => $this->builder->writeDocument($input, creating: true)
+            : fn(): array => ['data' => $this->builder->resource($input)];
     }
 
     /**
-     * The `202` job documents a CRUD write may answer with.
+     * The builders of the `202` job documents a CRUD write may answer with.
      *
-     * @return array<int, array<string, mixed>>
+     * @return array<int, \Closure(): array<string, mixed>>
      */
     private function jobResponses(TypeMetadataInterface $type, OperationType $operation): array
     {
@@ -306,7 +310,7 @@ final class OperationExampleProjector
             $jobType = $response->status() === 202 ? $response->jobType() : null;
             $job = $jobType === null ? null : $this->builder->type($jobType);
             if ($job !== null) {
-                return [202 => $this->builder->resourceDocument($job, '', null, selfLink: false)];
+                return [202 => fn(): array => $this->builder->resourceDocument($job, '', null, selfLink: false)];
             }
         }
 
@@ -318,42 +322,68 @@ final class OperationExampleProjector
      * `$override` is `null` to generate everything, `false` for no example at all, or the
      * parts to replace.
      *
-     * @param \Closure(): array{request: mixed, responses: array<int|string, mixed>} $generate
+     * Only the parts that would be emitted are generated: the ones the override leaves
+     * alone and the operation carries a JSON:API body for. Those stand or fall together,
+     * and a miss is recorded only for them, so an operation whose override replaces or
+     * removes every part reports nothing missing.
+     *
+     * @param Parts $parts
      */
-    private function operation(Operation $operation, \Closure $generate, OperationExample|false|null $override, string $name): Operation
+    private function operation(Operation $operation, array $parts, OperationExample|false|null $override, string $name): Operation
     {
         if ($override === false) {
             return $operation;
         }
 
-        [$generated, $misses] = $this->builder->attempt($generate);
-        foreach ($misses as [$type, $field]) {
-            $this->recordMiss($operation->operationId ?? $name, $type, $field);
-        }
-        $request = $generated['request'] ?? null;
-        $responses = $generated['responses'] ?? [];
+        $id = $operation->operationId ?? $name;
+        $request = $parts['request'];
+        $responses = $parts['responses'];
+        $replaced = ['request' => null, 'responses' => []];
 
         if ($override !== null) {
-            if ($override->request === false) {
-                $request = null;
-            } elseif ($override->request !== null) {
-                if (!$this->hasJsonApiBody($operation->requestBody)) {
-                    throw new \InvalidArgumentException(\sprintf('The operation "%s" declares a request example but takes no JSON:API request body.', $operation->operationId ?? $name));
+            if ($override->request !== null) {
+                if ($override->request !== false && !$this->hasJsonApiBody($operation->requestBody)) {
+                    throw new \InvalidArgumentException(\sprintf('The operation "%s" declares a request example but takes no JSON:API request body.', $id));
                 }
-                $request = $override->request;
+                $request = null;
+                $replaced['request'] = $override->request === false ? null : $override->request;
             }
             foreach ($override->responses as $status => $example) {
                 $response = $operation->responses->responses[(string) $status] ?? null;
                 if (!$response instanceof Response || !isset($response->content[MediaType::JSON_API])) {
-                    throw new \InvalidArgumentException(\sprintf('The operation "%s" declares an example for a %s response, which it does not answer with a JSON:API document.', $operation->operationId ?? $name, $status));
+                    throw new \InvalidArgumentException(\sprintf('The operation "%s" declares an example for a %s response, which it does not answer with a JSON:API document.', $id, $status));
                 }
-                if ($example === false) {
-                    unset($responses[$status]);
-                } else {
-                    $responses[$status] = $example;
+                unset($responses[$status]);
+                if ($example !== false) {
+                    $replaced['responses'][$status] = $example;
                 }
             }
         }
+
+        if (!$this->hasJsonApiBody($operation->requestBody)) {
+            $request = null;
+        }
+        foreach (\array_keys($responses) as $status) {
+            $response = $operation->responses->responses[(string) $status] ?? null;
+            if (!$response instanceof Response || !isset($response->content[MediaType::JSON_API])) {
+                unset($responses[$status]);
+            }
+        }
+
+        [$generated, $misses] = $this->builder->attempt(static function () use ($request, $responses): array {
+            $built = ['request' => $request?->__invoke(), 'responses' => []];
+            foreach ($responses as $status => $build) {
+                $built['responses'][$status] = $build();
+            }
+
+            return $built;
+        });
+        foreach ($misses as [$type, $field]) {
+            $this->recordMiss($id, $type, $field);
+        }
+
+        $request = $replaced['request'] ?? $generated['request'] ?? null;
+        $examples = $replaced['responses'] + ($generated['responses'] ?? []);
 
         if ($request !== null && $operation->requestBody instanceof RequestBody && $this->hasJsonApiBody($operation->requestBody)) {
             $media = $operation->requestBody->content[MediaType::JSON_API];
@@ -361,7 +391,7 @@ final class OperationExampleProjector
             $this->emitted = true;
         }
 
-        foreach ($responses as $status => $example) {
+        foreach ($examples as $status => $example) {
             $response = $operation->responses->responses[(string) $status] ?? null;
             if ($response instanceof Response && isset($response->content[MediaType::JSON_API])) {
                 $operation = $operation->withResponse((string) $status, $this->withResponseExample($response, $example));
