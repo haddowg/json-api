@@ -104,7 +104,13 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
      * value. A declared child the value does not carry stays absent, a hidden or
      * write-only one is dropped, and a key no child declares passes through untouched.
      */
-    private function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    /**
+     * Runs the declared children over a computed value, the way the column path runs
+     * them over the stored one. A {@see OneOf} renders its matched variant through it.
+     *
+     * @internal
+     */
+    public function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
