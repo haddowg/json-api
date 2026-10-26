@@ -171,6 +171,8 @@ final class ContentNegotiationMiddlewareTest extends TestCase
             'post absent' => ['POST', '', $document],
             'post absent without a body' => ['POST', '', ''],
             'patch json' => ['PATCH', 'application/json', $document],
+            'patch absent' => ['PATCH', '', $document],
+            'put text/plain' => ['PUT', 'text/plain', $document],
             'relationship delete text/plain' => ['DELETE', 'text/plain', '{"data":[]}'],
         ];
     }
@@ -210,6 +212,8 @@ final class ContentNegotiationMiddlewareTest extends TestCase
             'head' => ['HEAD'],
             'options' => ['OPTIONS'],
             'resource delete' => ['DELETE'],
+            'bodyless patch' => ['PATCH'],
+            'bodyless put' => ['PUT'],
         ];
     }
 

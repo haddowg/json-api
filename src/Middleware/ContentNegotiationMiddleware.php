@@ -15,8 +15,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * Validates JSON:API content negotiation on the incoming request: the
  * `Content-Type`/`Accept` media-type parameters (only `ext`/`profile` are
- * permitted), extension support, and query-parameter well-formedness. A write
- * (any unsafe method, bar a `DELETE` with no body) must also carry a
+ * permitted), extension support, and query-parameter well-formedness. Every
+ * `POST`, and any other unsafe method with a body, must also carry a
  * `Content-Type` of `application/vnd.api+json`; an absent header or another
  * media type is a `415`.
  *
@@ -58,9 +58,10 @@ final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Whether the request must carry a JSON:API document, and so a JSON:API
-     * `Content-Type`: every unsafe method, except a `DELETE` with no body, which is how
-     * a resource is deleted and which clients send without a `Content-Type`.
+     * Whether the request must carry a JSON:API `Content-Type`: every `POST`, even one
+     * with no body, since a browser sends a bodyless `POST` cross-origin without a
+     * preflight and without a `Content-Type`. Any other unsafe method needs it only when
+     * it has a body, because a browser always preflights those.
      */
     private static function carriesDocument(JsonApiRequestInterface $request): bool
     {
@@ -69,7 +70,7 @@ final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
             return false;
         }
 
-        if ($method !== 'DELETE') {
+        if ($method === 'POST') {
             return true;
         }
 
