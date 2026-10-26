@@ -678,6 +678,41 @@ A document whose actions declare a `RawResult` carries contract 10; one that dec
 keeps contract 9 and is byte-for-byte unchanged (see
 [scoped contracts](#a-bump-scoped-to-some-documents)).
 
+### Accepted request bodies
+
+An action's input mode projects one request body: none, its JSON:API document, or an
+open `application/octet-stream` body for raw input. An action that takes several media
+types, or a raw body with a known shape, also implements `DeclaresAcceptedBodies` on its
+metadata, and each `AcceptedBody` becomes one `requestBody.content` entry:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+
+public function accepts(): array
+{
+    return [
+        new AcceptedBody('text/csv', schema: ['type' => 'string']),
+        new AcceptedBody('image/*', binary: true),
+        new AcceptedBody('multipart/form-data'),
+        new AcceptedBody('application/json', schema: ImportRows::class),
+    ];
+}
+```
+
+The media type may end in a wildcard, such as `image/*`, and parameters are dropped from
+the key. A JSON:API entry, `application/vnd.api+json` by default or any entry declared with
+`document: true`, carries the action's request document. `binary: true` gives a binary
+string, `schema` takes an inline array or a `DescribesRawBody` class emitted as a component
+the way a raw response's is, and an entry with none of them is an open object for
+`multipart/form-data` and a binary string otherwise. The body is required only when the
+action's input mode is `Document`, and the operation lists the `415` a `Content-Type` it
+does not accept gets.
+
+An action that returns no accepted bodies, or whose metadata does not implement the
+interface, projects as before. A document that declares accepted bodies carries contract
+11, one with raw responses but no accepted bodies stays at 10, and any other keeps contract
+9 (see [scoped contracts](#a-bump-scoped-to-some-documents)).
+
 ### The asynchronous-write lifecycle
 
 Together the objects reflect the JSON:API
@@ -873,12 +908,13 @@ See the contract discipline in `CLAUDE.md`.
 A structure only some servers use can move the contract for those documents alone.
 `GeneratorContract::CONTRACT` is the highest contract a document can carry, and
 `GeneratorContract::BASELINE` is what a document using none of the scoped structures
-carries. Raw action responses are the one scoped structure: a document declaring a
-`RawResult` carries `RAW_CONTENT` (10), and every other document carries the baseline (9).
-A generator that cannot read raw content is warned only by the documents that contain it.
+carries. There are two scoped structures. A document whose actions declare accepted
+request bodies carries `ACCEPTED_BODIES` (11), one declaring a `RawResult` but no accepted
+bodies carries `RAW_CONTENT` (10), and every other document carries the baseline (9). A
+generator that cannot read one of them is warned only by the documents that contain it.
 
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
-witness, projected from the same server without its raw results, lets the CI guard hold
+witness, projected from the same server without its raw results and accepted bodies, lets the CI guard hold
 `BASELINE` to that rule.
 
 #### Diffing documents across contracts

@@ -108,8 +108,9 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT), GeneratorContract::CONTRACT);
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true));
+        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT, GeneratorContract::ACCEPTED_BODIES), GeneratorContract::CONTRACT);
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true));
+        self::assertSame(['contract' => GeneratorContract::RAW_CONTENT], GeneratorContract::toArray(rawContent: true));
     }
 
     /**

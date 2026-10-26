@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
+use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
@@ -872,9 +873,10 @@ final class OperationProjector
         $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
 
         // Every action negotiates the `Accept` header (`406`); a `None`/`Document` input
-        // mode also negotiates the `Content-Type` (`415`), while a `Raw` mode relaxes it.
+        // mode also negotiates the `Content-Type` (`415`), while a `Raw` mode relaxes it
+        // unless the action lists the media types it accepts.
         $statuses = ['400', '403', '404', '406', '422', '500'];
-        if ($action->inputMode() !== ActionInputMode::Raw) {
+        if ($action->inputMode() !== ActionInputMode::Raw || AcceptedBody::of($action) !== []) {
             $statuses[] = '415';
         }
         $responses = $this->withErrorResponses($responses, $this->authStatuses($statuses, $security, $server->defaultSecurity()));
@@ -904,6 +906,11 @@ final class OperationProjector
      */
     private function actionRequestBody(ActionMetadataInterface $action, ServerMetadataInterface $server): ?RequestBody
     {
+        $accepts = AcceptedBody::of($action);
+        if ($accepts !== []) {
+            return $this->acceptedRequestBody($action, $accepts, $server);
+        }
+
         return match ($action->inputMode()) {
             ActionInputMode::None => null,
             ActionInputMode::Document => $this->actionDocumentRequestBody($action, $server),
@@ -923,20 +930,57 @@ final class OperationProjector
      */
     private function actionDocumentRequestBody(ActionMetadataInterface $action, ServerMetadataInterface $server): RequestBody
     {
+        return RequestBody::ofSchema($this->actionDocumentSchema($action, $server));
+    }
+
+    /**
+     * The schema of the action's JSON:API request document: the input type's create
+     * request, its resource object for a type that cannot be created, or an open object
+     * when the action names no registered input type.
+     */
+    private function actionDocumentSchema(ActionMetadataInterface $action, ServerMetadataInterface $server): Schema
+    {
         $inputType = $action->inputType();
         $input = $inputType === null ? null : $this->typeNamed($inputType, $server);
         if ($input === null) {
-            return RequestBody::ofSchema(Schema::ofType('object'));
+            return Schema::ofType('object');
         }
 
         $base = ComponentNaming::base($input->type());
 
         // `<Type>CreateRequest` exists only for a type with fields that allows create;
         // any other registered type falls back to its resource object, as create does.
-        return RequestBody::ofSchema(
-            $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
-                ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
-                : Schema::ref(ComponentNaming::schemaRef($base . 'Resource')),
+        return $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
+            ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
+            : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
+    }
+
+    /**
+     * One `content` entry per accepted body, in declared order (see {@see AcceptedBody}
+     * for how each entry's schema is chosen). The body is required only for a `Document`
+     * input action, as the input-mode projection has it.
+     *
+     * @param list<AcceptedBody> $accepts
+     */
+    private function acceptedRequestBody(ActionMetadataInterface $action, array $accepts, ServerMetadataInterface $server): RequestBody
+    {
+        $content = [];
+        foreach ($accepts as $accepted) {
+            $schema = match (true) {
+                $accepted->document => $this->actionDocumentSchema($action, $server),
+                $accepted->binary => Schema::ofType('string')->withFormat('binary'),
+                \is_string($accepted->schema) => Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($accepted->schema))),
+                \is_array($accepted->schema) => Schema::fromArray($accepted->schema),
+                $accepted->essence() === 'multipart/form-data' => Schema::ofType('object'),
+                default => Schema::ofType('string')->withFormat('binary'),
+            };
+            $content[$accepted->essence()] = MediaType::ofSchema($schema);
+        }
+
+        return new RequestBody(
+            content: $content,
+            description: 'The request body, in one of the media types the action accepts.',
+            required: $action->inputMode() === ActionInputMode::Document,
         );
     }
 

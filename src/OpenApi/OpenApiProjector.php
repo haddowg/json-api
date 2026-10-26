@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
+use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
@@ -210,7 +211,7 @@ final class OpenApiProjector
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server)));
+        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server), acceptedBodies: $this->declaresAcceptedBodies($server)));
     }
 
     /**
@@ -274,8 +275,8 @@ final class OpenApiProjector
      * declaring a `200` meta-only success (also a {@see \haddowg\JsonApi\OpenApi\Metadata\MetaResult}).
      */
     /**
-     * Emits the component of each {@see DescribesRawBody} class a raw action response
-     * names, once per class. A class whose short name another component already holds
+     * Emits the component of each {@see DescribesRawBody} class a raw action response or
+     * accepted request body names, once per class. A class whose short name another component already holds
      * is refused, since its `$ref`s would silently point at the other schema.
      *
      * @param array<string, Schema> $schemas
@@ -285,22 +286,34 @@ final class OpenApiProjector
         $emitted = [];
         foreach ($server->types() as $type) {
             foreach ($type->actions() as $action) {
+                $classes = [];
                 foreach ($action->responds() as $response) {
-                    if (!$response instanceof RawResult || !\is_string($response->schema) || isset($emitted[$response->schema])) {
+                    if ($response instanceof RawResult && \is_string($response->schema)) {
+                        $classes[] = $response->schema;
+                    }
+                }
+                foreach (AcceptedBody::of($action) as $accepted) {
+                    if (\is_string($accepted->schema)) {
+                        $classes[] = $accepted->schema;
+                    }
+                }
+
+                foreach ($classes as $class) {
+                    if (isset($emitted[$class])) {
                         continue;
                     }
 
-                    $name = ComponentNaming::rawBody($response->schema);
+                    $name = ComponentNaming::rawBody($class);
                     if (isset($schemas[$name])) {
                         throw new \LogicException(\sprintf(
-                            'The raw response schema %s would be emitted as the component "%s", which another component already uses. Rename the class.',
-                            $response->schema,
+                            'The raw body schema %s would be emitted as the component "%s", which another component already uses. Rename the class.',
+                            $class,
                             $name,
                         ));
                     }
 
-                    $schemas[$name] = Schema::fromArray($response->schema::jsonSchema());
-                    $emitted[$response->schema] = true;
+                    $schemas[$name] = Schema::fromArray($class::jsonSchema());
+                    $emitted[$class] = true;
                 }
             }
         }
@@ -318,6 +331,24 @@ final class OpenApiProjector
                     if ($response instanceof RawResult) {
                         return true;
                     }
+                }
+
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any action declares the request bodies it accepts, which the document's
+     * generator contract reflects ({@see GeneratorContract::ACCEPTED_BODIES}).
+     */
+    private function declaresAcceptedBodies(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                if (AcceptedBody::of($action) !== []) {
+                    return true;
                 }
             }
         }
