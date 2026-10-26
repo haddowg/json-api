@@ -46,25 +46,47 @@ namespace haddowg\JsonApi\OpenApi;
  * the cost of two hand-maintained lists (the server's and every generator's known-set)
  * that must agree forever.
  *
+ * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
+ * highest contract the projector emits, and a document using none of the scoped
+ * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
+ * is warned only by the documents that contain it. {@see RAW_CONTENT} is the one scoped
+ * structure today: an action's non-JSON:API response bodies. A change that moves every
+ * document raises `BASELINE` and `CONTRACT` together; the second witness,
+ * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
+ *
  * @see \haddowg\JsonApi\Tests\OpenApi\ContractWitnessTest the test that fails when the
  *      emitted structure moves, so the bump cannot be forgotten
  */
 final class GeneratorContract
 {
     /**
-     * The current contract. Bump by exactly one, and at most once per release; see the
-     * class docblock for what warrants it and `docs/openapi.md` for the discipline
-     * around it.
+     * The highest contract a document can carry. Bump by exactly one, and at most once
+     * per release; see the class docblock for what warrants it and `docs/openapi.md`
+     * for the discipline around it.
      */
-    public const CONTRACT = 9;
+    public const CONTRACT = 10;
 
     /**
-     * The `info.x-generator` value.
+     * The contract a document carries when it uses none of the scoped structures below:
+     * the shape every document shares. Bump it, with {@see CONTRACT}, when a change moves
+     * that shape.
+     */
+    public const BASELINE = 9;
+
+    /**
+     * The contract that introduced raw action responses: media types other than JSON:API
+     * under an action's success `content`, and the schema components they reference. A
+     * document carries it only when an action declares one.
+     */
+    public const RAW_CONTENT = 10;
+
+    /**
+     * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
      */
-    public static function toArray(): array
+    public static function toArray(bool $rawContent = false): array
     {
-        return ['contract' => self::CONTRACT];
+        return ['contract' => \max(self::BASELINE, $rawContent ? self::RAW_CONTENT : self::BASELINE)];
     }
 }

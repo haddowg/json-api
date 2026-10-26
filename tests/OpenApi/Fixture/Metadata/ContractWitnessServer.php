@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
+use haddowg\JsonApi\OpenApi\Header;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
@@ -15,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\Ok;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -62,6 +64,7 @@ use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Priority;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
@@ -81,7 +84,8 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * pivot-backed, polymorphic, endpoint-suppressed,
  * mutation-locked, write-only, served under a renamed URI segment), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
- * scope, non-default success responses, both registered profiles, the Atomic
+ * scope, non-default success responses, raw action responses beside and instead of a
+ * JSON:API one, both registered profiles, the Atomic
  * Operations extension, and described link objects (a document URL, an id example and an
  * action rendered as a resource link). Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
  * the error catalogue gates on, and a contributed error code whose descriptor carries a
@@ -91,13 +95,18 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  */
 final class ContractWitnessServer
 {
-    public static function build(): ServerMetadataInterface
+    /**
+     * @param bool $rawContent whether the articles carry their raw-response actions; the
+     *                         baseline witness leaves them out, so it shows the shape a
+     *                         document using no scoped structure keeps
+     */
+    public static function build(bool $rawContent = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles(),
+                self::articles($rawContent),
                 self::people(),
                 self::tags(),
                 self::images(),
@@ -140,7 +149,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(): FakeTypeMetadata
+    private static function articles(bool $rawContent): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -282,6 +291,18 @@ final class ContractWitnessServer
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles'], description: 'Save a draft revision.'),
                 new FakeActionMetadata('stats', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles']),
+                ...($rawContent ? [
+                    // A JSON:API response with raw siblings in each schema form, and a raw-only action.
+                    new FakeActionMetadata('report', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [
+                        new MetaResult(),
+                        new RawResult('text/csv', schema: ['type' => 'string'], headers: ['Content-Disposition' => 'Names the downloaded file.'], example: "id,title\n1,Hello\n"),
+                        new RawResult('application/pdf', binary: true, headers: ['Content-Disposition' => 'Names the downloaded file.']),
+                        new RawResult('application/json', schema: ArticleSummary::class),
+                    ], tags: ['Articles']),
+                    new FakeActionMetadata('cover', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
+                        new RawResult('image/png', binary: true, headers: ['Cache-Control' => new Header('How long the image may be cached.', required: true)]),
+                    ], tags: ['Articles']),
+                ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],
             idPattern: 'art-[0-9]+',

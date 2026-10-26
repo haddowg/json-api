@@ -28,7 +28,14 @@ declare(strict_types=1);
  * discriminator `mapping`, `paths`, the `components` sections) a name is never mistaken
  * for a keyword, so an attribute literally named `example` or `description` still counts.
  *
- * The four verdicts:
+ * A bump can be scoped: GeneratorContract::BASELINE is the contract a document using none
+ * of the scoped structures carries, and a second witness,
+ * tests/OpenApi/Fixture/contract-witness-baseline.json, projects the server without them.
+ * When that baseline structure moves, BASELINE must move up to CONTRACT; when it does not,
+ * BASELINE stays at the tag's value. A tag from before the baseline witness had every
+ * document at its CONTRACT, so its main witness stands in as the released baseline.
+ *
+ * The four verdicts on the main witness:
  *
  *   structure moved, contract still at the tag's value  → fail, naming the bump to make
  *   structure moved, contract already ahead             → pass, an earlier PR bumped
@@ -46,6 +53,7 @@ declare(strict_types=1);
  */
 
 const WITNESS_PATH = 'tests/OpenApi/Fixture/contract-witness.json';
+const BASELINE_WITNESS_PATH = 'tests/OpenApi/Fixture/contract-witness-baseline.json';
 const CONTRACT_SOURCE = 'src/OpenApi/GeneratorContract.php';
 
 /**
@@ -117,13 +125,13 @@ function latestReleaseTag(string $repoRoot): ?string
 }
 
 /**
- * The `CONTRACT` value declared in a copy of the constant's source file, or null when the
- * file does not declare one.
+ * The value of an integer constant (`CONTRACT` unless named) declared in a copy of the
+ * constant's source file, or null when the file does not declare it.
  */
-function contractIn(string $source): ?int
+function contractIn(string $source, string $constant = 'CONTRACT'): ?int
 {
     $matches = [];
-    if (\preg_match('/const\s+CONTRACT\s*=\s*(\d+)/', $source, $matches) !== 1) {
+    if (\preg_match('/const\s+' . $constant . '\s*=\s*(\d+)/', $source, $matches) !== 1) {
         return null;
     }
 
@@ -209,6 +217,46 @@ if ($headContract === null) {
 $releasedSource = git($repoRoot, 'show', $tag . ':' . CONTRACT_SOURCE);
 $releasedContract = \is_string($releasedSource) ? contractIn($releasedSource) : null;
 $releasedContract ??= ABSENT_CONTRACT;
+
+// A bump can be scoped to a structure only some documents use (GeneratorContract::BASELINE
+// against CONTRACT). The baseline witness projects the server without the scoped
+// structures, so it holds BASELINE to the shape every document shares: when that moves,
+// BASELINE moves to CONTRACT with it. A tag from before the baseline existed had every
+// document at its CONTRACT, so its main witness is the released baseline.
+$headBaselinePath = $repoRoot . '/' . BASELINE_WITNESS_PATH;
+if (\is_file($headBaselinePath)) {
+    $headBaselineWitness = \file_get_contents($headBaselinePath);
+    if (!\is_string($headBaselineWitness) || \trim($headBaselineWitness) === '') {
+        fail('the baseline witness at ' . BASELINE_WITNESS_PATH . ' is empty; regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test.');
+    }
+    $releasedBaselineWitness = git($repoRoot, 'show', $tag . ':' . BASELINE_WITNESS_PATH);
+    if ($releasedBaselineWitness === null || \trim($releasedBaselineWitness) === '') {
+        $releasedBaselineWitness = $releasedWitness;
+    }
+
+    $headBaseline = contractIn($headSource, 'BASELINE') ?? $headContract;
+    $releasedBaseline = (\is_string($releasedSource) ? (contractIn($releasedSource, 'BASELINE') ?? contractIn($releasedSource)) : null) ?? ABSENT_CONTRACT;
+    $baselineMoved = structure(decodeWitness($releasedBaselineWitness, $tag . ' baseline'))
+        !== structure(decodeWitness($headBaselineWitness, 'working tree baseline'));
+
+    if ($headBaseline < $releasedBaseline) {
+        fail("GeneratorContract::BASELINE is {$headBaseline}, behind the {$releasedBaseline} that {$tag} shipped.");
+    }
+    if ($baselineMoved && ($headBaseline === $releasedBaseline || $headBaseline !== $headContract)) {
+        fail(
+            "the structure every projected document shares has changed since {$tag}, so the bump cannot be scoped.\n"
+            . "  A document using no scoped structure still carries GeneratorContract::BASELINE ({$headBaseline}), and a\n"
+            . "  generator reading it would miss the change. Raise BASELINE to CONTRACT, bumping CONTRACT first if\n"
+            . "  it is still at the value {$tag} shipped, and regenerate both witnesses.",
+        );
+    }
+    if (!$baselineMoved && $headBaseline !== $releasedBaseline) {
+        fail(
+            "GeneratorContract::BASELINE moved {$releasedBaseline} → {$headBaseline}, but the structure every document\n"
+            . "  shares is unchanged since {$tag}. Reset BASELINE to {$releasedBaseline}; a scoped structure moves CONTRACT alone.",
+        );
+    }
+}
 
 $moved = structure(decodeWitness($releasedWitness, $tag)) !== structure(decodeWitness($headWitness, 'working tree'));
 

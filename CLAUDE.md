@@ -345,6 +345,12 @@ structure moves. It is **release-scoped**: the first change in a release cycle t
 the structure bumps it by one, and every later change in that cycle leaves it alone. Never
 renumber ([ADR 0134](docs/adr/0134-generated-documents-carry-a-monotonic-contract-integer.md)).
 
+A bump can be scoped to a structure only some documents use: `CONTRACT` is the highest
+stamp, `BASELINE` the stamp of a document using no scoped structure (raw action responses
+are the one scoped structure, `RAW_CONTENT`). A change that moves every document raises
+`BASELINE` to `CONTRACT`; `contract-witness-baseline.json`, the witness server without its
+raw results, is how the guard tells the two apart.
+
 Two checks enforce the bump. Read what they tell you rather than silencing them:
 
 1. `ContractWitnessTest` compares the projector's output against

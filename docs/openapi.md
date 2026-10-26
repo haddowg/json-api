@@ -617,6 +617,7 @@ them (a set). They are typed per operation so an illegal combination is unrepres
 | `new SeeOther()` | `303` | `Location` only, no body | fetch-one, actions |
 | `new MetaResult()` | `200` | a meta-only document | delete, actions |
 | `new ActionResource(string $type)` | `200` | the named type's document | actions |
+| `new RawResult(string $mediaType, …)` | `200` by default | a body that is not JSON:API, beside the JSON:API one | actions |
 
 Each implements a per-operation **marker interface** — `CreateResponse`, `UpdateResponse`,
 `DeleteResponse`, `FetchOneResponse`, `FetchCollectionResponse` for CRUD, and
@@ -633,6 +634,49 @@ CRUD/read operation (its declared override, else `OperationResponses::defaultFor
 one `Response` per element, keyed by status — and the unoverridden default reproduces the
 exact response the document has always carried, so an existing contract is byte-for-byte
 unchanged.
+
+### Raw action responses
+
+An action that answers with something other than a JSON:API document, such as a CSV
+export, a PDF or an image, declares a `RawResult` per media type. Several sit beside the
+action's JSON:API response at the same status, and the request's `Accept` header picks
+between them:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\{MetaResult, RawResult};
+
+$responds = [
+    new MetaResult(),
+    new RawResult('text/csv', schema: ['type' => 'string'], headers: [
+        'Content-Disposition' => 'Names the downloaded file.',
+    ], example: "id,title\n1,Hello\n"),
+    new RawResult('application/pdf', binary: true),
+    new RawResult('application/json', schema: ChartSummary::class),
+];
+```
+
+`schema` is an inline JSON Schema array, or the class name of a `DescribesRawBody`, whose
+static `jsonSchema()` the projector emits once as `#/components/schemas/<ShortClassName>`
+and `$ref`s from each use. A class whose short name another component already holds is
+refused. `binary: true` projects `{type: string, format: binary}`. `headers` maps a header
+name to its description, or to a `Header` object, and joins the response's headers.
+`example` becomes the media type's example. Each media type lands under the status's
+`content`, next to `application/vnd.api+json` when the action declares a JSON:API response
+there too. `ActionResponses::validate()` allows any number of raw results per status, one
+per media type; the media type must be concrete, never JSON:API, and the status a `2xx`
+with a body.
+
+At runtime the integration picks the media type with
+`Negotiation\AcceptNegotiator::negotiate($accept, ActionResponses::mediaTypes($responds))`.
+Each media type takes the `q` of the most specific `Accept` range that matches it, the
+highest wins, and a tie goes to JSON:API, so a client that accepts JSON:API as readily as
+anything else gets it. Nothing acceptable is a `406` `MediaTypeUnacceptable`, and every
+error renders as a JSON:API document whatever was negotiated. A handler answers a raw pick
+with a [`RawResponse`](responses.md#raw-responses).
+
+A document whose actions declare a `RawResult` carries contract 10; one that declares none
+keeps contract 9 and is byte-for-byte unchanged (see
+[scoped contracts](#a-bump-scoped-to-some-documents)).
 
 ### The asynchronous-write lifecycle
 
@@ -823,6 +867,19 @@ move the contract past what that release shipped, and once it has, later changes
 same cycle leave it alone. Generated prose (`description`, `summary`) and `example`
 values are not structure: a generator reads neither, so changing one moves no contract.
 See the contract discipline in `CLAUDE.md`.
+
+#### A bump scoped to some documents
+
+A structure only some servers use can move the contract for those documents alone.
+`GeneratorContract::CONTRACT` is the highest contract a document can carry, and
+`GeneratorContract::BASELINE` is what a document using none of the scoped structures
+carries. Raw action responses are the one scoped structure: a document declaring a
+`RawResult` carries `RAW_CONTENT` (10), and every other document carries the baseline (9).
+A generator that cannot read raw content is warned only by the documents that contain it.
+
+A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
+witness, projected from the same server without its raw results, lets the CI guard hold
+`BASELINE` to that rule.
 
 #### Diffing documents across contracts
 

@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 9
+            "contract": 10
         }
     },
     "servers": [
@@ -3327,6 +3327,145 @@
                 }
             }
         },
+        "/articles/-actions/report": {
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Invoke the `report` action",
+                "description": "Invokes the `report` custom action on the articles collection.",
+                "operationId": "action.articles.report",
+                "responses": {
+                    "200": {
+                        "description": "The action result: a meta-only document.",
+                        "headers": {
+                            "Content-Disposition": {
+                                "description": "Names the downloaded file.",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MetaDocument"
+                                }
+                            },
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string"
+                                },
+                                "example": "id,title\n1,Hello\n"
+                            },
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticleSummary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/articles/{id}/-actions/cover": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `id` of the article.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Invoke the `cover` action",
+                "description": "Invokes the `cover` custom action on an article.",
+                "operationId": "action.articles.cover",
+                "responses": {
+                    "200": {
+                        "description": "The action result.",
+                        "headers": {
+                            "Cache-Control": {
+                                "description": "How long the image may be cached.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "image/png": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
         "/people": {
             "get": {
                 "tags": [
@@ -5759,6 +5898,24 @@
                             "status"
                         ]
                     }
+                ]
+            },
+            "ArticleSummary": {
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "byStatus": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "required": [
+                    "total"
                 ]
             },
             "ArticlesAtomicAdd": {

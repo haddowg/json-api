@@ -112,6 +112,10 @@ name: `text/*` or `*/*` never opts an action into them. The lower-level
 `ContentTypeMatcher::match()` returns the same `ContentTypeMatch` without throwing,
 with `corsSafelisted` and `isExplicit()` for an integration that wants its own rule.
 
+An action that can answer in several media types, a JSON:API document or a CSV export
+say, picks one from `Accept` with `AcceptNegotiator::negotiate()`; see
+[raw action responses](openapi.md#raw-action-responses).
+
 In practice your requests just assert the bare media type and pass, as the example
 suite does on every read and write — see the request helpers in
 [`WritesTest`](../examples/music-catalog/tests/WritesTest.php):

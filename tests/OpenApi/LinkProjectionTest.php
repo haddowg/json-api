@@ -204,9 +204,9 @@ final class LinkProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theContractIsNine(): void
+    public function theBaselineContractIsNine(): void
     {
-        self::assertSame(9, GeneratorContract::CONTRACT);
+        self::assertSame(9, GeneratorContract::BASELINE);
     }
 
     /**

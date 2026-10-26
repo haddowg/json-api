@@ -49,6 +49,28 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * A node holding an author-written JSON Schema as it stands, such as the schema a
+     * raw action response declares. Keywords are kept verbatim and emitted in the
+     * canonical order; an `x-` key becomes a vendor extension. Write an empty object
+     * as `new \stdClass()`, since an empty PHP array emits as a JSON array.
+     *
+     * @param array<string, mixed> $schema
+     */
+    public static function fromArray(array $schema): self
+    {
+        $self = new self();
+        foreach ($schema as $keyword => $value) {
+            if (\str_starts_with($keyword, 'x-')) {
+                $self->extensions[$keyword] = $value;
+            } else {
+                $self->keywords[$keyword] = $value;
+            }
+        }
+
+        return $self;
+    }
+
+    /**
      * The boolean `false` schema (JSON Schema 2020-12 / OpenAPI 3.1): it validates
      * **nothing**, so as a property value it forbids that property. It serialises to
      * a bare `false` rather than an object — `{"properties": {"id": false}}` reads as
