@@ -297,6 +297,13 @@ Write semantics on the single value:
   inside the object, a value object) — the stored children are otherwise plain
   scalars in one array.
 
+A value from `computedUsing()` or `extractUsing()` goes through the declared children
+the same way a stored value does, so a `DateTime` child renders its formatted string
+and a child reads its own key from the computed array or object. A declared child the
+computed value leaves out stays absent, a hidden or write-only child is dropped, and a
+key no child declares passes through as returned. `serializeUsing()` still owns the
+whole value and skips the children.
+
 In the generated OpenAPI document an `Obj` projects a typed `object` schema built
 from its children (it self-describes via `ProvidesFieldSchema`). A `Map` projects the
 same way. The create schema requires each child a create must supply, the update schema
