@@ -103,6 +103,41 @@ final class DocumentValidatorTest extends TestCase
         $this->expectNotToPerformAssertions();
     }
 
+    #[Test]
+    public function aResourceMayCarryNamedLinksBesideSelf(): void
+    {
+        $this->validator()->validateResponse([
+            'data' => [
+                'type' => 'files',
+                'id' => '1',
+                'links' => [
+                    'self' => '/files/1',
+                    'store' => 'https://store.example.com/files/1',
+                    'upload' => [
+                        'href' => 'https://uploads.example.com/files/1',
+                        'type' => 'application/octet-stream',
+                        'meta' => ['method' => 'PUT', 'expiresAt' => '2026-01-01T12:00:00+00:00'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function aNamedResourceLinkMustStillBeALink(): void
+    {
+        try {
+            $this->validator()->validateResponse([
+                'data' => ['type' => 'files', 'id' => '1', 'links' => ['upload' => ['meta' => ['method' => 'PUT']]]],
+            ]);
+            self::fail('Expected ResponseBodyInvalidJsonApi.');
+        } catch (ResponseBodyInvalidJsonApi $exception) {
+            self::assertNotSame([], $this->pointers($exception->validationErrors));
+        }
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

@@ -9,18 +9,21 @@ namespace haddowg\JsonApi\Validation;
  * under `resources/schemas/` and decodes them once (memoized per instance).
  *
  * The response schema is the byte-faithful upstream file; this provider applies
- * two transformations to it at load time:
+ * three transformations to it at load time:
  *
  * - It strips the document-**root** `unevaluatedProperties` keyword so that
  *   {@see DocumentValidator} can re-apply it on its `allOf` composite instead.
  *   That relocation is what lets a profile's schema fragment extend the set of
  *   permitted top-level members (a fragment's top-level `properties` are seen by
  *   the composite's `unevaluatedProperties`, which they would not be by the base
- *   schema's own root keyword). Nested `unevaluatedProperties` are left intact.
+ *   schema's own root keyword).
  * - It relaxes `definitions.linkUrl` from `format: uri` to `format: uri-reference`.
  *   JSON:API 1.1 lets a link be any URI-reference (RFC 3986 §4.1), so a
  *   host-relative `/albums?page[number]=2` is valid, while `uri` demands an
  *   absolute URI. The request schema reaches links only through this definition.
+ * - It lets `definitions.resourceLinks` carry members beyond `self`, each a link.
+ *   JSON:API 1.1 says a resource's links object MAY contain `self`; it forbids no
+ *   other member, and declared and action links render more.
  *
  * @see resources/schemas/README.md for the upstream source and refresh procedure.
  */
@@ -52,6 +55,11 @@ final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\Schema
             $linkUrl = \is_object($definitions) ? (\get_object_vars($definitions)['linkUrl'] ?? null) : null;
             if ($linkUrl instanceof \stdClass) {
                 $linkUrl->format = 'uri-reference';
+            }
+            // A resource's links object may carry any named link (see class docblock).
+            $resourceLinks = \is_object($definitions) ? (\get_object_vars($definitions)['resourceLinks'] ?? null) : null;
+            if ($resourceLinks instanceof \stdClass) {
+                $resourceLinks->unevaluatedProperties = (object) ['$ref' => '#/definitions/link'];
             }
             $this->responseSchema = $schema;
         }
