@@ -19,6 +19,7 @@ final class FullReplacementProhibited extends AbstractJsonApiException implement
             code: 'FULL_REPLACEMENT_PROHIBITED',
             status: 403,
             title: 'Full replacement is prohibited',
+            exampleDetail: 'Full replacement of relationship \'tags\' is prohibited!',
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/relationships/tags',

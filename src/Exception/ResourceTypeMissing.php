@@ -19,6 +19,7 @@ final class ResourceTypeMissing extends AbstractJsonApiException implements Desc
             code: 'RESOURCE_TYPE_MISSING',
             status: 400,
             title: 'Resource type is missing',
+            exampleDetail: 'A resource type must be included in the document!',
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data',
             feature: ErrorFeature::Writes,

@@ -110,8 +110,9 @@ final class ContractWitnessTest extends TestCase
     {
         self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT, GeneratorContract::ACCEPTED_BODIES, GeneratorContract::EXAMPLES), GeneratorContract::CONTRACT);
         self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true));
-        self::assertSame(['contract' => GeneratorContract::EXAMPLES], GeneratorContract::toArray(examples: true));
-        self::assertSame(['contract' => GeneratorContract::RAW_CONTENT], GeneratorContract::toArray(rawContent: true));
+        // A scoped tier never stamps below the baseline, which may since have overtaken it.
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::EXAMPLES)], GeneratorContract::toArray(examples: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT)], GeneratorContract::toArray(rawContent: true));
     }
 
     /**

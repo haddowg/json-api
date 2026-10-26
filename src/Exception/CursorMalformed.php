@@ -29,6 +29,7 @@ final class CursorMalformed extends AbstractJsonApiException implements Describe
             code: 'CURSOR_MALFORMED',
             status: 400,
             title: 'Cursor is malformed',
+            exampleDetail: 'The cursor supplied in \'page[after]\' could not be decoded.',
             context: ['parameter' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'page[after]',

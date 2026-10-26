@@ -27,6 +27,7 @@ final class ResourceTypeUnacceptable extends AbstractJsonApiException implements
             code: 'RESOURCE_TYPE_UNACCEPTABLE',
             status: 409,
             title: 'Resource type is unacceptable',
+            exampleDetail: 'Resource type \'people\' is unacceptable!',
             context: ['type' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/type',

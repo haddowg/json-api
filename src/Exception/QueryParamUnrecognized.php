@@ -19,6 +19,7 @@ final class QueryParamUnrecognized extends AbstractJsonApiException implements D
             code: 'QUERY_PARAM_UNRECOGNIZED',
             status: 400,
             title: 'Query parameter is unrecognized',
+            exampleDetail: 'Query parameter \'colour\' can\'t be recognized by the endpoint!',
             context: ['param' => ErrorContextType::Str],
             source: ErrorSourceShape::Parameter,
             exampleSource: 'colour',

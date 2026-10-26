@@ -17,6 +17,7 @@ final class ResourceIdentifierLidInvalid extends AbstractJsonApiException implem
             code: 'RESOURCE_IDENTIFIER_LID_INVALID',
             status: 400,
             title: 'Resource identifier local ID is invalid',
+            exampleDetail: 'The resource local ID (lid) must be a string instead of integer!',
             context: ['type' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
             description: 'A resource identifier in the request carries a `lid` that is not a string. Send every `lid` as a JSON string.',

@@ -349,7 +349,8 @@ member: `/data/attributes/title` for a pointer, `include` for a parameter. Each 
 response in the document carries an [example](openapi.md#operation-examples) holding one
 error, and when that error is your code (the first catalogued at a status core has no
 preferred code for) the example needs a value for the `source` the code always fills. Without one, the response gets no example and the projector
-reports the gap. Every code core ships declares one.
+reports the gap. Every code core ships declares one, and an `exampleDetail` too, so each error example
+shows the `detail` a client reads.
 
 ### Contributing your codes to the catalogue
 

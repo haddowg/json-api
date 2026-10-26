@@ -19,6 +19,7 @@ final class RemovalProhibited extends AbstractJsonApiException implements Descri
             code: 'REMOVAL_PROHIBITED',
             status: 403,
             title: 'Removal is prohibited',
+            exampleDetail: 'Removal of relationship \'tags\' is prohibited!',
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/relationships/tags',

@@ -19,6 +19,7 @@ final class ClientGeneratedIdAlreadyExists extends AbstractJsonApiException impl
             code: 'CLIENT_GENERATED_ID_ALREADY_EXISTS',
             status: 409,
             title: 'Client generated ID already exists',
+            exampleDetail: 'Client generated ID \'1\' already exists!',
             context: ['id' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/id',

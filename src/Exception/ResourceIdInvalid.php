@@ -19,6 +19,7 @@ final class ResourceIdInvalid extends AbstractJsonApiException implements Descri
             code: 'RESOURCE_ID_INVALID',
             status: 400,
             title: 'Resource ID is invalid',
+            exampleDetail: 'The resource ID must be a string instead of integer!',
             context: ['type' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/id',

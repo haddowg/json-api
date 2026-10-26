@@ -17,6 +17,7 @@ final class RelationshipNotExists extends AbstractJsonApiException implements De
             code: 'RELATIONSHIP_NOT_EXISTS',
             status: 404,
             title: 'The requested relationship does not exist!',
+            exampleDetail: 'The requested relationship \'reviewers\' does not exist!',
             context: ['relationship' => ErrorContextType::Str],
             description: 'The request names a relationship this resource type does not have, or one whose endpoint the API does not expose. Check the relationship name against the ones the type documents.',
         );

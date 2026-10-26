@@ -19,6 +19,7 @@ final class AdditionProhibited extends AbstractJsonApiException implements Descr
             code: 'ADDITION_PROHIBITED',
             status: 403,
             title: 'Addition is prohibited',
+            exampleDetail: 'Addition to relationship \'tags\' is prohibited!',
             context: ['relationship' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/relationships/tags',

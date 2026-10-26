@@ -26,6 +26,7 @@ final class LocalIdNotFound extends AbstractJsonApiException implements Describe
             code: 'LOCAL_ID_NOT_FOUND',
             status: 400,
             title: 'Local id not found',
+            exampleDetail: 'No resource is registered for local id \'new-article\' of type \'articles\'!',
             context: ['lid' => ErrorContextType::Str, 'type' => ErrorContextType::Str],
             feature: ErrorFeature::AtomicOperations,
             description: 'An operation refers to a `lid` that no earlier operation in the batch created. Create the resource under that `lid` in an earlier operation, or refer to an existing resource by `id`.',

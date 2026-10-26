@@ -17,6 +17,7 @@ final class ResourceIdentifierTypeInvalid extends AbstractJsonApiException imple
             code: 'RESOURCE_IDENTIFIER_TYPE_INVALID',
             status: 400,
             title: 'Resource identifier type is invalid',
+            exampleDetail: 'The resource type must be a string instead of integer!',
             context: ['type' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
             description: 'A resource identifier in the request carries a `type` that is not a string. Send every `type` as a JSON string.',
