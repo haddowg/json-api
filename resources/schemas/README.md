@@ -24,7 +24,7 @@ consume — hence this source).
 
 To refresh, re-download that raw URL over the top of `jsonapi-1.1.json` and run
 `composer test` (the `Validation\*` tests pin the structural expectations the
-provider relies on). **Do not** hand-edit it. The provider applies the two
+provider relies on). **Do not** hand-edit it. The provider applies the
 transformations it needs at load time (see below).
 
 ### Note on the document-root `unevaluatedProperties`
@@ -36,7 +36,8 @@ synthetic `allOf` composite instead. This is what lets a profile-contributed
 schema fragment **extend** the set of allowed top-level members (a fragment's
 top-level `properties` are seen by the composite's `unevaluatedProperties`,
 whereas they would be invisible to the base's own root keyword). Nested
-`unevaluatedProperties` in the base are left untouched.
+`unevaluatedProperties` in the base are left untouched, except on
+`resourceLinks` (see below).
 
 ### Note on `definitions.linkUrl`'s `format`
 
@@ -49,6 +50,15 @@ definition's `pattern` is kept as-is. The request schema reaches links only thro
 this definition, so it needs no change of its own.
 `VendoredSchemaProviderTest::noLoadedSchemaDemandsAnAbsoluteUri` fails if a refresh
 brings in another `"format": "uri"`, which would then need the same treatment.
+
+### Note on `definitions.resourceLinks`
+
+Upstream closes a resource's links object with `"unevaluatedProperties": false`,
+so only `self` and `@`-members pass. JSON:API 1.1 says that object MAY contain a
+`self` link and forbids nothing else, and the library renders other members by
+design: declared links and action links. `VendoredSchemaProvider` replaces that
+one keyword with `"unevaluatedProperties": {"$ref": "#/definitions/link"}` at load
+time, so any other member must still be a valid link.
 
 ## `jsonapi-1.1-request.json` — authored
 
