@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/haddowg/json-api/compare/v1.12.0...v1.12.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* default a schemaless accepted body by its media-type family ([#225](https://github.com/haddowg/json-api/issues/225)) ([3d1978f](https://github.com/haddowg/json-api/commit/3d1978f75d8d0e6ccd1669335b3e4eea66f57528))
+
 ## [1.12.0](https://github.com/haddowg/json-api/compare/v1.11.0...v1.12.0) (2026-10-26)
 
 
