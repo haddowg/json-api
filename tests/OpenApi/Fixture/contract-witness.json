@@ -15676,238 +15676,6 @@
                                     "source": {
                                         "pointer": "/atomic:operations/0/op"
                                     }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "CURSOR_MALFORMED",
-                                    "title": "Cursor is malformed",
-                                    "source": {
-                                        "parameter": "page[after]"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "CURSOR_STALE",
-                                    "title": "Cursor is stale",
-                                    "source": {
-                                        "parameter": "page[after]"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "DATA_MEMBER_MISSING",
-                                    "title": "Missing `data` member at the document's top level"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "FIELDSET_MEMBER_UNRECOGNIZED",
-                                    "title": "Fieldset member is unrecognized",
-                                    "detail": "Fields 'colour' requested for type 'articles' can't be recognized by the endpoint!",
-                                    "source": {
-                                        "parameter": "fields"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "FILTERING_UNRECOGNIZED",
-                                    "title": "Filtering parameter is unrecognized",
-                                    "detail": "Filtering parameter 'colour' can't be recognized by the endpoint!",
-                                    "source": {
-                                        "parameter": "filter[colour]"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "FILTER_VALUE_INVALID",
-                                    "title": "Filter value is invalid",
-                                    "source": {
-                                        "parameter": "filter[rating]"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "INCLUSION_DEPTH_EXCEEDED",
-                                    "title": "Inclusion depth exceeded",
-                                    "detail": "Included paths 'author.publisher.country' exceed the maximum include depth of 2 permitted by the endpoint!",
-                                    "source": {
-                                        "parameter": "include"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "INCLUSION_NOT_ALLOWED",
-                                    "title": "Inclusion is not allowed",
-                                    "source": {
-                                        "parameter": "include"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "INCLUSION_UNRECOGNIZED",
-                                    "title": "Inclusion is unrecognized",
-                                    "detail": "Included paths 'auther' can't be recognized by the endpoint!",
-                                    "source": {
-                                        "parameter": "include"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "INCLUSION_UNSUPPORTED",
-                                    "title": "Inclusion is unsupported",
-                                    "source": {
-                                        "parameter": "include"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "LOCAL_ID_CONFLICT",
-                                    "title": "Local id conflict"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "LOCAL_ID_NOT_FOUND",
-                                    "title": "Local id not found"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "LOCAL_ID_NOT_SUPPORTED",
-                                    "title": "Local id is not supported",
-                                    "source": {
-                                        "pointer": "/data/lid"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "PAGINATION_KIND_UNKNOWN",
-                                    "title": "Pagination kind is not supported",
-                                    "detail": "The pagination strategy 'page[kind]=offset' is not supported; use one of: page, cursor.",
-                                    "source": {
-                                        "parameter": "page[kind]"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "QUERY_PARAM_MALFORMED",
-                                    "title": "Query parameter is malformed",
-                                    "source": {
-                                        "parameter": "page"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "QUERY_PARAM_UNRECOGNIZED",
-                                    "title": "Query parameter is unrecognized",
-                                    "source": {
-                                        "parameter": "colour"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RELATIONSHIP_COUNT_NOT_ALLOWED",
-                                    "title": "Relationship count is not allowed",
-                                    "source": {
-                                        "parameter": "withCount"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RELATIONSHIP_TYPE_INAPPROPRIATE",
-                                    "title": "Relationship type is inappropriate",
-                                    "detail": "The provided relationship 'author' is of type of to-many, but to-one is expected!",
-                                    "source": {
-                                        "pointer": "/data/relationships/author"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "REQUEST_BODY_INVALID_JSON",
-                                    "title": "Request body is an invalid JSON document"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "REQUEST_BODY_INVALID_JSON_API",
-                                    "title": "Request body is an invalid JSON:API document"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "REQUIRED_TOP_LEVEL_MEMBERS_MISSING",
-                                    "title": "Required top-level members are missing"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_IDENTIFIER_ID_INVALID",
-                                    "title": "Resource identifier ID is invalid"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_IDENTIFIER_ID_MISSING",
-                                    "title": "An ID for the resource identifier is missing"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_IDENTIFIER_LID_INVALID",
-                                    "title": "Resource identifier local ID is invalid"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_IDENTIFIER_TYPE_INVALID",
-                                    "title": "Resource identifier type is invalid"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_IDENTIFIER_TYPE_MISSING",
-                                    "title": "A type for the resource identifier is missing"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_ID_INVALID",
-                                    "title": "Resource ID is invalid",
-                                    "source": {
-                                        "pointer": "/data/id"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_ID_MISSING",
-                                    "title": "Resource ID is missing",
-                                    "source": {
-                                        "pointer": "/data"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "RESOURCE_TYPE_MISSING",
-                                    "title": "Resource type is missing",
-                                    "source": {
-                                        "pointer": "/data"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "SORTING_UNSUPPORTED",
-                                    "title": "Sorting is unsupported",
-                                    "source": {
-                                        "parameter": "sort"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "SORTING_UNRECOGNIZED",
-                                    "title": "Sorting parameter is unrecognized",
-                                    "detail": "Sorting parameter 'popularity' can't be recognized by the endpoint!",
-                                    "source": {
-                                        "parameter": "sort"
-                                    }
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "TOP_LEVEL_MEMBER_NOT_ALLOWED",
-                                    "title": "Top-level member is not allowed"
-                                },
-                                {
-                                    "status": "400",
-                                    "code": "TOP_LEVEL_MEMBERS_INCOMPATIBLE",
-                                    "title": "Top-level members are incompatible"
                                 }
                             ],
                             "jsonapi": {
@@ -15952,46 +15720,6 @@
                                     "status": "403",
                                     "code": "ACCESS_DENIED",
                                     "title": "Forbidden"
-                                },
-                                {
-                                    "status": "403",
-                                    "code": "ADDITION_PROHIBITED",
-                                    "title": "Addition is prohibited",
-                                    "source": {
-                                        "pointer": "/data/relationships/tags"
-                                    }
-                                },
-                                {
-                                    "status": "403",
-                                    "code": "CLIENT_GENERATED_ID_NOT_SUPPORTED",
-                                    "title": "Client generated ID is not supported",
-                                    "source": {
-                                        "pointer": "/data/id"
-                                    }
-                                },
-                                {
-                                    "status": "403",
-                                    "code": "CLIENT_GENERATED_ID_REQUIRED",
-                                    "title": "Required client generated ID",
-                                    "source": {
-                                        "pointer": "/data/id"
-                                    }
-                                },
-                                {
-                                    "status": "403",
-                                    "code": "FULL_REPLACEMENT_PROHIBITED",
-                                    "title": "Full replacement is prohibited",
-                                    "source": {
-                                        "pointer": "/data/relationships/tags"
-                                    }
-                                },
-                                {
-                                    "status": "403",
-                                    "code": "REMOVAL_PROHIBITED",
-                                    "title": "Removal is prohibited",
-                                    "source": {
-                                        "pointer": "/data/relationships/tags"
-                                    }
                                 }
                             ],
                             "jsonapi": {
@@ -16014,11 +15742,6 @@
                                     "status": "404",
                                     "code": "RELATIONSHIP_NOT_EXISTS",
                                     "title": "The requested relationship does not exist!"
-                                },
-                                {
-                                    "status": "404",
-                                    "code": "RESOURCE_NOT_FOUND",
-                                    "title": "Resource not found"
                                 }
                             ],
                             "jsonapi": {
@@ -16069,23 +15792,6 @@
                                     "title": "Client generated ID already exists",
                                     "source": {
                                         "pointer": "/data/id"
-                                    }
-                                },
-                                {
-                                    "status": "409",
-                                    "code": "RESOURCE_ID_CONFLICT",
-                                    "title": "Resource id conflict",
-                                    "detail": "Resource id '12' does not match the endpoint id '7'!",
-                                    "source": {
-                                        "pointer": "/data/id"
-                                    }
-                                },
-                                {
-                                    "status": "409",
-                                    "code": "RESOURCE_TYPE_UNACCEPTABLE",
-                                    "title": "Resource type is unacceptable",
-                                    "source": {
-                                        "pointer": "/data/type"
                                     }
                                 }
                             ],
@@ -16139,23 +15845,6 @@
                                     "source": {
                                         "pointer": "/data/attributes/publishedAt"
                                     }
-                                },
-                                {
-                                    "status": "422",
-                                    "code": "RELATED_ATTRIBUTE_OWNER_MISSING",
-                                    "title": "Related attribute owner missing",
-                                    "detail": "Cannot write attribute \"city\": its related \"address\" is not present.",
-                                    "source": {
-                                        "pointer": "/data/attributes/city"
-                                    }
-                                },
-                                {
-                                    "status": "422",
-                                    "code": "RESOURCE_ID_UNDECODABLE",
-                                    "title": "Resource ID is undecodable",
-                                    "source": {
-                                        "pointer": "/data/id"
-                                    }
                                 }
                             ],
                             "jsonapi": {
@@ -16178,21 +15867,6 @@
                                     "status": "500",
                                     "code": "APPLICATION_ERROR",
                                     "title": "Application error"
-                                },
-                                {
-                                    "status": "500",
-                                    "code": "NO_RESOURCE_REGISTERED",
-                                    "title": "No resource registered"
-                                },
-                                {
-                                    "status": "500",
-                                    "code": "RESPONSE_BODY_INVALID_JSON",
-                                    "title": "Response body is an invalid JSON document"
-                                },
-                                {
-                                    "status": "500",
-                                    "code": "RESPONSE_BODY_INVALID_JSON_API",
-                                    "title": "Response body is an invalid JSON:API document"
                                 }
                             ],
                             "jsonapi": {

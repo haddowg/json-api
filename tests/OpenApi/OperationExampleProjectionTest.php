@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\OpenApi\ExampleDocumentBuilder;
 use haddowg\JsonApi\OpenApi\GeneratorContract;
+use haddowg\JsonApi\OpenApi\LinkSchemaProjector;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
@@ -14,6 +15,7 @@ use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\MissingExample;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationExampleProjector;
+use haddowg\JsonApi\OpenApi\Paths;
 use haddowg\JsonApi\OpenApi\Projection;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\Pagination\CursorPaginator;
@@ -203,31 +205,45 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
-    public function anErrorResponseCarriesAnErrorPerCodeItsStatusCatalogues(): void
+    public function anErrorResponseCarriesTheFirstCodeItsStatusCatalogues(): void
     {
         $document = $this->project([$this->articles()]);
 
-        $example = self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'example');
-        self::assertIsArray($example);
-        self::assertContains([
-            'status' => '406',
-            'code' => 'MEDIA_TYPE_UNACCEPTABLE',
-            'title' => 'The provided media type is unacceptable',
-            'detail' => 'The media type \'application/vnd.api+json; version=2\' is unacceptable in the \'Accept\' header!',
-            'source' => ['parameter' => 'accept'],
-        ], self::arr(self::at($example, 'errors')));
+        self::assertSame([
+            'errors' => [[
+                'status' => '406',
+                'code' => 'MEDIA_TYPE_UNACCEPTABLE',
+                'title' => 'The provided media type is unacceptable',
+                'detail' => 'The media type \'application/vnd.api+json; version=2\' is unacceptable in the \'Accept\' header!',
+                'source' => ['parameter' => 'accept'],
+            ]],
+            'jsonapi' => ['version' => '1.1'],
+        ], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'example'));
+
+        // A status catalogues many codes; the example shows one error, never the whole list.
+        self::assertCount(1, self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example', 'errors')));
     }
 
     #[Test]
-    public function anErrorCodeNamingASourceWithNoExampleOfOneLeavesItsResponseWithoutAnExample(): void
+    public function aContributedCodeLaterInTheCatalogueLeavesTheExampleAlone(): void
     {
         $server = new ContributingServerMetadata($this->server([$this->articles()]), new ClassListErrorSource(QuotaParameterRejected::class));
         $projection = (new OpenApiProjector())->projectWithDiagnostics($server);
-        $document = $projection->document->toArray();
 
-        self::assertNull(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example'));
-        self::assertNotNull(self::at($document, 'components', 'responses', 'NotFound', 'content', 'application/vnd.api+json', 'example'));
-        self::assertContainsEquals(new MissingExample('BadRequest', 'QUOTA_PARAMETER_REJECTED', 'source'), $projection->missingExamples);
+        self::assertNotNull(self::at($projection->document->toArray(), 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example'));
+        self::assertNotContainsEquals(new MissingExample('BadRequest', 'QUOTA_PARAMETER_REJECTED', 'source'), $projection->missingExamples);
+    }
+
+    #[Test]
+    public function anErrorCodeNamingASourceWithNoExampleOfOneBuildsNoExample(): void
+    {
+        $server = $this->server([]);
+        $builder = new ExampleDocumentBuilder($server, new LinkSchemaProjector($server, new Paths()));
+
+        [$example, $misses] = $builder->attempt(static fn(): array => $builder->errorDocument(QuotaParameterRejected::describe()));
+
+        self::assertNull($example);
+        self::assertSame([['QUOTA_PARAMETER_REJECTED', 'source']], $misses);
     }
 
     #[Test]

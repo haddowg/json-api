@@ -560,8 +560,9 @@ The examples show what the server sends and accepts:
 - A custom action's response is built from the type its `ActionResource` names, and its
   request body from its input type when the input is a resource document. A `RawResult`
   keeps its own `example`.
-- An error response carries one error per catalogued code at its status, with each
-  code's `status`, `code`, `title`, `exampleDetail` and `source`.
+- An error response carries one error, from the first code catalogued at its status, with
+  that code's `status`, `code`, `title`, `exampleDetail` and `source`. Listing every code a
+  status can carry would bury the shape under a long list wherever the example is quoted.
 
 Nothing is invented. When any value an operation's examples need has no declared example,
 that operation gets none, and the projector says which field was missing:

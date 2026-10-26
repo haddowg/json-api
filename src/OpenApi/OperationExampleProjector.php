@@ -57,11 +57,13 @@ final class OperationExampleProjector
     }
 
     /**
-     * The shared error responses with an example built from the descriptors of the codes
-     * each status can carry. A status no catalogued code claims gets none.
+     * The shared error responses with an example holding one error, built from the first
+     * code catalogued for the status: a document listing every code a status can carry
+     * reads as noise wherever the example is quoted. A status no catalogued code claims
+     * gets none.
      *
      * @param array<string, Response>               $components   response component name → response
-     * @param array<int, list<\haddowg\JsonApi\Exception\ErrorDescriptor>> $descriptors status → descriptors
+     * @param array<int, non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor>> $descriptors status → descriptors, in catalogue order
      *
      * @return array<string, Response>
      */
@@ -74,7 +76,7 @@ final class OperationExampleProjector
                 continue;
             }
 
-            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument($byStatus));
+            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument($byStatus[0]));
             foreach ($misses as [$code, $field]) {
                 $this->recordMiss($name, $code, $field);
             }

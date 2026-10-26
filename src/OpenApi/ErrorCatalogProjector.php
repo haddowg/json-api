@@ -85,10 +85,10 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The descriptors this server can raise, grouped by status, in catalogue order: what
-     * each shared error response's example is built from.
+     * The descriptors this server can raise, grouped by status, in catalogue order. The
+     * first at each status is what that shared error response's example shows.
      *
-     * @return array<int, list<ErrorDescriptor>>
+     * @return array<int, non-empty-list<ErrorDescriptor>>
      */
     public function descriptorsByStatus(ServerMetadataInterface $server): array
     {

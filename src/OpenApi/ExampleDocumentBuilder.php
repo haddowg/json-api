@@ -230,34 +230,28 @@ final class ExampleDocumentBuilder
     }
 
     /**
-     * An error document carrying one error object per descriptor.
-     *
-     * @param list<ErrorDescriptor> $descriptors
+     * An error document carrying the one error object `$descriptor` describes.
      *
      * @return array<string, mixed>
      */
-    public function errorDocument(array $descriptors): array
+    public function errorDocument(ErrorDescriptor $descriptor): array
     {
-        $errors = [];
-        foreach ($descriptors as $descriptor) {
-            $error = [
-                'status' => (string) $descriptor->status,
-                'code' => $descriptor->code,
-                'title' => $descriptor->title,
-            ];
-            if ($descriptor->exampleDetail !== null) {
-                $error['detail'] = $descriptor->exampleDetail;
+        $error = [
+            'status' => (string) $descriptor->status,
+            'code' => $descriptor->code,
+            'title' => $descriptor->title,
+        ];
+        if ($descriptor->exampleDetail !== null) {
+            $error['detail'] = $descriptor->exampleDetail;
+        }
+        if ($descriptor->source !== null) {
+            if ($descriptor->exampleSource === null) {
+                $this->miss($descriptor->code, 'source');
             }
-            if ($descriptor->source !== null) {
-                if ($descriptor->exampleSource === null) {
-                    $this->miss($descriptor->code, 'source');
-                }
-                $error['source'] = [$descriptor->source->value => $descriptor->exampleSource ?? ''];
-            }
-            $errors[] = $error;
+            $error['source'] = [$descriptor->source->value => $descriptor->exampleSource ?? ''];
         }
 
-        return ['errors' => $errors, 'jsonapi' => $this->jsonApi([])];
+        return ['errors' => [$error], 'jsonapi' => $this->jsonApi([])];
     }
 
     // ---- Resource objects -------------------------------------------------------
