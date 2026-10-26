@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/haddowg/json-api/compare/v1.13.1...v1.14.0) (2026-10-26)
+
+
+### Features
+
+* let examples show always-counted pages and declared linkage ids ([#231](https://github.com/haddowg/json-api/issues/231)) ([1dae7fd](https://github.com/haddowg/json-api/commit/1dae7fd99c8806f0c26264d32f38a9146be31962))
+
 ## [1.13.1](https://github.com/haddowg/json-api/compare/v1.13.0...v1.13.1) (2026-10-26)
 
 
