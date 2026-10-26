@@ -669,7 +669,11 @@ public function operationExamples(): array
 
 `request` takes the request document, or `false` for none. `responses` maps a success
 status to its document, or to `false`. A name the type does not expose, or a status the
-operation does not answer with a JSON:API document, fails the projection. Action metadata
+operation does not answer with a JSON:API document, fails the projection. These names are
+the ones `OperationKey::fromName()` parses, so an integration that checks its own override
+keys at boot can call it, or `OperationKey::tryFromName()` for `null` instead of a
+`\InvalidArgumentException`. The key it returns carries the `OperationKind`, the relation
+name and the HTTP method. Action metadata
 implements `DeclaresActionExample` instead, whose `example()` returns one
 `OperationExample`, `false`, or `null` to keep the generated one. Server metadata that
 implements `DeclaresExampleGeneration` and returns `false` from `generatesExamples()`

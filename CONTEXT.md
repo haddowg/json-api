@@ -95,6 +95,12 @@ _Avoid_: action, command.
 **Target**:
 What an **Operation** acts on — a type, optionally an id and a relationship name.
 
+**Operation key**:
+Names one operation a type exposes, apart from its route: its kind, the relation or action it
+applies to, its HTTP method and, for an action, its declared safety. Its name is the key
+`operationExamples` uses, such as `fetchRelated.author`.
+_Avoid_: operation name (that is the key's string form only), operationId (that also names the type).
+
 **Profile**:
 A JSON:API 1.1 profile — an advisory, URI-named extension of document semantics
 that a server may ignore if it does not recognise it.
