@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0](https://github.com/haddowg/json-api/compare/v1.10.0...v1.11.0) (2026-10-26)
+
+
+### Features
+
+* let a custom action answer with a raw response body ([#221](https://github.com/haddowg/json-api/issues/221)) ([e14e969](https://github.com/haddowg/json-api/commit/e14e969bdb4a0928bf03d6c56a89caa12bad0d74))
+* let a server reject read-only attributes in write bodies ([#218](https://github.com/haddowg/json-api/issues/218)) ([bd5478f](https://github.com/haddowg/json-api/commit/bd5478f2791ebbc4bdc3b376cf1f301a9a877cf5))
+
+
+### Bug Fixes
+
+* apply the field cast to a computed value ([#222](https://github.com/haddowg/json-api/issues/222)) ([5b01335](https://github.com/haddowg/json-api/commit/5b01335a6caf42e59ab145cb48147ac0b29c5a76))
+* exempt a bodyless preflighted write from the content type rule ([#219](https://github.com/haddowg/json-api/issues/219)) ([33f6a2c](https://github.com/haddowg/json-api/commit/33f6a2c8151599ca07f050d549006b8af4246fe6))
+* render a Stringable id as its string ([#220](https://github.com/haddowg/json-api/issues/220)) ([646b871](https://github.com/haddowg/json-api/commit/646b871ab247b5f8894d24cbef776df4fe41b5ef))
+* require the JSON:API content type on writes ([#217](https://github.com/haddowg/json-api/issues/217)) ([5dfb2f1](https://github.com/haddowg/json-api/commit/5dfb2f17448962ac9e110ed2179e536ba3c693f3))
+* run a computed Obj's declared children over its value ([#215](https://github.com/haddowg/json-api/issues/215)) ([96b8d33](https://github.com/haddowg/json-api/commit/96b8d33f1c7b4778dfe78f7d9c80c632efbf0dc4))
+
 ## [1.10.0](https://github.com/haddowg/json-api/compare/v1.9.0...v1.10.0) (2026-10-25)
 
 
