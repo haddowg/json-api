@@ -154,7 +154,7 @@ final class OperationExampleProjector
         $operations = [
             [$collection, 'get', 'fetchCollection', [
                 'request' => null,
-                'responses' => [200 => fn(): array => $builder->collectionDocument($type, $collection, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type->isCountable())],
+                'responses' => [200 => fn(): array => $builder->collectionDocument($type, $collection, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type)],
             ]],
             [$collection, 'post', 'create', [
                 'request' => fn(): array => $builder->writeDocument($type, creating: true),

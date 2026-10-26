@@ -550,14 +550,21 @@ The examples show what the server sends and accepts:
   children; a `serializeUsing()` hook shapes the value itself, so that field needs its own
   example. An `ArrayList` or `ArrayHash` has no children and needs its own example. A
   declared `null` example stays `null`.
-- Linkage is built from the related type's `Id` example. A polymorphic relation shows its
-  first related type, and a relation to a type the server does not register shows its links
-  and no `data`.
+- Linkage is built from the related type's `Id` example. Where the related type gives
+  none, because the server does not register it or its `Id` declares no example, the
+  relation's own [`exampleId()`](relations.md#example-ids-for-linkage) is used. A
+  polymorphic relation shows its first related type. A relation to an unregistered type
+  that declares no `exampleId()` shows its links and no `data` in a read, and is left out of
+  a write; its relationship endpoints report the relation as missing an example.
 - A collection holds one resource and shows page two of a larger set: the `self`, `first`,
-  `prev` and `next` links its paginator renders, and its `meta.page`. A countable
-  collection on a server that registers the Countable profile shows what a
-  `withCount=_self_` request gets: `last`, `meta.total` and `meta.page.total`. Any other
-  collection shows the count-free page. An unpaginated collection carries `meta.total`,
+  `prev` and `next` links its paginator renders, and its `meta.page`. A collection whose
+  paginator always counts, which type or relation metadata reports through
+  `DeclaresAlwaysCounted`, shows `last`, `meta.total` and `meta.page.total`, as every
+  request gets them. A menu counts when its default strategy does, which is what its
+  `wantsCount()` reports, and a cursor page never counts. Otherwise a countable collection
+  on a server that registers the Countable profile shows what a `withCount=_self_` request
+  gets, the parameter and the profile included. Any other collection shows the count-free
+  page. An unpaginated collection carries `meta.total`,
   which the server always renders for one.
 - A relationship endpoint carries the linkage document, and a relationship mutation the
   linkage it writes.
@@ -683,6 +690,12 @@ Three more shape the [operation examples](#operation-examples): `DeclaresOperati
 beside `TypeMetadataInterface`, `DeclaresActionExample` beside `ActionMetadataInterface`, and
 `DeclaresExampleGeneration` beside `ServerMetadataInterface`. Metadata that implements none
 of them gets every example the projector can build.
+
+Two more feed the examples facts the rest of the contract does not carry.
+`DeclaresAlwaysCounted` adds `alwaysCounts(): bool` to type or relation metadata: return the
+collection paginator's `wantsCount()`. `DeclaresRelationExampleId` extends
+`RelationMetadataInterface` with `exampleId(): ?string`: return the core relation's
+`exampleId()`.
 
 Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and

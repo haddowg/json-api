@@ -345,6 +345,19 @@ adapters:
 | `inverseType(string $name)` | Records the inverse relationship name on the related type. **Advisory** — metadata for adapters / OpenAPI generation. |
 | `cannotEagerLoad()` | Hints that a data-layer adapter should not eager-load this relation. **Advisory** — core ships metadata only. |
 
+## Example ids for linkage
+
+The [OpenAPI operation examples](openapi.md#operation-examples) build a relation's linkage
+from the related type's `Id` example. When the related type is not registered on the
+server, or its `Id` declares no example, declare the id on the relation instead:
+
+```php
+BelongsTo::make('company', 'companies')->exampleId('co-1'),
+```
+
+The related type's own example still wins where it has one. `exampleId()` is
+render-neutral: the runtime never reads it.
+
 ## Identifier meta — parent-aware per-relation meta
 
 A resource identifier object may carry `meta` (`{ "type": …, "id": …, "meta": … }`).

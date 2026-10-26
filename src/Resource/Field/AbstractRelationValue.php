@@ -34,7 +34,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * and {@see isToMany()}; the fluent authoring surface lives on the mirror
  * {@see AbstractRelationBuilder}.
  */
-abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface
+abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface
 {
     public function __construct(
         FieldState $state,
@@ -212,6 +212,11 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     /**
      * The URI segment for this relationship.
      */
+    public function exampleId(): ?string
+    {
+        return $this->relationState->exampleId;
+    }
+
     public function uriFieldName(): string
     {
         return $this->relationState->uriFieldName ?? $this->state->name;
