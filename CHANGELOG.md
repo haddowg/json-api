@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/haddowg/json-api/compare/v1.14.0...v1.15.0) (2026-10-26)
+
+
+### Features
+
+* let resources declare named links the OpenAPI document describes ([#234](https://github.com/haddowg/json-api/issues/234)) ([2b57499](https://github.com/haddowg/json-api/commit/2b57499294bb93c2c3b31cc57dad81a3801b25e4))
+
 ## [1.14.0](https://github.com/haddowg/json-api/compare/v1.13.1...v1.14.0) (2026-10-26)
 
 
