@@ -37,6 +37,8 @@ final class ContractWitnessTest extends TestCase
 {
     private const WITNESS = __DIR__ . '/Fixture/contract-witness.json';
 
+    private const BASELINE_WITNESS = __DIR__ . '/Fixture/contract-witness-baseline.json';
+
     #[Test]
     public function theProjectedDocumentMatchesTheCommittedWitness(): void
     {
@@ -72,10 +74,49 @@ final class ContractWitnessTest extends TestCase
     }
 
     /**
+     * The same server without its raw action responses: the shape every document shares,
+     * stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
+     * this file, so a change that moves every document cannot hide behind a scoped bump.
+     */
+    #[Test]
+    public function theBaselineDocumentMatchesTheCommittedBaselineWitness(): void
+    {
+        $projected = $this->project(rawContent: false);
+
+        if (\getenv('UPDATE_CONTRACT_WITNESS') !== false) {
+            \file_put_contents(self::BASELINE_WITNESS, $projected);
+        }
+
+        self::assertSame(
+            \file_get_contents(self::BASELINE_WITNESS),
+            $projected,
+            'The projected baseline document no longer matches tests/OpenApi/Fixture/contract-witness-baseline.json. '
+            . 'Regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest, '
+            . 'read the diff, and bump GeneratorContract::BASELINE (and CONTRACT) if the structure moved.',
+        );
+    }
+
+    #[Test]
+    public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
+    {
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false))->toArray();
+
+        self::assertIsArray($document['info']);
+        self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
+    }
+
+    #[Test]
+    public function theContractIsTheHighestAnyDocumentCarries(): void
+    {
+        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT), GeneratorContract::CONTRACT);
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true));
+    }
+
+    /**
      * @throws \JsonException
      */
-    private function project(): string
+    private function project(bool $rawContent = true): string
     {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build())->toJsonString(pretty: true) . "\n";
+        return (new OpenApiProjector())->project(ContractWitnessServer::build($rawContent))->toJsonString(pretty: true) . "\n";
     }
 }

@@ -301,7 +301,8 @@ final class OpenApiProjectorTest extends TestCase
         foreach ([$this->server(), new FakeServerMetadata('Bare', '0.1', [])] as $server) {
             $info = $this->arrAt($this->projector()->project($server)->toArray(), 'info');
 
-            self::assertSame(['contract' => GeneratorContract::CONTRACT], $info['x-generator']);
+            // Neither server answers an action with a raw body, so both carry the baseline.
+            self::assertSame(['contract' => GeneratorContract::BASELINE], $info['x-generator']);
         }
 
         // It carries compatibility signalling and nothing else — no generator name, no

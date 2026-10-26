@@ -39,4 +39,16 @@ final class ComponentNaming
     {
         return '#/components/schemas/' . $component;
     }
+
+    /**
+     * The component a raw response's schema class is emitted under: its short class name.
+     *
+     * @param class-string<Metadata\DescribesRawBody> $class
+     */
+    public static function rawBody(string $class): string
+    {
+        $offset = \strrpos($class, '\\');
+
+        return $offset === false ? $class : \substr($class, $offset + 1);
+    }
 }

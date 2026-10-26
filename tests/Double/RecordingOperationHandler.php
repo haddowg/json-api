@@ -20,12 +20,12 @@ final class RecordingOperationHandler implements \haddowg\JsonApi\Operation\Oper
     public ?\haddowg\JsonApi\Operation\JsonApiOperationInterface $received = null;
 
     public function __construct(
-        private readonly DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse $response,
+        private readonly DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse|\haddowg\JsonApi\Response\RawResponse $response,
     ) {}
 
     public function handle(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse {
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|ErrorResponse|\haddowg\JsonApi\Response\RawResponse {
         $this->received = $operation;
 
         return $this->response;

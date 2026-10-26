@@ -7,8 +7,10 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -92,6 +94,9 @@ final class OpenApiProjector
         if ($server->atomicOperations() !== null) {
             $this->addAtomicComponents($schemas, $server);
         }
+
+        // A raw action response naming a schema class `$ref`s one shared component.
+        $this->addRawBodyComponents($schemas, $server);
 
         // The hoisted enum components are known only after every type is projected.
         // The collector was seeded with the shared names and dedupes its own enums, so
@@ -205,7 +210,7 @@ final class OpenApiProjector
             description: $server->description(),
             contact: $server->contact(),
             license: $server->license(),
-        ))->withExtension('generator', GeneratorContract::toArray());
+        ))->withExtension('generator', GeneratorContract::toArray(rawContent: $this->usesRawContent($server)));
     }
 
     /**
@@ -268,6 +273,58 @@ final class OpenApiProjector
      * {@see \haddowg\JsonApi\OpenApi\Metadata\MetaResult} response, or an exposed delete
      * declaring a `200` meta-only success (also a {@see \haddowg\JsonApi\OpenApi\Metadata\MetaResult}).
      */
+    /**
+     * Emits the component of each {@see DescribesRawBody} class a raw action response
+     * names, once per class. A class whose short name another component already holds
+     * is refused, since its `$ref`s would silently point at the other schema.
+     *
+     * @param array<string, Schema> $schemas
+     */
+    private function addRawBodyComponents(array &$schemas, ServerMetadataInterface $server): void
+    {
+        $emitted = [];
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                foreach ($action->responds() as $response) {
+                    if (!$response instanceof RawResult || !\is_string($response->schema) || isset($emitted[$response->schema])) {
+                        continue;
+                    }
+
+                    $name = ComponentNaming::rawBody($response->schema);
+                    if (isset($schemas[$name])) {
+                        throw new \LogicException(\sprintf(
+                            'The raw response schema %s would be emitted as the component "%s", which another component already uses. Rename the class.',
+                            $response->schema,
+                            $name,
+                        ));
+                    }
+
+                    $schemas[$name] = Schema::fromArray($response->schema::jsonSchema());
+                    $emitted[$response->schema] = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether any action answers with a {@see RawResult}, which the document's generator
+     * contract reflects ({@see GeneratorContract::RAW_CONTENT}).
+     */
+    private function usesRawContent(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                foreach ($action->responds() as $response) {
+                    if ($response instanceof RawResult) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function referencesMetaDocument(ServerMetadataInterface $server): bool
     {
         foreach ($server->types() as $type) {

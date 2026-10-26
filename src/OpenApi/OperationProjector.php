@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -852,9 +853,20 @@ final class OperationProjector
      */
     private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server): Operation
     {
-        $responses = new Responses();
+        $byStatus = [];
         foreach ($action->responds() as $response) {
-            $responses = $responses->with((string) $response->status(), $this->actionSuccessResponse($response, $server));
+            if (!$response instanceof RawResult) {
+                $byStatus[$response->status()] = $this->actionSuccessResponse($response, $server);
+            }
+        }
+        foreach ($action->responds() as $response) {
+            if ($response instanceof RawResult) {
+                $byStatus[$response->status()] = $this->withRawResult($byStatus[$response->status()] ?? new Response('The action result.'), $response);
+            }
+        }
+        $responses = new Responses();
+        foreach ($byStatus as $status => $success) {
+            $responses = $responses->with((string) $status, $success);
         }
 
         $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
@@ -978,6 +990,36 @@ final class OperationProjector
                 $response->status(),
             )),
         };
+    }
+
+    /**
+     * Adds one {@see RawResult} to the success response at its status: its media type
+     * joins the `content` map beside any JSON:API body, with its schema and example, and
+     * its headers join the response's. A schema class is a `$ref` to the component
+     * {@see OpenApiProjector} emits for it.
+     */
+    private function withRawResult(Response $response, RawResult $raw): Response
+    {
+        $schema = match (true) {
+            $raw->binary => Schema::ofType('string')->withFormat('binary'),
+            \is_string($raw->schema) => Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($raw->schema))),
+            \is_array($raw->schema) => Schema::fromArray($raw->schema),
+            default => null,
+        };
+        $media = new MediaType($schema);
+        if ($raw->example !== null) {
+            $media = $media->withExample($raw->example);
+        }
+        $response = $response->withMediaType($raw->essence(), $media);
+
+        foreach ($raw->headers as $name => $header) {
+            // A Header Object needs a schema; a header value is a string unless the author says otherwise.
+            $response = $response->withHeader($name, $header instanceof Header
+                ? ($header->schema === null ? new Header($header->description, $header->required, $header->deprecated, Schema::ofType('string')) : $header)
+                : new Header(description: $header, schema: Schema::ofType('string')));
+        }
+
+        return $response;
     }
 
     // ---- Parameters (reused by the stage-B relationship/action projection) ------

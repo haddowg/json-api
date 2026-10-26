@@ -40,18 +40,21 @@ final readonly class LinkRendering
      * can be described. Left alone when the handler already named one, when the server
      * has no resolver to describe it with, or when the operation has no single path.
      *
-     * @template T of \haddowg\JsonApi\Response\AbstractResponse
+     * A raw response has no document links to describe and passes through.
+     *
+     * @template T of \haddowg\JsonApi\Response\AbstractResponse|\haddowg\JsonApi\Response\RawResponse
      *
      * @param T $response
      *
      * @return T
      */
     public static function describeResponse(
-        \haddowg\JsonApi\Response\AbstractResponse $response,
+        \haddowg\JsonApi\Response\AbstractResponse|\haddowg\JsonApi\Response\RawResponse $response,
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
         \haddowg\JsonApi\Server\ResolvingServerInterface $server,
-    ): \haddowg\JsonApi\Response\AbstractResponse {
-        if ($response->operationReference() !== null
+    ): \haddowg\JsonApi\Response\AbstractResponse|\haddowg\JsonApi\Response\RawResponse {
+        if ($response instanceof \haddowg\JsonApi\Response\RawResponse
+            || $response->operationReference() !== null
             || !$server instanceof ConfiguresLinksInterface
             || $server->describedByResolver() === null) {
             return $response;

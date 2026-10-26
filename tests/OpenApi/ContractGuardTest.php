@@ -17,6 +17,8 @@ final class ContractGuardTest extends TestCase
 {
     private const WITNESS = 'tests/OpenApi/Fixture/contract-witness.json';
 
+    private const BASELINE_WITNESS = 'tests/OpenApi/Fixture/contract-witness-baseline.json';
+
     private string $repo = '';
 
     protected function setUp(): void
@@ -106,6 +108,72 @@ final class ContractGuardTest extends TestCase
         self::assertSame(1, $status, $output);
     }
 
+    #[Test]
+    public function aBumpScopedToSomeDocumentsPassesWhileTheSharedShapeHolds(): void
+    {
+        $link = self::link();
+        $link['required'] = [];
+        $this->writeWitness($link);
+        $this->writeWitness(self::link(), self::BASELINE_WITNESS);
+        $this->writeContract(4, baseline: 3);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(0, $status, $output);
+    }
+
+    #[Test]
+    public function aChangeToTheSharedShapeCannotHideBehindAScopedBump(): void
+    {
+        $link = self::link();
+        $link['required'] = [];
+        $this->writeWitness($link);
+        $this->writeWitness($link, self::BASELINE_WITNESS);
+        $this->writeContract(4, baseline: 3);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(1, $status, $output);
+        self::assertStringContainsString('cannot be scoped', $output);
+    }
+
+    #[Test]
+    public function aChangeToTheSharedShapePassesOnceTheBaselineMovesWithIt(): void
+    {
+        $link = self::link();
+        $link['required'] = [];
+        $this->writeWitness($link);
+        $this->writeWitness($link, self::BASELINE_WITNESS);
+        $this->writeContract(4, baseline: 4);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(0, $status, $output);
+    }
+
+    #[Test]
+    public function aBaselineBumpWithNoSharedChangeFails(): void
+    {
+        $link = self::link();
+        $link['required'] = [];
+        $this->writeWitness($link);
+        $this->writeWitness(self::link(), self::BASELINE_WITNESS);
+        $this->writeContract(4, baseline: 4);
+
+        [$status, $output] = $this->guard();
+
+        self::assertSame(1, $status, $output);
+        self::assertStringContainsString('Reset BASELINE to 3', $output);
+    }
+
+    private function writeContract(int $contract, int $baseline): void
+    {
+        \file_put_contents(
+            $this->repo . '/src/OpenApi/GeneratorContract.php',
+            "<?php\nfinal class GeneratorContract { public const CONTRACT = {$contract}; public const BASELINE = {$baseline}; }\n",
+        );
+    }
+
     /**
      * The one schema the released witness carries.
      *
@@ -132,14 +200,14 @@ final class ContractGuardTest extends TestCase
     /**
      * @param array<string, mixed> $link
      */
-    private function writeWitness(array $link): void
+    private function writeWitness(array $link, string $path = self::WITNESS): void
     {
         $witness = [
             'openapi' => '3.1.0',
             'info' => ['title' => 'Witness', 'version' => '1', 'x-generator' => ['contract' => 3]],
             'components' => ['schemas' => ['Link' => $link]],
         ];
-        \file_put_contents($this->repo . '/' . self::WITNESS, \json_encode($witness, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES));
+        \file_put_contents($this->repo . '/' . $path, \json_encode($witness, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES));
     }
 
     /**

@@ -252,6 +252,28 @@ These cases are pinned in
 exception catalogue and the throw-vs-return guidance live in
 [errors and exceptions](errors-and-exceptions.md).
 
+## Raw responses
+
+A custom action that declares a
+[`RawResult`](openapi.md#raw-action-responses) answers the media type the client picked
+with a `RawResponse` instead of a document. It holds a body as a string, a stream resource
+or a PSR-7 stream, the `Content-Type`, a status and any headers, and sends the body as it
+is:
+
+```php
+use haddowg\JsonApi\Response\RawResponse;
+
+return new RawResponse($csv, 'text/csv; charset=utf-8', headers: [
+    'Content-Disposition' => 'attachment; filename="charts.csv"',
+]);
+```
+
+It renders with `Vary: Accept`, because the media type came from `Accept`, and a header
+you set wins over both defaults. It does not extend `AbstractResponse`: there are no
+document members to set, and only `withStatus()` and `withHeader()` exist. `Server::dispatch()`
+and the PSR-15 path render it like any other response. A failing action throws, and its
+error is a JSON:API document whatever media type was picked.
+
 ## Document-level members: the withers
 
 `AbstractResponse` gives every response the same fluent surface. Each returns a
