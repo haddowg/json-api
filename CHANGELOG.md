@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/haddowg/json-api/compare/v1.15.2...v1.16.0) (2026-10-26)
+
+
+### Features
+
+* give actions unique operation ids and declared safety ([#240](https://github.com/haddowg/json-api/issues/240)) ([9e41d3e](https://github.com/haddowg/json-api/commit/9e41d3e2cf1b63b15cbab70da51ed6e330bb7b51))
+
 ## [1.15.2](https://github.com/haddowg/json-api/compare/v1.15.1...v1.15.2) (2026-10-26)
 
 
