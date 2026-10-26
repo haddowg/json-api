@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Exception;
 
 use haddowg\JsonApi\Exception\AtomicOperationsInvalid;
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
+use haddowg\JsonApi\Exception\AttributeWriteProhibited;
 use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\CoreErrorSource;
 use haddowg\JsonApi\Exception\DescribedErrorInterface;
@@ -151,6 +152,7 @@ final class ErrorCatalogTest extends TestCase
     public static function exceptionsRenderingTheirExampleDetail(): iterable
     {
         yield 'ATOMIC_OPERATIONS_INVALID' => [new AtomicOperationsInvalid("Unknown atomic operation code 'upsert'.", '/atomic:operations/0/op')];
+        yield 'ATTRIBUTE_WRITE_PROHIBITED' => [new AttributeWriteProhibited(['createdAt'])];
         yield 'ATTRIBUTE_VALUE_INVALID' => [new AttributeValueInvalid('publishedAt', 'Failed to parse time string (next blursday) at position 0 (n): The timezone could not be found in the database')];
         yield 'FIELDSET_MEMBER_UNRECOGNIZED' => [new FieldsetMemberUnrecognized('articles', ['colour'])];
         yield 'FILTERING_UNRECOGNIZED' => [new FilterParamUnrecognized('colour')];

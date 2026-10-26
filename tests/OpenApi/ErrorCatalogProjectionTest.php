@@ -27,6 +27,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ReadOnlyAttributeRejectingServerMetadata;
 use Opis\JsonSchema\Helper;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -387,6 +388,32 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     #[Test]
+    public function theAttributeWriteCodeAppearsOnlyWhenTheServerRejectsReadOnlyAttributes(): void
+    {
+        $this->assertGatedBy(
+            ErrorFeature::ReadOnlyAttributeRejection,
+            $this->fullServer(),
+            $this->fullServer(rejectsReadOnlyAttributes: false),
+        );
+
+        $declinedSchemas = $this->schemas(new ReadOnlyAttributeRejectingServerMetadata($this->fullServer(rejectsReadOnlyAttributes: false), rejects: false));
+        self::assertArrayNotHasKey('AttributeWriteProhibitedError', $declinedSchemas);
+
+        // Rejecting writes means nothing on a server that takes none.
+        $readOnlySchemas = $this->schemas(new ReadOnlyAttributeRejectingServerMetadata($this->readOnlyServer()));
+        self::assertArrayNotHasKey('AttributeWriteProhibitedError', $readOnlySchemas);
+    }
+
+    #[Test]
+    public function aServerThatDoesNotOptInProjectsTheSameDocument(): void
+    {
+        $plain = (new OpenApiProjector())->project($this->fullServer(rejectsReadOnlyAttributes: false))->toJson();
+        $declined = (new OpenApiProjector())->project(new ReadOnlyAttributeRejectingServerMetadata($this->fullServer(rejectsReadOnlyAttributes: false), rejects: false))->toJson();
+
+        self::assertEquals($plain, $declined);
+    }
+
+    #[Test]
     public function aMutableRelationOnAReadOnlyTypeIsNotAWrite(): void
     {
         // The relation's mutation flags are permissive, but the type's allow-list has no
@@ -442,7 +469,7 @@ final class ErrorCatalogProjectionTest extends TestCase
      * Asserts every code gated on `$feature` is present in `$offering`'s document and
      * absent from `$withholding`'s, and that no ungated code moved between the two.
      */
-    private function assertGatedBy(ErrorFeature $feature, FakeServerMetadata $offering, FakeServerMetadata $withholding): void
+    private function assertGatedBy(ErrorFeature $feature, ServerMetadataInterface $offering, ServerMetadataInterface $withholding): void
     {
         $offered = $this->schemas($offering);
         $withheld = $this->schemas($withholding);
@@ -469,9 +496,9 @@ final class ErrorCatalogProjectionTest extends TestCase
 
     /**
      * A server reaching every feature gate: the atomic extension, a pagination menu with
-     * a cursor arm, the Countable profile, client-generated ids and a full write surface.
-     */
-    /**
+     * a cursor arm, the Countable profile, client-generated ids, a full write surface and
+     * read-only attribute rejection.
+     *
      * @param list<string>|null $profiles
      */
     private function fullServer(
@@ -479,7 +506,8 @@ final class ErrorCatalogProjectionTest extends TestCase
         bool $clientIds = true,
         ?Schema $page = null,
         ?array $profiles = null,
-    ): FakeServerMetadata {
+        bool $rejectsReadOnlyAttributes = true,
+    ): ServerMetadataInterface {
         $type = FakeTypeMetadata::resource(
             type: 'books',
             fields: [Id::make()->build(), Str::make('title')->build()],
@@ -489,13 +517,15 @@ final class ErrorCatalogProjectionTest extends TestCase
             countable: true,
         );
 
-        return new FakeServerMetadata(
+        $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
             types: [$type],
             atomicOperations: $atomic ? new FakeAtomicOperationsMetadata('/operations', 'Atomic') : null,
             profiles: $profiles ?? [CountableProfile::URI],
         );
+
+        return $rejectsReadOnlyAttributes ? new ReadOnlyAttributeRejectingServerMetadata($server) : $server;
     }
 
     /**

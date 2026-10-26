@@ -84,6 +84,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withContainer(ContainerInterface\|callable)` | The [lazy instantiation factory](#lazy-instantiation-and-containers) used to build registered classes. |
 | `withRelationshipLoadState(?RelationshipLoadStateInterface)` | The [load-state predicate](#relationship-load-state) a lazy relation consults. |
 | `withLinkObjects(bool)` | Whether the links the server builds render as [link objects](links-and-meta.md#built-links-are-link-objects) (default `true`) or bare strings. |
+| `withReadOnlyAttributesRejected(bool)` | Whether a write body that sends an attribute the client cannot write is [rejected](#rejecting-read-only-attributes) with a `403` (default `false`, such attributes are ignored). |
 | `withDescribedByResolver(?DescribedByResolverInterface)` | The resolver that gives each built link, and each document, a [`describedby`](links-and-meta.md#describedby-the-openapi-operation-behind-a-link) into the served OpenAPI document (default `null`, none). |
 | `register(string $resource, ?string $serializer, ?string $hydrator)` | Registers a [Resource class](resources.md) for its declared `$type`, with optional serializer/hydrator [overrides](capability-composition.md). |
 | `registerSerializerHydrator(string $type, ?string $serializer, ?string $hydrator)` | Registers a [bare serializer + hydrator pair](capability-composition.md) under an explicit `$type`, no Resource. |
@@ -109,6 +110,7 @@ The matching accessors read the configuration back:
 | `relationshipLoadState()` | The injected load-state predicate, or `null`. |
 | `rendersLinkObjects()` / `describedByResolver()` | The link form, and the `describedby` resolver or `null` (the `ConfiguresLinksInterface` contract a custom `ServerInterface` can implement too). |
 | `outputTimezone()` | The default output zone, or `null`. |
+| `rejectsReadOnlyAttributes()` | Whether read-only attributes in a write body are rejected. |
 | `serving()` | The registered [`serving` handlers](#serving-a-pre-operation-hook), in registration order. |
 
 `serializerFor()` / `hydratorFor()` are the resolution surface your handler uses.
@@ -457,6 +459,31 @@ answer fails the write with `403 ACCESS_DENIED`.
 With no authorizer, the default, core renders and writes without asking. A resolver
 that decorates the server's should implement `ProvidesRelationAuthorizerInterface` and
 delegate, or the relationships it builds skip the authorizer.
+
+## Rejecting read-only attributes
+
+A create or update body can send an attribute the client cannot write in that request:
+one declared `readOnly()`, a computed one, or one read-only on that verb or by its
+`readOnly(when:)` predicate. The spec lets a server either ignore such a member or
+reject the request, and core ignores it by default. `withReadOnlyAttributesRejected()`
+switches the server to rejecting:
+
+```php
+$server = $server->withReadOnlyAttributesRejected();
+```
+
+`AbstractResource` then checks the body before it hydrates anything and throws
+`AttributeWriteProhibited`, a `403 ATTRIBUTE_WRITE_PROHIBITED` carrying one error per
+offending attribute, each pointing at `/data/attributes/<name>`. Hidden attributes,
+undeclared ones and relationships are outside the check: the first two are ignored as
+before, and a read-only relation in a resource body is still dropped.
+
+The check reads the setting off the resource's resolver through
+`RejectsReadOnlyAttributesInterface`, which the server and its registry implement. A
+resolver that decorates the server's should implement it and delegate. To catalogue the
+code in a generated document, have the server's OpenAPI metadata implement
+`OpenApi\Metadata\DeclaresReadOnlyAttributeRejection`; without it the document stays as
+it was.
 
 ## Wiring faults are exceptions, not error documents
 
