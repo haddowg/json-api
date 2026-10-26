@@ -16,8 +16,10 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
  *  - the `$ref` of the {@see DescribesRawBody} class `schema` names, emitted once as a
  *    component named by its short class name, exactly as a {@see RawResult}'s is;
  *  - the inline `schema` array;
- *  - otherwise an open object for `multipart/form-data` and a binary string for any
- *    other type.
+ *  - otherwise a default by media-type family: a string for `text/*`, any JSON value
+ *    (`{}`) for `application/json` and `*+json`, an open object for
+ *    `multipart/form-data` and `application/x-www-form-urlencoded`, and a binary string
+ *    for any other type.
  */
 final readonly class AcceptedBody
 {

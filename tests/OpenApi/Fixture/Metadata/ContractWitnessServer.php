@@ -308,7 +308,7 @@ final class ContractWitnessServer
                     new FakeActionMetadata('bulk-import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles'], accepts: [
                         new AcceptedBody('text/csv', schema: ['type' => 'string']),
                         new AcceptedBody('image/*', binary: true),
-                        new AcceptedBody('multipart/form-data'),
+                        new AcceptedBody('multipart/form-data', schema: ['type' => 'object']),
                         new AcceptedBody('application/json', schema: ArticleImportRow::class),
                     ]),
                 ] : []),

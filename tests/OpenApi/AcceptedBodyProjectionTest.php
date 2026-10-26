@@ -51,6 +51,68 @@ final class AcceptedBodyProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aSchemalessEntryDefaultsByMediaTypeFamily(): void
+    {
+        $document = $this->project(ActionInputMode::Raw, [
+            new AcceptedBody('text/csv'),
+            new AcceptedBody('text/*'),
+            new AcceptedBody('application/json'),
+            new AcceptedBody('application/geo+json'),
+            new AcceptedBody('multipart/form-data'),
+            new AcceptedBody('application/x-www-form-urlencoded'),
+            new AcceptedBody('image/png'),
+            new AcceptedBody('application/pdf'),
+            new AcceptedBody('application/octet-stream'),
+            new AcceptedBody('*/*'),
+        ]);
+
+        $content = self::at($document, 'paths', '/reports/-actions/import', 'post', 'requestBody', 'content');
+        self::assertSame([
+            'text/csv' => ['schema' => ['type' => 'string']],
+            'text/*' => ['schema' => ['type' => 'string']],
+            'application/json' => ['schema' => []],
+            'application/geo+json' => ['schema' => []],
+            'multipart/form-data' => ['schema' => ['type' => 'object']],
+            'application/x-www-form-urlencoded' => ['schema' => ['type' => 'object']],
+            'image/png' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+            'application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+            'application/octet-stream' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+            '*/*' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+        ], $content);
+    }
+
+    #[Test]
+    public function anAnyJsonDefaultEncodesAsAnEmptyObject(): void
+    {
+        $types = [new FakeTypeMetadata(
+            type: 'reports',
+            uriType: 'reports',
+            hasFields: false,
+            actions: [new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, accepts: [new AcceptedBody('application/json')])],
+        )];
+        $json = \json_encode((new OpenApiProjector())->project(new FakeServerMetadata('Accepts', '1', $types)), \JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('"application\/json":{"schema":{}}', $json);
+    }
+
+    #[Test]
+    public function anExplicitSchemaOrBinaryOverridesTheDefault(): void
+    {
+        $document = $this->project(ActionInputMode::Raw, [
+            new AcceptedBody('text/csv', binary: true),
+            new AcceptedBody('application/json', schema: ['type' => 'array']),
+            new AcceptedBody('image/svg+xml', schema: ['type' => 'string']),
+        ]);
+
+        $content = self::at($document, 'paths', '/reports/-actions/import', 'post', 'requestBody', 'content');
+        self::assertSame([
+            'text/csv' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+            'application/json' => ['schema' => ['type' => 'array']],
+            'image/svg+xml' => ['schema' => ['type' => 'string']],
+        ], $content);
+    }
+
+    #[Test]
     public function aJsonApiEntryCarriesTheActionsRequestDocument(): void
     {
         $document = $this->project(ActionInputMode::Document, [
