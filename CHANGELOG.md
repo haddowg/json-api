@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/haddowg/json-api/compare/v1.13.0...v1.13.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* build computed composite examples and give every error code a detail ([#230](https://github.com/haddowg/json-api/issues/230)) ([43104f6](https://github.com/haddowg/json-api/commit/43104f65768db49c1570176e2b13792f3c57441b))
+
 ## [1.13.0](https://github.com/haddowg/json-api/compare/v1.12.1...v1.13.0) (2026-10-26)
 
 
