@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
+use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedBodies;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 
@@ -18,12 +20,13 @@ use haddowg\JsonApi\OpenApi\Metadata\NoContent;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements DeclaresActionLink
+final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies
 {
     /**
      * @param list<string>                  $methods
      * @param non-empty-list<ActionResponse>|null $responds
      * @param list<string>                  $tags
+     * @param list<AcceptedBody>            $accepts
      */
     public function __construct(
         private readonly string $path,
@@ -38,7 +41,13 @@ final class FakeActionMetadata implements DeclaresActionLink
         private readonly ?string $summary = null,
         private readonly ?string $description = null,
         private readonly ?string $linkName = null,
+        private readonly array $accepts = [],
     ) {}
+
+    public function accepts(): array
+    {
+        return $this->accepts;
+    }
 
     public function linkName(): ?string
     {

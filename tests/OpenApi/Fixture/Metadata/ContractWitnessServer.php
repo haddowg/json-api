@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\Header;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
+use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
@@ -64,6 +65,7 @@ use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleImportRow;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Priority;
@@ -96,7 +98,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
 final class ContractWitnessServer
 {
     /**
-     * @param bool $rawContent whether the articles carry their raw-response actions; the
+     * @param bool $rawContent whether the articles carry their raw-body actions; the
      *                         baseline witness leaves them out, so it shows the shape a
      *                         document using no scoped structure keeps
      */
@@ -302,6 +304,13 @@ final class ContractWitnessServer
                     new FakeActionMetadata('cover', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
                         new RawResult('image/png', binary: true, headers: ['Cache-Control' => new Header('How long the image may be cached.', required: true)]),
                     ], tags: ['Articles']),
+                    // An action accepting several request bodies, one per schema form.
+                    new FakeActionMetadata('bulk-import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles'], accepts: [
+                        new AcceptedBody('text/csv', schema: ['type' => 'string']),
+                        new AcceptedBody('image/*', binary: true),
+                        new AcceptedBody('multipart/form-data'),
+                        new AcceptedBody('application/json', schema: ArticleImportRow::class),
+                    ]),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],
