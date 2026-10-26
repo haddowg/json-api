@@ -48,6 +48,30 @@ final class MediaType
     }
 
     /**
+     * Whether a `Content-Type` header names the JSON:API media type and nothing else: a
+     * single, non-empty `application/vnd.api+json` instance carrying only `ext` and/or
+     * `profile` parameters. Unlike {@see isValid()}, an absent header or a different
+     * media type fails.
+     */
+    public static function isJsonApi(string $header): bool
+    {
+        $instances = self::split($header);
+
+        return \count($instances) === 1
+            && self::isJsonApiMediaType($instances[0])
+            && self::isValid($instances[0]);
+    }
+
+    /**
+     * The lowercased `type/subtype` of one media-type instance, without its parameters
+     * or surrounding whitespace.
+     */
+    public static function essence(string $mediaType): string
+    {
+        return \strtolower(\trim(\explode(';', $mediaType, 2)[0]));
+    }
+
+    /**
      * Whether an `Accept` header is acceptable JSON:API parameter-wise. Unlike
      * {@see isValid()} — the Content-Type rule, where ANY non-`ext`/`profile`
      * parameter is unacceptable — the spec requires a `406` only when EVERY
@@ -105,7 +129,7 @@ final class MediaType
      */
     private static function isJsonApiMediaType(string $mediaType): bool
     {
-        return \strtolower(\trim(\explode(';', $mediaType, 2)[0])) === 'application/vnd.api+json';
+        return self::essence($mediaType) === 'application/vnd.api+json';
     }
 
     /**

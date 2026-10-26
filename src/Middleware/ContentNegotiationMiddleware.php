@@ -15,7 +15,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * Validates JSON:API content negotiation on the incoming request: the
  * `Content-Type`/`Accept` media-type parameters (only `ext`/`profile` are
- * permitted), extension support, and query-parameter well-formedness.
+ * permitted), extension support, and query-parameter well-formedness. A write
+ * (any unsafe method, bar a `DELETE` with no body) must also carry a
+ * `Content-Type` of `application/vnd.api+json`; an absent header or another
+ * media type is a `415`.
  *
  * Rejections throw typed exceptions ({@see \haddowg\JsonApi\Exception\MediaTypeUnsupported}
  * → 415, {@see \haddowg\JsonApi\Exception\MediaTypeUnacceptable} → 406,
@@ -48,9 +51,28 @@ final readonly class ContentNegotiationMiddleware implements MiddlewareInterface
     {
         $jsonApiRequest = $request instanceof JsonApiRequestInterface ? $request : new JsonApiRequest($request);
 
-        $this->validator->negotiate($jsonApiRequest);
+        $this->validator->negotiate($jsonApiRequest, strictContentType: self::carriesDocument($jsonApiRequest));
         $this->validator->validateQueryParams($jsonApiRequest);
 
         return $handler->handle($jsonApiRequest);
+    }
+
+    /**
+     * Whether the request must carry a JSON:API document, and so a JSON:API
+     * `Content-Type`: every unsafe method, except a `DELETE` with no body, which is how
+     * a resource is deleted and which clients send without a `Content-Type`.
+     */
+    private static function carriesDocument(JsonApiRequestInterface $request): bool
+    {
+        $method = \strtoupper($request->getMethod());
+        if (\in_array($method, ['GET', 'HEAD', 'OPTIONS', 'TRACE'], true)) {
+            return false;
+        }
+
+        if ($method !== 'DELETE') {
+            return true;
+        }
+
+        return (string) $request->getBody() !== '' || !\in_array($request->getParsedBody(), [null, []], true);
     }
 }

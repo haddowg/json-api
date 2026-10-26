@@ -12,6 +12,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Tests\Double\CallableHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -140,6 +141,88 @@ final class ContentNegotiationMiddlewareTest extends TestCase
         $this->expectException(QueryParamUnrecognized::class);
 
         (new ContentNegotiationMiddleware())->process($request, $this->okHandler());
+    }
+
+    #[Test]
+    #[DataProvider('writesWithoutAJsonApiContentType')]
+    #[Group('spec:content-negotiation')]
+    public function aWriteWithoutAJsonApiContentTypeIsRejected(string $method, string $contentType, string $body): void
+    {
+        $headers = ['accept' => 'application/vnd.api+json'];
+        if ($contentType !== '') {
+            $headers['content-type'] = $contentType;
+        }
+
+        $this->expectException(MediaTypeUnsupported::class);
+
+        (new ContentNegotiationMiddleware())->process(new ServerRequest($method, '/articles', $headers, $body), $this->okHandler());
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function writesWithoutAJsonApiContentType(): array
+    {
+        $document = '{"data":{"type":"articles"}}';
+
+        return [
+            'post text/plain' => ['POST', 'text/plain', $document],
+            'post form' => ['POST', 'application/x-www-form-urlencoded', 'data=1'],
+            'post absent' => ['POST', '', $document],
+            'post absent without a body' => ['POST', '', ''],
+            'patch json' => ['PATCH', 'application/json', $document],
+            'relationship delete text/plain' => ['DELETE', 'text/plain', '{"data":[]}'],
+        ];
+    }
+
+    #[Test]
+    #[Group('spec:content-negotiation')]
+    public function aFormParsedBodyCountsAsABodyOnDelete(): void
+    {
+        $request = (new ServerRequest('DELETE', '/articles/1/relationships/tags', ['content-type' => 'application/x-www-form-urlencoded']))
+            ->withParsedBody(['data' => '1']);
+
+        $this->expectException(MediaTypeUnsupported::class);
+
+        (new ContentNegotiationMiddleware())->process($request, $this->okHandler());
+    }
+
+    #[Test]
+    #[DataProvider('requestsWithoutADocument')]
+    #[Group('spec:content-negotiation')]
+    public function aRequestWithoutADocumentNeedsNoContentType(string $method): void
+    {
+        $response = (new ContentNegotiationMiddleware())->process(
+            new ServerRequest($method, '/articles/1', ['accept' => 'application/vnd.api+json']),
+            $this->okHandler(),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function requestsWithoutADocument(): array
+    {
+        return [
+            'get' => ['GET'],
+            'head' => ['HEAD'],
+            'options' => ['OPTIONS'],
+            'resource delete' => ['DELETE'],
+        ];
+    }
+
+    #[Test]
+    #[Group('spec:content-negotiation')]
+    public function aWriteWithTheJsonApiContentTypePasses(): void
+    {
+        $response = (new ContentNegotiationMiddleware())->process(
+            new ServerRequest('POST', '/articles', ['content-type' => 'application/vnd.api+json', 'accept' => 'application/vnd.api+json'], '{"data":{"type":"articles"}}'),
+            $this->okHandler(),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
     }
 
     private function okHandler(): CallableHandler
