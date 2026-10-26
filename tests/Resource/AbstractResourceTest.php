@@ -54,6 +54,20 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function aStringableIdReportsItsString(): void
+    {
+        $post = $this->post();
+        $post['id'] = new class implements \Stringable {
+            public function __toString(): string
+            {
+                return '0b7c1d3e-6f0a-4e43-9f55-2a1d6c8b9e01';
+            }
+        };
+
+        self::assertSame('0b7c1d3e-6f0a-4e43-9f55-2a1d6c8b9e01', (new PostResource())->getId($post));
+    }
+
+    #[Test]
     public function uriTypeDefaultsToTheJsonApiType(): void
     {
         self::assertSame('posts', (new PostResource())->uriType());
