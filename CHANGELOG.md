@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/haddowg/json-api/compare/v1.17.0...v1.17.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* keep other security alternatives beside the scope scheme ([#248](https://github.com/haddowg/json-api/issues/248)) ([dcf8b1b](https://github.com/haddowg/json-api/commit/dcf8b1bab87a11a1f62f46a882613d19c67867db))
+
 ## [1.17.0](https://github.com/haddowg/json-api/compare/v1.16.0...v1.17.0) (2026-10-27)
 
 
