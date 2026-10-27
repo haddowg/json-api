@@ -63,10 +63,13 @@ inside an attribute value, so an attribute or relationship called `links` or
 
 The check stops at what is declared. An `ArrayHash`, a nested array handed to an `Obj` or
 `Map` under a key no child declares, or a value built in a `serializeUsing()` or
-`computedUsing()` hook is free-form, and nothing inspects it at runtime. The bundled
-JSON:API 1.1 schema doesn't reserve these two names either, so the spec-compliance
-assertion and the optional `DocumentValidator` won't flag them. Keeping `links` and
-`relationships` out of a free-form value is up to the code that builds it.
+`computedUsing()` hook is free-form, and nothing inspects it while serving. The
+validation layer does. The bundled JSON:API 1.1 schema rejects a `links` or
+`relationships` member in any object inside an attribute value, at any depth and inside
+arrays, so the spec-compliance assertion and the optional `DocumentValidator` flag
+`attributes.address.links` built from an `ArrayHash`. Neither runs in production unless
+you turn it on, so keeping these names out of a free-form value is still up to the code
+that builds it.
 
 [`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php)
 exposes a `durationSeconds` member backed by a differently named column, and a

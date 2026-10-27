@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Validation;
  * under `resources/schemas/` and decodes them once (memoized per instance).
  *
  * The response schema is the byte-faithful upstream file; this provider applies
- * three transformations to it at load time:
+ * four transformations to it at load time:
  *
  * - It strips the document-**root** `unevaluatedProperties` keyword so that
  *   {@see DocumentValidator} can re-apply it on its `allOf` composite instead.
@@ -24,6 +24,15 @@ namespace haddowg\JsonApi\Validation;
  * - It lets `definitions.resourceLinks` carry members beyond `self`, each a link.
  *   JSON:API 1.1 says a resource's links object MAY contain `self`; it forbids no
  *   other member, and declared and action links render more.
+ * - It forbids a `links` or `relationships` member inside an attribute value, at
+ *   any depth. JSON:API 1.1 says no object that is or sits inside an attribute
+ *   value may contain either member, and upstream lets any value through. A
+ *   recursive `definitions.attributeValue` closes both names on every nested
+ *   object, including objects inside arrays, and `definitions.attributes` applies
+ *   it to each attribute's value through `patternProperties` keyed on the
+ *   `memberName` pattern, so `@`-members and the `type`/`id` rule are untouched.
+ *   A top-level attribute called `links` is still allowed. The request schema
+ *   reaches attributes only through this definition.
  *
  * @see resources/schemas/README.md for the upstream source and refresh procedure.
  */
@@ -61,6 +70,10 @@ final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\Schema
             if ($resourceLinks instanceof \stdClass) {
                 $resourceLinks->unevaluatedProperties = (object) ['$ref' => '#/definitions/link'];
             }
+            // No object inside an attribute value may hold `links` or `relationships` (see class docblock).
+            if ($definitions instanceof \stdClass) {
+                $this->reserveAttributeValueMembers($definitions);
+            }
             $this->responseSchema = $schema;
         }
 
@@ -80,6 +93,30 @@ final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\Schema
     public function requestSchemaId(): string
     {
         return self::REQUEST_ID;
+    }
+
+    private function reserveAttributeValueMembers(\stdClass $definitions): void
+    {
+        $attributes = $definitions->attributes ?? null;
+        $memberName = $definitions->memberName ?? null;
+        $patterns = $memberName instanceof \stdClass ? ($memberName->patternProperties ?? null) : null;
+        if (!$attributes instanceof \stdClass || !$patterns instanceof \stdClass) {
+            return;
+        }
+
+        $self = (object) ['$ref' => '#/definitions/attributeValue'];
+        $definitions->attributeValue = (object) [
+            'description' => 'An attribute value. No object in it, at any depth, may contain a `links` or `relationships` member.',
+            'properties' => (object) ['links' => false, 'relationships' => false],
+            'additionalProperties' => $self,
+            'items' => $self,
+        ];
+
+        $valueSchemas = new \stdClass();
+        foreach (\array_keys(\get_object_vars($patterns)) as $pattern) {
+            $valueSchemas->{$pattern} = $self;
+        }
+        $attributes->patternProperties = $valueSchemas;
     }
 
     private function load(string $file): object

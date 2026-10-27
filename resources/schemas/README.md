@@ -60,6 +60,20 @@ design: declared links and action links. `VendoredSchemaProvider` replaces that
 one keyword with `"unevaluatedProperties": {"$ref": "#/definitions/link"}` at load
 time, so any other member must still be a valid link.
 
+### Note on `definitions.attributes`' member values
+
+JSON:API 1.1 says any object that is, or sits inside, an attribute value MUST NOT
+contain a `relationships` or `links` member. Upstream lets an attribute hold any
+JSON value, so it never checks this. `VendoredSchemaProvider` adds a recursive
+`definitions.attributeValue` at load time. It sets `links` and `relationships` to
+`false` on every object it meets and applies itself to each member and each array
+item below. `definitions.attributes` then gets a `patternProperties` entry, keyed on
+the `memberName` pattern, that points each attribute's value at it. A top-level
+attribute called `links` stays allowed, and the `type`/`id` rule and `@`-members are
+untouched. The request schema reaches attributes only through this definition, so
+it needs no change of its own. If a refresh adds an upstream `attributeValue` or a
+`patternProperties` on `attributes`, revisit this transformation.
+
 ## `jsonapi-1.1-request.json` — authored
 
 Authored here (not upstream) from the base schema's already-present
