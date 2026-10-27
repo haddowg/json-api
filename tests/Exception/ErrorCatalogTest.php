@@ -237,6 +237,7 @@ final class ErrorCatalogTest extends TestCase
         yield 'RESOURCE_IDENTIFIER_LID_INVALID' => [new ResourceIdentifierLidInvalid('integer')];
         yield 'RESOURCE_IDENTIFIER_TYPE_INVALID' => [new ResourceIdentifierTypeInvalid('integer')];
         yield 'RESOURCE_IDENTIFIER_TYPE_MISSING' => [new ResourceIdentifierTypeMissing(['id' => '1'])];
+        yield 'INSUFFICIENT_SCOPE' => [new \haddowg\JsonApi\Exception\InsufficientScope(['articles:read'], ['articles:read'])];
         yield 'RESOURCE_ID_INVALID' => [new ResourceIdInvalid('integer')];
         yield 'RESOURCE_ID_MISSING' => [new ResourceIdMissing()];
         yield 'RESOURCE_ID_UNDECODABLE' => [new ResourceIdUndecodable('not-an-id')];

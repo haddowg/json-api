@@ -30,17 +30,23 @@ use Psr\Http\Server\RequestHandlerInterface;
  * runs: the strict family and sparse-fieldset checks, and the `?include` path
  * check. It throws a `400` JSON:API exception for a rejected parameter; `null`
  * (the default) disables it.
+ *
+ * An optional `$operationGate` hook runs on the built operation before the handler.
+ * The server passes its scope check through it, which throws a `403` JSON:API
+ * exception for a token lacking a scope the operation needs.
  */
 final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInterface
 {
     /**
-     * @param (\Closure(JsonApiRequestInterface): void)|null $strictQueryParameters
+     * @param (\Closure(JsonApiRequestInterface): void)|null    $strictQueryParameters
+     * @param (\Closure(JsonApiOperationInterface): void)|null $operationGate
      */
     public function __construct(
         private \haddowg\JsonApi\Operation\OperationHandlerInterface $handler,
         private ResolvingServerInterface $server,
         private OperationFactory $factory = new OperationFactory(),
         private ?\Closure $strictQueryParameters = null,
+        private ?\Closure $operationGate = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -63,6 +69,10 @@ final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInte
         $context = new OperationContext($this->server, $request);
 
         $operation = $this->factory->fromRequest($jsonApiRequest, $target, $context);
+
+        if ($this->operationGate !== null) {
+            ($this->operationGate)($operation);
+        }
 
         $response = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($this->handler->handle($operation), $operation, $this->server);
 

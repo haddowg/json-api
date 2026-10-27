@@ -57,7 +57,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $schemas = $this->schemas($this->fullServer());
 
-        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+        foreach (self::offerableDescriptors() as $descriptor) {
             $component = ErrorCatalogProjector::componentName($descriptor->code);
             self::assertArrayHasKey($component, $schemas, "missing error component {$component}");
         }
@@ -119,7 +119,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
-        self::assertCount(\count(ErrorCatalog::core()->descriptors()) + 1, $branches);
+        self::assertCount(\count(self::offerableDescriptors()) + 1, $branches);
     }
 
     // ---- Contributed codes ----------------------------------------------------------
@@ -217,7 +217,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $schemas = $this->schemas($this->fullServer());
 
-        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+        foreach (self::offerableDescriptors() as $descriptor) {
             $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
             self::assertSame($descriptor->description, $variant['description'] ?? null, $descriptor->code);
         }
@@ -492,6 +492,20 @@ final class ErrorCatalogProjectionTest extends TestCase
         }
 
         self::assertGreaterThan(0, $gated, 'no code is gated on ' . $feature->value);
+    }
+
+    /**
+     * Every core descriptor a server can offer. No metadata describes operation scopes to
+     * the projection yet, so not even the full server offers `INSUFFICIENT_SCOPE`.
+     *
+     * @return list<\haddowg\JsonApi\Exception\ErrorDescriptor>
+     */
+    private static function offerableDescriptors(): array
+    {
+        return \array_values(\array_filter(
+            ErrorCatalog::core()->descriptors(),
+            static fn(\haddowg\JsonApi\Exception\ErrorDescriptor $descriptor): bool => $descriptor->feature !== \haddowg\JsonApi\Exception\ErrorFeature::OperationScopes,
+        ));
     }
 
     /**

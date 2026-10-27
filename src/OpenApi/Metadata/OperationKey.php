@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
+use haddowg\JsonApi\Atomic\AtomicOperationCode;
+
 /**
  * Names one operation of a type independently of how it is routed: its kind, the
  * relation or action it applies to, its HTTP method and its declared safety.
@@ -86,6 +88,28 @@ final readonly class OperationKey
     public static function atomic(): self
     {
         return new self(OperationKind::Atomic, 'POST');
+    }
+
+    /**
+     * The operation one entry of an Atomic Operations batch performs: `add`, `update` and
+     * `remove` are a create, update and delete, or with a `ref.relationship` an add to,
+     * replacement of and removal from that relationship.
+     */
+    public static function forAtomicOperation(AtomicOperationCode $code, ?string $relationship = null): self
+    {
+        if ($relationship !== null && $relationship !== '') {
+            return self::relation(match ($code) {
+                AtomicOperationCode::Add => OperationKind::AddRelationship,
+                AtomicOperationCode::Update => OperationKind::UpdateRelationship,
+                AtomicOperationCode::Remove => OperationKind::RemoveRelationship,
+            }, $relationship);
+        }
+
+        return self::crud(match ($code) {
+            AtomicOperationCode::Add => OperationKind::Create,
+            AtomicOperationCode::Update => OperationKind::Update,
+            AtomicOperationCode::Remove => OperationKind::Delete,
+        });
     }
 
     /**

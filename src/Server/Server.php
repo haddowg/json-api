@@ -184,6 +184,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
      */
     private ?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface $errorMessageResolver = null;
 
+    private ?\haddowg\JsonApi\Scope\ScopeEnforcer $scopeEnforcer = null;
+
     public function __construct()
     {
         $this->resources = new ResourceRegistry();
@@ -599,6 +601,26 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     }
 
     /**
+     * Refuses an operation whose request's access token does not grant the scopes it
+     * needs, with a `403 INSUFFICIENT_SCOPE`, and drops an included resource the caller
+     * may not read from the rendered document. The check runs after query validation and
+     * before the serving hooks and the handler, on {@see dispatch()} and on the PSR-15
+     * {@see handle()} path alike. Passing `null` (the default) turns it off.
+     */
+    public function withScopeEnforcement(?\haddowg\JsonApi\Scope\ScopeEnforcer $enforcer): self
+    {
+        $self = clone $this;
+        $self->scopeEnforcer = $enforcer;
+
+        return $self;
+    }
+
+    public function scopeEnforcer(): ?\haddowg\JsonApi\Scope\ScopeEnforcer
+    {
+        return $this->scopeEnforcer;
+    }
+
+    /**
      * Rejects a write body that sends an attribute the client cannot write in that
      * request (read-only, computed, or read-only on this verb or by its predicate) with
      * a `403 ATTRIBUTE_WRITE_PROHIBITED`, one error per attribute. Off by default, which
@@ -855,6 +877,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         }
 
         $this->validateQueryParameters($operation);
+        $this->scopeEnforcer?->enforce($operation, $this->resources);
         $this->fireServing($operation);
 
         return \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($handler->handle($operation), $operation, $this);
@@ -1211,6 +1234,9 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
                 $handler,
                 $this,
                 strictQueryParameters: $this->validateQueryParametersOfRequest(...),
+                operationGate: $this->scopeEnforcer === null
+                    ? null
+                    : fn(\haddowg\JsonApi\Operation\JsonApiOperationInterface $operation) => $this->scopeEnforcer->enforce($operation, $this->resources),
             );
         }
 

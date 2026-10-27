@@ -537,8 +537,9 @@ The `415` / `406` asymmetry is intentional — see
 |---|---|---|---|---|
 | `AuthenticationRequired` | 401 | `AUTHENTICATION_REQUIRED` | — | The request carried no credentials, or ones the server rejected. |
 | `AccessDenied` | 403 | `ACCESS_DENIED` | — | An authenticated caller is not allowed to do what the request asks. |
+| `InsufficientScope` | 403 | `INSUFFICIENT_SCOPE` | parameter or pointer | The access token does not grant every [OAuth scope](scopes.md) the request needs. |
 
-Core never throws these two. Authentication and authorization belong to your framework,
+Core never throws the first two. Authentication and authorization belong to your framework,
 so the adapter translates its security layer's exceptions into them: the Symfony bundle
 for a firewall `AuthenticationException` or an `AccessDeniedException`, the Laravel
 package for an `AuthenticationException` or an `AuthorizationException`. Both take an
