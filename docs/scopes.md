@@ -136,16 +136,15 @@ Server metadata implementing `OpenApi\Metadata\DeclaresOperationScopeTable` hand
 projector the same table: `scopeTable()`, the name of the security scheme the scopes are
 listed under in `scopeScheme()`, and the catalogue's `scopeCatalog()`.
 
-- Each operation needing a scope reads as needing one token that carries them. The
-  requirements in its security that name the scope scheme are kept with the scopes filled
-  in, and every alternative that does not name it is dropped. When none names it, the
-  operation's security is `[{<scope scheme>: [scopes]}]`.
+- When a requirement in an operation's security names the scope scheme, that requirement
+  lists the scopes and keeps its other members, and every other alternative stays as it
+  is. A default of `[{oauth2: []}, {session: []}]` becomes
+  `[{oauth2: [scopes]}, {session: []}]`, because a session cookie the scope check never
+  sees still works.
+- When no requirement names the scope scheme, the operation's security is
+  `[{<scope scheme>: [scopes]}]`.
 - An operation that only inherited the document default gets the result as its own
   `security`, and a `401` response when the default was empty.
-
-If your API accepts genuinely different credential types, name the `oauth2` scheme in
-your security configuration, alone or joined to the others in one requirement, so the
-scoped operations keep describing the credentials they take.
 - The scope scheme's flows list the catalogue's scopes after the ones its configuration
   declares. A configured description wins.
 - A scheme the server does not define throws a `\LogicException`. A scheme that is not
@@ -155,6 +154,10 @@ scoped operations keep describing the credentials they take.
   them under a strict flag.
 - A table missing an entry for a projected operation throws, since it was built from other
   metadata. An empty `ScopeTable` means the server uses no scopes.
+
+If the token your API takes is the OAuth token, name the `oauth2` scheme in your default
+security rather than a separate `bearer` scheme. A `bearer` requirement does not name the
+scope scheme, so it is replaced and any other alternatives go with it.
 
 A document in which no operation needs a scope is unchanged. One that has some carries
 [contract 16](openapi.md#a-bump-scoped-to-some-documents) and offers `INSUFFICIENT_SCOPE`
