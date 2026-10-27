@@ -19,6 +19,7 @@ use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
@@ -146,6 +147,17 @@ final class RelationTest extends TestCase
         $relation = MorphTo::make('commentable', ['posts', 'videos'])->build();
 
         self::assertSame(['posts', 'videos'], $relation->relatedTypes());
+    }
+
+    #[Test]
+    public function onlyTheMorphRelationsArePolymorphicByDeclarationWhateverTheirTypeCount(): void
+    {
+        self::assertInstanceOf(PolymorphicRelationInterface::class, MorphTo::make('commentable', ['posts'])->build());
+        self::assertInstanceOf(PolymorphicRelationInterface::class, MorphToMany::make('items', ['posts'])->build());
+
+        foreach ([BelongsTo::make('author', 'users'), HasOne::make('profile', 'profiles'), HasMany::make('comments', 'comments'), BelongsToMany::make('tags', 'tags')] as $builder) {
+            self::assertNotInstanceOf(PolymorphicRelationInterface::class, $builder->build());
+        }
     }
 
     #[Test]

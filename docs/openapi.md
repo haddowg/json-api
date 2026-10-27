@@ -146,7 +146,8 @@ sketch:
   would reject.
 - **Relationships.** Each declared relation gets a relationship-object component with its
   linkage `data` (a single nullable identifier for a to-one, an array for a to-many; a
-  polymorphic relation's identifier is the `oneOf` of its members). A write request lists
+  polymorphic relation's identifier is the `anyOf` of its members, even when it has only
+  one, see [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
   only the relations settable in that write, and marks a write-only relation's property
   `writeOnly: true`, so a generator can keep it on its input types and off its read types
   ([ADR 0162](adr/0162-a-write-only-relation-is-marked-writeonly-in-the-write-bodies.md)).
@@ -257,6 +258,29 @@ sketch:
   `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
   reject values the server accepts.
   ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
+
+### Polymorphic relations with one type
+
+A `MorphTo` or `MorphToMany` is projected as a union of its member types even when it
+declares only one. `MorphTo::make('subject', ['people'])` gets the same shape a
+`MorphTo` over two types gets, with one member, where a `BelongsTo` to `people` gets a
+plain `$ref`:
+
+- its linkage identifier is `{"anyOf": [{"$ref": "#/components/schemas/PeopleResourceIdentifier"}]}`,
+  in the relationship object, the relationship document and the write bodies;
+- the `data` of its related document or related collection is the `anyOf` of the member
+  resources;
+- its related and relationship endpoints take no `filter`, `sort` or `page` parameters
+  from the related type, and its related `?withCount` offers no relations of it. A
+  relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
+
+So a generated client already types the relation as polymorphic, and adding a second type
+later adds a member rather than changing every input that carries the relation. The
+projector learns that a relation is polymorphic from `DeclaresPolymorphicRelation` on its
+[metadata](#the-metadata-contract); metadata that doesn't implement it decides by the
+number of types, as before. A document with such a relation carries
+[contract 17](#a-bump-scoped-to-some-documents)
+([ADR 0184](adr/0184-a-polymorphic-relation-is-a-union-in-openapi-whatever-its-type-count.md)).
 
 ### The error-code catalogue
 
@@ -761,6 +785,12 @@ segment the relation's related and relationship endpoints are served under. Retu
 core relation's `uriFieldName()`, which is the name unless `withUriFieldName()` set one.
 Metadata that doesn't implement it keys every relation's paths by its name.
 
+Another sits beside `RelationMetadataInterface`: `DeclaresPolymorphicRelation` adds
+`isPolymorphic(): bool`. Return `true` when the core relation is a
+`PolymorphicRelationInterface`, which `MorphTo` and `MorphToMany` are. Metadata that
+doesn't implement it is polymorphic only when it lists more than one type. See
+[polymorphic relations](#polymorphic-relations-with-one-type).
+
 A fifth sits beside `TypeMetadataInterface`: `DeclaresSingularName` adds
 `singularName(): ?string`, the noun the [generated prose](#how-generated-prose-names-a-type)
 uses for one resource of the type. Mirror the resource's `getSingularName()`. Metadata that
@@ -1140,9 +1170,15 @@ carries it when some operation needs an OAuth scope, which then shows in that op
 `security` and adds `INSUFFICIENT_SCOPE` to the error catalogue. Every other document is
 unchanged.
 
+Contract 17 is a polymorphic relation with one related type
+(`SINGLE_TARGET_POLYMORPHISM`), which is now
+[projected as a union](#polymorphic-relations-with-one-type). A document carries it when
+such a relation exists. Every other document is unchanged.
+
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,
-examples, declared links, those action declarations and operation scopes, lets the CI guard hold `BASELINE`
+examples, declared links, those action declarations, operation scopes and single-type
+polymorphic relations, lets the CI guard hold `BASELINE`
 to that rule.
 
 #### Diffing documents across contracts

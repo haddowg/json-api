@@ -92,7 +92,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * union, both enum backing types), all three client-id policies, a read-only type whose
  * relation is nonetheless mutable, a standalone type with no field inventory, an
  * unregistered linkage-only related type, every relation shape (to-one, to-many,
- * pivot-backed, polymorphic, endpoint-suppressed,
+ * pivot-backed, polymorphic over several types and over one, endpoint-suppressed,
  * mutation-locked, write-only, served under a renamed URI segment), the filter/sort/pagination vocabulary (a page strategy, a cursor, a
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, raw action responses beside and instead of a
@@ -120,14 +120,17 @@ final class ContractWitnessServer
      *                                 extensions, which the baseline witness leaves out too
      * @param bool $scopes whether the operations declare the OAuth scopes they need, under
      *                     an oauth2 scheme the baseline witness leaves out as well
+     * @param bool $singleTargetPolymorphism whether the articles carry polymorphic relations
+     *                                       over a single type, which the baseline witness
+     *                                       leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism),
                 self::people(),
                 self::tags(),
                 self::images($declaredLinks),
@@ -218,7 +221,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -328,6 +331,12 @@ final class ContractWitnessServer
                 new WriteOnlyRelationMetadata(new FakeRelationMetadata('watchers', ['people'], true, includable: false, relatedEndpoint: false)),
                 // Opted in but readable: projects exactly as a relation that never opted in.
                 new WriteOnlyRelationMetadata(new FakeRelationMetadata('editor', ['people'], false), writeOnly: false),
+                // Polymorphic over one type, to-one and to-many: projected as the union they
+                // would be with several members.
+                ...($singleTargetPolymorphism ? [
+                    FakeRelationMetadata::morph('subject', ['people']),
+                    FakeRelationMetadata::morph('gallery', ['images'], toMany: true),
+                ] : []),
             ],
             tags: ['Articles'],
             description: 'A blog article.',
