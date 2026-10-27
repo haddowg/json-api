@@ -278,7 +278,7 @@ abstract class AbstractResponse
         $status = $this->status ?? $rendered->status;
 
         if (!$rendered->hasBody) {
-            return $this->applyHeaders($server->responseFactory()->createResponse($status));
+            return $this->applyHeaders($server->responseFactory()->createResponse($status), $status);
         }
 
         $profiles = $this->appliedProfiles($server, $jsonApiRequest);
@@ -305,20 +305,31 @@ abstract class AbstractResponse
             $response = $response->withHeader('Vary', 'Accept');
         }
 
-        return $this->applyHeaders($response);
+        return $this->applyHeaders($response, $status);
     }
 
     /**
      * Applies the configured response headers ({@see withHeader()}) onto a PSR-7
      * response.
      */
-    private function applyHeaders(ResponseInterface $response): ResponseInterface
+    private function applyHeaders(ResponseInterface $response, int $status): ResponseInterface
     {
-        foreach ($this->headers as $name => $value) {
+        foreach ($this->headersFor($status) as $name => $value) {
             $response = $response->withHeader($name, $value);
         }
 
         return $response;
+    }
+
+    /**
+     * The headers sent with a response rendered at `$status`: the configured ones. A
+     * response whose headers depend on the shape it rendered overrides this.
+     *
+     * @return array<string, string>
+     */
+    protected function headersFor(int $status): array
+    {
+        return $this->headers;
     }
 
     /**

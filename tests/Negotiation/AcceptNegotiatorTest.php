@@ -6,6 +6,9 @@ namespace haddowg\JsonApi\Tests\Negotiation;
 
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
 use haddowg\JsonApi\Negotiation\AcceptNegotiator;
+use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
+use haddowg\JsonApi\OpenApi\Metadata\RawResult;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\Response\ErrorResponse;
 use haddowg\JsonApi\Tests\Double\StubServer;
 use Nyholm\Psr7\ServerRequest;
@@ -70,5 +73,58 @@ final class AcceptNegotiatorTest extends TestCase
 
         self::assertSame(406, $response->getStatusCode());
         self::assertSame('application/vnd.api+json', $response->getHeaderLine('Content-Type'));
+    }
+
+    #[Test]
+    public function anActionThatRedirectsNeverRefusesAnAccept(): void
+    {
+        $responds = [new SeeOther(mediaType: 'text/csv')];
+
+        self::assertNull(AcceptNegotiator::negotiateAction('text/html', $responds));
+        self::assertSame('application/vnd.api+json', AcceptNegotiator::negotiateAction('application/vnd.api+json', $responds));
+        self::assertSame('application/vnd.api+json', AcceptNegotiator::negotiateAction('', $responds));
+    }
+
+    #[Test]
+    public function anActionThatRedirectsStillOffersItsRawResults(): void
+    {
+        self::assertSame('text/csv', AcceptNegotiator::negotiateAction('text/csv', [new SeeOther(), new RawResult('text/csv')]));
+    }
+
+    #[Test]
+    public function anActionThatCannotRedirectRefusesAnUnacceptableAccept(): void
+    {
+        $this->expectException(MediaTypeUnacceptable::class);
+
+        AcceptNegotiator::negotiateAction('text/html', [new MetaResult()]);
+    }
+
+    #[Test]
+    #[DataProvider('jsonApiPreferences')]
+    public function itTellsWhetherARequestPrefersJsonApi(string $accept, bool $expected): void
+    {
+        self::assertSame($expected, AcceptNegotiator::prefersJsonApi($accept));
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function jsonApiPreferences(): array
+    {
+        return [
+            'absent' => ['', false],
+            'any' => ['*/*', false],
+            'application wildcard' => ['application/*', false],
+            'another type' => ['text/csv', false],
+            'json:api' => ['application/vnd.api+json', true],
+            'json:api with a profile' => ['application/vnd.api+json; profile="https://example.com/p"', true],
+            'json:api with a forbidden parameter' => ['application/vnd.api+json; charset=utf-8', false],
+            'json:api refused' => ['application/vnd.api+json;q=0', false],
+            'tie with another type' => ['text/html, application/vnd.api+json', true],
+            'tie with a wildcard' => ['application/vnd.api+json;q=0.5, */*;q=0.5', true],
+            'outweighed by another type' => ['application/vnd.api+json;q=0.5, text/csv', false],
+            'outweighed by a wildcard' => ['application/vnd.api+json;q=0.9, */*', false],
+            'case-insensitive' => ['Application/VND.API+JSON', true],
+        ];
     }
 }

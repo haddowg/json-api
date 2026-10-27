@@ -49,15 +49,16 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are ten scoped
+ * is warned only by the documents that contain it. There are eleven scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
  * resource declares ({@see DECLARED_LINKS}), the per-method operation ids of an action
  * answering to several methods ({@see ACTION_METHOD_IDS}), an action's declared safety
  * ({@see ACTION_SAFETY}), its own vendor extensions ({@see ACTION_EXTENSIONS}), the
- * scopes an operation needs ({@see SCOPES}) and a polymorphic relation with a single
- * related type ({@see SINGLE_TARGET_POLYMORPHISM}). A change that moves every
+ * scopes an operation needs ({@see SCOPES}), a polymorphic relation with a single
+ * related type ({@see SINGLE_TARGET_POLYMORPHISM}) and an action answering with a URL
+ * ({@see ACTION_LOCATION}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -71,7 +72,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 16;
+    public const CONTRACT = 17;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -153,6 +154,14 @@ final class GeneratorContract
     public const SINGLE_TARGET_POLYMORPHISM = 16;
 
     /**
+     * The contract that introduced an action answering with a URL: an action declaring
+     * {@see Metadata\SeeOther} documents a `200` location document beside its `303`, through
+     * the shared `LocationDocument` and `LocationLink` components. A document carries it
+     * only when an action declares one.
+     */
+    public const ACTION_LOCATION = 17;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -167,6 +176,7 @@ final class GeneratorContract
         bool $actionExtensions = false,
         bool $scopes = false,
         bool $singleTargetPolymorphism = false,
+        bool $actionLocations = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -179,6 +189,7 @@ final class GeneratorContract
             $actionExtensions ? self::ACTION_EXTENSIONS : self::BASELINE,
             $scopes ? self::SCOPES : self::BASELINE,
             $singleTargetPolymorphism ? self::SINGLE_TARGET_POLYMORPHISM : self::BASELINE,
+            $actionLocations ? self::ACTION_LOCATION : self::BASELINE,
         )];
     }
 }

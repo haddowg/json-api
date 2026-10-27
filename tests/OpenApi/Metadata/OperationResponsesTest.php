@@ -161,4 +161,24 @@ final class OperationResponsesTest extends TestCase
 
         OperationResponses::validate(OperationType::Update, [$first, $second]);
     }
+
+    #[Test]
+    public function seeOtherKeepsItsBareFormAndTakesADescriptionAndMediaType(): void
+    {
+        $bare = new SeeOther();
+        self::assertNull($bare->description);
+        self::assertNull($bare->mediaType);
+
+        $declared = new SeeOther('A link to the export.', 'text/csv');
+        self::assertSame('A link to the export.', $declared->description);
+        self::assertSame('text/csv', $declared->mediaType);
+    }
+
+    #[Test]
+    public function seeOtherRejectsAMediaTypeThatIsNotConcrete(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new SeeOther(mediaType: 'text/*');
+    }
 }

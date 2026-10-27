@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Negotiation;
 
 use haddowg\JsonApi\Exception\MediaTypeUnacceptable;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
+use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\Request\MediaType;
 
 /**
@@ -67,6 +70,52 @@ final class AcceptNegotiator
     public static function negotiate(string $accept, array $available): string
     {
         return self::best($accept, $available) ?? throw new MediaTypeUnacceptable($accept);
+    }
+
+    /**
+     * The media type a custom action answers in, from the responses it declares
+     * ({@see ActionResponses::mediaTypes()}). An action that declares a {@see SeeOther}
+     * can always answer, with its `303`, so where no declared media type is acceptable it
+     * gets `null` rather than a `406`: a browser navigating to a download sends
+     * `text/html` and must still be redirected.
+     *
+     * @param list<OperationResponseInterface> $responds
+     *
+     * @throws MediaTypeUnacceptable when the client accepts none of them and the action declares no {@see SeeOther} (`406`)
+     */
+    public static function negotiateAction(string $accept, array $responds): ?string
+    {
+        $best = self::best($accept, ActionResponses::mediaTypes($responds));
+        if ($best === null && ActionResponses::seeOther($responds) === null) {
+            throw new MediaTypeUnacceptable($accept);
+        }
+
+        return $best;
+    }
+
+    /**
+     * Whether a custom action's {@see SeeOther} answers with the `200` location document
+     * rather than the `303`: only when the `Accept` header names
+     * `application/vnd.api+json` itself, and no other range it lists weighs more.
+     *
+     * A wildcard never counts as asking for JSON:API, so an absent `Accept`, `*\/*`, a
+     * browser's navigation `Accept` and a `text/csv` all get the `303`. A JSON:API range
+     * carrying a parameter other than `ext` or `profile` counts as absent, as in
+     * {@see best()}. On equal weights JSON:API wins, since the client named it.
+     */
+    public static function prefersJsonApi(string $accept): bool
+    {
+        $jsonApi = 0.0;
+        $other = 0.0;
+        foreach (self::ranges($accept) as [$range, , $q]) {
+            if ($range === self::JSON_API) {
+                $jsonApi = \max($jsonApi, $q);
+            } else {
+                $other = \max($other, $q);
+            }
+        }
+
+        return $jsonApi > 0.0 && $jsonApi >= $other;
     }
 
     /**

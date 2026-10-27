@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\OpenApi;
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
@@ -16,6 +17,7 @@ use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -82,6 +84,14 @@ final class OpenApiProjector
         // enum short name is disambiguated rather than overwriting it.
         if ($this->referencesMetaDocument($server)) {
             $schemas['MetaDocument'] = $this->metaDocumentSchema();
+        }
+
+        // An action declaring SeeOther answers a JSON:API request with the shared
+        // location document; emitted only when one does.
+        $actionLocations = self::declaresActionLocation($server);
+        if ($actionLocations) {
+            $schemas['LocationLink'] = $this->locationLinkSchema();
+            $schemas['LocationDocument'] = $this->locationDocumentSchema();
         }
 
         // Seed the collector with the shared component names already in `$schemas`
@@ -157,7 +167,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -241,7 +251,7 @@ final class OpenApiProjector
      * metadata-driven: it describes the structure this library emits, so a server has
      * nothing to say about it.
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -261,6 +271,7 @@ final class OpenApiProjector
             actionExtensions: $actions['actionExtensions'],
             scopes: $scopes,
             singleTargetPolymorphism: self::hasSingleTargetPolymorphism($server),
+            actionLocations: $actionLocations,
         ));
     }
 
@@ -484,6 +495,64 @@ final class OpenApiProjector
             ->withProperty('links', Schema::ref('#/components/schemas/Links'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['meta']);
+    }
+
+    /**
+     * Whether any action declares a {@see SeeOther}, so answers with a URL. The document
+     * then carries the location components, and the generator contract reflects it
+     * ({@see GeneratorContract::ACTION_LOCATION}).
+     */
+    private static function declaresActionLocation(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                if (ActionResponses::seeOther($action->responds()) !== null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The `location` link of an action's location document: the URL the action produced,
+     * the media type it serves when known, and when it expires.
+     */
+    private function locationLinkSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('The URL a custom action produced, such as a short-lived download link.')
+            ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
+            ->withProperty('type', Schema::ofType('string')->withDescription('The media type the URL serves, when known.'))
+            ->withProperty('meta', Schema::ofType('object')
+                ->withProperty('expiresAt', Schema::ofType('string')->withFormat('date-time')->withDescription('When the URL stops working.'))
+                ->withRequired(['expiresAt']))
+            ->withRequired(['href']);
+    }
+
+    /**
+     * The document an action declaring {@see SeeOther} answers a JSON:API request with:
+     * the URL as its `links.location`, and its expiry, `null` when it has none, as the
+     * required top-level `meta`.
+     */
+    private function locationDocumentSchema(): Schema
+    {
+        $link = Schema::ref(ComponentNaming::schemaRef('LinkObject'));
+
+        return Schema::ofType('object')
+            ->withDescription('The URL a custom action produced, as the document\'s `location` link.')
+            ->withProperty('links', Schema::ofType('object')
+                ->withProperty('self', $link)
+                ->withProperty('location', Schema::ref(ComponentNaming::schemaRef('LocationLink')))
+                ->withProperty('describedby', $link)
+                ->withRequired(['location']))
+            ->withProperty('meta', Schema::ofType('object')
+                ->withProperty('expiresAt', Schema::nullable('string')->withFormat('date-time')->withDescription('When the URL stops working, or `null` when it does not expire.'))
+                ->withAdditionalProperties(Schema::create())
+                ->withRequired(['expiresAt']))
+            ->withProperty('jsonapi', Schema::ref(ComponentNaming::schemaRef('JsonApi')))
+            ->withRequired(['links', 'meta']);
     }
 
     /**

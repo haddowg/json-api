@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 
@@ -265,6 +266,12 @@ final class OperationExampleProjector
                         $reference,
                     );
                 }
+            } elseif ($response instanceof SeeOther) {
+                $responses[200] ??= fn(): array => $builder->locationDocument(
+                    $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
+                    $reference,
+                    $response->mediaType,
+                );
             } elseif ($response instanceof Accepted) {
                 $job = $builder->type($response->jobType());
                 if ($job !== null) {
