@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0](https://github.com/haddowg/json-api/compare/v1.19.1...v1.20.0) (2026-10-27)
+
+
+### Features
+
+* share one links schema per context across the OpenAPI document ([#262](https://github.com/haddowg/json-api/issues/262)) ([6957a79](https://github.com/haddowg/json-api/commit/6957a79ba8ceb746acc2bfffa9e19a4d46fba60e))
+
 ## [1.19.1](https://github.com/haddowg/json-api/compare/v1.19.0...v1.19.1) (2026-10-27)
 
 
