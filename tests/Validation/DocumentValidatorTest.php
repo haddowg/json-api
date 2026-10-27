@@ -163,6 +163,73 @@ final class DocumentValidatorTest extends TestCase
         }
     }
 
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function attributesHoldingAReservedMember(): iterable
+    {
+        yield 'links in a nested object' => [['address' => ['street' => '1 Main St', 'links' => ['self' => '/addresses/1']]]];
+        yield 'relationships deep in nested objects' => [['settings' => ['display' => ['theme' => ['relationships' => []]]]]];
+        yield 'links in an object inside an array' => [['tags' => [['name' => 'rock'], ['name' => 'jazz', 'links' => null]]]];
+        yield 'relationships in an object inside nested arrays' => [['grid' => [[['relationships' => 'x']]]]];
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function attributesFreeOfReservedMembers(): iterable
+    {
+        yield 'look-alike member names' => [['address' => ['link' => '/a', 'relationshipsCount' => 2, 'linkset' => [['hrefs' => []]]]]];
+        yield 'a reserved name as a string value' => [['address' => ['kind' => 'links'], 'labels' => ['relationships']]];
+        yield 'top-level attributes named links and relationships' => [['links' => ['self' => 'x'], 'relationships' => 3]];
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Test]
+    #[DataProvider('attributesHoldingAReservedMember')]
+    public function anAttributeValueMayNotHoldAReservedMember(array $attributes): void
+    {
+        try {
+            $this->validator()->validateResponse(['data' => ['type' => 'people', 'id' => '1', 'attributes' => $attributes]]);
+            self::fail('Expected ResponseBodyInvalidJsonApi.');
+        } catch (ResponseBodyInvalidJsonApi $exception) {
+            self::assertContains('/data', $this->pointerPrefixes($exception->validationErrors));
+        }
+
+        try {
+            $this->validator()->validateRequest(['data' => ['type' => 'people', 'attributes' => $attributes]]);
+            self::fail('Expected RequestBodyInvalidJsonApi.');
+        } catch (RequestBodyInvalidJsonApi $exception) {
+            self::assertContains('/data', $this->pointerPrefixes($exception->validationErrors));
+        }
+    }
+
+    #[Test]
+    public function aReservedMemberIsRejectedInAnIncludedResourceToo(): void
+    {
+        $this->expectException(ResponseBodyInvalidJsonApi::class);
+
+        $this->validator()->validateResponse([
+            'data' => ['type' => 'people', 'id' => '1'],
+            'included' => [['type' => 'people', 'id' => '2', 'attributes' => ['address' => ['links' => []]]]],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Test]
+    #[DataProvider('attributesFreeOfReservedMembers')]
+    public function anAttributeValueWithoutAReservedMemberPasses(array $attributes): void
+    {
+        $this->validator()->validateResponse(['data' => ['type' => 'people', 'id' => '1', 'attributes' => $attributes]]);
+        $this->validator()->validateRequest(['data' => ['type' => 'people', 'attributes' => $attributes]]);
+
+        $this->expectNotToPerformAssertions();
+    }
+
     #[Test]
     public function pointerLocatesTheOffendingPrimaryData(): void
     {
@@ -297,6 +364,22 @@ final class DocumentValidatorTest extends TestCase
         $this->validator()->validateResponse(
             ['data' => ['type' => 'articles', 'id' => '1', 'attributes' => ['title' => 123]]],
             [$schema],
+        );
+    }
+
+    /**
+     * The first segment of each violation pointer. opis 2.0 reports a failure inside
+     * `data`'s `oneOf` only at `/data`; later versions also drill to the member.
+     *
+     * @param list<array{message: string, property?: string}> $violations
+     *
+     * @return list<string>
+     */
+    private function pointerPrefixes(array $violations): array
+    {
+        return \array_map(
+            static fn(string $pointer): string => '/' . \explode('/', $pointer)[1],
+            $this->pointers($violations),
         );
     }
 

@@ -21,6 +21,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -524,6 +525,46 @@ final class TestingUtilitiesTest extends TestCase
         $this->expectExceptionMessageMatches('#^Document is not JSON:API spec-compliant:\n  /data(/attributes)?: #m');
 
         SpecCompliance::assert('{"data":{"type":"accounts","id":"1","attributes":[]}}');
+    }
+
+    #[Test]
+    public function specComplianceAssertionAcceptsLookAlikesOfTheReservedAttributeMembers(): void
+    {
+        $this->assertJsonApiSpecCompliant([
+            'data' => [
+                'type' => 'people',
+                'id' => '1',
+                'attributes' => [
+                    'links' => ['home' => '/people/1'],
+                    'address' => ['link' => '/a', 'relationshipsCount' => 2],
+                ],
+            ],
+        ]);
+
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function attributesHoldingAReservedMember(): iterable
+    {
+        yield 'links in a nested object' => [['address' => ['links' => ['self' => '/addresses/1']]]];
+        yield 'relationships deep in nested objects' => [['a' => ['b' => ['c' => ['relationships' => []]]]]];
+        yield 'links in an object inside an array' => [['tags' => [['name' => 'rock'], ['links' => null]]]];
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Test]
+    #[DataProvider('attributesHoldingAReservedMember')]
+    public function specComplianceAssertionFailsOnAReservedMemberInAnAttributeValue(array $attributes): void
+    {
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('not JSON:API spec-compliant');
+
+        $this->assertJsonApiSpecCompliant(['data' => ['type' => 'people', 'id' => '1', 'attributes' => $attributes]]);
     }
 
     #[Test]
