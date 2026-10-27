@@ -16,7 +16,7 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  * built, readonly value object the engine walks. Authors declare one with
  * {@see make()}, which returns a mutable {@see MorphToBuilder}.
  */
-final readonly class MorphTo extends AbstractRelationValue
+final readonly class MorphTo extends AbstractRelationValue implements PolymorphicRelationInterface
 {
     /**
      * @param non-empty-list<string> $types

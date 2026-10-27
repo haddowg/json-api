@@ -260,7 +260,25 @@ final class OpenApiProjector
             actionSafety: $actions['actionSafety'],
             actionExtensions: $actions['actionExtensions'],
             scopes: $scopes,
+            singleTargetPolymorphism: self::hasSingleTargetPolymorphism($server),
         ));
+    }
+
+    /**
+     * Whether some relation the server declares is polymorphic over a single type, which
+     * the document projects as a one-member union.
+     */
+    private static function hasSingleTargetPolymorphism(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (RelationFacts::isSingleTargetPolymorphic($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1395,8 +1413,9 @@ final class OpenApiProjector
 
     /**
      * A relation's related **resource** schema (not linkage): a `$ref` to the single
-     * related type's resource component for a monomorphic relation, a `oneOf` of every
-     * member's resource for a polymorphic one, and a permissive object for a relation
+     * related type's resource component for a monomorphic relation, an `anyOf` of every
+     * member's resource for a polymorphic one (a single member included, see
+     * {@see RelationFacts::isPolymorphic()}), and a permissive object for a relation
      * declaring no related types.
      */
     private function relatedResourceSchema(RelationMetadataInterface $relation): Schema
@@ -1406,8 +1425,9 @@ final class OpenApiProjector
             return Schema::ofType('object');
         }
 
-        if (\count($types) === 1) {
-            return Schema::ref('#/components/schemas/' . $this->componentBase($types[0]) . 'Resource');
+        $single = RelationFacts::monomorphicType($relation);
+        if ($single !== null) {
+            return Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'Resource');
         }
 
         $members = [];
@@ -1420,9 +1440,10 @@ final class OpenApiProjector
 
     /**
      * A relation's linkage identifier: a `$ref` to the single related type's
-     * identifier component for a monomorphic relation, or a `oneOf` of every member
-     * type's identifier for a polymorphic one. A relation declaring no related types
-     * degrades to a permissive identifier shape.
+     * identifier component for a monomorphic relation, or an `anyOf` of every member
+     * type's identifier for a polymorphic one, even a polymorphic one with a single
+     * member, so adding a member later changes no shape. A relation declaring no related
+     * types degrades to a permissive identifier shape.
      */
     private function linkageIdentifierSchema(RelationMetadataInterface $relation, string $relBase, bool $writing): Schema
     {
@@ -1434,8 +1455,9 @@ final class OpenApiProjector
                 ->withRequired(['type', 'id']);
         }
 
-        if (\count($types) === 1) {
-            $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($types[0]) . 'ResourceIdentifier');
+        $single = RelationFacts::monomorphicType($relation);
+        if ($single !== null) {
+            $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'ResourceIdentifier');
 
             // A pivot-backed (belongsToMany) relation carries typed pivot data in each
             // linkage identifier's `meta.pivot`. Compose it onto the base identifier via

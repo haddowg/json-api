@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Schema;
@@ -16,7 +17,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation
 {
     /**
      * @param list<string>          $relatedTypes
@@ -46,7 +47,23 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresR
         private readonly array $pivotFields = [],
         private readonly ?string $exampleId = null,
         private readonly bool $alwaysCounts = false,
+        private readonly bool $polymorphic = false,
     ) {}
+
+    /**
+     * A polymorphic relation, which a `MorphTo` or `MorphToMany` is however many types it lists.
+     *
+     * @param non-empty-list<string> $relatedTypes
+     */
+    public static function morph(string $name, array $relatedTypes, bool $toMany = false): self
+    {
+        return new self($name, $relatedTypes, $toMany, polymorphic: true);
+    }
+
+    public function isPolymorphic(): bool
+    {
+        return $this->polymorphic || \count($this->relatedTypes) > 1;
+    }
 
     public function exampleId(): ?string
     {

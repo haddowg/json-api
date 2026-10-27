@@ -20,7 +20,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * {@see PolymorphicSerializer} that resolves and delegates per member. Authors
  * declare one with {@see make()}, which returns a mutable {@see MorphToManyBuilder}.
  */
-final readonly class MorphToMany extends AbstractRelationValue
+final readonly class MorphToMany extends AbstractRelationValue implements PolymorphicRelationInterface
 {
     /**
      * @param non-empty-list<string> $types

@@ -306,6 +306,12 @@ related object's type reports. A null related value renders `data: null` (the
 linkage is bound to the first declared, registered serializer so the relationship
 still carries a resource).
 
+A `MorphTo` is polymorphic however many types it lists. The OpenAPI document describes
+one over a single type as a union with one member, not as a `BelongsTo`, so adding a
+type later doesn't change a generated client's shape; see
+[polymorphic relations with one type](openapi.md#polymorphic-relations-with-one-type).
+The same holds for `MorphToMany`.
+
 > The `extractUsing()` here is the one custom reader in the example app — a
 > polymorphic to-one is a natural place to need one when the related value is
 > *derived* rather than a plain property. For a relation whose property matches its

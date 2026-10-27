@@ -537,9 +537,9 @@ final class OperationProjector
             // `filter[]` vocabulary (a relation filter that excludes the target nulls the
             // linkage), but not `sort`/`page` (a to-one is not a collection; those are
             // simply not advertised). A POLYMORPHIC to-one (MorphTo) has no shared filter
-            // vocabulary — any filter `400`s — so it advertises none.
+            // vocabulary — any filter `400`s — so it advertises none, even over one type.
             $parameters = $this->concatParameters(
-                \count($relation->relatedTypes()) === 1
+                RelationFacts::monomorphicType($relation) !== null
                     ? $this->relatedFilterParameters($relation, $server)
                     : [],
                 [$includeParameter],
@@ -596,10 +596,10 @@ final class OperationProjector
         // span types, no single related provider or shared vocabulary) takes no query
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {
-            $getParameters = \count($relation->relatedTypes()) === 1
+            $getParameters = RelationFacts::monomorphicType($relation) !== null
                 ? $this->relatedFilterParameters($relation, $server)
                 : [];
-        } elseif (\count($relation->relatedTypes()) === 1) {
+        } elseif (RelationFacts::monomorphicType($relation) !== null) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
@@ -1389,9 +1389,9 @@ final class OperationProjector
      */
     private function relatedTypeMetadata(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?TypeMetadataInterface
     {
-        $types = $relation->relatedTypes();
+        $single = RelationFacts::monomorphicType($relation);
 
-        return \count($types) === 1 ? $this->typeNamed($types[0], $server) : null;
+        return $single !== null ? $this->typeNamed($single, $server) : null;
     }
 
     /**
