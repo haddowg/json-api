@@ -96,24 +96,24 @@ final class ActionLinkProjectionTest extends TestCase
     }
 
     #[Test]
-    public function anActionLinkForAMissingActionFailsTheProjection(): void
+    public function anActionLinkForAnActionThisServerLacksIsLeftOut(): void
     {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('Type "files" declares an action link for "complete", but it has no resource-scope action with that path.');
+        $document = $this->project([ActionLink::for('complete')->describedAs('Pending only.')->build()], []);
 
-        $this->project([ActionLink::for('complete')->build()], []);
+        self::assertSame(['self'], \array_keys(self::arr(self::resourceLinks($document)['properties'])));
+        $links = self::arr(self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'links'));
+        self::assertSame(['self'], \array_keys($links));
     }
 
     #[Test]
-    public function anActionLinkForACollectionActionFailsTheProjection(): void
+    public function anActionLinkForACollectionActionIsLeftOut(): void
     {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('Type "files" declares an action link for "complete", but it has no resource-scope action with that path.');
-
-        $this->project(
+        $document = $this->project(
             [ActionLink::for('complete')->build()],
             [new FakeActionMetadata('complete', ['POST'], ActionScope::Collection, ActionInputMode::None)],
         );
+
+        self::assertSame(['self'], \array_keys(self::arr(self::resourceLinks($document)['properties'])));
     }
 
     #[Test]

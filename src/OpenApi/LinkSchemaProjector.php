@@ -173,8 +173,9 @@ final readonly class LinkSchemaProjector
      * an action link for its path ({@see DeclaresActionLinks}); the declaration's
      * description then wins.
      *
-     * An action link for a path that names no resource-scope action of the type fails, since
-     * the document would describe a link the server can never render.
+     * An action link for a path that names no resource-scope action of the type on this
+     * server is left out, since this server never renders it. An adapter checks that some
+     * server serving the type has the action, which a single server's projection can't see.
      *
      * @return array<string, array{action: ActionMetadataInterface, description: ?string}>
      */
@@ -188,12 +189,10 @@ final readonly class LinkSchemaProjector
         }
 
         $links = [];
-        $resourceActions = [];
         foreach ($type->actions() as $action) {
             if ($action->scope() !== ActionScope::Resource) {
                 continue;
             }
-            $resourceActions[$action->path()] = true;
             $declaration = $declared[$action->path()] ?? null;
             $name = $declaration !== null
                 ? $action->path()
@@ -202,16 +201,6 @@ final readonly class LinkSchemaProjector
                 continue;
             }
             $links[$name] = ['action' => $action, 'description' => $declaration?->description];
-        }
-
-        foreach ($declared as $path => $link) {
-            if (!isset($resourceActions[$path])) {
-                throw new \LogicException(\sprintf(
-                    'Type "%s" declares an action link for "%s", but it has no resource-scope action with that path.',
-                    $type->type(),
-                    $path,
-                ));
-            }
         }
 
         return $links;

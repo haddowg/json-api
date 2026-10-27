@@ -272,8 +272,10 @@ isn't described.
 
 `allActionLinks()` returns the built action links, and `allLinks()` leaves them out. Two
 action links for one path, or a declared link named like an action link, throw a
-`\LogicException` naming the resource class. So does projecting a type whose action link
-names no resource-scope action of that type
+`\LogicException` naming the resource class. A resource served on several servers may name
+an action only some of them expose: a server without it neither renders nor projects the
+link. An adapter fails the build when no server serving the type has the action, so a typo
+still gets caught
 ([ADR 0186](adr/0186-an-action-link-declared-on-the-resource-carries-its-condition-and-description.md)).
 
 ## Link forms

@@ -576,8 +576,8 @@ A type whose resource declares [action links](links-and-meta.md#action-links) re
 through the opt-in `DeclaresActionLinks` type metadata. Each names a resource-scope action
 whose link the type's `<Type>ResourceLinks` then lists, whether or not the action's own
 metadata names a link, and its `describedAs()` replaces the generic action-link
-description. An action link naming no resource-scope action of the type fails the
-projection.
+description. An action link naming no resource-scope action of the type on the document's
+server is left out of it.
 
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
