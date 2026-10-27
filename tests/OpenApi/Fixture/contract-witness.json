@@ -11301,7 +11301,7 @@
                         }
                     },
                     "publish": {
-                        "description": "The `publish` action on this resource. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
+                        "description": "Present while the article is a draft. The example uses the document's server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.",
                         "allOf": [
                             {
                                 "$ref": "#/components/schemas/RenderedLink"

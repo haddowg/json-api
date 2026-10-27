@@ -572,6 +572,13 @@ A declared link may not share its name with an action's link, the one
 [`DeclaresActionLink`](#the-metadata-contract) names. The projection fails rather than
 describing one of them wrongly.
 
+A type whose resource declares [action links](links-and-meta.md#action-links) reports them
+through the opt-in `DeclaresActionLinks` type metadata. Each names a resource-scope action
+whose link the type's `<Type>ResourceLinks` then lists, whether or not the action's own
+metadata names a link, and its `describedAs()` replaces the generic action-link
+description. An action link naming no resource-scope action of the type fails the
+projection.
+
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
 strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
@@ -807,7 +814,7 @@ collection paginator's `wantsCount()`. `DeclaresRelationExampleId` extends
 `RelationMetadataInterface` with `exampleId(): ?string`: return the core relation's
 `exampleId()`.
 
-Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
+Four more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
 `documentUrl(): ?string`, the URI-reference the document is served at, which every
 `describedby` points into. Metadata that doesn't implement it projects link objects without
@@ -816,7 +823,10 @@ Two more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface`
 name is listed under it in its type's `<Type>ResourceLinks`, described by its first declared
 method. `DeclaresResourceLinks` extends `TypeMetadataInterface` with
 `declaredLinks(): list<DeclaredLink>`: return the resource's `allLinks()`. Metadata that
-doesn't implement it projects no declared links.
+doesn't implement it projects no declared links. `DeclaresActionLinks` extends
+`TypeMetadataInterface` with `actionLinks(): list<ActionLink>`: return the resource's
+`allActionLinks()`. Metadata that doesn't implement it projects only the action links
+`DeclaresActionLink` names.
 
 Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `readOnly()`,
 `destructive()` and `idempotent()`, each `?bool`, which project as

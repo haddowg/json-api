@@ -27,6 +27,12 @@ the OpenAPI projection can describe it; its `meta` members are **Fields**.
 _Avoid_: custom link, extra link. (Distinct from a link `getLinks()` returns at runtime, which
 the projection cannot name.)
 
+**Action link**:
+A **Resource**'s declaration that one of its type's resource-scope custom actions renders as
+a member of its `links`, keyed by the action's path, with an optional condition and
+description. The adapter builds the href from the action.
+_Avoid_: conditional link. (A **Declared link** builds its own href.)
+
 **Constraint**:
 Inert validation metadata attached to a **Field**; the core never executes it.
 _Avoid_: rule, assertion.
