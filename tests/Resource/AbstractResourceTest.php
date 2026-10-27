@@ -10,6 +10,7 @@ use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\Boolean;
@@ -20,6 +21,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
@@ -461,6 +463,87 @@ final class AbstractResourceTest extends TestCase
             ->build();
 
         self::assertSame(['type', 'id'], \array_map(static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $member): string => $member->name(), $link->meta));
+    }
+
+    /**
+     * @return iterable<string, array{FieldBuilderInterface, string}>
+     */
+    public static function reservedNestedMemberNames(): iterable
+    {
+        yield 'obj child named links' => [Obj::make('address')->fields(Str::make('links')), 'address.links'];
+        yield 'obj child named relationships' => [Obj::make('address')->fields(Str::make('relationships')), 'address.relationships'];
+        yield 'map child named links' => [Map::make('labels')->fields(Str::make('links')), 'labels.links'];
+        yield 'map child named relationships' => [Map::make('labels')->fields(Str::make('relationships')), 'labels.relationships'];
+        yield 'obj nested in obj' => [
+            Obj::make('address')->fields(Obj::make('geo')->fields(Str::make('links'))),
+            'address.geo.links',
+        ];
+        yield 'obj nested in map' => [
+            Map::make('labels')->fields(Obj::make('origin')->fields(Str::make('relationships'))),
+            'labels.origin.relationships',
+        ];
+        yield 'obj child that is itself an obj' => [Obj::make('address')->fields(Obj::make('links')), 'address.links'];
+        yield 'oneOf variant child' => [
+            OneOf::make('payment')->variant('card', Str::make('links')),
+            'payment.links',
+        ];
+        yield 'oneOf discriminator' => [
+            OneOf::make('payment')->discriminator('relationships')->variant('card', Str::make('last4')),
+            'payment.relationships',
+        ];
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    #[DataProvider('reservedNestedMemberNames')]
+    public function aNestedMemberNamedRelationshipsOrLinksIsRejectedAtBuild(FieldBuilderInterface $field, string $path): void
+    {
+        $resource = new ReservedNameResource([Id::make(), $field]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(\sprintf('Resource "%s" declares the attribute member "%s"', ReservedNameResource::class, $path));
+
+        $resource->allFields();
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function aRejectedNestedMemberIsRejectedOnEveryCall(): void
+    {
+        $resource = new ReservedNameResource([Id::make(), Obj::make('address')->fields(Str::make('links'))]);
+
+        for ($call = 0; $call < 2; ++$call) {
+            try {
+                $resource->allFields();
+                self::fail('Expected the reserved nested member to be rejected.');
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString('"address.links"', $exception->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function lookAlikesOfTheReservedNestedMembersAreAllowed(): void
+    {
+        // The rule covers objects an attribute value holds. The resource's own fields, a
+        // relationship, a free-form value and names that merely resemble the reserved
+        // ones are all outside it.
+        $resource = new ReservedNameResource([
+            Id::make(),
+            Str::make('links'),
+            ArrayHash::make('extra'),
+            HasMany::make('relationships', 'others'),
+            Obj::make('address')->fields(Str::make('link'), Str::make('selfLinks'), Str::make('Links'), Str::make('relationshipsCount')),
+            Map::make('labels')->fields(Str::make('linked'), Obj::make('meta')->fields(Str::make('relationship'))),
+            OneOf::make('payment')->variant('links', Str::make('last4')),
+            BelongsToMany::make('tags', 'tags')->fields(Str::make('links'), Str::make('relationships')),
+        ]);
+
+        self::assertSame(
+            ['id', 'links', 'extra', 'relationships', 'address', 'labels', 'payment', 'tags'],
+            $resource->declaredFieldNames(),
+        );
     }
 
     #[Test]
