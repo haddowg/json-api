@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkObjects;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
@@ -98,17 +100,7 @@ final readonly class LinkSchemaProjector
             ->withDescription(\sprintf('The `links` of a resource object of type `%s`.', $type->type()))
             ->withProperty('self', $this->member($resourcePath, OperationReference::fetchOne($uriType), 'The resource\'s own URL.'));
 
-        $actionLinks = [];
-        foreach ($type->actions() as $action) {
-            if (!$action instanceof DeclaresActionLink || $action->scope() !== ActionScope::Resource) {
-                continue;
-            }
-            $name = $action->linkName();
-            if ($name === null || $name === '' || $action->methods() === []) {
-                continue;
-            }
-            $actionLinks[$name] = $action;
-        }
+        $actionLinks = self::actionLinksOf($type);
 
         foreach (self::declaredLinksOf($type) as $link) {
             if (isset($actionLinks[$link->name])) {
@@ -116,17 +108,17 @@ final readonly class LinkSchemaProjector
                     'Type "%s" declares the link "%s", which its "%s" action also renders as a resource link. Rename one of them.',
                     $type->type(),
                     $link->name,
-                    $actionLinks[$link->name]->path(),
+                    $actionLinks[$link->name]['action']->path(),
                 ));
             }
             $resource = $resource->withProperty($link->name, $this->declaredLinkSchema($link, $fields, $collector));
         }
 
-        foreach ($actionLinks as $name => $action) {
+        foreach ($actionLinks as $name => ['action' => $action, 'description' => $description]) {
             $resource = $resource->withProperty($name, $this->member(
                 $this->examplePath(PathTemplate::action($uriType, $action->path(), ActionScope::Resource), $type),
                 OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0]),
-                \sprintf('The `%s` action on this resource.', $action->path()),
+                $description ?? \sprintf('The `%s` action on this resource.', $action->path()),
             ));
         }
         $components[$base . 'ResourceLinks'] = self::withObjectExample($resource)->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
@@ -172,6 +164,46 @@ final readonly class LinkSchemaProjector
     public static function declaredLinksOf(TypeMetadataInterface $type): array
     {
         return $type instanceof DeclaresResourceLinks ? $type->declaredLinks() : [];
+    }
+
+    /**
+     * The resource-scope actions a type renders as resource links, keyed by link name, in
+     * action order, each with the description its declared action link gives it. An action
+     * links when it says so through {@see DeclaresActionLink}, or when the type declares
+     * an action link for its path ({@see DeclaresActionLinks}); the declaration's
+     * description then wins.
+     *
+     * An action link for a path that names no resource-scope action of the type on this
+     * server is left out, since this server never renders it. An adapter checks that some
+     * server serving the type has the action, which a single server's projection can't see.
+     *
+     * @return array<string, array{action: ActionMetadataInterface, description: ?string}>
+     */
+    public static function actionLinksOf(TypeMetadataInterface $type): array
+    {
+        $declared = [];
+        if ($type instanceof DeclaresActionLinks) {
+            foreach ($type->actionLinks() as $link) {
+                $declared[$link->path] = $link;
+            }
+        }
+
+        $links = [];
+        foreach ($type->actions() as $action) {
+            if ($action->scope() !== ActionScope::Resource) {
+                continue;
+            }
+            $declaration = $declared[$action->path()] ?? null;
+            $name = $declaration !== null
+                ? $action->path()
+                : ($action instanceof DeclaresActionLink ? $action->linkName() : null);
+            if ($name === null || $name === '' || $action->methods() === []) {
+                continue;
+            }
+            $links[$name] = ['action' => $action, 'description' => $declaration?->description];
+        }
+
+        return $links;
     }
 
     /**

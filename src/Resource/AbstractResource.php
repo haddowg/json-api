@@ -83,6 +83,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     private ?array $linkCache = null;
 
     /**
+     * @var list<\haddowg\JsonApi\Resource\Link\ActionLink>|null
+     */
+    private ?array $actionLinkCache = null;
+
+    /**
      * Each attribute field as it renders under a server default output zone, keyed by
      * zone then field name. The original is kept beside it so a field a subclass
      * rebuilds is never answered from a stale entry.
@@ -387,9 +392,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * {@see fields()} declares attributes so the OpenAPI projection can describe them.
      * Each entry may be a {@see \haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder}
      * (what `DeclaredLink::make(…)->…` returns) or a built
-     * {@see \haddowg\JsonApi\Resource\Link\DeclaredLink}. Default: none.
+     * {@see \haddowg\JsonApi\Resource\Link\DeclaredLink}, or an action link: an
+     * {@see \haddowg\JsonApi\Resource\Link\ActionLinkBuilder} (what
+     * `ActionLink::for(…)->…` returns) or a built
+     * {@see \haddowg\JsonApi\Resource\Link\ActionLink}, which renders one of the type's
+     * resource-scope custom actions as a link. Default: none.
      *
-     * @return list<\haddowg\JsonApi\Resource\Link\DeclaredLink|\haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder>
+     * @return list<\haddowg\JsonApi\Resource\Link\DeclaredLink|\haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder|\haddowg\JsonApi\Resource\Link\ActionLink|\haddowg\JsonApi\Resource\Link\ActionLinkBuilder>
      */
     public function links(): array
     {
@@ -397,27 +406,68 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
-     * The resource's **built** declared links: every {@see links()} entry frozen into its
-     * value object, cached for the resource's lifetime. This is what the renderer and an
-     * adapter's OpenAPI metadata read. Two links with one name are a wiring error.
+     * The resource's **built** declared links: every {@see links()} entry that is not an
+     * action link, frozen into its value object and cached for the resource's lifetime.
+     * This is what the renderer and an adapter's OpenAPI metadata read. Two links with one
+     * name, or a link named like an action link, are a wiring error.
      *
      * @return list<\haddowg\JsonApi\Resource\Link\DeclaredLink>
      */
     final public function allLinks(): array
     {
         if ($this->linkCache === null) {
-            $links = [];
-            foreach ($this->links() as $link) {
-                $link = $link instanceof \haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder ? $link->build() : $link;
-                if (isset($links[$link->name])) {
-                    throw new \LogicException(\sprintf('Resource "%s" declares the link "%s" twice.', static::class, $link->name));
-                }
-                $links[$link->name] = $link;
-            }
-            $this->linkCache = \array_values($links);
+            $this->buildLinks();
         }
 
-        return $this->linkCache;
+        return $this->linkCache ?? [];
+    }
+
+    /**
+     * The resource's **built** action links, in declaration order: every {@see links()}
+     * entry that is an action link. An adapter reads them to render the actions they name
+     * as links. Two action links for one path are a wiring error.
+     *
+     * @return list<\haddowg\JsonApi\Resource\Link\ActionLink>
+     */
+    final public function allActionLinks(): array
+    {
+        if ($this->actionLinkCache === null) {
+            $this->buildLinks();
+        }
+
+        return $this->actionLinkCache ?? [];
+    }
+
+    private function buildLinks(): void
+    {
+        $links = [];
+        $actionLinks = [];
+        foreach ($this->links() as $link) {
+            if ($link instanceof \haddowg\JsonApi\Resource\Link\ActionLinkBuilder || $link instanceof \haddowg\JsonApi\Resource\Link\ActionLink) {
+                $link = $link instanceof \haddowg\JsonApi\Resource\Link\ActionLinkBuilder ? $link->build() : $link;
+                if (isset($actionLinks[$link->path])) {
+                    throw new \LogicException(\sprintf('Resource "%s" declares the action link "%s" twice.', static::class, $link->path));
+                }
+                $actionLinks[$link->path] = $link;
+
+                continue;
+            }
+
+            $link = $link instanceof \haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder ? $link->build() : $link;
+            if (isset($links[$link->name])) {
+                throw new \LogicException(\sprintf('Resource "%s" declares the link "%s" twice.', static::class, $link->name));
+            }
+            $links[$link->name] = $link;
+        }
+
+        foreach ($links as $name => $link) {
+            if (isset($actionLinks[$name])) {
+                throw new \LogicException(\sprintf('Resource "%s" declares the link "%s" and an action link for the "%s" action, which renders under the same name. Rename the declared link.', static::class, $name, $name));
+            }
+        }
+
+        $this->linkCache = \array_values($links);
+        $this->actionLinkCache = \array_values($actionLinks);
     }
 
     public function renderDeclaredLinks(mixed $object, JsonApiRequestInterface $request): array

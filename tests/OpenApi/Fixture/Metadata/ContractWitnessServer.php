@@ -68,6 +68,7 @@ use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
+use haddowg\JsonApi\Resource\Link\ActionLink;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -368,7 +369,7 @@ final class ContractWitnessServer
             ],
             sorts: [SortByField::make('title'), SortByField::make('wordCount')],
             actions: [
-                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', linkName: 'publish', example: false),
+                new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', example: false),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles'], description: 'Save a draft revision.'),
                 new FakeActionMetadata('stats', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: new OperationExample(responses: [200 => ['meta' => ['published' => 12]]])),
@@ -410,6 +411,14 @@ final class ContractWitnessServer
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],
+            // `publish` links through a declared action link, which implies the link and
+            // replaces its description; `download` links through its own metadata.
+            actionLinks: [
+                ActionLink::for('publish')
+                    ->when(static fn(mixed $article, JsonApiRequestInterface $request): bool => true)
+                    ->describedAs('Present while the article is a draft.')
+                    ->build(),
+            ],
             idPattern: 'art-[0-9]+',
             operationDescriptions: [OperationType::FetchCollection->value => 'List every article the caller may read.'],
             // Example overrides: a meta-only delete the projector cannot exemplify, and a

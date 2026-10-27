@@ -6,7 +6,6 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -377,14 +376,7 @@ final class ExampleDocumentBuilder
             $links[$link->name] = $this->declaredLink($type, $link);
         }
 
-        foreach ($type->actions() as $action) {
-            if (!$action instanceof DeclaresActionLink || $action->scope() !== ActionScope::Resource) {
-                continue;
-            }
-            $name = $action->linkName();
-            if ($name === null || $name === '' || $action->methods() === []) {
-                continue;
-            }
+        foreach (LinkSchemaProjector::actionLinksOf($type) as $name => ['action' => $action]) {
             $links[$name] = $this->links->renderedLink(
                 $this->path(PathTemplate::action($uriType, $action->path(), ActionScope::Resource), $id),
                 OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0]),

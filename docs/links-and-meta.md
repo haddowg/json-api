@@ -227,6 +227,57 @@ first of these wins:
 select attributes and relationships, never links, so a `fields[files]` parameter leaves
 declared links alone.
 
+### Action links
+
+An adapter can render one of a type's resource-scope custom actions as a member of each
+resource's `links`, keyed by the action's path. Declaring an `ActionLink` in `links()`
+does that for the action at the path you name, and adds two things the action can't say on
+its own: a condition the model and request must meet, and the description the OpenAPI
+document gives the link. A file that can be completed only while its upload is pending,
+and only by the person uploading it, is the usual case:
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Link\ActionLink;
+
+public function links(): array
+{
+    return [
+        ActionLink::for('complete')
+            ->when(fn(StoredFile $file, JsonApiRequestInterface $request): bool => $file->status === FileStatus::PendingUpload
+                && $file->uploaderId === $this->currentUser($request)?->id)
+            ->describedAs('Present while the file is PENDING_UPLOAD, for its uploader.'),
+    ];
+}
+```
+
+The adapter still builds the link from the action: its href on the server's link base,
+and the `describedby` that names the action's operation. It checks the action's security
+first and calls `when()` only when that passes, so the link renders when both do. Keep the
+state in `when()` rather than in the action's security: the security check runs again when
+the action is invoked, and a state test there would turn the handler's own error into a
+plain `403`.
+
+| Method | Does |
+| --- | --- |
+| `ActionLink::for($path)` | names a resource-scope action on the resource's own type |
+| `when(fn($model, $request): bool)` | renders the link only when it returns `true`; optional. The model parameter may be typed as your model class |
+| `describedAs()` | replaces the generic action-link description in `<Type>ResourceLinks` |
+
+Declaring an `ActionLink` implies the link, so the action doesn't need its adapter's own
+"render as a link" switch. When it has one too, the `ActionLink`'s condition and
+description apply. The projection is otherwise unchanged: the link is an optional property
+whose example's `describedby` points at the action's operation, and the condition itself
+isn't described.
+
+`allActionLinks()` returns the built action links, and `allLinks()` leaves them out. Two
+action links for one path, or a declared link named like an action link, throw a
+`\LogicException` naming the resource class. A resource served on several servers may name
+an action only some of them expose: a server without it neither renders nor projects the
+link. An adapter fails the build when no server serving the type has the action, so a typo
+still gets caught
+([ADR 0186](adr/0186-an-action-link-declared-on-the-resource-carries-its-condition-and-description.md)).
+
 ## Link forms
 
 The links the server builds for you (the [auto-emitted ones below](#auto-emitted-links-you-dont-set-by-hand))
