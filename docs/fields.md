@@ -52,6 +52,22 @@ another name and point it at the column with `storedAs('type')`. The rule covers
 a resource's own fields. A member of an `Obj` or `Map` value, a `BelongsToMany` pivot
 field and a declared link's `meta` member can all be called `type` or `id`.
 
+Inside an attribute value the spec reserves two other names. No object an attribute holds
+may contain a `relationships` or `links` member, at any depth. The resource checks every
+member it can see declared: the children of an `Obj` or `Map`, the variant children and
+discriminator of a `OneOf`, and the same again for any of those nested inside another.
+A declared member with either name throws a `\LogicException` naming the resource class
+and the member's dotted path, such as `address.links`. A resource's own fields aren't
+inside an attribute value, so an attribute or relationship called `links` or
+`relationships` is still allowed.
+
+The check stops at what is declared. An `ArrayHash`, a nested array handed to an `Obj` or
+`Map` under a key no child declares, or a value built in a `serializeUsing()` or
+`computedUsing()` hook is free-form, and nothing inspects it at runtime. The bundled
+JSON:API 1.1 schema doesn't reserve these two names either, so the spec-compliance
+assertion and the optional `DocumentValidator` won't flag them. Keeping `links` and
+`relationships` out of a free-form value is up to the code that builds it.
+
 [`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php)
 exposes a `durationSeconds` member backed by a differently named column, and a
 `displayTitle` member with no column at all:

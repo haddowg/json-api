@@ -1201,7 +1201,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * collection, so it is rejected here (the single point where every field is
      * first indexed) rather than letting the token silently win. It also rejects an
      * attribute or relationship named `type` or `id`, which JSON:API reserves for the
-     * resource object itself. The result is cached for the resource's lifetime.
+     * resource object itself, and a declared member named `relationships` or `links`
+     * anywhere inside an `Obj`, `Map` or `OneOf` attribute value, which JSON:API
+     * reserves in every object an attribute holds. The result is cached for the
+     * resource's lifetime.
      *
      * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
@@ -1231,11 +1234,48 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                         $field->name(),
                     ));
                 }
+                if (!$isRelation) {
+                    $this->guardReservedNestedMembers($field, $field->name());
+                }
             }
             $this->fieldCache = $fields;
         }
 
         return $this->fieldCache;
+    }
+
+    /**
+     * Walks the declared nesting of an attribute value, since JSON:API forbids a
+     * `relationships` or `links` member in any object an attribute holds.
+     */
+    private function guardReservedNestedMembers(\haddowg\JsonApi\Resource\Field\FieldInterface $field, string $path): void
+    {
+        $members = match (true) {
+            $field instanceof \haddowg\JsonApi\Resource\Field\Obj, $field instanceof \haddowg\JsonApi\Resource\Field\Map => $field->children(),
+            $field instanceof \haddowg\JsonApi\Resource\Field\OneOf => \array_merge(...\array_values(\array_map(
+                static fn(\haddowg\JsonApi\Resource\Field\Obj $variant): array => $variant->children(),
+                $field->variants(),
+            ))),
+            default => [],
+        };
+        $names = \array_map(static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $member): string => $member->name(), $members);
+        if ($field instanceof \haddowg\JsonApi\Resource\Field\OneOf) {
+            $names[] = $field->discriminatorName();
+        }
+
+        foreach ($names as $name) {
+            if (\in_array($name, ['relationships', 'links'], true)) {
+                throw new \LogicException(\sprintf(
+                    'Resource "%s" declares the attribute member "%s.%s", but JSON:API 1.1 reserves "relationships" and "links" in every object an attribute value holds.',
+                    static::class,
+                    $path,
+                    $name,
+                ));
+            }
+        }
+        foreach ($members as $member) {
+            $this->guardReservedNestedMembers($member, $path . '.' . $member->name());
+        }
     }
 
     /**
