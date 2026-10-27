@@ -399,13 +399,14 @@ final class ContractWitnessServer
                     new FakeActionMetadata('purge', ['POST'], ActionScope::Resource, ActionInputMode::None, tags: ['Articles'], destructive: true, extensions: ['workflows' => ['source' => 'workflows.arazzo.yaml', 'workflowId' => 'purgeArticle']]),
                 ] : []),
                 ...($actionLocations ? [
-                    // Actions answering with a URL: a typed and described download rendered as
-                    // a resource link, an untyped one, and one beside a 200 resource document.
+                    // Actions answering with a URL: a described CSV download rendered as a
+                    // resource link, and an octet-stream one beside a 200 resource document. The
+                    // bare SeeOther on `archive` is the control that stays a plain 303.
                     new FakeActionMetadata('download', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
                         new SeeOther('A short-lived link to the article as CSV.', 'text/csv'),
                     ], tags: ['Articles'], linkName: 'download', readOnly: true),
                     new FakeActionMetadata('archive', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new SeeOther()], tags: ['Articles']),
-                    new FakeActionMetadata('revision', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('articles'), new SeeOther()], tags: ['Articles'], example: false),
+                    new FakeActionMetadata('revision', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('articles'), new SeeOther(mediaType: 'application/octet-stream')], tags: ['Articles'], example: false),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],

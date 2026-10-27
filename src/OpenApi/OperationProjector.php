@@ -460,24 +460,21 @@ final class OperationProjector
     /**
      * An action's `200` location document, answering a request that prefers JSON:API.
      * The schema is the shared `LocationDocument`, narrowed to the declared media type's
-     * `type` when there is one. `$declared200` is a `200` JSON:API body the action also
-     * declares, which the location document joins in a `oneOf`.
+     * `type`. `$declared200` is a `200` JSON:API body the action also declares, which the
+     * location document joins in a `oneOf`.
      */
-    private function actionLocationResponse(SeeOther $declared, ?Response $declared200): Response
+    private function actionLocationResponse(SeeOther $declared, string $mediaType, ?Response $declared200): Response
     {
-        $schema = Schema::ref(ComponentNaming::schemaRef('LocationDocument'));
-        if ($declared->mediaType !== null) {
-            $schema = Schema::create()->withAllOf([
-                $schema,
+        $schema = Schema::create()->withAllOf([
+            Schema::ref(ComponentNaming::schemaRef('LocationDocument')),
+            Schema::ofType('object')->withProperty(
+                'links',
                 Schema::ofType('object')->withProperty(
-                    'links',
-                    Schema::ofType('object')->withProperty(
-                        'location',
-                        Schema::ofType('object')->withProperty('type', Schema::ofType('string')->withConst($declared->mediaType)),
-                    ),
+                    'location',
+                    Schema::ofType('object')->withProperty('type', Schema::ofType('string')->withConst($mediaType)),
                 ),
-            ]);
-        }
+            ),
+        ]);
 
         $existing = $declared200?->content[MediaType::JSON_API]->schema ?? null;
         if ($declared200 !== null && $existing !== null) {
@@ -808,9 +805,9 @@ final class OperationProjector
                 $byStatus[$response->status()] = $this->actionSuccessResponse($response, $server);
             }
         }
-        $seeOther = ActionResponses::seeOther($action->responds());
-        if ($seeOther !== null) {
-            $byStatus[200] = $this->actionLocationResponse($seeOther, $byStatus[200] ?? null);
+        $location = ActionResponses::location($action->responds());
+        if ($location?->mediaType !== null) {
+            $byStatus[200] = $this->actionLocationResponse($location, $location->mediaType, $byStatus[200] ?? null);
             \ksort($byStatus);
         }
         foreach ($action->responds() as $response) {
@@ -997,8 +994,9 @@ final class OperationProjector
      * The concrete success {@see Response} for one declared action response:
      * {@see ActionResource} → `200` with that type's document; {@see MetaResult} → `200`
      * meta-only document; {@see NoContent} → `204`; {@see Accepted} → the async `202`;
-     * {@see SeeOther} → the `303` to the URL the action produced, beside which
-     * {@see actionOperation()} adds the `200` location document.
+     * {@see SeeOther} → the plain `303`, or with a media type the `303` to the URL the
+     * action produced, beside which {@see actionOperation()} adds the `200` location
+     * document.
      */
     private function actionSuccessResponse(ActionResponse $response, ServerMetadataInterface $server): Response
     {
@@ -1013,7 +1011,9 @@ final class OperationProjector
             ),
             $response instanceof NoContent => Response::noContent('The action completed with no content.'),
             $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server),
-            $response instanceof SeeOther => $this->actionSeeOtherResponse($response),
+            $response instanceof SeeOther => $response->mediaType === null
+                ? $this->seeOtherResponse($response->description)
+                : $this->actionSeeOtherResponse($response),
             default => throw new \LogicException(\sprintf(
                 'Unsupported action response %s (status %d).',
                 $response::class,

@@ -155,9 +155,9 @@ final class GeneratorContract
 
     /**
      * The contract that introduced an action answering with a URL: an action declaring
-     * {@see Metadata\SeeOther} documents a `200` location document beside its `303`, through
-     * the shared `LocationDocument` and `LocationLink` components. A document carries it
-     * only when an action declares one.
+     * {@see Metadata\SeeOther} with a media type documents a `200` location document beside
+     * its `303`, through the shared `LocationDocument` and `LocationLink` components. A
+     * document carries it only when an action declares one.
      */
     public const ACTION_LOCATION = 17;
 

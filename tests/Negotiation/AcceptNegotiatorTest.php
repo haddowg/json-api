@@ -88,15 +88,31 @@ final class AcceptNegotiatorTest extends TestCase
     #[Test]
     public function anActionThatRedirectsStillOffersItsRawResults(): void
     {
-        self::assertSame('text/csv', AcceptNegotiator::negotiateAction('text/csv', [new SeeOther(), new RawResult('text/csv')]));
+        self::assertSame('text/csv', AcceptNegotiator::negotiateAction('text/csv', [new SeeOther(mediaType: 'text/csv'), new RawResult('text/csv')]));
     }
 
+    /**
+     * @return array<string, array{list<\haddowg\JsonApi\OpenApi\Metadata\ActionResponse>}>
+     */
+    public static function nonRedirectingDeclarations(): array
+    {
+        return [
+            'a meta result' => [[new MetaResult()]],
+            'a bare SeeOther' => [[new SeeOther()]],
+            'a SeeOther with only a description' => [[new SeeOther('The job is done.')]],
+        ];
+    }
+
+    /**
+     * @param list<\haddowg\JsonApi\OpenApi\Metadata\ActionResponse> $responds
+     */
     #[Test]
-    public function anActionThatCannotRedirectRefusesAnUnacceptableAccept(): void
+    #[DataProvider('nonRedirectingDeclarations')]
+    public function anActionThatDoesNotAnswerWithAUrlRefusesAnUnacceptableAccept(array $responds): void
     {
         $this->expectException(MediaTypeUnacceptable::class);
 
-        AcceptNegotiator::negotiateAction('text/html', [new MetaResult()]);
+        AcceptNegotiator::negotiateAction('text/html', $responds);
     }
 
     #[Test]

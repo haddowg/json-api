@@ -115,8 +115,9 @@ with `corsSafelisted` and `isExplicit()` for an integration that wants its own r
 An action that can answer in several media types, a JSON:API document or a CSV export
 say, picks one from `Accept` with `AcceptNegotiator::negotiate()`; see
 [raw action responses](openapi.md#raw-action-responses). An action that answers with a
-URL uses `AcceptNegotiator::negotiateAction()`, which never refuses an `Accept` because
-the action can always answer with its `303`; see
+URL, one declaring `SeeOther` with a media type, uses
+`AcceptNegotiator::negotiateAction()`, which never refuses an `Accept` because the action
+can always answer with its `303`; see
 [actions that answer with a URL](openapi.md#actions-that-answer-with-a-url).
 
 In practice your requests just assert the bare media type and pass, as the example

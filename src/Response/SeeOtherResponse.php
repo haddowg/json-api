@@ -22,8 +22,10 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * produced. It is always the bodiless `303` there; the document-level members do not
  * apply, but {@see withHeader()} does.
  *
- * From a custom action it is the URL the action produced, such as a short-lived
- * download link, and {@see \haddowg\JsonApi\Server\Server::dispatch()} marks it so.
+ * From a custom action whose declared {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther}
+ * names a media type it is the URL the action produced, such as a short-lived download
+ * link, and {@see \haddowg\JsonApi\Server\Server::dispatch()} marks it so. From any
+ * other action it stays the bodiless `303`.
  * A request whose `Accept` prefers JSON:API ({@see AcceptNegotiator::prefersJsonApi()})
  * then gets a `200` document instead, because a browser's `fetch()` cannot read a
  * `303`'s `Location`:
@@ -39,7 +41,8 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * }
  * ```
  *
- * `location.type` appears only when known and `location.meta` only with an expiry; the
+ * `location.type` is {@see withType()} or the declared media type, and `location.meta`
+ * appears only with an expiry; the
  * top-level `meta.expiresAt` is always there, `null` for a URL that does not expire.
  * Any other request gets the `303`. Both shapes carry `Cache-Control: no-store` and
  * `Vary: Accept` unless the handler set its own.
@@ -96,13 +99,13 @@ final class SeeOtherResponse extends AbstractResponse
     }
 
     /**
-     * Marks this response as a custom action's result, so it negotiates between the
-     * location document and the `303` and is never cached. `$mediaType` is the declared
-     * one, used when the handler set none.
+     * Marks this response as the result of an action that answers with a URL, so it
+     * negotiates between the location document and the `303` and is never cached.
+     * `$mediaType` is the one the action declares, used when the handler set none.
      *
      * @internal called by {@see \haddowg\JsonApi\Server\Server::dispatch()}
      */
-    public function fromAction(?string $mediaType = null): self
+    public function fromAction(string $mediaType): self
     {
         $self = clone $this;
         $self->fromAction = true;

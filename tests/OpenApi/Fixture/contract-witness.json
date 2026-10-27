@@ -5434,62 +5434,14 @@
                 "description": "Invokes the `archive` custom action on the articles collection.",
                 "operationId": "action.articles.archive",
                 "responses": {
-                    "200": {
-                        "description": "The URL the action produced, as its `location` link.",
-                        "headers": {
-                            "Cache-Control": {
-                                "description": "`no-store` unless the action sets its own: the URL may be short-lived.",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LocationDocument"
-                                },
-                                "example": {
-                                    "links": {
-                                        "self": {
-                                            "href": "https://api.example.com/articles/-actions/archive",
-                                            "describedby": "/docs/openapi.json#/paths/~1articles~1-actions~1archive/get"
-                                        },
-                                        "location": {
-                                            "href": "https://storage.example.com/downloads/example?signature=example",
-                                            "meta": {
-                                                "expiresAt": "2030-01-01T00:00:00+00:00"
-                                            }
-                                        },
-                                        "describedby": {
-                                            "href": "/docs/openapi.json#/paths/~1articles~1-actions~1archive/get"
-                                        }
-                                    },
-                                    "meta": {
-                                        "expiresAt": "2030-01-01T00:00:00+00:00"
-                                    },
-                                    "jsonapi": {
-                                        "version": "1.1"
-                                    }
-                                }
-                            }
-                        }
-                    },
                     "303": {
-                        "description": "Redirects to the URL the action produced.",
+                        "description": "The asynchronous operation is complete; follow Location to the produced resource.",
                         "headers": {
                             "Location": {
-                                "description": "The URL the action produced.",
-                                "required": true,
+                                "description": "The URL of the produced resource.",
                                 "schema": {
                                     "type": "string",
                                     "format": "uri-reference"
-                                }
-                            },
-                            "Cache-Control": {
-                                "description": "`no-store` unless the action sets its own: the URL may be short-lived.",
-                                "schema": {
-                                    "type": "string"
                                 }
                             }
                         }
@@ -5667,7 +5619,30 @@
                                             "$ref": "#/components/schemas/ArticlesDocument"
                                         },
                                         {
-                                            "$ref": "#/components/schemas/LocationDocument"
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/LocationDocument"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "links": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "location": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "type": {
+                                                                            "type": "string",
+                                                                            "const": "application/octet-stream"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
                                         }
                                     ]
                                 }
@@ -15300,7 +15275,7 @@
                     },
                     "type": {
                         "type": "string",
-                        "description": "The media type the URL serves, when known."
+                        "description": "The media type the URL serves."
                     },
                     "meta": {
                         "type": "object",
@@ -15317,7 +15292,8 @@
                     }
                 },
                 "required": [
-                    "href"
+                    "href",
+                    "type"
                 ]
             },
             "MediaTypeUnacceptableError": {

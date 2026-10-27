@@ -266,7 +266,7 @@ final class OperationExampleProjector
                         $reference,
                     );
                 }
-            } elseif ($response instanceof SeeOther) {
+            } elseif ($response instanceof SeeOther && $response->mediaType !== null) {
                 $responses[200] ??= fn(): array => $builder->locationDocument(
                     $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
                     $reference,

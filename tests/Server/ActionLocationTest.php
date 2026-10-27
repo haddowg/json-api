@@ -28,9 +28,10 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * A {@see SeeOtherResponse} a custom action returns, dispatched through
- * {@see Server::dispatch()}: the location document for a request preferring JSON:API,
- * the `303` for any other, never cached.
+ * A {@see SeeOtherResponse} returned by a custom action that declares
+ * {@see SeeOther} with a media type, dispatched through {@see Server::dispatch()}: the
+ * location document for a request preferring JSON:API, the `303` for any other, never
+ * cached. Without the media type it stays the plain `303`.
  */
 #[CoversClass(SeeOtherResponse::class)]
 #[CoversClass(Server::class)]
@@ -87,7 +88,7 @@ final class ActionLocationTest extends TestCase
             'describedby' => '/docs/openapi.json#/paths/~1files~1%7Bid%7D~1-actions~1download/get',
         ], $links['self']);
         // The location link is the URL the action produced, never described by an operation.
-        self::assertSame(['href' => self::URL], $links['location']);
+        self::assertSame(['href' => self::URL, 'type' => 'application/octet-stream'], $links['location']);
     }
 
     /**
@@ -164,7 +165,7 @@ final class ActionLocationTest extends TestCase
         $document = $this->decode($this->action(SeeOtherResponse::to(self::URL), self::JSON_API));
 
         self::assertSame(['expiresAt' => null], $document['meta']);
-        self::assertSame(['href' => self::URL], $this->location($document));
+        self::assertSame(['href' => self::URL, 'type' => 'application/octet-stream'], $this->location($document));
     }
 
     #[Test]
@@ -175,7 +176,7 @@ final class ActionLocationTest extends TestCase
         $document = $this->decode($this->action(SeeOtherResponse::to(self::URL, $expiresAt), self::JSON_API, server: $server));
 
         self::assertSame(['expiresAt' => '2026-10-27T08:00:00-04:00'], $document['meta']);
-        self::assertSame(['href' => self::URL, 'meta' => ['expiresAt' => '2026-10-27T08:00:00-04:00']], $this->location($document));
+        self::assertSame(['href' => self::URL, 'type' => 'application/octet-stream', 'meta' => ['expiresAt' => '2026-10-27T08:00:00-04:00']], $this->location($document));
     }
 
     #[Test]
@@ -192,11 +193,9 @@ final class ActionLocationTest extends TestCase
     {
         $declared = [new SeeOther(mediaType: 'text/csv')];
 
-        $untyped = $this->decode($this->action(SeeOtherResponse::to(self::URL), self::JSON_API));
         $typed = $this->decode($this->action(SeeOtherResponse::to(self::URL), self::JSON_API, $declared));
         $handlerTyped = $this->decode($this->action(SeeOtherResponse::to(self::URL)->withType('application/pdf'), self::JSON_API, $declared));
 
-        self::assertArrayNotHasKey('type', $this->location($untyped));
         self::assertSame('text/csv', $this->location($typed)['type'] ?? null);
         self::assertSame('application/pdf', $this->location($handlerTyped)['type'] ?? null);
     }
@@ -207,6 +206,32 @@ final class ActionLocationTest extends TestCase
         $document = $this->decode($this->action(SeeOtherResponse::to(self::URL)->withMeta(['filename' => 'report.csv']), self::JSON_API));
 
         self::assertSame(['expiresAt' => null, 'filename' => 'report.csv'], $document['meta']);
+    }
+
+    /**
+     * @return iterable<string, array{list<ActionResponse>}>
+     */
+    public static function plainRedirectDeclarations(): iterable
+    {
+        yield 'a bare SeeOther' => [[new SeeOther()]];
+        yield 'a SeeOther with only a description' => [[new SeeOther('The job is done.')]];
+        yield 'no declared responses' => [[]];
+    }
+
+    /**
+     * @param list<ActionResponse> $responds
+     */
+    #[Test]
+    #[DataProvider('plainRedirectDeclarations')]
+    public function anActionWithoutADeclaredMediaTypeKeepsThePlain303(array $responds): void
+    {
+        $response = $this->action(SeeOtherResponse::to('/articles/1'), self::JSON_API, $responds);
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/articles/1', $response->getHeaderLine('Location'));
+        self::assertSame('', (string) $response->getBody());
+        self::assertFalse($response->hasHeader('Cache-Control'));
+        self::assertFalse($response->hasHeader('Vary'));
     }
 
     #[Test]
@@ -236,9 +261,9 @@ final class ActionLocationTest extends TestCase
     }
 
     /**
-     * @param list<ActionResponse> $responds
+     * @param list<ActionResponse>|null $responds the declared responses; an octet-stream download when `null`
      */
-    private function action(SeeOtherResponse $returned, string $accept, array $responds = [], ?Server $server = null): ResponseInterface
+    private function action(SeeOtherResponse $returned, string $accept, ?array $responds = null, ?Server $server = null): ResponseInterface
     {
         $server ??= $this->server();
         $request = $this->request('/files/1/-actions/download', $accept);
@@ -248,7 +273,7 @@ final class ActionLocationTest extends TestCase
             new OperationContext($server, $request),
             'download',
             'GET',
-            responds: $responds,
+            responds: $responds ?? [new SeeOther(mediaType: 'application/octet-stream')],
         );
 
         return $server->withHandler(new LocationHandler($returned))->dispatch($operation)->toPsrResponse($server, $request);

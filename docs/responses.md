@@ -279,8 +279,9 @@ error is a JSON:API document whatever media type was picked.
 `SeeOtherResponse::to($url)` is a `303 See Other` with `Location: $url`. From a fetch, such
 as a finished async job, it is always that bare redirect.
 
-From a custom action that [declares `SeeOther`](openapi.md#actions-that-answer-with-a-url)
-it is the URL the action produced, and `Server::dispatch()` marks it so. A request that
+From a custom action that [declares `SeeOther` with a media
+type](openapi.md#actions-that-answer-with-a-url) it is the URL the action produced, and
+`Server::dispatch()` marks it so. From any other action it stays the plain `303`. A request that
 names `application/vnd.api+json`, with nothing else it lists weighing more, then gets a
 `200` document carrying the URL as `links.location`. Any other request, including one
 with no `Accept` or `*/*`, gets the `303`:
@@ -288,14 +289,13 @@ with no `Accept` or `*/*`, gets the `303`:
 ```php
 use haddowg\JsonApi\Response\SeeOtherResponse;
 
-return SeeOtherResponse::to($storage->presign($file), expiresAt: new \DateTimeImmutable('+5 minutes'))
-    ->withType('text/csv');
+return SeeOtherResponse::to($storage->presign($file), expiresAt: new \DateTimeImmutable('+5 minutes'));
 ```
 
 `expiresAt` becomes `location.meta.expiresAt` and the top-level `meta.expiresAt`, written
 in the server's output timezone. Without it the top-level `meta.expiresAt` is `null` and
-the link has no `meta`. `withType()` sets `location.type`, and wins over the media type the
-action declares. Meta you add with `withMeta()` joins `expiresAt`. Both shapes send
+the link has no `meta`. `location.type` is the media type the action declares, and
+`withType()` overrides it for one response, such as a file whose type varies. Meta you add with `withMeta()` joins `expiresAt`. Both shapes send
 `Cache-Control: no-store` and `Vary: Accept`; a header you set with `withHeader()` wins.
 The `200` drops the `Location` header, since the URL is in the document.
 

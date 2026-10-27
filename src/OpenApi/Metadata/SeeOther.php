@@ -11,15 +11,15 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
  * `Location` names the produced resource. Its runtime counterpart there is
  * {@see \haddowg\JsonApi\Resource\ResolvesCompletionRedirect}.
  *
- * On a custom action it declares that the action returns a URL, such as a short-lived
- * download link. The action answers a request that prefers JSON:API with a `200`
- * document carrying the URL as its `links.location`, and any other request with the
- * `303` (see {@see \haddowg\JsonApi\Response\SeeOtherResponse}). Both are projected.
+ * On a custom action it is the plain `303` too, unless it names a `mediaType`: what the
+ * URL serves, such as `text/csv`, or `application/octet-stream` when that is not known.
+ * Naming it opts the action in to answering with a URL, such as a short-lived download
+ * link. The action then answers a request that prefers JSON:API with a `200` document
+ * carrying the URL as its `links.location`, typed with that media type, and any other
+ * request with the `303` (see {@see \haddowg\JsonApi\Response\SeeOtherResponse}).
+ * Both are projected.
  *
  * `description` replaces the generated description of the projected responses.
- * `mediaType` is what the target URL serves, such as `text/csv`; an action renders it
- * as the location link's `type` and the projection pins that member to it. Fetch-one
- * reads `description` only.
  */
 final readonly class SeeOther implements FetchOneResponse, ActionResponse
 {

@@ -115,17 +115,13 @@ final class ExampleDocumentBuilder
 
     /**
      * The location document an action answering with a URL renders for a request to
-     * `$path`: a fixed example URL, typed with the declared `$mediaType` when there is one.
+     * `$path`: a fixed example URL, typed with the declared `$mediaType`.
      *
      * @return array<string, mixed>
      */
-    public function locationDocument(string $path, OperationReference $operation, ?string $mediaType): array
+    public function locationDocument(string $path, OperationReference $operation, string $mediaType): array
     {
-        $location = ['href' => self::LOCATION_HREF];
-        if ($mediaType !== null) {
-            $location['type'] = $mediaType;
-        }
-        $location['meta'] = ['expiresAt' => self::LOCATION_EXPIRES_AT];
+        $location = ['href' => self::LOCATION_HREF, 'type' => $mediaType, 'meta' => ['expiresAt' => self::LOCATION_EXPIRES_AT]];
 
         return $this->finish(
             [],

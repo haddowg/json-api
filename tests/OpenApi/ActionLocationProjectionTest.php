@@ -24,8 +24,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * An action declaring {@see SeeOther} answers with a URL: the projection documents the
- * `200` location document beside the `303`, and stamps its own contract tier.
+ * An action declaring {@see SeeOther} with a media type answers with a URL: the
+ * projection documents the `200` location document beside the `303`, and stamps its own
+ * contract tier. A bare `SeeOther` stays the plain `303`.
  */
 #[CoversClass(OpenApiProjector::class)]
 #[CoversClass(OperationProjector::class)]
@@ -37,18 +38,14 @@ final class ActionLocationProjectionTest extends TestCase
     #[Test]
     public function anUndescribedActionDocumentsBothResponsesWithGeneratedWording(): void
     {
-        $responses = $this->responses($this->project([new SeeOther()]));
+        $responses = $this->responses($this->project([new SeeOther(mediaType: 'application/octet-stream')]));
         $ok = $this->at($responses, '200');
         self::assertIsArray($ok);
-        $content = $this->at($ok, 'content', 'application/vnd.api+json');
-        self::assertIsArray($content);
-        unset($content['example']);
-        $ok['content'] = ['application/vnd.api+json' => $content];
+        unset($ok['content']);
 
         self::assertSame([
             'description' => 'The URL the action produced, as its `location` link.',
             'headers' => ['Cache-Control' => ['description' => self::CACHE_CONTROL, 'schema' => ['type' => 'string']]],
-            'content' => ['application/vnd.api+json' => ['schema' => ['$ref' => '#/components/schemas/LocationDocument']]],
         ], $ok);
         self::assertSame([
             'description' => 'Redirects to the URL the action produced.',
@@ -77,11 +74,16 @@ final class ActionLocationProjectionTest extends TestCase
     #[Test]
     public function aDeclared200DocumentJoinsTheLocationDocumentInAOneOf(): void
     {
-        $responses = $this->responses($this->project([new ActionResource('articles'), new SeeOther()]));
+        $responses = $this->responses($this->project([new ActionResource('articles'), new SeeOther(mediaType: 'application/octet-stream')]));
 
         self::assertSame(['oneOf' => [
             ['$ref' => '#/components/schemas/ArticlesDocument'],
-            ['$ref' => '#/components/schemas/LocationDocument'],
+            ['allOf' => [
+                ['$ref' => '#/components/schemas/LocationDocument'],
+                ['type' => 'object', 'properties' => ['links' => ['type' => 'object', 'properties' => [
+                    'location' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'const' => 'application/octet-stream']]],
+                ]]]],
+            ]],
         ]], $this->at($responses, '200', 'content', 'application/vnd.api+json', 'schema'));
         $headers = $this->at($responses, '200', 'headers');
         self::assertIsArray($headers);
@@ -91,7 +93,7 @@ final class ActionLocationProjectionTest extends TestCase
     #[Test]
     public function theLocationComponentsDescribeTheLinkAndTheRequiredExpiry(): void
     {
-        $schemas = $this->at($this->project([new SeeOther()]), 'components', 'schemas');
+        $schemas = $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'components', 'schemas');
         self::assertIsArray($schemas);
 
         self::assertSame(['links', 'meta'], $this->at($schemas, 'LocationDocument', 'required'));
@@ -99,7 +101,7 @@ final class ActionLocationProjectionTest extends TestCase
         self::assertSame(['$ref' => '#/components/schemas/LocationLink'], $this->at($schemas, 'LocationDocument', 'properties', 'links', 'properties', 'location'));
         self::assertSame(['string', 'null'], $this->at($schemas, 'LocationDocument', 'properties', 'meta', 'properties', 'expiresAt', 'type'));
         self::assertSame(['expiresAt'], $this->at($schemas, 'LocationDocument', 'properties', 'meta', 'required'));
-        self::assertSame(['href'], $this->at($schemas, 'LocationLink', 'required'));
+        self::assertSame(['href', 'type'], $this->at($schemas, 'LocationLink', 'required'));
         self::assertSame(['type' => 'string', 'format' => 'uri-reference'], $this->at($schemas, 'LocationLink', 'properties', 'href'));
         self::assertSame('date-time', $this->at($schemas, 'LocationLink', 'properties', 'meta', 'properties', 'expiresAt', 'format'));
     }
@@ -124,19 +126,39 @@ final class ActionLocationProjectionTest extends TestCase
     }
 
     #[Test]
-    public function anUntypedExampleOmitsTheType(): void
+    public function aBareSeeOtherActionKeepsThePlain303(): void
     {
-        $responses = $this->responses($this->project([new SeeOther()]));
+        $document = $this->project([new SeeOther()]);
+        $responses = $this->responses($document);
 
-        $location = $this->at($responses, '200', 'content', 'application/vnd.api+json', 'example', 'links', 'location');
-        self::assertIsArray($location);
-        self::assertArrayNotHasKey('type', $location);
+        self::assertArrayNotHasKey('200', $responses);
+        self::assertSame([
+            'description' => 'The asynchronous operation is complete; follow Location to the produced resource.',
+            'headers' => ['Location' => ['description' => 'The URL of the produced resource.', 'schema' => ['type' => 'string', 'format' => 'uri-reference']]],
+        ], $this->at($responses, '303'));
+        $schemas = $this->at($document, 'components', 'schemas');
+        self::assertIsArray($schemas);
+        self::assertArrayNotHasKey('LocationDocument', $schemas);
+        self::assertArrayNotHasKey('LocationLink', $schemas);
+    }
+
+    #[Test]
+    public function aSeeOtherActionWithOnlyADescriptionKeepsThePlain303WithThatDescription(): void
+    {
+        $responses = $this->responses($this->project([new SeeOther('The job is done.')]));
+
+        self::assertArrayNotHasKey('200', $responses);
+        self::assertSame('The job is done.', $this->at($responses, '303', 'description'));
+        $headers = $this->at($responses, '303', 'headers');
+        self::assertIsArray($headers);
+        self::assertArrayNotHasKey('Cache-Control', $headers);
     }
 
     #[Test]
     public function onlyADocumentWithSuchAnActionCarriesTheTier(): void
     {
-        self::assertSame(['contract' => GeneratorContract::ACTION_LOCATION], $this->at($this->project([new SeeOther()]), 'info', 'x-generator'));
+        self::assertSame(['contract' => GeneratorContract::ACTION_LOCATION], $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'info', 'x-generator'));
+        self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project([new SeeOther('The job is done.')]), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null, fetchOne: [new Ok(), new SeeOther()]), 'info', 'x-generator'));
     }

@@ -64,16 +64,18 @@ final class ActionResponses
     }
 
     /**
-     * The {@see SeeOther} an action declares, or `null`. Such an action returns a URL: the
-     * `200` location document when the request prefers JSON:API, the `303` otherwise
-     * ({@see \haddowg\JsonApi\Negotiation\AcceptNegotiator::negotiateAction()}).
+     * The {@see SeeOther} an action declares with a media type, or `null`. Declaring the
+     * media type opts the action in to answering with a URL: the `200` location document
+     * when the request prefers JSON:API, the `303` otherwise
+     * ({@see \haddowg\JsonApi\Negotiation\AcceptNegotiator::negotiateAction()}). A bare
+     * `SeeOther` stays the plain `303`.
      *
      * @param list<OperationResponseInterface> $responds
      */
-    public static function seeOther(array $responds): ?SeeOther
+    public static function location(array $responds): ?SeeOther
     {
         foreach ($responds as $response) {
-            if ($response instanceof SeeOther) {
+            if ($response instanceof SeeOther && $response->mediaType !== null) {
                 return $response;
             }
         }

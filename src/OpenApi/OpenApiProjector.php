@@ -86,8 +86,8 @@ final class OpenApiProjector
             $schemas['MetaDocument'] = $this->metaDocumentSchema();
         }
 
-        // An action declaring SeeOther answers a JSON:API request with the shared
-        // location document; emitted only when one does.
+        // An action declaring SeeOther with a media type answers a JSON:API request with
+        // the shared location document; emitted only when one does.
         $actionLocations = self::declaresActionLocation($server);
         if ($actionLocations) {
             $schemas['LocationLink'] = $this->locationLinkSchema();
@@ -498,7 +498,8 @@ final class OpenApiProjector
     }
 
     /**
-     * Whether any action declares a {@see SeeOther}, so answers with a URL. The document
+     * Whether any action declares a {@see SeeOther} with a media type, so answers with a
+     * URL. The document
      * then carries the location components, and the generator contract reflects it
      * ({@see GeneratorContract::ACTION_LOCATION}).
      */
@@ -506,7 +507,7 @@ final class OpenApiProjector
     {
         foreach ($server->types() as $type) {
             foreach ($type->actions() as $action) {
-                if (ActionResponses::seeOther($action->responds()) !== null) {
+                if (ActionResponses::location($action->responds()) !== null) {
                     return true;
                 }
             }
@@ -517,22 +518,22 @@ final class OpenApiProjector
 
     /**
      * The `location` link of an action's location document: the URL the action produced,
-     * the media type it serves when known, and when it expires.
+     * the media type it serves, and when it expires.
      */
     private function locationLinkSchema(): Schema
     {
         return Schema::ofType('object')
             ->withDescription('The URL a custom action produced, such as a short-lived download link.')
             ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
-            ->withProperty('type', Schema::ofType('string')->withDescription('The media type the URL serves, when known.'))
+            ->withProperty('type', Schema::ofType('string')->withDescription('The media type the URL serves.'))
             ->withProperty('meta', Schema::ofType('object')
                 ->withProperty('expiresAt', Schema::ofType('string')->withFormat('date-time')->withDescription('When the URL stops working.'))
                 ->withRequired(['expiresAt']))
-            ->withRequired(['href']);
+            ->withRequired(['href', 'type']);
     }
 
     /**
-     * The document an action declaring {@see SeeOther} answers a JSON:API request with:
+     * The document an action declaring {@see SeeOther} with a media type answers a JSON:API request with:
      * the URL as its `links.location`, and its expiry, `null` when it has none, as the
      * required top-level `meta`.
      */

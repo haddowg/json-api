@@ -868,9 +868,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
      * Invokes the configured {@see OperationHandler} directly, without the PSR-15
      * chain. The operation is assumed pre-constructed and complete.
      *
-     * A {@see \haddowg\JsonApi\Response\SeeOtherResponse} a custom action returns is
-     * marked as the action's URL, so it renders as the location document or the `303`
-     * by the request's `Accept`.
+     * A {@see \haddowg\JsonApi\Response\SeeOtherResponse} returned by a custom action
+     * whose declared {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther} names a media
+     * type is marked as the action's URL, so it renders as the location document or the
+     * `303` by the request's `Accept`. Any other stays the plain `303`.
      */
     public function dispatch(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
@@ -885,8 +886,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         $this->fireServing($operation);
 
         $response = $handler->handle($operation);
-        if ($operation instanceof \haddowg\JsonApi\Operation\CustomActionOperation && $response instanceof \haddowg\JsonApi\Response\SeeOtherResponse) {
-            $response = $response->fromAction(\haddowg\JsonApi\OpenApi\Metadata\ActionResponses::seeOther($operation->responds())?->mediaType);
+        $location = $operation instanceof \haddowg\JsonApi\Operation\CustomActionOperation
+            ? \haddowg\JsonApi\OpenApi\Metadata\ActionResponses::location($operation->responds())
+            : null;
+        if ($location?->mediaType !== null && $response instanceof \haddowg\JsonApi\Response\SeeOtherResponse) {
+            $response = $response->fromAction($location->mediaType);
         }
 
         return \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($response, $operation, $this);
