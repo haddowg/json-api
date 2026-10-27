@@ -553,6 +553,26 @@ The `detail` is left out of the error object when it is empty. Pass the framewor
 message only when it is safe to show, because it can name the rule that refused the
 request.
 
+### Routing
+
+| Exception | Status | Error code | Source | Thrown when |
+|---|---|---|---|---|
+| `MethodNotAllowed` | 405 | `METHOD_NOT_ALLOWED` | — | The path exists but takes no request with this method, such as a `PATCH` to a read-only type. |
+
+Core routes nothing, so core never throws it either. An adapter whose router finds the path
+but no route for the method renders it, passing the method and the methods the path does
+accept. The response carries those in the `Allow` header, which HTTP requires of a `405`:
+
+```php
+throw new MethodNotAllowed($request->getMethod(), ['GET'], $routerException);
+```
+
+The code is catalogued only for a server whose OpenAPI metadata implements
+`OpenApi\Metadata\DeclaresMethodNotAllowed` and returns `true` from
+`rendersMethodNotAllowed()`. The Symfony bundle and the Laravel package both do. A server
+that leaves these requests to its framework's own error page publishes the same document
+it did before.
+
 ### Resource & lifecycle
 
 | Exception | Status | Error code | Source | Thrown when |
