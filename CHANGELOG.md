@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.1](https://github.com/haddowg/json-api/compare/v1.19.0...v1.19.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* add a described 405 error for a method the path does not accept ([#260](https://github.com/haddowg/json-api/issues/260)) ([f3509cf](https://github.com/haddowg/json-api/commit/f3509cfe25a3fd891302ab0a0a371ef785b04e8e))
+
 ## [1.19.0](https://github.com/haddowg/json-api/compare/v1.18.0...v1.19.0) (2026-10-27)
 
 
