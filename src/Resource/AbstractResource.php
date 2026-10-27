@@ -1199,30 +1199,40 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * Guards the reserved `?withCount` token `_self_` at build time: a relation
      * literally named `_self_` would be ambiguous with the token naming the primary
      * collection, so it is rejected here (the single point where every field is
-     * first indexed) rather than letting the token silently win. The result is
-     * cached for the resource's lifetime.
+     * first indexed) rather than letting the token silently win. It also rejects an
+     * attribute or relationship named `type` or `id`, which JSON:API reserves for the
+     * resource object itself. The result is cached for the resource's lifetime.
      *
      * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
     final public function allFields(): array
     {
         if ($this->fieldCache === null) {
-            $this->fieldCache = \array_values(\array_map(
+            $fields = \array_values(\array_map(
                 static fn(\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface $field): \haddowg\JsonApi\Resource\Field\FieldInterface => $field instanceof \haddowg\JsonApi\Resource\Field\FieldBuilderInterface
                     ? $field->build()
                     : $field,
                 $this->fields(),
             ));
-            foreach ($this->fieldCache as $field) {
-                if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface
-                    && $field->name() === \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN) {
+            foreach ($fields as $field) {
+                $isRelation = $field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface;
+                if ($isRelation && $field->name() === \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN) {
                     throw new \LogicException(\sprintf(
                         'Relationship "%s" uses the reserved "?withCount" token; a relation cannot be named "%s".',
                         \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
                         \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
                     ));
                 }
+                if (!$field instanceof Id && \in_array($field->name(), ['type', 'id'], true)) {
+                    throw new \LogicException(\sprintf(
+                        'Resource "%s" declares the %s "%s", but a resource object reserves "type" and "id": JSON:API 1.1 shares one namespace between its fields and those two members.',
+                        static::class,
+                        $isRelation ? 'relationship' : 'attribute',
+                        $field->name(),
+                    ));
+                }
             }
+            $this->fieldCache = $fields;
         }
 
         return $this->fieldCache;
