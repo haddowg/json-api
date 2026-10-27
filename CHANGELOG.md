@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.17.0](https://github.com/haddowg/json-api/compare/v1.16.0...v1.17.0) (2026-10-27)
+
+
+### Features
+
+* add an operation catalogue for listing what a caller can use ([#246](https://github.com/haddowg/json-api/issues/246)) ([1e171d4](https://github.com/haddowg/json-api/commit/1e171d401d02f22083ec2d07c06c42ef9ca4aff7))
+* enforce OAuth scopes per operation ([#243](https://github.com/haddowg/json-api/issues/243)) ([93209a6](https://github.com/haddowg/json-api/commit/93209a6ffc068b619334d2f7221f28cc71eece43))
+* project a polymorphic relation as a union whatever its type count ([#247](https://github.com/haddowg/json-api/issues/247)) ([4b299e0](https://github.com/haddowg/json-api/commit/4b299e0ab8d9eb7523e35b1e0667bcfb92187db1))
+* project operation scopes into the OpenAPI document ([#245](https://github.com/haddowg/json-api/issues/245)) ([e93a2a2](https://github.com/haddowg/json-api/commit/e93a2a2f170ed5ee8517ce4daaef565a0ee449e7))
+
 ## [1.16.0](https://github.com/haddowg/json-api/compare/v1.15.2...v1.16.0) (2026-10-26)
 
 
