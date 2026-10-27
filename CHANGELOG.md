@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/haddowg/json-api/compare/v1.17.4...v1.18.0) (2026-10-27)
+
+
+### Features
+
+* let a custom action answer with a URL ([#256](https://github.com/haddowg/json-api/issues/256)) ([1b79ec2](https://github.com/haddowg/json-api/commit/1b79ec2f9ca5bd59a874731d853ea3cfc4dc368c))
+
 ## [1.17.4](https://github.com/haddowg/json-api/compare/v1.17.3...v1.17.4) (2026-10-27)
 
 
