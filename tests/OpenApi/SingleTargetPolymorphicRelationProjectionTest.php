@@ -114,7 +114,7 @@ final class SingleTargetPolymorphicRelationProjectionTest extends TestCase
     #[Test]
     public function onlyADocumentWithASingleTargetPolymorphicRelationCarriesItsContract(): void
     {
-        self::assertSame(GeneratorContract::SINGLE_TARGET_POLYMORPHISM, $this->contract(FakeRelationMetadata::morph('subject', ['people'])));
+        self::assertSame(GeneratorContract::toArray(singleTargetPolymorphism: true)['contract'], $this->contract(FakeRelationMetadata::morph('subject', ['people'])));
         self::assertSame(GeneratorContract::BASELINE, $this->contract(FakeRelationMetadata::morph('subject', ['people', 'robots'])));
         self::assertSame(GeneratorContract::BASELINE, $this->contract(FakeRelationMetadata::toOne('subject', ['people'])));
     }

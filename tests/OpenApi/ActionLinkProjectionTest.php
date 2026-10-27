@@ -41,15 +41,16 @@ final class ActionLinkProjectionTest extends TestCase
         );
         $links = self::resourceLinks($document);
 
-        self::assertSame(['self', 'complete'], \array_keys(self::arr($links['properties'])));
-        $complete = self::arr(self::at($links, 'properties', 'complete'));
-        self::assertStringStartsWith('Present while the file is PENDING_UPLOAD. ', self::str($complete['description']));
-        self::assertSame([['$ref' => '#/components/schemas/RenderedLink']], $complete['allOf']);
+        self::assertSame(['complete'], \array_keys(self::arr($links['properties'])));
         self::assertSame(
-            ['href' => 'https://api.example.com/files/f-1/-actions/complete', 'describedby' => 'https://api.example.com/openapi.json#/paths/~1files~1%7Bid%7D~1-actions~1complete/post'],
-            $complete['example'],
+            ['$ref' => '#/components/schemas/RenderedLink', 'description' => 'Present while the file is PENDING_UPLOAD.'],
+            self::at($links, 'properties', 'complete'),
         );
         self::assertArrayNotHasKey('required', $links);
+        self::assertSame(
+            ['href' => 'https://api.example.com/files/f-1/-actions/complete', 'describedby' => 'https://api.example.com/openapi.json#/paths/~1files~1%7Bid%7D~1-actions~1complete/post'],
+            self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'links', 'complete'),
+        );
     }
 
     #[Test]
@@ -57,7 +58,7 @@ final class ActionLinkProjectionTest extends TestCase
     {
         $complete = self::arr(self::at(self::resourceLinks($this->project([ActionLink::for('complete')->build()], [self::complete()])), 'properties', 'complete'));
 
-        self::assertStringStartsWith(self::GENERIC . ' ', self::str($complete['description']));
+        self::assertSame(self::GENERIC, $complete['description']);
     }
 
     #[Test]
@@ -69,7 +70,7 @@ final class ActionLinkProjectionTest extends TestCase
         );
         $complete = self::arr(self::at(self::resourceLinks($document), 'properties', 'complete'));
 
-        self::assertStringStartsWith('Only for the uploader. ', self::str($complete['description']));
+        self::assertSame('Only for the uploader.', $complete['description']);
     }
 
     #[Test]
@@ -77,13 +78,13 @@ final class ActionLinkProjectionTest extends TestCase
     {
         $complete = self::arr(self::at(self::resourceLinks($this->project([], [self::complete(linkName: 'complete')])), 'properties', 'complete'));
 
-        self::assertStringStartsWith(self::GENERIC . ' ', self::str($complete['description']));
+        self::assertSame(self::GENERIC, $complete['description']);
     }
 
     #[Test]
     public function anActionWithNeitherDeclarationRendersNoLink(): void
     {
-        self::assertSame(['self'], \array_keys(self::arr(self::resourceLinks($this->project([], [self::complete()]))['properties'])));
+        self::assertHasNoNamedLinks($this->project([], [self::complete()]));
     }
 
     #[Test]
@@ -100,7 +101,7 @@ final class ActionLinkProjectionTest extends TestCase
     {
         $document = $this->project([ActionLink::for('complete')->describedAs('Pending only.')->build()], []);
 
-        self::assertSame(['self'], \array_keys(self::arr(self::resourceLinks($document)['properties'])));
+        self::assertHasNoNamedLinks($document);
         $links = self::arr(self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'links'));
         self::assertSame(['self'], \array_keys($links));
     }
@@ -113,7 +114,7 @@ final class ActionLinkProjectionTest extends TestCase
             [new FakeActionMetadata('complete', ['POST'], ActionScope::Collection, ActionInputMode::None)],
         );
 
-        self::assertSame(['self'], \array_keys(self::arr(self::resourceLinks($document)['properties'])));
+        self::assertHasNoNamedLinks($document);
     }
 
     #[Test]
@@ -188,7 +189,19 @@ final class ActionLinkProjectionTest extends TestCase
      */
     private static function resourceLinks(array $document): array
     {
-        return self::arr(self::at($document, 'components', 'schemas', 'FilesResourceLinks'));
+        $links = self::arr(self::at($document, 'components', 'schemas', 'FilesResourceLinks'));
+        self::assertSame(['$ref' => '#/components/schemas/ResourceLinks'], self::at($links, 'allOf', '0'));
+
+        return self::arr(self::at($links, 'allOf', '1'));
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    private static function assertHasNoNamedLinks(array $document): void
+    {
+        self::assertArrayNotHasKey('FilesResourceLinks', self::arr(self::at($document, 'components', 'schemas')));
+        self::assertSame('#/components/schemas/ResourceLinks', self::at($document, 'components', 'schemas', 'FilesResource', 'properties', 'links', '$ref'));
     }
 
     private static function at(mixed $value, string ...$keys): mixed
@@ -211,13 +224,6 @@ final class ActionLinkProjectionTest extends TestCase
         self::assertIsArray($value);
 
         /** @var array<string, mixed> */
-        return $value;
-    }
-
-    private static function str(mixed $value): string
-    {
-        self::assertIsString($value);
-
         return $value;
     }
 }

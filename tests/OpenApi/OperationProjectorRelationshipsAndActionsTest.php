@@ -365,7 +365,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         $collection = $this->arrAt($this->projector()->project($this->richServer())->toArray(), 'components', 'schemas', 'ArticlesTagsRelatedCollection');
         self::assertSame('#/components/schemas/TagsResource', $this->strAt($collection, 'properties', 'data', 'items', '$ref'));
-        self::assertSame('#/components/schemas/ArticlesTagsRelatedDocumentLinks', $this->strAt($collection, 'properties', 'links', '$ref'));
+        self::assertSame('#/components/schemas/RelatedDocumentLinks', $this->strAt($collection, 'properties', 'links', '$ref'));
     }
 
     // ---- Relationship-linkage endpoints + mutation gating -----------------------

@@ -157,7 +157,7 @@ final class ActionLocationProjectionTest extends TestCase
     #[Test]
     public function onlyADocumentWithSuchAnActionCarriesTheTier(): void
     {
-        self::assertSame(['contract' => GeneratorContract::ACTION_LOCATION], $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(actionLocations: true), $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project([new SeeOther('The job is done.')]), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null, fetchOne: [new Ok(), new SeeOther()]), 'info', 'x-generator'));

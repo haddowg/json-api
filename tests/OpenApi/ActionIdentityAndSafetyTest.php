@@ -77,7 +77,7 @@ final class ActionIdentityAndSafetyTest extends TestCase
         $multi = $this->project([$this->files([new FakeActionMetadata('export', ['GET', 'POST'])])]);
         $single = $this->project([$this->files([new FakeActionMetadata('export', ['POST'])])]);
 
-        self::assertSame(['contract' => GeneratorContract::ACTION_METHOD_IDS], self::generator($multi));
+        self::assertSame(GeneratorContract::toArray(actionMethodIds: true), self::generator($multi));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::generator($single));
     }
 
@@ -161,7 +161,7 @@ final class ActionIdentityAndSafetyTest extends TestCase
         $declared = $this->project([$this->files([new FakeActionMetadata('preview', ['GET'], idempotent: true)])]);
         $undeclared = $this->project([$this->files([new FakeActionMetadata('preview', ['GET'])])]);
 
-        self::assertSame(['contract' => GeneratorContract::ACTION_SAFETY], self::generator($declared));
+        self::assertSame(GeneratorContract::toArray(actionSafety: true), self::generator($declared));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::generator($undeclared));
     }
 
@@ -231,7 +231,7 @@ final class ActionIdentityAndSafetyTest extends TestCase
     {
         $declared = $this->project([$this->files([new FakeActionMetadata('archive', extensions: ['workflows' => []])])]);
 
-        self::assertSame(['contract' => GeneratorContract::ACTION_EXTENSIONS], self::generator($declared));
+        self::assertSame(GeneratorContract::toArray(actionExtensions: true), self::generator($declared));
     }
 
     #[Test]
