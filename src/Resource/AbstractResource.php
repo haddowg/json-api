@@ -48,7 +48,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, \haddowg\JsonApi\Serializer\DeclaresActionLinksInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface
 {
     use RendersRelationsTrait;
 
