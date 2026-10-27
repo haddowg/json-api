@@ -90,6 +90,28 @@ final class VendoredSchemaProviderTest extends TestCase
     }
 
     #[Test]
+    public function topLevelLinksAcceptAnyNamedLink(): void
+    {
+        $schema = (new VendoredSchemaProvider())->responseSchema();
+
+        self::assertInstanceOf(\stdClass::class, $schema->definitions ?? null);
+        self::assertInstanceOf(\stdClass::class, $schema->definitions->topLevelLinks ?? null);
+        self::assertEquals((object) ['$ref' => '#/definitions/link'], $schema->definitions->topLevelLinks->unevaluatedProperties);
+    }
+
+    #[Test]
+    public function vendoredFileRetainsTheUpstreamClosedTopLevelLinks(): void
+    {
+        $raw = \file_get_contents(\dirname(__DIR__, 2) . '/resources/schemas/jsonapi-1.1.json');
+        self::assertIsString($raw);
+
+        $decoded = \json_decode($raw, false, 512, \JSON_THROW_ON_ERROR);
+        self::assertInstanceOf(\stdClass::class, $decoded);
+        self::assertInstanceOf(\stdClass::class, $decoded->definitions->topLevelLinks ?? null);
+        self::assertFalse($decoded->definitions->topLevelLinks->unevaluatedProperties);
+    }
+
+    #[Test]
     public function vendoredFileRetainsTheUpstreamClosedResourceLinks(): void
     {
         $raw = \file_get_contents(\dirname(__DIR__, 2) . '/resources/schemas/jsonapi-1.1.json');
