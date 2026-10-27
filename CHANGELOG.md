@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.0](https://github.com/haddowg/json-api/compare/v1.18.0...v1.19.0) (2026-10-27)
+
+
+### Features
+
+* declare a conditional action link on the resource ([#258](https://github.com/haddowg/json-api/issues/258)) ([26bb106](https://github.com/haddowg/json-api/commit/26bb106d68113312989f1a784dc4d69352eed636))
+
 ## [1.18.0](https://github.com/haddowg/json-api/compare/v1.17.4...v1.18.0) (2026-10-27)
 
 
