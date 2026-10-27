@@ -4,4 +4,4 @@ The projector used to decide polymorphism by counting a relation's related types
 
 ## Consequences
 
-A document containing such a relation carries the scoped contract tier `SINGLE_TARGET_POLYMORPHISM`, 17, and every other document is unchanged. The related and relationship endpoints of a single-type polymorphic relation advertise no parameters from the related type, while an adapter that decides by the count still honours them at runtime, so until the adapters decide by the declaration too the document describes less than they accept.
+A document containing such a relation carries the scoped contract tier `SINGLE_TARGET_POLYMORPHISM`, 16, the same release's tier as `SCOPES` since the contract moves once per release, and every other document is unchanged. The related and relationship endpoints of a single-type polymorphic relation advertise no parameters from the related type, while an adapter that decides by the count still honours them at runtime, so until the adapters decide by the declaration too the document describes less than they accept.

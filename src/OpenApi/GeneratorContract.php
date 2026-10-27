@@ -71,7 +71,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 17;
+    public const CONTRACT = 16;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -150,7 +150,7 @@ final class GeneratorContract
      * endpoints drop the related type's filter, sort and page parameters. A document
      * carries it only when such a relation exists.
      */
-    public const SINGLE_TARGET_POLYMORPHISM = 17;
+    public const SINGLE_TARGET_POLYMORPHISM = 16;
 
     /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.

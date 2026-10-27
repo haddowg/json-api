@@ -279,7 +279,7 @@ later adds a member rather than changing every input that carries the relation. 
 projector learns that a relation is polymorphic from `DeclaresPolymorphicRelation` on its
 [metadata](#the-metadata-contract); metadata that doesn't implement it decides by the
 number of types, as before. A document with such a relation carries
-[contract 17](#a-bump-scoped-to-some-documents)
+[contract 16](#a-bump-scoped-to-some-documents)
 ([ADR 0184](adr/0184-a-polymorphic-relation-is-a-union-in-openapi-whatever-its-type-count.md)).
 
 ### The error-code catalogue
@@ -1165,15 +1165,12 @@ method (`ACTION_METHOD_IDS`), when an action declares its [safety](#action-safet
 [extensions](#your-own-extensions-on-operations-paths-parameters-and-responses)
 (`ACTION_EXTENSIONS`). A document using none of them still carries 13.
 
-Contract 16 is [operation scopes](scopes.md#the-openapi-document) (`SCOPES`). A document
-carries it when some operation needs an OAuth scope, which then shows in that operation's
-`security` and adds `INSUFFICIENT_SCOPE` to the error catalogue. Every other document is
-unchanged.
-
-Contract 17 is a polymorphic relation with one related type
-(`SINGLE_TARGET_POLYMORPHISM`), which is now
-[projected as a union](#polymorphic-relations-with-one-type). A document carries it when
-such a relation exists. Every other document is unchanged.
+Contract 16 adds two more. A document carries it when some operation needs an OAuth
+scope, which then shows in that operation's `security` and adds `INSUFFICIENT_SCOPE` to
+the error catalogue ([operation scopes](scopes.md#the-openapi-document), `SCOPES`), or
+when a polymorphic relation has one related type, which is now
+[projected as a union](#polymorphic-relations-with-one-type)
+(`SINGLE_TARGET_POLYMORPHISM`). Every other document is unchanged.
 
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,
