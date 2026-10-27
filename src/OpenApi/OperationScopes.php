@@ -67,11 +67,12 @@ final class OperationScopes
     }
 
     /**
-     * An operation's `security` with its scopes named, so it reads as needing one token
-     * that carries them. The requirements naming the scope scheme are kept with the scopes
-     * filled in and every other alternative is dropped; when none names it, the security
-     * is the scope scheme alone. An operation that inherited the document default gets
-     * the result as its own. An operation needing no scope is left as it was.
+     * An operation's `security` with its scopes named. When a requirement names the scope
+     * scheme, each such requirement gets the scopes and keeps its other members, and every
+     * other alternative stays as it is, since a credential the scope check never sees,
+     * such as a session cookie, still works. When none names it, the security is the scope
+     * scheme alone. An operation that inherited the document default gets the result as
+     * its own. An operation needing no scope is left as it was.
      *
      * @param list<SecurityRequirement>|null $security the operation's own security, `null` when it inherits the default
      * @param list<string>                   $scopes
@@ -87,13 +88,16 @@ final class OperationScopes
 
         $scheme = $this->server->scopeScheme();
         $scoped = [];
+        $named = false;
         foreach ($security ?? $default as $requirement) {
             if (\array_key_exists($scheme, $requirement->requirements)) {
-                $scoped[] = new SecurityRequirement([...$requirement->requirements, $scheme => $scopes]);
+                $requirement = new SecurityRequirement([...$requirement->requirements, $scheme => $scopes]);
+                $named = true;
             }
+            $scoped[] = $requirement;
         }
 
-        return $scoped !== [] ? $scoped : [SecurityRequirement::scheme($scheme, $scopes)];
+        return $named ? $scoped : [SecurityRequirement::scheme($scheme, $scopes)];
     }
 
     /**
