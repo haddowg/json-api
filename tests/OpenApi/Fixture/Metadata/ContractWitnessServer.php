@@ -17,10 +17,14 @@ use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\Ok;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\OAuthFlow;
+use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
@@ -90,7 +94,8 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
  * menu of both, and an unpaginated collection), custom actions in each input mode and
  * scope, non-default success responses, raw action responses beside and instead of a
  * JSON:API one, both registered profiles, the Atomic
- * Operations extension, and described link objects (a document URL, an id example and an
+ * Operations extension, operation scopes under an oauth2 scheme, and described link
+ * objects (a document URL, an id example and an
  * action rendered as a resource link). Between them those reach every {@see \haddowg\JsonApi\Exception\ErrorFeature}
  * the error catalogue gates on, and a contributed error code whose descriptor carries a
  * description and an example detail.
@@ -110,8 +115,10 @@ final class ContractWitnessServer
      * @param bool $actionDeclarations whether the articles carry the actions answering to
      *                                 several methods or declaring safety or their own
      *                                 extensions, which the baseline witness leaves out too
+     * @param bool $scopes whether the operations declare the OAuth scopes they need, under
+     *                     an oauth2 scheme the baseline witness leaves out as well
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -150,9 +157,48 @@ final class ContractWitnessServer
             generatesExamples: $examples,
         );
 
-        return new LinkDeclaringServerMetadata(
+        $witness = new LinkDeclaringServerMetadata(
             new ContributingServerMetadata($server, new ClassListErrorSource(SubscriptionExpired::class)),
             documentUrl: '/docs/openapi.json',
+        );
+
+        return $scopes ? self::scoped($witness) : $witness;
+    }
+
+    /**
+     * The witness with operation scopes: reads and writes of articles, a related read
+     * that needs the people it returns too, a people read beside a public people
+     * collection, the publish action, and the atomic batch. The oauth2 scheme configures
+     * one scope and the catalogue describes the rest.
+     */
+    private static function scoped(ServerMetadataInterface $witness): ServerMetadataInterface
+    {
+        $rule = static function (string $type, OperationKey $operation): array {
+            $kind = $operation->kind;
+
+            return match (true) {
+                $type === 'articles' && $operation->name() === 'fetchRelated.author' => ['articles:read', 'people:read'],
+                $type === 'articles' && $kind === OperationKind::Action => $operation->actionPath === 'publish' ? ['articles:publish'] : [],
+                $type === 'articles' && $operation->method === 'GET' => ['articles:read'],
+                $type === 'articles' => ['articles:write'],
+                $type === 'people' && $kind === OperationKind::FetchOne => ['people:read'],
+                default => [],
+            };
+        };
+
+        return new ScopeDeclaringServerMetadata(
+            $witness,
+            ScopeTables::of($witness, $rule, ['batch']),
+            schemes: ['oauth2' => SecurityScheme::oauth2(new OAuthFlows(
+                clientCredentials: new OAuthFlow(['articles:read' => 'Read articles.'], tokenUrl: 'https://auth.example.com/token'),
+            ))],
+            catalog: [
+                'articles:read' => 'Read articles, catalogued.',
+                'articles:write' => 'Create, change and delete articles.',
+                'articles:publish' => 'Publish articles.',
+                'people:read' => 'Read people.',
+                'batch' => 'Send Atomic Operations batches.',
+            ],
         );
     }
 

@@ -147,6 +147,31 @@ final class ScopeTableBuilderTest extends TestCase
     }
 
     #[Test]
+    public function aPublicRelatedReadReturningAScopedTypeFailsTheBuild(): void
+    {
+        $articles = new ScopedTypeMetadata(
+            $this->type('articles', relations: [new FakeRelationMetadata('author', ['people'], false, relationshipEndpoint: false, securityRead: false)]),
+            ['fetchRelated.author' => []],
+        );
+        $people = new ScopedTypeMetadata($this->type('people'), ['fetchOne' => ['people:read']]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The operation "fetchRelated.author" of type "articles" is public, but the resources of type "people" it returns need the scopes people:read.');
+
+        (new ScopeTableBuilder($this->server([$articles, $people])))->build();
+    }
+
+    #[Test]
+    public function aPublicRelatedReadReturningAnUnscopedTypeBuilds(): void
+    {
+        $articles = $this->type('articles', relations: [new FakeRelationMetadata('author', ['people'], false, relationshipEndpoint: false, securityRead: false)]);
+
+        $table = (new ScopeTableBuilder($this->server([$articles, $this->type('people')])))->build();
+
+        self::assertSame([], $table->for('articles', 'fetchRelated.author'));
+    }
+
+    #[Test]
     public function aRelationInheritingAPublicParentIsPublic(): void
     {
         $articles = new ScopedTypeMetadata(

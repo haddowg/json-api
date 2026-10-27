@@ -60,9 +60,10 @@ The table follows these rules:
 
 The build throws a `\LogicException` when an override names an operation the type does not
 have, when a scope contains whitespace, a double quote or a backslash, when the resolver
-throws, or when an operation declared public is given scopes. Public means listed in
+throws, or when an operation declared public needs a scope. Public means listed in
 `publicOperations()`, or a relation endpoint whose relation security is `false`, or which
-inherits a public parent operation.
+inherits a public parent operation. A public related read fails too when the types it
+returns need read scopes, because it would need them as well.
 
 The table holds only strings, so you can cache it with `toArray()` and load it with
 `ScopeTable::fromArray()`.
@@ -120,6 +121,31 @@ $enforcer->enforceBatch($request, [
 
 The first entry that fails refuses the whole batch with `source.pointer`
 `/atomic:operations/<index>`.
+
+## The OpenAPI document
+
+Server metadata implementing `OpenApi\Metadata\DeclaresOperationScopeTable` hands the
+projector the same table: `scopeTable()`, the name of the security scheme the scopes are
+listed under in `scopeScheme()`, and the catalogue's `scopeCatalog()`.
+
+- Each operation needing a scope names its scopes in its `security`. A requirement that
+  names the scope scheme lists them. When none of the operation's requirements names it,
+  the scope scheme joins as one more alternative.
+- An operation that only inherited the document default gets that default, scoped, as its
+  own `security`, and a `401` response when the default was empty.
+- The scope scheme's flows list the catalogue's scopes after the ones its configuration
+  declares. A configured description wins.
+- A scheme the server does not define throws a `\LogicException`. A scheme that is not
+  `oauth2` still carries the scopes, and `Projection::$scopeScheme` reports it.
+- `Projection::$undeclaredScopes` lists each required scope that neither the catalogue nor
+  the scheme's flows declare, with the operations needing it, so an export can fail on
+  them under a strict flag.
+- A table missing an entry for a projected operation throws, since it was built from other
+  metadata. An empty `ScopeTable` means the server uses no scopes.
+
+A document in which no operation needs a scope is unchanged. One that has some carries
+[contract 16](openapi.md#a-bump-scoped-to-some-documents) and offers `INSUFFICIENT_SCOPE`
+in its error catalogue.
 
 ## The error
 

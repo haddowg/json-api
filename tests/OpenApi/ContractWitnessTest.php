@@ -99,7 +99,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
@@ -108,7 +108,8 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true));
+        self::assertSame(['contract' => GeneratorContract::SCOPES], GeneratorContract::toArray(scopes: true));
         self::assertSame(['contract' => GeneratorContract::DECLARED_LINKS], GeneratorContract::toArray(declaredLinks: true));
         self::assertSame(['contract' => GeneratorContract::ACTION_METHOD_IDS], GeneratorContract::toArray(actionMethodIds: true));
         self::assertSame(['contract' => GeneratorContract::ACTION_SAFETY], GeneratorContract::toArray(actionSafety: true));
@@ -123,6 +124,6 @@ final class ContractWitnessTest extends TestCase
      */
     private function project(bool $scoped = true): string
     {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
+        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
     }
 }

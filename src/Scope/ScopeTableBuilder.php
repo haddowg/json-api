@@ -190,8 +190,19 @@ final class ScopeTableBuilder
             ));
             $scopes = [...$scopes, ...$this->own($related, $read)];
         }
+        $scopes = \array_values(\array_unique($scopes));
 
-        return \array_values(\array_unique($scopes));
+        if ($scopes !== [] && $this->isPublic($type, $key)) {
+            throw new \LogicException(\sprintf(
+                'The operation "%s" of type "%s" is public, but the %s it returns need the scopes %s. A public related read cannot require a scope; make the relation\'s reads secured, or the related reads public.',
+                $key->name(),
+                $type->type(),
+                \count($relation->relatedTypes()) === 1 ? 'resources of type "' . $relation->relatedTypes()[0] . '"' : 'resources of types "' . \implode('", "', $relation->relatedTypes()) . '"',
+                \implode(', ', $scopes),
+            ));
+        }
+
+        return $scopes;
     }
 
     /**

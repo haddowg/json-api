@@ -6,7 +6,7 @@ A token's OAuth scopes have to be checked the same way on every adapter, and on 
 
 Where the agreed design left a choice open, the stricter option was taken:
 
-- A related read needs the read scopes of the types it returns even when the endpoint itself is public. A public relation cannot leak a type the caller may not read.
+- A related read needs the read scopes of the types it returns even when the endpoint itself is public. A public relation cannot leak a type the caller may not read. ADR 0182 then made such a public related read fail the build instead.
 - Public means declared public: listed in `publicOperations()`, a relation security of `false`, or a relation endpoint inheriting a public parent. A server whose document security is empty is not treated as public everywhere.
 - An override key must name an operation the type exposes, except `fetchOne` and `fetchCollection`, which every type has in the table because include hops are checked against them.
 - A scope must be a token a `WWW-Authenticate` header can carry: printable ASCII with no space, double quote or backslash.

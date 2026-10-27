@@ -129,18 +129,19 @@ final class OperationProjector
         $action = $operation->action;
         $id = $operation->operationId;
         $tags = $operation->tags;
+        $scopes = OperationScopes::of($server)?->forOperation($operation) ?? [];
 
         return match (true) {
-            $operation->key->kind === OperationKind::FetchCollection => $this->fetchCollectionOperation($type, $server, $id, $tags),
-            $operation->key->kind === OperationKind::Create => $this->createOperation($type, $server, $id, $tags),
-            $operation->key->kind === OperationKind::FetchOne => $this->fetchOneOperation($type, $server, $id, $tags),
-            $operation->key->kind === OperationKind::Update => $this->updateOperation($type, $server, $id, $tags),
-            $operation->key->kind === OperationKind::Delete => $this->deleteOperation($type, $server, $id, $tags),
-            $action !== null => $this->actionOperation($type, $action, $server)->withOperationId($id),
+            $operation->key->kind === OperationKind::FetchCollection => $this->fetchCollectionOperation($type, $server, $id, $tags, $scopes),
+            $operation->key->kind === OperationKind::Create => $this->createOperation($type, $server, $id, $tags, $scopes),
+            $operation->key->kind === OperationKind::FetchOne => $this->fetchOneOperation($type, $server, $id, $tags, $scopes),
+            $operation->key->kind === OperationKind::Update => $this->updateOperation($type, $server, $id, $tags, $scopes),
+            $operation->key->kind === OperationKind::Delete => $this->deleteOperation($type, $server, $id, $tags, $scopes),
+            $action !== null => $this->actionOperation($type, $action, $server, $scopes)->withOperationId($id),
             $relation === null => throw new \LogicException(\sprintf('The "%s" operation names no relation.', $operation->key->name())),
-            $operation->key->kind === OperationKind::FetchRelated => $this->relatedOperation($type, $relation, $server, $id, $tags),
-            $operation->key->kind === OperationKind::FetchRelationship => $this->relationshipFetchOperation($type, $relation, $server, $id, $tags),
-            default => $this->relationshipMutationOperation($type, $relation, $operation->key->kind, $server, $id, $tags),
+            $operation->key->kind === OperationKind::FetchRelated => $this->relatedOperation($type, $relation, $server, $id, $tags, $scopes),
+            $operation->key->kind === OperationKind::FetchRelationship => $this->relationshipFetchOperation($type, $relation, $server, $id, $tags, $scopes),
+            default => $this->relationshipMutationOperation($type, $relation, $operation->key->kind, $server, $id, $tags, $scopes),
         };
     }
 
@@ -148,8 +149,9 @@ final class OperationProjector
 
     /**
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $parameters = $this->concatParameters(
             $this->filterParameters($type->filters(), $type->fields()),
@@ -161,6 +163,8 @@ final class OperationProjector
         );
 
         $security = $this->securityFor($type, OperationType::FetchCollection, $server);
+
+        $security = $this->scoped($security, $scopes, $server);
 
         $responses = new Responses();
         foreach ($type->responsesFor(OperationType::FetchCollection) as $response) {
@@ -181,8 +185,9 @@ final class OperationProjector
 
     /**
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function fetchOneOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $parameters = $this->concatParameters(
             $this->documentShapeParameters($type, $server),
@@ -190,6 +195,8 @@ final class OperationProjector
         );
 
         $security = $this->securityFor($type, OperationType::FetchOne, $server);
+
+        $security = $this->scoped($security, $scopes, $server);
 
         $responses = new Responses();
         foreach ($type->responsesFor(OperationType::FetchOne) as $response) {
@@ -210,8 +217,9 @@ final class OperationProjector
 
     /**
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function createOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function createOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $base = ComponentNaming::base($type->type());
 
@@ -228,6 +236,7 @@ final class OperationProjector
             $responses = $responses->with((string) $response->status(), $this->createSuccessResponse($type, $response, $server));
         }
         $security = $this->securityFor($type, OperationType::Create, $server);
+        $security = $this->scoped($security, $scopes, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -244,8 +253,9 @@ final class OperationProjector
 
     /**
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function updateOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function updateOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $base = ComponentNaming::base($type->type());
 
@@ -260,6 +270,7 @@ final class OperationProjector
             $responses = $responses->with((string) $response->status(), $this->updateSuccessResponse($type, $response, $server));
         }
         $security = $this->securityFor($type, OperationType::Update, $server);
+        $security = $this->scoped($security, $scopes, $server);
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -276,10 +287,12 @@ final class OperationProjector
 
     /**
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function deleteOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function deleteOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $security = $this->securityFor($type, OperationType::Delete, $server);
+        $security = $this->scoped($security, $scopes, $server);
 
         $responses = new Responses();
         foreach ($type->responsesFor(OperationType::Delete) as $response) {
@@ -495,8 +508,9 @@ final class OperationProjector
      * includes (§4.4).
      *
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function relatedOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function relatedOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $base = ComponentNaming::base($type->type());
         $relBase = $base . ComponentNaming::base($relation->name());
@@ -538,6 +552,7 @@ final class OperationProjector
         // OVERRIDES the parent's (a relation may be more *or* less permissive than the
         // type it hangs off).
         $security = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
+        $security = $this->scoped($security, $scopes, $server);
 
         $responses = (new Responses())
             ->with('200', Response::ofSchema($successDescription, $responseRef));
@@ -564,8 +579,9 @@ final class OperationProjector
      * The relationship-linkage read (`GET …/relationships/{rel}`), which mirrors a fetch.
      *
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
-    private function relationshipFetchOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags): Operation
+    private function relationshipFetchOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $documentRef = $this->relationshipDocumentRef($type, $relation);
         $parent = TypeNoun::of($type)->withArticle();
@@ -594,7 +610,7 @@ final class OperationProjector
             $getParameters = [];
         }
         // The relation's declared read security overrides the parent's fetch gate.
-        $getSecurity = $this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server);
+        $getSecurity = $this->scoped($this->relationSecurityFor($relation->securityRead(), $type, OperationType::FetchOne, $server), $scopes, $server);
         $getResponses = (new Responses())
             ->with('200', Response::ofSchema('The ' . $relation->name() . ' relationship linkage.', $documentRef));
 
@@ -627,6 +643,7 @@ final class OperationProjector
      * emits no `included` member for it however the request is spelled.
      *
      * @param list<string> $tags
+     * @param list<string> $scopes the scopes the operation needs
      */
     private function relationshipMutationOperation(
         TypeMetadataInterface $type,
@@ -635,6 +652,7 @@ final class OperationProjector
         ServerMetadataInterface $server,
         string $operationId,
         array $tags,
+        array $scopes,
     ): Operation {
         $documentRef = $this->relationshipDocumentRef($type, $relation);
         $parent = TypeNoun::of($type)->withArticle();
@@ -657,6 +675,7 @@ final class OperationProjector
         // A relationship mutation mirrors an update, but the relation's own declared
         // mutation security OVERRIDES the parent's update gate.
         $security = $this->relationSecurityFor($relation->securityMutate(), $type, OperationType::Update, $server);
+        $security = $this->scoped($security, $scopes, $server);
 
         // The handler echoes the linkage (`200`), except for a write-only relation, whose
         // linkage is never rendered: that mutation answers `204`.
@@ -711,8 +730,10 @@ final class OperationProjector
      * negotiation), its declared responses ({@see ActionMetadataInterface::responds()})
      * → one success response each, its tags, and the configured security requirement
      * when {@see isSecured()}.
+     *
+     * @param list<string> $scopes the scopes this method of the action needs
      */
-    private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server): Operation
+    private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server, array $scopes): Operation
     {
         $byStatus = [];
         foreach ($action->responds() as $response) {
@@ -730,7 +751,7 @@ final class OperationProjector
             $responses = $responses->with((string) $status, $success);
         }
 
-        $security = $action->isSecured() ? $this->configuredSecurity($server) : null;
+        $security = $this->scoped($action->isSecured() ? $this->configuredSecurity($server) : null, $scopes, $server);
 
         // Every action negotiates the `Accept` header (`406`); a `None`/`Document` input
         // mode also negotiates the `Content-Type` (`415`), while a `Raw` mode relaxes it
@@ -1898,6 +1919,22 @@ final class OperationProjector
         }
 
         return $this->configuredSecurity($server);
+    }
+
+    /**
+     * The operation's security with the scopes it needs named under the scope scheme
+     * ({@see OperationScopes::apply()}).
+     *
+     * @param list<SecurityRequirement>|null $security
+     * @param list<string>                   $scopes
+     *
+     * @return list<SecurityRequirement>|null
+     */
+    private function scoped(?array $security, array $scopes, ServerMetadataInterface $server): ?array
+    {
+        $operationScopes = OperationScopes::of($server);
+
+        return $operationScopes === null ? $security : $operationScopes->apply($security, $scopes, $server->defaultSecurity());
     }
 
     /**
