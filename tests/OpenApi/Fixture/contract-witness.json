@@ -387,9 +387,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:read"
                         ]
@@ -567,9 +564,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -756,9 +750,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:read"
                         ]
@@ -811,9 +802,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -1042,9 +1030,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -1131,9 +1116,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:read",
@@ -1227,11 +1209,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
-                            "articles:read"
+                            "articles:read",
+                            "people:read"
                         ]
                     }
                 ]
@@ -1321,9 +1301,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -1640,9 +1617,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:read"
                         ]
@@ -1796,9 +1770,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:read"
                         ]
@@ -1862,9 +1833,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -1930,9 +1898,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -1996,9 +1961,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -2087,11 +2049,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
-                            "articles:read"
+                            "articles:read",
+                            "people:read"
                         ]
                     }
                 ]
@@ -2181,11 +2141,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
-                            "articles:read"
+                            "articles:read",
+                            "people:read"
                         ]
                     }
                 ]
@@ -2276,9 +2234,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -2337,9 +2292,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:read"
@@ -2429,9 +2381,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -2518,9 +2467,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:read"
@@ -2614,9 +2560,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:read"
@@ -2778,9 +2721,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:read"
                         ]
@@ -2863,9 +2803,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:read"
@@ -2963,9 +2900,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -3061,9 +2995,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -3161,9 +3092,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -3240,9 +3168,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -3323,9 +3248,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -3391,9 +3313,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "articles:write"
                         ]
@@ -3458,9 +3377,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -3549,11 +3465,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
-                            "articles:read"
+                            "articles:read",
+                            "people:read"
                         ]
                     }
                 ]
@@ -3643,11 +3557,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
-                            "articles:read"
+                            "articles:read",
+                            "people:read"
                         ]
                     }
                 ]
@@ -3737,9 +3649,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:write"
@@ -3910,9 +3819,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "articles:publish"
@@ -4911,9 +4817,6 @@
                 },
                 "security": [
                     {
-                        "bearer": []
-                    },
-                    {
                         "oauth2": [
                             "people:read"
                         ]
@@ -5077,7 +4980,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "companies:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -5989,7 +5899,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/tags/{id}/relationships/articles": {
@@ -6230,7 +6147,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -7580,9 +7504,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "bearer": []
-                    },
                     {
                         "oauth2": [
                             "batch"
@@ -16842,6 +16763,7 @@
                             "articles:write": "Create, change and delete articles.",
                             "articles:publish": "Publish articles.",
                             "people:read": "Read people.",
+                            "companies:read": "Read the companies people work for.",
                             "batch": "Send Atomic Operations batches."
                         }
                     }

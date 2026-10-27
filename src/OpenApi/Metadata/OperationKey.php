@@ -20,6 +20,9 @@ use haddowg\JsonApi\Atomic\AtomicOperationCode;
  * type because {@see ActionDeclarations} refuses one path at both scopes. The Atomic
  * Operations endpoint is `atomic`. Neither parses back, since a name cannot carry an
  * action's scope or safety.
+ *
+ * A key can also name the type the operation acts on ({@see withType()}). The name leaves
+ * it out, since the type is usually known from context.
  */
 final readonly class OperationKey
 {
@@ -30,7 +33,18 @@ final readonly class OperationKey
         public ?string $actionPath = null,
         public ?ActionScope $actionScope = null,
         public ?OperationSafety $safety = null,
+        public ?string $type = null,
     ) {}
+
+    /**
+     * The same operation on the named JSON:API type. The key's {@see name()} does not
+     * change; the type is there for a reader that is not handed the type's metadata, such
+     * as a scope resolver asked about a type the server does not describe.
+     */
+    public function withType(?string $type): self
+    {
+        return new self($this->kind, $this->method, $this->relation, $this->actionPath, $this->actionScope, $this->safety, $type);
+    }
 
     /**
      * One of the five CRUD operations.

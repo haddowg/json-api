@@ -114,14 +114,41 @@ final class ScopeTableBuilderTest extends TestCase
     }
 
     #[Test]
-    public function aRelatedTypeTheServerDoesNotDescribeFailsTheBuild(): void
+    public function aRelatedTypeTheServerDoesNotDescribeIsAskedForByName(): void
     {
-        $articles = $this->type('articles', relations: [FakeRelationMetadata::toOne('author', ['people'])]);
+        $articles = $this->type('articles', relations: [
+            FakeRelationMetadata::toOne('company', ['companies']),
+            FakeRelationMetadata::toMany('offices', ['offices']),
+        ]);
 
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('reaches type "people", which the server does not describe');
+        $table = (new ScopeTableBuilder($this->server([$articles]), self::byKind()))->build();
 
-        (new ScopeTableBuilder($this->server([$articles])))->build();
+        self::assertSame(['articles:fetchRelated', 'companies:fetchOne'], $table->for('articles', 'fetchRelated.company'));
+        self::assertSame(['articles:fetchRelationship', 'offices:fetchCollection'], $table->for('articles', 'fetchRelationship.offices'));
+        self::assertNull($table->for('companies', 'fetchOne'));
+    }
+
+    #[Test]
+    public function anUndescribedTypeTheResolverGivesNoScopesContributesNothing(): void
+    {
+        $resolver = new RecordingScopeResolver();
+        $articles = $this->type('articles', relations: [FakeRelationMetadata::toOne('company', ['companies'])]);
+
+        $table = (new ScopeTableBuilder($this->server([$articles]), $resolver))->build();
+
+        self::assertSame([], $table->for('articles', 'fetchRelated.company'));
+        self::assertSame('companies', $resolver->seen['fetchOne@companies']->type);
+        self::assertSame(OperationKind::FetchOne, $resolver->seen['fetchOne@companies']->kind);
+    }
+
+    #[Test]
+    public function theResolverIsToldTheTypeOfEveryKey(): void
+    {
+        $resolver = new RecordingScopeResolver();
+
+        (new ScopeTableBuilder($this->server([$this->type('articles', operations: [OperationType::Delete])]), $resolver))->build();
+
+        self::assertSame('articles', $resolver->seen['delete@articles']->type);
     }
 
     #[Test]
@@ -291,12 +318,21 @@ final class ScopeTableBuilderTest extends TestCase
     }
 
     #[Test]
-    public function anUnknownTypeCannotBeResolvedLive(): void
+    public function anUndescribedTypesReadsResolveLiveByName(): void
+    {
+        $builder = new ScopeTableBuilder($this->server([]), self::byKind());
+
+        self::assertSame(['ghosts:fetchOne'], $builder->resolve('ghosts', OperationKey::crud(OperationKind::FetchOne)));
+        self::assertSame(['ghosts:fetchCollection'], $builder->resolve('ghosts', OperationKey::crud(OperationKind::FetchCollection)));
+    }
+
+    #[Test]
+    public function anUndescribedTypesOtherOperationsCannotBeResolvedLive(): void
     {
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('the server describes no such type');
 
-        (new ScopeTableBuilder($this->server([])))->resolve('ghosts', OperationKey::crud(OperationKind::FetchOne));
+        (new ScopeTableBuilder($this->server([])))->resolve('ghosts', OperationKey::crud(OperationKind::Update));
     }
 
     #[Test]
@@ -323,7 +359,7 @@ final class ScopeTableBuilderTest extends TestCase
         return new class implements OperationScopeResolverInterface {
             public function requiredScopes(?TypeMetadataInterface $type, OperationKey $operation): array
             {
-                return $type === null ? ['atomic'] : [$type->type() . ':' . $operation->kind->value];
+                return $operation->type === null ? ['atomic'] : [$operation->type . ':' . $operation->kind->value];
             }
         };
     }
@@ -363,7 +399,8 @@ final class RecordingScopeResolver implements OperationScopeResolverInterface
     public function requiredScopes(?TypeMetadataInterface $type, OperationKey $operation): array
     {
         $this->seen[$operation->name()] = $operation;
+        $this->seen[$operation->name() . '@' . $operation->type] = $operation;
 
-        return $type === null ? ['atomic'] : [];
+        return $operation->type === null ? ['atomic'] : [];
     }
 }

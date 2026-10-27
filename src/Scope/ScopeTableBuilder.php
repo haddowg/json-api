@@ -62,6 +62,7 @@ final class ScopeTableBuilder
 
     /**
      * Resolves one operation outside a full build, for an entry a cached table is missing.
+     * The reads of a type the server does not describe are asked of the resolver by name.
      *
      * @param string|null $type `null` for the Atomic Operations endpoint
      *
@@ -75,11 +76,18 @@ final class ScopeTableBuilder
             return $this->atomic();
         }
 
-        $metadata = $this->types()[$type] ?? throw new \LogicException(\sprintf(
-            'Cannot resolve the scopes of "%s" on type "%s": the server describes no such type.',
-            $key->name(),
-            $type,
-        ));
+        $metadata = $this->types()[$type] ?? null;
+        if ($metadata === null) {
+            if ($key->kind === OperationKind::FetchOne || $key->kind === OperationKind::FetchCollection) {
+                return $this->undescribed($type, $key);
+            }
+
+            throw new \LogicException(\sprintf(
+                'Cannot resolve the scopes of "%s" on type "%s": the server describes no such type.',
+                $key->name(),
+                $type,
+            ));
+        }
 
         if ($key->kind === OperationKind::Action) {
             $action = $this->actionOf($metadata, $key);
@@ -181,14 +189,8 @@ final class ScopeTableBuilder
 
         $read = OperationKey::crud($relation->isToMany() ? OperationKind::FetchCollection : OperationKind::FetchOne);
         foreach ($relation->relatedTypes() as $relatedType) {
-            $related = $this->types()[$relatedType] ?? throw new \LogicException(\sprintf(
-                'The "%s" relation of type "%s" reaches type "%s", which the server does not describe, so the scopes of "%s" cannot be resolved.',
-                $relation->name(),
-                $type->type(),
-                $relatedType,
-                $key->name(),
-            ));
-            $scopes = [...$scopes, ...$this->own($related, $read)];
+            $related = $this->types()[$relatedType] ?? null;
+            $scopes = [...$scopes, ...($related === null ? $this->undescribed($relatedType, $read) : $this->own($related, $read))];
         }
         $scopes = \array_values(\array_unique($scopes));
 
@@ -234,6 +236,25 @@ final class ScopeTableBuilder
     }
 
     /**
+     * The read scopes of a type the server does not describe, such as the target of a
+     * linkage-only relation, asked of the resolver by the type's name alone. There is no
+     * metadata to override them.
+     *
+     * @return list<string>
+     */
+    private function undescribed(string $type, OperationKey $read): array
+    {
+        $memo = "\0" . $read->name();
+        if (isset($this->own[$type][$memo])) {
+            return $this->own[$type][$memo];
+        }
+
+        $key = $read->withType($type);
+
+        return $this->own[$type][$memo] = $this->validated($this->resolved(null, $key), $type, $key);
+    }
+
+    /**
      * @return array<mixed>|null
      */
     private function override(TypeMetadataInterface $type, OperationKey $key): ?array
@@ -263,12 +284,16 @@ final class ScopeTableBuilder
         }
 
         try {
-            return $this->resolver->requiredScopes($type, $key);
+            return $this->resolver->requiredScopes($type, $type === null ? $key : $key->withType($type->type()));
         } catch (\Throwable $exception) {
             throw new \LogicException(\sprintf(
                 'The scope resolver failed for the operation "%s" of %s: %s',
                 $key->name(),
-                $type === null ? 'the Atomic Operations endpoint' : 'type "' . $type->type() . '"',
+                match (true) {
+                    $type !== null => 'type "' . $type->type() . '"',
+                    $key->type !== null => 'type "' . $key->type . '"',
+                    default => 'the Atomic Operations endpoint',
+                },
                 $exception->getMessage(),
             ), 0, $exception);
         }

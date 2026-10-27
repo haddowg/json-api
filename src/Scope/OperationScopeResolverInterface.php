@@ -26,7 +26,12 @@ interface OperationScopeResolverInterface
      * A CRUD, related or relationship operation carries no safety; resolve those from the
      * key's kind and method. An action's key carries the safety it declares.
      *
-     * @param TypeMetadataInterface|null $type the type the operation acts on, `null` for the Atomic Operations endpoint
+     * The key names the type it acts on in {@see OperationKey::$type}. `$type` is that
+     * type's metadata, or `null` for the Atomic Operations endpoint and for a type the
+     * server does not describe, such as the target of a linkage-only relation, whose
+     * `fetchOne` or `fetchCollection` scopes are asked for by name.
+     *
+     * @param TypeMetadataInterface|null $type the metadata of the type the operation acts on
      *
      * @return list<string>
      */

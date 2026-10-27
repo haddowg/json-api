@@ -23,6 +23,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\OAuthFlow;
 use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -70,6 +71,8 @@ use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
+use haddowg\JsonApi\Scope\OperationScopeResolverInterface;
+use haddowg\JsonApi\Scope\ScopeTableBuilder;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleImportRow;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
@@ -166,29 +169,36 @@ final class ContractWitnessServer
     }
 
     /**
-     * The witness with operation scopes: reads and writes of articles, a related read
-     * that needs the people it returns too, a people read beside a public people
-     * collection, the publish action, and the atomic batch. The oauth2 scheme configures
-     * one scope and the catalogue describes the rest.
+     * The witness with operation scopes, built by the same table builder enforcement uses:
+     * reads and writes of articles, related reads that also need the types they return,
+     * a people read beside a public people collection, a relationship to the linkage-only
+     * companies whose read scope the resolver gives by name, the publish action, and the
+     * atomic batch. The oauth2 scheme configures one scope and the catalogue describes
+     * the rest.
      */
     private static function scoped(ServerMetadataInterface $witness): ServerMetadataInterface
     {
-        $rule = static function (string $type, OperationKey $operation): array {
-            $kind = $operation->kind;
+        $resolver = new class implements OperationScopeResolverInterface {
+            public function requiredScopes(?TypeMetadataInterface $type, OperationKey $operation): array
+            {
+                $kind = $operation->kind;
 
-            return match (true) {
-                $type === 'articles' && $operation->name() === 'fetchRelated.author' => ['articles:read', 'people:read'],
-                $type === 'articles' && $kind === OperationKind::Action => $operation->actionPath === 'publish' ? ['articles:publish'] : [],
-                $type === 'articles' && $operation->method === 'GET' => ['articles:read'],
-                $type === 'articles' => ['articles:write'],
-                $type === 'people' && $kind === OperationKind::FetchOne => ['people:read'],
-                default => [],
-            };
+                return match (true) {
+                    $kind === OperationKind::Atomic => ['batch'],
+                    // The linkage-only companies are asked about by name.
+                    $type === null => $operation->type === 'companies' ? ['companies:read'] : [],
+                    $operation->type === 'articles' && $kind === OperationKind::Action => $operation->actionPath === 'publish' ? ['articles:publish'] : [],
+                    $operation->type === 'articles' && $operation->method === 'GET' => ['articles:read'],
+                    $operation->type === 'articles' => ['articles:write'],
+                    $operation->type === 'people' && $kind === OperationKind::FetchOne => ['people:read'],
+                    default => [],
+                };
+            }
         };
 
         return new ScopeDeclaringServerMetadata(
             $witness,
-            ScopeTables::of($witness, $rule, ['batch']),
+            (new ScopeTableBuilder($witness, $resolver))->build(),
             schemes: ['oauth2' => SecurityScheme::oauth2(new OAuthFlows(
                 clientCredentials: new OAuthFlow(['articles:read' => 'Read articles.'], tokenUrl: 'https://auth.example.com/token'),
             ))],
@@ -197,6 +207,7 @@ final class ContractWitnessServer
                 'articles:write' => 'Create, change and delete articles.',
                 'articles:publish' => 'Publish articles.',
                 'people:read' => 'Read people.',
+                'companies:read' => 'Read the companies people work for.',
                 'batch' => 'Send Atomic Operations batches.',
             ],
         );

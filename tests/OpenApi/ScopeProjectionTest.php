@@ -60,19 +60,28 @@ final class ScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function anOperationThatInheritedTheDefaultGetsItsOwn(): void
+    public function anOperationThatInheritedTheDefaultGetsItsOwnWithoutTheOtherAlternatives(): void
     {
         $document = $this->project($this->scoped(default: [SecurityRequirement::scheme('bearer'), SecurityRequirement::scheme('oauth2')]));
 
-        self::assertSame([['bearer' => []], ['oauth2' => ['books:read']]], $this->security($document, '/books/{id}', 'get'));
+        self::assertSame([['oauth2' => ['books:read']]], $this->security($document, '/books/{id}', 'get'));
     }
 
     #[Test]
-    public function aDefaultNotNamingTheSchemeGainsItAsAnAlternative(): void
+    public function aRequirementJoiningTheSchemeToAnotherKeepsBoth(): void
+    {
+        $document = $this->project($this->scoped(default: [new SecurityRequirement(['bearer' => [], 'oauth2' => []]), SecurityRequirement::scheme('bearer')]));
+
+        self::assertSame([['bearer' => [], 'oauth2' => ['books:read']]], $this->security($document, '/books/{id}', 'get'));
+    }
+
+    #[Test]
+    public function aDefaultNotNamingTheSchemeIsReplacedByIt(): void
     {
         $document = $this->project($this->scoped(default: [SecurityRequirement::scheme('bearer')]));
 
-        self::assertSame([['bearer' => []], ['oauth2' => ['books:read']]], $this->security($document, '/books/{id}', 'get'));
+        self::assertSame([['oauth2' => ['books:read']]], $this->security($document, '/books/{id}', 'get'));
+        self::assertNull($this->security($document, '/books/{id}', 'delete'));
     }
 
     #[Test]
