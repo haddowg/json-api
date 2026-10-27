@@ -32,6 +32,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\MethodNotAllowedServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ReadOnlyAttributeRejectingServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeDeclaringServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeTables;
@@ -421,6 +422,33 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     #[Test]
+    public function theMethodNotAllowedCodeAppearsOnlyWhenTheServerRendersIt(): void
+    {
+        $this->assertGatedBy(
+            ErrorFeature::MethodNotAllowed,
+            $this->fullServer(),
+            $this->fullServer(rendersMethodNotAllowed: false),
+        );
+
+        $declinedSchemas = $this->schemas(new MethodNotAllowedServerMetadata($this->fullServer(rendersMethodNotAllowed: false), renders: false));
+        self::assertArrayNotHasKey('MethodNotAllowedError', $declinedSchemas);
+
+        // A read-only server is where a client meets it most: every write is refused.
+        $readOnlySchemas = $this->schemas(new MethodNotAllowedServerMetadata($this->readOnlyServer()));
+        self::assertArrayHasKey('MethodNotAllowedError', $readOnlySchemas);
+        self::assertSame('405', $this->at($readOnlySchemas, 'MethodNotAllowedError', 'allOf', '1', 'properties', 'status', 'const'));
+    }
+
+    #[Test]
+    public function aServerThatDoesNotRenderMethodNotAllowedProjectsTheSameDocument(): void
+    {
+        $plain = (new OpenApiProjector())->project($this->readOnlyServer())->toJson();
+        $declined = (new OpenApiProjector())->project(new MethodNotAllowedServerMetadata($this->readOnlyServer(), renders: false))->toJson();
+
+        self::assertEquals($plain, $declined);
+    }
+
+    #[Test]
     public function aMutableRelationOnAReadOnlyTypeIsNotAWrite(): void
     {
         // The relation's mutation flags are permissive, but the type's allow-list has no
@@ -504,7 +532,8 @@ final class ErrorCatalogProjectionTest extends TestCase
     /**
      * A server reaching every feature gate: the atomic extension, a pagination menu with
      * a cursor arm, the Countable profile, client-generated ids, a full write surface,
-     * read-only attribute rejection and an operation that needs an OAuth scope.
+     * read-only attribute rejection, an operation that needs an OAuth scope and a
+     * rendered method-not-allowed.
      *
      * @param list<string>|null $profiles
      */
@@ -514,6 +543,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         ?Schema $page = null,
         ?array $profiles = null,
         bool $rejectsReadOnlyAttributes = true,
+        bool $rendersMethodNotAllowed = true,
     ): ServerMetadataInterface {
         $type = FakeTypeMetadata::resource(
             type: 'books',
@@ -538,7 +568,9 @@ final class ErrorCatalogProjectionTest extends TestCase
             schemes: ['oauth2' => SecurityScheme::oauth2(new OAuthFlows(clientCredentials: new OAuthFlow(['books:read' => 'Read books.'], tokenUrl: 'https://auth.example.com/token')))],
         );
 
-        return $rejectsReadOnlyAttributes ? new ReadOnlyAttributeRejectingServerMetadata($server) : $server;
+        $server = $rejectsReadOnlyAttributes ? new ReadOnlyAttributeRejectingServerMetadata($server) : $server;
+
+        return $rendersMethodNotAllowed ? new MethodNotAllowedServerMetadata($server) : $server;
     }
 
     /**

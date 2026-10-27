@@ -65,4 +65,12 @@ enum ErrorFeature: string
 
     /** The server's operations require OAuth scopes. */
     case OperationScopes = 'operation-scopes';
+
+    /**
+     * The server answers a method one of its paths does not accept with a JSON:API error
+     * document. Off unless the server metadata opts in through
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed}: core routes
+     * nothing, so only an adapter that owns routing can raise it.
+     */
+    case MethodNotAllowed = 'method-not-allowed';
 }

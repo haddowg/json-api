@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -257,6 +258,8 @@ final class ErrorCatalogProjector
                 && $server->rejectsReadOnlyAttributes()
                 && $this->exposesAWrite($server),
             ErrorFeature::OperationScopes => OperationScopes::of($server) !== null,
+            ErrorFeature::MethodNotAllowed => $server instanceof DeclaresMethodNotAllowed
+                && $server->rendersMethodNotAllowed(),
         };
     }
 

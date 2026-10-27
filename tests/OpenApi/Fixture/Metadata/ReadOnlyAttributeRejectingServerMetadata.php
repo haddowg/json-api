@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationScopeTable;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -15,12 +16,17 @@ use haddowg\JsonApi\Scope\ScopeTable;
 
 /**
  * Wraps a {@see ServerMetadataInterface} and declares whether its server rejects
- * read-only attributes in write bodies. It passes through any operation scopes the inner
- * metadata declares.
+ * read-only attributes in write bodies. It passes through any operation scopes and
+ * method-not-allowed rendering the inner metadata declares.
  */
-final readonly class ReadOnlyAttributeRejectingServerMetadata implements DeclaresReadOnlyAttributeRejection, DeclaresOperationScopeTable
+final readonly class ReadOnlyAttributeRejectingServerMetadata implements DeclaresReadOnlyAttributeRejection, DeclaresOperationScopeTable, DeclaresMethodNotAllowed
 {
     public function __construct(private ServerMetadataInterface $inner, private bool $rejects = true) {}
+
+    public function rendersMethodNotAllowed(): bool
+    {
+        return $this->inner instanceof DeclaresMethodNotAllowed && $this->inner->rendersMethodNotAllowed();
+    }
 
     public function scopeTable(): ScopeTable
     {

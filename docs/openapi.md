@@ -772,6 +772,11 @@ One optional contract sits beside the family: `ContributesErrorCodes` extends
 when it assembles that server's [error catalogue](#the-error-code-catalogue). Metadata
 that does not implement it publishes core's codes and nothing else.
 
+`DeclaresMethodNotAllowed` is another. Its `rendersMethodNotAllowed(): bool` says whether the
+adapter answers a method a path does not accept with a JSON:API error, which adds
+`METHOD_NOT_ALLOWED` to the catalogue. No operation lists a `405` response, since an
+operation is one method on one path.
+
 A second sits beside `TypeMetadataInterface`: `DeclaresOperationExtensions` adds
 `extensions(): array` and `operationExtensions(OperationType): array`, the vendor
 extensions for a type's operations. See
