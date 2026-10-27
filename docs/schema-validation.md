@@ -107,17 +107,20 @@ the validator needs:
   an omitted `id` and a `lid`. Its cross-document `$ref`s reach back into the base,
   so both schemas are registered into the validator's resolver.
 
-The provider applies four transformations to the response schema when it loads it:
+The provider applies five transformations to the response schema when it loads it:
 
 - It **strips the document-root `unevaluatedProperties`** keyword so the
   `DocumentValidator` can re-apply it on its own composite. Nested
-  `unevaluatedProperties` are left intact, apart from the resource links one below.
+  `unevaluatedProperties` are left intact, apart from the two links ones below.
 - It relaxes the link URL definition from `format: uri` to `format: uri-reference`.
   JSON:API 1.1 lets a link be any URI-reference, so a host-relative
   `/albums?page[number]=2` validates. A string that isn't a URI-reference at all,
   such as one with an unencoded space, still fails.
 - It lets a resource's `links` object carry named links beside `self`. Each extra
   member must still be a valid link.
+- It lets the document's top-level `links` object carry named links beside `self`,
+  `related`, `describedby` and the pagination links, such as the `location` link of
+  an action that answers with a URL. Each extra member must still be a valid link.
 - It rejects a `links` or `relationships` member in any object inside an attribute
   value, at any depth and inside arrays, as JSON:API 1.1 requires. A top-level
   attribute called `links` still validates, and so do look-alikes such as `link` or

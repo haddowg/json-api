@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Validation;
  * under `resources/schemas/` and decodes them once (memoized per instance).
  *
  * The response schema is the byte-faithful upstream file; this provider applies
- * four transformations to it at load time:
+ * five transformations to it at load time:
  *
  * - It strips the document-**root** `unevaluatedProperties` keyword so that
  *   {@see DocumentValidator} can re-apply it on its `allOf` composite instead.
@@ -24,6 +24,10 @@ namespace haddowg\JsonApi\Validation;
  * - It lets `definitions.resourceLinks` carry members beyond `self`, each a link.
  *   JSON:API 1.1 says a resource's links object MAY contain `self`; it forbids no
  *   other member, and declared and action links render more.
+ * - It lets `definitions.topLevelLinks` carry members beyond `self`, `related`,
+ *   `describedby` and the pagination links, each a link. JSON:API 1.1 lists what
+ *   that object MAY contain without making the list exclusive, and a custom action
+ *   answering with a URL renders a `location` link there.
  * - It forbids a `links` or `relationships` member inside an attribute value, at
  *   any depth. JSON:API 1.1 says no object that is or sits inside an attribute
  *   value may contain either member, and upstream lets any value through. A
@@ -69,6 +73,11 @@ final class VendoredSchemaProvider implements \haddowg\JsonApi\Validation\Schema
             $resourceLinks = \is_object($definitions) ? (\get_object_vars($definitions)['resourceLinks'] ?? null) : null;
             if ($resourceLinks instanceof \stdClass) {
                 $resourceLinks->unevaluatedProperties = (object) ['$ref' => '#/definitions/link'];
+            }
+            // So may the top-level links object (see class docblock).
+            $topLevelLinks = \is_object($definitions) ? (\get_object_vars($definitions)['topLevelLinks'] ?? null) : null;
+            if ($topLevelLinks instanceof \stdClass) {
+                $topLevelLinks->unevaluatedProperties = (object) ['$ref' => '#/definitions/link'];
             }
             // No object inside an attribute value may hold `links` or `relationships` (see class docblock).
             if ($definitions instanceof \stdClass) {

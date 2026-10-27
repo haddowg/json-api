@@ -138,6 +138,38 @@ final class DocumentValidatorTest extends TestCase
         }
     }
 
+    #[Test]
+    public function aDocumentMayCarryNamedTopLevelLinks(): void
+    {
+        $this->validator()->validateResponse([
+            'links' => [
+                'self' => '/files/1/-actions/download',
+                'location' => [
+                    'href' => 'https://files.example.com/1.csv?signature=abc',
+                    'type' => 'text/csv',
+                    'meta' => ['expiresAt' => '2026-01-01T12:00:00+00:00'],
+                ],
+            ],
+            'meta' => ['expiresAt' => '2026-01-01T12:00:00+00:00'],
+        ]);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function aNamedTopLevelLinkMustStillBeALink(): void
+    {
+        try {
+            $this->validator()->validateResponse([
+                'links' => ['location' => ['type' => 'text/csv']],
+                'meta' => ['expiresAt' => '2026-01-01T12:00:00+00:00'],
+            ]);
+            self::fail('Expected ResponseBodyInvalidJsonApi.');
+        } catch (ResponseBodyInvalidJsonApi $exception) {
+            self::assertNotSame([], $this->pointers($exception->validationErrors));
+        }
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

@@ -849,7 +849,7 @@ them (a set). They are typed per operation so an illegal combination is unrepres
 | `new Ok()` | `200` | resource / collection document | update, fetch-one, fetch-collection |
 | `new NoContent()` | `204` | no body | create, update, delete, actions |
 | `new Accepted(string $jobType)` | `202` | the **job** type's document + `Content-Location` + `Retry-After` | create, update, actions |
-| `new SeeOther()` | `303` | `Location` only, no body | fetch-one, actions |
+| `new SeeOther(?string $description, ?string $mediaType)` | `303` | `Location` only, no body; on an action with a `mediaType` also a `200` [location document](#actions-that-answer-with-a-url) | fetch-one, actions |
 | `new MetaResult()` | `200` | a meta-only document | delete, actions |
 | `new ActionResource(string $type)` | `200` | the named type's document | actions |
 | `new RawResult(string $mediaType, …)` | `200` by default | a body that is not JSON:API, beside the JSON:API one | actions |
@@ -912,6 +912,70 @@ with a [`RawResponse`](responses.md#raw-responses).
 A document whose actions declare a `RawResult` carries contract 10; one that declares none
 keeps contract 9 and is byte-for-byte unchanged (see
 [scoped contracts](#a-bump-scoped-to-some-documents)).
+
+### Actions that answer with a URL
+
+An action that hands out a URL, such as a short-lived download link, declares `SeeOther`
+with a `mediaType`, the media type the URL serves. A download whose type isn't known
+declares `application/octet-stream`. `description` replaces the generated wording. The
+`mediaType` is the opt-in: a bare `new SeeOther()`, or one with only a description, stays
+the plain `303` it always was, at runtime and in the projection.
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
+
+$responds = [new SeeOther('A short-lived link to the export.', 'text/csv')];
+```
+
+The handler returns `SeeOtherResponse::to($url, $expiresAt)` (see
+[location responses](responses.md#location-responses)), and the request's `Accept` decides
+the shape. A request that names `application/vnd.api+json`, with nothing else it lists
+weighing more, gets a `200` location document. Any other request gets the `303`: no
+`Accept`, `*/*`, a browser's navigation, a link click or `curl`. The document exists
+because a browser cannot read a `303`'s `Location` from `fetch()`, which with
+`redirect: 'manual'` returns an opaque response:
+
+```json
+{
+  "links": {
+    "self": "https://api.example.com/files/1/-actions/download",
+    "location": {
+      "href": "https://storage.example.com/1.csv?signature=abc",
+      "type": "text/csv",
+      "meta": { "expiresAt": "2026-10-27T12:00:00+00:00" }
+    }
+  },
+  "meta": { "expiresAt": "2026-10-27T12:00:00+00:00" },
+  "jsonapi": { "version": "1.1" }
+}
+```
+
+`self` is the action's own URL. `location.type` is the declared media type unless the
+handler sets its own with `withType()`, and `location.meta` appears when the URL expires. JSON:API needs a
+`meta`, `data` or `errors` member at the top level, so the top-level `meta.expiresAt` is
+always there, `null` for a URL that does not expire. The expiry is written in the
+server's output timezone, as a `DateTime` attribute is. Both shapes send
+`Cache-Control: no-store` and `Vary: Accept` unless the handler set its own. Errors stay
+JSON:API documents.
+
+The projection documents both responses. The `200` references a shared
+`LocationDocument` component, whose `links.location` is a `LocationLink` with `href`,
+`type` and `meta.expiresAt`, narrowed in an `allOf` so `type` is a `const` of the declared
+media type. The `303` documents `Location` as a `uri-reference`, and both
+document `Cache-Control`. When the action also declares a `200` JSON:API body, such as an
+`ActionResource`, the `200` is a `oneOf` of that document and the location document. The
+operation's example is the location document with a fixed example URL and expiry, typed
+with the declared media type.
+
+An integration negotiates such an action with
+`AcceptNegotiator::negotiateAction($accept, $responds)`, which returns `null` instead of
+throwing a `406` when no declared media type is acceptable, because the action can still
+answer with its `303`. An action with a bare `SeeOther` keeps the `406`, since it may
+answer with a JSON:API body instead. It passes the declared responses to `CustomActionOperation`
+(`responds:`), so `Server::dispatch()` can type the location link from the declared
+media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`. A document
+whose actions declare `SeeOther` with a media type carries contract 17 (see
+[scoped contracts](#a-bump-scoped-to-some-documents), [ADR 0185](adr/0185-an-action-answering-with-a-url-negotiates-a-location-document-or-a-303.md)).
 
 ### Accepted request bodies
 
@@ -1172,10 +1236,15 @@ when a polymorphic relation has one related type, which is now
 [projected as a union](#polymorphic-relations-with-one-type)
 (`SINGLE_TARGET_POLYMORPHISM`). Every other document is unchanged.
 
+Contract 17 adds one more. A document carries it when an action declares `SeeOther`
+with a media type, which documents a `200` [location document](#actions-that-answer-with-a-url) beside
+the `303`, through the `LocationDocument` and `LocationLink` components
+(`ACTION_LOCATION`). Every other document is unchanged.
+
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,
-examples, declared links, those action declarations, operation scopes and single-type
-polymorphic relations, lets the CI guard hold `BASELINE`
+examples, declared links, those action declarations, operation scopes, single-type
+polymorphic relations and actions answering with a URL, lets the CI guard hold `BASELINE`
 to that rule.
 
 #### Diffing documents across contracts

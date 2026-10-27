@@ -182,6 +182,24 @@ final class OperationCatalogTest extends TestCase
         self::assertSame($projected, $catalogued);
     }
 
+    #[Test]
+    public function anActionAnsweringWithAUrlIsCataloguedLikeAnyOtherAction(): void
+    {
+        $definitions = $this->list($this->catalog(ContractWitnessServer::build())->forServer('default'));
+        $download = null;
+        foreach ($definitions as $definition) {
+            if ($definition->operationId === 'action.articles.download') {
+                $download = $definition;
+            }
+        }
+
+        self::assertNotNull($download);
+        self::assertSame('GET', $download->method);
+        self::assertSame('/articles/{id}/-actions/download', $download->pathTemplate);
+        self::assertSame(ActionScope::Resource, $download->actionScope);
+        self::assertSame(['readOnly' => true], $download->safety?->toArray());
+    }
+
     private function catalog(ServerMetadataInterface $server, ?OperationSecuritySourceInterface $source = null): OperationCatalog
     {
         return new OperationCatalog(static fn(string $name): ServerMetadataInterface => $server, $source ?? new RecordingSecuritySource());

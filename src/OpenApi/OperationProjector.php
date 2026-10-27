@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
@@ -380,7 +381,7 @@ final class OperationProjector
                 'The requested ' . TypeNoun::of($type)->singular . '.',
                 Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
             ),
-            303 => $this->seeOtherResponse(),
+            303 => $this->seeOtherResponse($response instanceof SeeOther ? $response->description : null),
             default => throw $this->unexpectedResponse(OperationType::FetchOne, $response->status()),
         };
     }
@@ -426,15 +427,78 @@ final class OperationProjector
      * The `303 See Other` async-completion response: a `Location` header pointing at
      * the produced resource, no body.
      */
-    private function seeOtherResponse(): Response
+    private function seeOtherResponse(?string $description = null): Response
     {
         return new Response(
-            'The asynchronous operation is complete; follow Location to the produced resource.',
+            $description ?? 'The asynchronous operation is complete; follow Location to the produced resource.',
             headers: ['Location' => new Header(
                 'The URL of the produced resource.',
                 schema: Schema::ofType('string')->withFormat('uri-reference'),
             )],
         );
+    }
+
+    /**
+     * An action's `303`, answering any request that does not prefer JSON:API: `Location`
+     * is the URL the action produced, and the response is never cached.
+     */
+    private function actionSeeOtherResponse(SeeOther $declared): Response
+    {
+        return new Response(
+            $declared->description ?? 'Redirects to the URL the action produced.',
+            headers: [
+                'Location' => new Header(
+                    'The URL the action produced.',
+                    required: true,
+                    schema: Schema::ofType('string')->withFormat('uri-reference'),
+                ),
+                ...self::noStoreHeader(),
+            ],
+        );
+    }
+
+    /**
+     * An action's `200` location document, answering a request that prefers JSON:API.
+     * The schema is the shared `LocationDocument`, narrowed to the declared media type's
+     * `type`. `$declared200` is a `200` JSON:API body the action also declares, which the
+     * location document joins in a `oneOf`.
+     */
+    private function actionLocationResponse(SeeOther $declared, string $mediaType, ?Response $declared200): Response
+    {
+        $schema = Schema::create()->withAllOf([
+            Schema::ref(ComponentNaming::schemaRef('LocationDocument')),
+            Schema::ofType('object')->withProperty(
+                'links',
+                Schema::ofType('object')->withProperty(
+                    'location',
+                    Schema::ofType('object')->withProperty('type', Schema::ofType('string')->withConst($mediaType)),
+                ),
+            ),
+        ]);
+
+        $existing = $declared200?->content[MediaType::JSON_API]->schema ?? null;
+        if ($declared200 !== null && $existing !== null) {
+            return $declared200
+                ->withDescription($declared200->description . ' ' . ($declared->description ?? 'Or the URL the action produced, as its `location` link.'))
+                ->withMediaType(MediaType::JSON_API, MediaType::ofSchema(Schema::create()->withOneOf([
+                    $existing instanceof Schema ? $existing : Schema::ref($existing->ref),
+                    $schema,
+                ])))
+                ->withHeaders([...$declared200->headers, ...self::noStoreHeader()]);
+        }
+
+        return Response::ofSchema($declared->description ?? 'The URL the action produced, as its `location` link.', $schema)->withHeaders(self::noStoreHeader());
+    }
+
+    /**
+     * @return array{Cache-Control: Header}
+     */
+    private static function noStoreHeader(): array
+    {
+        return ['Cache-Control' => new Header(
+            '`no-store` unless the action sets its own: the URL may be short-lived.',
+            schema: Schema::ofType('string'),
+        )];
     }
 
     /**
@@ -741,6 +805,11 @@ final class OperationProjector
                 $byStatus[$response->status()] = $this->actionSuccessResponse($response, $server);
             }
         }
+        $location = ActionResponses::location($action->responds());
+        if ($location?->mediaType !== null) {
+            $byStatus[200] = $this->actionLocationResponse($location, $location->mediaType, $byStatus[200] ?? null);
+            \ksort($byStatus);
+        }
         foreach ($action->responds() as $response) {
             if ($response instanceof RawResult) {
                 $byStatus[$response->status()] = $this->withRawResult($byStatus[$response->status()] ?? new Response('The action result.'), $response);
@@ -925,7 +994,9 @@ final class OperationProjector
      * The concrete success {@see Response} for one declared action response:
      * {@see ActionResource} → `200` with that type's document; {@see MetaResult} → `200`
      * meta-only document; {@see NoContent} → `204`; {@see Accepted} → the async `202`;
-     * {@see SeeOther} → the `303` completion redirect.
+     * {@see SeeOther} → the plain `303`, or with a media type the `303` to the URL the
+     * action produced, beside which {@see actionOperation()} adds the `200` location
+     * document.
      */
     private function actionSuccessResponse(ActionResponse $response, ServerMetadataInterface $server): Response
     {
@@ -940,7 +1011,9 @@ final class OperationProjector
             ),
             $response instanceof NoContent => Response::noContent('The action completed with no content.'),
             $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server),
-            $response instanceof SeeOther => $this->seeOtherResponse(),
+            $response instanceof SeeOther => $response->mediaType === null
+                ? $this->seeOtherResponse($response->description)
+                : $this->actionSeeOtherResponse($response),
             default => throw new \LogicException(\sprintf(
                 'Unsupported action response %s (status %d).',
                 $response::class,

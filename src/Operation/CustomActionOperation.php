@@ -25,6 +25,9 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  */
 final readonly class CustomActionOperation implements JsonApiOperationInterface
 {
+    /**
+     * @param list<\haddowg\JsonApi\OpenApi\Metadata\ActionResponse> $responds the action's declared responses; dispatch reads its SeeOther's media type
+     */
     public function __construct(
         private Target $target,
         private QueryParameters $queryParameters,
@@ -32,6 +35,7 @@ final readonly class CustomActionOperation implements JsonApiOperationInterface
         private string $action,
         private string $method,
         private ?JsonApiRequestInterface $body = null,
+        private array $responds = [],
     ) {}
 
     public function target(): Target
@@ -62,5 +66,15 @@ final readonly class CustomActionOperation implements JsonApiOperationInterface
     public function body(): ?JsonApiRequestInterface
     {
         return $this->body;
+    }
+
+    /**
+     * The responses the action declares, or `[]` when the integration did not pass them.
+     *
+     * @return list<\haddowg\JsonApi\OpenApi\Metadata\ActionResponse>
+     */
+    public function responds(): array
+    {
+        return $this->responds;
     }
 }

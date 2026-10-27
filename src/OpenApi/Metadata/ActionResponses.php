@@ -64,6 +64,26 @@ final class ActionResponses
     }
 
     /**
+     * The {@see SeeOther} an action declares with a media type, or `null`. Declaring the
+     * media type opts the action in to answering with a URL: the `200` location document
+     * when the request prefers JSON:API, the `303` otherwise
+     * ({@see \haddowg\JsonApi\Negotiation\AcceptNegotiator::negotiateAction()}). A bare
+     * `SeeOther` stays the plain `303`.
+     *
+     * @param list<OperationResponseInterface> $responds
+     */
+    public static function location(array $responds): ?SeeOther
+    {
+        foreach ($responds as $response) {
+            if ($response instanceof SeeOther && $response->mediaType !== null) {
+                return $response;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The media types an action can answer with, for
      * {@see \haddowg\JsonApi\Negotiation\AcceptNegotiator}: `application/vnd.api+json`
      * first when the action declares any JSON:API response, then each {@see RawResult}

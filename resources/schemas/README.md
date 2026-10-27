@@ -37,7 +37,7 @@ schema fragment **extend** the set of allowed top-level members (a fragment's
 top-level `properties` are seen by the composite's `unevaluatedProperties`,
 whereas they would be invisible to the base's own root keyword). Nested
 `unevaluatedProperties` in the base are left untouched, except on
-`resourceLinks` (see below).
+`resourceLinks` and `topLevelLinks` (see below).
 
 ### Note on `definitions.linkUrl`'s `format`
 
@@ -59,6 +59,16 @@ so only `self` and `@`-members pass. JSON:API 1.1 says that object MAY contain a
 design: declared links and action links. `VendoredSchemaProvider` replaces that
 one keyword with `"unevaluatedProperties": {"$ref": "#/definitions/link"}` at load
 time, so any other member must still be a valid link.
+
+### Note on `definitions.topLevelLinks`
+
+Upstream closes the document's top-level links object the same way, so only
+`self`, `related`, `describedby`, the pagination links and `@`-members pass.
+JSON:API 1.1 lists the members that object MAY contain without making the list
+exclusive, and a custom action that answers with a URL renders it as a top-level
+`location` link. `VendoredSchemaProvider` applies the same replacement here:
+`"unevaluatedProperties": {"$ref": "#/definitions/link"}`, so any other member must
+still be a valid link.
 
 ### Note on `definitions.attributes`' member values
 

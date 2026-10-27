@@ -12,6 +12,7 @@ use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
@@ -123,14 +124,16 @@ final class ContractWitnessServer
      * @param bool $singleTargetPolymorphism whether the articles carry polymorphic relations
      *                                       over a single type, which the baseline witness
      *                                       leaves out too
+     * @param bool $actionLocations whether the articles carry the actions answering with a
+     *                              URL, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations),
                 self::people(),
                 self::tags(),
                 self::images($declaredLinks),
@@ -221,7 +224,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -394,6 +397,16 @@ final class ContractWitnessServer
                     new FakeActionMetadata('export', ['GET', 'POST'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: false),
                     new FakeActionMetadata('preview', ['GET'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', tags: ['Articles'], example: false, readOnly: true, destructive: false, idempotent: true),
                     new FakeActionMetadata('purge', ['POST'], ActionScope::Resource, ActionInputMode::None, tags: ['Articles'], destructive: true, extensions: ['workflows' => ['source' => 'workflows.arazzo.yaml', 'workflowId' => 'purgeArticle']]),
+                ] : []),
+                ...($actionLocations ? [
+                    // Actions answering with a URL: a described CSV download rendered as a
+                    // resource link, and an octet-stream one beside a 200 resource document. The
+                    // bare SeeOther on `archive` is the control that stays a plain 303.
+                    new FakeActionMetadata('download', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [
+                        new SeeOther('A short-lived link to the article as CSV.', 'text/csv'),
+                    ], tags: ['Articles'], linkName: 'download', readOnly: true),
+                    new FakeActionMetadata('archive', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new SeeOther()], tags: ['Articles']),
+                    new FakeActionMetadata('revision', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('articles'), new SeeOther(mediaType: 'application/octet-stream')], tags: ['Articles'], example: false),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],

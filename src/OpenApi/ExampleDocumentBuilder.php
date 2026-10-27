@@ -44,6 +44,14 @@ final class ExampleDocumentBuilder
      */
     private const CURSOR_REQUEST = 'eyJpZCI6MTB9';
 
+    /**
+     * The URL and expiry an action's location document example carries: the URL a real
+     * action hands out is not knowable from metadata, so every example shows this one.
+     */
+    private const LOCATION_HREF = 'https://storage.example.com/downloads/example?signature=example';
+
+    private const LOCATION_EXPIRES_AT = '2030-01-01T00:00:00+00:00';
+
     /** @var array<string, TypeMetadataInterface> */
     private array $types = [];
 
@@ -103,6 +111,23 @@ final class ExampleDocumentBuilder
         $links = $selfLink ? ['self' => $this->links->renderedLink($path, $operation)] : [];
 
         return $this->finish($document, $this->withDescribedBy($links, $operation), []);
+    }
+
+    /**
+     * The location document an action answering with a URL renders for a request to
+     * `$path`: a fixed example URL, typed with the declared `$mediaType`.
+     *
+     * @return array<string, mixed>
+     */
+    public function locationDocument(string $path, OperationReference $operation, string $mediaType): array
+    {
+        $location = ['href' => self::LOCATION_HREF, 'type' => $mediaType, 'meta' => ['expiresAt' => self::LOCATION_EXPIRES_AT]];
+
+        return $this->finish(
+            [],
+            $this->withDescribedBy(['self' => $this->links->renderedLink($path, $operation), 'location' => $location], $operation),
+            ['expiresAt' => self::LOCATION_EXPIRES_AT],
+        );
     }
 
     /**

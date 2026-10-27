@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Operation;
 
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\Operation\CustomActionOperation;
 use haddowg\JsonApi\Operation\OperationContext;
 use haddowg\JsonApi\Operation\QueryParameters;
@@ -97,5 +98,22 @@ final class CustomActionOperationTest extends TestCase
                 'POST',
             ),
         );
+    }
+
+    #[Test]
+    public function itCarriesTheResponsesTheActionDeclares(): void
+    {
+        $responds = [new SeeOther(mediaType: 'text/csv')];
+        $operation = new CustomActionOperation(
+            new Target('files', '1'),
+            new QueryParameters([], [], [], [], []),
+            new OperationContext(new StubServer()),
+            'download',
+            'GET',
+            responds: $responds,
+        );
+
+        self::assertSame($responds, $operation->responds());
+        self::assertSame([], (new CustomActionOperation(new Target('files'), new QueryParameters([], [], [], [], []), new OperationContext(new StubServer()), 'import', 'POST'))->responds());
     }
 }
