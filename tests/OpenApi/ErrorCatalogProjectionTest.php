@@ -10,10 +10,15 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\OAuthFlow;
+use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\Schema;
+use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
@@ -28,6 +33,8 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ReadOnlyAttributeRejectingServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeDeclaringServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeTables;
 use Opis\JsonSchema\Helper;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -57,7 +64,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $schemas = $this->schemas($this->fullServer());
 
-        foreach (self::offerableDescriptors() as $descriptor) {
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
             $component = ErrorCatalogProjector::componentName($descriptor->code);
             self::assertArrayHasKey($component, $schemas, "missing error component {$component}");
         }
@@ -119,7 +126,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
-        self::assertCount(\count(self::offerableDescriptors()) + 1, $branches);
+        self::assertCount(\count(ErrorCatalog::core()->descriptors()) + 1, $branches);
     }
 
     // ---- Contributed codes ----------------------------------------------------------
@@ -217,7 +224,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $schemas = $this->schemas($this->fullServer());
 
-        foreach (self::offerableDescriptors() as $descriptor) {
+        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
             $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
             self::assertSame($descriptor->description, $variant['description'] ?? null, $descriptor->code);
         }
@@ -495,23 +502,9 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     /**
-     * Every core descriptor a server can offer. No metadata describes operation scopes to
-     * the projection yet, so not even the full server offers `INSUFFICIENT_SCOPE`.
-     *
-     * @return list<\haddowg\JsonApi\Exception\ErrorDescriptor>
-     */
-    private static function offerableDescriptors(): array
-    {
-        return \array_values(\array_filter(
-            ErrorCatalog::core()->descriptors(),
-            static fn(\haddowg\JsonApi\Exception\ErrorDescriptor $descriptor): bool => $descriptor->feature !== \haddowg\JsonApi\Exception\ErrorFeature::OperationScopes,
-        ));
-    }
-
-    /**
      * A server reaching every feature gate: the atomic extension, a pagination menu with
-     * a cursor arm, the Countable profile, client-generated ids, a full write surface and
-     * read-only attribute rejection.
+     * a cursor arm, the Countable profile, client-generated ids, a full write surface,
+     * read-only attribute rejection and an operation that needs an OAuth scope.
      *
      * @param list<string>|null $profiles
      */
@@ -537,6 +530,12 @@ final class ErrorCatalogProjectionTest extends TestCase
             types: [$type],
             atomicOperations: $atomic ? new FakeAtomicOperationsMetadata('/operations', 'Atomic') : null,
             profiles: $profiles ?? [CountableProfile::URI],
+        );
+
+        $server = new ScopeDeclaringServerMetadata(
+            $server,
+            ScopeTables::of($server, static fn(string $type, OperationKey $operation): array => $operation->kind === OperationKind::FetchOne ? ['books:read'] : []),
+            schemes: ['oauth2' => SecurityScheme::oauth2(new OAuthFlows(clientCredentials: new OAuthFlow(['books:read' => 'Read books.'], tokenUrl: 'https://auth.example.com/token')))],
         );
 
         return $rejectsReadOnlyAttributes ? new ReadOnlyAttributeRejectingServerMetadata($server) : $server;

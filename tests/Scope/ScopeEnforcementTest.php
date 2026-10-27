@@ -183,12 +183,15 @@ final class ScopeEnforcementTest extends TestCase
     }
 
     #[Test]
-    public function aHopToATypeTheServerDoesNotDescribeIsLeftToRenderingAndLogged(): void
+    public function aHopToATypeTheServerDoesNotDescribeIsCheckedByName(): void
     {
-        $response = $this->get('/sc-articles/1?include=author.ghost', new Target('sc-articles', '1'), 'sc-articles:read sc-people:read');
+        $refused = $this->get('/sc-articles/1?include=author.ghost', new Target('sc-articles', '1'), 'sc-articles:read sc-people:read');
+        $granted = $this->get('/sc-articles/1?include=author.ghost', new Target('sc-articles', '1'), 'sc-articles:read sc-people:read sc-ghosts:read');
 
-        self::assertSame(200, $response->getStatusCode());
-        self::assertStringContainsString('the server describes no type "{type}"', $this->log->debug[0] ?? '');
+        self::assertSame(403, $refused->getStatusCode());
+        self::assertSame(['sc-ghosts:read'], self::dig($this->error($refused), 'meta', 'requiredScopes'));
+        self::assertSame(200, $granted->getStatusCode());
+        self::assertSame([], $this->log->warning, 'a type the server does not describe is not a stale table');
     }
 
     #[Test]
@@ -423,20 +426,21 @@ final class ScopeLog extends AbstractLogger
 }
 
 /**
- * Reads are `<type>:read`, a to-many read `<type>:list`, writes `<type>:write`.
+ * Reads are `<type>:read`, a to-many read `<type>:list`, writes `<type>:write`, by the
+ * type the key names, so a type the server does not describe is answered too.
  */
 final class ScResolver implements OperationScopeResolverInterface
 {
     public function requiredScopes(?TypeMetadataInterface $type, OperationKey $operation): array
     {
-        if ($type === null) {
+        if ($operation->type === null) {
             return [];
         }
 
         return match ($operation->kind->value) {
-            'fetchCollection' => [$type->type() . ':list'],
-            'fetchOne', 'fetchRelated', 'fetchRelationship' => [$type->type() . ':read'],
-            default => [$type->type() . ':write'],
+            'fetchCollection' => [$operation->type . ':list'],
+            'fetchOne', 'fetchRelated', 'fetchRelationship' => [$operation->type . ':read'],
+            default => [$operation->type . ':write'],
         };
     }
 }

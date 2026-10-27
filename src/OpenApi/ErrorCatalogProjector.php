@@ -256,9 +256,7 @@ final class ErrorCatalogProjector
             ErrorFeature::ReadOnlyAttributeRejection => $server instanceof DeclaresReadOnlyAttributeRejection
                 && $server->rejectsReadOnlyAttributes()
                 && $this->exposesAWrite($server),
-            // The projection does not describe operation scopes, so no document says a
-            // request can be refused for one.
-            ErrorFeature::OperationScopes => false,
+            ErrorFeature::OperationScopes => OperationScopes::of($server) !== null,
         };
     }
 

@@ -151,11 +151,13 @@ final class OpenApiProjector
             schemas: $schemas,
             responses: $responses,
             parameters: $parameters,
-            securitySchemes: $server->securitySchemes(),
+            securitySchemes: OperationScopes::of($server)?->securitySchemes() ?? $server->securitySchemes(),
         );
 
+        $scopes = OperationScopes::of($server);
+
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -166,6 +168,8 @@ final class OpenApiProjector
         return new Projection(
             $paths->isEmpty() ? $document : $document->withPaths($paths),
             $examples?->missingExamples() ?? [],
+            $scopes?->undeclaredScopes() ?? [],
+            $scopes?->schemeDiagnostic(),
         );
     }
 
@@ -197,7 +201,7 @@ final class OpenApiProjector
         // batch-write path, projected after the per-type CRUD paths.
         $atomic = $server->atomicOperations();
         if ($atomic !== null) {
-            $paths = $paths->with($atomic->path(), $this->atomicPathItem($atomic, $server->defaultSecurity()));
+            $paths = $paths->with($atomic->path(), $this->atomicPathItem($atomic, $server->defaultSecurity(), OperationScopes::of($server)));
         }
 
         return $paths;
@@ -237,7 +241,7 @@ final class OpenApiProjector
      * metadata-driven: it describes the structure this library emits, so a server has
      * nothing to say about it.
      */
-    private function info(ServerMetadataInterface $server, bool $examples): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -255,6 +259,7 @@ final class OpenApiProjector
             actionMethodIds: $actions['actionMethodIds'],
             actionSafety: $actions['actionSafety'],
             actionExtensions: $actions['actionExtensions'],
+            scopes: $scopes,
         ));
     }
 
@@ -975,9 +980,9 @@ final class OpenApiProjector
      *
      * @param list<SecurityRequirement> $defaultSecurity the document-level default security
      */
-    private function atomicPathItem(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity): PathItem
+    private function atomicPathItem(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity, ?OperationScopes $scopes): PathItem
     {
-        return (new PathItem())->withOperation('post', $this->atomicOperation($atomic, $defaultSecurity));
+        return (new PathItem())->withOperation('post', $this->atomicOperation($atomic, $defaultSecurity, $scopes));
     }
 
     /**
@@ -989,7 +994,7 @@ final class OpenApiProjector
     /**
      * @param list<SecurityRequirement> $defaultSecurity the document-level default security
      */
-    private function atomicOperation(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity): Operation
+    private function atomicOperation(AtomicOperationsMetadataInterface $atomic, array $defaultSecurity, ?OperationScopes $scopes): Operation
     {
         $mediaType = $this->atomicMediaType();
 
@@ -1000,6 +1005,9 @@ final class OpenApiProjector
         );
 
         $security = $atomic->security();
+        if ($scopes !== null) {
+            $security = $scopes->apply($security === [] ? null : $security, $scopes->atomic(), $defaultSecurity) ?? [];
+        }
         // Effective security mirrors the CRUD authStatuses rule: an empty per-endpoint security
         // means "inherit the document default". Advertise 401 whenever that effective security is
         // non-empty — the invariant core #99 established for every other operation (D17).

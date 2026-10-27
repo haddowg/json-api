@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 15
+            "contract": 16
         }
     },
     "servers": [
@@ -384,7 +384,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -558,7 +565,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -738,7 +747,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "delete": {
                 "tags": [
@@ -784,7 +800,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:write"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -1007,7 +1030,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -1089,7 +1114,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/author": {
@@ -1173,7 +1206,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -1261,7 +1302,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -1571,7 +1614,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/tags": {
@@ -1717,7 +1767,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -1777,7 +1834,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -1839,7 +1898,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -1901,7 +1962,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -1983,7 +2046,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/published-by": {
@@ -2067,7 +2138,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -2155,7 +2234,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -2209,7 +2290,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -2293,7 +2381,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -2375,7 +2465,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/locked": {
@@ -2461,7 +2558,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/attachments": {
@@ -2614,7 +2718,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/attachments": {
@@ -2690,7 +2801,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -2782,7 +2900,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -2876,7 +2996,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -2970,7 +3092,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -3045,7 +3169,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -3122,7 +3248,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -3185,7 +3313,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             },
@@ -3248,7 +3378,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -3330,7 +3462,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             }
         },
         "/articles/{id}/relationships/editor": {
@@ -3414,7 +3554,15 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read",
+                            "people:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -3502,7 +3650,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:write"
+                        ]
                     }
                 ]
             }
@@ -3670,7 +3820,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "articles:publish"
+                        ]
                     }
                 ]
             }
@@ -4662,7 +4814,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "people:read"
+                        ]
+                    }
+                ]
             },
             "delete": {
                 "tags": [
@@ -4821,7 +4980,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "companies:read"
+                        ]
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -5733,7 +5899,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             }
         },
         "/tags/{id}/relationships/articles": {
@@ -5974,7 +6147,14 @@
                     "401": {
                         "$ref": "#/components/responses/Unauthorized"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "oauth2": [
+                            "articles:read"
+                        ]
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -7325,7 +7505,9 @@
                 },
                 "security": [
                     {
-                        "bearer": []
+                        "oauth2": [
+                            "batch"
+                        ]
                     }
                 ]
             }
@@ -11419,6 +11601,9 @@
                                     "$ref": "#/components/schemas/InclusionUnsupportedError"
                                 },
                                 {
+                                    "$ref": "#/components/schemas/InsufficientScopeError"
+                                },
+                                {
                                     "$ref": "#/components/schemas/LocalIdConflictError"
                                 },
                                 {
@@ -11732,6 +11917,9 @@
                                 },
                                 {
                                     "$ref": "#/components/schemas/FullReplacementProhibitedError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/InsufficientScopeError"
                                 },
                                 {
                                     "$ref": "#/components/schemas/RemovalProhibitedError"
@@ -13087,6 +13275,36 @@
                             "code",
                             "status",
                             "source"
+                        ]
+                    }
+                ]
+            },
+            "InsufficientScopeError": {
+                "title": "Insufficient scope",
+                "description": "The access token is valid but does not grant every scope the request needs. `meta.missingScopes` names the ones it lacks; request a token that grants them, or drop the `include` path named in `meta.include`.",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "INSUFFICIENT_SCOPE"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "403"
+                            },
+                            "detail": {
+                                "type": "string",
+                                "example": "The access token does not grant every scope this request needs."
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status"
                         ]
                     }
                 ]
@@ -16534,6 +16752,22 @@
                 "type": "apiKey",
                 "name": "X-Api-Key",
                 "in": "header"
+            },
+            "oauth2": {
+                "type": "oauth2",
+                "flows": {
+                    "clientCredentials": {
+                        "tokenUrl": "https://auth.example.com/token",
+                        "scopes": {
+                            "articles:read": "Read articles.",
+                            "articles:write": "Create, change and delete articles.",
+                            "articles:publish": "Publish articles.",
+                            "people:read": "Read people.",
+                            "companies:read": "Read the companies people work for.",
+                            "batch": "Send Atomic Operations batches."
+                        }
+                    }
+                }
             }
         }
     },

@@ -1135,9 +1135,14 @@ method (`ACTION_METHOD_IDS`), when an action declares its [safety](#action-safet
 [extensions](#your-own-extensions-on-operations-paths-parameters-and-responses)
 (`ACTION_EXTENSIONS`). A document using none of them still carries 13.
 
+Contract 16 is [operation scopes](scopes.md#the-openapi-document) (`SCOPES`). A document
+carries it when some operation needs an OAuth scope, which then shows in that operation's
+`security` and adds `INSUFFICIENT_SCOPE` to the error catalogue. Every other document is
+unchanged.
+
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,
-examples, declared links and those action declarations, lets the CI guard hold `BASELINE`
+examples, declared links, those action declarations and operation scopes, lets the CI guard hold `BASELINE`
 to that rule.
 
 #### Diffing documents across contracts

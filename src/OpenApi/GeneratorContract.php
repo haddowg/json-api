@@ -69,7 +69,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 15;
+    public const CONTRACT = 16;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -135,6 +135,13 @@ final class GeneratorContract
     public const ACTION_EXTENSIONS = 15;
 
     /**
+     * The contract that introduced operation scopes: each operation's `security` names the
+     * OAuth scopes it needs, and the error catalogue offers `INSUFFICIENT_SCOPE`. A
+     * document carries it only when some operation needs a scope.
+     */
+    public const SCOPES = 16;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -147,6 +154,7 @@ final class GeneratorContract
         bool $actionMethodIds = false,
         bool $actionSafety = false,
         bool $actionExtensions = false,
+        bool $scopes = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -157,6 +165,7 @@ final class GeneratorContract
             $actionMethodIds ? self::ACTION_METHOD_IDS : self::BASELINE,
             $actionSafety ? self::ACTION_SAFETY : self::BASELINE,
             $actionExtensions ? self::ACTION_EXTENSIONS : self::BASELINE,
+            $scopes ? self::SCOPES : self::BASELINE,
         )];
     }
 }

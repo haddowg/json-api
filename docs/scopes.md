@@ -20,7 +20,14 @@ The check needs four things from you, all optional except the grant provider:
 `ScopeTableBuilder` asks the resolver once per operation of every type in your
 `ServerMetadataInterface` and returns a `ScopeTable`. The resolver receives the type's
 metadata and an [`OperationKey`](openapi.md#operation-examples): its `OperationKind`, the
-relation or action, the HTTP method, and for an action the safety it declares.
+type it acts on in `$type`, the relation or action, the HTTP method, and for an action the
+safety it declares.
+
+A relation can reach a type the server does not describe, such as the target of a
+linkage-only relationship. The resolver is then asked for that type's `fetchOne` or
+`fetchCollection` scopes with `null` metadata, and the key's `$type` names it, so it can
+answer by name. Returning `[]` adds nothing. The Atomic Operations endpoint is the other
+call with `null` metadata; its key's kind is `OperationKind::Atomic` and it names no type.
 
 ```php
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
@@ -60,9 +67,10 @@ The table follows these rules:
 
 The build throws a `\LogicException` when an override names an operation the type does not
 have, when a scope contains whitespace, a double quote or a backslash, when the resolver
-throws, or when an operation declared public is given scopes. Public means listed in
+throws, or when an operation declared public needs a scope. Public means listed in
 `publicOperations()`, or a relation endpoint whose relation security is `false`, or which
-inherits a public parent operation.
+inherits a public parent operation. A public related read fails too when the types it
+returns need read scopes, because it would need them as well.
 
 The table holds only strings, so you can cache it with `toArray()` and load it with
 `ScopeTable::fromArray()`.
@@ -102,9 +110,10 @@ so a type that exposes no `fetchCollection` is still checked against its
 
 A resource included by default, through `getDefaultIncludedRelationships()`, that the
 caller may not read is left out of `included`. Its identifier stays in the linkage, and the
-request does not fail. When the walk cannot see past a hop, because the type is not
-declared on a resource or the server describes no such type, it stops checking that path,
-logs at debug level, and the render drops whatever the caller may not read.
+request does not fail. A hop to a type the server does not describe is checked against
+the scopes the resolver gives that type by name. When the walk cannot see past a hop
+because the type is not declared on a resource, it stops checking that path, logs at debug
+level, and the render drops whatever the caller may not read.
 
 ## Atomic Operations
 
@@ -120,6 +129,36 @@ $enforcer->enforceBatch($request, [
 
 The first entry that fails refuses the whole batch with `source.pointer`
 `/atomic:operations/<index>`.
+
+## The OpenAPI document
+
+Server metadata implementing `OpenApi\Metadata\DeclaresOperationScopeTable` hands the
+projector the same table: `scopeTable()`, the name of the security scheme the scopes are
+listed under in `scopeScheme()`, and the catalogue's `scopeCatalog()`.
+
+- Each operation needing a scope reads as needing one token that carries them. The
+  requirements in its security that name the scope scheme are kept with the scopes filled
+  in, and every alternative that does not name it is dropped. When none names it, the
+  operation's security is `[{<scope scheme>: [scopes]}]`.
+- An operation that only inherited the document default gets the result as its own
+  `security`, and a `401` response when the default was empty.
+
+If your API accepts genuinely different credential types, name the `oauth2` scheme in
+your security configuration, alone or joined to the others in one requirement, so the
+scoped operations keep describing the credentials they take.
+- The scope scheme's flows list the catalogue's scopes after the ones its configuration
+  declares. A configured description wins.
+- A scheme the server does not define throws a `\LogicException`. A scheme that is not
+  `oauth2` still carries the scopes, and `Projection::$scopeScheme` reports it.
+- `Projection::$undeclaredScopes` lists each required scope that neither the catalogue nor
+  the scheme's flows declare, with the operations needing it, so an export can fail on
+  them under a strict flag.
+- A table missing an entry for a projected operation throws, since it was built from other
+  metadata. An empty `ScopeTable` means the server uses no scopes.
+
+A document in which no operation needs a scope is unchanged. One that has some carries
+[contract 16](openapi.md#a-bump-scoped-to-some-documents) and offers `INSUFFICIENT_SCOPE`
+in its error catalogue.
 
 ## The error
 

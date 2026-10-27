@@ -148,12 +148,6 @@ final class ScopeEnforcer
             return true;
         }
 
-        if (!$this->builder->hasType($type)) {
-            $this->logger->debug('Dropped an included "{type}" resource: the server describes no such type, so its read scopes are unknown.', ['type' => $type]);
-
-            return false;
-        }
-
         return $this->missing($granted, $this->required($type, OperationKey::crud($toMany ? OperationKind::FetchCollection : OperationKind::FetchOne))) === [];
     }
 
@@ -187,6 +181,10 @@ final class ScopeEnforcer
         }
 
         $memo = ($type ?? '') . "\0" . $key->name();
+        if (!isset($this->resolvedLive[$memo]) && $type !== null && !$this->builder->hasType($type)) {
+            // A type the server does not describe is never in the table; its reads are asked by name.
+            $this->resolvedLive[$memo] = $this->builder->resolve($type, $key);
+        }
         if (!isset($this->resolvedLive[$memo])) {
             $this->logger->warning('The scope table has no entry for "{operation}" on {type}; resolved it now. Rebuild the table.', [
                 'operation' => $key->name(),
@@ -325,15 +323,6 @@ final class ScopeEnforcer
 
                     $read = OperationKey::crud($relation->isToMany() ? OperationKind::FetchCollection : OperationKind::FetchOne);
                     foreach ($relation->relatedTypes() as $relatedType) {
-                        if (!$this->builder->hasType($relatedType)) {
-                            $this->logger->debug('Cannot check the scopes of the include path "{path}" at "{hop}": the server describes no type "{type}". Resources it reaches that the caller may not read are dropped from the response.', [
-                                'path' => $path,
-                                'hop' => $walked,
-                                'type' => $relatedType,
-                            ]);
-
-                            continue 4;
-                        }
                         $required = [...$required, ...$this->required($relatedType, $read)];
                         $next[$relatedType] = true;
                     }
