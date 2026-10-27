@@ -114,6 +114,7 @@ nav:
       - errors-and-exceptions.md
       - security.md
       - scopes.md
+      - operation-catalog.md
       - testing.md
   - Reference:
       - schema-validation.md

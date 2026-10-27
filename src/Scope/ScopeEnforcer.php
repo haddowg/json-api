@@ -53,14 +53,17 @@ final class ScopeEnforcer
 
     private ?ScopeTable $table;
 
+    private readonly ScopeChecker $checker;
+
     public function __construct(
         private readonly GrantedScopesProviderInterface $granted,
         private readonly ScopeTableBuilder $builder,
         ?ScopeTable $table = null,
-        private readonly ScopeMatcherInterface $matcher = new ExactScopeMatcher(),
+        ScopeMatcherInterface $matcher = new ExactScopeMatcher(),
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
         $this->table = $table;
+        $this->checker = new ScopeChecker($matcher);
         $this->grants = new \WeakMap();
     }
 
@@ -206,7 +209,7 @@ final class ScopeEnforcer
      */
     public function missing(array $granted, array $required): array
     {
-        return \array_values(\array_filter($required, fn(string $scope): bool => !$this->matcher->satisfies($granted, $scope)));
+        return $this->checker->missing($granted, $required);
     }
 
     /**
