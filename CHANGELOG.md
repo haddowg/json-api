@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.4](https://github.com/haddowg/json-api/compare/v1.17.3...v1.17.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* reject links and relationships nested in attribute values ([#254](https://github.com/haddowg/json-api/issues/254)) ([11debb8](https://github.com/haddowg/json-api/commit/11debb846e24db27d63f9c411c8babbd1a849a09))
+
 ## [1.17.3](https://github.com/haddowg/json-api/compare/v1.17.2...v1.17.3) (2026-10-27)
 
 
