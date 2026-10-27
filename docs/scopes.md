@@ -160,6 +160,12 @@ A document in which no operation needs a scope is unchanged. One that has some c
 [contract 16](openapi.md#a-bump-scoped-to-some-documents) and offers `INSUFFICIENT_SCOPE`
 in its error catalogue.
 
+## Checking without a request
+
+`ScopeChecker` makes the same comparison outside a request, against an
+[`OperationDefinition`](operation-catalog.md), so you can list the operations a token's
+scopes allow.
+
 ## The error
 
 `InsufficientScope` answers `403` with the code `INSUFFICIENT_SCOPE`. `meta.requiredScopes`
