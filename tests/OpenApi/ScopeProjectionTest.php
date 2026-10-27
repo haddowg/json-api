@@ -169,8 +169,8 @@ final class ScopeProjectionTest extends TestCase
         $scoped = $this->project($this->scoped());
         $plain = $this->project($this->server());
 
-        self::assertSame(['contract' => GeneratorContract::SCOPES], self::dig($scoped, 'info', 'x-generator'));
-        self::assertNotSame(['contract' => GeneratorContract::SCOPES], self::dig($plain, 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(scopes: true), self::dig($scoped, 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(), self::dig($plain, 'info', 'x-generator'));
         $scopedSchemas = self::dig($scoped, 'components', 'schemas');
         self::assertIsArray($scopedSchemas);
         self::assertArrayHasKey('InsufficientScopeError', $scopedSchemas);

@@ -606,7 +606,7 @@ final class OpenApiProjector
             $resource = $this->permissiveResourceObject($type->type(), $type->description() ?? SchemaProjector::resourceObjectDescription($type->type(), TypeNoun::of($type)->singular));
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
-        $resource = $this->withLinksAndSharedMeta($resource, $name);
+        $resource = $this->withLinksAndSharedMeta($resource, LinkSchemaProjector::resourceLinksComponent($type, $name));
         $schemas[$name . 'Resource'] = $resource;
 
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
@@ -656,7 +656,7 @@ final class OpenApiProjector
             }
 
             // A to-many related endpoint gets a per-relation related collection, so its
-            // links describe the related URL and a polymorphic relation's members span
+            // links are the related endpoint's and a polymorphic relation's members span
             // types. Emitted only when the endpoint is exposed (so component emission
             // tracks path emission exactly).
             if ($relation->isToMany() && self::exposesRelatedRead($relation)) {
@@ -1213,17 +1213,17 @@ final class OpenApiProjector
 
     /**
      * Replaces the resource object's permissive `links`/`meta` placeholders with `$ref`s
-     * to the type's own `<Type>ResourceLinks` (its `self` plus any action links) and the
-     * shared `Meta`.
+     * to `$linksComponent` (the shared `ResourceLinks`, or the type's own
+     * `<Type>ResourceLinks` when it has named links) and the shared `Meta`.
      *
      * Applied only in the OpenAPI-document path (which owns the shared components); the
      * standalone `/schemas.json` projection has no components and keeps the inline
      * permissive objects {@see SchemaProjector::projectResourceObject()} produces.
      */
-    private function withLinksAndSharedMeta(Schema $resource, string $base): Schema
+    private function withLinksAndSharedMeta(Schema $resource, string $linksComponent): Schema
     {
         return $resource
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'ResourceLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef($linksComponent)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
     }
 
@@ -1342,9 +1342,8 @@ final class OpenApiProjector
      * to-many; a polymorphic relation's identifier is a `oneOf` of its member
      * identifiers.
      *
-     * `links` `$ref`s the relation's own `<Type><Rel>RelationshipLinks`, which lists the
-     * by-convention `self`/`related` links the relation's exposed endpoints allow and the
-     * pagination links of a paginated to-many. `meta` `$ref`s the shared `Meta` component; it may
+     * `links` `$ref`s the shared `RelationshipLinks`: the by-convention `self`/`related`
+     * links and the pagination links of a paginated to-many. `meta` `$ref`s the shared `Meta` component; it may
      * carry a `belongsToMany` relation's `pivot` object and any `identifierMeta()`
      * contribution, both consumer-declared, so the shared permissive `Meta` is the
      * honest projection.
@@ -1352,7 +1351,7 @@ final class OpenApiProjector
     private function relationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
         $schema = Schema::ofType('object')
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelationshipLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATIONSHIP_LINKS)))
             ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
 
@@ -1401,9 +1400,9 @@ final class OpenApiProjector
      * `{jsonapi?, links?, data: <linkage>, meta?}` — the top-level document around the
      * bare linkage (`data` is the array / nullable-identifier of {@see linkageData()}).
      *
-     * Its `links` are the per-relation `<Base><Rel>RelationshipDocumentLinks`: the
-     * relationship's own `self`/`related`, `describedby`, and, for a paginated to-many
-     * (a queryable linkage collection, ADR 0096), the pagination members. A relationship
+     * Its `links` are the shared `RelationshipDocumentLinks`: the relationship's own
+     * `self`/`related`, `describedby`, and, for a paginated to-many (a queryable linkage
+     * collection, ADR 0096), the pagination members. A relationship
      * endpoint returns linkage only —
      * never a compound `included` — so no `included` is described here (core D16).
      */
@@ -1411,7 +1410,7 @@ final class OpenApiProjector
     {
         return Schema::ofType('object')
             ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelationshipDocumentLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATIONSHIP_DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1451,7 +1450,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelatedDocumentLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATED_DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1462,7 +1461,7 @@ final class OpenApiProjector
      * (`GET /{type}/{id}/{rel}`) responds with: like the resource-collection document,
      * with `data.items` the related type's resource (the `anyOf` of every member type's
      * resource for a polymorphic relation, since a real response may mix members) and
-     * `links` the related endpoint's own, so their examples carry the related URL.
+     * `links` the shared `RelatedDocumentLinks`.
      */
     private function relatedCollectionSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
@@ -1475,7 +1474,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $relBase . 'RelatedDocumentLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATED_DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1603,7 +1602,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'DocumentLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);
@@ -1623,7 +1622,7 @@ final class OpenApiProjector
         }
 
         return $schema
-            ->withProperty('links', Schema::ref('#/components/schemas/' . $base . 'CollectionLinks'))
+            ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::COLLECTION_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired(['data']);

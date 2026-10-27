@@ -1,3 +1,5 @@
 # Every endpoint's document has its own links component, with a whole-object example
 
+> Superseded by ADR 0187: the links components are now shared per context, and link schemas carry no examples. The per-relation related collection this ADR introduced stays.
+
 The relationship document's `links` pointed at the generic `PaginationLinks`, and a to-many related endpoint reused the related type's `<Type>Collection`, so a sampler showed placeholder links on the first and the related type's own collection URLs on the second. Each relation now gets `<Type><Rel>RelationshipDocumentLinks` and `<Type><Rel>RelatedDocumentLinks`, built from the URLs those endpoints render, every to-many related endpoint answers with a per-relation `<Type><Rel>RelatedCollection`, and `PaginationLinks` is gone; this supersedes the `PaginationLinks` choice in ADR 0107. Every links component also carries its members' examples as one object `example`, because a sampler that sees `additionalProperties` invents extra links otherwise, and `additionalProperties` stays so an author can still add a link.

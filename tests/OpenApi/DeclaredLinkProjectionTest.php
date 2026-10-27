@@ -37,12 +37,15 @@ final class DeclaredLinkProjectionTest extends TestCase
     #[Test]
     public function aDeclaredLinkIsANamedOptionalPropertyOfTheResourceLinks(): void
     {
-        $links = self::resourceLinks($this->project([$this->files()]));
+        $document = $this->project([$this->files()]);
+        $links = self::resourceLinks($document);
 
-        self::assertSame(['self', 'upload', 'thumbnail'], \array_keys(self::arr($links['properties'])));
+        self::assertSame(['upload', 'thumbnail'], \array_keys(self::arr($links['properties'])));
         // A declared link is absent whenever its href resolves to null, so none is required.
         self::assertArrayNotHasKey('required', $links);
-        self::assertSame(['$ref' => '#/components/schemas/LinkObject'], $links['additionalProperties']);
+        // The shared resource links give `self` and admit any other link.
+        self::assertSame(['$ref' => '#/components/schemas/LinkObject'], self::at($document, 'components', 'schemas', 'ResourceLinks', 'additionalProperties'));
+        self::assertSame('#/components/schemas/FilesResourceLinks', self::at($document, 'components', 'schemas', 'FilesResource', 'properties', 'links', '$ref'));
     }
 
     #[Test]
@@ -79,16 +82,20 @@ final class DeclaredLinkProjectionTest extends TestCase
     {
         $thumbnail = self::arr(self::arr(self::resourceLinks($this->project([$this->files()]))['properties'])['thumbnail']);
 
-        self::assertSame([['$ref' => '#/components/schemas/LinkObject']], $thumbnail['allOf']);
-        self::assertSame('https://cdn.example.com/thumbs/f-1.png', $thumbnail['example']);
-        self::assertSame('The `thumbnail` link, absent when it does not apply to the resource.', $thumbnail['description']);
+        self::assertSame(
+            ['$ref' => '#/components/schemas/LinkObject', 'description' => 'The `thumbnail` link, absent when it does not apply to the resource.'],
+            $thumbnail,
+        );
     }
 
     #[Test]
-    public function theResourceLinksExampleCarriesTheDeclaredLinks(): void
+    public function theOperationExampleCarriesTheDeclaredLinksAndTheSchemaNone(): void
     {
-        $example = self::arr(self::resourceLinks($this->project([$this->files()]))['example']);
+        $document = $this->project([$this->files()]);
+        $example = self::arr(self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'links'));
 
+        self::assertArrayNotHasKey('example', self::resourceLinks($document));
+        self::assertArrayNotHasKey('example', self::arr(self::at(self::resourceLinks($document), 'properties', 'upload')));
         self::assertSame(['self', 'upload', 'thumbnail'], \array_keys($example));
         self::assertSame(
             [
@@ -132,9 +139,7 @@ final class DeclaredLinkProjectionTest extends TestCase
         self::assertNull(self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example'));
         $missing = \array_map(static fn(MissingExample $m): string => (string) $m, $projection->missingExamples);
         self::assertContains('fetchOne.files has no example: "files" declares no example for "links.download".', $missing);
-
-        // The component example leaves the link out rather than inventing one.
-        self::assertArrayNotHasKey('download', self::arr(self::resourceLinks($document)['example']));
+        self::assertArrayHasKey('download', self::arr(self::resourceLinks($document)['properties']));
     }
 
     #[Test]
@@ -170,14 +175,16 @@ final class DeclaredLinkProjectionTest extends TestCase
                 ->example('https://docs.example.com/manual.pdf')
                 ->hrefUsing(self::href()),
         ]);
-        $manual = self::arr(self::at(self::resourceLinks($this->project([$type])), 'properties', 'manual'));
+        $document = $this->project([$type]);
+        $manual = self::arr(self::at(self::resourceLinks($document), 'properties', 'manual'));
 
         self::assertSame(['href', 'rel', 'type', 'hreflang', 'describedby'], $manual['required']);
         self::assertSame(['type' => 'string', 'const' => 'application/pdf'], self::at($manual, 'properties', 'type'));
         self::assertArrayNotHasKey('meta', self::arr($manual['properties']));
+        self::assertArrayNotHasKey('example', $manual);
         self::assertSame(
             ['href' => 'https://docs.example.com/manual.pdf', 'rel' => 'help', 'type' => 'application/pdf', 'hreflang' => 'en', 'describedby' => 'https://docs.example.com/manual'],
-            $manual['example'],
+            self::at($document, 'paths', '/files/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'links', 'manual'),
         );
     }
 
@@ -201,9 +208,8 @@ final class DeclaredLinkProjectionTest extends TestCase
         $with = $this->project([$this->files()]);
         $without = $this->project([$this->files([])]);
 
-        self::assertSame(['contract' => GeneratorContract::DECLARED_LINKS], self::at($with, 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(declaredLinks: true), self::at($with, 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($without, 'info', 'x-generator'));
-        self::assertGreaterThan(GeneratorContract::BASELINE, GeneratorContract::DECLARED_LINKS);
     }
 
     #[Test]
@@ -302,7 +308,10 @@ final class DeclaredLinkProjectionTest extends TestCase
      */
     private static function resourceLinks(array $document): array
     {
-        return self::arr(self::at($document, 'components', 'schemas', 'FilesResourceLinks'));
+        $links = self::arr(self::at($document, 'components', 'schemas', 'FilesResourceLinks'));
+        self::assertSame(['$ref' => '#/components/schemas/ResourceLinks'], self::at($links, 'allOf', '0'));
+
+        return self::arr(self::at($links, 'allOf', '1'));
     }
 
     private static function at(mixed $value, string ...$keys): mixed

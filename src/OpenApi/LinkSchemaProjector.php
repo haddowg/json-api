@@ -10,8 +10,6 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkObjects;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
-use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\MultiPaginator;
@@ -19,27 +17,38 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 
 /**
- * Projects the `links` schemas: the shared link shapes, and one links component per
- * context (a type's resource object, single document and collection document, and each
- * relationship object) listing the members that context renders.
+ * Projects the `links` schemas: the shared link shapes, one shared links component per
+ * context (a resource object, a single document, a collection document, a relationship
+ * object, and the relationship and related endpoints' documents) listing the members that
+ * context can render, and a `<Type>ResourceLinks` for a type with named links, extending
+ * the shared `ResourceLinks` with them.
  *
- * Each member of a per-context component carries an example built from the document's
- * first server URL as it stands and the member's path template, with the type's id
- * example (else `1`) in place of `{id}`. When the server renders link objects and names
- * its document URL, the example's `describedby` points at the operation the member's
- * target is, checked against the projected paths so it never names a missing one.
+ * The link schemas carry no examples. The operation examples show each document whole,
+ * links included, built by {@see ExampleDocumentBuilder} through {@see renderedLink()}.
  *
  * @internal
  */
 final readonly class LinkSchemaProjector
 {
+    public const RESOURCE_LINKS = 'ResourceLinks';
+
+    public const DOCUMENT_LINKS = 'DocumentLinks';
+
+    public const COLLECTION_LINKS = 'CollectionLinks';
+
+    public const RELATIONSHIP_LINKS = 'RelationshipLinks';
+
+    public const RELATIONSHIP_DOCUMENT_LINKS = 'RelationshipDocumentLinks';
+
+    public const RELATED_DOCUMENT_LINKS = 'RelatedDocumentLinks';
+
     private const PAGINATION = ['first', 'prev', 'next', 'last'];
 
     private const EXAMPLE_CURSOR_AFTER = 'eyJpZCI6MjB9';
 
     private const EXAMPLE_CURSOR_BEFORE = 'eyJpZCI6MTF9';
 
-    private const HREF_NOTE = ' The example uses the document\'s server URL; in a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.';
+    private const HREF_NOTE = ' In a response, `href` is absolute to the request host unless the server pins its links to a configured base URI.';
 
     private bool $objects;
 
@@ -48,6 +57,12 @@ final readonly class LinkSchemaProjector
     private ?SpecDescribedByResolver $describedBy;
 
     private ?TypeMetadataInterface $exampleType;
+
+    private bool $relations;
+
+    private bool $relationshipEndpoints;
+
+    private bool $relatedEndpoints;
 
     public function __construct(ServerMetadataInterface $server, Paths $paths)
     {
@@ -62,12 +77,25 @@ final readonly class LinkSchemaProjector
         $this->describedBy = $documentUrl !== null && $documentUrl !== ''
             ? SpecDescribedByResolver::fromPaths($documentUrl, $paths)
             : null;
+
+        $relations = $relationshipEndpoints = $relatedEndpoints = false;
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                $relations = true;
+                $relationshipEndpoints = $relationshipEndpoints || $relation->exposesRelationshipEndpoint();
+                $relatedEndpoints = $relatedEndpoints || ($relation->exposesRelatedEndpoint() && !RelationFacts::isWriteOnly($relation));
+            }
+        }
+        $this->relations = $relations;
+        $this->relationshipEndpoints = $relationshipEndpoints;
+        $this->relatedEndpoints = $relatedEndpoints;
     }
 
     /**
-     * The shared components: the open `LinkObject` (any link, in either form), and, when
-     * the server renders link objects, the `RenderedLink` object form its built links
-     * take.
+     * The shared components: the open `LinkObject` (any link, in either form), the
+     * `RenderedLink` object form built links take when the server renders link objects,
+     * the open `Links`, and one links component per context some type of the server
+     * renders.
      *
      * @return array<string, Schema>
      */
@@ -80,26 +108,49 @@ final readonly class LinkSchemaProjector
 
         $components['Links'] = $this->topLevelLinksSchema();
 
+        if ($this->exampleType === null) {
+            return $components;
+        }
+
+        $components[self::RESOURCE_LINKS] = $this->resourceLinks();
+        $components[self::DOCUMENT_LINKS] = $this->documentLinks();
+        $components[self::COLLECTION_LINKS] = $this->collectionLinks();
+        if ($this->relations) {
+            $components[self::RELATIONSHIP_LINKS] = $this->relationshipLinks();
+        }
+        if ($this->relationshipEndpoints) {
+            $components[self::RELATIONSHIP_DOCUMENT_LINKS] = $this->relationshipDocumentLinks();
+        }
+        if ($this->relatedEndpoints) {
+            $components[self::RELATED_DOCUMENT_LINKS] = $this->relatedDocumentLinks();
+        }
+
         return $components;
     }
 
     /**
-     * The per-context links components for one type, keyed by component name.
+     * The links component a type's resource objects `$ref`: its own `<Type>ResourceLinks`
+     * when it has named links, else the shared `ResourceLinks`.
+     */
+    public static function resourceLinksComponent(TypeMetadataInterface $type, string $base): string
+    {
+        return self::hasNamedLinks($type) ? $base . self::RESOURCE_LINKS : self::RESOURCE_LINKS;
+    }
+
+    /**
+     * A type's own links component, emitted only when it has named links: an `allOf` of
+     * the shared `ResourceLinks` and an object holding one property per declared link and
+     * action link.
      *
      * @return array<string, Schema>
      */
     public function typeComponents(TypeMetadataInterface $type, string $base, SchemaProjector $fields = new SchemaProjector(), ?EnumComponentCollector $collector = null): array
     {
-        $uriType = $type->uriType();
-        $resourcePath = $this->examplePath(PathTemplate::resource($uriType), $type);
-        $collectionPath = $this->examplePath(PathTemplate::collection($uriType), $type);
+        if (!self::hasNamedLinks($type)) {
+            return [];
+        }
 
-        $components = [];
-
-        $resource = Schema::ofType('object')
-            ->withDescription(\sprintf('The `links` of a resource object of type `%s`.', $type->type()))
-            ->withProperty('self', $this->member($resourcePath, OperationReference::fetchOne($uriType), 'The resource\'s own URL.'));
-
+        $named = Schema::ofType('object');
         $actionLinks = self::actionLinksOf($type);
 
         foreach (self::declaredLinksOf($type) as $link) {
@@ -111,48 +162,22 @@ final readonly class LinkSchemaProjector
                     $actionLinks[$link->name]['action']->path(),
                 ));
             }
-            $resource = $resource->withProperty($link->name, $this->declaredLinkSchema($link, $fields, $collector));
+            $named = $named->withProperty($link->name, $this->declaredLinkSchema($link, $fields, $collector));
         }
 
         foreach ($actionLinks as $name => ['action' => $action, 'description' => $description]) {
-            $resource = $resource->withProperty($name, $this->member(
-                $this->examplePath(PathTemplate::action($uriType, $action->path(), ActionScope::Resource), $type),
-                OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0]),
-                $description ?? \sprintf('The `%s` action on this resource.', $action->path()),
-            ));
-        }
-        $components[$base . 'ResourceLinks'] = self::withObjectExample($resource)->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
-
-        $document = Schema::ofType('object')
-            ->withDescription(\sprintf('The top-level `links` of a document whose primary data is one resource of type `%s`.', $type->type()))
-            ->withProperty('self', $this->member($resourcePath, OperationReference::fetchOne($uriType), 'The URL that produced the document.'));
-        $document = $this->withDescribedByMember($document, OperationReference::fetchOne($uriType));
-        $components[$base . 'DocumentLinks'] = self::withObjectExample($document)->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
-
-        $collectionOperation = OperationReference::fetchCollection($uriType);
-        $collection = Schema::ofType('object')
-            ->withDescription(\sprintf('The top-level `links` of a document whose primary data is a collection of type `%s`.', $type->type()))
-            ->withProperty('self', $this->member($collectionPath, $collectionOperation, 'The URL that produced the document.'));
-        $collection = $this->withDescribedByMember($collection, $collectionOperation);
-        $pageQueries = self::pageExampleQueries($type->pageSchema());
-        foreach (self::PAGINATION as $name) {
-            $collection = $collection->withProperty($name, $this->member($collectionPath, $collectionOperation, \sprintf('The `%s` page of the collection, when there is one.', $name), $pageQueries[$name] ?? []));
-        }
-        $components[$base . 'CollectionLinks'] = self::withObjectExample($collection, self::unrenderedPages($pageQueries))
-            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
-
-        foreach ($type->relations() as $relation) {
-            $relBase = $base . ComponentNaming::base($relation->name());
-            $components[$relBase . 'RelationshipLinks'] = $this->relationshipLinks($type, $relation);
-            if ($relation->exposesRelationshipEndpoint()) {
-                $components[$relBase . 'RelationshipDocumentLinks'] = $this->relationshipDocumentLinks($type, $relation);
-            }
-            if ($relation->exposesRelatedEndpoint() && !($relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly())) {
-                $components[$relBase . 'RelatedDocumentLinks'] = $this->relatedDocumentLinks($type, $relation);
-            }
+            $named = $named->withProperty($name, $this->member($description ?? \sprintf('The `%s` action on this resource.', $action->path())));
         }
 
-        return $components;
+        return [$base . self::RESOURCE_LINKS => Schema::create()
+            ->withDescription(\sprintf('The `links` of a resource object of type `%s`.', $type->type()))
+            ->withAllOf([Schema::ref(ComponentNaming::schemaRef(self::RESOURCE_LINKS)), $named]),
+        ];
+    }
+
+    private static function hasNamedLinks(TypeMetadataInterface $type): bool
+    {
+        return self::declaredLinksOf($type) !== [] || self::actionLinksOf($type) !== [];
     }
 
     /**
@@ -230,12 +255,9 @@ final readonly class LinkSchemaProjector
     private function declaredLinkSchema(DeclaredLink $link, SchemaProjector $fields, ?EnumComponentCollector $collector): Schema
     {
         $description = $link->description ?? \sprintf('The `%s` link, absent when it does not apply to the resource.', $link->name);
-        $example = self::declaredLinkExample($link);
 
         if (!$link->rendersAsObject()) {
-            $schema = Schema::ref('#/components/schemas/LinkObject')->withDescription($description);
-
-            return $example === null ? $schema : $schema->withExample($example);
+            return Schema::ref('#/components/schemas/LinkObject')->withDescription($description);
         }
 
         $schema = Schema::ofType('object')
@@ -258,9 +280,7 @@ final readonly class LinkSchemaProjector
             $schema = $schema->withProperty('describedby', Schema::ofType('string')->withFormat('uri-reference'));
             $required[] = 'describedby';
         }
-        $schema = $schema->withRequired($required);
-
-        return $example === null ? $schema : $schema->withExample($example);
+        return $schema->withRequired($required);
     }
 
     /**
@@ -300,39 +320,46 @@ final readonly class LinkSchemaProjector
         return $example;
     }
 
-    private function relationshipLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
+    /**
+     * The `links` of a resource object.
+     */
+    private function resourceLinks(): Schema
     {
-        $uriType = $type->uriType();
-        $name = $relation->name();
-        $segment = RelationFacts::uriFieldName($relation);
-        $relationshipOperation = OperationReference::fetchRelationship($uriType, $segment);
-        $relationshipPath = $this->examplePath(PathTemplate::relationship($uriType, $segment), $type);
+        return $this->linksObject('The `links` of a resource object.')
+            ->withProperty('self', $this->member('The resource\'s own URL.'))
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+    }
 
-        $schema = Schema::ofType('object')
-            ->withDescription(\sprintf('The `links` of the `%s` relationship object of a resource of type `%s`.', $name, $type->type()));
+    /**
+     * The top-level `links` of a document whose primary data is one resource.
+     */
+    private function documentLinks(): Schema
+    {
+        $schema = $this->linksObject('The top-level `links` of a document whose primary data is one resource.')
+            ->withProperty('self', $this->member('The URL that produced the document.'));
 
-        if ($relation->exposesRelationshipEndpoint()) {
-            $schema = $schema->withProperty('self', $this->member($relationshipPath, $relationshipOperation, 'The relationship\'s own URL.'));
-        }
+        return $this->withDescribedByMember($schema)
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+    }
 
-        $writeOnly = $relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly();
-        if ($relation->exposesRelatedEndpoint() && !$writeOnly) {
-            $schema = $schema->withProperty('related', $this->member(
-                $this->examplePath(PathTemplate::related($uriType, $segment), $type),
-                OperationReference::fetchRelated($uriType, $segment),
-                'The related resource data.',
-            ));
-        }
+    /**
+     * The top-level `links` of a document whose primary data is a collection.
+     */
+    private function collectionLinks(): Schema
+    {
+        $schema = $this->linksObject('The top-level `links` of a document whose primary data is a collection. The pages are present when the collection is paginated.')
+            ->withProperty('self', $this->member('The URL that produced the document.'));
 
-        $pageQueries = [];
-        if ($relation->isToMany() && $relation->exposesRelationshipEndpoint() && $relation->pageSchema() !== null) {
-            $pageQueries = self::pageExampleQueries($relation->pageSchema());
-            foreach (self::PAGINATION as $page) {
-                $schema = $schema->withProperty($page, $this->member($relationshipPath, $relationshipOperation, \sprintf('The `%s` page of the relationship\'s linkage, when there is one.', $page), $pageQueries[$page] ?? []));
-            }
-        }
+        return $this->withPages($this->withDescribedByMember($schema), 'The `%s` page of the collection, when there is one.')
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
+    }
 
-        return self::withObjectExample($schema, self::unrenderedPages($pageQueries))
+    /**
+     * The `links` of a relationship object.
+     */
+    private function relationshipLinks(): Schema
+    {
+        return $this->withRelationshipMembers($this->linksObject('The `links` of a relationship object. `self` is present when the relationship endpoint is exposed, `related` when the related endpoint is, and the pages on a paginated to-many relationship.'))
             ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
     }
 
@@ -341,129 +368,70 @@ final readonly class LinkSchemaProjector
      * the relationship object's own links there, so it lists the same members, plus the
      * document's `describedby`.
      */
-    private function relationshipDocumentLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
+    private function relationshipDocumentLinks(): Schema
     {
-        $relationshipOperation = OperationReference::fetchRelationship($type->uriType(), RelationFacts::uriFieldName($relation));
-        $links = $this->relationshipLinks($type, $relation)
-            ->withDescription(\sprintf('The top-level `links` of the `%s` relationship endpoint\'s document for a resource of type `%s`.', $relation->name(), $type->type()));
-        $links = $this->withDescribedByMember($links, $relationshipOperation);
+        $schema = $this->withRelationshipMembers($this->linksObject('The top-level `links` of a relationship endpoint\'s document: the relationship object\'s own links, and the document\'s `describedby`. `related` is present when the related endpoint is exposed, and the pages on a paginated to-many relationship.'));
 
-        return self::withObjectExample($links, self::unrenderedPages(
-            $relation->isToMany() && $relation->pageSchema() !== null ? self::pageExampleQueries($relation->pageSchema()) : [],
-        ));
-    }
-
-    /**
-     * The top-level `links` of the related endpoint's document: its own URL, its
-     * `describedby` and, for a paginated to-many, the pages of the related collection.
-     */
-    private function relatedDocumentLinks(TypeMetadataInterface $type, RelationMetadataInterface $relation): Schema
-    {
-        $uriType = $type->uriType();
-        $segment = RelationFacts::uriFieldName($relation);
-        $relatedOperation = OperationReference::fetchRelated($uriType, $segment);
-        $relatedPath = $this->examplePath(PathTemplate::related($uriType, $segment), $type);
-
-        $schema = Schema::ofType('object')
-            ->withDescription(\sprintf('The top-level `links` of the `%s` related endpoint\'s document for a resource of type `%s`.', $relation->name(), $type->type()))
-            ->withProperty('self', $this->member($relatedPath, $relatedOperation, 'The URL that produced the document.'));
-        $schema = $this->withDescribedByMember($schema, $relatedOperation);
-
-        $pageQueries = [];
-        if ($relation->isToMany() && $relation->pageSchema() !== null) {
-            $pageQueries = self::pageExampleQueries($relation->pageSchema());
-            foreach (self::PAGINATION as $page) {
-                $schema = $schema->withProperty($page, $this->member($relatedPath, $relatedOperation, \sprintf('The `%s` page of the related collection, when there is one.', $page), $pageQueries[$page] ?? []));
-            }
-        }
-
-        return self::withObjectExample($schema, self::unrenderedPages($pageQueries))
+        return $this->withDescribedByMember($schema)
             ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
     }
 
     /**
-     * Sets the links object's own `example` to its members' examples, so a sampler that
-     * would otherwise invent `additionalProperties` entries shows the links a response
-     * carries. `$omit` names members a response never renders together with the rest.
-     *
-     * @param list<string> $omit
+     * The top-level `links` of a related endpoint's document: its own URL, its
+     * `describedby` and, for a paginated to-many, the pages of the related collection.
      */
-    private static function withObjectExample(Schema $links, array $omit = []): Schema
+    private function relatedDocumentLinks(): Schema
     {
-        $properties = $links->get('properties');
-        if (!\is_array($properties)) {
-            return $links;
-        }
+        $schema = $this->linksObject('The top-level `links` of a related endpoint\'s document. The pages are present on a paginated to-many relationship.')
+            ->withProperty('self', $this->member('The URL that produced the document.'));
 
-        $example = [];
-        foreach ($properties as $name => $member) {
-            if (!$member instanceof Schema || \in_array($name, $omit, true)) {
-                continue;
-            }
-            $value = $member->get('example');
-            if ($value !== null) {
-                $example[(string) $name] = $value;
-            }
-        }
-
-        return $example === [] ? $links : $links->withExample($example);
+        return $this->withPages($this->withDescribedByMember($schema), 'The `%s` page of the related collection, when there is one.')
+            ->withAdditionalProperties(Schema::ref('#/components/schemas/LinkObject'));
     }
 
-    /**
-     * The pagination members a page with these example queries never renders: every one
-     * the paginator gave no example for (all of them when it is unknown or absent).
-     *
-     * @param array<string, array<string, int|string>> $pageQueries
-     *
-     * @return list<string>
-     */
-    private static function unrenderedPages(array $pageQueries): array
+    private function linksObject(string $description): Schema
     {
-        return \array_values(\array_diff(self::PAGINATION, \array_keys($pageQueries)));
+        return Schema::ofType('object')->withDescription($description);
+    }
+
+    private function withRelationshipMembers(Schema $schema): Schema
+    {
+        $schema = $schema
+            ->withProperty('self', $this->member('The relationship\'s own URL.'))
+            ->withProperty('related', $this->member('The related resource data.'));
+
+        return $this->withPages($schema, 'The `%s` page of the relationship\'s linkage, when there is one.');
+    }
+
+    private function withPages(Schema $schema, string $description): Schema
+    {
+        foreach (self::PAGINATION as $page) {
+            $schema = $schema->withProperty($page, $this->member(\sprintf($description, $page)));
+        }
+
+        return $schema;
     }
 
     /**
      * Adds the top-level `describedby` member, present when the server describes its
      * documents (it names a document URL).
      */
-    private function withDescribedByMember(Schema $schema, OperationReference $operation): Schema
+    private function withDescribedByMember(Schema $schema): Schema
     {
-        $describedBy = $this->describedBy?->describedBy($operation);
-        if ($describedBy === null) {
+        if ($this->describedBy === null) {
             return $schema;
         }
 
-        $member = $this->objects
-            ? Schema::ref('#/components/schemas/RenderedLink')->withExample(['href' => $describedBy])
-            : Schema::ref('#/components/schemas/LinkObject')->withExample($describedBy);
-
-        return $schema->withProperty('describedby', $member->withDescription('The OpenAPI operation that describes the document.'));
+        return $schema->withProperty('describedby', $this->member('The OpenAPI operation that describes the document.'));
     }
 
     /**
-     * One built link member: the link shape the server renders, with an example.
-     *
-     * @param array<string, int|string> $page the example's `page[…]` members, encoded the
-     *                                        way a rendered pagination link encodes them
+     * One built link member: the link shape the server renders.
      */
-    private function member(string $examplePath, OperationReference $operation, string $description, array $page = []): Schema
+    private function member(string $description): Schema
     {
         return Schema::ref('#/components/schemas/' . ($this->objects ? 'RenderedLink' : 'LinkObject'))
-            ->withDescription($description . self::HREF_NOTE)
-            ->withExample($this->linkExample($examplePath, $operation, $page));
-    }
-
-    /**
-     * The example of one built link: its `href`, as an object carrying the target
-     * operation's `describedby` when the server renders link objects, else the bare URL.
-     *
-     * @param array<string, int|string> $page
-     *
-     * @return string|array<string, string>
-     */
-    private function linkExample(string $examplePath, OperationReference $operation, array $page = []): string|array
-    {
-        return $this->renderedLink($examplePath, $operation, $page === [] ? [] : ['page' => $page]);
+            ->withDescription($description);
     }
 
     /**
@@ -686,10 +654,10 @@ final readonly class LinkSchemaProjector
         $root = $this->serverUrl . '/';
         $example = $type === null
             ? ($this->objects ? ['href' => $root] : $root)
-            : $this->linkExample($this->examplePath(PathTemplate::resource($type->uriType()), $type), OperationReference::fetchOne($type->uriType()));
+            : $this->renderedLink($this->examplePath(PathTemplate::resource($type->uriType()), $type), OperationReference::fetchOne($type->uriType()));
 
         return Schema::create()
-            ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.')
+            ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.' . ($this->objects ? '' : self::HREF_NOTE))
             ->withExample($example)
             ->withAnyOf([
                 Schema::ofType('string')->withFormat('uri-reference'),
@@ -704,7 +672,7 @@ final readonly class LinkSchemaProjector
     private function renderedLinkSchema(): Schema
     {
         return Schema::ofType('object')
-            ->withDescription('A link the server builds, rendered as a JSON:API link object. `describedby` is a URI-reference to the OpenAPI operation that describes the link\'s target, present when the server describes its links.')
+            ->withDescription('A link the server builds, rendered as a JSON:API link object. `describedby` is a URI-reference to the OpenAPI operation that describes the link\'s target, present when the server describes its links.' . self::HREF_NOTE)
             ->withProperty('href', Schema::ofType('string')->withFormat('uri-reference'))
             ->withProperty('describedby', Schema::ofType('string')->withFormat('uri-reference'))
             ->withProperty('meta', Schema::ofType('object'))

@@ -67,9 +67,10 @@ The projection is a small pipeline of **pure** classes in
   (`openapi` / `info` / `servers` / `tags` / security schemes), the full component set
   (per-type attributes, resource object, resource identifier, create/update request
   schemas, per-relationship relationship objects, and the single / collection /
-  relationship / related document envelopes, and the per-context links components), the
-  shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`, `Links`, `Error`,
-  `ErrorDocument` and its per-status narrowings), the
+  relationship / related document envelopes, and a type's own links component when it has
+  named links), the shared components (`JsonApi`, `Meta`, `LinkObject`, `RenderedLink`,
+  `Links`, the per-context links components, `Error`, `ErrorDocument` and its per-status
+  narrowings), the
   per-code error variants, the shared error responses, the named enum components, the
   optional [Atomic Operations](atomic-operations.md) extension components + path, and —
   via the `OperationProjector` — the `paths`.
@@ -169,13 +170,12 @@ sketch:
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
   bodies through `<Type><Rel>RelationshipRequest`
   ([ADR 0160](adr/0160-a-pivot-has-separate-response-and-request-schemas.md)).
-- **Links, per context.** Each place a link renders gets its own component listing the
-  members the server puts there: `<Type>ResourceLinks` (the resource's `self`, plus each
-  [action rendered as a link](#links-and-describedby)), `<Type>DocumentLinks` (a single
-  document's `self` and `describedby`), `<Type>CollectionLinks` (a collection's `self`,
-  `describedby` and pagination links) and `<Type><Rel>RelationshipLinks` (the `self` and
-  `related` its exposed endpoints allow, and pagination links for a paginated to-many).
-  See [links and `describedby`](#links-and-describedby).
+- **Links, per context.** Each place a link renders has one shared component listing the
+  members the server can put there: `ResourceLinks`, `DocumentLinks`, `CollectionLinks`,
+  `RelationshipLinks`, `RelationshipDocumentLinks` and `RelatedDocumentLinks`. A type whose
+  resources carry [declared links or action links](#links-and-describedby) gets its own
+  `<Type>ResourceLinks`, extending `ResourceLinks` with them. See
+  [links and `describedby`](#links-and-describedby).
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
@@ -457,82 +457,69 @@ discovery, so in those apps the exception above is catalogued by writing it.
 ### Links and `describedby`
 
 The server renders the links it builds as [link objects](links-and-meta.md#built-links-are-link-objects),
-and each links component describes exactly that. Its members point at `RenderedLink`, the
-object form the server renders (`href`, plus `describedby` and `meta` when present), and
-carry an example:
+and the links components describe exactly that. There is one per context, shared by every
+type and relation:
+
+| Component | Used by | Members |
+|---|---|---|
+| `ResourceLinks` | each `<Type>Resource` without named links | `self` |
+| `DocumentLinks` | each `<Type>Document` | `self`, `describedby` |
+| `CollectionLinks` | each `<Type>Collection` | `self`, `describedby`, `first`, `prev`, `next`, `last` |
+| `RelationshipLinks` | each `<Type><Rel>Relationship` | `self`, `related`, `first`, `prev`, `next`, `last` |
+| `RelationshipDocumentLinks` | each `<Type><Rel>RelationshipDocument` | `self`, `related`, `first`, `prev`, `next`, `last`, `describedby` |
+| `RelatedDocumentLinks` | each `<Type><Rel>RelatedDocument` and `<Type><Rel>RelatedCollection` | `self`, `describedby`, `first`, `prev`, `next`, `last` |
+
+Each member points at `RenderedLink`, the object form the server renders (`href`, plus
+`describedby` and `meta` when present), and none is required. `describedby` is listed only
+when the metadata names the document's URL. A member is listed when some response in that
+context can render it, so a to-one relationship's links admit pagination members it never
+renders, and a relationship object whose relationship endpoint isn't exposed admits a
+`self` it never renders; each component's description says when each member is present.
+A component is emitted only when something references it, so a server without relations
+has no `RelationshipLinks`. Error documents keep the generic `Links`.
 
 ```json
-"AlbumsResourceLinks": {
+"CollectionLinks": {
   "type": "object",
-  "description": "The `links` of a resource object of type `albums`.",
+  "description": "The top-level `links` of a document whose primary data is a collection. The pages are present when the collection is paginated.",
   "properties": {
-    "self": {
-      "description": "The resource's own URL. …",
-      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
-      "example": {
-        "href": "/api/v5/albums/1",
-        "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D/get"
-      }
-    },
-    "publish": {
-      "description": "The `publish` action on this resource. …",
-      "allOf": [{ "$ref": "#/components/schemas/RenderedLink" }],
-      "example": {
-        "href": "/api/v5/albums/1/-actions/publish",
-        "describedby": "/api/v5/docs.json#/paths/~1albums~1%7Bid%7D~1-actions~1publish/post"
-      }
-    }
+    "self": { "$ref": "#/components/schemas/RenderedLink", "description": "The URL that produced the document." },
+    "describedby": { "$ref": "#/components/schemas/RenderedLink", "description": "The OpenAPI operation that describes the document." },
+    "first": { "$ref": "#/components/schemas/RenderedLink", "description": "The `first` page of the collection, when there is one." },
+    "prev": { "…": "…" },
+    "next": { "…": "…" },
+    "last": { "…": "…" }
   },
   "additionalProperties": { "$ref": "#/components/schemas/LinkObject" }
 }
 ```
 
-An example is the document's first server URL as it stands plus the member's path, with
-the type's `Id` [example](#authoring-the-schemas-describedas-and-example) (else `1`) in
-place of `{id}`. A relative server URL (`/api/v5`) gives host-relative examples and an
-absolute one absolute examples. Each member's description says that a response's `href` is
-absolute to the request host unless the server pins its links to a configured base URI, so
-nobody mistakes the example's form for the wire's. The `describedby` in an example is
-present only when the metadata names the document's URL and the document carries the
-operation; it is built from the same path templates the projector keys `paths` by, so the
-two can't drift.
+`additionalProperties` stays the open `LinkObject` (a string, a link object or `null`),
+because a `getLinks()` override can add any link in any shape. `RenderedLink`'s description
+says once that a response's `href` is absolute to the request host unless the server pins
+its links to a configured base URI.
 
-Every context gets its own links component. Beside a type's `<Type>ResourceLinks`,
-`<Type>DocumentLinks` and `<Type>CollectionLinks` and each relation's
-`<Type><Rel>RelationshipLinks`, a relation's endpoints have their own documents' links:
-`<Type><Rel>RelationshipDocumentLinks` lists what the relationship endpoint renders at the
-top level (the relationship's `self` and `related`, `describedby`, and the pages of a
-paginated to-many), and `<Type><Rel>RelatedDocumentLinks` what the related endpoint
-renders (its own URL as `self`, `describedby`, and the pages of a to-many). The related
-endpoint answers with `<Type><Rel>RelatedDocument` for a to-one and
-`<Type><Rel>RelatedCollection` for a to-many, so its examples show
-`/advertisers/1042/agencies`, never the agencies collection's URL. Error documents keep
-the generic `Links`.
+The link schemas carry no examples. The [operation examples](#operation-examples) show
+every document whole, links included: each link built from the document's first server
+URL plus its path, with the type's `Id` example in place of `{id}`, and the pagination
+links of page two under the paginator's configured keys. That is where a type's own URLs
+appear. The `describedby` in an example is present only when the metadata names the
+document's URL and the document carries the operation; it is built from the same path
+templates the projector keys `paths` by, so the two can't drift.
 
-Each links component also carries its members' examples as one whole-object `example`,
-and `LinkObject` carries one of its own: the first registered type's resource URL with
-its example id, plus a `describedby` pointing at that type's fetch-one operation when the
-server renders link objects and names its document URL. A sampler that reads `additionalProperties` would
-otherwise invent `property1`-style links nobody renders; `additionalProperties` stays, so
-a `getLinks()` override can still add any link. The generic `Links` that error documents use gets a
-one-link example for the same reason, and the free-form `Meta` component an empty `{}`.
+`LinkObject` keeps an example of its own: the first registered type's resource URL with its
+example id (else `1`), plus a `describedby` pointing at that type's fetch-one operation when
+the server renders link objects and names its document URL. The generic `Links` that error
+documents use keeps a one-link example, and the free-form `Meta` component an empty `{}`,
+because a sampler would otherwise fill those open objects with invented members.
 
-The pagination members (`first`, `prev`, `next`, `last`) of a collection, of a to-many
-relationship's links and of a to-many related document show the links of page two, built from the page schema of the
-paginator in force there, under its configured keys and default size, with brackets
-percent-encoded as a rendered link encodes them: `?page%5Bnumber%5D=3&page%5Bsize%5D=15`
-for `next` under a page paginator, `page[offset]`/`page[limit]` under an offset one, and
-`page[after]`/`page[before]` cursors under a cursor one. A menu shows its default strategy,
-whose links carry no `page[kind]`. A cursor page never renders `last`, so that member keeps
-the bare URL, as does every member of an unpaginated collection, and the whole-object
-example leaves out any page member the paginator never renders.
-
-`additionalProperties` stays the open `LinkObject` (a string, a link
-object or `null`), because a `getLinks()` override can add any link in any shape.
-
-A resource's [declared links](links-and-meta.md#declared-links) are named properties of its
-`<Type>ResourceLinks`, none of them required, since a link whose href resolves to `null` is
-left out. A link with `meta` members or a static member, one of `rel`, `title`, `type`,
+A type whose resources carry [declared links](links-and-meta.md#declared-links) or
+[action links](links-and-meta.md#action-links) gets its own `<Type>ResourceLinks`: an
+`allOf` of the shared `ResourceLinks` and an object holding one property per named link,
+none of them required, since a link whose href resolves to `null` is left out. Its
+`<Type>Resource` points there instead of at `ResourceLinks`. Each named link still
+satisfies `ResourceLinks`' `additionalProperties`, since every link shape is a
+`LinkObject`. A link with `meta` members or a static member, one of `rel`, `title`, `type`,
 `hreflang` and `describedby`, gets its own object schema: `href`, each static member as a
 `const`, and a `meta` object whose properties are the declared members, each projected the
 way an attribute is on a read, with its type, constraints, description and example. `meta`
@@ -542,29 +529,36 @@ link does:
 
 ```json
 "FilesResourceLinks": {
-  "type": "object",
-  "properties": {
-    "self": { "…": "…" },
-    "upload": {
+  "description": "The `links` of a resource object of type `files`.",
+  "allOf": [
+    { "$ref": "#/components/schemas/ResourceLinks" },
+    {
       "type": "object",
-      "description": "Where to PUT the file's bytes.",
       "properties": {
-        "href": { "type": "string", "format": "uri-reference" },
-        "meta": {
+        "upload": {
           "type": "object",
+          "description": "Where to PUT the file's bytes.",
           "properties": {
-            "method": { "type": "string", "enum": ["PUT"], "example": "PUT" },
-            "headers": { "type": "object", "additionalProperties": {}, "example": { "Content-Type": "image/png" } },
-            "expiresAt": { "type": "string", "format": "date-time", "example": "2026-10-26T12:00:00+00:00" }
+            "href": { "type": "string", "format": "uri-reference" },
+            "meta": {
+              "type": "object",
+              "properties": {
+                "method": { "type": "string", "enum": ["PUT"], "example": "PUT" },
+                "headers": { "type": "object", "additionalProperties": {}, "example": { "Content-Type": "image/png" } },
+                "expiresAt": { "type": "string", "format": "date-time", "example": "2026-10-26T12:00:00+00:00" }
+              },
+              "required": ["method", "headers", "expiresAt"]
+            }
           },
-          "required": ["method", "headers", "expiresAt"]
+          "required": ["href", "meta"]
+        },
+        "complete": {
+          "$ref": "#/components/schemas/RenderedLink",
+          "description": "Present while the file is PENDING_UPLOAD."
         }
-      },
-      "required": ["href", "meta"],
-      "example": { "href": "https://uploads.example.com/f-1?signature=…", "meta": { "…": "…" } }
+      }
     }
-  },
-  "additionalProperties": { "$ref": "#/components/schemas/LinkObject" }
+  ]
 }
 ```
 
@@ -574,7 +568,7 @@ describing one of them wrongly.
 
 A type whose resource declares [action links](links-and-meta.md#action-links) reports them
 through the opt-in `DeclaresActionLinks` type metadata. Each names a resource-scope action
-whose link the type's `<Type>ResourceLinks` then lists, whether or not the action's own
+whose link the type's `<Type>ResourceLinks` then lists as a `RenderedLink`, whether or not the action's own
 metadata names a link, and its `describedAs()` replaces the generic action-link
 description. An action link naming no resource-scope action of the type on the document's
 server is left out of it.
@@ -582,8 +576,8 @@ server is left out of it.
 `LinkObject` itself allows every JSON:API 1.1 member: `href`, `rel`, `describedby` (a
 URI-reference or a link object), `title`, `type`, `hreflang` (a string or a list of
 strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-link-objects)
-to strings gets no `RenderedLink`; its members point at `LinkObject` and their examples are
-plain strings.
+to strings gets no `RenderedLink`; its members point at `LinkObject`, which then carries the
+note about absolute `href`s, and the links in its operation examples are plain strings.
 
 #### A `$ref` with an example is wrapped in `allOf`
 
@@ -592,8 +586,8 @@ Wherever a schema `$ref`s a component and also carries an `example`, `examples` 
 other keywords beside it: `{"description": …, "allOf": [{"$ref": …}], "example": …}`. OAS
 3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
 example sampler among them, ignore them and would show a sample of the bare component
-instead. Today that covers every link member above, and an attribute whose enum is a
-named component when the field declares an example. A `$ref` with no such sibling is
+instead. Today that covers an attribute, or a declared link's `meta` member, whose enum is
+a named component when the field declares an example. A `$ref` with no such sibling is
 written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
 as that `$ref`.
 
@@ -1255,6 +1249,12 @@ Contract 17 adds one more. A document carries it when an action declares `SeeOth
 with a media type, which documents a `200` [location document](#actions-that-answer-with-a-url) beside
 the `303`, through the `LocationDocument` and `LocationLink` components
 (`ACTION_LOCATION`). Every other document is unchanged.
+
+Contract 18 moves the shape every document shares again. Each type's and relation's links
+components gave way to [one shared component per context](#links-and-describedby), a type
+with named links extends `ResourceLinks` through an `allOf`, and the link schemas lost
+their examples to the operation examples. So the baseline is 18, every document carries 18,
+and none of the scoped tiers above distinguishes a document any more.
 
 A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
 witness, projected from the same server without its raw results, accepted bodies,

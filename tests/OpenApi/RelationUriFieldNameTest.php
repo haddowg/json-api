@@ -69,15 +69,15 @@ final class RelationUriFieldNameTest extends TestCase
     #[Test]
     public function theRelationshipLinksPointAtTheUriFieldNameAndAreDescribed(): void
     {
-        $links = $this->arrAt($this->document()->toArray(), 'components', 'schemas', 'AlbumsArtistRelationshipLinks', 'properties');
+        $links = $this->arrAt($this->document()->toArray(), 'paths', '/records/{id}', 'get', 'responses', '200', 'content', 'application/vnd.api+json', 'example', 'data', 'relationships', 'artist', 'links');
 
         self::assertSame(
             ['href' => '/records/1/relationships/by', 'describedby' => self::DOCS . '#/paths/~1records~1%7Bid%7D~1relationships~1by/get'],
-            $this->at($links, 'self', 'example'),
+            $this->at($links, 'self'),
         );
         self::assertSame(
             ['href' => '/records/1/by', 'describedby' => self::DOCS . '#/paths/~1records~1%7Bid%7D~1by/get'],
-            $this->at($links, 'related', 'example'),
+            $this->at($links, 'related'),
         );
     }
 
@@ -125,7 +125,7 @@ final class RelationUriFieldNameTest extends TestCase
     {
         $albums = FakeTypeMetadata::resource(
             type: 'albums',
-            fields: [Id::make()->example('1')->build(), Str::make('title')->build()],
+            fields: [Id::make()->example('1')->build(), Str::make('title')->example('Kind of Blue')->build()],
             relations: [
                 new UriFieldNameRelationMetadata(new FakeRelationMetadata('artist', ['artists'], false), 'by'),
                 new FakeRelationMetadata('label', ['labels'], false),
@@ -134,8 +134,8 @@ final class RelationUriFieldNameTest extends TestCase
         );
         $server = new FakeServerMetadata('Music', '1', [
             $albums,
-            FakeTypeMetadata::resource('artists', [Id::make()->build(), Str::make('name')->build()]),
-            FakeTypeMetadata::resource('labels', [Id::make()->build()]),
+            FakeTypeMetadata::resource('artists', [Id::make()->example('2')->build(), Str::make('name')->example('Miles Davis')->build()]),
+            FakeTypeMetadata::resource('labels', [Id::make()->example('3')->build()]),
         ]);
 
         return (new OpenApiProjector())->project(new LinkDeclaringServerMetadata($server, documentUrl: self::DOCS));

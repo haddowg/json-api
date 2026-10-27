@@ -109,13 +109,13 @@ final class ContractWitnessTest extends TestCase
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
         self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true));
-        self::assertSame(['contract' => GeneratorContract::ACTION_LOCATION], GeneratorContract::toArray(actionLocations: true));
-        self::assertSame(['contract' => GeneratorContract::SINGLE_TARGET_POLYMORPHISM], GeneratorContract::toArray(singleTargetPolymorphism: true));
-        self::assertSame(['contract' => GeneratorContract::SCOPES], GeneratorContract::toArray(scopes: true));
-        self::assertSame(['contract' => GeneratorContract::DECLARED_LINKS], GeneratorContract::toArray(declaredLinks: true));
-        self::assertSame(['contract' => GeneratorContract::ACTION_METHOD_IDS], GeneratorContract::toArray(actionMethodIds: true));
-        self::assertSame(['contract' => GeneratorContract::ACTION_SAFETY], GeneratorContract::toArray(actionSafety: true));
-        self::assertSame(['contract' => GeneratorContract::ACTION_EXTENSIONS], GeneratorContract::toArray(actionExtensions: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_LOCATION)], GeneratorContract::toArray(actionLocations: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SINGLE_TARGET_POLYMORPHISM)], GeneratorContract::toArray(singleTargetPolymorphism: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SCOPES)], GeneratorContract::toArray(scopes: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DECLARED_LINKS)], GeneratorContract::toArray(declaredLinks: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_METHOD_IDS)], GeneratorContract::toArray(actionMethodIds: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_SAFETY)], GeneratorContract::toArray(actionSafety: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_EXTENSIONS)], GeneratorContract::toArray(actionExtensions: true));
         // A scoped tier never stamps below the baseline, which may since have overtaken it.
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::EXAMPLES)], GeneratorContract::toArray(examples: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT)], GeneratorContract::toArray(rawContent: true));

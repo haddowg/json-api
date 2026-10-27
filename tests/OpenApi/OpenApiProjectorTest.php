@@ -418,20 +418,20 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function theRelationshipDocumentTypesItsOwnLinks(): void
+    public function theRelationshipDocumentTypesItsLinks(): void
     {
-        // Each relationship endpoint's document lists the links the server renders there:
-        // the relationship's own `self`/`related`, `describedby`, and the pages of a
-        // paginated to-many (ADR 0096). Neither describes a compound `included` (a
-        // relationship endpoint is linkage-only) — D16.
+        // Every relationship endpoint's document shares one links component listing what
+        // the server can render there: the relationship's own `self`/`related`,
+        // `describedby`, and the pages of a paginated to-many (ADR 0096). Neither
+        // describes a compound `included` (a relationship endpoint is linkage-only) — D16.
         $schemas = $this->schemas();
 
         self::assertSame(
-            '#/components/schemas/ArticlesTagsRelationshipDocumentLinks',
+            '#/components/schemas/RelationshipDocumentLinks',
             $this->strAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties', 'links', '$ref'),
         );
         self::assertSame(
-            '#/components/schemas/ArticlesAuthorRelationshipDocumentLinks',
+            '#/components/schemas/RelationshipDocumentLinks',
             $this->strAt($schemas, 'ArticlesAuthorRelationshipDocument', 'properties', 'links', '$ref'),
         );
         self::assertArrayNotHasKey('included', $this->arrAt($schemas, 'ArticlesTagsRelationshipDocument', 'properties'));
@@ -461,19 +461,19 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
-    public function theRelationshipAndResourceObjectsRefTheirOwnLinksAndTheSharedMetaComponents(): void
+    public function theRelationshipAndResourceObjectsRefTheSharedLinksAndMetaComponents(): void
     {
         $schemas = $this->schemas();
 
-        // A relationship object's links $ref its own per-relation links component (the
-        // members that relation renders); its meta $refs the shared `Meta` (it may carry
-        // pivot / identifierMeta) — no more bare `{type: object}` (D22).
-        self::assertSame('#/components/schemas/ArticlesAuthorRelationshipLinks', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
+        // A relationship object's links $ref the shared relationship links component; its
+        // meta $refs the shared `Meta` (it may carry pivot / identifierMeta) — no more
+        // bare `{type: object}` (D22).
+        self::assertSame('#/components/schemas/RelationshipLinks', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
         self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'meta', '$ref'));
 
-        // The resource object's links $ref the type's resource links component; its meta
+        // A type with no named links $refs the shared resource links component; its meta
         // the shared `Meta`.
-        self::assertSame('#/components/schemas/ArticlesResourceLinks', $this->strAt($schemas, 'ArticlesResource', 'properties', 'links', '$ref'));
+        self::assertSame('#/components/schemas/ResourceLinks', $this->strAt($schemas, 'ArticlesResource', 'properties', 'links', '$ref'));
         self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesResource', 'properties', 'meta', '$ref'));
     }
 
