@@ -43,6 +43,15 @@ also the backing domain-object member.
 | `computedUsing(\Closure $cb)` | One-liner for a derived, read-only attribute: `computed()` + the value closure + `readOnly()`. |
 | `on(string $path)` | Flattens a scalar attribute from a chain of declared, **to-one** relations' related model (`'author'` or `'publisher.country'`). |
 
+JSON:API 1.1 puts a resource object's attributes and relationships in one namespace with
+its `type` and `id`, so no attribute or relationship may be named `type` or `id`. The
+resource throws a `\LogicException` naming its class and the field the first time it
+builds its fields. The `Id` field is the one exception, since it renders as the
+resource object's `id`. To expose a domain property called `type`, give the field
+another name and point it at the column with `storedAs('type')`. The rule covers only
+a resource's own fields. A member of an `Obj` or `Map` value, a `BelongsToMany` pivot
+field and a declared link's `meta` member can all be called `type` or `id`.
+
 [`TrackResource`](../examples/music-catalog/src/Resource/TrackResource.php)
 exposes a `durationSeconds` member backed by a differently named column, and a
 `displayTitle` member with no column at all:

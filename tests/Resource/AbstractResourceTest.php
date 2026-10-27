@@ -11,13 +11,18 @@ use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\DateTime;
+use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\RejectingIdEncoder;
@@ -26,6 +31,7 @@ use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -407,6 +413,54 @@ final class AbstractResourceTest extends TestCase
         $this->expectException(\LogicException::class);
 
         $resource->relationNamed('_self_');
+    }
+
+    /**
+     * @return iterable<string, array{FieldBuilderInterface, string}>
+     */
+    public static function reservedFieldNames(): iterable
+    {
+        yield 'attribute named type' => [Str::make('type'), 'the attribute "type"'];
+        yield 'attribute named id' => [Str::make('id'), 'the attribute "id"'];
+        yield 'relationship named type' => [BelongsTo::make('type', 'kinds'), 'the relationship "type"'];
+        yield 'relationship named id' => [HasMany::make('id', 'others'), 'the relationship "id"'];
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    #[DataProvider('reservedFieldNames')]
+    public function aFieldNamedTypeOrIdIsRejectedAtBuild(FieldBuilderInterface $field, string $named): void
+    {
+        $resource = new ReservedNameResource([Id::make(), $field]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(\sprintf('Resource "%s" declares %s', ReservedNameResource::class, $named));
+
+        $resource->allFields();
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function theIdFieldAndNestedOrMetaMembersMayUseTheReservedNames(): void
+    {
+        // The spec reserves the names only among a resource object's fields; members
+        // inside an attribute value, pivot fields and declared-link meta all render under
+        // an object that is not a resource object, so none of them are fields.
+        $resource = new ReservedNameResource([
+            Id::make('id'),
+            Obj::make('origin')->fields(Str::make('type'), Str::make('id')),
+            Map::make('labels')->fields(Str::make('type'), Str::make('id')),
+            BelongsToMany::make('tags', 'tags')->fields(Str::make('type'), Str::make('id')),
+        ]);
+
+        self::assertSame(['id', 'origin', 'labels', 'tags'], $resource->declaredFieldNames());
+
+        $link = DeclaredLink::make('download')
+            ->linkUsing(static fn(): string => '/download')
+            ->meta(Str::make('type'), Str::make('id'))
+            ->build();
+
+        self::assertSame(['type', 'id'], \array_map(static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $member): string => $member->name(), $link->meta));
     }
 
     #[Test]
@@ -1717,6 +1771,21 @@ final class SelfTokenRelationResource extends AbstractResource
             Id::make(),
             HasMany::make('_self_', 'others'),
         ];
+    }
+}
+
+final class ReservedNameResource extends AbstractResource
+{
+    public static string $type = 'reserved';
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface|FieldBuilderInterface> $declared
+     */
+    public function __construct(private readonly array $declared) {}
+
+    public function fields(): array
+    {
+        return $this->declared;
     }
 }
 
