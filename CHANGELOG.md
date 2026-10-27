@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.2](https://github.com/haddowg/json-api/compare/v1.17.1...v1.17.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* reject attributes and relationships named type or id ([#250](https://github.com/haddowg/json-api/issues/250)) ([bd0f9c7](https://github.com/haddowg/json-api/commit/bd0f9c737ac50f96365ca7f4f986495f5544368f))
+
 ## [1.17.1](https://github.com/haddowg/json-api/compare/v1.17.0...v1.17.1) (2026-10-27)
 
 
