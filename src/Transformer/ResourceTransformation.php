@@ -38,5 +38,7 @@ final class ResourceTransformation
         // How the built links render; null keeps bare strings, the shape a
         // transformation built outside a response has always produced.
         public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
+        // Drops an included resource the caller may not read; null includes everything.
+        public ?\haddowg\JsonApi\Scope\ScopeEnforcer $scopes = null,
     ) {}
 }

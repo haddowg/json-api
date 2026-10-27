@@ -86,8 +86,15 @@ final class AtomicLoop
      */
     private function errorResponse(JsonApiExceptionInterface $exception, int $index): ErrorResponse
     {
-        return ErrorResponse::fromErrors(...$this->prefixErrors($exception, $index))
+        $response = ErrorResponse::fromErrors(...$this->prefixErrors($exception, $index))
             ->withExtensions([AtomicExtension::URI]);
+        if ($exception instanceof \haddowg\JsonApi\Exception\CarriesResponseHeadersInterface) {
+            foreach ($exception->responseHeaders() as $name => $value) {
+                $response = $response->withHeader($name, $value);
+            }
+        }
+
+        return $response;
     }
 
     /**

@@ -561,6 +561,7 @@ abstract class AbstractRelationship
                 $transformation->currentRelationshipName,
                 $defaultRelationships,
             )
+            && $this->readableByCaller($transformation, $object)
         ) {
             $resource = $resourceTransformer->transformToResourceObject($relationshipTransformation, $data);
             if ($resource !== null) {
@@ -586,5 +587,20 @@ abstract class AbstractRelationship
         }
 
         return $identifier;
+    }
+
+    /**
+     * Whether the caller's token may read the related object's type, when the server
+     * enforces scopes. An included resource it may not read is left out of `included`;
+     * its identifier stays in the linkage.
+     */
+    private function readableByCaller(ResourceTransformation $transformation, mixed $object): bool
+    {
+        $scopes = $transformation->scopes;
+        if ($scopes === null || $this->resource === null) {
+            return true;
+        }
+
+        return $scopes->canInclude($transformation->request, $this->resource->getType($object), $this instanceof ToManyRelationship);
     }
 }

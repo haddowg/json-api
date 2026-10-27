@@ -121,6 +121,7 @@ final class RelatedResponse extends AbstractResponse
             $server->maxIncludeDepth(),
             $this->selfCountable,
             linkRendering: \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server),
+            scopes: \haddowg\JsonApi\Scope\ScopeEnforcer::forServer($server),
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

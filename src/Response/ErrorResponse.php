@@ -34,7 +34,14 @@ final class ErrorResponse extends AbstractResponse
 
     public static function fromException(\haddowg\JsonApi\Exception\JsonApiExceptionInterface $exception): self
     {
-        return new self($exception->getErrors(), $exception->getStatusCode());
+        $response = new self($exception->getErrors(), $exception->getStatusCode());
+        if ($exception instanceof \haddowg\JsonApi\Exception\CarriesResponseHeadersInterface) {
+            foreach ($exception->responseHeaders() as $name => $value) {
+                $response = $response->withHeader($name, $value);
+            }
+        }
+
+        return $response;
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument

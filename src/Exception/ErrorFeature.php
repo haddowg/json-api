@@ -62,4 +62,7 @@ enum ErrorFeature: string
      * {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection}.
      */
     case ReadOnlyAttributeRejection = 'read-only-attribute-rejection';
+
+    /** The server's operations require OAuth scopes. */
+    case OperationScopes = 'operation-scopes';
 }
