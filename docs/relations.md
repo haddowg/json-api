@@ -317,6 +317,44 @@ The same holds for `MorphToMany`.
 > *derived* rather than a plain property. For a relation whose property matches its
 > name, drop it. See [Custom relation hooks](#custom-relation-hooks).
 
+### Identifying the target without loading it
+
+A `MorphTo` normally reads the related object to find out its type, so rendering the
+linkage loads the target. When the parent stores the target as a type and id pair,
+declare `identifiedBy()` and the linkage renders straight from the pair:
+
+```php
+MorphTo::make('target', ['advertisers', 'agencies'])
+    ->identifiedBy(static fn(mixed $campaign): ?array => $campaign instanceof Campaign && $campaign->targetId !== null
+        ? [$campaign->targetType, $campaign->targetId]
+        : null),
+```
+
+The closure receives the parent and the request. It returns `[$type, $id]`, with
+`$type` one of the declared JSON:API types and `$id` the storage key, or `null` for an
+empty relation. The `id` in the linkage goes through the target type's id encoder,
+the same as it would if the target were rendered. A type the relation doesn't declare
+throws a `\LogicException`, which renders as a 500; its message names the class that
+declared the closure, the relation and the type.
+
+The target is read only when the relationship is included. The host's
+`ToOneRelationshipLinkageInterface` is asked first, and without one the relation's
+usual read runs: the property named like the relation, or `extractUsing()`. A target
+whose own type differs from the pair's is left out of `included`. Writes are
+unaffected, so `fillUsing()` still owns them, and so is the OpenAPI document.
+
+An identified relation is never [lazy](#lazy-linkage-and-withdata): the pair costs no
+load, so it emits `data` whatever the load-state predicate says. It can't be combined
+with [`identifierMeta()`](#identifier-meta--parent-aware-per-relation-meta), whose
+resolver needs the target, and its identifiers carry `type` and `id` only.
+
+A data layer loads included and related targets from the pairs, one query per type.
+`MorphTo::storedIdentifiers($parents, $request)` returns the stored ids of a page of
+parents grouped by type, deduplicated, in declared order, and
+`storedIdentifier($parent, $request)` returns one parent's pair. `storesIdentifiers()`
+says whether a relation was declared this way. See
+[ADR 0189](adr/0189-an-identified-morph-to-renders-linkage-from-its-stored-pair.md).
+
 ## MorphToMany — a polymorphic to-many
 
 A to-many collection whose members may each be a different type.
@@ -445,6 +483,7 @@ free (the identifier is already on the owning side):
 | Relation | Default | Why |
 | --- | --- | --- |
 | `BelongsTo`, `MorphTo` | **eager** (data always rendered) | the foreign key / morph id is on the owning model — the id is already in hand |
+| `MorphTo` with `identifiedBy()` | **always eager** | the stored pair is the linkage, so no load-state predicate applies |
 | `HasOne`, `HasMany`, `BelongsToMany`, `MorphToMany` | **lazy** (links-only until loaded/included) | the key is on the *related* model, so resolving it is a query (the N+1 risk across a collection) |
 
 Override a lazy relation to **eager** with `withData()` — when rendering

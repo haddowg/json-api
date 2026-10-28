@@ -97,6 +97,14 @@ abstract class AbstractRelationship
     protected bool $dataWithheld = false;
 
     /**
+     * The `type` and wire `id` a to-one renders as its linkage without reading its
+     * target, or `null` when the linkage is read off the related object.
+     *
+     * @var array{type: string, id: string}|null
+     */
+    protected ?array $storedIdentifier = null;
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -269,6 +277,7 @@ abstract class AbstractRelationship
         $this->data = $data;
         $this->isCallableData = false;
         $this->resource = $resource;
+        $this->storedIdentifier = null;
 
         return $this;
     }
@@ -281,6 +290,25 @@ abstract class AbstractRelationship
         $this->data = $callableData;
         $this->isCallableData = true;
         $this->resource = $resource;
+        $this->storedIdentifier = null;
+
+        return $this;
+    }
+
+    /**
+     * Renders the linkage as `$type` and `$id` without reading the target. `$target`
+     * runs only when the relationship is included, to supply the object `included`
+     * renders; `$resource` is the serializer for `$type`.
+     *
+     * @internal Set by {@see \haddowg\JsonApi\Resource\Field\MorphTo} for a relation
+     *           declared with `identifiedBy()`.
+     *
+     * @return $this
+     */
+    public function setStoredIdentifier(string $type, string $id, callable $target, SerializerInterface $resource): static
+    {
+        $this->setDataAsCallable($target, $resource);
+        $this->storedIdentifier = ['type' => $type, 'id' => $id];
 
         return $this;
     }
@@ -537,30 +565,10 @@ abstract class AbstractRelationship
         mixed $object,
         array $defaultRelationships,
     ): ?array {
-        $relationshipTransformation = clone $transformation;
-        $relationshipTransformation->resourceType = '';
-        $relationshipTransformation->resource = $this->resource;
-        $relationshipTransformation->object = $object;
-
-        $basePath = $transformation->basePath;
-        $basePath .= ($basePath !== '' ? '.' : '') . $relationshipTransformation->currentRelationshipName;
-        $relationshipTransformation->basePath = $basePath;
-
-        // The included resource's depth is the segment count of its new basePath.
-        // When a max include depth is in effect, descending past it is silently
-        // skipped — the linkage identifier is still returned below, only the
-        // compound `included` expansion is capped. This halts the default cascade
-        // at the cap and guarantees termination of mutual default-include cycles.
-        $maxIncludeDepth = $transformation->maxIncludeDepth;
-        $withinDepth = $maxIncludeDepth === null || \substr_count($basePath, '.') + 1 <= $maxIncludeDepth;
+        $relationshipTransformation = $this->relatedTransformation($transformation, $object);
 
         if (
-            $withinDepth &&
-            $transformation->request->isIncludedRelationship(
-                $transformation->basePath,
-                $transformation->currentRelationshipName,
-                $defaultRelationships,
-            )
+            $this->includesRelated($transformation, $defaultRelationships)
             && $this->readableByCaller($transformation, $object)
         ) {
             $resource = $resourceTransformer->transformToResourceObject($relationshipTransformation, $data);
@@ -590,17 +598,103 @@ abstract class AbstractRelationship
     }
 
     /**
+     * The linkage for a {@see setStoredIdentifier()} relationship: the stored `type`
+     * and `id`, read without the target. The target is read only to render it into
+     * `included`, and is left out when it is missing or reports another type.
+     *
+     * @internal
+     *
+     * @param array{type: string, id: string} $stored
+     * @param array<string, mixed>            $defaultRelationships
+     *
+     * @return array{type: string, id: string}
+     */
+    protected function transformStoredIdentifier(
+        ResourceTransformation $transformation,
+        ResourceTransformer $resourceTransformer,
+        DataInterface $data,
+        array $stored,
+        array $defaultRelationships,
+    ): array {
+        if (
+            $this->resource !== null
+            && $this->includesRelated($transformation, $defaultRelationships)
+            && $this->typeReadableByCaller($transformation, $stored['type'])
+        ) {
+            $object = $this->getData();
+            if ($object !== null && $this->resource->getType($object) === $stored['type']) {
+                $resource = $resourceTransformer->transformToResourceObject($this->relatedTransformation($transformation, $object), $data);
+                if ($resource !== null) {
+                    $data->addIncludedResource($resource);
+                }
+            }
+        }
+
+        return $stored;
+    }
+
+    /**
+     * The transformation that renders `$object` as this relationship's related
+     * resource, one segment deeper than `$transformation`.
+     */
+    private function relatedTransformation(ResourceTransformation $transformation, mixed $object): ResourceTransformation
+    {
+        $relationshipTransformation = clone $transformation;
+        $relationshipTransformation->resourceType = '';
+        $relationshipTransformation->resource = $this->resource;
+        $relationshipTransformation->object = $object;
+
+        $basePath = $transformation->basePath;
+        $basePath .= ($basePath !== '' ? '.' : '') . $relationshipTransformation->currentRelationshipName;
+        $relationshipTransformation->basePath = $basePath;
+
+        return $relationshipTransformation;
+    }
+
+    /**
+     * Whether the request includes this relationship's related resource here.
+     *
+     * The included resource's depth is the segment count of its new basePath. When a
+     * max include depth is in effect, descending past it is silently skipped: the
+     * linkage identifier is still returned, only the compound `included` expansion is
+     * capped. This halts the default cascade at the cap and guarantees termination of
+     * mutual default-include cycles.
+     *
+     * @param array<string, mixed> $defaultRelationships
+     */
+    private function includesRelated(ResourceTransformation $transformation, array $defaultRelationships): bool
+    {
+        $basePath = $transformation->basePath;
+        $basePath .= ($basePath !== '' ? '.' : '') . $transformation->currentRelationshipName;
+
+        $maxIncludeDepth = $transformation->maxIncludeDepth;
+        $withinDepth = $maxIncludeDepth === null || \substr_count($basePath, '.') + 1 <= $maxIncludeDepth;
+
+        return $withinDepth && $transformation->request->isIncludedRelationship(
+            $transformation->basePath,
+            $transformation->currentRelationshipName,
+            $defaultRelationships,
+        );
+    }
+
+    /**
      * Whether the caller's token may read the related object's type, when the server
      * enforces scopes. An included resource it may not read is left out of `included`;
      * its identifier stays in the linkage.
      */
     private function readableByCaller(ResourceTransformation $transformation, mixed $object): bool
     {
-        $scopes = $transformation->scopes;
-        if ($scopes === null || $this->resource === null) {
+        if ($transformation->scopes === null || $this->resource === null) {
             return true;
         }
 
-        return $scopes->canInclude($transformation->request, $this->resource->getType($object), $this instanceof ToManyRelationship);
+        return $this->typeReadableByCaller($transformation, $this->resource->getType($object));
+    }
+
+    private function typeReadableByCaller(ResourceTransformation $transformation, string $type): bool
+    {
+        $scopes = $transformation->scopes;
+
+        return $scopes === null || $scopes->canInclude($transformation->request, $type, $this instanceof ToManyRelationship);
     }
 }

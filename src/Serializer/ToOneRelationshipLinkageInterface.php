@@ -35,6 +35,10 @@ use haddowg\JsonApi\Schema\Relationship\ToOneRelationshipLinkage;
  *
  * A relation whose linkage is deferred by the load-state predicate still defers: the
  * seam is consulted only when core would otherwise read the parent.
+ *
+ * For a {@see \haddowg\JsonApi\Resource\Field\MorphTo} declared with `identifiedBy()`,
+ * core asks before rendering the stored `[type, id]` pair, and a supplied target or
+ * none replaces the pair. Return `null` to keep the pair without loading anything.
  */
 interface ToOneRelationshipLinkageInterface extends RelationshipLinkageInterface
 {
