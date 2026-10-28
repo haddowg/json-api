@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0](https://github.com/haddowg/json-api/compare/v1.20.0...v1.21.0) (2026-10-28)
+
+
+### Features
+
+* render error documents without a server ([#265](https://github.com/haddowg/json-api/issues/265)) ([b380216](https://github.com/haddowg/json-api/commit/b380216fde658d7cfb104a1c3b2f2d3ca1d91fbf))
+* render MorphTo linkage from a stored type and id ([#266](https://github.com/haddowg/json-api/issues/266)) ([5b70e14](https://github.com/haddowg/json-api/commit/5b70e1404ec2e6e080c7219fdf4ba1f6577ebf07))
+
+
+### Bug Fixes
+
+* render an identified MorphTo target under its stored type ([#268](https://github.com/haddowg/json-api/issues/268)) ([ab47164](https://github.com/haddowg/json-api/commit/ab471644b9ea61f3f973eb11ca5d94228126ed3a))
+
 ## [1.20.0](https://github.com/haddowg/json-api/compare/v1.19.1...v1.20.0) (2026-10-27)
 
 
