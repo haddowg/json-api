@@ -252,6 +252,10 @@ These cases are pinned in
 exception catalogue and the throw-vs-return guidance live in
 [errors and exceptions](errors-and-exceptions.md).
 
+To build the same body with no server or request, for code outside the request
+lifecycle, use `ErrorRenderer`; see
+[rendering errors outside the request lifecycle](errors-and-exceptions.md#rendering-errors-outside-the-request-lifecycle).
+
 ## Raw responses
 
 A custom action that declares a

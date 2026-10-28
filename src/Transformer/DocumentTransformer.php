@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Transformer;
 
 use haddowg\JsonApi\Schema\Data\SingleResourceData;
+use haddowg\JsonApi\Schema\Document\DocumentInterface;
+use haddowg\JsonApi\Schema\Document\ErrorDocumentInterface;
 
 /**
  * Orchestrates transformation of a whole JSON:API document into its array
@@ -59,47 +61,85 @@ final class DocumentTransformer
     {
         $transformation = clone $transformation;
 
-        $this->transformMetaMembers($transformation);
-        $this->transformErrors($transformation);
+        $transformation->result = $this->renderErrorDocument($transformation->document, $transformation->additionalMeta, $transformation->result);
 
         return $transformation;
     }
 
-    private function transformMetaMembers(ResourceDocumentTransformation|ErrorDocumentTransformation $transformation): void
+    /**
+     * An error document reads nothing off the request, so it renders without one.
+     *
+     * @param array<string, mixed> $additionalMeta
+     * @param array<string, mixed> $result
+     *
+     * @return array<string, mixed>
+     */
+    public function renderErrorDocument(ErrorDocumentInterface $document, array $additionalMeta = [], array $result = []): array
     {
-        $jsonApi = $transformation->document->getJsonApi()?->transform() ?? [];
-        if ($jsonApi !== []) {
-            $transformation->result['jsonapi'] = $jsonApi;
+        $result = $this->renderMetaMembers($document, $additionalMeta, $result);
+
+        $errors = [];
+        foreach ($document->getErrors() as $error) {
+            $content = $error->transform();
+            // An error with no members is still an error object, not a JSON array.
+            $errors[] = $content === [] ? new \stdClass() : $content;
         }
 
-        $meta = $transformation->document->getMeta();
-        foreach ($transformation->additionalMeta as $metaKey => $metaValue) {
+        if ($errors !== []) {
+            $result['errors'] = $errors;
+        }
+
+        return $result;
+    }
+
+    private function transformMetaMembers(ResourceDocumentTransformation $transformation): void
+    {
+        $transformation->result = $this->renderMetaMembers($transformation->document, $transformation->additionalMeta, $transformation->result);
+    }
+
+    /**
+     * @param array<string, mixed> $additionalMeta
+     * @param array<string, mixed> $result
+     *
+     * @return array<string, mixed>
+     */
+    private function renderMetaMembers(DocumentInterface $document, array $additionalMeta, array $result): array
+    {
+        $jsonApi = $document->getJsonApi()?->transform() ?? [];
+        if ($jsonApi !== []) {
+            $result['jsonapi'] = $jsonApi;
+        }
+
+        $meta = $document->getMeta();
+        foreach ($additionalMeta as $metaKey => $metaValue) {
             $meta[$metaKey] = $metaValue;
         }
 
         // Merge document-level meta *under* anything already present (the relationship
         // document path sets the relationship's own meta first), so document meta is
         // additive and the more specific members win on key conflict.
-        $existingMeta = $transformation->result['meta'] ?? [];
+        $existingMeta = $result['meta'] ?? [];
         if (\is_array($existingMeta)) {
             $meta = \array_merge($meta, $existingMeta);
         }
 
         if ($meta !== []) {
-            $transformation->result['meta'] = $meta;
+            $result['meta'] = $meta;
         }
 
-        $links = $transformation->document->getLinks();
+        $links = $document->getLinks();
         if ($links !== null) {
-            $existingLinks = $transformation->result['links'] ?? [];
+            $existingLinks = $result['links'] ?? [];
             $mergedLinks = \is_array($existingLinks)
                 ? \array_merge($links->transform(), $existingLinks)
                 : $links->transform();
 
             if ($mergedLinks !== []) {
-                $transformation->result['links'] = $mergedLinks;
+                $result['links'] = $mergedLinks;
             }
         }
+
+        return $result;
     }
 
     private function transformResourceDataMembers(ResourceDocumentTransformation $transformation): void
@@ -127,19 +167,5 @@ final class DocumentTransformer
         // is not part of the relationship-endpoint contract — it is tolerated but does not
         // produce an `included` member — so no included set (requested or default) is emitted
         // here (unlike a primary/related resource document; core D16).
-    }
-
-    private function transformErrors(ErrorDocumentTransformation $transformation): void
-    {
-        $errors = [];
-        foreach ($transformation->document->getErrors() as $error) {
-            $content = $error->transform();
-            // An error with no members is still an error object, not a JSON array.
-            $errors[] = $content === [] ? new \stdClass() : $content;
-        }
-
-        if ($errors !== []) {
-            $transformation->result['errors'] = $errors;
-        }
     }
 }

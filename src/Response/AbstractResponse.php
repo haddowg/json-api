@@ -286,7 +286,7 @@ abstract class AbstractResponse
         $body = $this->applyExtensions($body);
         $body = $this->applyDescribedby($body);
         $body = $this->applyOperationDescribedby($body, $server);
-        $body = $this->orderTopLevelMembers($body);
+        $body = TopLevelMembers::order($body);
 
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
         // json_encode()'s return to string; an unencodable document throws \JsonException.
@@ -402,30 +402,6 @@ abstract class AbstractResponse
         \array_unshift($profiles, $registered);
 
         return $profiles;
-    }
-
-    /**
-     * Normalises a document's top-level members into the canonical
-     * {@see TopLevelMembers::ORDER} — `data` (or `errors`) first, `jsonapi` last —
-     * so the serialized shape is identical regardless of how the document was
-     * assembled. `array_key_exists` keeps a present-but-null member (e.g. an empty
-     * to-one's `data: null`); any unexpected member is preserved after the known set.
-     *
-     * @param array<string, mixed> $body
-     *
-     * @return array<string, mixed>
-     */
-    private function orderTopLevelMembers(array $body): array
-    {
-        $ordered = [];
-        foreach (TopLevelMembers::ORDER as $member) {
-            if (\array_key_exists($member, $body)) {
-                $ordered[$member] = $body[$member];
-                unset($body[$member]);
-            }
-        }
-
-        return [...$ordered, ...$body];
     }
 
     /**

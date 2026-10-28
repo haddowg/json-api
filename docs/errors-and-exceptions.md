@@ -113,6 +113,45 @@ lives:
 | `ErrorSource::fromParameter('filter[genre]')` | `parameter` | a **query parameter** |
 | `ErrorSource::fromHeader('Accept')` | `header` | a request **header** |
 
+## Rendering errors outside the request lifecycle
+
+Sometimes an error body has to be built where no `Server` and no request are at
+hand: a queue worker reporting a failed job, a webhook payload, a test fixture, or
+a framework hook that answers before any JSON:API route has matched.
+`Response\ErrorRenderer` turns errors into the JSON:API array with no server:
+
+```php
+use haddowg\JsonApi\Response\ErrorRenderer;
+use haddowg\JsonApi\Schema\JsonApiObject;
+
+ErrorRenderer::error($error);                       // one error object
+ErrorRenderer::document([$error, $other]);          // ['errors' => [...]]
+ErrorRenderer::document($exception, new JsonApiObject()); // adds "jsonapi": {"version": "1.1"}
+ErrorRenderer::status($exception);                  // the HTTP status, here the exception's own
+```
+
+`document()` takes a list of `Error`s or any `JsonApiExceptionInterface`, plus
+optional `jsonapi`, `meta` and `links` members. The `jsonapi` member is left out
+unless you pass a `JsonApiObject`. Both methods also take an optional
+`ErrorMessageResolverInterface` and a base URI. The output is what an
+`ErrorResponse` renders for the same input: `{placeholder}` tokens are filled from
+each error's `context`, the resolver replaces `title` and `detail` by `code`, error
+links bind to the base URI unless they pinned their own, and the top-level members
+come out in the same order. `status()` follows the same rules as a response: an
+exception's declared status, the shared status of errors that agree, or the
+nearest status class for a mix.
+
+`error()` returns `[]` for an error with no members, which encodes as a JSON array.
+Inside `document()` such an error is still rendered as `{}`.
+
+Use it only where the lifecycle can't reach. Inside a JSON:API request, throw the
+exception or return an `ErrorResponse`, so the server's resolver, base URI and
+`jsonapi` member apply without you passing them. That includes authentication and
+authorization failures. A firewall or auth guard should throw (or let the framework
+raise its own security exception) and leave the adapter to render it, as described
+under [Authentication & authorization](#authentication--authorization), rather than
+build the body itself.
+
 ## Localizing and overriding error copy
 
 Every error's `title` and `detail` are **message templates** resolved at render
@@ -552,6 +591,12 @@ throw new AccessDenied($debug ? $e->getMessage() : '', $e);
 The `detail` is left out of the error object when it is empty. Pass the framework's
 message only when it is safe to show, because it can name the rule that refused the
 request.
+
+This is also the path to take from your own firewall listener, voter or auth
+middleware: throw `AuthenticationRequired` or `AccessDenied`, or let the framework's
+security exception propagate, and the adapter renders it on JSON:API routes. Building
+the error body yourself with [`ErrorRenderer`](#rendering-errors-outside-the-request-lifecycle)
+is for code that runs outside those routes.
 
 ### Routing
 
