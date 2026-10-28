@@ -339,9 +339,13 @@ declared the closure, the relation and the type.
 
 The target is read only when the relationship is included. The host's
 `ToOneRelationshipLinkageInterface` is asked first, and without one the relation's
-usual read runs: the property named like the relation, or `extractUsing()`. A target
-whose own type differs from the pair's is left out of `included`. Writes are
-unaffected, so `fillUsing()` still owns them, and so is the OpenAPI document.
+usual read runs: the property named like the relation, or `extractUsing()`. Either
+way the pair's type picks the serializer that renders the target, so one class can
+back several declared types. When that serializer's `getType()` reports another type
+for the target, the target is left out of `included`. A host-supplied
+`ToOneRelationshipLinkage::none()` empties the relation, and a target supplied for an
+empty pair renders nothing. Writes are unaffected, so `fillUsing()` still owns them,
+and so is the OpenAPI document.
 
 An identified relation is never [lazy](#lazy-linkage-and-withdata): the pair costs no
 load, so it emits `data` whatever the load-state predicate says. It can't be combined

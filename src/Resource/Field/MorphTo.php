@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\Internal\ToOneTarget;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Schema\Relationship\ToOneRelationshipLinkage;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
@@ -165,8 +166,8 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
             }
         } else {
             $supplied = ToOneTarget::supplied($this, $model, $request, $resolver);
-            if ($supplied === null && $this->identifiedBy !== null) {
-                $this->bindStoredIdentifier($relationship, $model, $request, $resolver);
+            if ($this->identifiedBy !== null) {
+                $this->bindStoredIdentifier($relationship, $model, $request, $resolver, $supplied);
                 $this->finalizeToOne($relationship, $model, $request);
 
                 return $relationship;
@@ -199,16 +200,19 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
     }
 
     /**
-     * Binds the stored pair as the linkage. The target is read off the parent only if
-     * the relationship is included.
+     * Binds the stored pair as the linkage, with the pair type's serializer for the
+     * target as well, since a class serving several types can't say which it is. The
+     * target is the host-supplied one, or else read off the parent only if the
+     * relationship is included. A supplied none empties the relation.
      */
     private function bindStoredIdentifier(
         AbstractRelationship $relationship,
         mixed $model,
         JsonApiRequestInterface $request,
         SerializerResolverInterface $resolver,
+        ?ToOneRelationshipLinkage $supplied,
     ): void {
-        $pair = $this->storedIdentifier($model, $request);
+        $pair = $supplied !== null && $supplied->target === null ? null : $this->storedIdentifier($model, $request);
         if ($pair === null) {
             $fallback = $this->firstResolvableSerializer($resolver);
             if ($fallback !== null) {
@@ -227,7 +231,7 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
         $relationship->setStoredIdentifier(
             $type,
             self::wireId($serializer, $id),
-            fn(): mixed => $this->relatedValue($model, $request, $this->state->name),
+            $supplied !== null ? static fn(): mixed => $supplied->target : fn(): mixed => $this->relatedValue($model, $request, $this->state->name),
             $serializer,
         );
     }

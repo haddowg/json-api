@@ -31,6 +31,7 @@ use haddowg\JsonApi\Server\Server;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -144,6 +145,79 @@ final class MorphToIdentifiedByTest extends TestCase
         $body = $this->get($campaign, 'target');
 
         self::assertSame(['type' => 'agencies', 'id' => '7'], $body['data']['relationships']['target']['data']);
+        self::assertSame([], self::included($body));
+    }
+
+    /**
+     * @return iterable<string, array{string, string, array<string, mixed>}>
+     */
+    public static function sharedClassPairs(): iterable
+    {
+        yield 'brands' => ['brands', 'Brand 4', ['name' => 'Brand 4']];
+        yield 'resellers' => ['resellers', 'Reseller 4', ['name' => 'Reseller 4', 'region' => 'emea']];
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Test]
+    #[DataProvider('sharedClassPairs')]
+    public function aSuppliedTargetOfAClassServingSeveralTypesRendersUnderThePairType(string $type, string $name, array $attributes): void
+    {
+        $campaign = self::campaign(null, null);
+        $campaign->ownerType = $type;
+        $campaign->ownerId = 4;
+        $seam = new SuppliedTargetLinkage(ToOneRelationshipLinkage::to(new IdentifiedParty(4, $name, 'emea')));
+
+        $body = $this->get($campaign, 'owner', $seam);
+
+        self::assertSame(['type' => $type, 'id' => '4'], $body['data']['relationships']['owner']['data']);
+        self::assertSame([['type' => $type, 'id' => '4', 'attributes' => $attributes]], self::included($body));
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    #[Test]
+    #[DataProvider('sharedClassPairs')]
+    public function aTargetReadOffTheParentOfAClassServingSeveralTypesRendersUnderThePairType(string $type, string $name, array $attributes): void
+    {
+        $campaign = self::campaign(null, null);
+        $campaign->ownerType = $type;
+        $campaign->ownerId = 4;
+        $campaign->owner = new IdentifiedParty(4, $name, 'emea');
+
+        $body = $this->get($campaign, 'owner');
+
+        self::assertSame([['type' => $type, 'id' => '4', 'attributes' => $attributes]], self::included($body));
+    }
+
+    #[Test]
+    public function aSuppliedTargetOfAnotherTypeThanThePairIsLeftOutOfIncluded(): void
+    {
+        $seam = new SuppliedTargetLinkage(ToOneRelationshipLinkage::to(self::advertiser(7)));
+
+        $body = $this->get(self::campaign('agencies', 7), 'target', $seam);
+
+        self::assertSame(['type' => 'agencies', 'id' => '7'], $body['data']['relationships']['target']['data']);
+        self::assertSame([], self::included($body));
+    }
+
+    #[Test]
+    public function aSuppliedNoneEmptiesTheRelationWhateverThePair(): void
+    {
+        $body = $this->get(self::campaign('agencies', 7), 'target', new SuppliedTargetLinkage(ToOneRelationshipLinkage::none()));
+
+        self::assertNull($body['data']['relationships']['target']['data']);
+        self::assertSame([], self::included($body));
+    }
+
+    #[Test]
+    public function aSuppliedTargetDoesNotFillAnEmptyPair(): void
+    {
+        $body = $this->get(self::campaign(null, null), 'target', new SuppliedTargetLinkage(ToOneRelationshipLinkage::to(self::agency(7, 'Agency 7'))));
+
+        self::assertNull($body['data']['relationships']['target']['data']);
         self::assertSame([], self::included($body));
     }
 
@@ -271,6 +345,8 @@ final class MorphToIdentifiedByTest extends TestCase
             ->register(IdentifiedCampaignResource::class)
             ->register(IdentifiedAgencyResource::class)
             ->register(IdentifiedAdvertiserResource::class)
+            ->register(IdentifiedBrandResource::class)
+            ->register(IdentifiedResellerResource::class)
             ->withRelationshipLinkage($seam)
             ->withRelationshipLoadState($loadState);
 
@@ -367,6 +443,11 @@ final class IdentifiedCampaignResource extends AbstractResource
 
                     return $campaign instanceof \stdClass ? $campaign->target : null;
                 }),
+            MorphTo::make('owner', ['brands', 'resellers'])
+                ->identifiedBy(static fn(mixed $campaign): ?array => $campaign instanceof \stdClass && isset($campaign->ownerType, $campaign->ownerId) && \is_string($campaign->ownerType) && \is_int($campaign->ownerId)
+                    ? [$campaign->ownerType, $campaign->ownerId]
+                    : null)
+                ->extractUsing(static fn(mixed $campaign): mixed => $campaign instanceof \stdClass ? $campaign->owner ?? null : null),
         ];
     }
 }
@@ -431,5 +512,45 @@ final class SuppliedTargetLinkage implements ToOneRelationshipLinkageInterface
     public function toOneLinkageForRelationship(mixed $model, RelationInterface $relation, JsonApiRequestInterface $request): ToOneRelationshipLinkage
     {
         return $this->target;
+    }
+}
+
+/**
+ * One class behind two JSON:API types, whose serializers report their type without
+ * looking at the object.
+ */
+final class IdentifiedParty
+{
+    public function __construct(
+        public int $id,
+        public string $name,
+        public string $region,
+    ) {}
+}
+
+final class IdentifiedBrandResource extends AbstractResource
+{
+    public static string $type = 'brands';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('name'),
+        ];
+    }
+}
+
+final class IdentifiedResellerResource extends AbstractResource
+{
+    public static string $type = 'resellers';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('name'),
+            Str::make('region'),
+        ];
     }
 }
