@@ -37,8 +37,10 @@ use haddowg\JsonApi\Schema\Relationship\ToOneRelationshipLinkage;
  * seam is consulted only when core would otherwise read the parent.
  *
  * For a {@see \haddowg\JsonApi\Resource\Field\MorphTo} declared with `identifiedBy()`,
- * core asks before rendering the stored `[type, id]` pair, and a supplied target or
- * none replaces the pair. Return `null` to keep the pair without loading anything.
+ * the stored `[type, id]` pair stays the linkage. A supplied target is the object
+ * `included` renders, with the serializer of the pair's type, and a supplied none
+ * empties the relation. A target supplied for an empty pair renders nothing. Return
+ * `null` to keep the pair and let core read the target only if it is included.
  */
 interface ToOneRelationshipLinkageInterface extends RelationshipLinkageInterface
 {
@@ -47,7 +49,8 @@ interface ToOneRelationshipLinkageInterface extends RelationshipLinkageInterface
      * off the parent as usual. Return {@see ToOneRelationshipLinkage::none()} to render
      * the relation as empty. For a {@see \haddowg\JsonApi\Resource\Field\MorphTo} the
      * target's own type picks its serializer from the relation's declared types; a
-     * target matching none of them renders as none.
+     * target matching none of them renders as none. An identified `MorphTo` uses its
+     * stored pair's type instead.
      */
     public function toOneLinkageForRelationship(
         mixed $model,

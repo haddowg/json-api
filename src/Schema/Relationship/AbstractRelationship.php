@@ -600,7 +600,8 @@ abstract class AbstractRelationship
     /**
      * The linkage for a {@see setStoredIdentifier()} relationship: the stored `type`
      * and `id`, read without the target. The target is read only to render it into
-     * `included`, and is left out when it is missing or reports another type.
+     * `included`, always with the pair type's serializer, and is left out when it is
+     * missing or that serializer reports another type for it.
      *
      * @internal
      *

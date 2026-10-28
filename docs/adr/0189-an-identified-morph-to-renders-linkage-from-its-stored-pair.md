@@ -10,3 +10,7 @@ A `MorphTo` picked its serializer from the target's own type, so rendering its l
 ## Consequences
 
 The pair is checked against the declared types on every read, and an undeclared type is a `\LogicException`, a 500, naming the class that declared the closure, the relation and the type. An identified relation cannot also declare `identifierMeta()`, whose resolver receives the target. A pair renders only `type` and `id`, without the target serializer's identifier `meta`.
+
+## Amendment: the pair's type picks the target's serializer
+
+The pair is authoritative for the identity, so the target, whether the host supplied it through `ToOneRelationshipLinkage::to()` or the relation read it off the parent, renders into `included` with the serializer of the pair's type. Resolving it from the object instead picked the first declared type whose serializer claimed it, which put every row of a class serving several types under one of them. The target only supplies attributes and relationships. It is still left out when the pair type's serializer reports another type for it, a supplied `none()` still empties the relation, and a target supplied for an empty pair renders nothing, because there is no pair to render it under.
