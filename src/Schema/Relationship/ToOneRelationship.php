@@ -33,6 +33,10 @@ final class ToOneRelationship extends AbstractRelationship
             return false;
         }
 
+        if ($this->storedIdentifier !== null) {
+            return $this->transformStoredIdentifier($transformation, $resourceTransformer, $data, $this->storedIdentifier, $defaultRelationships);
+        }
+
         $object = $this->getData();
         if ($object === null) {
             return null;

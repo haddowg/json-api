@@ -307,7 +307,9 @@ A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
 **Relations**: `RelationInterface extends FieldInterface`; serializes via the related type's serializer
 (resolved through the injected `SerializerResolverInterface`), hydrates from the parsed
 `Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only**;
-`MorphTo` picks the serializer by the related object's `getType()`.
+`MorphTo` picks the serializer by the related object's `getType()`, unless declared
+`identifiedBy()`, when its linkage comes from a stored `[type, id]` pair with no load
+([ADR 0189](docs/adr/0189-an-identified-morph-to-renders-linkage-from-its-stored-pair.md)).
 
 ### Filters & sorts
 `src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),
