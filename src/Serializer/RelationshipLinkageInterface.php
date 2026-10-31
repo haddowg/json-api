@@ -24,12 +24,12 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
  * default would have omitted). Supplying the page through this seam leaves the
  * column untouched, so a shared-column bystander renders its own membership.
  *
- * Consulted for a **monomorphic** to-many relation whose linkage data renders
- * (included, or {@see RelationInterface::emitsDataOnlyWhenLoaded()} is false).
- * Polymorphic {@see \haddowg\JsonApi\Resource\Field\MorphToMany} relations are not
- * windowed through this seam — their members span resource types with no shared
- * windowing vocabulary — so it is inert for them (they always read their linkage off
- * the parent). When it returns a
+ * Consulted for any to-many relation whose linkage data renders (included, or
+ * {@see RelationInterface::emitsDataOnlyWhenLoaded()} is false), a polymorphic
+ * {@see \haddowg\JsonApi\Resource\Field\MorphToMany} included. A MorphToMany is never
+ * windowed, since its members span types with no shared sort or filter, but a host can
+ * still supply its members here, for example narrowed to the rows each member type's
+ * provider admits. When it returns a
  * non-null {@see RelationshipLinkage}, that data is used as the relationship's
  * linkage (eagerly, always emitting a `data` member); when it returns `null` the
  * relation falls back to reading the value off the parent as before. Core ships no
