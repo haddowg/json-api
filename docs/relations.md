@@ -380,6 +380,49 @@ though `page` still slices it. The reference Doctrine adapter does not support a
 polymorphic to-many related endpoint (its members span entity classes) — supply a
 custom provider there; see [related-endpoints](related-endpoints.md).
 
+### Identifying the members without loading them
+
+When the parent stores its members as type and id pairs, such as join rows naming a
+company type and a company id, declare `identifiedBy()` and the linkage renders
+straight from the pairs:
+
+```php
+MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
+    ->identifiedBy(static fn(mixed $user): array => $user instanceof User
+        ? array_map(static fn(UserCompany $row): array => [$row->companyType, $row->companyId], $user->companies)
+        : []),
+```
+
+The closure receives the parent and the request and returns a list of `[$type, $id]`
+pairs, with `$type` one of the declared JSON:API types and `$id` the storage key. The
+linkage keeps the list's order, a repeated pair renders once, and each `id` goes
+through its type's id encoder. A type the relation doesn't declare throws a
+`\LogicException`, which renders as a 500; its message names the class that declared
+the closure, the relation and the type.
+
+A member is read only when the relationship is included, and always renders with the
+serializer of its pair's type, so one class can back several declared types. A member
+whose serializer's `getType()` reports another type is left out of `included`, as for
+`MorphTo`.
+
+A host decides which members render by returning a `RelationshipLinkage` from its
+`RelationshipLinkageInterface`, whose `data` lists `IdentifiedMember` values. Each
+names a pair, `IdentifiedMember::of($pair, $target)`, and may carry the target it
+loaded for `included`. The supplied members replace the stored pairs, so a member the
+host leaves out, hidden by a scope or gone from its table, is missing from the linkage
+too. A supplied member without a target is matched against the relation's usual value
+on the parent when it is included. Without a seam the stored pairs render as they are.
+
+As with `MorphTo`, an identified `MorphToMany` is never lazy, can't be combined with
+`identifierMeta()`, and changes reads only, so `fillUsing()` still owns writes. The
+OpenAPI document is unchanged.
+
+A data layer loads the members of a page of parents one query per type.
+`MorphToMany::storedIdentifiers($parents, $request)` returns their ids grouped by type,
+deduplicated, in declared order, and `storedIdentifierList($parent, $request)` returns
+one parent's pairs in order. Both relations implement `StoresIdentifiersInterface`,
+whose `storesIdentifiers()` says whether a relation was declared this way.
+
 ## Backing and advisory metadata
 
 A relation shares the field backing surface and adds two advisory flags for
@@ -487,6 +530,7 @@ free (the identifier is already on the owning side):
 | --- | --- | --- |
 | `BelongsTo`, `MorphTo` | **eager** (data always rendered) | the foreign key / morph id is on the owning model — the id is already in hand |
 | `MorphTo` with `identifiedBy()` | **always eager** | the stored pair is the linkage, so no load-state predicate applies |
+| `MorphToMany` with `identifiedBy()` | **always eager** | the stored pairs are the linkage, so no load-state predicate applies |
 | `HasOne`, `HasMany`, `BelongsToMany`, `MorphToMany` | **lazy** (links-only until loaded/included) | the key is on the *related* model, so resolving it is a query (the N+1 risk across a collection) |
 
 Override a lazy relation to **eager** with `withData()` — when rendering
