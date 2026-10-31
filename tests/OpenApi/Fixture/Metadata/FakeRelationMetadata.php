@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -17,7 +18,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers
 {
     /**
      * @param list<string>          $relatedTypes
@@ -48,7 +49,24 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresR
         private readonly ?string $exampleId = null,
         private readonly bool $alwaysCounts = false,
         private readonly bool $polymorphic = false,
+        private readonly bool $identifiesMembers = false,
     ) {}
+
+    /**
+     * A polymorphic to-many whose members are stored `[type, id]` pairs, a `MorphToMany`
+     * declared with `identifiedBy()`.
+     *
+     * @param non-empty-list<string> $relatedTypes
+     */
+    public static function identifiedMorphToMany(string $name, array $relatedTypes, bool $countable = false, ?Schema $pageSchema = null): self
+    {
+        return new self($name, $relatedTypes, true, countable: $countable, pageSchema: $pageSchema, polymorphic: true, identifiesMembers: true);
+    }
+
+    public function storesIdentifiers(): bool
+    {
+        return $this->identifiesMembers;
+    }
 
     /**
      * A polymorphic relation, which a `MorphTo` or `MorphToMany` is however many types it lists.

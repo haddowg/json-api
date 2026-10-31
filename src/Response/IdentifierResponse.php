@@ -105,6 +105,11 @@ final class IdentifierResponse extends AbstractResponse
             $server->maxIncludeDepth(),
             linkRendering: \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server),
             scopes: \haddowg\JsonApi\Scope\ScopeEnforcer::forServer($server),
+            // `?withCount=_self_` here counts the relationship's own linkage, so the
+            // relation decides it, not the parent's primary collection.
+            countableSelfOverride: $this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource
+                ? $this->parentResource->relationNamed($this->relationshipName)?->isCountable()
+                : null,
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;

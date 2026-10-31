@@ -287,6 +287,21 @@ final class MorphToManyIdentifiedByTest extends TestCase
     }
 
     #[Test]
+    public function theRelationshipEndpointCountsItselfByTheRelationNotTheParent(): void
+    {
+        // `users` is not a countable collection, but its `companies` relation is.
+        $body = $this->handle(
+            self::user(['agencies', 7]),
+            null,
+            '/users/1/relationships/companies',
+            static fn(object $user, Server $server): IdentifierResponse => IdentifierResponse::forRelationship($user, $server->serializerFor('users'), 'companies'),
+            ['withCount' => '_self_'],
+        );
+
+        self::assertSame([['type' => 'agencies', 'id' => '7']], $body['data']);
+    }
+
+    #[Test]
     public function storedIdentifiersGroupsEveryParentsIdsByDeclaredTypeAndDedupes(): void
     {
         $relation = self::relation();
