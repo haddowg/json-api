@@ -947,7 +947,7 @@ because a browser cannot read a `303`'s `Location` from `fetch()`, which with
 ```json
 {
   "links": {
-    "self": "https://api.example.com/files/1/-actions/download",
+    "self": { "href": "https://api.example.com/files/1/-actions/download" },
     "location": {
       "href": "https://storage.example.com/1.csv?signature=abc",
       "type": "text/csv",
