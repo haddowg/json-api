@@ -27,7 +27,7 @@ namespace haddowg\JsonApi\OpenApi;
  * `ErrorDocument`. The narrowed
  * variants keep the open generic `Error` branch first, exactly as the generic document
  * does: narrowing sharpens the vocabulary a status publishes, it does not close it
- * ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+ * ([ADR 0053](../../docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
  *
  * @internal
  */

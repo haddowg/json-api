@@ -297,8 +297,6 @@ Maintainer references — where the decisions and mechanics behind these rows li
 
 - [`CLAUDE.md`](../CLAUDE.md) — the executor playbook: the porting workflow and
   the per-component notes that most rows here summarise.
-- [`docs/adr/`](adr/) — the rationale for the big calls the ledger records (the
-  derived-from-yin stance, the atomic-operations foundation, and so on).
 - [`tests/README.md`](../tests/README.md) — the `#[Group('spec:<section>')]`
   convention and the list of known spec anchors this ledger maps onto.
 

@@ -122,7 +122,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
             // The Countable profile is registered, so the countable endpoints advertise
-            // `?withCount` (registration-aware projection — ADR 0131).
+            // `?withCount` (registration-aware projection).
             profiles: [CountableProfile::URI],
         );
     }
@@ -182,7 +182,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertContains('filter[label]', $names);
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
-        // Pagination projects as a single `page` deepObject parameter (ADR 0130).
+        // Pagination projects as a single `page` deepObject parameter.
         self::assertContains('page', $names);
 
         // The `sort` enum unions the related resource's own (`id`/`-id`) and the
@@ -297,7 +297,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertNotContains('_self_', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
 
         // The parameter is self-describing about its required profile via `x-profile`, so a
-        // generated client knows to negotiate the Countable profile to use it (ADR 0101).
+        // generated client knows to negotiate the Countable profile to use it.
         self::assertSame(CountableProfile::URI, $this->parameterNamed($collection, 'withCount')['x-profile'] ?? null);
         self::assertSame(CountableProfile::URI, $this->parameterNamed($related, 'withCount')['x-profile'] ?? null);
     }

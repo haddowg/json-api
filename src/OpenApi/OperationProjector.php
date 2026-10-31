@@ -1152,17 +1152,17 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Resource\Filter\Range} (and its
      * {@see \haddowg\JsonApi\Resource\Filter\DateRange} specialisation) wraps its
      * per-bound value schema into an **object** with `min`/`max` properties and the
-     * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape
-     * (ADR 0076/0077); a set filter ({@see \haddowg\JsonApi\Resource\Filter\WhereIn}
-     * and friends) wraps it into an **array** whose OAS style spells its declared
-     * delimiter. A scalar filter (the default) is its value schema with no style — so
-     * a consumer-defined structured filter documents correctly with no change here.
+     * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape;
+     * a set filter ({@see \haddowg\JsonApi\Resource\Filter\WhereIn} and friends) wraps
+     * it into an **array** whose OAS style spells its declared delimiter.
+     * A scalar filter (the default) is its value schema with no style — so a
+     * consumer-defined structured filter documents correctly with no change here.
      *
      * Where the filter declared **no** value constraints, `$fields` is the fallback:
      * a filter that names the column of one field in the inventory documents as that
      * field's JSON type, and one that names nothing resolvable documents as `string`,
-     * the type every query parameter has on the wire (ADR 0138,
-     * {@see derivedFilterValueType()}).
+     * the type every query parameter has on the wire
+     * ({@see derivedFilterValueType()}).
      *
      * A server-composed group ({@see \haddowg\JsonApi\Resource\Filter\WhereAll} /
      * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
@@ -1227,7 +1227,7 @@ final class OperationProjector
      * wire form. Anything else derives nothing: a relationship path or a relationship
      * name, a computed value no field stores, a column two fields share, a composite or
      * relation field. A guessed narrower type says something false that a client would
-     * then be validated against. See ADR 0138.
+     * then be validated against. See ADR 0055.
      *
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface> $fields
      */

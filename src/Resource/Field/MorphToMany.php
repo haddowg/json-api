@@ -69,7 +69,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         }
 
         // Convention links, the relationship-meta hook (its first consumer is the
-        // countable `meta.total`, core ADR 0057 — so a countable polymorphic to-many
+        // countable `meta.total` — so a countable polymorphic to-many
         // named in `?withCount` renders its cardinality), identifier meta, and the
         // Relationship-Queries pagination links — the shared to-many tail.
         $this->finalizeToMany($relationship, $model, $request, $resolver);

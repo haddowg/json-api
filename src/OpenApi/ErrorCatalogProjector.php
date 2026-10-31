@@ -30,19 +30,19 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * `Error`, which every error object satisfies — including one carrying an application's
  * own code that no source declared. That is deliberate: a closed `oneOf` would make a
  * server's own error documents fail its own published schema the first time the
- * application threw something undeclared ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+ * application threw something undeclared ([ADR 0053](../../docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
  *
  * Core's codes are always catalogued. A server whose metadata implements
  * {@see ContributesErrorCodes} adds its own on top, so the catalogue covers the errors
  * that server actually raises rather than only the ones core ships.
  *
- * The projection is registration-aware, like the rest of the document (ADR 0131): a
+ * The projection is registration-aware, like the rest of the document: a
  * code whose descriptor names an {@see ErrorFeature} the server does not offer is left
  * out entirely. A read-only server's client has no use for a typed
  * `RESOURCE_TYPE_UNACCEPTABLE` it can never receive.
  *
  * **{@see ErrorDescriptor::$context} is not projected.** It is the interpolation input
- * core fills into the `title` / `detail` templates (ADR 0128) and never reaches the wire.
+ * core fills into the `title` / `detail` templates and never reaches the wire.
  * The reason it is not a document property is the reason it is not a vendor extension
  * either. Whoever writes a replacement template writes PHP and reads the descriptor
  * directly; see `docs/errors-and-exceptions.md`.

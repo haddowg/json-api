@@ -275,8 +275,7 @@ action links for one path, or a declared link named like an action link, throw a
 `\LogicException` naming the resource class. A resource served on several servers may name
 an action only some of them expose: a server without it neither renders nor projects the
 link. An adapter fails the build when no server serving the type has the action, so a typo
-still gets caught
-([ADR 0178](adr/0178-a-resource-declares-its-named-links-and-the-projection-describes-them.md)).
+still gets caught.
 
 ## Link forms
 
@@ -528,8 +527,7 @@ return ['publish' => new OperationLink(
 )];
 ```
 
-With no resolver (the default), links are still link objects, just without `describedby`
-([ADR 0158](adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
+With no resolver (the default), links are still link objects, just without `describedby`.
 
 ## Server-level defaults: the jsonapi object
 

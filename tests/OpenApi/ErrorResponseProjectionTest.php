@@ -34,7 +34,7 @@ use PHPUnit\Framework\TestCase;
  * catalogue supports.
  *
  * Two tests carry the design. {@see anErrorCarryingAnUndocumentedCodeStillValidates}
- * repeats the [ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)
+ * repeats the [ADR 0053](../../docs/adr/0053-the-projected-error-code-catalogue-is-open.md)
  * guard against the *narrowed* documents, where closing the list would be far more
  * tempting and just as wrong. {@see anErrorWhoseOwnStatusDiffersStillValidates} covers
  * the case that makes the narrowing deliberately non-exhaustive: a document of mixed

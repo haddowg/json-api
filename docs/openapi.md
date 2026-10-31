@@ -150,15 +150,14 @@ sketch:
   polymorphic relation's identifier is the `anyOf` of its members, even when it has only
   one, see [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
   only the relations settable in that write, and marks a write-only relation's property
-  `writeOnly: true`, so a generator can keep it on its input types and off its read types
-  ([ADR 0152](adr/0152-a-write-only-relation-is-unreadable-and-its-mutations-answer-204.md)).
+  `writeOnly: true`, so a generator can keep it on its input types and off its read types.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
   expose `Update`, since that is what it is. A read-only type's relation flags never open
   one. A relation's paths use its [URI field name](relations.md#conventional-links), the
   segment its links and routes use, so `withUriFieldName('by')` documents
-  `/{type}/{id}/by` ([ADR 0161](adr/0161-a-relations-paths-are-keyed-by-its-uri-field-name.md)).
+  `/{type}/{id}/by`.
 - **Pivot data, per direction.** A `belongsToMany` relation's linkage identifiers type
   their `meta.pivot` with one of two components. `<Type><Rel>Pivot` is what a response
   renders: every pivot field except a write-only one, each `required` unless its read
@@ -168,8 +167,7 @@ sketch:
   linkage reaches the first through `<Type><Rel>Relationship` and
   `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
-  bodies through `<Type><Rel>RelationshipRequest`
-  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md)).
+  bodies through `<Type><Rel>RelationshipRequest`.
 - **Links, per context.** Each place a link renders has one shared component listing the
   members the server can put there: `ResourceLinks`, `DocumentLinks`, `CollectionLinks`,
   `RelationshipLinks`, `RelationshipDocumentLinks` and `RelatedDocumentLinks`. A type whose
@@ -200,7 +198,6 @@ sketch:
   comparison operand. Where the column resolves to no single scalar field — a relationship
   path, a group spanning several columns, a computed value, a composite — the value is
   `string`, which is what a query parameter is on the wire regardless.
-  ([ADR 0138](adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md).)
 - **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
   productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
   one only when its configured serialization format really writes that shape. A field
@@ -232,7 +229,6 @@ sketch:
   "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
   same rule, and the resource `id` is never null. So a client can trust a read type
   without `null`: that member always carries a value.
-  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 - **Presence is a separate promise.** The read shape's `required` lists every attribute a
   response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
   `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
@@ -243,8 +239,7 @@ sketch:
   `OneOf` branch also requires its discriminator. A nested object whose
   `serializeUsing()` or `extractUsing()` hook builds the value lists none, since the
   hook decides its shape. A nullable nested object can still be `null`; when it is
-  present, its required children are there
-  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md)).
+  present, its required children are there.
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each
@@ -257,7 +252,6 @@ sketch:
   `format`, because `ipv4` alone would reject its IPv6 addresses. An `anyOf` from
   `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
   reject values the server accepts.
-  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 
 ### Polymorphic relations with one type
 
@@ -278,8 +272,7 @@ So a generated client already types the relation as polymorphic, and adding a se
 later adds a member rather than changing every input that carries the relation. The
 projector learns that a relation is polymorphic from `DeclaresPolymorphicRelation` on its
 [metadata](#the-metadata-contract); metadata that doesn't implement it decides by the
-number of types, as before. See
-[ADR 0184](adr/0184-a-polymorphic-relation-is-a-union-in-openapi-whatever-its-type-count.md).
+number of types, as before.
 
 ### The error-code catalogue
 
@@ -344,7 +337,7 @@ throws error codes this projection has never heard of, and a closed `oneOf` woul
 those documents fail your own published schema. The `anyOf` is a **catalogue, not a
 constraint**: it constrains nothing, and that is the point. A generator reads the named
 variants for the codes it can type and falls back to a status-based exception, raw code
-intact, for anything else. ([ADR 0136](adr/0136-the-projected-error-code-catalogue-is-open.md).)
+intact, for anything else.
 
 The catalogue is registration-aware, like the rest of the document: a code that depends
 on a capability your server does not offer is left out entirely. The atomic and local-id
@@ -390,8 +383,7 @@ whose `errors.items.anyOf` offers only the codes that can arrive with a `422` �
 open generic `Error` still leads it. A status the catalogue claims no code for keeps the
 generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
 `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
-for the adapters to render when the framework's security layer refuses a request
-([ADR 0136](adr/0136-the-projected-error-code-catalogue-is-open.md)), so
+for the adapters to render when the framework's security layer refuses a request, so
 `ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
 write-side `403` codes.
 
@@ -403,7 +395,6 @@ same reason it validates against `ErrorDocument`. And a document's status is the
 body can carry an error object whose own `status` member reads `"422"`. The generic branch
 absorbs that and validation passes. Read the per-status list as the codes that status
 usually carries, not the codes it can only carry.
-([ADR 0139](adr/0139-error-responses-are-shared-components-narrowed-per-status.md).)
 
 **Adding your own codes to the catalogue.** Implement `DescribedErrorInterface` on your
 exception and build its errors through the descriptor:
@@ -841,7 +832,7 @@ create `201` (with `Location` and the created document), an update `200`, a dele
 fetch `200`, a collection `200`. A type may **override** the success set an operation
 advertises, and a custom action **declares** its own, through a small family of immutable
 response objects in `haddowg\JsonApi\OpenApi\Metadata`. This is how a spec-valid `204`, an
-asynchronous `202`, or a `303` completion enters the contract (ADR 0126).
+asynchronous `202`, or a `303` completion enters the contract.
 
 ### The response objects
 
@@ -976,8 +967,7 @@ throwing a `406` when no declared media type is acceptable, because the action c
 answer with its `303`. An action with a bare `SeeOther` keeps the `406`, since it may
 answer with a JSON:API body instead. It passes the declared responses to `CustomActionOperation`
 (`responds:`), so `Server::dispatch()` can type the location link from the declared
-media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`. See
-[ADR 0185](adr/0185-an-action-answering-with-a-url-negotiates-a-location-document-or-a-303.md).
+media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`.
 
 ### Accepted request bodies
 
@@ -1171,7 +1161,7 @@ each release added is in the [changelog](https://github.com/haddowg/json-api/blo
 #### Diffing documents across releases
 
 A `$ref` that carries an `example` or `default` is written as a single-entry `allOf`
-holding the `$ref`, with the example beside it (ADR 0165). That means the same schema, but
+holding the `$ref`, with the example beside it. That means the same schema, but
 `oasdiff breaking` compares the `allOf` wrapper with a bare `$ref` and reports false
 "required property removed" findings against a document from an older release. Pass
 `--flatten-allof` so oasdiff merges each `allOf` before comparing:

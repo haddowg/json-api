@@ -22,7 +22,7 @@ use PHPUnit\Framework\TestCase;
  * The shared keyset-column resolver: reads the active sort from the same inputs as the
  * plain sort path (same 400s), appends the primary key as the final total-order column,
  * and enforces cursor staleness. Every data layer resolves columns from this one class
- * so SQL and PHP windowing cannot drift (ADR 0061).
+ * so SQL and PHP windowing cannot drift.
  *
  * @internal
  */

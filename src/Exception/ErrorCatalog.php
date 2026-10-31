@@ -20,8 +20,7 @@ namespace haddowg\JsonApi\Exception;
  *
  * The catalogue is never authoritative over the whole world — an application can always
  * throw a code no source declared — which is why the projected `anyOf` keeps an open
- * generic `Error` branch alongside the named variants
- * ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+ * generic `Error` branch alongside the named variants.
  */
 final class ErrorCatalog
 {

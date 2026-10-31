@@ -161,7 +161,7 @@ final class RelationshipCountValidationTest extends TestCase
         // A related-collection render supplies the owning relation's countable() as the
         // override: `_self_` is then permitted even though the primary (related-type)
         // serializer is NOT itself _self_-countable — the relation, whose endpoint this
-        // is, governs the gate (core ADR 0057).
+        // is, governs the gate.
         $serializer = new PlainSerializer('posts', '1');
 
         $result = $this->render(

@@ -207,7 +207,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * three-valued logic (a NULL column against a present bound is UNKNOWN, so the
      * row is excluded) rather than PHP's coercion of `null` toward `0`. The check
      * is repeated *after* the deserializer so a custom mapping that produces `null`
-     * from a non-null raw is excluded too, never coerced through a bound. See ADR 0116.
+     * from a non-null raw is excluded too, never coerced through a bound. See ADR 0045.
      *
      * @return \Closure(mixed): bool
      */
@@ -225,7 +225,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             // Read the raw column BEFORE the deserializer so a mapping that
             // coerces null (e.g. null->0) cannot smuggle a NULL row into a
             // present bound: a NULL column never falls within a bound (SQL
-            // UNKNOWN), so it is excluded on every provider. See ADR 0116.
+            // UNKNOWN), so it is excluded on every provider.
             $actual = Accessor::get($row, $filter->column);
             if ($actual === null) {
                 return false;
@@ -235,7 +235,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             // non-null raw into null (e.g. a '' sentinel -> null) must not
             // slip a NULL through a max-only bound (null <= max coerces to
             // true in PHP). Both operands of every ordered test stay non-null,
-            // matching compare()'s guard. See ADR 0116.
+            // matching compare()'s guard.
             $actual = $filter->deserialize !== null ? ($filter->deserialize)($actual) : $actual;
             if ($actual === null) {
                 return false;
@@ -290,7 +290,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * than PHP's silent coercion of `null` toward `0`/`''`. Loose/strict
      * equality (`=`/`==`/`!=`/`<>`/`===`) keeps native PHP semantics — `= null`
      * is expressed with the dedicated {@see WhereNull}/{@see WhereNotNull}
-     * filters. See ADR 0116.
+     * filters.
      */
     private function compare(mixed $actual, string $operator, mixed $expected): bool
     {
@@ -301,7 +301,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             // An ordered comparison against `null` never matches: either operand
             // being `null` yields false, mirroring SQL three-valued logic (the
             // predicate is UNKNOWN, so the row is excluded) rather than PHP's
-            // silent coercion of `null` toward `0`/`''`. See ADR 0116.
+            // silent coercion of `null` toward `0`/`''`.
             '>' => $actual !== null && $expected !== null && $actual > $expected,
             '>=' => $actual !== null && $expected !== null && $actual >= $expected,
             '<' => $actual !== null && $expected !== null && $actual < $expected,

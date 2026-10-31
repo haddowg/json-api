@@ -18,7 +18,7 @@ use haddowg\JsonApi\Exception\ErrorCatalogSourceInterface;
  *
  * The contribution is **per server**: an error is documented only on the servers whose
  * metadata offers it, which is the registration-awareness the rest of the projection
- * already has ([ADR 0131](../../../docs/adr/0131-registration-aware-openapi-projection.md)).
+ * already has.
  */
 interface ContributesErrorCodes extends ServerMetadataInterface
 {

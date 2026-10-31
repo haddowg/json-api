@@ -356,7 +356,7 @@ final class ContractWitnessServer
                 WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
                     ->describedAs('Search title or summary.')->build(),
                 WhereAll::make('urgent', GreaterThan::make('wordCount')->fixed(1000), BooleanFilter::make('featured')->fixed(true))->build(),
-                // The value-schema fallback (ADR 0138), one branch each: a boolean column,
+                // The value-schema fallback, one branch each: a boolean column,
                 // a temporal column (a string, and NOT the field's `date-time` format), a
                 // set over a list column (a list of what the projector will not guess), a
                 // relationship path it cannot resolve at all, and a presence-only filter

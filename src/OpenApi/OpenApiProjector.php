@@ -1685,7 +1685,7 @@ final class OpenApiProjector
      * than a second interface accessor: the Atomic Operations extension is the only
      * extension core models, so the list is `[AtomicExtension::URI]` when the atomic
      * endpoint is enabled ({@see ServerMetadataInterface::atomicOperations()} is
-     * non-`null`) and `[]` otherwise (ADR 0131).
+     * non-`null`) and `[]` otherwise.
      *
      * @return list<string>
      */

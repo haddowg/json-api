@@ -24,7 +24,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Drives the per-operation success-response projection (ADR 0126): a type declaring
+ * Drives the per-operation success-response projection: a type declaring
  * an {@see OperationResponseInterface} set per CRUD/read operation projects one
  * OpenAPI response per element (`202` async accepts, `204` create/update, `200`
  * meta-only delete, `303` fetch-one completion), while an undeclared operation

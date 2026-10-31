@@ -9,7 +9,7 @@ use haddowg\JsonApi\Resource\Field\Accessor;
 
 /**
  * The in-memory keyset execution — the **ground truth** a SQL push-down
- * must match byte-for-byte (ADR 0061).
+ * must match byte-for-byte (ADR 0025).
  *
  * It sorts the array by the forced NULL=largest order (its OWN comparator, NOT
  * core's {@see \haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler}, whose
