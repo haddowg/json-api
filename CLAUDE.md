@@ -364,6 +364,11 @@ Two checks enforce the bump. Read what they tell you rather than silencing them:
    and the `CONTRACT` constant against **the last release tag**, not the PR base. Its output
    names the verdict that fired and what to do about it.
 
+The constant, the witness and the changelog are the only record of a bump. Describe what a
+change does in `docs/` as current behaviour, and never write which contract or release
+introduced it ("from contract 17…", "contract 16 adds…") in `docs/`, this file or a code
+comment: the number is a compatibility check for the code generators, not a changelog.
+
 Settled rules a change here must not quietly reopen. Each has an ADR:
 
 - An exposed **related** endpoint pointing at an unregistered type is refused
