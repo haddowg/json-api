@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\Collection\Keyset;
  * terminated by the non-null primary key — is the total order a cursor
  * (keyset) page walks. Every data layer resolves the same list from one
  * {@see KeysetResolver}, so a SQL push-down's forced `ORDER BY` and the
- * in-memory NULL=largest comparator cannot drift (ADR 0123).
+ * in-memory NULL=largest comparator cannot drift.
  */
 final readonly class KeysetColumn
 {

@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
  * Drives the **stage-A** path/operation projection (CRUD paths + enumerated query
  * parameters + standard error responses + tags + per-operation security) from
  * in-core {@see FakeServerMetadata} fixtures (no Symfony), and meta-validates the
- * now-path-bearing document against the vendored OAS 3.1 meta-schema (spec §10).
+ * now-path-bearing document against the vendored OAS 3.1 meta-schema.
  */
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
@@ -136,7 +136,7 @@ final class OperationProjectorTest extends TestCase
         // One filter[] per declared filter.
         self::assertContains('filter[status]', $names);
         self::assertContains('filter[wordCount]', $names);
-        // sort / include / fields[type] / the single `page` deepObject (ADR 0130).
+        // sort / include / fields[type] / the single `page` deepObject.
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
         self::assertContains('fields[articles]', $names);
@@ -257,7 +257,7 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // A structured Range renders as a deepObject parameter (ADR 0077) and surfaces
+        // A structured Range renders as a deepObject parameter and surfaces
         // the strategy's preset description.
         $rating = $this->parameterNamed($get, 'filter[rating]');
         self::assertSame('deepObject', $this->strAt($rating, 'style'));
@@ -282,7 +282,7 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // Range projects an object value schema (ADR 0076): the nested
+        // Range projects an object value schema: the nested
         // filter[rating][min]/[max] wire shape is documented as {min, max}, each bound a
         // numeric type (not the wire string's validation pattern).
         $rating = $this->parameterNamed($get, 'filter[rating]');
@@ -297,7 +297,7 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // DateRange bounds are string/date-time (spec §6).
+        // DateRange bounds are string/date-time.
         $published = $this->parameterNamed($get, 'filter[published]');
         self::assertSame('object', $this->strAt($published, 'schema', 'type'));
         self::assertSame('string', $this->strAt($published, 'schema', 'properties', 'min', 'type'));
@@ -389,7 +389,7 @@ final class OperationProjectorTest extends TestCase
         // Mirrors sort/include: one form/explode:false array parameter whose items
         // enumerate the selectable member vocabulary — read-visible attributes (id is
         // never a fieldset member) followed by relation names — so a client and a code
-        // generator offer exactly the members the strict runtime accepts (D20).
+        // generator offer exactly the members the strict runtime accepts.
         self::assertSame('form', $this->strAt($fields, 'style'));
         self::assertFalse($this->at($fields, 'explode'));
         self::assertSame('array', $this->strAt($fields, 'schema', 'type'));
@@ -415,7 +415,7 @@ final class OperationProjectorTest extends TestCase
     public function paginationProjectsAsASingleDeepObjectPageParameter(): void
     {
         // Each strategy's `page[…]` family projects as ONE `page` deepObject parameter
-        // whose object schema the paginator self-describes (ADR 0130) — one type per
+        // whose object schema the paginator self-describes — one type per
         // strategy, plus an unpaginated type carrying no `page` at all.
         $server = new FakeServerMetadata(
             title: 'API',

@@ -1,9 +1,0 @@
-# Raw action responses move the generator contract only for documents that use them
-
-An action can now declare `RawResult`s, response bodies that are not JSON:API, beside its JSON:API response, and they show up in the document as extra media types under the success status plus the schema components they reference. That is structure a generator has to read, because a contract-9 generator keys on `application/vnd.api+json` and would emit a client that silently cannot ask for the CSV, so ADR 0134 needs a bump; examples stay out of it per ADR 0167. A global bump would push contract 10 at every document, though, and make every generator warn about a structure most servers never use, so the bump is scoped: `GeneratorContract::CONTRACT` is the highest stamp, a document with no `RawResult` keeps `BASELINE` and stays byte-identical, and only a document declaring one carries `RAW_CONTENT`.
-
-A second committed witness, the witness server without its raw results, lets the CI guard hold `BASELINE` honest: when that shared shape moves, `BASELINE` must rise to `CONTRACT`, so a change to every document cannot hide behind a scoped bump. We rejected stamping a feature list instead, for the reasons ADR 0134 gives.
-
-A schema class is projected as a component named by its short class name rather than an author-chosen name, so `RawResult` stays writable in attribute arguments with one interface method; a clash with another component fails the projection rather than pointing a `$ref` at the wrong schema. Accept negotiation breaks ties in favour of JSON:API so a client sending `*/*`, or nothing, keeps getting the document it got before the action grew a raw sibling.
-
-Accepted request bodies later added a second scoped tier on the same pattern, `ACCEPTED_BODIES = 11` (ADR 0175).

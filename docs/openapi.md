@@ -150,15 +150,14 @@ sketch:
   polymorphic relation's identifier is the `anyOf` of its members, even when it has only
   one, see [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
   only the relations settable in that write, and marks a write-only relation's property
-  `writeOnly: true`, so a generator can keep it on its input types and off its read types
-  ([ADR 0162](adr/0162-a-write-only-relation-is-marked-writeonly-in-the-write-bodies.md)).
+  `writeOnly: true`, so a generator can keep it on its input types and off its read types.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
   expose `Update`, since that is what it is. A read-only type's relation flags never open
   one. A relation's paths use its [URI field name](relations.md#conventional-links), the
   segment its links and routes use, so `withUriFieldName('by')` documents
-  `/{type}/{id}/by` ([ADR 0161](adr/0161-a-relations-paths-are-keyed-by-its-uri-field-name.md)).
+  `/{type}/{id}/by`.
 - **Pivot data, per direction.** A `belongsToMany` relation's linkage identifiers type
   their `meta.pivot` with one of two components. `<Type><Rel>Pivot` is what a response
   renders: every pivot field except a write-only one, each `required` unless its read
@@ -168,8 +167,7 @@ sketch:
   linkage reaches the first through `<Type><Rel>Relationship` and
   `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
-  bodies through `<Type><Rel>RelationshipRequest`
-  ([ADR 0160](adr/0160-a-pivot-has-separate-response-and-request-schemas.md)).
+  bodies through `<Type><Rel>RelationshipRequest`.
 - **Links, per context.** Each place a link renders has one shared component listing the
   members the server can put there: `ResourceLinks`, `DocumentLinks`, `CollectionLinks`,
   `RelationshipLinks`, `RelationshipDocumentLinks` and `RelatedDocumentLinks`. A type whose
@@ -200,7 +198,6 @@ sketch:
   comparison operand. Where the column resolves to no single scalar field — a relationship
   path, a group spanning several columns, a computed value, a composite — the value is
   `string`, which is what a query parameter is on the wire regardless.
-  ([ADR 0138](adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md).)
 - **Dates and times that mean it.** `format: date-time`, `date` and `time` are RFC 3339
   productions, so a [`DateTime` / `Date` / `Time`](field-types.md#datetime) field gets
   one only when its configured serialization format really writes that shape. A field
@@ -232,7 +229,6 @@ sketch:
   "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
   same rule, and the resource `id` is never null. So a client can trust a read type
   without `null`: that member always carries a value.
-  ([ADR 0156](adr/0156-a-read-attribute-admits-null-unless-the-server-guarantees-a-value.md).)
 - **Presence is a separate promise.** The read shape's `required` lists every attribute a
   response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
   `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
@@ -243,8 +239,7 @@ sketch:
   `OneOf` branch also requires its discriminator. A nested object whose
   `serializeUsing()` or `extractUsing()` hook builds the value lists none, since the
   hook decides its shape. A nullable nested object can still be `null`; when it is
-  present, its required children are there
-  ([ADR 0157](adr/0157-a-nested-objects-read-required-lists-the-children-it-always-renders.md)).
+  present, its required children are there.
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each
@@ -257,7 +252,6 @@ sketch:
   `format`, because `ipv4` alone would reject its IPv6 addresses. An `anyOf` from
   `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
   reject values the server accepts.
-  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 
 ### Polymorphic relations with one type
 
@@ -278,9 +272,7 @@ So a generated client already types the relation as polymorphic, and adding a se
 later adds a member rather than changing every input that carries the relation. The
 projector learns that a relation is polymorphic from `DeclaresPolymorphicRelation` on its
 [metadata](#the-metadata-contract); metadata that doesn't implement it decides by the
-number of types, as before. A document with such a relation carries
-[contract 16](#a-bump-scoped-to-some-documents)
-([ADR 0184](adr/0184-a-polymorphic-relation-is-a-union-in-openapi-whatever-its-type-count.md)).
+number of types, as before.
 
 ### The error-code catalogue
 
@@ -345,7 +337,7 @@ throws error codes this projection has never heard of, and a closed `oneOf` woul
 those documents fail your own published schema. The `anyOf` is a **catalogue, not a
 constraint**: it constrains nothing, and that is the point. A generator reads the named
 variants for the codes it can type and falls back to a status-based exception, raw code
-intact, for anything else. ([ADR 0136](adr/0136-the-projected-error-code-catalogue-is-open.md).)
+intact, for anything else.
 
 The catalogue is registration-aware, like the rest of the document: a code that depends
 on a capability your server does not offer is left out entirely. The atomic and local-id
@@ -391,8 +383,7 @@ whose `errors.items.anyOf` offers only the codes that can arrive with a `422` �
 open generic `Error` still leads it. A status the catalogue claims no code for keeps the
 generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
 `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
-for the adapters to render when the framework's security layer refuses a request
-([ADR 0144](adr/0144-authentication-and-authorization-failures-carry-core-codes.md)), so
+for the adapters to render when the framework's security layer refuses a request, so
 `ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
 write-side `403` codes.
 
@@ -400,11 +391,10 @@ Two things follow, and the second is easy to miss. The `anyOf` is still a catalo
 still not a constraint — your own `422` code validates against `ErrorDocument422` for the
 same reason it validates against `ErrorDocument`. And a document's status is the status
 *class* its errors share: a response that collects a `422` and a `409` goes out as a `400`
-([ADR 0018](adr/0018-error-document-status-reflects-a-uniform-error-set.md)), so a `400`
+([errors and exceptions](errors-and-exceptions.md)), so a `400`
 body can carry an error object whose own `status` member reads `"422"`. The generic branch
 absorbs that and validation passes. Read the per-status list as the codes that status
 usually carries, not the codes it can only carry.
-([ADR 0139](adr/0139-error-responses-are-shared-components-narrowed-per-status.md).)
 
 **Adding your own codes to the catalogue.** Implement `DescribedErrorInterface` on your
 exception and build its errors through the descriptor:
@@ -704,9 +694,6 @@ implements `DeclaresActionExample` instead, whose `example()` returns one
 implements `DeclaresExampleGeneration` and returns `false` from `generatesExamples()`
 switches generation off for the whole document.
 
-Examples arrived with contract 12, as a scoped structure; see
-[the generator contract](#a-bump-scoped-to-some-documents).
-
 ## Operation ids
 
 Every operation carries an `operationId` built from the type name, and from the relation or
@@ -845,7 +832,7 @@ create `201` (with `Location` and the created document), an update `200`, a dele
 fetch `200`, a collection `200`. A type may **override** the success set an operation
 advertises, and a custom action **declares** its own, through a small family of immutable
 response objects in `haddowg\JsonApi\OpenApi\Metadata`. This is how a spec-valid `204`, an
-asynchronous `202`, or a `303` completion enters the contract (ADR 0126, ADR 0127).
+asynchronous `202`, or a `303` completion enters the contract.
 
 ### The response objects
 
@@ -918,9 +905,7 @@ anything else gets it. Nothing acceptable is a `406` `MediaTypeUnacceptable`, an
 error renders as a JSON:API document whatever was negotiated. A handler answers a raw pick
 with a [`RawResponse`](responses.md#raw-responses).
 
-A document whose actions declare a `RawResult` carries contract 10; one that declares none
-keeps contract 9 and is byte-for-byte unchanged (see
-[scoped contracts](#a-bump-scoped-to-some-documents)).
+A document whose actions declare no `RawResult` is byte-for-byte unchanged.
 
 ### Actions that answer with a URL
 
@@ -947,7 +932,7 @@ because a browser cannot read a `303`'s `Location` from `fetch()`, which with
 ```json
 {
   "links": {
-    "self": "https://api.example.com/files/1/-actions/download",
+    "self": { "href": "https://api.example.com/files/1/-actions/download" },
     "location": {
       "href": "https://storage.example.com/1.csv?signature=abc",
       "type": "text/csv",
@@ -982,9 +967,7 @@ throwing a `406` when no declared media type is acceptable, because the action c
 answer with its `303`. An action with a bare `SeeOther` keeps the `406`, since it may
 answer with a JSON:API body instead. It passes the declared responses to `CustomActionOperation`
 (`responds:`), so `Server::dispatch()` can type the location link from the declared
-media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`. A document
-whose actions declare `SeeOther` with a media type carries contract 17 (see
-[scoped contracts](#a-bump-scoped-to-some-documents), [ADR 0185](adr/0185-an-action-answering-with-a-url-negotiates-a-location-document-or-a-303.md)).
+media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`.
 
 ### Accepted request bodies
 
@@ -1020,9 +1003,7 @@ action's input mode is `Document`, and the operation lists the `415` a `Content-
 does not accept gets.
 
 An action that returns no accepted bodies, or whose metadata does not implement the
-interface, projects as before. A document that declares accepted bodies carries contract
-11, one with raw responses but no accepted bodies stays at 10, and any other keeps contract
-9 (see [scoped contracts](#a-bump-scoped-to-some-documents)).
+interface, projects as before.
 
 ### The asynchronous-write lifecycle
 
@@ -1087,8 +1068,7 @@ public function fields(): array
 Filters take both too. A filter's `describedAs()` overrides the generated default every
 convenience filter ships with, and its `example()` becomes the `filter[<key>]` parameter's
 own `example`. That puts it on the Parameter Object rather than the value schema, because
-OAS 3.1 deprecates the Schema Object's `example`
-([ADR 0145](adr/0145-a-filter-example-is-its-parameters-example.md)). Give it the
+OAS 3.1 deprecates the Schema Object's `example`. Give it the
 parameter's whole value, in the shape the schema describes:
 
 ```php
@@ -1165,117 +1145,30 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 2 }
+  "x-generator": { "contract": 18 }
 }
 ```
 
-`contract` is the version of the **emitted structure**, and it moves only when that
-structure moves. It is not the package version, and reading it as one would be wrong:
-`1.4.2 → 1.4.3` may emit exactly the same document while a minor release adds a member,
-so a code generator keying on semver would accept or reject for reasons unrelated to what
-it actually reads.
+`contract` is the version of the **emitted structure**, for the code generators that read
+the document ([`json-api-client-codegen`](https://github.com/haddowg/json-api-client-codegen)
+and [`@haddowg/json-api-codegen`](https://github.com/haddowg/json-api-ts)). It is not the
+package version and moves only when the structure does. A generator declares the range it
+understands: it **errors** on a document below that range and **warns** on one above it,
+since a newer server describes capabilities the generator would otherwise silently leave
+out. A document with no `x-generator` predates the field and reads as contract 1. What
+each release added is in the [changelog](https://github.com/haddowg/json-api/blob/main/CHANGELOG.md).
 
-It is nevertheless **release-scoped**, which is the part that matters when you write the
-generator. The contract names the shape a *release* emits, so it moves at most once per
-release however many changes that release contains. Two documents carrying the same
-contract have the same structure; consecutive contracts differ by one release's worth of
-change, not by one commit's.
+#### Diffing documents across releases
 
-**A document with no `x-generator` at all is contract 1.** Version 1.0.0 shipped before
-the field existed, so contract 1 denotes the shape it emitted rather than "unknown" — a
-generator declaring `[1, 2]` reads every document this library has ever produced.
-
-A code generator declares the range of contracts it understands and compares:
-
-| `contract` | verdict |
-| --- | --- |
-| absent | Treat as 1 — a pre-`x-generator` document. |
-| below the generator's minimum | **Error.** The server is older than a structure the generator requires. |
-| within the range | Generate. |
-| above the generator's maximum | **Warn.** The server describes capabilities the generator cannot read. |
-
-The upper bound is the one that needs the field. A server *older* than a generator expects
-already fails loudly: the generator reads for a member, finds it absent, and says so. A
-server *newer* fails silently — the unread structure simply is not generated, and the
-client comes out missing capabilities the server offers with nothing to indicate it. That
-silent under-generation is what `x-generator` exists to catch.
-
-It carries compatibility signalling and nothing else. The JSON:API version is the
-`JsonApi` component's `version` const, and the supported profiles and extensions are that
-component's `profile` / `ext` enums; none of it is restated here. There is deliberately no
-feature-token list either: naming what changed would mean two hand-maintained lists (the
-server's and every generator's known-set) that have to agree forever, and a drifting token
-list is worse than an integer that cannot drift.
-
-The bump is a maintainer decision, and CI enforces that it gets made. A guard compares the
-projected structure against the last release tag: a cycle that moves the structure must
-move the contract past what that release shipped, and once it has, later changes in the
-same cycle leave it alone. Generated prose (`description`, `summary`) and `example`
-values are not structure, so changing one moves no contract. Whether a media type carries
-an `example` at all is, because a generator reads an operation's examples.
-See the contract discipline in `CLAUDE.md`.
-
-#### A bump scoped to some documents
-
-A structure only some servers use can move the contract for those documents alone.
-`GeneratorContract::CONTRACT` is the highest contract a document can carry, and
-`GeneratorContract::BASELINE` is what a document using none of the scoped structures
-carries. Three structures were scoped this way: operation examples (`EXAMPLES`, 12),
-accepted request bodies (`ACCEPTED_BODIES`, 11) and raw action responses (`RAW_CONTENT`,
-10), each stamped only on a document that used it while the baseline was 9. Contract 13
-then moved the shape every document shares, giving every core error code a `detail`
-narrowing with its example, so the baseline is 13 and every document carries 13. The
-scoped constants still name the contract that introduced each structure.
-
-Declared resource links, `DECLARED_LINKS` or 14, are the first scoped structure above that
-baseline: a document whose types declare a link carries 14, and every other document
-still carries 13, unchanged.
-
-Contract 15 adds three more for custom actions. A document carries it when an action
-answers to several methods, since those now get one [operation id](#operation-ids) per
-method (`ACTION_METHOD_IDS`), when an action declares its [safety](#action-safety-x-safety)
-(`ACTION_SAFETY`), or when an action declares its own
-[extensions](#your-own-extensions-on-operations-paths-parameters-and-responses)
-(`ACTION_EXTENSIONS`). A document using none of them still carries 13.
-
-Contract 16 adds two more. A document carries it when some operation needs an OAuth
-scope, which then shows in that operation's `security` and adds `INSUFFICIENT_SCOPE` to
-the error catalogue ([operation scopes](scopes.md#the-openapi-document), `SCOPES`), or
-when a polymorphic relation has one related type, which is now
-[projected as a union](#polymorphic-relations-with-one-type)
-(`SINGLE_TARGET_POLYMORPHISM`). Every other document is unchanged.
-
-Contract 17 adds one more. A document carries it when an action declares `SeeOther`
-with a media type, which documents a `200` [location document](#actions-that-answer-with-a-url) beside
-the `303`, through the `LocationDocument` and `LocationLink` components
-(`ACTION_LOCATION`). Every other document is unchanged.
-
-Contract 18 moves the shape every document shares again. Each type's and relation's links
-components gave way to [one shared component per context](#links-and-describedby), a type
-with named links extends `ResourceLinks` through an `allOf`, and the link schemas lost
-their examples to the operation examples. So the baseline is 18, every document carries 18,
-and none of the scoped tiers above distinguishes a document any more.
-
-A change that moves every document's shape raises `BASELINE` to `CONTRACT`. A second
-witness, projected from the same server without its raw results, accepted bodies,
-examples, declared links, those action declarations, operation scopes, single-type
-polymorphic relations and actions answering with a URL, lets the CI guard hold `BASELINE`
-to that rule.
-
-#### Diffing documents across contracts
-
-Contract 9 writes a `$ref` that carries an `example` or `default` as a single-entry
-`allOf` holding the `$ref`, with the example beside it (ADR 0165). That shape means the
-same schema, but `oasdiff breaking` compares the `allOf` wrapper with the bare `$ref` it
-replaced. Between a contract 8 and a contract 9 document it reports about 40 `ERR`
-findings of the form "required property `href` removed", none of them real. Pass
+A `$ref` that carries an `example` or `default` is written as a single-entry `allOf`
+holding the `$ref`, with the example beside it. That means the same schema, but
+`oasdiff breaking` compares the `allOf` wrapper with a bare `$ref` and reports false
+"required property removed" findings against a document from an older release. Pass
 `--flatten-allof` so oasdiff merges each `allOf` before comparing:
 
 ```bash
-oasdiff breaking --flatten-allof contract-8.json contract-9.json
+oasdiff breaking --flatten-allof old.json new.json
 ```
-
-With the flag, the same comparison reports no breaking changes.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
@@ -1332,8 +1225,6 @@ object per operation, and leaves out any flag that returns `null`:
 
 An action that declares none of the three gets no `x-safety`, and CRUD operations never
 get one. An action declared both read-only and destructive fails with a `\LogicException`.
-A document whose actions declare safety carries contract 15 (see
-[scoped contracts](#a-bump-scoped-to-some-documents)).
 
 ### Pagination strategy: `x-paginator`
 
@@ -1405,8 +1296,7 @@ public function extensions(): array
 }
 ```
 
-A declared [`x-safety`](#action-safety-x-safety) wins over an extension of the same name. A
-document whose actions declare their own extensions carries contract 15.
+A declared [`x-safety`](#action-safety-x-safety) wins over an extension of the same name.
 
 ### Changing one member without losing the rest
 

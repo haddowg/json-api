@@ -356,8 +356,7 @@ A data layer loads included and related targets from the pairs, one query per ty
 `MorphTo::storedIdentifiers($parents, $request)` returns the stored ids of a page of
 parents grouped by type, deduplicated, in declared order, and
 `storedIdentifier($parent, $request)` returns one parent's pair. `storesIdentifiers()`
-says whether a relation was declared this way. See
-[ADR 0189](adr/0189-an-identified-morph-to-renders-linkage-from-its-stored-pair.md).
+says whether a relation was declared this way.
 
 ## MorphToMany — a polymorphic to-many
 

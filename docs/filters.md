@@ -740,7 +740,7 @@ GET /users?filter[search]=bob
 
 This stays owner-vetted: the client cannot assemble arbitrary boolean algebra
 (no client-driven `filter[and]`/`[or]`), so it does not widen the allow-list the
-group defines. See [ADR 0129](adr/0129-server-composed-filter-groups.md).
+group defines.
 
 Each provider runs a group through one recursive handler arm that combines its
 children with `AND`/`OR` — the reference `ArrayFilterHandler` ships one, and the

@@ -163,7 +163,7 @@ final class ArrayFilterHandlerTest extends TestCase
         self::assertSame(['2'], $this->ids($result));
     }
 
-    // --- ordered comparison against null never matches (ADR 0116) --------------
+    // --- ordered comparison against null never matches --------------------
 
     /**
      * A dataset carrying a null-bearing numeric column, used only by the
@@ -258,7 +258,7 @@ final class ArrayFilterHandlerTest extends TestCase
     {
         // A non-null raw the deserializer maps to null (a sentinel) must not slip
         // through a max-only bound: `null <= max` coerces to true in PHP, so the
-        // post-deserialize guard excludes it, matching a SQL NULL. See ADR 0116.
+        // post-deserialize guard excludes it, matching a SQL NULL.
         $data = [
             ['id' => '1', 'views' => '5'],
             ['id' => 'S', 'views' => 'unknown'],

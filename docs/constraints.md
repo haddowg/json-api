@@ -324,7 +324,8 @@ follow the usual adapter-translation route: core ships
 the optional `opis/json-schema`, exactly like [document
 validation](schema-validation.md)), which validates a value against a `Shape`'s
 composed schema and returns `422` `Error`s whose pointers extend the field's own
-(`/data/attributes/contact/...`). Framework adapters wire it when opis is
+(`/data/attributes/contact/...`); a violation of the whole value, such as `[]` sent
+for an object, points at the field itself (`/data/attributes/contact`). Framework adapters wire it when opis is
 installed; without opis a `Shape` still **documents** — it contributes its
 combinator (and `discriminator`) to the field's projected OpenAPI schema via
 `ProvidesJsonSchema` — it just doesn't validate.

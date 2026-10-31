@@ -23,7 +23,7 @@ then 1–3 sentences of *why*.
 **derivative work** based on [woohoolabs/yin](https://github.com/woohoolabs/yin) (MIT) but
 **not a fork**: no upstream tracking, no commitment to yin's public API. Always credit yin
 as the original; never call this package a "fork"
-([ADR 0001](docs/adr/0001-derived-from-yin-not-forked.md)).
+([ADR 0001](docs/adr/0001-derived-from-woohoolabs-yin-not-forked.md)).
 
 - Spec: [JSON:API 1.1](https://jsonapi.org/format/1.1/) · Namespace: `haddowg\JsonApi\…` · Min PHP 8.3
 - Consumer docs: [`docs/index.md`](docs/index.md) · Domain language: [`CONTEXT.md`](CONTEXT.md) · Decision records: [`docs/adr/`](docs/adr/)
@@ -167,7 +167,7 @@ via `OpenApi\Metadata\ContributesErrorCodes`, assembled per server in
 `ErrorCatalogProjector::catalog()`; `ErrorFeature` stays a **closed** enum and a contributed
 code is ungated. **Never** enumerate the catalogue by constructing exceptions with
 placeholder arguments — `getErrors()` interpolates constructor state, so the result would be
-fiction ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+fiction ([ADR 0053](docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
 
 ### Requests
 `src/Request` → [content-negotiation](docs/content-negotiation.md),
@@ -231,7 +231,7 @@ from `is_iterable`). `render()` builds the body array via the engine and returns
 `JsonApiRequest` and encodes with `\JSON_THROW_ON_ERROR` inline. **Profile application
 and `ext` negotiation live here** (not on the profile): `appliedProfiles()` intersects
 the request's requested/required URIs with the server's registered profiles, then
-`toPsrResponse()` runs each `finalizeDocument()`, records `links.profile`, echoes the
+`toPsrResponse()` runs each `finalizeDocument()`, records `jsonapi.profile`, echoes the
 `profile` media-type parameter, and sets `Vary: Accept`.
 
 ### Operations
@@ -290,7 +290,7 @@ The two middleware are **per-server opt-in** (the injected `DocumentValidator` m
 DI fail fast if opis is absent). **`SchemaCompiler`** turns a resource's field+
 constraint metadata into a draft-2020-12 `stdClass` that **tightens** the base for one
 type/context and drops into the same `$additionalSchemas` list (no validator API
-change); `When`/`Custom` constraints are **skipped** (don't round-trip). Build nested
+change); `When`/`CompareField` constraints are **skipped** (don't round-trip). Build nested
 arrays and convert to `stdClass` once at the boundary (analysable at L9).
 
 ### Fluent schema — fields, constraints, relations
@@ -309,7 +309,7 @@ A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
 `Hydrator\Relationship\*` VOs. `BelongsToMany` pivot fields are **declare-only**;
 `MorphTo` picks the serializer by the related object's `getType()`, unless declared
 `identifiedBy()`, when its linkage comes from a stored `[type, id]` pair with no load
-([ADR 0189](docs/adr/0189-an-identified-morph-to-renders-linkage-from-its-stored-pair.md)).
+([ADR 0078](docs/adr/0078-an-identified-morphto-renders-linkage-from-its-stored-pair.md)).
 
 ### Filters & sorts
 `src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),
@@ -345,7 +345,7 @@ Every emitted document stamps `info.x-generator: {contract: N}` from
 `GeneratorContract::CONTRACT`, a monotonic integer bumped **by hand** when the emitted
 structure moves. It is **release-scoped**: the first change in a release cycle that moves
 the structure bumps it by one, and every later change in that cycle leaves it alone. Never
-renumber ([ADR 0134](docs/adr/0134-generated-documents-carry-a-monotonic-contract-integer.md)).
+renumber ([ADR 0051](docs/adr/0051-generated-documents-carry-a-release-scoped-monotonic-contract-integer.md)).
 
 A bump can be scoped to a structure only some documents use: `CONTRACT` is the highest
 stamp, `BASELINE` the stamp of a document using no scoped structure (raw action responses
@@ -364,47 +364,52 @@ Two checks enforce the bump. Read what they tell you rather than silencing them:
    and the `CONTRACT` constant against **the last release tag**, not the PR base. Its output
    names the verdict that fired and what to do about it.
 
+The constant, the witness and the changelog are the only record of a bump. Describe what a
+change does in `docs/` as current behaviour, and never write which contract or release
+introduced it ("from contract 17…", "contract 16 adds…") in `docs/`, this file or a code
+comment: the number is a compatibility check for the code generators, not a changelog.
+
 Settled rules a change here must not quietly reopen. Each has an ADR:
 
 - An exposed **related** endpoint pointing at an unregistered type is refused
   (`RelatedTypeNotRegistered`, thrown from `project()` before any component is built). Do
   not restore the synthesized permissive `<Type>Resource`
-  ([ADR 0137](docs/adr/0137-a-document-describes-only-types-its-server-registers.md)).
+  ([ADR 0054](docs/adr/0054-a-document-describes-only-the-types-its-server-registers.md)).
 - A relationship **mutation** verb is gated by the parent type's `Update` allow-list, which
   the relation's mutation flags narrow and never widen; relationship and related **reads**
-  stay ungated ([ADR 0074](docs/adr/0074-openapi-path-and-operation-projection.md)).
+  stay ungated ([ADR 0031](docs/adr/0031-projected-paths-operations-and-components-follow-the-exposed-surface-exactly.md)).
 - The error catalogue's `anyOf` is **led by the generic `Error`** and stays open;
   `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates` guards it,
   so do not "tighten" it. `Error::$context` is not projected in any spelling
-  ([ADR 0136](docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+  ([ADR 0053](docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
   claims that status and the generic `ErrorDocument` when it does not. The
   narrowings keep the leading generic `Error` too, and `ErrorResponseProjectionTest` guards
-  both that and the mixed-status case ADR 0018 produces
-  ([ADR 0139](docs/adr/0139-error-responses-are-shared-components-narrowed-per-status.md)).
+  both that and the mixed-status case (a document of mixed statuses takes their shared class)
+  ([ADR 0056](docs/adr/0056-error-responses-are-shared-components-narrowed-per-status.md)).
 - A `filter[<key>]` takes its container from the filter kind and its value from declared
   constraints, falling back to `TargetsColumn` matched against the type's own `fields()`
   **only** when the constraints produced nothing, and to `string` when that resolves no
   field. Never widen the column fallback to guess through a relationship path or a pivot
   prefix, and never let the `string` floor overwrite a derived or declared type
-  ([ADR 0138](docs/adr/0138-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
+  ([ADR 0055](docs/adr/0055-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
 - A link's `describedby` fragment and the projector's `paths` keys both come from
   `PathTemplate`; never spell a path template inline on either side. A relation's segment
   in both is its URI field name, never its member name
-  ([ADR 0161](docs/adr/0161-a-relations-paths-are-keyed-by-its-uri-field-name.md)). A built link renders
+  ([ADR 0064](docs/adr/0064-a-relations-paths-are-keyed-by-its-uri-field-name.md)). A built link renders
   through `Schema\Link\Internal\LinkRendering`; an author-supplied link container never
   does, so it keeps its own shape
-  ([ADR 0158](docs/adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
+  ([ADR 0062](docs/adr/0062-built-links-are-link-objects-described-by-their-openapi-operation.md)).
 - An operation example is built only from declared field and error-descriptor examples. A
   value with no declared example drops that operation's example and records a
   `MissingExample`; never fill it with a type-derived placeholder
-  ([ADR 0176](docs/adr/0176-operation-examples-are-built-from-declared-examples-and-never-invented.md)).
+  ([ADR 0070](docs/adr/0070-operation-examples-are-built-from-declared-examples-and-never-invented.md)).
 - A temporal `format` keyword is emitted only when `DateTime::schemaFormat()` confirms the
   field's configured format writes RFC 3339; the projector and `Validation\SchemaCompiler`
   both defer to it rather than switching on the field class. Never derive a `pattern` from a
   PHP format string
-  ([ADR 0135](docs/adr/0135-temporal-format-keywords-follow-the-configured-serialization-format.md)).
+  ([ADR 0052](docs/adr/0052-a-temporal-format-keyword-is-emitted-only-when-the-field-really-writes-rfc-3339.md)).
 
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**

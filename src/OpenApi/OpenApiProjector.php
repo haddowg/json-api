@@ -26,18 +26,17 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
  * Projects a server's worth of JSON:API metadata (a {@see ServerMetadataInterface})
  * into an OpenAPI 3.1 {@see OpenApi} document — the **skeleton** (openapi / info /
  * servers / tags / security schemes), the **component set** and the **document
- * envelopes** (design §4.3), plus the **named reusable enum components** (§4.8).
+ * envelopes**, plus the **named reusable enum components**, and the **paths**.
  *
- * This slice (Slice 2) deliberately emits **no `paths`** — the path / operation
- * projection (every CRUD + relationship + action operation, its parameters,
- * request bodies and responses) is Slice 3. A path-less OAS 3.1 document is valid:
- * the spec requires at least one of `paths` / `components` / `webhooks`, and the
- * projector always emits `components`.
+ * The path / operation projection (every CRUD + relationship + action operation, its
+ * parameters, request bodies and responses) is delegated to {@see OperationProjector}.
+ * A path-less OAS 3.1 document is valid: the spec requires at least one of `paths` /
+ * `components` / `webhooks`, and the projector always emits `components`.
  *
- * It is a **pure** projector (no I/O, no Symfony): it composes the Slice-1
+ * It is a **pure** projector (no I/O, no Symfony): it composes the
  * {@see SchemaProjector} (field / constraint → schema, with enum-component hoisting
  * via an {@see EnumComponentCollector}) and the OAS VO model. Component **names**
- * follow stable conventions so the Slice-3 path projection can `$ref` them.
+ * follow stable conventions so the path projection can `$ref` them.
  */
 final class OpenApiProjector
 {
@@ -194,7 +193,7 @@ final class OpenApiProjector
 
     /**
      * Assembles the document {@see Paths} by projecting each type's allowed CRUD
-     * operations (stage A) into {@see PathItem}s, grouped by URL template. A path
+     * operations into {@see PathItem}s, grouped by URL template. A path
      * already produced by an earlier type cannot collide (uriTypes are unique), so a
      * simple `with()` accumulation is correct.
      */
@@ -1098,7 +1097,7 @@ final class OpenApiProjector
         }
         // Effective security mirrors the CRUD authStatuses rule: an empty per-endpoint security
         // means "inherit the document default". Advertise 401 whenever that effective security is
-        // non-empty — the invariant core #99 established for every other operation (D17).
+        // non-empty — the invariant core #99 established for every other operation.
         $effective = $security !== [] ? $security : $defaultSecurity;
 
         $responses = (new Responses())
@@ -1136,7 +1135,7 @@ final class OpenApiProjector
      * `components.responses` entry for its status): `400`/`403`/`404`/`406`/`409`/`415`/`500`,
      * plus `422` for a validation failure within the batch, and `401` when the operation is
      * secured (its effective security is non-empty — the same invariant every CRUD/action
-     * operation carries, D17).
+     * operation carries).
      *
      * The batch phrases six of these in terms of an operation within it rather than the
      * request as a whole; those `$ref`s carry the wording as a Reference Object
@@ -1402,9 +1401,9 @@ final class OpenApiProjector
      *
      * Its `links` are the shared `RelationshipDocumentLinks`: the relationship's own
      * `self`/`related`, `describedby`, and, for a paginated to-many (a queryable linkage
-     * collection, ADR 0096), the pagination members. A relationship
+     * collection), the pagination members. A relationship
      * endpoint returns linkage only —
-     * never a compound `included` — so no `included` is described here (core D16).
+     * never a compound `included` — so no `included` is described here.
      */
     private function relationshipDocumentSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
@@ -1631,7 +1630,7 @@ final class OpenApiProjector
     /**
      * The `included` member of a compound document — an array of (any) resource
      * objects. A permissive item shape keeps the envelope type-agnostic (the
-     * concrete reachable types are a Slice-3 path concern).
+     * concrete reachable types are a path-projection concern).
      */
     private function includedSchema(): Schema
     {
@@ -1685,7 +1684,7 @@ final class OpenApiProjector
      * than a second interface accessor: the Atomic Operations extension is the only
      * extension core models, so the list is `[AtomicExtension::URI]` when the atomic
      * endpoint is enabled ({@see ServerMetadataInterface::atomicOperations()} is
-     * non-`null`) and `[]` otherwise (ADR 0131).
+     * non-`null`) and `[]` otherwise.
      *
      * @return list<string>
      */

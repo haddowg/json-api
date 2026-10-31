@@ -8,9 +8,9 @@ namespace haddowg\JsonApi\OpenApi;
  * The root OpenAPI 3.1 document object.
  *
  * `openapi` (pinned to `3.1.0`) and `info` are required; the OAS meta-schema also
- * requires **at least one** of `paths`/`components`/`webhooks`, which the Slice-2
- * skeleton satisfies by always emitting `components` (it is path-less until the
- * Slice-3 path projection).
+ * requires **at least one** of `paths`/`components`/`webhooks`, which the projector
+ * satisfies by always emitting `components` (so a server exposing no paths still
+ * yields a valid document).
  *
  * The root carries **no** JSON:API `jsonapi` member — that object is a *component
  * schema* (`#/components/schemas/JsonApi`) referenced by the document envelopes,

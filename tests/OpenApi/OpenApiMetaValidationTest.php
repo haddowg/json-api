@@ -39,14 +39,14 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Meta-validates documents assembled from the OpenAPI 3.1 value-object model
- * against the **official OAS 3.1 meta-schema**, the spec §10 acceptance criterion
- * ("every emitted document validates against the meta-schema").
+ * against the **official OAS 3.1 meta-schema** (every emitted document must
+ * validate against it).
  *
  * **Vendoring.** `opis/json-schema` ships the 2020-12 *parser* but no meta-schema
  * JSON, so the OAS 3.1 schema documents are vendored under `Fixture/oas-3.1/`
  * (`schema.json` + the `dialect.json` / `meta/base.json` it references) and
  * registered by their canonical `$id`, alongside the **already-vendored 2020-12
- * meta-schema** (`Fixture/meta-schema/`, reused from Slice 1) — the OAS schema
+ * meta-schema** (`Fixture/meta-schema/`) — the OAS schema
  * declares `$schema: …/2020-12/schema`, so the 2020-12 documents must resolve too.
  *
  * **Two documented local adaptations of the vendored schema** (both work around
@@ -147,7 +147,7 @@ final class OpenApiMetaValidationTest extends TestCase
     #[Test]
     public function aMinimalSkeletonDocumentValidates(): void
     {
-        // The spec §9 Slice-2 witness: a path-less skeleton with one component schema.
+        // A path-less skeleton with one component schema.
         // (OAS 3.1 requires at least one of paths/components/webhooks; the model
         // always emits components, so the skeleton is conformant without paths.)
         $document = new OpenApi(
@@ -206,7 +206,7 @@ final class OpenApiMetaValidationTest extends TestCase
     #[Test]
     public function aPathBearingDocumentValidates(): void
     {
-        // Forward-proofs the path-level VOs (populated for real in Slice 3): a full
+        // Exercises the path-level VOs directly: a full
         // CRUD operation with parameters, a request body, and enumerated responses
         // referencing component schemas already validates against OAS 3.1.
         $createArticle = new Operation(
@@ -248,7 +248,7 @@ final class OpenApiMetaValidationTest extends TestCase
     public function theContractWitnessDocumentValidates(): void
     {
         // The broadest document core can project (every branch the witness server
-        // reaches), so it is also the strongest §10 witness available — including the
+        // reaches), so it is also the strongest meta-validation check available — including the
         // `info.x-generator` stamp, which the meta-schema admits as an Info extension.
         $this->assertValidOpenApiDocument((new OpenApiProjector())->project(ContractWitnessServer::build()));
     }

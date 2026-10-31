@@ -37,7 +37,7 @@ use PHPUnit\Framework\TestCase;
  * custom-action paths (each input mode), and the envelope refinements (the
  * non-nullable primary single `data` vs the nullable relationship/related-to-one
  * `data`) — from in-core {@see FakeServerMetadata} fixtures (no Symfony), and
- * meta-validates the full document against the vendored OAS 3.1 meta-schema (§10).
+ * meta-validates the full document against the vendored OAS 3.1 meta-schema.
  */
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
@@ -122,7 +122,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             securitySchemes: ['bearer' => SecurityScheme::bearer('JWT')],
             defaultSecurity: [SecurityRequirement::scheme('bearer')],
             // The Countable profile is registered, so the countable endpoints advertise
-            // `?withCount` (registration-aware projection — ADR 0131).
+            // `?withCount` (registration-aware projection).
             profiles: [CountableProfile::URI],
         );
     }
@@ -182,7 +182,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertContains('filter[label]', $names);
         self::assertContains('sort', $names);
         self::assertContains('include', $names);
-        // Pagination projects as a single `page` deepObject parameter (ADR 0130).
+        // Pagination projects as a single `page` deepObject parameter.
         self::assertContains('page', $names);
 
         // The `sort` enum unions the related resource's own (`id`/`-id`) and the
@@ -209,7 +209,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertNotContains('page', $this->parameterNames($relationship));
 
         // A to-MANY relationship (linkage) endpoint is a real queryable, paginated
-        // linkage collection at parity with the related endpoint (ADR 0096): it carries
+        // linkage collection at parity with the related endpoint: it carries
         // the merged `filter[]`/`sort`/`page` vocabulary — but not `include`/`fields`,
         // since a relationship endpoint renders linkage, not the related resources.
         $toManyRel = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'get');
@@ -227,7 +227,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // A polymorphic to-many (`attachments` → images|videos) has no single related
         // provider or shared vocabulary to window through, so its relationship (linkage)
         // endpoint takes no query parameters — the host rejects a requested filter/sort/
-        // page there with a 400 (ADR 0096). Contrast the monomorphic to-many `tags`
+        // page there with a 400. Contrast the monomorphic to-many `tags`
         // relationship endpoint above, which carries the full filter/sort/page vocabulary.
         $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/attachments', 'get');
         self::assertArrayNotHasKey('parameters', $relationship);
@@ -297,7 +297,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertNotContains('_self_', $this->listAt($this->parameterNamed($collection, 'withCount'), 'schema', 'items', 'enum'));
 
         // The parameter is self-describing about its required profile via `x-profile`, so a
-        // generated client knows to negotiate the Countable profile to use it (ADR 0101).
+        // generated client knows to negotiate the Countable profile to use it.
         self::assertSame(CountableProfile::URI, $this->parameterNamed($collection, 'withCount')['x-profile'] ?? null);
         self::assertSame(CountableProfile::URI, $this->parameterNamed($related, 'withCount')['x-profile'] ?? null);
     }
@@ -439,7 +439,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     public function aRelationshipMutationAdvertisesNeitherIncludeNorFields(): void
     {
         // A relationship endpoint answers with LINKAGE — identifiers, no attributes and
-        // no `included` member, whatever the request asks for (core D16). So the verbs
+        // no `included` member, whatever the request asks for. So the verbs
         // that mutate one advertise neither parameter, unlike the resource-level writes.
         $paths = $this->paths();
 
@@ -684,7 +684,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         self::assertSame(['Articles'], $this->listAt($publish, 'tags'));
         self::assertSame('Publish the article', $this->strAt($publish, 'summary'));
-        // No declared description → a generated default (never left undescribed, D19).
+        // No declared description → a generated default (never left undescribed).
         self::assertSame(
             'Invokes the `publish` custom action on an article.',
             $this->strAt($publish, 'description'),
@@ -695,7 +695,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     public function anActionWithNoDeclaredSummaryOrDescriptionGetsGeneratedDefaults(): void
     {
         // `import` declares neither summary nor description — both fall back to a generated default
-        // rather than being absent (the only operation class that used to have none, D19).
+        // rather than being absent (the only operation class that used to have none).
         $import = $this->arrAt($this->paths(), '/articles/-actions/import', 'post');
 
         self::assertSame('Invoke the `import` action', $this->strAt($import, 'summary'));

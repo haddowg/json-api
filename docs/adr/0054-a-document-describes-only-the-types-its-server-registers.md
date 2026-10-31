@@ -1,0 +1,3 @@
+# A document describes only the types its server registers
+
+An exposed related endpoint pointing at a type the server does not register makes `OpenApiProjector::project()` throw `RelatedTypeNotRegistered`, rather than synthesising a permissive resource object. The runtime cannot serve that endpoint (no serializer resolves), so the synthesised shape described something that does not exist, and a marker on it would be ignored by every generator. A linkage-only related type still needs no registration, since a resource identifier asserts nothing about the resource. `ProjectedTypes::forServer()` is the one answer to "which types does this server describe?", so every generated artifact (the OpenAPI document, the JSON Schema bundle) covers the same set.

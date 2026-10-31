@@ -1,3 +1,0 @@
-# Operation extensions are an opt-in metadata contract
-
-The hook that lets an integration declare vendor extensions on a type's operations is `DeclaresOperationExtensions`, a separate interface extending `TypeMetadataInterface`, not two new methods on it, because the adapters implement `TypeMetadataInterface` and adding to it after 1.0 would break them; this follows `ContributesErrorCodes`. The type-wide set lands on every operation the projector emits for the type, including relationship endpoints and actions, since a feature gate covers the whole resource, and the per-operation set (CRUD only, keyed by `OperationType`) merges over it.

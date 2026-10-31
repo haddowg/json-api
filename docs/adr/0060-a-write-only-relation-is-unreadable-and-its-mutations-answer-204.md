@@ -1,0 +1,3 @@
+# A write-only relation is unreadable, and its mutations answer 204
+
+A `writeOnly()` relation mirrors a write-only attribute: it is absent from every response, unknown to `include`, not countable, and its related and relationship reads are `404`, while it stays writable through hydration and the relationship endpoint. A relationship mutation cannot echo linkage it must not show, so it answers `204`, which the spec allows when the result matches the request. In the projected write bodies the relation's property carries the standard `writeOnly: true` keyword beside its `$ref`, not an `x-` extension; a relation write-only only by predicate stays in the readable superset.

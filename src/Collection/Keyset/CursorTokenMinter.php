@@ -12,7 +12,7 @@ use haddowg\JsonApi\Pagination\CursorWindow;
 /**
  * Mints the boundary cursor tokens for a sliced keyset page and assembles the
  * {@see CursorCollectionResult}, shared by every data layer so the encoded
- * shape is identical (ADR 0123). The data layer supplies the row →
+ * shape is identical. The data layer supplies the row →
  * keyset-value reader (an ORM via its column metadata, in-memory via core's
  * `Accessor`); this class owns the JSON-safe coercion, the forward/backward
  * has-flag rules, and the {@see CursorCodec} encoding.
@@ -28,7 +28,7 @@ final class CursorTokenMinter
      * Assembles the {@see CursorCollectionResult} for the sliced `$rows` (already
      * in natural forward order) and the over-fetch `$hasSurplus` flag.
      *
-     * The has-flag rules (the forward/backward edges, ADR 0123):
+     * The has-flag rules (the forward/backward edges):
      *  - **forward** (`page[before]` absent): `hasMore` = the surplus row existed
      *    (a further forward page), `hasPrevious` = an `page[after]` was supplied
      *    (you are not on the first page);
@@ -72,7 +72,7 @@ final class CursorTokenMinter
      * The directions (keyed identically to the values — every keyset column incl.
      * the appended PK) pin the order the cursor was paged under, so the stale check
      * can reject a request that flips a column's direction (`?sort=name` →
-     * `?sort=-name`) even when the column SET is unchanged (ADR 0123).
+     * `?sort=-name`) even when the column SET is unchanged.
      *
      * @param list<KeysetColumn>                    $columns
      * @param callable(object,string):(scalar|null) $readValue
@@ -102,7 +102,7 @@ final class CursorTokenMinter
      *
      * Shared with {@see InMemoryKeyset}, which coerces a ROW's value the same way
      * before comparing it to a boundary (which is already this wire form), so the
-     * witness compares like-for-like with what it mints (ADR 0123).
+     * witness compares like-for-like with what it mints.
      */
     public static function coerce(mixed $value): string|int|float|bool|null
     {

@@ -1,0 +1,3 @@
+# Pivot fields are field definitions written through linkage `meta`
+
+A `BelongsToMany` declares its pivot (join-row) columns with the same field DSL as attributes, so one declaration drives rendering, filtering, sorting and write validation. Pivot values are read and written as resource-identifier `meta` on each linkage member, on both relationship-endpoint bodies and inline relationships, because that member already round-trips through every linkage parser and needs no new wire surface. Core carries the definitions and the parsed `meta` but never writes the join row; the data-layer adapter persists it.

@@ -1,0 +1,3 @@
+# Success responses are declared as atomic, `new`-constructable response objects
+
+An operation's (and an action's) possible success responses are a list of small response carriers (`Ok`, `Created`, `NoContent`, `Accepted`, `SeeOther`, `MetaResult`, `ActionResource`, `RawResult`), validated per operation, rather than a fixed status or a raw status-code array. Per-operation marker interfaces reject an illegal pair through the type system, and `new` construction makes the list declarable inside a PHP attribute argument, where static factory calls are not allowed. CRUD operations and actions share the one mechanism, so an action can advertise the full async `202`/`303` lifecycle as a CRUD operation can.

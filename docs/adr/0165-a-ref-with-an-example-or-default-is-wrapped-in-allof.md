@@ -1,3 +1,0 @@
-# A `$ref` with an example or default is wrapped in a single-entry `allOf`
-
-OAS 3.1 lets a `$ref` carry sibling keywords, but ReDoc's sampler and other tools that read OAS 3.0 semantics ignore them, so every link member's example was replaced by a sample of the bare `RenderedLink`. `Schema` now writes a `$ref` that carries an `example`, `examples` or `default` as `{"allOf": [{"$ref": …}], …}` with the other keywords beside it, at serialisation, so every projection path and decorator gets it without remembering to; a `$ref` without those siblings is written plainly, and the node still answers `get('$ref')` to the code that built it. Code generators treat a single-entry `allOf` holding only a `$ref` as that `$ref`.

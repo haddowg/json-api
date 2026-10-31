@@ -1,0 +1,3 @@
+# Projected paths, operations and components follow the exposed surface exactly
+
+The projector emits one path item per concrete relation (the relation segment is literal, not a path parameter) and only the operations a type's allow-list and each relation's exposure flags permit, and it emits a component only when an emitted path references it, so the document has no dangling `$ref` and no write shapes for writes the server refuses. A relationship mutation verb requires the parent type's `Update` to be allowed; the relation's mutation flags narrow that gate and never widen it, while relationship and related reads stay ungated.

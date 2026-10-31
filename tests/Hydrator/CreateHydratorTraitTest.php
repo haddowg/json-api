@@ -69,7 +69,7 @@ final class CreateHydratorTraitTest extends TestCase
 
     /**
      * Pins the legacy hydrator family's id contract against the declarative
-     * `Id`-field SOURCE/POLICY model on `AbstractResource` (ADR 0048), so the two
+     * `Id`-field SOURCE/POLICY model on `AbstractResource`, so the two
      * create paths cannot silently diverge: this family sources the id through the
      * `generateId()` / `setId()` hooks, never an auto-store-provided default.
      *

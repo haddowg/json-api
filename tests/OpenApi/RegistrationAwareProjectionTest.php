@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The OpenAPI projection is **registration-aware** (ADR 0131): a profile-gated
+ * The OpenAPI projection is **registration-aware**: a profile-gated
  * affordance is advertised only when the server registered the profile that makes
  * the runtime honour it, and the `jsonapi` object's `profile`/`ext` enums reflect
  * the registered profile/extension set. This drives the four registration-gated

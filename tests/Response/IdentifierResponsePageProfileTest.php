@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
  * exactly as {@see \haddowg\JsonApi\Response\RelatedResponse::fromPage()} does —
  * while the document body stays byte-identical apart from that. Linkage
  * documents are links-only: the pagination links flow through the
- * relationship-pagination seam, and `meta.page` is never emitted (ADR 0124).
+ * relationship-pagination seam, and `meta.page` is never emitted.
  */
 #[Group('spec:fetching-relationships')]
 #[Group('spec:extensions-and-profiles')]

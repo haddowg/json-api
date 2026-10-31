@@ -35,9 +35,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Drives the {@see OpenApiProjector} from in-core {@see FakeServerMetadata} fixtures
  * (no Symfony): asserts the skeleton + component set + envelopes are well-formed,
- * that a backed-enum type yields exactly one `$ref`'d named component (§4.8), and
+ * that a backed-enum type yields exactly one `$ref`'d named component, and
  * that the assembled (path-less) document validates against the vendored OAS 3.1
- * meta-schema (the spec §10 acceptance criterion).
+ * meta-schema.
  */
 #[CoversClass(OpenApiProjector::class)]
 #[Group('spec:document-structure')]
@@ -239,7 +239,7 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame('string', $this->at($read, 'properties', 'linkedAt', 'type'));
 
         // The request shape carries only what a write may set, and requires what every
-        // attach must supply (D18).
+        // attach must supply.
         $write = $this->arrAt($schemas, 'PlaylistsOrderedTracksWritePivot');
         self::assertSame(['position', 'secret', 'note'], \array_keys($this->arrAt($write, 'properties')));
         self::assertSame(['position'], $this->listAt($write, 'required'));
@@ -283,7 +283,7 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame([['bearer' => []]], $this->at($array, 'security'));
         self::assertSame('Articles', $this->strAt($array, 'tags', '0', 'name'));
 
-        // Slice 3 (stage A) now projects CRUD paths from the operation allow-list.
+        // CRUD paths are projected from the operation allow-list.
         self::assertArrayHasKey('paths', $array);
         self::assertArrayHasKey('/articles', $this->arrAt($array, 'paths'));
         self::assertArrayHasKey('/articles/{id}', $this->arrAt($array, 'paths'));
@@ -422,8 +422,8 @@ final class OpenApiProjectorTest extends TestCase
     {
         // Every relationship endpoint's document shares one links component listing what
         // the server can render there: the relationship's own `self`/`related`,
-        // `describedby`, and the pages of a paginated to-many (ADR 0096). Neither
-        // describes a compound `included` (a relationship endpoint is linkage-only) — D16.
+        // `describedby`, and the pages of a paginated to-many. Neither
+        // describes a compound `included` (a relationship endpoint is linkage-only).
         $schemas = $this->schemas();
 
         self::assertSame(
@@ -467,7 +467,7 @@ final class OpenApiProjectorTest extends TestCase
 
         // A relationship object's links $ref the shared relationship links component; its
         // meta $refs the shared `Meta` (it may carry pivot / identifierMeta) — no more
-        // bare `{type: object}` (D22).
+        // bare `{type: object}`.
         self::assertSame('#/components/schemas/RelationshipLinks', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'links', '$ref'));
         self::assertSame('#/components/schemas/Meta', $this->strAt($schemas, 'ArticlesAuthorRelationship', 'properties', 'meta', '$ref'));
 
@@ -514,7 +514,7 @@ final class OpenApiProjectorTest extends TestCase
     {
         // A create may set any declared relation's initial linkage; an update replaces an
         // existing association, so it lists only the relations whose replacement is
-        // permitted (an unconditionally locked relation is omitted) — D15.
+        // permitted (an unconditionally locked relation is omitted).
         $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
@@ -846,7 +846,7 @@ final class OpenApiProjectorTest extends TestCase
 
         // The enumerated error responses each reference the shared response component for their
         // status. The atomic op is secured (bearer default + per-endpoint), so it carries 401
-        // like every other operation — the effective-security invariant core #99 established (D17).
+        // like every other operation — the effective-security invariant core #99 established.
         $expected = [
             '400' => 'BadRequest', '401' => 'Unauthorized', '403' => 'Forbidden',
             '404' => 'NotFound', '406' => 'NotAcceptable', '409' => 'Conflict',
@@ -896,7 +896,7 @@ final class OpenApiProjectorTest extends TestCase
     {
         // A type whose allow-list exposes only reads must emit no write components
         // (CreateRequest/UpdateRequest and their attributes) and no atomic add/update
-        // shapes, and the atomic `data` union must not reference them (D26).
+        // shapes, and the atomic `data` union must not reference them.
         $readOnly = FakeTypeMetadata::resource(
             type: 'reports',
             fields: [Id::make()->build(), Str::make('title')->build()],
@@ -985,7 +985,7 @@ final class OpenApiProjectorTest extends TestCase
         self::assertFalse($this->at($schemas, 'ArticlesAtomicAdd', 'properties', 'id'));
         self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicAdd', 'properties'));
         self::assertArrayNotHasKey('oneOf', $this->arrAt($schemas, 'ArticlesAtomicAdd'));
-        // Its `relationships` are typed from the settable relations (D15), each `$ref`-ing
+        // Its `relationships` are typed from the settable relations, each `$ref`-ing
         // the relationship-object component, not a bare `{type: object}`.
         self::assertSame(
             ['author', 'tags'],

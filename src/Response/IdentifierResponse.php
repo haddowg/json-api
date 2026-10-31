@@ -33,7 +33,7 @@ final class IdentifierResponse extends AbstractResponse
      * documents stay links-only, with the pagination links rendered through the
      * relationship-pagination seam
      * ({@see \haddowg\JsonApi\Server\Server::withRelationshipPagination()}), and
-     * `meta.page` is deliberately not emitted (ADR 0124).
+     * `meta.page` is deliberately not emitted.
      *
      * @var \haddowg\JsonApi\Pagination\PageInterface<mixed>|null
      */
@@ -64,7 +64,7 @@ final class IdentifierResponse extends AbstractResponse
      *
      * The rendered body is otherwise byte-identical to the page-less response:
      * the pagination links flow through the relationship-pagination seam, and no
-     * `meta.page` is added (linkage documents are links-only — ADR 0124).
+     * `meta.page` is added (linkage documents are links-only).
      *
      * @template T
      *

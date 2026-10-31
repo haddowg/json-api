@@ -159,9 +159,8 @@ If the token your API takes is the OAuth token, name the `oauth2` scheme in your
 security rather than a separate `bearer` scheme. A `bearer` requirement does not name the
 scope scheme, so it is replaced and any other alternatives go with it.
 
-A document in which no operation needs a scope is unchanged. One that has some carries
-[contract 16](openapi.md#a-bump-scoped-to-some-documents) and offers `INSUFFICIENT_SCOPE`
-in its error catalogue.
+A document in which no operation needs a scope is unchanged. One that has some offers
+`INSUFFICIENT_SCOPE` in its error catalogue.
 
 ## Checking without a request
 

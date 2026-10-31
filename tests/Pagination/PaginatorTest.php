@@ -96,7 +96,7 @@ final class PaginatorTest extends TestCase
         $meta = $page->pageMeta();
         self::assertArrayNotHasKey('total', $meta);
         self::assertArrayNotHasKey('lastPage', $meta);
-        // §3a: the upper bound is derived from the rendered item count even without a
+        // The upper bound is derived from the rendered item count even without a
         // total — page 2 of size 20 starts at from=21; one item ⇒ to=21.
         self::assertSame(21, $meta['from'] ?? null);
         self::assertSame(21, $meta['to'] ?? null);
@@ -105,7 +105,7 @@ final class PaginatorTest extends TestCase
     #[Test]
     public function aCountFreePageOmitsToForAnEmptyWindow(): void
     {
-        // §3a: an empty page has no upper bound, so `to` is omitted (not from-1).
+        // An empty page has no upper bound, so `to` is omitted (not from-1).
         $request = StubJsonApiRequest::create(['page' => ['number' => '3', 'size' => '10']]);
 
         $meta = PagePaginator::make()->paginateWithoutCount($request, [], hasMore: false)->pageMeta();
@@ -127,7 +127,7 @@ final class PaginatorTest extends TestCase
         self::assertSame(40, $page->offset);
         $meta = $page->pageMeta();
         self::assertArrayNotHasKey('total', $meta);
-        // §3a: offset 40 ⇒ from=41; two items ⇒ to=42.
+        // Offset 40 ⇒ from=41; two items ⇒ to=42.
         self::assertSame(41, $meta['from'] ?? null);
         self::assertSame(42, $meta['to'] ?? null);
     }

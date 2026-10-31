@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 /**
- * Projects the standard error responses every operation advertises (D12) into the shared
+ * Projects the standard error responses every operation advertises into the shared
  * `components.responses` set, and points each one at the narrowest error document the
  * catalogue supports.
  *
@@ -27,7 +27,7 @@ namespace haddowg\JsonApi\OpenApi;
  * `ErrorDocument`. The narrowed
  * variants keep the open generic `Error` branch first, exactly as the generic document
  * does: narrowing sharpens the vocabulary a status publishes, it does not close it
- * ([ADR 0136](../../docs/adr/0136-the-projected-error-code-catalogue-is-open.md)).
+ * ([ADR 0053](../../docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
  *
  * @internal
  */
@@ -142,7 +142,7 @@ final class ErrorResponseProjector
     ];
 
     /**
-     * Human-readable descriptions for the enumerated error statuses (D12). Required by
+     * Human-readable descriptions for the enumerated error statuses. Required by
      * the OAS meta-schema (a Response Object's `description` is mandatory).
      */
     private const DESCRIPTIONS = [

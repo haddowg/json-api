@@ -43,7 +43,11 @@ Reach for an explicit `Id` field in two situations:
 
 `Id` is special-cased: although it is declared alongside attribute fields, it is
 rendered into the resource's top-level `id`, never into `attributes`, and it is
-always serialized as a **string** — a numeric `2` becomes `"2"` on the wire.
+always serialized as a **string** — a numeric `2` becomes `"2"` on the wire. A
+key your model holds as a `Stringable` object, such as a Doctrine `uuid` column
+hydrated to a `Uuid`, renders as its string form, so `Id::make()->uuid()` over a
+`Uuid` key needs no [encoder](#encoding-when-the-wire-id-differs-from-the-storage-key).
+The same string is used wherever the resource appears in linkage.
 
 ## Format helpers for a client-generated id
 

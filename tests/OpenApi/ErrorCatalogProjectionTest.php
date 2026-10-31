@@ -93,7 +93,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     public function theTitleStaysAStringSoAResolverMayReplaceIt(): void
     {
         // `code` / `status` are the machine contract and are pinned to a const; `title`
-        // is copy an ErrorMessageResolver localizes (ADR 0128), so pinning it would
+        // is copy an ErrorMessageResolver localizes, so pinning it would
         // publish a constraint the server itself breaks the moment one is bound.
         $narrowing = $this->listAt($this->schemas($this->fullServer()), 'FilteringUnrecognizedError', 'allOf')[1];
         self::assertIsArray($narrowing);

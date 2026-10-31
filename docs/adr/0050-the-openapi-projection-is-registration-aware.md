@@ -1,0 +1,3 @@
+# The OpenAPI projection is registration-aware
+
+The projector advertises a profile-gated affordance only when the server registers that profile (`?withCount` needs the Countable profile, `relatedQuery` the Relationship Queries profile, the cursor `x-profile` marker the cursor profile), pins the `jsonapi.profile`/`ext` members to the registered URIs, and drops error codes for features the server does not offer. A profile the server did not register can never be negotiated, so advertising it documents a request that always fails. Registration decisions live only in the projector; the paginator and filter value objects stay registration-blind.

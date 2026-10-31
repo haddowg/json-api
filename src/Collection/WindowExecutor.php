@@ -20,7 +20,7 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  * passes `QueryBuilder`-backed closures (push-down `LIMIT`/`OFFSET`/`COUNT`), an
  * in-memory provider passes `array_slice`/`count` closures, and both get the
  * identical branch logic. This is the consolidation of the four hand-rolled tails
- * the bundle's read providers each carried (core ADR 0061); it is also the home
+ * the bundle's read providers each carried; it is also the home
  * the cursor (keyset) window strategy will plug into without touching any
  * provider.
  *
@@ -40,8 +40,8 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  *   drives `links.last`/`meta.page.total`);
  * - **count-free + window** — no count runs; {@see $probe} over-fetches by one
  *   ({@see OffsetWindow::$limit} `+ 1`), the surplus proves a further page exists,
- *   and the result is windowed with a `null` total and a `hasMore` flag (core ADR
- *   0057). The limit+1 probe is equivalent to the in-memory `count(items) > offset
+ *   and the result is windowed with a `null` total and a `hasMore` flag. The
+ *   limit+1 probe is equivalent to the in-memory `count(items) > offset
  *   + count(page)` form: both report "more available beyond this page" without a
  *   total.
  *
@@ -100,7 +100,7 @@ final class WindowExecutor
             ));
         }
 
-        // Count-free page (a non-countable related to-many, core ADR 0057): no COUNT
+        // Count-free page (a non-countable related to-many): no COUNT
         // runs. Probe one item past the window (limit + 1); a surplus item proves a
         // further page exists and is dropped from the rendered items, so the result
         // carries a null total, windowed = true, and hasMore from the surplus.

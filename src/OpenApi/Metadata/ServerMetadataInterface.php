@@ -13,10 +13,10 @@ use haddowg\JsonApi\OpenApi\Tag;
  * A server's worth of JSON:API metadata — the **root** input the {@see
  * \haddowg\JsonApi\OpenApi\OpenApiProjector} consumes to build one OpenAPI document.
  *
- * This is the central seam (design §3, D2): core owns the JSON:API→OAS *semantics*
+ * This is the central seam: core owns the JSON:API→OAS *semantics*
  * but most of the *data* (info, base URIs, server assignment, tag refs/definitions,
  * security schemes, the type list) is framework-/app-side. The bundle implements
- * this in Slice 4 from its compiled registry + config; core projects purely against
+ * this from its compiled registry + config; core projects purely against
  * it and is fully testable with in-core fixtures.
  *
  * The accessors returning OAS value objects ({@see servers()}, {@see tags()},
@@ -87,7 +87,7 @@ interface ServerMetadataInterface
 
     /**
      * The document-level default security requirement (OR-ed alternatives), or an
-     * empty list for no document-level default. The Slice-3 path projection applies
+     * empty list for no document-level default. The path projection applies
      * the per-operation requirement; this is the document-wide fallback.
      *
      * @return list<SecurityRequirement>

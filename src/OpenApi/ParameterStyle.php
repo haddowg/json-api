@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\OpenApi;
  * standard OAS way to document a nested-object query parameter; the `sort` and
  * `include` parameters render as a `form` parameter with `explode: false` — the
  * standard OAS way to document a single parameter carrying a comma-delimited
- * list (JSON:API §4.4).
+ * list, which is how JSON:API spells `include` and `sort`.
  *
  * `pipeDelimited` and `spaceDelimited` are the only other separators OAS names, and
  * a {@see \haddowg\JsonApi\Resource\Filter\WhereIn} can be built on either

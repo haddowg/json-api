@@ -8,7 +8,7 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
  * One of the standard JSON:API resource-level CRUD operations, as the metadata
  * contract names them. A {@see TypeMetadataInterface} reports which of these are
  * exposed for its type (the per-type operation allow-list); the projector emits a
- * {@see \haddowg\JsonApi\OpenApi\PathItem} only for an allowed operation (Slice 3).
+ * {@see \haddowg\JsonApi\OpenApi\PathItem} only for an allowed operation.
  *
  * These are the resource-level operations only; relationship-endpoint and
  * custom-action exposure is described by {@see RelationMetadataInterface} and

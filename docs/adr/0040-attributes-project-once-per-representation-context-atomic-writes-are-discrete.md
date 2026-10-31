@@ -1,0 +1,3 @@
+# Attributes project once per representation context; atomic writes are discrete shapes
+
+A type's attributes differ by context in both visibility and `required`, so each is one shared component: `<Type>Attributes` (read: no write-only fields, no `required`), `<Type>CreateAttributes` (create: no create-read-only fields, the create `required` set) and `<Type>UpdateAttributes` (update: no update-read-only fields, no `required`, since a PATCH is partial). Atomic `add` and `update` are separate schemas reusing the create and update components. Mutually exclusive `id`/`lid` is a titled `oneOf` rather than a `not`, because a `not` is opaque in documentation tools; a member that must be absent is the boolean `false` schema.

@@ -10,8 +10,7 @@ namespace haddowg\JsonApi\Exception;
  * An {@see ErrorDescriptor} names one (or `null` for an error any JSON:API server can
  * raise), and the OpenAPI projection drops the described code from a document whose
  * server does not offer the capability — the same registration-awareness that already
- * gates `?withCount`, the cursor `x-profile` marker and the write components
- * ([ADR 0131](../../docs/adr/0131-registration-aware-openapi-projection.md)). A client
+ * gates `?withCount`, the cursor `x-profile` marker and the write components. A client
  * generated from a read-only server has no use for a typed
  * `RESOURCE_TYPE_UNACCEPTABLE`.
  *

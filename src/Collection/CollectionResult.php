@@ -16,7 +16,7 @@ namespace haddowg\JsonApi\Collection;
  * a plain collection document.
  *
  * {@see $windowed} distinguishes a count-FREE windowed fetch (a non-countable
- * related to-many, core ADR 0057) from an unpaginated one: both carry a `null`
+ * related to-many) from an unpaginated one: both carry a `null`
  * total, but a count-free windowed result was sliced to a page and must render a
  * count-free page — `meta.page`/`links` without `total`/`last`, the `next` link
  * driven by {@see $hasMore} (the data layer typically fetches one item past the

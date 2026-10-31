@@ -1,0 +1,3 @@
+# Convenience filters are `Where` subclasses, so `Where` is not `final`
+
+Intent-named filters (`Contains`, `GreaterThan`, `Boolean`, …) preset an operator, deserializer, value constraint and description, and are thin subclasses of `Where`, so existing handlers dispatch them through their `instanceof Where` arm with no change and the projector can still tell a `Contains` from a hand-rolled `Where`. `Where` therefore drops `final` and constructs via `new static`, so a fluent refinement keeps the subclass. Factory functions returning a plain `Where` were rejected because the projector could not see the intent.

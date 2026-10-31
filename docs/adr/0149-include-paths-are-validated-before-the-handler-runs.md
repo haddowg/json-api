@@ -1,3 +1,0 @@
-# Include paths are validated before the handler runs
-
-An unknown `?include` path was caught only while rendering each resource, so an empty collection answered `200`. `Server` now walks the requested paths through the registry's resources before the handler runs, on both entry points, and repeats the root whitelist and depth checks first so a request that trips several safeguards keeps the error it had. The walk only rejects what no data could make valid: a polymorphic segment passes when any declared type has it, and predicate-based `hidden()`/`cannotBeIncluded()` and non-`AbstractResource` serializers are left to the render-time check, which stays.

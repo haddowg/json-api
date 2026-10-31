@@ -1,0 +1,3 @@
+# A class-level `@internal` PHPDoc is as binding as an `Internal\` namespace
+
+A type is non-public either by living under an `Internal\` namespace or by a class-level `@internal` tag in a public namespace, and both exempt it from semver equally. We ratified the tag rather than relocating the tagged types because it is the ecosystem convention (Symfony, Doctrine, PHPUnit), PHPStan and IDEs enforce it, and moving them would be churn with no extra protection. A member-level `@internal` marks only that member; its class stays public. Prefer the namespace for a whole internal subtree and the tag for a single type among public siblings.

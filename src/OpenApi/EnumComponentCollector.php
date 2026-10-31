@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 /**
  * Collects backed-enum schemas into reusable named components while a document is
- * projected (§4.8). When {@see SchemaProjector} projects into a document it is
+ * projected. When {@see SchemaProjector} projects into a document it is
  * given a collector: each enum schema sourced from an {@see
  * \haddowg\JsonApi\Resource\Constraint\In} carrying an enum class-string is
  * **hoisted** here once (deduped on the full class-string) and replaced inline by a

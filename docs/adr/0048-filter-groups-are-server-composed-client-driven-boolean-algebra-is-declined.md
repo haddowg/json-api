@@ -1,0 +1,3 @@
+# Filter groups are composed by the server; client-driven boolean algebra is declined
+
+`WhereAll`/`WhereAny` combine child filters with AND/OR under one `filter[<key>]`, passing the group's request value to every child (multi-column search, or a canned toggle of `fixed()` children). The client-driven `filter[and]/[or]/[not]` model was declined: it does not project to a single documented parameter and hands query complexity to the caller, reversing the author-controlled allow-list. `fixed()` pins a filter's value so its key becomes a presence trigger, which a client cannot override as it can a `default()`.

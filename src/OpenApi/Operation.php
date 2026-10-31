@@ -7,9 +7,8 @@ namespace haddowg\JsonApi\OpenApi;
 /**
  * An OpenAPI 3.1 Operation Object — a single HTTP operation on a path.
  *
- * Modelled in full now (Slice 2) but only **populated** by the path/operation
- * projection (Slice 3); the document skeleton this slice assembles carries no
- * paths. `tags` (group membership for the doc renderers — §4.7) is first-class here
+ * Populated by the path/operation projection ({@see OperationProjector}). `tags`
+ * (group membership for the doc renderers) is first-class here
  * because the contract resolves per-operation tag refs.
  *
  * `responses` is the one required member; everything else is optional and omitted

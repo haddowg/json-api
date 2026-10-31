@@ -149,6 +149,20 @@ prefixed with, and it has two modes:
   `https://music.example/` and `/api/` are trimmed before prepending, so a link
   never double-slashes.
 
+A configured base URI's **path is the server's mount**. Resource links append a
+server-relative path (`/albums/1`) to the base, while document links (`links.self`
+and the pagination links) are built from the request path, which already carries the
+mount when your routes are imported under a prefix. So the mount is removed from the
+front of the request path before the base is prepended, and appears once:
+
+| `base_uri` | Request path | Document `self` |
+| --- | --- | --- |
+| `/api/v5` | `/api/v5/albums` | `/api/v5/albums` |
+| `https://music.example/api/v5` | `/api/v5/albums` | `https://music.example/api/v5/albums` |
+| `/api/v5` | `/albums` (prefix stripped by a proxy) | `/api/v5/albums` |
+| `/api/v5` | `/api/v50/albums` | `/api/v5/api/v50/albums` (only a whole segment is a mount) |
+| empty | any | the request origin plus the path |
+
 A request with no resolvable origin — a relative or path-only request URI (no
 authority, or an authority with no scheme) — falls back to a host-relative link
 (`/albums/1`) rather than emitting a broken prefix. To force host-relative output,

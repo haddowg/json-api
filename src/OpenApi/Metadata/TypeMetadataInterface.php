@@ -11,8 +11,8 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
 
 /**
  * The OpenAPI-relevant metadata for one JSON:API type within a server — the input
- * the projector reads to emit that type's component schemas (this slice) and its
- * paths (Slice 3).
+ * the projector reads to emit that type's component schemas and its
+ * paths.
  *
  * **Field inventory may be absent.** A standalone-registered type (a serializer
  * with no {@see \haddowg\JsonApi\Resource\AbstractResource}) has no declared field
@@ -20,7 +20,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * the projector emits a permissive resource-object schema. Everything else (id
  * pattern, operations, relations, tags) is independent of the field inventory.
  *
- * The bundle implements this in Slice 4 from its compiled registry + booted
+ * The bundle implements this from its compiled registry + booted
  * resources; core projects purely against it and is fully testable with in-core
  * fixtures (no Symfony).
  */
@@ -33,8 +33,8 @@ interface TypeMetadataInterface
     public function type(): string;
 
     /**
-     * The URI segment this type is mounted under (ADR 0022 — distinct from
-     * {@see type()}). Consumed by the Slice-3 path projection.
+     * The URI segment this type is mounted under (distinct from
+     * {@see type()}). Consumed by the path projection.
      */
     public function uriType(): string;
 
@@ -73,8 +73,8 @@ interface TypeMetadataInterface
     /**
      * The subset of {@see operations()} that carry a security expression — i.e. the
      * operations the projector emits with the configured per-operation security
-     * requirement (the document-level {@see ServerMetadataInterface::defaultSecurity()},
-     * per design §4.6 / D8). The contract carries only the **intent** (which
+     * requirement (the document-level {@see ServerMetadataInterface::defaultSecurity()}).
+     * The contract carries only the **intent** (which
      * operations are secured); the *requirement* VOs themselves come from the
      * document default, never from parsing the authz expression. Mirrors
      * {@see ActionMetadataInterface::isSecured()} for custom actions.
@@ -139,7 +139,7 @@ interface TypeMetadataInterface
 
     /**
      * The filters exposed on this type's primary collection endpoint. Consumed by
-     * the Slice-3 parameter projection.
+     * the parameter projection.
      *
      * @return list<FilterInterface>
      */
@@ -147,7 +147,7 @@ interface TypeMetadataInterface
 
     /**
      * The sorts exposed on this type's primary collection endpoint (the `sort`
-     * parameter's allowed keys). Consumed by the Slice-3 parameter projection.
+     * parameter's allowed keys). Consumed by the parameter projection.
      *
      * @return list<SortInterface>
      */
@@ -163,7 +163,7 @@ interface TypeMetadataInterface
     /**
      * The OpenAPI tag names every operation of this type is grouped under (already
      * resolved — explicit refs or the humanized-type default). The projector emits
-     * these on each of the type's operations (Slice 3) and unions them into the
+     * these on each of the type's operations and unions them into the
      * document-root tag set.
      *
      * @return list<string>
@@ -202,7 +202,7 @@ interface TypeMetadataInterface
     /**
      * The relationship paths a `?include` may request for this type (respecting the
      * include safeguards: allow-list, depth, `cannotBeIncluded`), as dotted paths
-     * (e.g. `author`, `author.company`). Consumed by the Slice-3 `include` parameter
+     * (e.g. `author`, `author.company`). Consumed by the `include` parameter
      * projection.
      *
      * @return list<string>

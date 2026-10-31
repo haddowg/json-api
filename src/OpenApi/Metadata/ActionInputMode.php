@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
 
 /**
  * How a custom action ({@see ActionMetadataInterface}) consumes its request body —
- * the discriminator the projector uses to build the action's `requestBody` (Slice 3):
+ * the discriminator the projector uses to build the action's `requestBody`:
  *
  *  - {@see None}     — no request body.
  *  - {@see Document} — a JSON:API document whose `data` is the action's `inputType`

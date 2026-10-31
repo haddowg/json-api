@@ -106,6 +106,16 @@ a framework-agnostic reader that works on an array key, a public property, or a
 conventional `getXxx()` / `isXxx()` accessor — so the same handler reads a plain
 array row or a domain object.
 
+Both handlers take an optional list of **arms** for value objects they do not
+recognise: an `ArrayFilterArmInterface` (`supports()` plus a row `predicate()`) or an
+`ArraySortArmInterface` (`supports()` plus a per-row sort `value()`). An arm is consulted
+only after the built-in arms decline, before `UnsupportedFilter` / `UnsupportedSort` is
+raised, so a portable custom filter or sort ships an in-memory arm here and a push-down
+arm in your data layer. A sort arm contributes a key to the one lexicographic cascade, so
+a custom directive can be primary, secondary or a tie-breaker like any field sort.
+`UnsupportedFilter` / `UnsupportedSort` accept an optional `hint` the raising handler
+fills with its own remediation (core never does, since it knows no data layer).
+
 ### ArrayFilterHandler — the operator semantics
 
 `ArrayFilterHandler::apply` builds an `array_filter` predicate from the matched

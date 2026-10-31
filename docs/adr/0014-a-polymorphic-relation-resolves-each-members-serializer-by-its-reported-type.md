@@ -1,0 +1,3 @@
+# A polymorphic relation resolves each member's serializer by its reported type
+
+A relation selects the serializer for a related object itself (`resolveSerializer()`): the single declared type when monomorphic, and for `MorphTo`/`MorphToMany` the declared type whose serializer reports the object's own type via `getType()`. A polymorphic to-many binds a `PolymorphicSerializer` decorator that delegates per member, so linkage, `include` and related collections work without changing the transformer. This relies on an invisible contract: a polymorphic family's serializers must return the object's true type from `getType()`.

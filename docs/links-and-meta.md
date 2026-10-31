@@ -275,8 +275,7 @@ action links for one path, or a declared link named like an action link, throw a
 `\LogicException` naming the resource class. A resource served on several servers may name
 an action only some of them expose: a server without it neither renders nor projects the
 link. An adapter fails the build when no server serving the type has the action, so a typo
-still gets caught
-([ADR 0186](adr/0186-an-action-link-declared-on-the-resource-carries-its-condition-and-description.md)).
+still gets caught.
 
 ## Link forms
 
@@ -363,6 +362,12 @@ An **already-absolute `href`** — a scheme-qualified (`https://…`) or
 protocol-relative (`//host/…`) URL — passes through **untouched**, never prefixed,
 whatever the base. So a fully-qualified link (a common shape for an error
 `about`/`type` documentation URL) is safe even when the container carries a base.
+
+A **path href without a leading slash** (`uploads/1`, a shape a stored path often
+comes back in) is joined to a non-empty base with one slash, so it renders as
+`https://music.example/uploads/1` rather than gluing the two together. An href that
+starts with `/`, `?`, `#` or a URI-template `{`, and any href rendered with an empty
+base, is concatenated exactly as written.
 
 For the auto-emitted links below, the base your container is given is resolved by
 the response layer: when [`Server::withBaseUri()`](server.md#base-uri-and-the-request-origin)
@@ -522,8 +527,7 @@ return ['publish' => new OperationLink(
 )];
 ```
 
-With no resolver (the default), links are still link objects, just without `describedby`
-([ADR 0158](adr/0158-built-links-are-link-objects-described-by-their-openapi-operation.md)).
+With no resolver (the default), links are still link objects, just without `describedby`.
 
 ## Server-level defaults: the jsonapi object
 

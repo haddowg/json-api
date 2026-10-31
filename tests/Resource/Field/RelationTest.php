@@ -965,7 +965,7 @@ final class RelationTest extends TestCase
     public function countableToManyEmitsLastPaginationLink(): void
     {
         // A counted page (totalItems known) emits `last` — the countable vs
-        // count-free distinction from slice 1 carries through to the links.
+        // count-free distinction carries through to the links.
         $relation = HasMany::make('tracks', 'tracks')->countable()->build();
         $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
 

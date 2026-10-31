@@ -523,7 +523,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
             // A sparse-by-default field is omitted from the default response and
             // rendered ONLY when the client explicitly names it in `fields[type]`
-            // (ADR 0117). Skipping it before the value hook is added means its
+            // Skipping it before the value hook is added means its
             // (potentially expensive) serialization never runs on a request that did
             // not ask for it. `getIncludedFields()` lists the names explicitly
             // requested for this type (empty when the type carries no `fields[type]`
@@ -656,7 +656,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         // resolve, else a cannotReplaceFor 403 would degrade to a 404). It is
         // excluded from the *rendered* relationships here, against the request. A
         // sparse-by-default relation is likewise excluded unless the request names it
-        // in `fields[type]` (ADR 0117), symmetric with the attribute path. A write-only
+        // in `fields[type]`, symmetric with the attribute path. A write-only
         // relation is accepted on write but never rendered, like a write-only attribute.
         $type = $this->getType($object);
         $visible = \array_values(\array_filter(

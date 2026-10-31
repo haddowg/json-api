@@ -48,8 +48,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * The `filter[<key>]` value schema: the container shape each filter kind projects, and
  * what fills the scalar slot inside it when the author declared no value constraints —
- * the type of the field the filter targets, or `string` where no field resolves
- * (ADR 0138).
+ * the type of the field the filter targets, or `string` where no field resolves.
  */
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(SchemaProjector::class)]

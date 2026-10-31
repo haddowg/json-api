@@ -1,0 +1,3 @@
+# An action answering with a URL negotiates a location document or a 303
+
+An action that hands out a URL and declares `SeeOther` with a media type answers a request that prefers JSON:API with a `200` document carrying the URL as a top-level `location` link, and every other request (including no `Accept` and `*/*`) with the `303`. A script's `fetch()` follows a redirect itself or gets an opaque response, while a link click wants the file; that is why the tie-break is the opposite of the raw-result negotiation, where JSON:API wins. A bare `SeeOther` stays the plain `303`, so existing async-completion clients are not broken.

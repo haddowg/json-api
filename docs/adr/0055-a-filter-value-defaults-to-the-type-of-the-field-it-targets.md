@@ -1,0 +1,3 @@
+# A filter value defaults to the type of the field it targets
+
+A `filter[<key>]` takes its container shape from the filter kind and its value schema from declared constraints. Only when none are declared does it fall back to the JSON type of the one field whose column it targets (`TargetsColumn`), and to `string` when no single field resolves. The fallback carries the type and nothing else, since a filter value is an operand, not the member's whole value. It is a floor, never an override of a declared constraint, and never guesses through a relationship path or pivot prefix: a narrower guess would sometimes be wrong, while `string` is what the protocol already guarantees.

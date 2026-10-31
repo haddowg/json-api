@@ -30,8 +30,8 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
- * Projects a type's HTTP surface into OpenAPI {@see PathItem}s (design §4.4–4.6,
- * D8/D10/D12) — the full path/operation projection:
+ * Projects a type's HTTP surface into OpenAPI {@see PathItem}s — the full
+ * path/operation projection:
  *
  * - **CRUD** — resource-level `GET`/`POST` on `/{uriType}` and `GET`/`PATCH`/`DELETE`
  *   on `/{uriType}/{id}`, honouring the per-type operation allow-list
@@ -44,13 +44,13 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
  *   endpoints on `…/{id}/relationships/{rel}`.
  * - **Custom actions** — per {@see ActionMetadataInterface}, mounted under the
  *   `-actions` segment (resource or collection scope), with input-mode-driven request
- *   bodies and per-action security (§4.5).
+ *   bodies and per-action security.
  *
  * Each operation enumerates its concrete query parameters, request body and standard
- * error responses, and carries its tags ({@see TypeMetadataInterface::tags()}, §4.7)
- * plus the configured per-operation security requirement (§4.6 / D8).
+ * error responses, and carries its tags ({@see TypeMetadataInterface::tags()})
+ * plus the configured per-operation security requirement.
  *
- * It is a **pure** projector (no I/O, no Symfony): it composes the Slice-1
+ * It is a **pure** projector (no I/O, no Symfony): it composes the
  * {@see SchemaProjector} (for `filter[]` value schemas) and the OAS VO model, and
  * `$ref`s the component schemas the {@see OpenApiProjector} already emitted by their
  * stable {@see ComponentNaming} names.
@@ -553,7 +553,7 @@ final class OperationProjector
         };
     }
 
-    // ---- Relationship & related endpoints (stage B) -----------------------------
+    // ---- Relationship & related endpoints -------------------------------------
 
     /**
      * Whether the relation is declared unconditionally write-only
@@ -569,7 +569,7 @@ final class OperationProjector
      * document** ($ref the related type's collection for a to-many, the per-relation
      * nullable related document for a to-one). A to-many related collection reuses the
      * CRUD query parameters scoped to the relation's own filters/sorts/pagination/
-     * includes (§4.4).
+     * includes.
      *
      * @param list<string> $tags
      * @param list<string> $scopes the scopes the operation needs
@@ -656,7 +656,7 @@ final class OperationProjector
         // paginated linkage collection at parity with the related endpoint: `filter[]`/
         // `sort`/`page` (+`withCount` when countable) scope against the same merged
         // vocabulary, the page-1 linkage rendering with the relationship object's
-        // pagination links (ADR 0096). A **polymorphic** relationship endpoint (to-one or to-many — members
+        // pagination links. A **polymorphic** relationship endpoint (to-one or to-many — members
         // span types, no single related provider or shared vocabulary) takes no query
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {
@@ -785,10 +785,10 @@ final class OperationProjector
         return Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedCollection'));
     }
 
-    // ---- Custom-action endpoints (stage B) --------------------------------------
+    // ---- Custom-action endpoints ----------------------------------------------
 
     /**
-     * One custom action's operation (§4.5): its input mode → `requestBody`
+     * One custom action's operation: its input mode → `requestBody`
      * (`None` → none; `Document` → the input type's create-request schema; `Raw` → a
      * permissive binary body under a generic media type with relaxed content-type
      * negotiation), its declared responses ({@see ActionMetadataInterface::responds()})
@@ -836,7 +836,7 @@ final class OperationProjector
             tags: $action->tags(),
             // A custom action carries the author's summary/description when declared, else a
             // generated default — so an action (the least path-inferable operation) is never the
-            // only operation left undescribed (D19).
+            // only operation left undescribed.
             summary: $action->summary() ?? ('Invoke the `' . $action->path() . '` action'),
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on ' . ($action->scope() === ActionScope::Resource
                 ? TypeNoun::of($type)->withArticle()
@@ -866,7 +866,7 @@ final class OperationProjector
     }
 
     /**
-     * The action's request body for its input mode (§4.5): `None` → no body;
+     * The action's request body for its input mode: `None` → no body;
      * `Document` → the input type's create-request schema under the JSON:API media
      * type; `Raw` → a permissive string/binary body under `application/octet-stream`
      * (the author owns the negotiation, so the schema is left open).
@@ -1142,7 +1142,7 @@ final class OperationProjector
     }
 
     /**
-     * One `filter[<key>]` query parameter per declared filter (§4.4). Its **value**
+     * One `filter[<key>]` query parameter per declared filter. Its **value**
      * schema comes from the filter's declared value constraints; its **container**
      * shape comes from the filter kind. The two compose: the kind says "a list", the
      * constraints say "of integers".
@@ -1152,17 +1152,17 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Resource\Filter\Range} (and its
      * {@see \haddowg\JsonApi\Resource\Filter\DateRange} specialisation) wraps its
      * per-bound value schema into an **object** with `min`/`max` properties and the
-     * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape
-     * (ADR 0076/0077); a set filter ({@see \haddowg\JsonApi\Resource\Filter\WhereIn}
-     * and friends) wraps it into an **array** whose OAS style spells its declared
-     * delimiter. A scalar filter (the default) is its value schema with no style — so
-     * a consumer-defined structured filter documents correctly with no change here.
+     * OAS `deepObject` style for the nested `filter[<key>][min]`/`[max]` wire shape;
+     * a set filter ({@see \haddowg\JsonApi\Resource\Filter\WhereIn} and friends) wraps
+     * it into an **array** whose OAS style spells its declared delimiter.
+     * A scalar filter (the default) is its value schema with no style — so a
+     * consumer-defined structured filter documents correctly with no change here.
      *
      * Where the filter declared **no** value constraints, `$fields` is the fallback:
      * a filter that names the column of one field in the inventory documents as that
      * field's JSON type, and one that names nothing resolvable documents as `string`,
-     * the type every query parameter has on the wire (ADR 0138,
-     * {@see derivedFilterValueType()}).
+     * the type every query parameter has on the wire
+     * ({@see derivedFilterValueType()}).
      *
      * A server-composed group ({@see \haddowg\JsonApi\Resource\Filter\WhereAll} /
      * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
@@ -1227,7 +1227,7 @@ final class OperationProjector
      * wire form. Anything else derives nothing: a relationship path or a relationship
      * name, a computed value no field stores, a column two fields share, a composite or
      * relation field. A guessed narrower type says something false that a client would
-     * then be validated against. See ADR 0138.
+     * then be validated against. See ADR 0055.
      *
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface> $fields
      */
@@ -1290,7 +1290,7 @@ final class OperationProjector
 
     /**
      * The single `sort` parameter: a comma-separated **list** of sort fields, each
-     * a sortable key or its `-`-prefixed descending form (§4.4). JSON:API carries
+     * a sortable key or its `-`-prefixed descending form. JSON:API carries
      * the list in one parameter, so this is an OAS `form`/`explode: false` array
      * parameter (the standard comma-delimited shape); the allowed tokens are
      * preserved as the array `items` enum. Returns `null` when the type declares no
@@ -1324,7 +1324,7 @@ final class OperationProjector
 
     /**
      * The single `include` parameter: a comma-separated **list** of the type's allowed
-     * includable relationship paths (§4.4). JSON:API carries the list in one parameter,
+     * includable relationship paths. JSON:API carries the list in one parameter,
      * so this is an OAS `form`/`explode: false` array parameter (the standard
      * comma-delimited shape); the allowed paths are preserved as the array `items`
      * enum. Returns `null` when nothing is includable.
@@ -1350,7 +1350,7 @@ final class OperationProjector
     }
 
     /**
-     * The `fields[<type>]` sparse-fieldset parameters (§4.4 / D10): one per type
+     * The `fields[<type>]` sparse-fieldset parameters: one per type
      * **reachable in the document** — the primary `$type` plus every type a declared
      * `?include` path can resolve to (so a client doing `?include=author&fields[people]=…`
      * uses a parameter the document actually declares). Only field-bearing types
@@ -1607,7 +1607,7 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Pagination\PaginatorInterface::describePageSchema()}: a
      * plain object for a single strategy, a `oneOf` menu for a
      * {@see \haddowg\JsonApi\Pagination\MultiPaginator}. A `null` schema means the
-     * collection is unpaginated — no `page` parameter at all (§4.4).
+     * collection is unpaginated — no `page` parameter at all.
      *
      * A paginator's page schema may carry a schema-level `x-profile` marker (the
      * cursor strategy does — see {@see \haddowg\JsonApi\Pagination\CursorPaginator::describePageSchema()}).
@@ -1919,7 +1919,7 @@ final class OperationProjector
     }
 
     /**
-     * Adds the enumerated standard error responses (D12), each a `$ref` to the shared
+     * Adds the enumerated standard error responses, each a `$ref` to the shared
      * `components.responses` entry for its status ({@see ErrorResponseProjector}).
      * Statuses are supplied per operation by the caller.
      *
@@ -1939,7 +1939,7 @@ final class OperationProjector
      * {@see ServerMetadataInterface::defaultSecurity()} when this operation is in the
      * type's secured-operations set, otherwise `null` (inherit the document default —
      * no per-operation `security` emitted). Mirrors the action `isSecured()` intent;
-     * the requirement VOs come only from the configured default (§4.6 / D8).
+     * the requirement VOs come only from the configured default.
      *
      * An **empty** configured default ({@see ServerMetadataInterface::defaultSecurity()}
      * is `[]`) carries nothing to attach: a secured operation then emits no

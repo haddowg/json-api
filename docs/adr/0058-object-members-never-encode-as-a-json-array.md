@@ -1,0 +1,3 @@
+# Object members never encode as a JSON array, and an empty array is accepted as an object
+
+PHP cannot tell `[]` from `{}` once a body is decoded associatively, so the object/array boundary is handled per field. On output, a map-shaped attribute hands the encoder a `\stdClass` when its array is empty or list-shaped, rather than `JSON_FORCE_OBJECT`, which would also turn real lists like `data` into objects; empty optional object members (`links`, `source`, `jsonapi`) are omitted rather than rendered as `{}`, which a decode/re-encode round trip would turn back into `[]`. On input, a map field refuses a non-empty list with a `422` but accepts an empty array, because refusing it would also refuse every `{}`.
