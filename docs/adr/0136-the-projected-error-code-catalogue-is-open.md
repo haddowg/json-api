@@ -1,88 +1,12 @@
 # The projected error-code catalogue is open
 
-The projection described `Error.code` as a bare `{"type": "string"}`, so the 53 stable
-codes core raises — each with a fixed status, a fixed default title and a known `source`
-member — reached a generated client as an opaque string to match on by hand. We now emit
-one named `components.schemas.<Code>Error` per code (`allOf: [$ref Error, {code: const,
-status: const, source: required}]`, with core's default title as the schema's `title`
-annotation) and offer them from `ErrorDocument.errors.items` as an **`anyOf` whose first
-branch is the open generic `Error`**.
-
-The open branch is the whole decision. A closed `oneOf` would read as an exhaustive list,
-and it would be wrong the first time an application threw an error of its own: the server
-would emit a document that fails its own published schema. Keeping the generic branch
-means the `anyOf` constrains nothing — every error object already satisfies it — so the
-catalogue is **discoverable without being authoritative**. A generator reads the named
-variants to emit typed exception subclasses and falls back to a status-based exception,
-with the raw code intact, for a code it does not recognise. We accept that the validation
-value is nil and the document grows by roughly 50 schema components; discovery is the
-point, and validation of `code` was never possible anyway.
-
-**The membership is open too.** A catalogue that only ever holds core's 53 codes describes
-half of any real server: applications and framework integrations raise codes of their own,
-and a generated client should be able to type those as well. So `ErrorCatalog` is a
-composite over `ErrorCatalogSourceInterface` — each source yields described-error classes,
-core's is one of them, and the projector assembles a fresh catalogue per server from
-core's source plus whatever the server's metadata contributes through
-`ContributesErrorCodes`. Per server, not static: an application's codes belong in the
-documents of the servers that registered them and nowhere else, which is the
-registration-awareness [ADR 0131](0131-registration-aware-openapi-projection.md) already
-applies everywhere else in the projection. Two *different* classes claiming one `code`
-throws, naming both — a code is what a client dispatches on, so resolving the clash
-silently would publish one class's status and title under the other's code. Core's source
-reads the classes filed beside it, scoped to that one directory, at projection time and at
-most once per process; a projected document is a warmed or exported artefact, so a
-directory read costs nothing where it happens. (`scandir`, not `glob`: `glob()` does not
-traverse stream wrappers and returns an empty array under `phar://`, which would empty the
-catalogue without a word.) `ErrorFeature` stays a closed enum of core's own capabilities —
-a contributed error names none and is published wherever it is registered.
-
-Two supporting decisions. **`context` is not projected at all.** `Error::$context` is the
-interpolation input core fills into the `title` / `detail` templates ([ADR
-0128](0128-localizable-error-catalogue-via-code-keyed-resolver.md)) and never reaches the
-wire, so typing it as a member would describe something no server sends. Publishing its
-shape as an `x-error-context` extension describes the same unsendable thing one keyword
-over, which is why that extension is gone too. Its audience was whoever writes a
-replacement template, and they write PHP: `ErrorDescriptor::$context` already names the
-tokens and their types, where they are already reading. The document stays a description of
-what a client receives. **The catalogue is registration-aware.** Each descriptor names the
-`ErrorFeature` it depends on (atomic operations, cursor pagination, a pagination menu,
-the Countable profile, client-generated ids, or any write at all) and the projector drops
-codes the server cannot raise, the same gating [ADR
-0131](0131-registration-aware-openapi-projection.md) applies to `?withCount` and the
-write components.
-
-**The catalogue is also offered per status**
-([ADR 0139](0139-error-responses-are-shared-components-narrowed-per-status.md)): each error
-response points at an `ErrorDocument<status>` listing only the codes pinned to that status,
-so a `415` no longer advertises 53 codes when one can occur. Every one of those keeps the
-generic branch first, and for a second reason on top of the one above — a document of mixed
-statuses takes the class they round down to
-([ADR 0018](0018-error-document-status-reflects-a-uniform-error-set.md)), so a `400` body
-may carry an error object whose own `status` reads `"422"`. The named set per status is
-deliberately not exhaustive.
+Each stable error code projects as a named `<Code>Error` schema, offered from the error document as an `anyOf` whose first branch is the generic `Error`, so the catalogue is discoverable without being authoritative: a server raising an application's own code still validates against its own schema. Membership is open as well: `ErrorCatalog` composes sources (core's, discovered from `src/Exception`, plus codes a server contributes through `ContributesErrorCodes`), assembled per server and gated by the `ErrorFeature`s it offers, and two classes claiming one code throws. Each code is described statically by `describe(): ErrorDescriptor`, which the exception also renders through, so the description and the error cannot disagree.
 
 ## Considered options
 
-- **A closed `oneOf`.** Rejected above: it makes an application's own error codes invalid
-  against the server's own schema.
-- **A `discriminator` on `code`.** OpenAPI's `discriminator` needs a closed mapping to be
-  useful and is only advisory in 3.1; it buys a generator nothing the `const` does not,
-  and reintroduces the closed-list problem in the mapping.
-- **Serializing `context` into the error's `meta`.** It would make the typed-context story
-  work end to end, but it changes every error document for every existing server, and ADR
-  0128 deliberately kept context internal. Out of scope for a projection change.
-- **A hand-written roster of core's exception classes**, policed by a test that scans
-  `src/Exception` and fails when one lands outside it. It is greppable and it diffs, but
-  it is a second copy of the membership and it is closed by construction: an application
-  cannot add a code to it at all. Discovering the same directory the test scanned gives
-  the identical guarantee with nothing to drift, and the roster's absence is what made
-  room for the source contract.
-- **Reading the catalogue by reflecting over `src/Exception` and constructing each
-  exception with placeholder arguments.** Fragile and dishonest — `getErrors()` builds its
-  errors from constructor state, so the arguments would have to be invented and the
-  resulting `detail` would be fiction. Instead each exception gained a static
-  `describe(): ErrorDescriptor` (a new opt-in `DescribedErrorInterface`, not a widening of
-  `JsonApiExceptionInterface`, so an application's own exceptions keep working undescribed)
-  and now renders its `Error` **through** that descriptor, so the published description
-  and the rendered error cannot disagree.
+- A closed `oneOf` or a `discriminator` on `code`: both make an application's own codes invalid against the server's schema.
+- A hand-written roster, or constructing exceptions with placeholder arguments: a second copy that is closed by construction, or fiction in every `detail`.
+
+## Consequences
+
+`Error::$context` is never projected; it is template input that never reaches the wire. Core also catalogues codes only adapters raise (`AUTHENTICATION_REQUIRED`, `ACCESS_DENIED`, `METHOD_NOT_ALLOWED`), so every adapter answers with one vocabulary; an adapter-only code is gated on an opt-in metadata interface so a server that does not use it projects an unchanged document.

@@ -172,7 +172,7 @@ in `jsonapi.profile` and the `Content-Type` `profile` parameter, exactly as
 `RelatedResponse::fromPage()` advertises it. The body is untouched: the pagination
 links flow through the relationship-pagination seam
 ([profiles](profiles.md#the-bundled-relationship-queries-profile)), and a linkage
-document never carries `meta.page` (links-only by convention — ADR 0124).
+document never carries `meta.page` (links-only by convention).
 
 The same value object is the success body for a relationship **mutation** —
 `PATCH`/`POST`/`DELETE …/relationships/{rel}` render the mutated parent's linkage
@@ -302,6 +302,16 @@ the link has no `meta`. `location.type` is the media type the action declares, a
 `withType()` overrides it for one response, such as a file whose type varies. Meta you add with `withMeta()` joins `expiresAt`. Both shapes send
 `Cache-Control: no-store` and `Vary: Accept`; a header you set with `withHeader()` wins.
 The `200` drops the `Location` header, since the URL is in the document.
+
+## Asynchronous processing
+
+For JSON:API's asynchronous-processing recommendation, a handler that accepts a write for
+later returns an `AcceptedResponse` (`202 Accepted`): `forResource($job, $serializer)`
+renders a pollable job resource, `fromMeta([...])` a meta-only status document.
+`withContentLocation($url)` sets the job URL and `withRetryAfter()` takes delta-seconds or a
+`\DateTimeInterface` (written as an HTTP date in GMT). It merges no top-level `self`, since
+the request URL is not the job's. When the job finishes, a `GET` on the job URL returns a
+`SeeOtherResponse::to($resourceUrl)` (`303`), described above.
 
 ## Document-level members: the withers
 

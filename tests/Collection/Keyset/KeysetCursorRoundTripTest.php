@@ -23,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The keyset machinery composed end-to-end, exactly as an in-memory data layer
- * runs a cursor window (ADR 0123): resolve the keyset columns, check the cursor
+ * runs a cursor window (ADR 0061): resolve the keyset columns, check the cursor
  * against them (stale → 400), sort by the forced NULL=largest order, keep the
  * rows strictly after the boundary, over-fetch `limit + 1`, slice, re-orient a
  * backward page, and mint the boundary tokens off the sliced page. Drives the
@@ -136,7 +136,7 @@ final class KeysetCursorRoundTripTest extends TestCase
     /**
      * Runs the canonical in-memory cursor (keyset) composition a data layer
      * executes for a {@see CursorWindow} — the recipe the machinery is designed
-     * around (ADR 0123).
+     * around (ADR 0061).
      *
      * @param list<object>        $items
      * @param list<SortInterface> $sorts the declared sort vocabulary

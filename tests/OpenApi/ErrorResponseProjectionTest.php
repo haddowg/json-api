@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  * tempting and just as wrong. {@see anErrorWhoseOwnStatusDiffersStillValidates} covers
  * the case that makes the narrowing deliberately non-exhaustive: a document of mixed
  * statuses takes the class they round down to
- * ([ADR 0018](../../docs/adr/0018-error-document-status-reflects-a-uniform-error-set.md)),
+ * (see docs/errors-and-exceptions.md),
  * so a `400` body can legitimately carry a `422` error object.
  */
 #[CoversClass(ErrorResponseProjector::class)]
@@ -242,7 +242,7 @@ final class ErrorResponseProjectionTest extends TestCase
     #[Test]
     public function anErrorWhoseOwnStatusDiffersStillValidates(): void
     {
-        // ADR 0018: a document whose errors carry different statuses takes the status
+        // A document whose errors carry different statuses takes the status
         // class they round down to, so a 400 body can carry a 422 error object. The
         // generic branch absorbs it — which is exactly why the narrowing is a catalogue
         // of what a status usually carries and not a promise about what it always does.

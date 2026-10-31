@@ -17,7 +17,7 @@ use haddowg\JsonApi\Resource\Sort\UnsupportedSort;
  * Resolves the ordered keyset columns a cursor (keyset) page walks, shared by
  * every data layer so a SQL push-down's forced `ORDER BY`/keyset `WHERE` and
  * the in-memory NULL=largest comparator derive from ONE source and cannot
- * drift (ADR 0123).
+ * drift (ADR 0061).
  *
  * The active sort is resolved from the same inputs the plain (offset) sort
  * path reads — the requested `sort` values validated against the declared
@@ -112,7 +112,7 @@ final class KeysetResolver
      *
      * The direction comparison catches a same-columns flip (`?sort=name` →
      * `?sort=-name`) a column-set comparison alone cannot — the cursor would
-     * otherwise be silently reused under the opposite order (ADR 0123). The
+     * otherwise be silently reused under the opposite order (ADR 0061). The
      * codec guarantees `$boundary->descending` is a clean string-keyed bool map
      * (a token lacking it → CursorMalformed upstream), so it compares directly.
      *

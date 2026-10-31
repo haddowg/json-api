@@ -1,15 +1,7 @@
 # Derived from woohoolabs/yin, not forked
 
-This library was built by porting and modernising substantial portions of
-[woohoolabs/yin](https://github.com/woohoolabs/yin) (MIT) rather than forking it:
-there is no upstream tracking relationship and no commitment to yin's public API.
-That freedom is the whole point — it let us redesign the surface (typed
-exceptions, immutable value objects, a fluent schema layer) instead of inheriting
-yin's. yin is credited as the original work, and this package is never described
-as a "fork".
+This library ports and modernises substantial parts of [woohoolabs/yin](https://github.com/woohoolabs/yin) (MIT) but does not track it upstream or keep its public API, because that freedom is what allowed the redesigned surface (typed exceptions, immutable value objects, a fluent resource layer). yin is always credited as the original, and the package is never called a "fork".
 
 ## Consequences
 
-- We do **not** receive yin's upstream fixes automatically; any spec or security
-  fix landed there must be re-derived by hand.
-- We owe no API compatibility to yin, so divergence is expected, not a defect.
+Fixes landed in yin are not inherited and must be re-derived by hand; divergence from yin's API is expected, not a defect.

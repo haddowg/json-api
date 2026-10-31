@@ -231,7 +231,7 @@ from `is_iterable`). `render()` builds the body array via the engine and returns
 `JsonApiRequest` and encodes with `\JSON_THROW_ON_ERROR` inline. **Profile application
 and `ext` negotiation live here** (not on the profile): `appliedProfiles()` intersects
 the request's requested/required URIs with the server's registered profiles, then
-`toPsrResponse()` runs each `finalizeDocument()`, records `links.profile`, echoes the
+`toPsrResponse()` runs each `finalizeDocument()`, records `jsonapi.profile`, echoes the
 `profile` media-type parameter, and sets `Vary: Accept`.
 
 ### Operations
@@ -290,7 +290,7 @@ The two middleware are **per-server opt-in** (the injected `DocumentValidator` m
 DI fail fast if opis is absent). **`SchemaCompiler`** turns a resource's field+
 constraint metadata into a draft-2020-12 `stdClass` that **tightens** the base for one
 type/context and drops into the same `$additionalSchemas` list (no validator API
-change); `When`/`Custom` constraints are **skipped** (don't round-trip). Build nested
+change); `When`/`CompareField` constraints are **skipped** (don't round-trip). Build nested
 arrays and convert to `stdClass` once at the boundary (analysable at L9).
 
 ### Fluent schema — fields, constraints, relations
@@ -386,7 +386,7 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
   claims that status and the generic `ErrorDocument` when it does not. The
   narrowings keep the leading generic `Error` too, and `ErrorResponseProjectionTest` guards
-  both that and the mixed-status case ADR 0018 produces
+  both that and the mixed-status case (a document of mixed statuses takes their shared class)
   ([ADR 0139](docs/adr/0139-error-responses-are-shared-components-narrowed-per-status.md)).
 - A `filter[<key>]` takes its container from the filter kind and its value from declared
   constraints, falling back to `TargetsColumn` matched against the type's own `fields()`

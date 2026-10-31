@@ -126,7 +126,7 @@ final class ErrorCatalogProjector
      * With a `$status`, the entry belongs to a per-status narrowing (`ErrorDocument415`)
      * and `$components` holds only the codes pinned to that status. The generic branch
      * still leads, and it does more work there: a mixed-status document rounds down to
-     * its status class ([ADR 0018](../../docs/adr/0018-error-document-status-reflects-a-uniform-error-set.md)),
+     * its status class,
      * so a `400` body may legitimately carry an error object whose own `status` reads
      * `"422"`.
      *

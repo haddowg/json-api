@@ -276,7 +276,7 @@ action links for one path, or a declared link named like an action link, throw a
 an action only some of them expose: a server without it neither renders nor projects the
 link. An adapter fails the build when no server serving the type has the action, so a typo
 still gets caught
-([ADR 0186](adr/0186-an-action-link-declared-on-the-resource-carries-its-condition-and-description.md)).
+([ADR 0178](adr/0178-a-resource-declares-its-named-links-and-the-projection-describes-them.md)).
 
 ## Link forms
 

@@ -151,7 +151,7 @@ sketch:
   one, see [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
   only the relations settable in that write, and marks a write-only relation's property
   `writeOnly: true`, so a generator can keep it on its input types and off its read types
-  ([ADR 0162](adr/0162-a-write-only-relation-is-marked-writeonly-in-the-write-bodies.md)).
+  ([ADR 0152](adr/0152-a-write-only-relation-is-unreadable-and-its-mutations-answer-204.md)).
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
@@ -169,7 +169,7 @@ sketch:
   `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
   bodies through `<Type><Rel>RelationshipRequest`
-  ([ADR 0160](adr/0160-a-pivot-has-separate-response-and-request-schemas.md)).
+  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md)).
 - **Links, per context.** Each place a link renders has one shared component listing the
   members the server can put there: `ResourceLinks`, `DocumentLinks`, `CollectionLinks`,
   `RelationshipLinks`, `RelationshipDocumentLinks` and `RelatedDocumentLinks`. A type whose
@@ -232,7 +232,7 @@ sketch:
   "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
   same rule, and the resource `id` is never null. So a client can trust a read type
   without `null`: that member always carries a value.
-  ([ADR 0156](adr/0156-a-read-attribute-admits-null-unless-the-server-guarantees-a-value.md).)
+  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md).)
 - **Presence is a separate promise.** The read shape's `required` lists every attribute a
   response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or
   `writeOnly(when:)` member and a `sparseByDefault()` one are left out, since a response
@@ -244,7 +244,7 @@ sketch:
   `serializeUsing()` or `extractUsing()` hook builds the value lists none, since the
   hook decides its shape. A nullable nested object can still be `null`; when it is
   present, its required children are there
-  ([ADR 0157](adr/0157-a-nested-objects-read-required-lists-the-children-it-always-renders.md)).
+  ([ADR 0155](adr/0155-a-projected-constraint-holds-for-every-value-its-schema-describes.md)).
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each
@@ -391,7 +391,7 @@ open generic `Error` still leads it. A status the catalogue claims no code for k
 generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
 `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
 for the adapters to render when the framework's security layer refuses a request
-([ADR 0144](adr/0144-authentication-and-authorization-failures-carry-core-codes.md)), so
+([ADR 0136](adr/0136-the-projected-error-code-catalogue-is-open.md)), so
 `ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
 write-side `403` codes.
 
@@ -399,7 +399,7 @@ Two things follow, and the second is easy to miss. The `anyOf` is still a catalo
 still not a constraint — your own `422` code validates against `ErrorDocument422` for the
 same reason it validates against `ErrorDocument`. And a document's status is the status
 *class* its errors share: a response that collects a `422` and a `409` goes out as a `400`
-([ADR 0018](adr/0018-error-document-status-reflects-a-uniform-error-set.md)), so a `400`
+([errors and exceptions](errors-and-exceptions.md)), so a `400`
 body can carry an error object whose own `status` member reads `"422"`. The generic branch
 absorbs that and validation passes. Read the per-status list as the codes that status
 usually carries, not the codes it can only carry.
@@ -841,7 +841,7 @@ create `201` (with `Location` and the created document), an update `200`, a dele
 fetch `200`, a collection `200`. A type may **override** the success set an operation
 advertises, and a custom action **declares** its own, through a small family of immutable
 response objects in `haddowg\JsonApi\OpenApi\Metadata`. This is how a spec-valid `204`, an
-asynchronous `202`, or a `303` completion enters the contract (ADR 0126, ADR 0127).
+asynchronous `202`, or a `303` completion enters the contract (ADR 0126).
 
 ### The response objects
 
@@ -1078,8 +1078,7 @@ public function fields(): array
 Filters take both too. A filter's `describedAs()` overrides the generated default every
 convenience filter ships with, and its `example()` becomes the `filter[<key>]` parameter's
 own `example`. That puts it on the Parameter Object rather than the value schema, because
-OAS 3.1 deprecates the Schema Object's `example`
-([ADR 0145](adr/0145-a-filter-example-is-its-parameters-example.md)). Give it the
+OAS 3.1 deprecates the Schema Object's `example`. Give it the
 parameter's whole value, in the shape the schema describes:
 
 ```php

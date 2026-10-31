@@ -1,22 +1,7 @@
-# Per-relation `dataOnlyWhenLoaded()` policy + storage-aware load-state seam
+# Relationship linkage is lazy by default, keyed per relation type
 
-> Status: the opt-in surface is **superseded by [ADR 0067](0067-relationship-data-is-lazy-by-default-per-type.md)** — lazy is now the per-type default and `dataOnlyWhenLoaded()` is replaced by its inverse `withData()`. The load-state seam this ADR introduced is retained unchanged.
+A relation renders links only (no `data`) until its value is loaded or included, so a forgotten opt-in can never cause one storage load per parent just to render identifiers. The default follows whether resolving linkage is free: `BelongsTo` and `MorphTo` (the key sits on the owning model) default eager, the to-many relations and `HasOne` default lazy, and `withData()` forces a lazy relation eager. "Is it loaded?" is answered by an adapter-supplied `RelationshipLoadStateInterface`; with none injected everything counts as loaded.
 
-A relation may now opt into load-aware linkage via
-`AbstractRelation::dataOnlyWhenLoaded()` (off by default; `emitsDataOnlyWhenLoaded()`
-exposes it on `RelationInterface`): when its related value is not already in
-memory, the relationship emits its `links` only and omits the `data` member
-rather than triggering a lazy storage load purely to serialize identifiers. The
-"is it loaded?" question is answered by an adapter-supplied
-`RelationshipLoadStateInterface` (parent model + the `RelationInterface`, so the
-adapter can read the backing column and cardinality) injected on the `Server` via
-`withRelationshipLoadState()` and threaded down to relations through the existing
-`SerializerResolverInterface` the same way the lazy resolver is — core ships no
-implementation, so the default predicate is *always-loaded* and standalone core
-keeps emitting data exactly as before. The gate is deliberately narrow: it defers
-the data read (behind a callable, reusing `omitDataWhenNotIncluded()`) only when
-the relation opted in, the predicate reports not-loaded, and the relation carries
-links — an **included** relationship always re-emits data (include-wins, free from
-the existing transform path) and a relation **without links** always emits data
-(the validity guard, so omitting data can never produce an empty relationship
-object).
+## Consequences
+
+An included relationship always emits `data`, and a relationship that would render neither links nor meta always emits `data`, since a relationship object may not be empty.

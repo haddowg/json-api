@@ -33,7 +33,7 @@ interface TypeMetadataInterface
     public function type(): string;
 
     /**
-     * The URI segment this type is mounted under (ADR 0022 — distinct from
+     * The URI segment this type is mounted under (distinct from
      * {@see type()}). Consumed by the Slice-3 path projection.
      */
     public function uriType(): string;

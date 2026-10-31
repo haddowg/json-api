@@ -422,7 +422,7 @@ final class OpenApiProjectorTest extends TestCase
     {
         // Every relationship endpoint's document shares one links component listing what
         // the server can render there: the relationship's own `self`/`related`,
-        // `describedby`, and the pages of a paginated to-many (ADR 0096). Neither
+        // `describedby`, and the pages of a paginated to-many. Neither
         // describes a compound `included` (a relationship endpoint is linkage-only) — D16.
         $schemas = $this->schemas();
 

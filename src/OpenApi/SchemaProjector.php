@@ -323,7 +323,7 @@ final class SchemaProjector
      * Projects a `belongsToMany` relation's **response** `meta.pivot` object: every pivot field a
      * rendered linkage identifier carries, read-only ones included and write-only ones left out.
      * Each field follows the read rules an attribute does, so it admits `null` unless the server
-     * guarantees a value (ADR 0156), and `required` lists every field rendered on every response,
+     * guarantees a value (ADR 0155), and `required` lists every field rendered on every response,
      * leaving out a `hidden(when:)` / `writeOnly(when:)` one.
      *
      * @param iterable<FieldInterface> $fields

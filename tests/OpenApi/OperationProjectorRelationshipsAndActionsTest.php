@@ -209,7 +209,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         self::assertNotContains('page', $this->parameterNames($relationship));
 
         // A to-MANY relationship (linkage) endpoint is a real queryable, paginated
-        // linkage collection at parity with the related endpoint (ADR 0096): it carries
+        // linkage collection at parity with the related endpoint: it carries
         // the merged `filter[]`/`sort`/`page` vocabulary — but not `include`/`fields`,
         // since a relationship endpoint renders linkage, not the related resources.
         $toManyRel = $this->arrAt($this->paths(), '/articles/{id}/relationships/tags', 'get');
@@ -227,7 +227,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
         // A polymorphic to-many (`attachments` → images|videos) has no single related
         // provider or shared vocabulary to window through, so its relationship (linkage)
         // endpoint takes no query parameters — the host rejects a requested filter/sort/
-        // page there with a 400 (ADR 0096). Contrast the monomorphic to-many `tags`
+        // page there with a 400. Contrast the monomorphic to-many `tags`
         // relationship endpoint above, which carries the full filter/sort/page vocabulary.
         $relationship = $this->arrAt($this->paths(), '/articles/{id}/relationships/attachments', 'get');
         self::assertArrayNotHasKey('parameters', $relationship);

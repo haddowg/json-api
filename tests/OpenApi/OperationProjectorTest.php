@@ -257,7 +257,7 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // A structured Range renders as a deepObject parameter (ADR 0077) and surfaces
+        // A structured Range renders as a deepObject parameter (ADR 0076) and surfaces
         // the strategy's preset description.
         $rating = $this->parameterNamed($get, 'filter[rating]');
         self::assertSame('deepObject', $this->strAt($rating, 'style'));

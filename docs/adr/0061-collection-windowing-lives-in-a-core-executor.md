@@ -1,13 +1,7 @@
-# Collection windowing lives in a storage-agnostic core executor
+# Collection windowing and keyset execution live in core
 
-The bundle's read providers each hand-rolled the same window/count/count-free
-"tail" — no-window passthrough, an `OffsetWindow` guard, a counted page, and a
-limit+1 count-free page (core ADR 0057) — in four places. We consolidate that tail
-into a single `haddowg\JsonApi\Collection\WindowExecutor` and move the
-`CollectionResult` value object alongside it into a new `haddowg\JsonApi\Collection`
-namespace, because these are storage-agnostic read contracts that sharpen the v1
-public API: the executor references only core/PHP types and takes the store-specific
-work (materialize / count / page / probe) as closures, so every data layer — the
-Doctrine push-down, the in-memory witness, a future custom provider — gets identical
-branch behaviour, and the same seam is where the cursor (keyset) window strategy
-will plug in without touching any provider.
+The storage-agnostic part of fetching a collection window (no-window passthrough, counted page, count-free probe, and the cursor branch) is one `Collection\WindowExecutor`, and the keyset machinery (active sort to keyset columns, staleness check, NULL ordering, token minting) is `Collection\Keyset`. Data layers supply only store-specific closures, so every provider gets identical branch behaviour; the integrations had each carried byte-identical copies, which invited exactly the drift the classes exist to prevent.
+
+## Consequences
+
+Cursor pagination is another `WindowInterface` strategy under the same seam: the keyset follows the client's active sort plus a primary-key tiebreak, a token whose columns no longer match is a `400` stale cursor, and a cursor page is always count-free.

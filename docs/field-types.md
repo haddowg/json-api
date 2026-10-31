@@ -355,6 +355,7 @@ A zero-indexed array attribute (JSON `type: array`).
 
 | Method | Adds / effect |
 |---|---|
+| `of(string $elementType)` | Types the projected `items` schema as `string`, `integer`, `number` or `boolean` (default `string`, so a list never projects as untyped); it does not cast values. |
 | `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems`. |
 | `uniqueItems()` | `UniqueItems`. |
 | `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. |

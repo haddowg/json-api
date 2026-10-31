@@ -656,7 +656,7 @@ final class OperationProjector
         // paginated linkage collection at parity with the related endpoint: `filter[]`/
         // `sort`/`page` (+`withCount` when countable) scope against the same merged
         // vocabulary, the page-1 linkage rendering with the relationship object's
-        // pagination links (ADR 0096). A **polymorphic** relationship endpoint (to-one or to-many — members
+        // pagination links. A **polymorphic** relationship endpoint (to-one or to-many — members
         // span types, no single related provider or shared vocabulary) takes no query
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         if (!$relation->isToMany()) {

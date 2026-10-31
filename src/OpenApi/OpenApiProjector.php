@@ -1402,7 +1402,7 @@ final class OpenApiProjector
      *
      * Its `links` are the shared `RelationshipDocumentLinks`: the relationship's own
      * `self`/`related`, `describedby`, and, for a paginated to-many (a queryable linkage
-     * collection, ADR 0096), the pagination members. A relationship
+     * collection), the pagination members. A relationship
      * endpoint returns linkage only —
      * never a compound `included` — so no `included` is described here (core D16).
      */
