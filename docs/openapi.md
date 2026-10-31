@@ -278,6 +278,12 @@ plain `$ref`:
   from the related type, and its related `?withCount` offers no relations of it. A
   relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
 
+A `MorphToMany` declared with [`identifiedBy()`](relations.md#identifying-the-members-without-loading-them)
+is the one exception: its relationship endpoint pages its stored pairs, so it takes the
+same `page` and `withCount` parameters as its related endpoint, and still no `filter` or
+`sort`. Metadata says so through `DeclaresIdentifiedMembers`; metadata that doesn't
+implement it projects the endpoint with no parameters.
+
 So a generated client already types the relation as polymorphic, and adding a second type
 later adds a member rather than changing every input that carries the relation. The
 projector learns that a relation is polymorphic from `DeclaresPolymorphicRelation` on its

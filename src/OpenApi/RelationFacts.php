@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
@@ -41,6 +42,15 @@ final class RelationFacts
     {
         return \count($relation->relatedTypes()) > 1
             || ($relation instanceof DeclaresPolymorphicRelation && $relation->isPolymorphic());
+    }
+
+    /**
+     * Whether the relation is a to-many whose members are stored `[type, id]` pairs, so its
+     * relationship endpoint pages them.
+     */
+    public static function identifiesMembers(RelationMetadataInterface $relation): bool
+    {
+        return $relation->isToMany() && $relation instanceof DeclaresIdentifiedMembers && $relation->storesIdentifiers();
     }
 
     /**

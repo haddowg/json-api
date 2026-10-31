@@ -262,7 +262,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -346,7 +347,8 @@
                                 "type": "string",
                                 "enum": [
                                     "_self_",
-                                    "tags"
+                                    "tags",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -455,7 +457,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -645,7 +648,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -844,7 +848,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -1345,7 +1350,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -3004,6 +3010,433 @@
                 ]
             }
         },
+        "/articles/{id}/sponsors": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `id` of the article.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the related sponsors of an article",
+                "description": "Returns the related `sponsors` resources of an article.",
+                "operationId": "fetchRelated.articles.sponsors",
+                "parameters": [
+                    {
+                        "name": "fields[people]",
+                        "in": "query",
+                        "description": "A comma-separated list of `people` fields to return (sparse fieldsets).",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "name",
+                                    "role",
+                                    "company"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "fields[images]",
+                        "in": "query",
+                        "description": "A comma-separated list of `images` fields to return (sparse fieldsets).",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "url",
+                                    "clips"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Pagination parameters, e.g. `page[number]=2&page[size]=10`.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "number": {
+                                    "type": "integer",
+                                    "description": "The page number to retrieve.",
+                                    "default": 1,
+                                    "minimum": 1
+                                },
+                                "size": {
+                                    "type": "integer",
+                                    "description": "The number of resources per page.",
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
+                                }
+                            }
+                        },
+                        "style": "deepObject",
+                        "explode": true
+                    },
+                    {
+                        "name": "withCount",
+                        "in": "query",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "_self_"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "x-profile": "https://haddowg.github.io/json-api/profiles/countable/"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The related sponsors collection.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesSponsorsRelatedCollection"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            }
+        },
+        "/articles/{id}/relationships/sponsors": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "description": "The `id` of the article.",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^(?:art-[0-9]+)$"
+                    }
+                }
+            ],
+            "get": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Fetch the sponsors relationship of an article",
+                "description": "Returns the `sponsors` relationship linkage of an article.",
+                "operationId": "fetchRelationship.articles.sponsors",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Pagination parameters, e.g. `page[number]=2&page[size]=10`.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "number": {
+                                    "type": "integer",
+                                    "description": "The page number to retrieve.",
+                                    "default": 1,
+                                    "minimum": 1
+                                },
+                                "size": {
+                                    "type": "integer",
+                                    "description": "The number of resources per page.",
+                                    "default": 15,
+                                    "minimum": 1,
+                                    "maximum": 100
+                                }
+                            },
+                            "x-paginator": {
+                                "strategy": "page",
+                                "keys": {
+                                    "number": "number",
+                                    "size": "size"
+                                }
+                            }
+                        },
+                        "style": "deepObject",
+                        "explode": true
+                    },
+                    {
+                        "name": "withCount",
+                        "in": "query",
+                        "description": "A comma-separated list of count tokens (the Countable profile), recognised only when the Countable profile is negotiated. Request `withCount=_self_` to receive the collection total in the top-level `meta.total` (also in `meta.page.total` when the collection is paginated).",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "_self_"
+                                ]
+                            }
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "x-profile": "https://haddowg.github.io/json-api/profiles/countable/"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sponsors relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Add to the sponsors relationship of an article",
+                "description": "Adds the supplied members to the `sponsors` relationship of an article.",
+                "operationId": "addRelationship.articles.sponsors",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The updated sponsors relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Remove from the sponsors relationship of an article",
+                "description": "Removes the supplied members from the `sponsors` relationship of an article.",
+                "operationId": "removeRelationship.articles.sponsors",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The updated sponsors relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Articles"
+                ],
+                "summary": "Replace the sponsors relationship of an article",
+                "description": "Fully replaces the `sponsors` relationship of an article with the supplied linkage.",
+                "operationId": "updateRelationship.articles.sponsors",
+                "requestBody": {
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "The updated sponsors relationship linkage.",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticlesSponsorsRelationshipDocument"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "406": {
+                        "$ref": "#/components/responses/NotAcceptable"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/UnsupportedMediaType"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/UnprocessableEntity"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/InternalServerError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        },
         "/articles/{id}/-actions/publish": {
             "parameters": [
                 {
@@ -3086,7 +3519,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -4449,7 +4883,8 @@
                                     "cover",
                                     "locked",
                                     "attachments",
-                                    "editor"
+                                    "editor",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -4465,7 +4900,8 @@
                             "items": {
                                 "type": "string",
                                 "enum": [
-                                    "tags"
+                                    "tags",
+                                    "sponsors"
                                 ]
                             }
                         },
@@ -5822,6 +6258,9 @@
                             },
                             "editor": {
                                 "$ref": "#/components/schemas/ArticlesEditorRelationship"
+                            },
+                            "sponsors": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationship"
                             }
                         }
                     },
@@ -5877,6 +6316,9 @@
                             },
                             "editor": {
                                 "$ref": "#/components/schemas/ArticlesEditorRelationship"
+                            },
+                            "sponsors": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationship"
                             }
                         }
                     }
@@ -6752,6 +7194,9 @@
                                     },
                                     "editor": {
                                         "$ref": "#/components/schemas/ArticlesEditorRelationship"
+                                    },
+                                    "sponsors": {
+                                        "$ref": "#/components/schemas/ArticlesSponsorsRelationship"
                                     }
                                 }
                             }
@@ -7056,6 +7501,9 @@
                             },
                             "editor": {
                                 "$ref": "#/components/schemas/ArticlesEditorRelationship"
+                            },
+                            "sponsors": {
+                                "$ref": "#/components/schemas/ArticlesSponsorsRelationship"
                             }
                         }
                     },
@@ -7140,6 +7588,111 @@
                                 "type": "null"
                             }
                         ]
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/RelationshipDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesSponsorsRelatedCollection": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/PeopleResource"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ImagesResource"
+                                }
+                            ],
+                            "discriminator": {
+                                "propertyName": "type",
+                                "mapping": {
+                                    "people": "#/components/schemas/PeopleResource",
+                                    "images": "#/components/schemas/ImagesResource"
+                                }
+                            }
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/RelatedDocumentLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    },
+                    "jsonapi": {
+                        "$ref": "#/components/schemas/JsonApi"
+                    }
+                },
+                "required": [
+                    "data"
+                ]
+            },
+            "ArticlesSponsorsRelationship": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "$ref": "#/components/schemas/RelationshipLinks"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ImagesResourceIdentifier"
+                                }
+                            ],
+                            "discriminator": {
+                                "propertyName": "type",
+                                "mapping": {
+                                    "people": "#/components/schemas/PeopleResourceIdentifier",
+                                    "images": "#/components/schemas/ImagesResourceIdentifier"
+                                }
+                            }
+                        }
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                }
+            },
+            "ArticlesSponsorsRelationshipDocument": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ImagesResourceIdentifier"
+                                }
+                            ],
+                            "discriminator": {
+                                "propertyName": "type",
+                                "mapping": {
+                                    "people": "#/components/schemas/PeopleResourceIdentifier",
+                                    "images": "#/components/schemas/ImagesResourceIdentifier"
+                                }
+                            }
+                        }
                     },
                     "links": {
                         "$ref": "#/components/schemas/RelationshipDocumentLinks"
@@ -7614,6 +8167,9 @@
                                     },
                                     "editor": {
                                         "$ref": "#/components/schemas/ArticlesEditorRelationship"
+                                    },
+                                    "sponsors": {
+                                        "$ref": "#/components/schemas/ArticlesSponsorsRelationship"
                                     }
                                 }
                             }

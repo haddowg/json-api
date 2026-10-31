@@ -414,8 +414,11 @@ too. A supplied member without a target is matched against the relation's usual 
 on the parent when it is included. Without a seam the stored pairs render as they are.
 
 As with `MorphTo`, an identified `MorphToMany` is never lazy, can't be combined with
-`identifierMeta()`, and changes reads only, so `fillUsing()` still owns writes. The
-OpenAPI document is unchanged.
+`identifierMeta()`, and changes reads only, so `fillUsing()` still owns writes. Its
+relationship endpoint pages the pairs the way its related endpoint does, so the OpenAPI
+document gives `GET …/relationships/{name}` the same `page` and `withCount` parameters,
+while `filter` and `sort` stay out. Metadata reports the relation through
+`DeclaresIdentifiedMembers`.
 
 A data layer loads the members of a page of parents one query per type.
 `MorphToMany::storedIdentifiers($parents, $request)` returns their ids grouped by type,

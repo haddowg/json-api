@@ -335,6 +335,9 @@ final class ContractWitnessServer
                 new WriteOnlyRelationMetadata(new FakeRelationMetadata('watchers', ['people'], true, includable: false, relatedEndpoint: false)),
                 // Opted in but readable: projects exactly as a relation that never opted in.
                 new WriteOnlyRelationMetadata(new FakeRelationMetadata('editor', ['people'], false), writeOnly: false),
+                // A polymorphic to-many identified by stored pairs: its relationship endpoint
+                // takes the page parameters its related endpoint does.
+                FakeRelationMetadata::identifiedMorphToMany('sponsors', ['people', 'images'], countable: true, pageSchema: PagePaginator::make()->describePageSchema()),
                 // Polymorphic over one type, to-one and to-many: projected as the union they
                 // would be with several members.
                 ...($singleTargetPolymorphism ? [
