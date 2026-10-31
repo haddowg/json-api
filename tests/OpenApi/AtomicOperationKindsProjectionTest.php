@@ -44,6 +44,8 @@ final class AtomicOperationKindsProjectionTest extends TestCase
         yield 'add with no target' => [['op' => 'add', 'data' => ['type' => 'articles', 'attributes' => ['title' => 'x']]], 'AtomicAddOperation'];
         yield 'add by ref' => [['op' => 'add', 'ref' => ['type' => 'articles'], 'data' => ['type' => 'articles', 'lid' => 'a1']], 'AtomicAddOperation'];
         yield 'add by href' => [['op' => 'add', 'href' => '/articles', 'data' => ['type' => 'articles']], 'AtomicAddOperation'];
+        yield 'add linking a resource created earlier in the batch' => [['op' => 'add', 'data' => ['type' => 'articles', 'relationships' => ['author' => ['data' => ['type' => 'people', 'lid' => 'p1']], 'tags' => ['data' => [['type' => 'tags', 'lid' => 't1'], ['type' => 'tags', 'id' => '2']]]]]], 'AtomicAddOperation'];
+        yield 'update clearing a to-one' => [['op' => 'update', 'data' => ['type' => 'articles', 'id' => '1', 'relationships' => ['author' => ['data' => null]]]], 'AtomicUpdateOperation'];
         yield 'update by data' => [['op' => 'update', 'data' => ['type' => 'articles', 'id' => '1', 'attributes' => ['title' => 'x']]], 'AtomicUpdateOperation'];
         yield 'update of an identifier-shaped resource' => [['op' => 'update', 'ref' => ['type' => 'people', 'id' => '1'], 'data' => ['type' => 'people', 'id' => '1']], 'AtomicUpdateOperation'];
         yield 'remove by ref' => [['op' => 'remove', 'ref' => ['type' => 'articles', 'id' => '1']], 'AtomicRemoveOperation'];
@@ -84,6 +86,9 @@ final class AtomicOperationKindsProjectionTest extends TestCase
         // A relationship target with a resource payload, and a resource target with linkage.
         self::assertFalse($this->validates($validator, ['op' => 'add', 'href' => '/articles/1/relationships/tags', 'data' => ['type' => 'articles']], 'AtomicOperation'));
         self::assertFalse($this->validates($validator, ['op' => 'add', 'ref' => ['type' => 'articles'], 'data' => [['type' => 'tags', 'id' => '1']]], 'AtomicOperation'));
+        // Linkage in an add names its member by exactly one of `id` or `lid`, of a type the relation links to.
+        self::assertFalse($this->validates($validator, ['op' => 'add', 'data' => ['type' => 'articles', 'relationships' => ['author' => ['data' => ['type' => 'people', 'id' => '1', 'lid' => 'p1']]]]], 'AtomicOperation'));
+        self::assertFalse($this->validates($validator, ['op' => 'add', 'data' => ['type' => 'articles', 'relationships' => ['author' => ['data' => ['type' => 'tags', 'lid' => 't1']]]]], 'AtomicOperation'));
         // A remove of a resource carries no data.
         self::assertFalse($this->validates($validator, ['op' => 'remove', 'ref' => ['type' => 'articles', 'id' => '1'], 'data' => null], 'AtomicOperation'));
     }

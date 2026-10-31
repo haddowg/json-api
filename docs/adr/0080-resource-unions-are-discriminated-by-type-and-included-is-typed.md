@@ -9,5 +9,5 @@ The tier is `DISCRIMINATED_UNIONS`, contract 19, stamped on a document with a po
 ## Considered options
 
 - An add or update carrying `<Type>Resource`, as first proposed: it requires `id` and the read-only attributes, so it rejects a create with a server-assigned id. They carry `<Type>AtomicAdd` and `<Type>AtomicUpdate`, which already declare `type` as a `const`.
-- A relationship operation carrying `<Type>ResourceIdentifier`: it requires `id`, but a batch may name a resource by `lid`. A per-type `<Type>AtomicIdentifier` takes exactly one of `id` or `lid`.
+- A relationship operation carrying `<Type>ResourceIdentifier`: it requires `id`, but a batch may name a resource by `lid`. A per-type `<Type>AtomicIdentifier` takes exactly one of `id` or `lid`, and the relationships inside an atomic add or update use it too.
 - A `oneOf` between a result's resource and its linkage: a resource with no attributes also validates as an identifier, so that choice is an `anyOf`, while each side is a discriminated `oneOf`.

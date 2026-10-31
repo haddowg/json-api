@@ -193,6 +193,8 @@ sketch:
   refuses, so a valid operation matches exactly one kind. An add or update carries a
   `oneOf` over `<Type>AtomicAdd` or `<Type>AtomicUpdate`, and a relationship kind carries
   `<Type>AtomicIdentifier`s, which take an `id` or a `lid`, all discriminated by `type`.
+  The relationships inside an add or update carry the same identifiers, so they can link
+  a resource an earlier operation created.
   An `AtomicResult`'s `data` is the `anyOf` of the returned resource, discriminated over
   `<Type>Resource`, and the returned linkage, discriminated over
   `<Type>ResourceIdentifier`, since a resource with no attributes is also an identifier.

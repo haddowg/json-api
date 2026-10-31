@@ -1022,7 +1022,7 @@ final class OpenApiProjector
             ->withProperty('attributes', $type->hasFields()
                 ? Schema::ref('#/components/schemas/' . $base . 'CreateAttributes')
                 : Schema::ofType('object'))
-            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true) ?? Schema::ofType('object'))
+            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true, atomic: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
             ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
 
@@ -1065,7 +1065,7 @@ final class OpenApiProjector
             ->withProperty('attributes', $type->hasFields()
                 ? Schema::ref('#/components/schemas/' . $base . 'UpdateAttributes')
                 : Schema::ofType('object'))
-            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: false) ?? Schema::ofType('object'))
+            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: false, atomic: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
             ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `update` operation writes.')
             ->withOneOf([
@@ -1293,7 +1293,7 @@ final class OpenApiProjector
      * relation is omitted). Returns `null` when the write exposes no settable relation,
      * so the caller emits no `relationships` property at all.
      */
-    private function writeRelationshipsProperty(TypeMetadataInterface $type, bool $creating): ?Schema
+    private function writeRelationshipsProperty(TypeMetadataInterface $type, bool $creating, bool $atomic = false): ?Schema
     {
         $base = $this->componentBase($type->type());
         $properties = [];
@@ -1302,7 +1302,9 @@ final class OpenApiProjector
                 continue;
             }
             $relBase = $base . $this->componentBase($relation->name());
-            $property = Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
+            $property = $atomic
+                ? $this->atomicRelationshipObjectSchema($relation, $relBase)
+                : Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
             // A write-only relation is never rendered back, which the response schemas
             // show only by its absence; say it here, where the relation is.
             if (RelationFacts::isWriteOnly($relation)) {
@@ -1316,6 +1318,40 @@ final class OpenApiProjector
         }
 
         return Schema::ofType('object')->withProperties($properties);
+    }
+
+    /**
+     * The relationship object an atomic `add` or `update` carries: linkage of
+     * `<Type>AtomicIdentifier`s, so a member may be named by the `lid` of a resource an
+     * earlier operation in the batch created, typed with the request pivot where the
+     * relation has one.
+     */
+    private function atomicRelationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    {
+        $types = $relation->relatedTypes();
+        $single = RelationFacts::monomorphicType($relation);
+        if ($types === []) {
+            $identifier = Schema::ofType('object')
+                ->withProperty('type', Schema::ofType('string'))
+                ->withProperty('id', Schema::ofType('string'))
+                ->withProperty('lid', Schema::ofType('string'))
+                ->withRequired(['type']);
+        } elseif ($single !== null) {
+            $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'AtomicIdentifier');
+            $narrowing = $this->pivotMetaNarrowing($relation, $relBase, writing: true);
+            if ($narrowing !== null) {
+                $identifier = Schema::create()->withAllOf([$identifier, $narrowing]);
+            }
+        } else {
+            $identifier = $this->discriminatedUnion($types, 'AtomicIdentifier');
+        }
+
+        $schema = Schema::ofType('object')
+            ->withProperty('data', $relation->isToMany() ? Schema::ofType('array')->withItems($identifier) : $this->nullable($identifier))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['data']);
+
+        return $this->withRelationDescription($schema, $relation);
     }
 
     /**
