@@ -1,196 +1,169 @@
 # haddowg/json-api
 
-A server-side library for producing and consuming [JSON:API 1.1](https://jsonapi.org/format/1.1/)
-documents in PHP. This glossary fixes the library's vocabulary where it diverges
-from generic terms or from the spec's own wording — so "Resource", "Relation",
-and "Handler" mean one thing here, not three.
+A framework-agnostic, server-side PHP library for producing and consuming
+[JSON:API 1.1](https://jsonapi.org/format/1.1/) documents and projecting an OpenAPI 3.1 description
+of them. This glossary fixes the words the library uses where they differ from generic terms or
+from the spec's own wording.
 
 ## Language
 
-### Defining a resource type
+### Declaring a resource type
 
 **Resource**:
-A consumer-declared class that lists a type's fields once and thereby acts as
-both its serializer and its hydrator.
-_Avoid_: schema, model, entity. (Distinct from a *resource object* — see Flagged ambiguities.)
+A consumer-declared class that lists a type's **Fields** once and is thereby both the type's
+**Serializer** and its **Hydrator**.
+_Avoid_: schema, model, entity, and "resource" for the wire value (that is a *resource object*)
 
 **Field**:
-A single declared member of a **Resource** — an attribute or a **Relation**.
+A built, read-only declaration of one member of a **Resource**: an attribute or a **Relation**,
+with its **Constraints**.
+_Avoid_: property, column
+
+**Field builder**:
+The mutable object an author chains to declare a **Field** (what `Str::make()` returns), which the
+**Resource** builds into the **Field** before use.
+_Avoid_: field (for the builder)
 
 **Relation**:
 A **Field** that links to another resource type (belongs-to, has-many, polymorphic).
-_Avoid_: association. (The output-emitted and input-parsed forms are distinct — see Flagged ambiguities.)
-
-**Declared link**:
-A named member of a **Resource**'s resource-object `links`, declared next to its fields so
-the OpenAPI projection can describe it; its `meta` members are **Fields**.
-_Avoid_: custom link, extra link. (Distinct from a link `getLinks()` returns at runtime, which
-the projection cannot name.)
-
-**Action link**:
-A **Resource**'s declaration that one of its type's resource-scope custom actions renders as
-a member of its `links`, keyed by the action's path, with an optional condition and
-description. The adapter builds the href from the action.
-_Avoid_: conditional link. (A **Declared link** builds its own href.)
+_Avoid_: association, and bare "relationship", which also names the relationship object a
+**Serializer** emits and the linkage parsed from a request body
 
 **Constraint**:
-Inert validation metadata attached to a **Field**; the core never executes it.
-_Avoid_: rule, assertion.
+Validation metadata attached to a **Field** or **Filter**; core never executes it.
+_Avoid_: rule, assertion
+
+**Declared link**:
+A named member of a resource object's `links`, declared on the **Resource** beside its fields so
+the OpenAPI projection can describe it.
+_Avoid_: custom link, extra link
+
+**Action link**:
+A **Resource**'s declaration that one of its type's custom actions renders as a member of its
+`links`, with an optional condition and description; the href comes from the action.
+_Avoid_: conditional link
 
 **Serializer**:
-Maps a domain value to a wire resource — the output direction.
-_Avoid_: transformer, normalizer.
+The output direction: maps a domain value to a resource object.
+_Avoid_: transformer, normalizer
 
 **Hydrator**:
-Maps an incoming document into a domain object — the input direction.
-_Avoid_: deserializer, denormalizer, mapper.
+The input direction: maps an incoming document onto a domain object.
+_Avoid_: deserializer, denormalizer, mapper
 
 ### Querying a collection
 
 **Filter**:
-Metadata describing a filter a type accepts; an **Adapter** executes it.
-_Avoid_: scope, criteria.
+Metadata describing a `filter[<key>]` a type accepts.
+_Avoid_: scope, criteria
 
 **Filter group**:
-A composite **Filter** (`WhereAll` / `WhereAny`) that combines child filters with
-boolean AND / OR under one `filter[<key>]` key. Composed by the author — a client
-cannot assemble arbitrary boolean algebra. The group's request value is passed to
-every child, so it either fans one value across columns (search) or toggles a set
-of **fixed**-value conditions.
-_Avoid_: boolean filter, and/or grouping (implies the declined client-driven model).
+A composite **Filter** (`WhereAll` / `WhereAny`) that combines child filters with AND / OR under
+one `filter[<key>]` and passes its request value to every child.
+_Avoid_: boolean filter, and/or grouping
 
 **Fixed value**:
-A **Filter** value pinned by the author (`->fixed(…)`) so the request value is
-ignored and the key becomes a presence trigger. Distinct from a **default**, which
-the client can override.
+A **Filter** value pinned by the author, so the request value is ignored and the key is a presence
+trigger.
+_Avoid_: default (a default is a value the client can override)
 
 **Sort**:
 Metadata describing a sort key a type accepts.
+
+**Adapter**:
+Consumer-provided code that executes **Filter** and **Sort** metadata against a real data store.
+_Avoid_: bare "handler" (see **Operation handler**)
 
 **Paginator**:
 A strategy that reads the request's `page[…]` parameters and produces a **Page**.
 
 **Multi-paginator**:
-A **Paginator** that offers several strategies at once; the client selects one per
-request with `page[kind]=<kind>`, and an absent `page` falls back to the author's
-declared default. The author composes the menu — a client cannot invent a strategy.
-_Avoid_: pagination mode, page type.
+A **Paginator** offering a menu of strategies, from which the client picks one per request with
+`page[kind]`.
+_Avoid_: pagination mode, page type
 
 **Paginator kind**:
-The free-form string identifier a **Paginator** declares (its `kind()`) — the
-`page[kind]` discriminator value that names it in a **Multi-paginator** menu (and the
-OpenAPI `oneOf` branch `const`). Built-ins name themselves (`page`, `offset`,
-`cursor`, `fixed`); a custom paginator declares its own (`->withKind('…')`).
-Each **Paginator** also self-describes its `page[…]` **Schema**, so the projector
-emits a strategy's real parameters without a central switch.
+The identifier a **Paginator** declares (`page`, `offset`, `cursor`, `fixed` or a custom string),
+used as its `page[kind]` value in a **Multi-paginator**.
+
+**Window**:
+The slice of a collection a **Paginator** asks the data layer to fetch (an offset and limit, or
+cursor boundaries and a limit).
 
 **Page**:
-The value object holding one slice of results together with its pagination links and meta.
-
-**Adapter**:
-Consumer-provided code that executes **Filter**/**Sort** metadata against a real
-data store — the bridge between inert metadata and an actual query.
-_Avoid_: handler (unqualified — see Flagged ambiguities).
+The value object holding one slice of results with its pagination links and meta.
 
 ### The request lifecycle
 
+**Server**:
+The immutable configuration root of one API version: registered **Resources** and **Profiles**,
+base URI, encoding options, factories and middleware.
+
 **Operation**:
-A verb-agnostic statement of intent (fetch a resource, create, update, delete, fetch related…).
-_Avoid_: action, command.
+A transport-independent statement of intent: fetch, create, update, delete, fetch related, a
+relationship mutation or a custom action.
+_Avoid_: command, request
 
 **Target**:
-What an **Operation** acts on — a type, optionally an id and a relationship name.
+What an **Operation** acts on: a type, optionally an id, and optionally a relation name.
+
+**Operation handler**:
+Consumer code that performs an **Operation** and returns a **Response**.
+_Avoid_: bare "handler" (a PSR-15 request handler is the HTTP chain terminus)
 
 **Operation key**:
-Names one operation a type exposes, apart from its route: its kind, the relation or action it
-applies to, its HTTP method and, for an action, its declared safety. Its name is the key
-`operationExamples` uses, such as `fetchRelated.author`.
-_Avoid_: operation name (that is the key's string form only), operationId (that also names the type).
+The name of one operation a type exposes, independent of its route: its kind, the relation or
+action it applies to, its method and an action's declared safety (`fetchRelated.author`).
+_Avoid_: operationId (that also names the type)
+
+**Operation catalogue**:
+The list of operations a server exposes and the scopes each needs, as offered to clients.
+_Avoid_: capabilities endpoint
+
+**Scope table**:
+The resolved map from each **Operation key** to the OAuth scopes it requires, shared by
+enforcement and the OpenAPI projection.
 
 **Profile**:
-A JSON:API 1.1 profile — an advisory, URI-named extension of document semantics
-that a server may ignore if it does not recognise it.
-
-**Server**:
-The immutable, per-API-version configuration root: resource registry, profiles,
-base URI, encoding options, PSR-17 factories, and middleware.
+A JSON:API profile: an advisory, URI-named extension of document semantics that a server may
+ignore.
 
 **Document**:
-A complete top-level JSON:API payload (data/errors/meta + links).
+A complete top-level JSON:API payload.
 
 **Response**:
-The public value object a handler returns (data, error, meta, related, identifier)
-before it is rendered to a PSR-7 message.
+The value object an **Operation handler** returns, before it is rendered to an HTTP message.
 
 ### Errors
 
+**Error code**:
+The stable, machine-readable identifier of an error kind (`RESOURCE_NOT_FOUND`) that a client
+matches on.
+_Avoid_: error type, and "status" (the HTTP status is separate)
+
 **Error catalogue**:
-The fixed set of error kinds the library can emit — one typed exception per kind,
-each carrying its own error data. _Avoid_: error registry, error map. It is core's
-catalogue, never the world's: an application raises its own **Error codes** and the
-projected document stays open to them.
+The set of error kinds a server can emit, each with its **Error code**: core's own plus those an
+application contributes.
+_Avoid_: error registry, error map
 
 **Error descriptor**:
-What an error kind can state before it is raised — its **Error code**, status, default
-title, **context** placeholder shape, `source` member and the **Error feature** it depends
-on. Read off the exception class, never off an instance.
+What an error kind states before it is raised: its **Error code**, status, default title,
+placeholder shape, `source` member and **Error feature**.
 
 **Error feature**:
-The server capability an error kind depends on (atomic operations, cursor pagination, a
-pagination menu, the Countable profile, client-generated ids, writes at all). An error
-kind gated on a feature the server does not offer is left out of the projected document.
-
-**Error code**:
-The stable, machine-readable identifier of an error kind (`RESOURCE_NOT_FOUND`) —
-the contract a client codes against. Never localized, never overridden; the key by
-which human copy is resolved. Distinct from **status** (the HTTP status) and from
-the **title**/**detail** copy.
+The server capability an error kind depends on (atomic operations, cursor pagination, writes, …).
 
 **Message template**:
-An error's human-readable **title** or **detail** as a translatable string with
-`{placeholder}` slots, filled per occurrence from a **context** of locale-invariant
-values (a media type, an id). Localization resolves the template by **Error code**;
-the placeholders are interpolated *after*.
+An error's `title` or `detail` as a translatable string with `{placeholder}` slots, filled per
+occurrence from the error's context.
 
-## Relationships
+### OpenAPI
 
-- A **Server** registers many **Resources** and **Profiles**.
-- A **Resource** declares many **Fields**, and *is* both a **Serializer** and a **Hydrator**.
-- A **Field** may be a **Relation** and may carry **Constraints**.
-- An **Operation** names a **Target** and is handled to produce a **Response**.
-- A **Paginator** produces a **Page**; a **Filter** or **Sort** is executed by an **Adapter**.
-- An **Error catalogue** entry is identified by its **Error code**; its **title**/**detail** are **Message templates** filled from an occurrence **context**, and its **Error descriptor** is what the OpenAPI projection publishes.
+**Projection**:
+The OpenAPI document (and its diagnostics) that core derives from a **Server**'s metadata.
+_Avoid_: generated spec, export
 
-## Example dialogue
-
-> **Dev:** "A `posts` **Resource** declares a `title` **Field** and an `author`
-> **Relation** — does that one class also handle an incoming `PATCH` body?"
-> **Maintainer:** "Yes. A **Resource** is both **Serializer** and **Hydrator**;
-> the same field list drives output and input. You only write a standalone
-> **Serializer** or **Hydrator** when field-walking isn't enough."
-> **Dev:** "And if the client sends `filter[status]=draft`?"
-> **Maintainer:** "The **Resource** declares a `status` **Filter** — that's just
-> metadata. Your **Adapter** is what turns it into an actual query."
-
-## Flagged ambiguities
-
-- **"Relationship"** meant three things — resolved into distinct concepts: the
-  **Relation** *field* (the declaration), the relationship a **Serializer**
-  *emits* on output, and the relationship linkage *parsed from a request body* on
-  input. These are separate types; name the direction when it isn't obvious from context.
-- **"Handler"** was overloaded — resolved: a **Filter**/**Sort** handler executes
-  query metadata (the **Adapter** side); an *operation handler* holds the
-  consumer's business logic for an **Operation**; a PSR-15 *request handler* is
-  the HTTP chain terminus. Never use bare "handler" without the qualifier.
-- **"Resource"** — resolved: the glossary term means the consumer's fluent
-  **Resource** *class*. The thing in the wire document is always a *resource object*.
-- **"Schema"** — avoid as a synonym for **Resource**; reserve "schema" for JSON
-  Schema validation documents.
-- **"Field"** — resolved: the glossary term is the **readonly value object** the
-  engine walks — it serializes/hydrates and carries **Constraints**. The mutable,
-  fluent object an author chains (what `Str::make()` returns) is a **field
-  builder**; a `fields()` entry may be either, and the resource **builds** any
-  builder into its **Field** before use. Autocomplete on a builder shows only
-  authoring methods; the **Field** exposes only the consumption surface. (Amends
-  [ADR 0003](docs/adr/0003-immutable-value-objects-with-carve-outs.md): the builder
-  stays mutable, but it now *produces* a readonly **Field** rather than *being* one.)
+**Generator contract**:
+The integer stamped on every **Projection** that tells a code generator which document structure
+it is reading.
+_Avoid_: spec version, schema version
