@@ -364,6 +364,12 @@ protocol-relative (`//host/…`) URL — passes through **untouched**, never pre
 whatever the base. So a fully-qualified link (a common shape for an error
 `about`/`type` documentation URL) is safe even when the container carries a base.
 
+A **path href without a leading slash** (`uploads/1`, a shape a stored path often
+comes back in) is joined to a non-empty base with one slash, so it renders as
+`https://music.example/uploads/1` rather than gluing the two together. An href that
+starts with `/`, `?`, `#` or a URI-template `{`, and any href rendered with an empty
+base, is concatenated exactly as written.
+
 For the auto-emitted links below, the base your container is given is resolved by
 the response layer: when [`Server::withBaseUri()`](server.md#base-uri-and-the-request-origin)
 is empty (the default), it is the **request origin** (`<scheme>://<authority>`),

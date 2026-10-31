@@ -1165,7 +1165,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 2 }
+  "x-generator": { "contract": 18 }
 }
 ```
 
@@ -1183,7 +1183,8 @@ change, not by one commit's.
 
 **A document with no `x-generator` at all is contract 1.** Version 1.0.0 shipped before
 the field existed, so contract 1 denotes the shape it emitted rather than "unknown" — a
-generator declaring `[1, 2]` reads every document this library has ever produced.
+generator whose range starts at 1 reads every document this library has ever produced, up
+to its own maximum.
 
 A code generator declares the range of contracts it understands and compares:
 

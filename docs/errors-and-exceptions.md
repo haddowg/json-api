@@ -508,6 +508,7 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 | `RequiredTopLevelMembersMissing` | 400 | `REQUIRED_TOP_LEVEL_MEMBERS_MISSING` | — | The document has none of `data`, `errors`, `meta`. |
 | `TopLevelMemberNotAllowed` | 400 | `TOP_LEVEL_MEMBER_NOT_ALLOWED` | — | `included` is present without a top-level `data`. |
 | `TopLevelMembersIncompatible` | 400 | `TOP_LEVEL_MEMBERS_INCOMPATIBLE` | — | `data` and `errors` coexist in one document. |
+| `AttributeValueInvalid` | 422 | `ATTRIBUTE_VALUE_INVALID` | pointer (`/data/attributes/<name>`) | An attribute's value cannot be cast by its field, such as an unparseable date-time. |
 
 ### Resource identifiers
 
@@ -518,6 +519,8 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 | `ResourceIdentifierIdMissing` | 400 | `RESOURCE_IDENTIFIER_ID_MISSING` | — | A resource identifier carries neither `id` nor `lid`. |
 | `ResourceIdentifierIdInvalid` | 400 | `RESOURCE_IDENTIFIER_ID_INVALID` | — | A resource identifier's `id` is not a string. |
 | `ResourceIdentifierLidInvalid` | 400 | `RESOURCE_IDENTIFIER_LID_INVALID` | — | A resource identifier's `lid` is not a string. |
+| `ResourceIdConflict` | 409 | `RESOURCE_ID_CONFLICT` | pointer (`/data/id`) | An update body's `id` is not the `id` in the URL. |
+| `LocalIdNotSupported` | 400 | `LOCAL_ID_NOT_SUPPORTED` | pointer | A request outside an [Atomic Operations](atomic-operations.md) batch carries a `lid`. |
 
 ### Client-generated ids
 
@@ -526,6 +529,7 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 | `ClientGeneratedIdNotSupported` | 403 | `CLIENT_GENERATED_ID_NOT_SUPPORTED` | pointer | The client supplied an `id` but the type does not accept client-generated ids. |
 | `ClientGeneratedIdRequired` | 403 | `CLIENT_GENERATED_ID_REQUIRED` | pointer | The type requires a client-generated `id` and none was supplied. |
 | `ClientGeneratedIdAlreadyExists` | 409 | `CLIENT_GENERATED_ID_ALREADY_EXISTS` | pointer | The supplied client-generated `id` is already in use. |
+| `ResourceIdUndecodable` | 422 | `RESOURCE_ID_UNDECODABLE` | pointer (`/data/id`) | A client-generated `id` is well-formed but the type's [id encoder](ids.md#encoding-when-the-wire-id-differs-from-the-storage-key) cannot decode it. |
 
 ### Relationships
 
@@ -553,6 +557,12 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 | `InclusionDepthExceeded` | 400 | `INCLUSION_DEPTH_EXCEEDED` | parameter | An `include` path is deeper than the effective maximum include depth. |
 | `SortingUnsupported` | 400 | `SORTING_UNSUPPORTED` | parameter | The endpoint does not support `sort`. |
 | `SortParamUnrecognized` | 400 | `SORTING_UNRECOGNIZED` | parameter | A `sort` field is not recognized. |
+| `FieldsetMemberUnrecognized` | 400 | `FIELDSET_MEMBER_UNRECOGNIZED` | parameter | A `fields[TYPE]` member names no field of that type, under [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default). |
+| `FilterValueInvalid` | 400 | `FILTER_VALUE_INVALID` | parameter | A `filter[...]` value fails the [value constraints](filters.md#validating-filter-values) its filter declares; one error per failed constraint. |
+| `PaginationKindUnknown` | 400 | `PAGINATION_KIND_UNKNOWN` | parameter (`page[kind]`) | `page[kind]` names a strategy the type's [pagination menu](pagination.md#offering-a-menu-of-strategies) does not offer. |
+| `CursorMalformed` | 400 | `CURSOR_MALFORMED` | parameter | A `page[after]`/`page[before]` cursor cannot be decoded. |
+| `CursorStale` | 400 | `CURSOR_STALE` | parameter | A cursor was issued for a different `sort` than the request asks for. Thrown by the data provider, which owns the sort-to-keyset mapping. |
+| `RelationshipCountNotAllowed` | 400 | `RELATIONSHIP_COUNT_NOT_ALLOWED` | parameter | `withCount` names a relationship that is not a [countable](profiles/countable.md) to-many. |
 
 > Two codes deliberately differ from their class name:
 > `FilterParamUnrecognized` carries `FILTERING_UNRECOGNIZED` and
@@ -569,6 +579,14 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 The `415` / `406` asymmetry is intentional — see
 [content negotiation](content-negotiation.md) for why an unsupported
 `Content-Type` and an unsatisfiable `Accept` get different statuses.
+
+### Atomic Operations
+
+| Exception | Status | Error code | Source | Thrown when |
+|---|---|---|---|---|
+| `AtomicOperationsInvalid` | 400 | `ATOMIC_OPERATIONS_INVALID` | pointer (`/atomic:operations…`) | The [Atomic Operations](atomic-operations.md) document or one of its operations is structurally malformed. |
+| `LocalIdConflict` | 400 | `LOCAL_ID_CONFLICT` | pointer (the failing operation) | Two operations in one batch create a resource of the same type under the same `lid`. |
+| `LocalIdNotFound` | 400 | `LOCAL_ID_NOT_FOUND` | pointer (the failing operation) | An operation refers to a `lid` no earlier operation in the batch created. |
 
 ### Authentication & authorization
 
