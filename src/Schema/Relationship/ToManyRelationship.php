@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Schema\Relationship;
 
 use haddowg\JsonApi\Schema\Data\DataInterface;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 
@@ -16,6 +17,27 @@ use haddowg\JsonApi\Transformer\ResourceTransformer;
  */
 final class ToManyRelationship extends AbstractRelationship
 {
+    /**
+     * Renders `$members` in order as the linkage without reading their targets. Each
+     * member's `target` runs only when the relationship is included, to supply the
+     * object `included` renders with the member's `resource`; `$resource` is the
+     * relationship's own serializer.
+     *
+     * @internal Set by {@see \haddowg\JsonApi\Resource\Field\MorphToMany} for a
+     *           relation declared with `identifiedBy()`.
+     *
+     * @param list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed}> $members
+     *
+     * @return $this
+     */
+    public function setStoredMembers(array $members, SerializerInterface $resource): static
+    {
+        $this->setData([], $resource);
+        $this->storedMembers = $members;
+
+        return $this;
+    }
+
     /**
      * @internal
      *
@@ -31,6 +53,16 @@ final class ToManyRelationship extends AbstractRelationship
     ): array|false {
         if ($this->resource === null) {
             return false;
+        }
+
+        if ($this->storedMembers !== null) {
+            $result = [];
+            foreach ($this->storedMembers as $member) {
+                $this->includeStoredTarget($transformation, $resourceTransformer, $data, $member['type'], $member['resource'], $member['target'], $defaultRelationships);
+                $result[] = ['type' => $member['type'], 'id' => $member['id']];
+            }
+
+            return $result;
         }
 
         $object = $this->getData();

@@ -22,7 +22,8 @@ namespace haddowg\JsonApi\Schema\Relationship;
  *
  * The carried `$data` is the related domain value(s) for the windowed relation —
  * the same shape {@see AbstractRelationship::setData()} accepts (a list/iterable of
- * related objects). "No override" is signalled by the seam returning `null` (not by
+ * related objects), or for a MorphToMany declared with `identifiedBy()` a list of
+ * {@see IdentifiedMember} values. "No override" is signalled by the seam returning `null` (not by
  * this value object), so a returned `RelationshipLinkage` always renders a `data`
  * member — an empty-but-rendered page is a non-null instance carrying `[]`, which
  * renders `data: []` rather than being omitted.

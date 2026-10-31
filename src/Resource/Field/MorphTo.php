@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\Internal\StoredPair;
 use haddowg\JsonApi\Resource\Field\Internal\ToOneTarget;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
@@ -24,7 +24,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * target. {@see storedIdentifiers()} gives a host the pairs of many parents grouped
  * by type, to load each type's targets in one query.
  */
-final readonly class MorphTo extends AbstractRelationValue implements PolymorphicRelationInterface
+final readonly class MorphTo extends AbstractRelationValue implements PolymorphicRelationInterface, StoresIdentifiersInterface
 {
     /**
      * @param (\Closure(mixed, JsonApiRequestInterface): mixed)|null $identifiedBy validated per call, since nothing checks a closure's return type
@@ -79,11 +79,11 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
             return null;
         }
 
-        if (!\is_array($pair) || !\array_is_list($pair) || \count($pair) !== 2 || !\is_string($pair[0]) || !(\is_int($pair[1]) || (\is_string($pair[1]) && $pair[1] !== ''))) {
+        if (!StoredPair::isPair($pair)) {
             throw new \LogicException(\sprintf(
                 'The identifiedBy() closure of MorphTo relation "%s" on %s returned %s; it must return [type, id] or null.',
                 $this->state->name,
-                $this->declaringClass($model),
+                StoredPair::declaringClass($this->identifiedBy, $model),
                 \get_debug_type($pair),
             ));
         }
@@ -92,7 +92,7 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
             throw new \LogicException(\sprintf(
                 'MorphTo relation "%s" on %s identified a target of type "%s", which it does not declare. Declared types: %s.',
                 $this->state->name,
-                $this->declaringClass($model),
+                StoredPair::declaringClass($this->identifiedBy, $model),
                 $pair[0],
                 \implode(', ', $this->relationState->relatedTypes),
             ));
@@ -230,40 +230,10 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
         $serializer = $resolver->serializerFor($type);
         $relationship->setStoredIdentifier(
             $type,
-            self::wireId($serializer, $id),
+            StoredPair::wireId($serializer, $id),
             $supplied !== null ? static fn(): mixed => $supplied->target : fn(): mixed => $this->relatedValue($model, $request, $this->state->name),
             $serializer,
         );
-    }
-
-    /**
-     * The stored key as the target's serializer would render its id: through the id
-     * field's encoder when the target type declares one.
-     */
-    private static function wireId(SerializerInterface $serializer, string|int $id): string
-    {
-        if ($serializer instanceof AbstractResource) {
-            foreach ($serializer->allFields() as $field) {
-                if ($field instanceof Id) {
-                    $encoder = $field->encoder();
-
-                    return $encoder !== null ? $encoder->encode($id) : (string) $id;
-                }
-            }
-        }
-
-        return (string) $id;
-    }
-
-    /**
-     * The class that declared the identifiedBy() closure, normally the owning
-     * resource, for an error message.
-     */
-    private function declaringClass(mixed $model): string
-    {
-        $scope = $this->identifiedBy !== null ? (new \ReflectionFunction($this->identifiedBy))->getClosureScopeClass() : null;
-
-        return $scope !== null ? $scope->getName() : 'a parent of type ' . \get_debug_type($model);
     }
 
     private function firstResolvableSerializer(SerializerResolverInterface $resolver): ?SerializerInterface

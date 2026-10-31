@@ -310,6 +310,9 @@ A framework-agnostic `@internal Accessor` reads/writes arrays and plain objects.
 `MorphTo` picks the serializer by the related object's `getType()`, unless declared
 `identifiedBy()`, when its linkage comes from a stored `[type, id]` pair with no load
 ([ADR 0078](docs/adr/0078-an-identified-morphto-renders-linkage-from-its-stored-pair.md)).
+An identified `MorphToMany` does the same from a list of pairs, narrowed by the
+`IdentifiedMember` values a host supplies through the to-many linkage seam
+([ADR 0079](docs/adr/0079-an-identified-morphtomany-renders-linkage-from-its-stored-pairs.md)).
 
 ### Filters & sorts
 `src/Resource/Filter`, `src/Resource/Sort` → [filters](docs/filters.md),

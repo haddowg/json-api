@@ -29,7 +29,9 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
  * {@see \haddowg\JsonApi\Resource\Field\MorphToMany} included. A MorphToMany is never
  * windowed, since its members span types with no shared sort or filter, but a host can
  * still supply its members here, for example narrowed to the rows each member type's
- * provider admits. When it returns a
+ * provider admits. For a MorphToMany declared with `identifiedBy()` the supplied `data`
+ * lists {@see \haddowg\JsonApi\Schema\Relationship\IdentifiedMember} values, which
+ * replace its stored pairs. When it returns a
  * non-null {@see RelationshipLinkage}, that data is used as the relationship's
  * linkage (eagerly, always emitting a `data` member); when it returns `null` the
  * relation falls back to reading the value off the parent as before. Core ships no

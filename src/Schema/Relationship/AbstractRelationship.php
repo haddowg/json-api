@@ -105,6 +105,15 @@ abstract class AbstractRelationship
     protected ?array $storedIdentifier = null;
 
     /**
+     * The members a to-many renders as its linkage without reading their targets, in
+     * order, or `null` when the linkage is read off the related objects. Each carries
+     * its type's serializer and a reader for the target `included` renders.
+     *
+     * @var list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed}>|null
+     */
+    protected ?array $storedMembers = null;
+
+    /**
      * @internal
      *
      * @param array<string, mixed> $defaultRelationships
@@ -278,6 +287,7 @@ abstract class AbstractRelationship
         $this->isCallableData = false;
         $this->resource = $resource;
         $this->storedIdentifier = null;
+        $this->storedMembers = null;
 
         return $this;
     }
@@ -291,6 +301,7 @@ abstract class AbstractRelationship
         $this->isCallableData = true;
         $this->resource = $resource;
         $this->storedIdentifier = null;
+        $this->storedMembers = null;
 
         return $this;
     }
@@ -599,9 +610,7 @@ abstract class AbstractRelationship
 
     /**
      * The linkage for a {@see setStoredIdentifier()} relationship: the stored `type`
-     * and `id`, read without the target. The target is read only to render it into
-     * `included`, always with the pair type's serializer, and is left out when it is
-     * missing or that serializer reports another type for it.
+     * and `id`, read without the target.
      *
      * @internal
      *
@@ -617,32 +626,58 @@ abstract class AbstractRelationship
         array $stored,
         array $defaultRelationships,
     ): array {
-        if (
-            $this->resource !== null
-            && $this->includesRelated($transformation, $defaultRelationships)
-            && $this->typeReadableByCaller($transformation, $stored['type'])
-        ) {
-            $object = $this->getData();
-            if ($object !== null && $this->resource->getType($object) === $stored['type']) {
-                $resource = $resourceTransformer->transformToResourceObject($this->relatedTransformation($transformation, $object), $data);
-                if ($resource !== null) {
-                    $data->addIncludedResource($resource);
-                }
-            }
+        if ($this->resource !== null) {
+            $this->includeStoredTarget($transformation, $resourceTransformer, $data, $stored['type'], $this->resource, fn(): mixed => $this->getData(), $defaultRelationships);
         }
 
         return $stored;
     }
 
     /**
-     * The transformation that renders `$object` as this relationship's related
-     * resource, one segment deeper than `$transformation`.
+     * Renders the target of a stored pair into `included` when the request includes
+     * this relationship. The target is read only then, always rendered with the pair
+     * type's serializer `$resource`, and left out when it is missing or that serializer
+     * reports another type for it.
+     *
+     * @internal
+     *
+     * @param callable(): mixed    $target
+     * @param array<string, mixed> $defaultRelationships
      */
-    private function relatedTransformation(ResourceTransformation $transformation, mixed $object): ResourceTransformation
+    protected function includeStoredTarget(
+        ResourceTransformation $transformation,
+        ResourceTransformer $resourceTransformer,
+        DataInterface $data,
+        string $type,
+        SerializerInterface $resource,
+        callable $target,
+        array $defaultRelationships,
+    ): void {
+        if (!$this->includesRelated($transformation, $defaultRelationships) || !$this->typeReadableByCaller($transformation, $type)) {
+            return;
+        }
+
+        $object = $target();
+        if ($object === null || $resource->getType($object) !== $type) {
+            return;
+        }
+
+        $included = $resourceTransformer->transformToResourceObject($this->relatedTransformation($transformation, $object, $resource), $data);
+        if ($included !== null) {
+            $data->addIncludedResource($included);
+        }
+    }
+
+    /**
+     * The transformation that renders `$object` as this relationship's related
+     * resource, one segment deeper than `$transformation`, rendered by `$resource`
+     * when given and by this relationship's serializer otherwise.
+     */
+    private function relatedTransformation(ResourceTransformation $transformation, mixed $object, ?SerializerInterface $resource = null): ResourceTransformation
     {
         $relationshipTransformation = clone $transformation;
         $relationshipTransformation->resourceType = '';
-        $relationshipTransformation->resource = $this->resource;
+        $relationshipTransformation->resource = $resource ?? $this->resource;
         $relationshipTransformation->object = $object;
 
         $basePath = $transformation->basePath;
