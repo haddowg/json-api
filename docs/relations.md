@@ -413,6 +413,12 @@ host leaves out, hidden by a scope or gone from its table, is missing from the l
 too. A supplied member without a target is matched against the relation's usual value
 on the parent when it is included. Without a seam the stored pairs render as they are.
 
+The pairs must point at rows that exist. A host loads or checks only the types whose
+rows a scope can hide, so a pair of such a type that no longer matches a row drops out and
+pages and totals stay exact. A dangling pair of a type nothing hides costs no query, so it
+still shows in the linkage, and a related page that reaches it can come back one member
+short.
+
 As with `MorphTo`, an identified `MorphToMany` is never lazy, can't be combined with
 `identifierMeta()`, and changes reads only, so `fillUsing()` still owns writes. Its
 relationship endpoint pages the pairs the way its related endpoint does, so the OpenAPI
