@@ -942,12 +942,15 @@ final class OpenApiProjectorTest extends TestCase
             self::assertArrayHasKey($present, $schemas, "writable type must emit {$present}");
         }
 
-        // The atomic operation `data` union references only the writable type's shapes.
-        $refs = $this->refsIn($this->listAt($schemas, 'AtomicOperation', 'properties', 'data', 'anyOf'));
-        self::assertContains('#/components/schemas/NotesAtomicAdd', $refs);
-        self::assertContains('#/components/schemas/NotesAtomicUpdate', $refs);
-        self::assertNotContains('#/components/schemas/ReportsAtomicAdd', $refs);
-        self::assertNotContains('#/components/schemas/ReportsAtomicUpdate', $refs);
+        // The add and update unions reference only the writable type's shapes.
+        self::assertSame(
+            ['notes' => '#/components/schemas/NotesAtomicAdd'],
+            $this->arrAt($schemas, 'AtomicAddOperation', 'properties', 'data', 'discriminator', 'mapping'),
+        );
+        self::assertSame(
+            ['notes' => '#/components/schemas/NotesAtomicUpdate'],
+            $this->arrAt($schemas, 'AtomicUpdateOperation', 'properties', 'data', 'discriminator', 'mapping'),
+        );
 
         // And nothing dangles as a result of the gating.
         $this->assertNoDanglingSchemaRefs($document);
@@ -974,20 +977,36 @@ final class OpenApiProjectorTest extends TestCase
         self::assertSame(1, $this->at($operations, 'minItems'));
         self::assertSame('#/components/schemas/AtomicOperation', $this->strAt($operations, 'items', '$ref'));
 
-        // The operation object: op enum + ref/href/data; op required.
-        self::assertSame(['add', 'update', 'remove'], $this->listAt($schemas, 'AtomicOperation', 'properties', 'op', 'enum'));
-        self::assertContains('op', $this->listAt($schemas, 'AtomicOperation', 'required'));
-        self::assertSame(['type'], $this->listAt($schemas, 'AtomicOperation', 'properties', 'ref', 'required'));
+        // The operation is a oneOf over one component per kind, each with its `op` const.
+        self::assertSame(
+            [
+                '#/components/schemas/AtomicAddOperation',
+                '#/components/schemas/AtomicUpdateOperation',
+                '#/components/schemas/AtomicRemoveOperation',
+                '#/components/schemas/AtomicRelationshipAddOperation',
+                '#/components/schemas/AtomicRelationshipUpdateOperation',
+                '#/components/schemas/AtomicRelationshipRemoveOperation',
+            ],
+            $this->refsIn($this->listAt($schemas, 'AtomicOperation', 'oneOf')),
+        );
+        self::assertSame('add', $this->at($schemas, 'AtomicAddOperation', 'properties', 'op', 'const'));
+        self::assertSame(['type'], $this->listAt($schemas, 'AtomicRef', 'required'));
 
-        // The operation `data` anyOf references each type's discrete `add` and
-        // `update` resource components (write-shaped, not the id-requiring read shape).
-        $operationData = $this->listAt($schemas, 'AtomicOperation', 'properties', 'data', 'anyOf');
-        $refs = $this->refsIn($operationData);
-        self::assertContains('#/components/schemas/ArticlesAtomicAdd', $refs);
-        self::assertContains('#/components/schemas/ArticlesAtomicUpdate', $refs);
-        self::assertContains('#/components/schemas/PeopleAtomicAdd', $refs);
-        self::assertContains('#/components/schemas/PeopleAtomicUpdate', $refs);
-        self::assertNotContains('#/components/schemas/ArticlesResource', $refs);
+        // The add and update `data` are discriminated unions over each type's discrete
+        // write shapes (not the id-requiring read shape).
+        self::assertSame(
+            ['propertyName' => 'type', 'mapping' => ['articles' => '#/components/schemas/ArticlesAtomicAdd', 'people' => '#/components/schemas/PeopleAtomicAdd', 'tags' => '#/components/schemas/TagsAtomicAdd']],
+            $this->at($schemas, 'AtomicAddOperation', 'properties', 'data', 'discriminator'),
+        );
+        self::assertSame(
+            ['articles' => '#/components/schemas/ArticlesAtomicUpdate', 'people' => '#/components/schemas/PeopleAtomicUpdate', 'tags' => '#/components/schemas/TagsAtomicUpdate'],
+            $this->at($schemas, 'AtomicUpdateOperation', 'properties', 'data', 'discriminator', 'mapping'),
+        );
+        // A relationship operation's linkage is discriminated over identifiers taking an id or a lid.
+        self::assertSame(
+            ['people' => '#/components/schemas/PeopleAtomicIdentifier', 'tags' => '#/components/schemas/TagsAtomicIdentifier', 'articles' => '#/components/schemas/ArticlesAtomicIdentifier'],
+            $this->at($schemas, 'AtomicRelationshipAddOperation', 'properties', 'data', 'items', 'discriminator', 'mapping'),
+        );
 
         // `articles` forbids a client id, so its **add** forbids `id` (a `false` schema,
         // server-assigned) and needs no id/lid choice; `lid` stays optional.
@@ -1026,10 +1045,11 @@ final class OpenApiProjectorTest extends TestCase
         );
 
         // An AtomicResult is an object with optional data/meta — no `required` member,
-        // so an empty `{}` validates. Its `data` anyOf references the resource schemas.
+        // so an empty `{}` validates. Its `data` is a resource or linkage, each a
+        // discriminated union.
         self::assertArrayNotHasKey('required', $this->arrAt($schemas, 'AtomicResult'));
-        $resultData = $this->listAt($schemas, 'AtomicResult', 'properties', 'data', 'anyOf');
-        self::assertContains('#/components/schemas/ArticlesResource', $this->refsIn($resultData));
+        self::assertSame('#/components/schemas/ArticlesResource', $this->at($schemas, 'AtomicResult', 'properties', 'data', 'anyOf', '0', 'discriminator', 'mapping', 'articles'));
+        self::assertSame('#/components/schemas/PeopleResourceIdentifier', $this->at($schemas, 'AtomicResult', 'properties', 'data', 'anyOf', '1', 'discriminator', 'mapping', 'people'));
     }
 
     /**
@@ -1059,31 +1079,36 @@ final class OpenApiProjectorTest extends TestCase
         self::assertInstanceOf(\stdClass::class, $doc);
         $resolver->registerRaw($doc, 'urn:atomic-doc');
 
-        $dataSchema = \json_decode((string) \json_encode(['$ref' => 'urn:atomic-doc#/components/schemas/AtomicOperation/properties/data']));
-        self::assertInstanceOf(\stdClass::class, $dataSchema);
+        $operationSchema = \json_decode((string) \json_encode(['$ref' => 'urn:atomic-doc#/components/schemas/AtomicOperation']));
+        self::assertInstanceOf(\stdClass::class, $operationSchema);
 
         // The instance is decoded to its JSON value (object/array/null) before
         // validation; opis validates the data argument as-is (it only decodes a
         // string *schema*, never the data).
-        $isValid = function (mixed $instance) use ($validator, $dataSchema): bool {
-            return $validator->validate(\json_decode((string) \json_encode($instance)), $dataSchema)->isValid();
+        $isValid = function (mixed $instance) use ($validator, $operationSchema): bool {
+            return $validator->validate(\json_decode((string) \json_encode($instance)), $operationSchema)->isValid();
         };
+        $toOne = ['type' => 'articles', 'id' => '1', 'relationship' => 'author'];
+        $toMany = ['type' => 'articles', 'id' => '1', 'relationship' => 'tags'];
 
         // The headline cases the read-shape schema wrongly rejected.
-        self::assertTrue($isValid(['type' => 'articles', 'attributes' => ['title' => 'x']]), 'create (no id)');
-        self::assertTrue($isValid(['type' => 'articles', 'lid' => 'a1', 'attributes' => ['title' => 'x']]), 'create (lid)');
-        self::assertTrue($isValid(['type' => 'articles', 'lid' => 'a1']), 'to-one identifier (lid)');
+        self::assertTrue($isValid(['op' => 'add', 'data' => ['type' => 'articles', 'attributes' => ['title' => 'x']]]), 'create (no id)');
+        self::assertTrue($isValid(['op' => 'add', 'data' => ['type' => 'articles', 'lid' => 'a1', 'attributes' => ['title' => 'x']]]), 'create (lid)');
+        self::assertTrue($isValid(['op' => 'update', 'ref' => $toOne, 'data' => ['type' => 'people', 'lid' => 'p1']]), 'to-one identifier (lid)');
         // Already-accepted shapes still validate.
-        self::assertTrue($isValid(['type' => 'articles', 'id' => '1', 'attributes' => ['title' => 'x']]), 'update (id)');
-        self::assertTrue($isValid(['type' => 'articles', 'id' => '1']), 'to-one identifier (id)');
-        self::assertTrue($isValid([['type' => 'articles', 'lid' => 'a1']]), 'to-many array');
-        self::assertTrue($isValid(null), 'to-one cleared (null)');
+        self::assertTrue($isValid(['op' => 'update', 'data' => ['type' => 'articles', 'id' => '1', 'attributes' => ['title' => 'x']]]), 'update (id)');
+        self::assertTrue($isValid(['op' => 'update', 'href' => '/articles/1/relationships/author', 'data' => ['type' => 'people', 'id' => '1']]), 'to-one identifier (id)');
+        self::assertTrue($isValid(['op' => 'add', 'ref' => $toMany, 'data' => [['type' => 'tags', 'lid' => 't1']]]), 'to-many array');
+        self::assertTrue($isValid(['op' => 'update', 'ref' => $toOne, 'data' => null]), 'to-one cleared (null)');
+        self::assertTrue($isValid(['op' => 'remove', 'ref' => ['type' => 'articles', 'id' => '1']]), 'remove');
 
         // A body with no `type` is still rejected (the union has no all-permissive arm).
-        self::assertFalse($isValid(['attributes' => ['title' => 'x']]), 'a type-less operation data must be rejected');
+        self::assertFalse($isValid(['op' => 'add', 'data' => ['attributes' => ['title' => 'x']]]), 'a type-less operation data must be rejected');
+        // A type the relationship cannot link to is rejected by the discriminated union.
+        self::assertFalse($isValid(['op' => 'update', 'ref' => $toOne, 'data' => ['type' => 'robots', 'id' => '1']]), 'an unknown linkage type must be rejected');
 
         // `id` and `lid` are mutually exclusive (the oneOf rejects a body carrying both).
-        self::assertFalse($isValid(['type' => 'articles', 'id' => '1', 'lid' => 'a1']), 'id and lid together must be rejected');
+        self::assertFalse($isValid(['op' => 'update', 'ref' => $toOne, 'data' => ['type' => 'people', 'id' => '1', 'lid' => 'a1']]), 'id and lid together must be rejected');
     }
 
     #[Test]
