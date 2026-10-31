@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.22.0](https://github.com/haddowg/json-api/compare/v1.21.0...v1.22.0) (2026-10-31)
+
+
+### Features
+
+* discriminate resource unions by type and type the included member ([#271](https://github.com/haddowg/json-api/issues/271)) ([24dc767](https://github.com/haddowg/json-api/commit/24dc7675ed9292946277f6ded8a29b6629fc032f))
+* project page parameters on an identified MorphToMany's relationship endpoint ([#274](https://github.com/haddowg/json-api/issues/274)) ([3d7aba1](https://github.com/haddowg/json-api/commit/3d7aba1f406938f87f93b40e8415105b7aa1ee91))
+* render MorphToMany linkage from stored types and ids ([#272](https://github.com/haddowg/json-api/issues/272)) ([4dc0730](https://github.com/haddowg/json-api/commit/4dc0730421680e1654603a26610a1f5a07ef8e68))
+* split atomic operations by kind with discriminated data unions ([#275](https://github.com/haddowg/json-api/issues/275)) ([fdd31ec](https://github.com/haddowg/json-api/commit/fdd31ec38fd7c0ee4c4be7cbc577111498f84bf5))
+
 ## [1.21.0](https://github.com/haddowg/json-api/compare/v1.20.0...v1.21.0) (2026-10-28)
 
 
