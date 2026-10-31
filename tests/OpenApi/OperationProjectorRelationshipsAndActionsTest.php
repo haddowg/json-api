@@ -340,11 +340,16 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
             $this->strAt($get, 'responses', '200', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
 
-        // The per-relation collection's data.items is the anyOf of every member resource.
+        // The per-relation collection's data.items is the oneOf of every member resource,
+        // discriminated by `type`.
         $schemas = $this->arrAt($this->document()->toArray(), 'components', 'schemas');
         $items = $this->arrAt($schemas, 'ArticlesAttachmentsRelatedCollection', 'properties', 'data', 'items');
+        self::assertSame(
+            ['images' => '#/components/schemas/ImagesResource', 'videos' => '#/components/schemas/VideosResource'],
+            $this->arrAt($items, 'discriminator', 'mapping'),
+        );
         $refs = [];
-        foreach ($this->listAt($items, 'anyOf') as $member) {
+        foreach ($this->listAt($items, 'oneOf') as $member) {
             self::assertIsArray($member);
             $refs[] = $this->strAt($member, '$ref');
         }

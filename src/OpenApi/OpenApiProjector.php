@@ -99,7 +99,7 @@ final class OpenApiProjector
         $collector = new EnumComponentCollector(\array_keys($schemas));
 
         foreach ($server->types() as $type) {
-            $this->addTypeComponents($schemas, $type, $collector, $links);
+            $this->addTypeComponents($schemas, $type, $collector, $links, $server);
         }
 
         // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
@@ -271,7 +271,29 @@ final class OpenApiProjector
             scopes: $scopes,
             singleTargetPolymorphism: self::hasSingleTargetPolymorphism($server),
             actionLocations: $actionLocations,
+            discriminatedUnions: self::hasDiscriminatedUnion($server),
         ));
+    }
+
+    /**
+     * Whether the document carries a `type`-discriminated union: a polymorphic relation,
+     * or a compound document whose `included` reaches a type.
+     */
+    private static function hasDiscriminatedUnion(ServerMetadataInterface $server): bool
+    {
+        $byType = IncludeReachability::byType($server);
+        foreach ($server->types() as $type) {
+            if (IncludeReachability::includedTypes([$type->type()], $type->includablePaths(), $byType) !== []) {
+                return true;
+            }
+            foreach ($type->relations() as $relation) {
+                if ($relation->relatedTypes() !== [] && RelationFacts::isPolymorphic($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -573,8 +595,9 @@ final class OpenApiProjector
      *
      * @param array<string, Schema> $schemas
      */
-    private function addTypeComponents(array &$schemas, TypeMetadataInterface $type, EnumComponentCollector $collector, LinkSchemaProjector $links): void
+    private function addTypeComponents(array &$schemas, TypeMetadataInterface $type, EnumComponentCollector $collector, LinkSchemaProjector $links, ServerMetadataInterface $server): void
     {
+        $byType = IncludeReachability::byType($server);
         $name = $this->componentBase($type->type());
         $fields = $type->fields();
 
@@ -651,7 +674,7 @@ final class OpenApiProjector
             // to-one is `data: null`), so it needs a per-relation nullable related
             // document — but only when that endpoint is actually exposed.
             if (!$relation->isToMany() && self::exposesRelatedRead($relation)) {
-                $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation, $relBase);
+                $schemas[$relBase . 'RelatedDocument'] = $this->relatedToOneDocumentSchema($relation, IncludeReachability::includedTypes($relation->relatedTypes(), $relation->relatedIncludablePaths(), $byType));
             }
 
             // A to-many related endpoint gets a per-relation related collection, so its
@@ -659,16 +682,14 @@ final class OpenApiProjector
             // types. Emitted only when the endpoint is exposed (so component emission
             // tracks path emission exactly).
             if ($relation->isToMany() && self::exposesRelatedRead($relation)) {
-                $schemas[$relBase . 'RelatedCollection'] = $this->relatedCollectionSchema($relation, $relBase);
+                $schemas[$relBase . 'RelatedCollection'] = $this->relatedCollectionSchema($relation, IncludeReachability::includedTypes($relation->relatedTypes(), $relation->relatedIncludablePaths(), $byType));
             }
         }
 
-        // Document envelopes. `included` is described only when the type exposes an
-        // includable relationship path (else `?include` is rejected and no response
-        // carries `included`).
-        $includable = $type->includablePaths() !== [];
-        $schemas[$name . 'Document'] = $this->singleDocumentSchema($name, $includable);
-        $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name, $includable);
+        // Document envelopes, whose `included` reaches what the type's `?include` enum does.
+        $includedTypes = IncludeReachability::includedTypes([$type->type()], $type->includablePaths(), $byType);
+        $schemas[$name . 'Document'] = $this->singleDocumentSchema($name, $includedTypes);
+        $schemas[$name . 'Collection'] = $this->collectionDocumentSchema($name, $includedTypes);
 
         foreach ($links->typeComponents($type, $name, $this->schemaProjector, $collector) as $component => $schema) {
             $schemas[$component] = $schema;
@@ -1435,20 +1456,16 @@ final class OpenApiProjector
      * (`GET /{type}/{id}/{rel}`) responds with: like the single-resource document but
      * with a **nullable** `data` (an empty to-one renders `data: null`). A monomorphic
      * relation `$ref`s the related type's resource component; a polymorphic one unions
-     * each member's resource (`anyOf`); either way widened with `null`.
+     * each member's resource (a `oneOf` discriminated by `type`); either way widened with `null`.
+     *
+     * @param list<string> $includedTypes the types its `included` can carry
      */
-    private function relatedToOneDocumentSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    private function relatedToOneDocumentSchema(RelationMetadataInterface $relation, array $includedTypes): Schema
     {
-        $schema = Schema::ofType('object')
-            ->withProperty('data', $this->nullable($this->relatedResourceSchema($relation)));
-
-        // `included` is described only when the related type exposes an includable path
-        // (else `?include` on the related endpoint is rejected and no response carries it).
-        if ($relation->relatedIncludablePaths() !== []) {
-            $schema = $schema->withProperty('included', $this->includedSchema());
-        }
-
-        return $schema
+        return $this->withIncluded(
+            Schema::ofType('object')->withProperty('data', $this->nullable($this->relatedResourceSchema($relation))),
+            $includedTypes,
+        )
             ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATED_DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -1458,21 +1475,18 @@ final class OpenApiProjector
     /**
      * The **related collection** envelope a to-many related endpoint
      * (`GET /{type}/{id}/{rel}`) responds with: like the resource-collection document,
-     * with `data.items` the related type's resource (the `anyOf` of every member type's
+     * with `data.items` the related type's resource (the discriminated `oneOf` of every member type's
      * resource for a polymorphic relation, since a real response may mix members) and
      * `links` the shared `RelatedDocumentLinks`.
+     *
+     * @param list<string> $includedTypes the types its `included` can carry
      */
-    private function relatedCollectionSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    private function relatedCollectionSchema(RelationMetadataInterface $relation, array $includedTypes): Schema
     {
-        $schema = Schema::ofType('object')
-            ->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation)));
-
-        // `included` is described only when the relation exposes a related includable path.
-        if ($relation->relatedIncludablePaths() !== []) {
-            $schema = $schema->withProperty('included', $this->includedSchema());
-        }
-
-        return $schema
+        return $this->withIncluded(
+            Schema::ofType('object')->withProperty('data', Schema::ofType('array')->withItems($this->relatedResourceSchema($relation))),
+            $includedTypes,
+        )
             ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATED_DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -1481,7 +1495,7 @@ final class OpenApiProjector
 
     /**
      * A relation's related **resource** schema (not linkage): a `$ref` to the single
-     * related type's resource component for a monomorphic relation, an `anyOf` of every
+     * related type's resource component for a monomorphic relation, a discriminated `oneOf` of every
      * member's resource for a polymorphic one (a single member included, see
      * {@see RelationFacts::isPolymorphic()}), and a permissive object for a relation
      * declaring no related types.
@@ -1498,17 +1512,12 @@ final class OpenApiProjector
             return Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'Resource');
         }
 
-        $members = [];
-        foreach ($types as $relatedType) {
-            $members[] = Schema::ref('#/components/schemas/' . $this->componentBase($relatedType) . 'Resource');
-        }
-
-        return Schema::create()->withAnyOf($members);
+        return $this->discriminatedUnion($types, 'Resource');
     }
 
     /**
      * A relation's linkage identifier: a `$ref` to the single related type's
-     * identifier component for a monomorphic relation, or an `anyOf` of every member
+     * identifier component for a monomorphic relation, or a discriminated `oneOf` of every member
      * type's identifier for a polymorphic one, even a polymorphic one with a single
      * member, so adding a member later changes no shape. A relation declaring no related
      * types degrades to a permissive identifier shape.
@@ -1536,12 +1545,27 @@ final class OpenApiProjector
             return $narrowing === null ? $identifier : Schema::create()->withAllOf([$identifier, $narrowing]);
         }
 
+        return $this->discriminatedUnion($types, 'ResourceIdentifier');
+    }
+
+    /**
+     * A `oneOf` over one component per type, `<Type>Resource` or
+     * `<Type>ResourceIdentifier`, with a `type` discriminator mapping each type to its
+     * member. Every member declares its `type` as a `const`, so exactly one matches.
+     *
+     * @param list<string> $types
+     */
+    private function discriminatedUnion(array $types, string $suffix): Schema
+    {
         $members = [];
-        foreach ($types as $relatedType) {
-            $members[] = Schema::ref('#/components/schemas/' . $this->componentBase($relatedType) . 'ResourceIdentifier');
+        $mapping = [];
+        foreach ($types as $type) {
+            $ref = '#/components/schemas/' . $this->componentBase($type) . $suffix;
+            $members[] = Schema::ref($ref);
+            $mapping[$type] = $ref;
         }
 
-        return Schema::create()->withAnyOf($members);
+        return Schema::create()->withOneOf($members)->withDiscriminator('type', $mapping);
     }
 
     /**
@@ -1587,20 +1611,15 @@ final class OpenApiProjector
      * mandates a present resource object (a `null` primary `data` is only valid for an
      * empty to-one *related* endpoint, which is described separately by the
      * relationship-object schema). (Design recon 5b.)
+     *
+     * @param list<string> $includedTypes the types its `included` can carry
      */
-    private function singleDocumentSchema(string $base, bool $includable): Schema
+    private function singleDocumentSchema(string $base, array $includedTypes): Schema
     {
-        $schema = Schema::ofType('object')
-            ->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource'));
-
-        // The compound-document `included` member is only describable when the type has
-        // an includable relationship path — otherwise `?include` is rejected and a
-        // response can never carry `included`, so the schema must not advertise it.
-        if ($includable) {
-            $schema = $schema->withProperty('included', $this->includedSchema());
-        }
-
-        return $schema
+        return $this->withIncluded(
+            Schema::ofType('object')->withProperty('data', Schema::ref('#/components/schemas/' . $base . 'Resource')),
+            $includedTypes,
+        )
             ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::DOCUMENT_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -1610,17 +1629,15 @@ final class OpenApiProjector
     /**
      * The resource-collection document: `{data: [<Resource>], included?, links
      * (pagination), meta?, jsonapi?}`.
+     *
+     * @param list<string> $includedTypes the types its `included` can carry
      */
-    private function collectionDocumentSchema(string $base, bool $includable): Schema
+    private function collectionDocumentSchema(string $base, array $includedTypes): Schema
     {
-        $schema = Schema::ofType('object')
-            ->withProperty('data', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/' . $base . 'Resource')));
-
-        if ($includable) {
-            $schema = $schema->withProperty('included', $this->includedSchema());
-        }
-
-        return $schema
+        return $this->withIncluded(
+            Schema::ofType('object')->withProperty('data', Schema::ofType('array')->withItems(Schema::ref('#/components/schemas/' . $base . 'Resource'))),
+            $includedTypes,
+        )
             ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::COLLECTION_LINKS)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
@@ -1628,18 +1645,22 @@ final class OpenApiProjector
     }
 
     /**
-     * The `included` member of a compound document — an array of (any) resource
-     * objects. A permissive item shape keeps the envelope type-agnostic (the
-     * concrete reachable types are a path-projection concern).
+     * Adds the `included` member of a compound document when its `?include` paths reach
+     * a type: an array of the reached types' resources, discriminated by `type`. With
+     * nothing to reach, `?include` is never advertised or rejected, so no response
+     * carries `included` and the member is left out.
+     *
+     * @param list<string> $includedTypes
      */
-    private function includedSchema(): Schema
+    private function withIncluded(Schema $document, array $includedTypes): Schema
     {
-        return Schema::ofType('array')->withItems(
-            Schema::ofType('object')
-                ->withProperty('type', Schema::ofType('string'))
-                ->withProperty('id', Schema::ofType('string'))
-                ->withRequired(['type', 'id']),
-        );
+        if ($includedTypes === []) {
+            return $document;
+        }
+
+        return $document->withProperty('included', Schema::ofType('array')->withItems(
+            $this->discriminatedUnion($includedTypes, 'Resource'),
+        ));
     }
 
     // ---- Shared schemas ---------------------------------------------------------
