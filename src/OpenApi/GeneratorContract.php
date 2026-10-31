@@ -171,9 +171,10 @@ final class GeneratorContract
      * `type` discriminator mapping each type to its `<Type>ResourceIdentifier` or
      * `<Type>Resource`, and a compound document's `included` is a `oneOf` over the
      * `<Type>Resource` of every type its `?include` paths reach, in place of an untyped
-     * `{type, id}` item. A document carries it when it has a polymorphic relation or a
-     * typed `included`, which nearly every document does, so {@see BASELINE} carries it
-     * too.
+     * `{type, id}` item. The atomic operation is a `oneOf` over one component per kind,
+     * each carrying a discriminated `data` union. A document carries it when it has a
+     * polymorphic relation, a typed `included` or the atomic endpoint, which nearly
+     * every document does, so {@see BASELINE} carries it too.
      */
     public const DISCRIMINATED_UNIONS = 19;
 

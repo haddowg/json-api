@@ -40,6 +40,11 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
  */
 final class OpenApiProjector
 {
+    /**
+     * An atomic `href` that targets a relationship: one ending in `relationships/<name>`.
+     */
+    private const RELATIONSHIP_HREF_PATTERN = '(^|/)relationships/[^/?#]+/?$';
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
         private readonly OperationProjector $operationProjector = new OperationProjector(),
@@ -277,10 +282,14 @@ final class OpenApiProjector
 
     /**
      * Whether the document carries a `type`-discriminated union: a polymorphic relation,
-     * or a compound document whose `included` reaches a type.
+     * a compound document whose `included` reaches a type, or the atomic endpoint.
      */
     private static function hasDiscriminatedUnion(ServerMetadataInterface $server): bool
     {
+        if ($server->atomicOperations() !== null) {
+            return true;
+        }
+
         $byType = IncludeReachability::byType($server);
         foreach ($server->types() as $type) {
             if (IncludeReachability::includedTypes([$type->type()], $type->includablePaths(), $byType) !== []) {
@@ -780,16 +789,17 @@ final class OpenApiProjector
      *
      * - `AtomicOperationsRequest` — the request document (`{atomic:operations: […],
      *   jsonapi?, meta?}`).
-     * - `AtomicOperation` — one operation object (`op` / `ref` / `href` / `data`).
+     * - `AtomicOperation` — a `oneOf` over one component per operation kind:
+     *   `AtomicAddOperation`, `AtomicUpdateOperation`, `AtomicRemoveOperation` and the
+     *   `AtomicRelationship{Add,Update,Remove}Operation`s, sharing the `AtomicRef`.
      * - `AtomicResultsResponse` — the response document (`{atomic:results: […],
      *   jsonapi?, meta?, links?}`).
      * - `AtomicResult` — one result fragment (`{data?, meta?}`; an empty `{}` is
      *   valid).
      *
-     * The polymorphic `data` schemas (the resource a write operation carries, and
-     * the resource/identifier a result returns) `anyOf` over the participating types'
-     * already-emitted resource components, so an author sees the concrete shapes
-     * rather than an opaque object.
+     * Each kind's `data` is a `oneOf` discriminated by `type`: over `<Type>AtomicAdd` or
+     * `<Type>AtomicUpdate` for a resource kind, and over `<Type>AtomicIdentifier`, which
+     * takes an `id` or a `lid`, for a relationship kind.
      *
      * @param array<string, Schema> $schemas
      */
@@ -814,10 +824,183 @@ final class OpenApiProjector
             }
         }
 
-        $schemas['AtomicOperation'] = $this->atomicOperationSchema($server);
+        $linkageTypes = self::linkageTypes($server);
+        foreach ($linkageTypes as $type) {
+            $schemas[$this->componentBase($type) . 'AtomicIdentifier'] = $this->atomicIdentifierSchema($type);
+        }
+        $schemas['AtomicRef'] = $this->atomicRefSchema();
+
+        // One component per operation kind, each with its own `data` union. The `op` const
+        // and the target, a relationship or not, keep the kinds exclusive.
+        $adds = $this->typesAllowing($server, OperationType::Create);
+        $updates = $this->typesAllowing($server, OperationType::Update);
+        $identifiers = $linkageTypes === [] ? null : $this->discriminatedUnion($linkageTypes, 'AtomicIdentifier');
+        $kinds = [];
+        if ($adds !== []) {
+            $kinds['AtomicAddOperation'] = $this->atomicKindSchema('add', false, 'Adds a resource.', $this->discriminatedUnion($adds, 'AtomicAdd'), true);
+        }
+        if ($updates !== []) {
+            $kinds['AtomicUpdateOperation'] = $this->atomicKindSchema('update', false, 'Updates a resource.', $this->discriminatedUnion($updates, 'AtomicUpdate'), true);
+        }
+        $kinds['AtomicRemoveOperation'] = $this->atomicKindSchema('remove', false, 'Removes a resource.', null, false);
+        if ($identifiers !== null) {
+            $toMany = Schema::ofType('array')->withItems($identifiers);
+            $kinds['AtomicRelationshipAddOperation'] = $this->atomicKindSchema('add', true, 'Adds members to a to-many relationship.', $toMany, true);
+            $kinds['AtomicRelationshipUpdateOperation'] = $this->atomicKindSchema('update', true, 'Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many.', Schema::create()->withOneOf([$identifiers, Schema::ofType('null'), $toMany]), true);
+            $kinds['AtomicRelationshipRemoveOperation'] = $this->atomicKindSchema('remove', true, 'Removes members from a to-many relationship.', $toMany, true);
+        }
+
+        $branches = [];
+        foreach ($kinds as $name => $kind) {
+            $schemas[$name] = $kind;
+            $branches[] = Schema::ref('#/components/schemas/' . $name);
+        }
+        $schemas['AtomicOperation'] = Schema::create()
+            ->withDescription('One operation in the batch. Its `op` and its target, a relationship or a resource, decide its kind and the shape of its `data`.')
+            ->withOneOf($branches);
+
         $schemas['AtomicOperationsRequest'] = $this->atomicOperationsRequestSchema();
-        $schemas['AtomicResult'] = $this->atomicResultSchema($server);
+        $schemas['AtomicResult'] = $this->atomicResultSchema(\array_values(\array_unique([...$adds, ...$updates])), $linkageTypes);
         $schemas['AtomicResultsResponse'] = $this->atomicResultsResponseSchema();
+    }
+
+    /**
+     * The registered types whose operation allow-list exposes `$operation`.
+     *
+     * @return list<string>
+     */
+    private function typesAllowing(ServerMetadataInterface $server, OperationType $operation): array
+    {
+        $types = [];
+        foreach ($server->types() as $type) {
+            if ($this->allowsOperation($type, $operation)) {
+                $types[] = $type->type();
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Every type some relation links to, registered or not, in first-encountered order:
+     * the types a relationship operation's linkage can name.
+     *
+     * @return list<string>
+     */
+    private static function linkageTypes(ServerMetadataInterface $server): array
+    {
+        $types = [];
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                foreach ($relation->relatedTypes() as $relatedType) {
+                    if (!\in_array($relatedType, $types, true)) {
+                        $types[] = $relatedType;
+                    }
+                }
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * An identifier an atomic relationship operation carries: its `type` as a `const`
+     * and exactly one of `id` or `lid`, since it may name a resource an earlier `add` in
+     * the batch created.
+     */
+    private function atomicIdentifierSchema(string $type): Schema
+    {
+        return Schema::ofType('object')
+            ->withProperty('type', Schema::ofType('string')->withConst($type))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('The local id of a resource created earlier in the batch.'))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
+            ->withRequired(['type'])
+            ->withOneOf([
+                Schema::create()->withTitle('By id')->withRequired(['id']),
+                Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
+            ]);
+    }
+
+    /**
+     * The `ref` an operation targets: a resource by `type` and exactly one of `id` or
+     * `lid`, or its type's collection by `type` alone, narrowed to one of its
+     * relationships by `relationship`.
+     */
+    private function atomicRefSchema(): Schema
+    {
+        return Schema::ofType('object')
+            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.')
+            ->withProperty('type', Schema::ofType('string'))
+            ->withProperty('id', Schema::ofType('string'))
+            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id referencing a resource created earlier in the same batch.'))
+            ->withProperty('relationship', Schema::ofType('string'))
+            ->withRequired(['type']);
+    }
+
+    /**
+     * One operation kind: its `op` as a `const`, a target that is a relationship or is
+     * not, and its `data`, required when given and forbidden when `null`.
+     *
+     * A relationship target is a `ref` naming a `relationship` or an `href` ending in
+     * `relationships/<name>`. A resource kind refuses both, so for one `op` exactly one of
+     * the two kinds matches.
+     */
+    private function atomicKindSchema(string $op, bool $relationship, string $description, ?Schema $data, bool $dataRequired): Schema
+    {
+        $namesRelationship = Schema::create()->withRequired(['relationship']);
+        $relationshipHref = Schema::ofType('string')->withPattern(self::RELATIONSHIP_HREF_PATTERN);
+
+        $schema = Schema::ofType('object')
+            ->withDescription($description . ' The target is given by at most one of `ref` or `href`.')
+            ->withProperty('op', Schema::ofType('string')->withConst($op))
+            ->withProperty('ref', Schema::create()->withAllOf([
+                Schema::ref('#/components/schemas/AtomicRef'),
+                $relationship ? $namesRelationship : Schema::create()->withNot($namesRelationship),
+            ]))
+            ->withProperty('href', Schema::create()->withAllOf([
+                Schema::ofType('string')->withFormat('uri-reference')->withDescription('A URI reference to the operation\'s target (an alternative to `ref`).'),
+                $relationship ? $relationshipHref : Schema::create()->withNot($relationshipHref),
+            ]))
+            ->withProperty('data', $data ?? Schema::never())
+            ->withRequired($dataRequired ? ['op', 'data'] : ['op']);
+
+        // A relationship kind needs a target that names the relationship.
+        return $relationship
+            ? $schema->withAnyOf([Schema::create()->withRequired(['ref']), Schema::create()->withRequired(['href'])])
+            : $schema;
+    }
+
+    /**
+     * The `AtomicResult` object: one entry of the `atomic:results` array, carrying only
+     * `data` and `meta`, and empty for a `remove` or an update the server applied as
+     * sent. Its `data` is the resource an `add` or `update` returns, or the linkage a
+     * relationship operation returns. Those two overlap, since a resource object with
+     * no attributes is also an identifier, so the choice between them is an `anyOf`,
+     * while each is a `oneOf` discriminated by `type`.
+     *
+     * @param list<string> $resourceTypes the types an `add` or `update` can return
+     * @param list<string> $linkageTypes  the types a relationship's linkage can name
+     */
+    private function atomicResultSchema(array $resourceTypes, array $linkageTypes): Schema
+    {
+        $members = [];
+        if ($resourceTypes !== []) {
+            $members[] = $this->discriminatedUnion($resourceTypes, 'Resource');
+        }
+        if ($linkageTypes !== []) {
+            $identifier = $this->discriminatedUnion($linkageTypes, 'ResourceIdentifier');
+            $members[] = $identifier;
+            $members[] = Schema::ofType('array')->withItems($identifier);
+        }
+        $members[] = Schema::ofType('null');
+
+        return Schema::ofType('object')
+            ->withDescription('The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.')
+            ->withProperty('data', Schema::create()
+                ->withDescription('The created or updated resource, or the linkage a relationship operation returns.')
+                ->withAnyOf($members))
+            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
     }
 
     /**
@@ -914,52 +1097,6 @@ final class OpenApiProjector
     }
 
     /**
-     * The `AtomicOperation` object: the operation `op` (the required `add`/`update`/
-     * `remove` code), the target (`ref` **or** `href` — exactly one), and the `data`
-     * payload (modelled as an `anyOf` over the participating types' discrete
-     * `<Type>AtomicAdd` / `<Type>AtomicUpdate` shapes and a resource-identifier shape;
-     * absent for a `remove`). The id-vs-lid exclusivity is expressed in those shapes'
-     * `oneOf`; the ref-vs-href exclusivity stays a runtime constraint described in prose.
-     */
-    private function atomicOperationSchema(ServerMetadataInterface $server): Schema
-    {
-        $ref = Schema::ofType('object')
-            ->withDescription('A structural reference to the operation\'s target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.')
-            ->withProperty('type', Schema::ofType('string'))
-            ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('lid', Schema::ofType('string')->withDescription('A local id referencing a resource created earlier in the same batch.'))
-            ->withProperty('relationship', Schema::ofType('string'))
-            ->withRequired(['type']);
-
-        return Schema::ofType('object')
-            ->withDescription('One operation in the batch. The target is given by exactly one of `ref` or `href`.')
-            ->withProperty('op', Schema::ofType('string')
-                ->withDescription('The operation code.')
-                ->withEnum(['add', 'update', 'remove']))
-            ->withProperty('ref', $ref)
-            ->withProperty('href', Schema::ofType('string')
-                ->withFormat('uri-reference')
-                ->withDescription('A URI reference to the operation\'s target (an alternative to `ref`).'))
-            ->withProperty('data', $this->atomicOperationDataSchema($server))
-            ->withRequired(['op']);
-    }
-
-    /**
-     * The `AtomicResult` object: one entry of the `atomic:results` array. Per the
-     * extension a result object carries only `data` and/or `meta` (never `links` or
-     * `included`), and an empty result `{}` is valid (a `remove`, or an `update` the
-     * server fully applied). The `data` is an `anyOf` over the participating types'
-     * resource and resource-identifier shapes.
-     */
-    private function atomicResultSchema(ServerMetadataInterface $server): Schema
-    {
-        return Schema::ofType('object')
-            ->withDescription('The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.')
-            ->withProperty('data', $this->atomicResultDataSchema($server))
-            ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
-    }
-
-    /**
      * The `AtomicResultsResponse` document: a required `atomic:results` array of
      * {@see atomicResultSchema()}, plus the optional `jsonapi` / `meta` / `links`
      * top-level members.
@@ -975,109 +1112,6 @@ final class OpenApiProjector
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withProperty('jsonapi', Schema::ref('#/components/schemas/JsonApi'))
             ->withRequired([AtomicExtension::RESULTS_MEMBER]);
-    }
-
-    /**
-     * The `data` payload of an atomic **operation**: an `anyOf` of the participating
-     * types' discrete **`add`** and **`update`** resource shapes (`<Type>AtomicAdd` /
-     * `<Type>AtomicUpdate`), plus the relationship-linkage payload shapes a
-     * relationship operation carries — a single identifier (to-one; id or lid), `null`
-     * (a to-one cleared), and an array of identifiers (to-many). When the server
-     * registers no types, a generic JSON:API resource stands in.
-     */
-    private function atomicOperationDataSchema(ServerMetadataInterface $server): Schema
-    {
-        $members = [];
-        foreach ($server->types() as $type) {
-            // The discrete `add` and `update` resource objects an operation carries —
-            // referenced only where the type exposes that write, so the union never
-            // points at a shape addTypeComponents/addAtomicComponents did not emit.
-            $base = $this->componentBase($type->type());
-            if ($this->allowsOperation($type, OperationType::Create)) {
-                $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicAdd');
-            }
-            if ($this->allowsOperation($type, OperationType::Update)) {
-                $members[] = Schema::ref('#/components/schemas/' . $base . 'AtomicUpdate');
-            }
-        }
-
-        if ($members === []) {
-            $members[] = $this->genericResourceObjectSchema();
-        }
-
-        // The relationship-linkage payload shapes: a single identifier (a to-one
-        // relationship target, by `id` or `lid`), `null` (a to-one cleared) and an
-        // array of identifiers (a to-many). Each references the generic identifier
-        // (requiring only `type`) so the union stays valid however many concrete
-        // types participate and a `lid`-only identifier validates.
-        $members[] = $this->genericResourceIdentifierSchema();
-        $members[] = Schema::ofType('null');
-        $members[] = Schema::ofType('array')->withItems($this->genericResourceIdentifierSchema());
-
-        return Schema::create()
-            ->withDescription('The operation payload. Its shape depends on `op` and the target: a resource object for an `add`/`update`; a resource identifier (or `null`) for a to-one relationship; an array of resource identifiers for a to-many relationship; absent for a resource `remove`.')
-            ->withAnyOf($members);
-    }
-
-    /**
-     * The `data` of an atomic **result**: an `anyOf` of every participating type's
-     * resource component (the created/updated resource a result echoes) and its
-     * resource-identifier (a relationship result), with a generic fallback when the
-     * server has no field-bearing types.
-     */
-    private function atomicResultDataSchema(ServerMetadataInterface $server): Schema
-    {
-        $members = [];
-        foreach ($server->types() as $type) {
-            $base = $this->componentBase($type->type());
-            $members[] = Schema::ref('#/components/schemas/' . $base . 'Resource');
-            $members[] = Schema::ref('#/components/schemas/' . $base . 'ResourceIdentifier');
-        }
-
-        if ($members === []) {
-            $members[] = $this->genericResourceObjectSchema();
-            $members[] = $this->genericResourceIdentifierSchema();
-        }
-
-        return Schema::create()
-            ->withDescription('The created or updated resource (or its identifier) the operation returns.')
-            ->withAnyOf($members);
-    }
-
-    /**
-     * A generic JSON:API resource object shape (`type` + `id` + open attributes /
-     * relationships / meta), for the fallback when no participating type carries a
-     * concrete resource component.
-     */
-    private function genericResourceObjectSchema(): Schema
-    {
-        return Schema::ofType('object')
-            ->withProperty('type', Schema::ofType('string'))
-            ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('lid', Schema::ofType('string'))
-            ->withProperty('attributes', Schema::ofType('object'))
-            ->withProperty('relationships', Schema::ofType('object'))
-            ->withProperty('meta', Schema::ofType('object'))
-            ->withRequired(['type']);
-    }
-
-    /**
-     * A generic JSON:API resource-identifier shape (`type` + an id by `id` or `lid`),
-     * for the fallback linkage payload.
-     */
-    private function genericResourceIdentifierSchema(): Schema
-    {
-        return Schema::ofType('object')
-            ->withProperty('type', Schema::ofType('string'))
-            ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('lid', Schema::ofType('string'))
-            ->withProperty('meta', Schema::ofType('object'))
-            ->withRequired(['type'])
-            // A resource identifier is keyed by exactly one of `id` or `lid`.
-            ->withOneOf([
-                Schema::create()->withTitle('By id')->withRequired(['id']),
-                Schema::create()->withTitle('By local id (lid)')->withRequired(['lid']),
-            ]);
     }
 
     /**

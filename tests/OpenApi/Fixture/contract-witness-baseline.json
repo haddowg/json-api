@@ -6270,6 +6270,42 @@
                     "type"
                 ]
             },
+            "ArticlesAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "articles"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
+                    }
+                ]
+            },
             "ArticlesAtomicUpdate": {
                 "type": "object",
                 "description": "The article resource object an `update` operation writes.",
@@ -8224,152 +8260,95 @@
                     "data"
                 ]
             },
-            "AtomicOperation": {
+            "AtomicAddOperation": {
                 "type": "object",
-                "description": "One operation in the batch. The target is given by exactly one of `ref` or `href`.",
+                "description": "Adds a resource. The target is given by at most one of `ref` or `href`.",
                 "properties": {
                     "op": {
                         "type": "string",
-                        "description": "The operation code.",
-                        "enum": [
-                            "add",
-                            "update",
-                            "remove"
-                        ]
+                        "const": "add"
                     },
                     "ref": {
-                        "type": "object",
-                        "description": "A structural reference to the operation's target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.",
-                        "properties": {
-                            "type": {
-                                "type": "string"
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
                             },
-                            "id": {
-                                "type": "string"
-                            },
-                            "lid": {
-                                "type": "string",
-                                "description": "A local id referencing a resource created earlier in the same batch."
-                            },
-                            "relationship": {
-                                "type": "string"
+                            {
+                                "not": {
+                                    "required": [
+                                        "relationship"
+                                    ]
+                                }
                             }
-                        },
-                        "required": [
-                            "type"
                         ]
                     },
                     "href": {
-                        "type": "string",
-                        "format": "uri-reference",
-                        "description": "A URI reference to the operation's target (an alternative to `ref`)."
-                    },
-                    "data": {
-                        "description": "The operation payload. Its shape depends on `op` and the target: a resource object for an `add`/`update`; a resource identifier (or `null`) for a to-one relationship; an array of resource identifiers for a to-many relationship; absent for a resource `remove`.",
-                        "anyOf": [
+                        "allOf": [
                             {
-                                "$ref": "#/components/schemas/ArticlesAtomicAdd"
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
                             },
                             {
-                                "$ref": "#/components/schemas/ArticlesAtomicUpdate"
+                                "not": {
+                                    "type": "string",
+                                    "pattern": "(^|/)relationships/[^/?#]+/?$"
+                                }
+                            }
+                        ]
+                    },
+                    "data": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticlesAtomicAdd"
                             },
                             {
                                 "$ref": "#/components/schemas/PeopleAtomicAdd"
                             },
                             {
-                                "$ref": "#/components/schemas/PeopleAtomicUpdate"
-                            },
-                            {
                                 "$ref": "#/components/schemas/TagsAtomicAdd"
                             },
                             {
-                                "$ref": "#/components/schemas/TagsAtomicUpdate"
-                            },
-                            {
                                 "$ref": "#/components/schemas/VideosAtomicAdd"
-                            },
-                            {
-                                "$ref": "#/components/schemas/VideosAtomicUpdate"
-                            },
-                            {
-                                "type": "object",
-                                "properties": {
-                                    "type": {
-                                        "type": "string"
-                                    },
-                                    "id": {
-                                        "type": "string"
-                                    },
-                                    "lid": {
-                                        "type": "string"
-                                    },
-                                    "meta": {
-                                        "type": "object"
-                                    }
-                                },
-                                "required": [
-                                    "type"
-                                ],
-                                "oneOf": [
-                                    {
-                                        "title": "By id",
-                                        "required": [
-                                            "id"
-                                        ]
-                                    },
-                                    {
-                                        "title": "By local id (lid)",
-                                        "required": [
-                                            "lid"
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "null"
-                            },
-                            {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string"
-                                        },
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "lid": {
-                                            "type": "string"
-                                        },
-                                        "meta": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "required": [
-                                        "type"
-                                    ],
-                                    "oneOf": [
-                                        {
-                                            "title": "By id",
-                                            "required": [
-                                                "id"
-                                            ]
-                                        },
-                                        {
-                                            "title": "By local id (lid)",
-                                            "required": [
-                                                "lid"
-                                            ]
-                                        }
-                                    ]
-                                }
                             }
-                        ]
+                        ],
+                        "discriminator": {
+                            "propertyName": "type",
+                            "mapping": {
+                                "articles": "#/components/schemas/ArticlesAtomicAdd",
+                                "people": "#/components/schemas/PeopleAtomicAdd",
+                                "tags": "#/components/schemas/TagsAtomicAdd",
+                                "videos": "#/components/schemas/VideosAtomicAdd"
+                            }
+                        }
                     }
                 },
                 "required": [
-                    "op"
+                    "op",
+                    "data"
+                ]
+            },
+            "AtomicOperation": {
+                "description": "One operation in the batch. Its `op` and its target, a relationship or a resource, decide its kind and the shape of its `data`.",
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/AtomicAddOperation"
+                    },
+                    {
+                        "$ref": "#/components/schemas/AtomicUpdateOperation"
+                    },
+                    {
+                        "$ref": "#/components/schemas/AtomicRemoveOperation"
+                    },
+                    {
+                        "$ref": "#/components/schemas/AtomicRelationshipAddOperation"
+                    },
+                    {
+                        "$ref": "#/components/schemas/AtomicRelationshipUpdateOperation"
+                    },
+                    {
+                        "$ref": "#/components/schemas/AtomicRelationshipRemoveOperation"
+                    }
                 ]
             },
             "AtomicOperationsInvalidError": {
@@ -8435,48 +8414,475 @@
                     "atomic:operations"
                 ]
             },
+            "AtomicRef": {
+                "type": "object",
+                "description": "A structural reference to the operation's target (an alternative to `href`). Identifies a resource by `type` plus exactly one of `id` or `lid`; `relationship` narrows the target to that relationship.",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "A local id referencing a resource created earlier in the same batch."
+                    },
+                    "relationship": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "AtomicRelationshipAddOperation": {
+                "type": "object",
+                "description": "Adds members to a to-many relationship. The target is given by at most one of `ref` or `href`.",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "const": "add"
+                    },
+                    "ref": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
+                            },
+                            {
+                                "required": [
+                                    "relationship"
+                                ]
+                            }
+                        ]
+                    },
+                    "href": {
+                        "allOf": [
+                            {
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "(^|/)relationships/[^/?#]+/?$"
+                            }
+                        ]
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/PeopleAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/TagsAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ImagesAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/VideosAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/CompaniesAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ArticlesAtomicIdentifier"
+                                }
+                            ],
+                            "discriminator": {
+                                "propertyName": "type",
+                                "mapping": {
+                                    "people": "#/components/schemas/PeopleAtomicIdentifier",
+                                    "tags": "#/components/schemas/TagsAtomicIdentifier",
+                                    "images": "#/components/schemas/ImagesAtomicIdentifier",
+                                    "videos": "#/components/schemas/VideosAtomicIdentifier",
+                                    "companies": "#/components/schemas/CompaniesAtomicIdentifier",
+                                    "articles": "#/components/schemas/ArticlesAtomicIdentifier"
+                                }
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "op",
+                    "data"
+                ],
+                "anyOf": [
+                    {
+                        "required": [
+                            "ref"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "href"
+                        ]
+                    }
+                ]
+            },
+            "AtomicRelationshipRemoveOperation": {
+                "type": "object",
+                "description": "Removes members from a to-many relationship. The target is given by at most one of `ref` or `href`.",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "const": "remove"
+                    },
+                    "ref": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
+                            },
+                            {
+                                "required": [
+                                    "relationship"
+                                ]
+                            }
+                        ]
+                    },
+                    "href": {
+                        "allOf": [
+                            {
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "(^|/)relationships/[^/?#]+/?$"
+                            }
+                        ]
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/PeopleAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/TagsAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ImagesAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/VideosAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/CompaniesAtomicIdentifier"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/ArticlesAtomicIdentifier"
+                                }
+                            ],
+                            "discriminator": {
+                                "propertyName": "type",
+                                "mapping": {
+                                    "people": "#/components/schemas/PeopleAtomicIdentifier",
+                                    "tags": "#/components/schemas/TagsAtomicIdentifier",
+                                    "images": "#/components/schemas/ImagesAtomicIdentifier",
+                                    "videos": "#/components/schemas/VideosAtomicIdentifier",
+                                    "companies": "#/components/schemas/CompaniesAtomicIdentifier",
+                                    "articles": "#/components/schemas/ArticlesAtomicIdentifier"
+                                }
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "op",
+                    "data"
+                ],
+                "anyOf": [
+                    {
+                        "required": [
+                            "ref"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "href"
+                        ]
+                    }
+                ]
+            },
+            "AtomicRelationshipUpdateOperation": {
+                "type": "object",
+                "description": "Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many. The target is given by at most one of `ref` or `href`.",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "const": "update"
+                    },
+                    "ref": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
+                            },
+                            {
+                                "required": [
+                                    "relationship"
+                                ]
+                            }
+                        ]
+                    },
+                    "href": {
+                        "allOf": [
+                            {
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "(^|/)relationships/[^/?#]+/?$"
+                            }
+                        ]
+                    },
+                    "data": {
+                        "oneOf": [
+                            {
+                                "oneOf": [
+                                    {
+                                        "$ref": "#/components/schemas/PeopleAtomicIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/TagsAtomicIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/ImagesAtomicIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/VideosAtomicIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CompaniesAtomicIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/ArticlesAtomicIdentifier"
+                                    }
+                                ],
+                                "discriminator": {
+                                    "propertyName": "type",
+                                    "mapping": {
+                                        "people": "#/components/schemas/PeopleAtomicIdentifier",
+                                        "tags": "#/components/schemas/TagsAtomicIdentifier",
+                                        "images": "#/components/schemas/ImagesAtomicIdentifier",
+                                        "videos": "#/components/schemas/VideosAtomicIdentifier",
+                                        "companies": "#/components/schemas/CompaniesAtomicIdentifier",
+                                        "articles": "#/components/schemas/ArticlesAtomicIdentifier"
+                                    }
+                                }
+                            },
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/components/schemas/PeopleAtomicIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/TagsAtomicIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/ImagesAtomicIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/VideosAtomicIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/CompaniesAtomicIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/ArticlesAtomicIdentifier"
+                                        }
+                                    ],
+                                    "discriminator": {
+                                        "propertyName": "type",
+                                        "mapping": {
+                                            "people": "#/components/schemas/PeopleAtomicIdentifier",
+                                            "tags": "#/components/schemas/TagsAtomicIdentifier",
+                                            "images": "#/components/schemas/ImagesAtomicIdentifier",
+                                            "videos": "#/components/schemas/VideosAtomicIdentifier",
+                                            "companies": "#/components/schemas/CompaniesAtomicIdentifier",
+                                            "articles": "#/components/schemas/ArticlesAtomicIdentifier"
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "op",
+                    "data"
+                ],
+                "anyOf": [
+                    {
+                        "required": [
+                            "ref"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "href"
+                        ]
+                    }
+                ]
+            },
+            "AtomicRemoveOperation": {
+                "type": "object",
+                "description": "Removes a resource. The target is given by at most one of `ref` or `href`.",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "const": "remove"
+                    },
+                    "ref": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
+                            },
+                            {
+                                "not": {
+                                    "required": [
+                                        "relationship"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "href": {
+                        "allOf": [
+                            {
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
+                            },
+                            {
+                                "not": {
+                                    "type": "string",
+                                    "pattern": "(^|/)relationships/[^/?#]+/?$"
+                                }
+                            }
+                        ]
+                    },
+                    "data": false
+                },
+                "required": [
+                    "op"
+                ]
+            },
             "AtomicResult": {
                 "type": "object",
                 "description": "The result fragment of one operation. It carries only `data` and `meta`, and a `remove` returns it empty.",
                 "properties": {
                     "data": {
-                        "description": "The created or updated resource (or its identifier) the operation returns.",
+                        "description": "The created or updated resource, or the linkage a relationship operation returns.",
                         "anyOf": [
                             {
-                                "$ref": "#/components/schemas/ArticlesResource"
+                                "oneOf": [
+                                    {
+                                        "$ref": "#/components/schemas/ArticlesResource"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/PeopleResource"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/TagsResource"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/VideosResource"
+                                    }
+                                ],
+                                "discriminator": {
+                                    "propertyName": "type",
+                                    "mapping": {
+                                        "articles": "#/components/schemas/ArticlesResource",
+                                        "people": "#/components/schemas/PeopleResource",
+                                        "tags": "#/components/schemas/TagsResource",
+                                        "videos": "#/components/schemas/VideosResource"
+                                    }
+                                }
                             },
                             {
-                                "$ref": "#/components/schemas/ArticlesResourceIdentifier"
+                                "oneOf": [
+                                    {
+                                        "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/TagsResourceIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/ImagesResourceIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/VideosResourceIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/CompaniesResourceIdentifier"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/ArticlesResourceIdentifier"
+                                    }
+                                ],
+                                "discriminator": {
+                                    "propertyName": "type",
+                                    "mapping": {
+                                        "people": "#/components/schemas/PeopleResourceIdentifier",
+                                        "tags": "#/components/schemas/TagsResourceIdentifier",
+                                        "images": "#/components/schemas/ImagesResourceIdentifier",
+                                        "videos": "#/components/schemas/VideosResourceIdentifier",
+                                        "companies": "#/components/schemas/CompaniesResourceIdentifier",
+                                        "articles": "#/components/schemas/ArticlesResourceIdentifier"
+                                    }
+                                }
                             },
                             {
-                                "$ref": "#/components/schemas/PeopleResource"
+                                "type": "array",
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/components/schemas/PeopleResourceIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/TagsResourceIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/ImagesResourceIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/VideosResourceIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/CompaniesResourceIdentifier"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/ArticlesResourceIdentifier"
+                                        }
+                                    ],
+                                    "discriminator": {
+                                        "propertyName": "type",
+                                        "mapping": {
+                                            "people": "#/components/schemas/PeopleResourceIdentifier",
+                                            "tags": "#/components/schemas/TagsResourceIdentifier",
+                                            "images": "#/components/schemas/ImagesResourceIdentifier",
+                                            "videos": "#/components/schemas/VideosResourceIdentifier",
+                                            "companies": "#/components/schemas/CompaniesResourceIdentifier",
+                                            "articles": "#/components/schemas/ArticlesResourceIdentifier"
+                                        }
+                                    }
+                                }
                             },
                             {
-                                "$ref": "#/components/schemas/PeopleResourceIdentifier"
-                            },
-                            {
-                                "$ref": "#/components/schemas/TagsResource"
-                            },
-                            {
-                                "$ref": "#/components/schemas/TagsResourceIdentifier"
-                            },
-                            {
-                                "$ref": "#/components/schemas/ImagesResource"
-                            },
-                            {
-                                "$ref": "#/components/schemas/ImagesResourceIdentifier"
-                            },
-                            {
-                                "$ref": "#/components/schemas/VideosResource"
-                            },
-                            {
-                                "$ref": "#/components/schemas/VideosResourceIdentifier"
-                            },
-                            {
-                                "$ref": "#/components/schemas/HealthcheckResource"
-                            },
-                            {
-                                "$ref": "#/components/schemas/HealthcheckResourceIdentifier"
+                                "type": "null"
                             }
                         ]
                     },
@@ -8508,6 +8914,74 @@
                 },
                 "required": [
                     "atomic:results"
+                ]
+            },
+            "AtomicUpdateOperation": {
+                "type": "object",
+                "description": "Updates a resource. The target is given by at most one of `ref` or `href`.",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "const": "update"
+                    },
+                    "ref": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AtomicRef"
+                            },
+                            {
+                                "not": {
+                                    "required": [
+                                        "relationship"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "href": {
+                        "allOf": [
+                            {
+                                "type": "string",
+                                "format": "uri-reference",
+                                "description": "A URI reference to the operation's target (an alternative to `ref`)."
+                            },
+                            {
+                                "not": {
+                                    "type": "string",
+                                    "pattern": "(^|/)relationships/[^/?#]+/?$"
+                                }
+                            }
+                        ]
+                    },
+                    "data": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticlesAtomicUpdate"
+                            },
+                            {
+                                "$ref": "#/components/schemas/PeopleAtomicUpdate"
+                            },
+                            {
+                                "$ref": "#/components/schemas/TagsAtomicUpdate"
+                            },
+                            {
+                                "$ref": "#/components/schemas/VideosAtomicUpdate"
+                            }
+                        ],
+                        "discriminator": {
+                            "propertyName": "type",
+                            "mapping": {
+                                "articles": "#/components/schemas/ArticlesAtomicUpdate",
+                                "people": "#/components/schemas/PeopleAtomicUpdate",
+                                "tags": "#/components/schemas/TagsAtomicUpdate",
+                                "videos": "#/components/schemas/VideosAtomicUpdate"
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "op",
+                    "data"
                 ]
             },
             "AttributeValueInvalidError": {
@@ -8732,6 +9206,42 @@
                 "additionalProperties": {
                     "$ref": "#/components/schemas/LinkObject"
                 }
+            },
+            "CompaniesAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "companies"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
+                    }
+                ]
             },
             "CompaniesResourceIdentifier": {
                 "type": "object",
@@ -9793,6 +10303,42 @@
                     "id"
                 ]
             },
+            "ImagesAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "images"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
+                    }
+                ]
+            },
             "ImagesAttributes": {
                 "type": "object",
                 "properties": {
@@ -10582,6 +11128,42 @@
                             "id": false,
                             "lid": false
                         }
+                    }
+                ]
+            },
+            "PeopleAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "people"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
                     }
                 ]
             },
@@ -12134,6 +12716,42 @@
                     }
                 ]
             },
+            "TagsAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "tags"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
+                    }
+                ]
+            },
             "TagsAtomicUpdate": {
                 "type": "object",
                 "description": "The tag resource object an `update` operation writes.",
@@ -12472,6 +13090,42 @@
                 },
                 "required": [
                     "type"
+                ]
+            },
+            "VideosAtomicIdentifier": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "videos"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lid": {
+                        "type": "string",
+                        "description": "The local id of a resource created earlier in the batch."
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/Meta"
+                    }
+                },
+                "required": [
+                    "type"
+                ],
+                "oneOf": [
+                    {
+                        "title": "By id",
+                        "required": [
+                            "id"
+                        ]
+                    },
+                    {
+                        "title": "By local id (lid)",
+                        "required": [
+                            "lid"
+                        ]
+                    }
                 ]
             },
             "VideosAtomicUpdate": {

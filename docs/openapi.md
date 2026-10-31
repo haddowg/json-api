@@ -183,6 +183,19 @@ sketch:
   segment, leaving out a type the server does not register. A related endpoint's
   `included` is rooted at the related type. A document whose paths reach nothing has no
   `included` member.
+- **Atomic operations by kind.** With the [Atomic Operations](atomic-operations.md)
+  extension on, `AtomicOperation` is a `oneOf` over one component per kind:
+  `AtomicAddOperation`, `AtomicUpdateOperation` and `AtomicRemoveOperation` for a resource,
+  and `AtomicRelationshipAddOperation`, `AtomicRelationshipUpdateOperation` and
+  `AtomicRelationshipRemoveOperation` for a relationship. Each pins its `op` as a `const`,
+  and a relationship kind needs a target that names the relationship, a `ref` with
+  `relationship` or an `href` ending in `relationships/<name>`, which a resource kind
+  refuses, so a valid operation matches exactly one kind. An add or update carries a
+  `oneOf` over `<Type>AtomicAdd` or `<Type>AtomicUpdate`, and a relationship kind carries
+  `<Type>AtomicIdentifier`s, which take an `id` or a `lid`, all discriminated by `type`.
+  An `AtomicResult`'s `data` is the `anyOf` of the returned resource, discriminated over
+  `<Type>Resource`, and the returned linkage, discriminated over
+  `<Type>ResourceIdentifier`, since a resource with no attributes is also an identifier.
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
