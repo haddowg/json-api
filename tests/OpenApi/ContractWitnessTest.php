@@ -108,7 +108,8 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DISCRIMINATED_UNIONS)], GeneratorContract::toArray(discriminatedUnions: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_LOCATION)], GeneratorContract::toArray(actionLocations: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SINGLE_TARGET_POLYMORPHISM)], GeneratorContract::toArray(singleTargetPolymorphism: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SCOPES)], GeneratorContract::toArray(scopes: true));

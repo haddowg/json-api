@@ -452,12 +452,22 @@ final class OpenApiProjectorTest extends TestCase
         // To-many: an array of identifiers.
         self::assertSame('array', $this->strAt($schemas, 'ArticlesTagsRelationship', 'properties', 'data', 'type'));
 
-        // Polymorphic to-one: an anyOf of member identifiers (then nullable).
+        // Polymorphic to-one: a oneOf of member identifiers discriminated by `type`, then nullable.
         $featured = $this->arrAt($schemas, 'PeopleFeaturedRelationship', 'properties', 'data');
         self::assertArrayHasKey('anyOf', $featured);
         // anyOf[0] is the polymorphic identifier union; anyOf[1] is the null branch.
-        self::assertSame('#/components/schemas/ArticlesResourceIdentifier', $this->strAt($featured, 'anyOf', '0', 'anyOf', '0', '$ref'));
-        self::assertSame('#/components/schemas/PeopleResourceIdentifier', $this->strAt($featured, 'anyOf', '0', 'anyOf', '1', '$ref'));
+        self::assertSame('#/components/schemas/ArticlesResourceIdentifier', $this->strAt($featured, 'anyOf', '0', 'oneOf', '0', '$ref'));
+        self::assertSame('#/components/schemas/PeopleResourceIdentifier', $this->strAt($featured, 'anyOf', '0', 'oneOf', '1', '$ref'));
+        self::assertSame(
+            [
+                'propertyName' => 'type',
+                'mapping' => [
+                    'articles' => '#/components/schemas/ArticlesResourceIdentifier',
+                    'people' => '#/components/schemas/PeopleResourceIdentifier',
+                ],
+            ],
+            $this->at($featured, 'anyOf', '0', 'discriminator'),
+        );
     }
 
     #[Test]

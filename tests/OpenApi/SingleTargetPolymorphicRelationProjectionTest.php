@@ -38,15 +38,15 @@ final class SingleTargetPolymorphicRelationProjectionTest extends TestCase
         $schemas = $this->arrAt($this->document(FakeRelationMetadata::morph('subject', ['people'])), 'components', 'schemas');
 
         self::assertSame(
-            ['anyOf' => [['anyOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']]], ['type' => 'null']]],
+            ['anyOf' => [['oneOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResourceIdentifier']]], ['type' => 'null']]],
             $this->arrAt($schemas, 'ArticlesSubjectRelationship', 'properties', 'data'),
         );
         self::assertSame(
-            ['anyOf' => [['anyOf' => [['$ref' => '#/components/schemas/PeopleResource']]], ['type' => 'null']]],
+            ['anyOf' => [['oneOf' => [['$ref' => '#/components/schemas/PeopleResource']], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResource']]], ['type' => 'null']]],
             $this->arrAt($schemas, 'ArticlesSubjectRelatedDocument', 'properties', 'data'),
         );
         self::assertSame(
-            ['anyOf' => [['anyOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']]], ['type' => 'null']]],
+            ['anyOf' => [['oneOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResourceIdentifier']]], ['type' => 'null']]],
             $this->arrAt($schemas, 'ArticlesSubjectRelationshipDocument', 'properties', 'data'),
         );
     }
@@ -57,11 +57,11 @@ final class SingleTargetPolymorphicRelationProjectionTest extends TestCase
         $schemas = $this->arrAt($this->document(FakeRelationMetadata::morph('subjects', ['people'], toMany: true)), 'components', 'schemas');
 
         self::assertSame(
-            ['type' => 'array', 'items' => ['anyOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']]]],
+            ['type' => 'array', 'items' => ['oneOf' => [['$ref' => '#/components/schemas/PeopleResourceIdentifier']], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResourceIdentifier']]]],
             $this->arrAt($schemas, 'ArticlesSubjectsRelationship', 'properties', 'data'),
         );
         self::assertSame(
-            ['type' => 'array', 'items' => ['anyOf' => [['$ref' => '#/components/schemas/PeopleResource']]]],
+            ['type' => 'array', 'items' => ['oneOf' => [['$ref' => '#/components/schemas/PeopleResource']], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResource']]]],
             $this->arrAt($schemas, 'ArticlesSubjectsRelatedCollection', 'properties', 'data'),
         );
     }
@@ -72,9 +72,13 @@ final class SingleTargetPolymorphicRelationProjectionTest extends TestCase
         $one = $this->arrAt($this->document(FakeRelationMetadata::morph('subject', ['people'])), 'components', 'schemas', 'ArticlesSubjectRelationship', 'properties', 'data');
         $two = $this->arrAt($this->document(FakeRelationMetadata::morph('subject', ['people', 'robots'])), 'components', 'schemas', 'ArticlesSubjectRelationship', 'properties', 'data');
 
-        $members = $this->arrAt($two, 'anyOf', '0', 'anyOf');
+        $members = $this->arrAt($two, 'anyOf', '0', 'oneOf');
         self::assertCount(2, $members);
-        self::assertSame($one, ['anyOf' => [['anyOf' => [$members[0]]], ['type' => 'null']]]);
+        self::assertSame(
+            ['people' => '#/components/schemas/PeopleResourceIdentifier', 'robots' => '#/components/schemas/RobotsResourceIdentifier'],
+            $this->arrAt($two, 'anyOf', '0', 'discriminator', 'mapping'),
+        );
+        self::assertSame($one, ['anyOf' => [['oneOf' => [$members[0]], 'discriminator' => ['propertyName' => 'type', 'mapping' => ['people' => '#/components/schemas/PeopleResourceIdentifier']]], ['type' => 'null']]]);
     }
 
     #[Test]

@@ -147,8 +147,9 @@ sketch:
   would reject.
 - **Relationships.** Each declared relation gets a relationship-object component with its
   linkage `data` (a single nullable identifier for a to-one, an array for a to-many; a
-  polymorphic relation's identifier is the `anyOf` of its members, even when it has only
-  one, see [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
+  polymorphic relation's identifier is a `oneOf` of its members with a `type`
+  discriminator, even when it has only one, see
+  [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
   only the relations settable in that write, and marks a write-only relation's property
   `writeOnly: true`, so a generator can keep it on its input types and off its read types.
   Endpoints are emitted per relation, gated by
@@ -174,6 +175,14 @@ sketch:
   resources carry [declared links or action links](#links-and-describedby) gets its own
   `<Type>ResourceLinks`, extending `ResourceLinks` with them. See
   [links and `describedby`](#links-and-describedby).
+- **A typed `included`.** A compound document's `included` is an array whose items are a
+  `oneOf` over the `<Type>Resource` of every type its `?include` paths reach, with a
+  `type` discriminator mapping each type to its component. The reach is the one the
+  operation's `include` enum and `fields[<type>]` parameters use: every type a listed path
+  ends at, walked through the relation graph and through each member of a polymorphic
+  segment, leaving out a type the server does not register. A related endpoint's
+  `included` is rooted at the related type. A document whose paths reach nothing has no
+  `included` member.
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys, and `include` — the last only when the type actually exposes an
@@ -260,10 +269,11 @@ declares only one. `MorphTo::make('subject', ['people'])` gets the same shape a
 `MorphTo` over two types gets, with one member, where a `BelongsTo` to `people` gets a
 plain `$ref`:
 
-- its linkage identifier is `{"anyOf": [{"$ref": "#/components/schemas/PeopleResourceIdentifier"}]}`,
+- its linkage identifier is
+  `{"oneOf": [{"$ref": "#/components/schemas/PeopleResourceIdentifier"}], "discriminator": {"propertyName": "type", "mapping": {"people": "#/components/schemas/PeopleResourceIdentifier"}}}`,
   in the relationship object, the relationship document and the write bodies;
-- the `data` of its related document or related collection is the `anyOf` of the member
-  resources;
+- the `data` of its related document or related collection is the same `oneOf` over the
+  member resources, its discriminator mapping each type to its `<Type>Resource`;
 - its related and relationship endpoints take no `filter`, `sort` or `page` parameters
   from the related type, and its related `?withCount` offers no relations of it. A
   relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
@@ -1145,7 +1155,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 18 }
+  "x-generator": { "contract": 19 }
 }
 ```
 

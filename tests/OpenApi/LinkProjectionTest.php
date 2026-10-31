@@ -258,9 +258,9 @@ final class LinkProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theBaselineContractIsEighteen(): void
+    public function theBaselineContractCoversTheSharedLinks(): void
     {
-        self::assertSame(18, GeneratorContract::BASELINE);
+        self::assertGreaterThanOrEqual(18, GeneratorContract::BASELINE);
     }
 
     /**

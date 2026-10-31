@@ -1555,48 +1555,12 @@ final class OperationProjector
         $add($type->type());
 
         foreach ($includablePaths as $path) {
-            foreach ($this->terminalTypesOfPath($type, $path, $byType) as $terminalType) {
+            foreach (IncludeReachability::terminalTypes($type->type(), $path, $byType) as $terminalType) {
                 $add($terminalType);
             }
         }
 
         return \array_keys($reachable);
-    }
-
-    /**
-     * The related type(s) a dotted `?include` path (e.g. `author.company`) resolves to,
-     * by walking the relation graph segment by segment from `$origin`. A polymorphic
-     * segment branches into every member type; an unresolvable segment prunes that
-     * branch. Returns the terminal types only (the deepest segment's related types).
-     *
-     * @param array<string, TypeMetadataInterface> $byType
-     * @return list<string>
-     */
-    private function terminalTypesOfPath(TypeMetadataInterface $origin, string $path, array $byType): array
-    {
-        $current = [$origin->type()];
-        foreach (\explode('.', $path) as $segment) {
-            $next = [];
-            foreach ($current as $currentType) {
-                $owner = $byType[$currentType] ?? null;
-                if ($owner === null) {
-                    continue;
-                }
-                foreach ($owner->relations() as $relation) {
-                    if ($relation->name() === $segment) {
-                        foreach ($relation->relatedTypes() as $relatedType) {
-                            $next[$relatedType] = true;
-                        }
-                    }
-                }
-            }
-            if ($next === []) {
-                return [];
-            }
-            $current = \array_keys($next);
-        }
-
-        return $current;
     }
 
     /**

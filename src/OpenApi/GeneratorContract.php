@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are eleven scoped
+ * is warned only by the documents that contain it. There are twelve scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -57,8 +57,9 @@ namespace haddowg\JsonApi\OpenApi;
  * answering to several methods ({@see ACTION_METHOD_IDS}), an action's declared safety
  * ({@see ACTION_SAFETY}), its own vendor extensions ({@see ACTION_EXTENSIONS}), the
  * scopes an operation needs ({@see SCOPES}), a polymorphic relation with a single
- * related type ({@see SINGLE_TARGET_POLYMORPHISM}) and an action answering with a URL
- * ({@see ACTION_LOCATION}). A change that moves every
+ * related type ({@see SINGLE_TARGET_POLYMORPHISM}), an action answering with a URL
+ * ({@see ACTION_LOCATION}) and the `type`-discriminated unions of a polymorphic relation
+ * or a typed `included` ({@see DISCRIMINATED_UNIONS}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -72,18 +73,19 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 18;
+    public const CONTRACT = 19;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
      * the shape every document shares. Bump it, with {@see CONTRACT}, when a change moves
      * that shape. Contract 13 did, giving every core error code a `detail` narrowing with
      * its example. Contract 18 did again, replacing each type's and relation's links
-     * components with one shared component per link context, so every document now
-     * carries 18 and the scoped tiers below name only the contract that first introduced
-     * each structure.
+     * components with one shared component per link context. Contract 19 did too, since
+     * the discriminated unions of {@see DISCRIMINATED_UNIONS} reach nearly every
+     * document through its typed `included`, so every document now carries 19 and the
+     * scoped tiers below name only the contract that first introduced each structure.
      */
-    public const BASELINE = 18;
+    public const BASELINE = 19;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API
@@ -149,7 +151,7 @@ final class GeneratorContract
     /**
      * The contract that projected a polymorphic relation with a single related type as a
      * union, the shape it has with several: its linkage identifier and related resource
-     * are a one-member `anyOf` rather than a `$ref`, and its related and relationship
+     * are a one-member union rather than a `$ref`, and its related and relationship
      * endpoints drop the related type's filter, sort and page parameters. A document
      * carries it only when such a relation exists.
      */
@@ -162,6 +164,18 @@ final class GeneratorContract
      * document carries it only when an action declares one.
      */
     public const ACTION_LOCATION = 17;
+
+    /**
+     * The contract that made the projection's resource unions discriminated: a
+     * polymorphic relation's linkage identifier and related resource are a `oneOf` with a
+     * `type` discriminator mapping each type to its `<Type>ResourceIdentifier` or
+     * `<Type>Resource`, and a compound document's `included` is a `oneOf` over the
+     * `<Type>Resource` of every type its `?include` paths reach, in place of an untyped
+     * `{type, id}` item. A document carries it when it has a polymorphic relation or a
+     * typed `included`, which nearly every document does, so {@see BASELINE} carries it
+     * too.
+     */
+    public const DISCRIMINATED_UNIONS = 19;
 
     /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
@@ -179,6 +193,7 @@ final class GeneratorContract
         bool $scopes = false,
         bool $singleTargetPolymorphism = false,
         bool $actionLocations = false,
+        bool $discriminatedUnions = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -192,6 +207,7 @@ final class GeneratorContract
             $scopes ? self::SCOPES : self::BASELINE,
             $singleTargetPolymorphism ? self::SINGLE_TARGET_POLYMORPHISM : self::BASELINE,
             $actionLocations ? self::ACTION_LOCATION : self::BASELINE,
+            $discriminatedUnions ? self::DISCRIMINATED_UNIONS : self::BASELINE,
         )];
     }
 }
