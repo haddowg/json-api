@@ -116,7 +116,7 @@ final class DocumentTransformerTest extends TestCase
     public function transformRelationshipDocumentIsLinkageOnlyForARequestedInclude(): void
     {
         // A relationship endpoint's document is linkage-only: a requested `?include`
-        // is tolerated but produces NO compound `included` member (core D16).
+        // is tolerated but produces NO compound `included` member.
         $document = $this->createDocument(
             null,
             [],
@@ -138,7 +138,7 @@ final class DocumentTransformerTest extends TestCase
     public function transformRelationshipDocumentOmitsIncludedEvenWhenTheDataCarriesIncludedResources(): void
     {
         // Even when the transformed relationship data has populated an included set,
-        // the relationship document does not emit it — linkage-only (core D16).
+        // the relationship document does not emit it — linkage-only.
         $document = $this->createDocument(
             null,
             [],

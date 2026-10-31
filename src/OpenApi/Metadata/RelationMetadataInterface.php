@@ -16,11 +16,10 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * carries, but which the contract restates so a relation can be described without
  * a live resource — e.g. for a standalone-registered relation set).
  *
- * **Component projection (this slice)** uses {@see name()}, {@see relatedTypes()}
+ * **Component projection** uses {@see name()}, {@see relatedTypes()}
  * and {@see isToMany()} to emit the per-relationship object schema (linkage +
  * polymorphic `oneOf`). The remaining accessors describe the relationship/related
- * **endpoints** and their parameters, consumed by the Slice-3 path projection; they
- * are defined now so the contract is stable.
+ * **endpoints** and their parameters, consumed by the path projection.
  */
 interface RelationMetadataInterface
 {
@@ -72,7 +71,7 @@ interface RelationMetadataInterface
     /**
      * Whether full replacement (`PATCH` the relationship, or a `data` member in a
      * whole-resource write) is permitted — gates the relationship-mutation request
-     * body in the Slice-3 path projection. `false` for a relation that is
+     * body in the path projection. `false` for a relation that is
      * unconditionally read-only on update, as for the other two mutation flags.
      */
     public function allowsReplace(): bool;
@@ -122,7 +121,7 @@ interface RelationMetadataInterface
     /**
      * Extra filters this relation exposes on its related-collection endpoint
      * (`GET /{type}/{id}/{rel}`), scoped to that one relationship. Consumed by the
-     * Slice-3 parameter projection.
+     * parameter projection.
      *
      * @return list<FilterInterface>
      */
@@ -130,7 +129,7 @@ interface RelationMetadataInterface
 
     /**
      * Extra sorts this relation exposes on its related-collection endpoint, scoped to
-     * that one relationship. Consumed by the Slice-3 parameter projection.
+     * that one relationship. Consumed by the parameter projection.
      *
      * @return list<SortInterface>
      */
@@ -143,7 +142,7 @@ interface RelationMetadataInterface
      * so a valid `?include` enumerates the related type's includable relationships
      * (respecting its own include safeguards). Empty when nothing is includable there
      * (e.g. a polymorphic relation whose members share no include vocabulary).
-     * Consumed by the Slice-3 related-endpoint `include` parameter projection.
+     * Consumed by the related-endpoint `include` parameter projection.
      *
      * @return list<string>
      */

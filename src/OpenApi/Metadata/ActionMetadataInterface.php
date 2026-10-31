@@ -6,9 +6,9 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
 
 /**
  * The OpenAPI-relevant metadata for one custom action (a `#[AsJsonApiAction]`),
- * consumed by the Slice-3 path projection (each action → a {@see
- * \haddowg\JsonApi\OpenApi\PathItem} under the `-actions` segment). Defined now so
- * the contract is stable; this slice's component projection does not read it.
+ * consumed by the path projection (each action → a {@see
+ * \haddowg\JsonApi\OpenApi\PathItem} under the `-actions` segment); the component
+ * projection does not read it.
  */
 interface ActionMetadataInterface
 {

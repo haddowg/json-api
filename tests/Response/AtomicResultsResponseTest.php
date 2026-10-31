@@ -49,7 +49,7 @@ final class AtomicResultsResponseTest extends TestCase
                     [],
                 ],
                 // The applied atomic extension is advertised in `jsonapi.ext` (symmetric
-                // with `jsonapi.profile`), not only in the Content-Type `ext` param (D12).
+                // with `jsonapi.profile`), not only in the Content-Type `ext` param.
                 'jsonapi' => ['version' => '1.1', 'ext' => ['https://jsonapi.org/ext/atomic']],
             ],
             $this->decode($body),

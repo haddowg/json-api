@@ -9,8 +9,7 @@ namespace haddowg\JsonApi\OpenApi;
  * {@see Operation} per HTTP method, plus path-level `parameters` shared by all of
  * them.
  *
- * Modelled now (Slice 2) but only populated by the path/operation projection
- * (Slice 3). Vendor extensions (`x-…`) are emitted after the standard members.
+ * Populated by the path/operation projection. Vendor extensions (`x-…`) are emitted after the standard members.
  */
 final readonly class PathItem implements \JsonSerializable
 {

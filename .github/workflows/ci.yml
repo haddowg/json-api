@@ -45,7 +45,7 @@ jobs:
       - name: Run tests
         run: composer test
 
-      # Coverage + Codecov upload are enabled in Phase 1, once `src/` contains
+      # Coverage + Codecov upload are enabled once `src/` contains
       # code to measure. While `src/` is empty, generating coverage produces a
       # "source filter does not match any files" warning that fails the run under
       # failOnWarning. The CODECOV_TOKEN secret is already configured and ready.

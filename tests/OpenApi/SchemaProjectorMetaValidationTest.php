@@ -31,9 +31,8 @@ use PHPUnit\Framework\TestCase;
  * the **official JSON Schema 2020-12 meta-schema** — the core dialect plus its
  * referenced vocabulary meta-schemas, vendored under `Fixture/meta-schema/`
  * (`opis/json-schema` ships the 2020-12 *parser* but no meta-schema JSON, so the
- * documents are vendored and registered by their canonical `$id`). This is the
- * spec §10 acceptance criterion ("every emitted document validates against the
- * meta-schema") and catches a structurally malformed schema (e.g. a non-integer
+ * documents are vendored and registered by their canonical `$id`). Every emitted
+ * document must validate against the meta-schema; this also catches a structurally malformed schema (e.g. a non-integer
  * `minLength`, a non-string `enum` member shape, a bad `type`).
  *
  * Note the meta-schema is **deliberately permissive about unknown keywords** (the
@@ -46,7 +45,7 @@ use PHPUnit\Framework\TestCase;
  * an opis {@see Validator} (so opis parses it under the 2020-12 dialect — a parse
  * failure surfaces here) and a **valid** and an **invalid** instance are
  * round-tripped through it, asserting accept/reject. This is what actually proves a
- * keyword *does the right thing* (and is the round-trip correctness anchor of D11),
+ * keyword *does the right thing* (and is the round-trip correctness anchor),
  * so it covers the cases meta-validation cannot — including a nullable enum
  * accepting `null` and a fixed date bound carrying no silently-ignored keyword.
  */

@@ -175,7 +175,7 @@ final class ConvenienceFilterTest extends TestCase
      * the downstream data layer rely on: `GreaterThan` coerces the incoming
      * `'18'` to a real `int 18`, whereas a bare `Where` passes the raw `string`
      * `'18'` straight through to the comparison (and onward to the SQL bind). This
-     * is the value Slice 2's push-down predicates depend on, and the spec's
+     * is the value push-down predicates depend on, and the spec's
      * "compares numerically, not as a string" guarantee at the value level. The
      * end-to-end query result is asserted in the other cases above.
      */

@@ -75,7 +75,7 @@ final class EnumComponentCollectorTest extends TestCase
     {
         $field = Str::make('status')->enum(Status::class)->build();
 
-        // No collector → backward-compatible inline projection (the Slice-1 behaviour).
+        // No collector → backward-compatible inline projection.
         $inline = (new SchemaProjector())->projectField($field)->toArray();
 
         self::assertSame(['draft', 'published', 'archived'], $inline['enum']);

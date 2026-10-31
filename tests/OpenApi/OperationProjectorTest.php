@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
  * Drives the **stage-A** path/operation projection (CRUD paths + enumerated query
  * parameters + standard error responses + tags + per-operation security) from
  * in-core {@see FakeServerMetadata} fixtures (no Symfony), and meta-validates the
- * now-path-bearing document against the vendored OAS 3.1 meta-schema (spec §10).
+ * now-path-bearing document against the vendored OAS 3.1 meta-schema.
  */
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
@@ -297,7 +297,7 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // DateRange bounds are string/date-time (spec §6).
+        // DateRange bounds are string/date-time.
         $published = $this->parameterNamed($get, 'filter[published]');
         self::assertSame('object', $this->strAt($published, 'schema', 'type'));
         self::assertSame('string', $this->strAt($published, 'schema', 'properties', 'min', 'type'));
@@ -389,7 +389,7 @@ final class OperationProjectorTest extends TestCase
         // Mirrors sort/include: one form/explode:false array parameter whose items
         // enumerate the selectable member vocabulary — read-visible attributes (id is
         // never a fieldset member) followed by relation names — so a client and a code
-        // generator offer exactly the members the strict runtime accepts (D20).
+        // generator offer exactly the members the strict runtime accepts.
         self::assertSame('form', $this->strAt($fields, 'style'));
         self::assertFalse($this->at($fields, 'explode'));
         self::assertSame('array', $this->strAt($fields, 'schema', 'type'));

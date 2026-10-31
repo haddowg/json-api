@@ -37,7 +37,7 @@ use PHPUnit\Framework\TestCase;
  * custom-action paths (each input mode), and the envelope refinements (the
  * non-nullable primary single `data` vs the nullable relationship/related-to-one
  * `data`) — from in-core {@see FakeServerMetadata} fixtures (no Symfony), and
- * meta-validates the full document against the vendored OAS 3.1 meta-schema (§10).
+ * meta-validates the full document against the vendored OAS 3.1 meta-schema.
  */
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
@@ -439,7 +439,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     public function aRelationshipMutationAdvertisesNeitherIncludeNorFields(): void
     {
         // A relationship endpoint answers with LINKAGE — identifiers, no attributes and
-        // no `included` member, whatever the request asks for (core D16). So the verbs
+        // no `included` member, whatever the request asks for. So the verbs
         // that mutate one advertise neither parameter, unlike the resource-level writes.
         $paths = $this->paths();
 
@@ -684,7 +684,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
 
         self::assertSame(['Articles'], $this->listAt($publish, 'tags'));
         self::assertSame('Publish the article', $this->strAt($publish, 'summary'));
-        // No declared description → a generated default (never left undescribed, D19).
+        // No declared description → a generated default (never left undescribed).
         self::assertSame(
             'Invokes the `publish` custom action on an article.',
             $this->strAt($publish, 'description'),
@@ -695,7 +695,7 @@ final class OperationProjectorRelationshipsAndActionsTest extends TestCase
     public function anActionWithNoDeclaredSummaryOrDescriptionGetsGeneratedDefaults(): void
     {
         // `import` declares neither summary nor description — both fall back to a generated default
-        // rather than being absent (the only operation class that used to have none, D19).
+        // rather than being absent (the only operation class that used to have none).
         $import = $this->arrAt($this->paths(), '/articles/-actions/import', 'post');
 
         self::assertSame('Invoke the `import` action', $this->strAt($import, 'summary'));

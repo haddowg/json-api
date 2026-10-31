@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 /**
- * Projects the standard error responses every operation advertises (D12) into the shared
+ * Projects the standard error responses every operation advertises into the shared
  * `components.responses` set, and points each one at the narrowest error document the
  * catalogue supports.
  *
@@ -142,7 +142,7 @@ final class ErrorResponseProjector
     ];
 
     /**
-     * Human-readable descriptions for the enumerated error statuses (D12). Required by
+     * Human-readable descriptions for the enumerated error statuses. Required by
      * the OAS meta-schema (a Response Object's `description` is mandatory).
      */
     private const DESCRIPTIONS = [

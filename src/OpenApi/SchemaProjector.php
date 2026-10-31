@@ -84,8 +84,8 @@ final class SchemaProjector
      *
      * Pass an {@see EnumComponentCollector} when projecting **into a document**: a
      * backed-enum schema is then hoisted into the collector as a reusable named
-     * component (`#/components/schemas/<Enum>`) and replaced inline by a `$ref`
-     * (§4.8). Omit it (the default) for standalone projection, where the enum is
+     * component (`#/components/schemas/<Enum>`) and replaced inline by a `$ref`.
+     * Omit it (the default) for standalone projection, where the enum is
      * emitted inline unchanged.
      */
     public function projectField(FieldInterface $field, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
@@ -190,7 +190,7 @@ final class SchemaProjector
 
     /**
      * Projects a standalone list of value constraints to a JSON Schema node — the
-     * entry point the OpenAPI path projection (Slice 3) uses to build a
+     * entry point the OpenAPI path projection uses to build a
      * `filter[<key>]` query-parameter's value schema from the filter's declared
      * {@see \haddowg\JsonApi\Resource\Filter\FilterInterface::constraints()}.
      *
@@ -559,7 +559,7 @@ final class SchemaProjector
      * With a `$collector` and a backed-enum class-string, the enum schema is instead
      * **hoisted** into a reusable named component (`#/components/schemas/<Enum>`,
      * deduped on the class-string) carrying its own table-in-`description`, and the
-     * field schema becomes a `$ref` to it (§4.8). A non-backed-enum `In` (no
+     * field schema becomes a `$ref` to it. A non-backed-enum `In` (no
      * class-string) is always inline regardless of the collector.
      *
      * @param In<int|string> $constraint

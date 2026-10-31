@@ -8,9 +8,9 @@ namespace haddowg\JsonApi\OpenApi;
  * An OpenAPI 3.1 Components Object — the reusable component container the whole
  * document `$ref`s into.
  *
- * Slice 2 populates `schemas` (the per-type / envelope / named-enum component set —
- * §4.3) and `securitySchemes` (§4.6); the `responses`/`parameters`/`requestBodies`/
- * `headers` maps are modelled now and populated by the Slice-3 path projection.
+ * The document projection populates `schemas` (the per-type / envelope / named-enum
+ * component set) and `securitySchemes`; the `responses`/`parameters`/`requestBodies`/
+ * `headers` maps are populated by the path projection.
  * Each map is **omitted** from the serialized form when empty.
  */
 final readonly class Components implements \JsonSerializable

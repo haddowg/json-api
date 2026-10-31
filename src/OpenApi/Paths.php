@@ -9,8 +9,8 @@ namespace haddowg\JsonApi\OpenApi;
  * a {@see PathItem}.
  *
  * `paths` is **optional** in OAS 3.1 (a components-only / webhooks-only document is
- * valid), so the Slice-2 skeleton document leaves it absent; this VO exists for the
- * Slice-3 path projection. An empty Paths serializes as `{}`.
+ * valid); this VO carries the path projection's output. An empty Paths serializes
+ * as `{}`.
  */
 final readonly class Paths implements \JsonSerializable
 {
