@@ -14,10 +14,11 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * fully unrestricted — every declared relationship includable, no depth cap, no
  * path whitelist, exactly today's behaviour).
  *
- * It carries the three include safeguards:
+ * It carries the four include safeguards:
  *  - per-relation opt-out ({@see getNonIncludableRelationships()}),
  *  - a per-resource maximum include depth override ({@see maxIncludeDepth()}),
- *  - a root-scoped allowed-include-paths whitelist ({@see getAllowedIncludePaths()}).
+ *  - a root-scoped allowed-include-paths whitelist ({@see getAllowedIncludePaths()}),
+ *  - a root-scoped excluded-include-paths list ({@see getExcludedIncludePaths()}).
  *
  * {@see \haddowg\JsonApi\Resource\AbstractResource} implements this with concrete
  * defaults, so every Resource subclass satisfies the interface automatically.
@@ -58,4 +59,16 @@ interface IncludeControlsInterface
      * @return list<string>|null
      */
     public function getAllowedIncludePaths(): ?array;
+
+    /**
+     * The full dotted include paths a client may NOT request when THIS resource is
+     * the request's primary/root type (e.g. `['author.secrets']`). An excluded path
+     * also refuses every path below it, so excluding `author` refuses
+     * `author.company`. Applied after {@see getAllowedIncludePaths()}, so the two
+     * compose. Only requested paths are checked: a default include still renders.
+     * An empty list excludes nothing.
+     *
+     * @return list<string>
+     */
+    public function getExcludedIncludePaths(): array;
 }

@@ -292,6 +292,91 @@ final class IncludeSafeguardsTest extends TestCase
     }
 
     #[Test]
+    public function theRootExcludeListForbidsAnExcludedPathAndEverythingBelowIt(): void
+    {
+        $author = new ControllableSerializer('users', '7');
+        $comment = new ControllableSerializer('comments', '3', relationships: [
+            'author' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+        ]);
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], excludedIncludePaths: ['comments']);
+
+        foreach (['comments', 'comments.author'] as $include) {
+            try {
+                $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => $include]));
+                self::fail(\sprintf('?include=%s should be refused', $include));
+            } catch (InclusionNotAllowed $e) {
+                self::assertContains($include, $e->paths);
+            }
+        }
+    }
+
+    #[Test]
+    public function theRootExcludeListLeavesTheAncestorsOfAnExcludedDeepPathIncludable(): void
+    {
+        $author = new ControllableSerializer('users', '7');
+        $comment = new ControllableSerializer('comments', '3', relationships: [
+            'author' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+        ]);
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], excludedIncludePaths: ['comments.author']);
+
+        $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments']));
+        self::assertCount(1, $this->included($result));
+
+        $this->expectException(InclusionNotAllowed::class);
+        $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments.author']));
+    }
+
+    #[Test]
+    public function theRootExcludeListComposesWithTheAllowList(): void
+    {
+        $author = new ControllableSerializer('users', '7');
+        $editor = new ControllableSerializer('users', '8');
+        $comment = new ControllableSerializer('comments', '3', relationships: [
+            'author' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+            'editor' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '8'], $editor),
+        ]);
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], allowedIncludePaths: ['comments.author', 'comments.editor'], excludedIncludePaths: ['comments.editor']);
+
+        $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments.author']));
+        self::assertCount(2, $this->included($result));
+
+        $this->expectException(InclusionNotAllowed::class);
+        $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'comments.editor']));
+    }
+
+    #[Test]
+    public function theRootExcludeListDoesNotDropADefaultInclude(): void
+    {
+        $comment = new ControllableSerializer('comments', '3');
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'comments' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '3'], $comment),
+        ], defaultIncludes: ['comments'], excludedIncludePaths: ['comments']);
+
+        $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest());
+
+        self::assertCount(1, $this->included($result));
+    }
+
+    #[Test]
+    public function theRootExcludeListDoesNotMatchAPathThatOnlySharesAPrefix(): void
+    {
+        $author = new ControllableSerializer('users', '7');
+        $post = new ControllableSerializer('posts', '1', relationships: [
+            'authors' => static fn(): ToOneRelationship => ToOneRelationship::create()->setData(['id' => '7'], $author),
+        ], excludedIncludePaths: ['author']);
+
+        $result = $this->render($post, ['id' => '1'], new StubJsonApiRequest(['include' => 'authors']));
+
+        self::assertCount(1, $this->included($result));
+    }
+
+    #[Test]
     public function aCollectionRootedRequestDeeperThanTheCapIs400(): void
     {
         // The collection path wires the cap through a distinct call site
@@ -459,6 +544,7 @@ final class ControllableSerializer extends AbstractSerializer implements Include
      * @param list<string>                                                                                                              $defaultIncludes
      * @param list<string>                                                                                                              $nonIncludable
      * @param list<string>|null                                                                                                         $allowedIncludePaths
+     * @param list<string>                                                                                                              $excludedIncludePaths
      */
     public function __construct(
         private readonly string $type,
@@ -468,6 +554,7 @@ final class ControllableSerializer extends AbstractSerializer implements Include
         private readonly array $nonIncludable = [],
         private readonly ?int $maxDepth = null,
         private readonly ?array $allowedIncludePaths = null,
+        private readonly array $excludedIncludePaths = [],
     ) {}
 
     public function getType(mixed $object): string
@@ -518,6 +605,11 @@ final class ControllableSerializer extends AbstractSerializer implements Include
     public function getAllowedIncludePaths(): ?array
     {
         return $this->allowedIncludePaths;
+    }
+
+    public function getExcludedIncludePaths(): array
+    {
+        return $this->excludedIncludePaths;
     }
 }
 
@@ -585,5 +677,10 @@ final class RoleAwareControllableSerializer extends AbstractSerializer implement
     public function getAllowedIncludePaths(): ?array
     {
         return null;
+    }
+
+    public function getExcludedIncludePaths(): array
+    {
+        return [];
     }
 }

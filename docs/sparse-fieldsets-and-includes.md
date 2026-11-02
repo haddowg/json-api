@@ -209,9 +209,31 @@ ancestors** — `['posts.author']` permits `posts` and `posts.author` without
 enumerating every prefix, but not the sibling `posts.comments`. `null` (the default)
 is unrestricted (today's behaviour); an empty list `[]` permits no includes at all.
 
-The three safeguards compose: a path is permitted only if every hop's relation is
-includable, it is within the effective max depth, and it is in the root's allowed
-paths when one is set.
+### Excluded include paths (root-scoped)
+
+When most paths are fine and only a few should be refused, list those instead via
+`IncludeControlsInterface::getExcludedIncludePaths()`:
+
+```php
+// UserResource — everything stays includable except posts.comments and what lies below it
+public function getExcludedIncludePaths(): array
+{
+    return ['posts.comments'];
+}
+```
+
+`GET /users/1?include=posts.comments` and `?include=posts.comments.author` are both
+`400 InclusionNotAllowed`, while `posts` itself is still includable. Unlike the allow
+list, an excluded path **refuses everything below it**. Like the allow list, it is
+evaluated against the root resource only, takes plain dotted paths with no
+wildcards, and checks requested paths only: a relation the resource includes by
+default still renders. Use `cannotBeIncluded()` to stop that. The default `[]`
+excludes nothing.
+
+The safeguards compose: a path is permitted only if every hop's relation is
+includable, it is within the effective max depth, it is in the root's allowed
+paths when one is set, and it is not at or below one of the root's excluded paths.
+Declaring both lists lets you allow a deep tree and carve a branch out of it.
 
 ## Reading the parsed query
 
@@ -254,7 +276,7 @@ target's type, or the relation's related type on a related endpoint
 (`/albums/1/artist?include=...`). A nested path walks the related types through
 the registry, and a segment after a polymorphic relation is accepted when any of
 its declared types has it. The checks run in the order rendering applies them:
-the root's allowed include paths, then the maximum include depth, then unknown and
+the root's allowed include paths, then its excluded include paths, then the maximum include depth, then unknown and
 `cannotBeIncluded()` segments, so each request gets the error it got before.
 
 Rendering keeps its own per-resource check. It covers what can't be known without
@@ -268,7 +290,7 @@ atomic operations are not checked up front.
 | Exception | Status | When |
 | --- | --- | --- |
 | `InclusionUnrecognized` | `400` | An `include` path names a relationship the endpoint does not recognize. The error's `source` is the `include` parameter and lists the offending paths. |
-| `InclusionNotAllowed` | `400` | An `include` path names a relationship marked `cannotBeIncluded()`, or a path outside the root resource's `getAllowedIncludePaths()` whitelist. Lists the offending paths. |
+| `InclusionNotAllowed` | `400` | An `include` path names a relationship marked `cannotBeIncluded()`, a path outside the root resource's `getAllowedIncludePaths()` whitelist, or a path at or below one of its `getExcludedIncludePaths()`. Lists the offending paths. |
 | `InclusionDepthExceeded` | `400` | An `include` path is deeper than the effective maximum include depth. Lists the offending paths and the cap. |
 | `InclusionUnsupported` | `400` | The endpoint does not support inclusion at all. |
 

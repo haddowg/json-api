@@ -77,11 +77,11 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
     }
 
     /**
-     * The root-scoped depth override and allowed-include-paths whitelist resolve
+     * The root-scoped depth override and include path lists resolve
      * against the request's PRIMARY/root serializer, never a relationship-member
      * one — a polymorphic serializer only ever serializes related members, where
      * there is no single inner serializer to delegate to (members span types). It
-     * is therefore unrestricted on both: a member's own resource still enforces
+     * is therefore unrestricted on all three: a member's own resource still enforces
      * its per-relation includability during the recursion.
      */
     public function maxIncludeDepth(): ?int
@@ -92,6 +92,11 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
     public function getAllowedIncludePaths(): ?array
     {
         return null;
+    }
+
+    public function getExcludedIncludePaths(): array
+    {
+        return [];
     }
 
     private function for(mixed $object): SerializerInterface
