@@ -16,8 +16,8 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 /**
  * Checks a request's `?include` paths without any data to render.
  *
- * {@see rootSafeguards()} applies the two root-scoped safeguards (the allowed
- * include paths and the maximum include depth) that every resource document runs
+ * {@see rootSafeguards()} applies the root-scoped safeguards (the allowed and
+ * excluded include paths and the maximum include depth) that every resource document runs
  * before it renders. {@see validateTree()} walks the requested include tree
  * through the registry's resources and rejects a path that no declared relation
  * could ever satisfy, so an empty primary result gets the same `400` a non-empty
@@ -28,7 +28,8 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
 final class IncludePathGuard
 {
     /**
-     * Applies the allowed-include-paths whitelist, then the maximum include depth,
+     * Applies the allowed-include-paths whitelist, then the excluded include paths,
+     * then the maximum include depth,
      * for a render rooted at `$primary`, and returns the normalised effective depth
      * cap (`null` = unlimited). `$primary` is `null` when the root has no single
      * serializer (a polymorphic related endpoint), which leaves only the server
@@ -36,7 +37,7 @@ final class IncludePathGuard
      *
      * @param list<string> $requestedPaths
      *
-     * @throws InclusionNotAllowed    a path is outside the primary's whitelist
+     * @throws InclusionNotAllowed    a path is outside the primary's whitelist or under an excluded path
      * @throws InclusionDepthExceeded a path is deeper than the effective cap
      */
     public static function rootSafeguards(array $requestedPaths, ?SerializerInterface $primary, ?int $serverDefaultDepth): ?int
@@ -57,6 +58,25 @@ final class IncludePathGuard
                         }
 
                         return true;
+                    },
+                ));
+                if ($offending !== []) {
+                    throw new InclusionNotAllowed($offending);
+                }
+            }
+
+            $excluded = $primary->getExcludedIncludePaths();
+            if ($excluded !== []) {
+                $offending = \array_values(\array_filter(
+                    $requestedPaths,
+                    static function (string $path) use ($excluded): bool {
+                        foreach ($excluded as $excludedPath) {
+                            if ($path === $excludedPath || \str_starts_with($path, $excludedPath . '.')) {
+                                return true;
+                            }
+                        }
+
+                        return false;
                     },
                 ));
                 if ($offending !== []) {

@@ -1384,6 +1384,7 @@ final class AbstractResourceTest extends TestCase
         // so every AbstractResource subclass is unrestricted without any edit.
         self::assertNull($resource->maxIncludeDepth());
         self::assertNull($resource->getAllowedIncludePaths());
+        self::assertSame([], $resource->getExcludedIncludePaths());
         self::assertSame([], $resource->getNonIncludableRelationships(new StubJsonApiRequest(), []));
     }
 

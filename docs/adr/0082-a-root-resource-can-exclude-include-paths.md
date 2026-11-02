@@ -1,0 +1,3 @@
+# A root resource can exclude include paths
+
+An allow list is awkward when a resource wants every include bar a few, so `IncludeControlsInterface` gains `getExcludedIncludePaths()`. It is root-scoped and takes dotted paths like the allow list, but an excluded path refuses everything below it, because rendering `author.company` means including `author`. The two lists compose, and like the allow list it checks only requested paths, so default includes still render and `cannotBeIncluded()` stays the way to stop those. We added the method to the existing interface in a minor release, accepting the break for anyone implementing it by hand, since no such implementers are known and one home for the include controls reads better than a second interface.

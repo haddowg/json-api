@@ -643,6 +643,18 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return null;
     }
 
+    /**
+     * No excluded include paths by default. Override to return the full dotted
+     * paths refused, along with everything below them, when this resource is the
+     * request's primary/root type.
+     *
+     * @return list<string>
+     */
+    public function getExcludedIncludePaths(): array
+    {
+        return [];
+    }
+
     public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
     {
         $resolver = $this->serializerResolver;
