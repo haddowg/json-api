@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/haddowg/json-api/compare/v1.22.0...v1.22.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* reject client dates that PHP would roll over ([#276](https://github.com/haddowg/json-api/issues/276)) ([7eacd5a](https://github.com/haddowg/json-api/commit/7eacd5afea5655dee9aa95df67d21e822f9cad71))
+
 ## [1.22.0](https://github.com/haddowg/json-api/compare/v1.21.0...v1.22.0) (2026-10-31)
 
 
