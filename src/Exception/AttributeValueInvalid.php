@@ -11,7 +11,7 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * A document attribute carried a value the field's cast could not process — e.g.
  * a calendar-garbage or otherwise unparseable string reaching a
  * {@see \haddowg\JsonApi\Resource\Field\DateTime} field's
- * `new \DateTimeImmutable($value)` coercion.
+ * {@see \haddowg\JsonApi\Resource\DateTimeParser} coercion.
  *
  * Rendered as a 422 — the field cast is the last gate before the value is written
  * onto the domain object, so an uncoercible value is an unprocessable entity, not

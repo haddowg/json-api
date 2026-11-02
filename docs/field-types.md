@@ -93,6 +93,14 @@ Boolean::make('explicit');
 back to a `\DateTimeImmutable`. The default format is ISO-8601
 (`\DateTimeInterface::ATOM`).
 
+Hydration reads the string with
+[`DateTimeParser`](../src/Resource/DateTimeParser.php). It accepts the strings
+`new \DateTimeImmutable()` accepts, except one that names a day or time that does not
+exist. PHP would quietly roll `2026-02-30` over to 2 March, and `T24:00:00` to the next
+midnight. The parser refuses both, so the client gets a `422`
+`ATTRIBUTE_VALUE_INVALID` at `/data/attributes/<name>` instead of a stored date it never
+sent. `Date` and `Time` share the same cast.
+
 | Method | Adds / effect |
 |---|---|
 | `format(string)` | Override the serialization format string (default `\DateTimeInterface::ATOM`). |

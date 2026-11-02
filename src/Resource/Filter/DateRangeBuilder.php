@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Filter;
 
+use haddowg\JsonApi\Resource\DateTimeParser;
+
 /**
  * The mutable **filter builder** for a {@see DateRange} value filter. A
  * {@see RangeBuilder} subclass whose {@see make()} presets the ISO-8601 temporal
@@ -20,8 +22,8 @@ final class DateRangeBuilder extends RangeBuilder
      * silent non-match (the unparseable value is passed through unchanged by
      * {@see toDateTime()}).
      *
-     * A regex cannot reject a calendar-invalid date (`1997-13-99` — month 13, day 99
-     * — matches the shape), so this pattern is deliberately lenient on the calendar,
+     * A regex cannot reject a calendar-invalid date (`1997-13-99` or `2026-02-30`
+     * matches the shape), so this pattern is deliberately lenient on the calendar,
      * the same shape-level guard the numeric {@see Range} gets from its preset
      * `numeric()`. The *temporal* validity a regex can't express is enforced by the
      * framework adapter's pre-provider filter-value validation, which additionally
@@ -49,9 +51,9 @@ final class DateRangeBuilder extends RangeBuilder
 
     /**
      * Coerces an ISO-8601 string to a `\DateTimeImmutable`; a value already a
-     * `\DateTimeInterface` is returned as-is, and an unparseable/blank value is
-     * returned unchanged (so a constraint-rejected value still reaches the
-     * validator as-sent rather than throwing here).
+     * `\DateTimeInterface` is returned as-is, and an unparseable, impossible
+     * (`2026-02-30`) or blank value is returned unchanged (so a constraint-rejected
+     * value still reaches the validator as-sent rather than throwing here).
      */
     private static function toDateTime(mixed $value): mixed
     {
@@ -63,14 +65,6 @@ final class DateRangeBuilder extends RangeBuilder
             return \DateTimeImmutable::createFromInterface($value);
         }
 
-        if (!\is_string($value) || $value === '') {
-            return $value;
-        }
-
-        try {
-            return new \DateTimeImmutable($value);
-        } catch (\Exception) {
-            return $value;
-        }
+        return DateTimeParser::tryParse($value) ?? $value;
     }
 }

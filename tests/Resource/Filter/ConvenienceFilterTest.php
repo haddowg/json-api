@@ -526,6 +526,22 @@ final class ConvenienceFilterTest extends TestCase
     }
 
     #[Test]
+    public function dateRangeDoesNotRollAnImpossibleDayOverToTheNextMonth(): void
+    {
+        $filter = DateRange::make('published')->build();
+        self::assertNotNull($filter->deserialize);
+
+        // PHP would read 30 February as 2 March; the bound stays the raw string so the
+        // adapter's pre-provider validation answers 400 instead of filtering from March.
+        self::assertSame('2026-02-30T00:00:00Z', ($filter->deserialize)('2026-02-30T00:00:00Z'));
+        self::assertSame('2026-04-31', ($filter->deserialize)('2026-04-31'));
+        self::assertSame('2026-02-28T24:00:00Z', ($filter->deserialize)('2026-02-28T24:00:00Z'));
+
+        $result = (new ArrayFilterHandler())->apply($filter, $this->posts(), ['min' => '2026-02-30T00:00:00Z']);
+        self::assertSame(['1', '2', '3'], $this->ids($result));
+    }
+
+    #[Test]
     public function eachScalarConveniencePresetsItsValueConstraint(): void
     {
         // The numeric conveniences preset a numeric Pattern so the OpenAPI

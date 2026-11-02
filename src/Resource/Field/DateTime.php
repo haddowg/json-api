@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
+use haddowg\JsonApi\Resource\DateTimeParser;
 use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
 /**
@@ -214,8 +215,9 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     /**
      * A non-string or empty value passes through unchanged (leniency shared with
      * the other attribute casts — type validity is a constraint/validation
-     * concern, not the cast's). A non-empty string that {@see \DateTimeImmutable}
-     * cannot parse — calendar-garbage (`1997-13-99`) or nonsense (`banana`) —
+     * concern, not the cast's). A non-empty string that {@see DateTimeParser}
+     * rejects — calendar-garbage (`1997-13-99`), an impossible day PHP would roll
+     * over (`2026-02-30`) or nonsense (`banana`) —
      * raises a typed {@see AttributeValueInvalid} (422 at
      * `/data/attributes/<name>`) rather than letting the raw parse `\Exception`
      * escape as an uncaught 500: the cast is the last gate before the value is
@@ -228,8 +230,8 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
         }
 
         try {
-            $date = new \DateTimeImmutable($value);
-        } catch (\Exception $e) {
+            $date = DateTimeParser::parse($value);
+        } catch (\InvalidArgumentException $e) {
             throw new AttributeValueInvalid($this->name(), $e->getMessage());
         }
 
