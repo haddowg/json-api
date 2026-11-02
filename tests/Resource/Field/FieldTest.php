@@ -600,6 +600,33 @@ final class FieldTest extends TestCase
     }
 
     #[Test]
+    public function dateTimeRejectsAnImpossibleDayWithATyped422RatherThanRollingItOver(): void
+    {
+        $field = DateTime::make('publishedAt')->build();
+
+        foreach (['2026-02-30T00:00:00Z', '2026-02-29T12:00:00+01:00', '2026-04-31T10:00:00Z', '2026-02-28T24:00:00Z'] as $value) {
+            try {
+                $field->hydrate(['publishedAt' => null], $value, [], $this->request(), true);
+                self::fail(\sprintf('Expected "%s" to be rejected.', $value));
+            } catch (AttributeValueInvalid $e) {
+                self::assertSame(422, $e->getStatusCode());
+                $error = $e->getErrors()[0];
+                self::assertSame('ATTRIBUTE_VALUE_INVALID', $error->code);
+                self::assertNotNull($error->source);
+                self::assertSame('/data/attributes/publishedAt', $error->source->pointer);
+            }
+        }
+    }
+
+    #[Test]
+    public function dateRejectsAnImpossibleDayWithATyped422(): void
+    {
+        $this->expectException(AttributeValueInvalid::class);
+
+        Date::make('birthday')->build()->hydrate(['birthday' => null], '2026-02-30', [], $this->request(), true);
+    }
+
+    #[Test]
     public function timeRejectsAGarbageStringWithATyped422(): void
     {
         // Date and Time extend DateTime and inherit deserializeValue — one fix covers all three.

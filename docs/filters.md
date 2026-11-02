@@ -293,7 +293,10 @@ number before comparing (so the range is numeric, not lexical); `DateRange` is a
 (and the column value likewise), so `published before/after` reads as one key and
 the comparison is temporal. Each present bound is validated (numeric for `Range`,
 an ISO-8601 shape for `DateRange`), so a malformed bound is a clean `400` rather
-than a silent non-match. Like [`WhereThrough`](#traversing-a-relationship-path)
+than a silent non-match. A `DateRange` bound is read with
+[`DateTimeParser`](../src/Resource/DateTimeParser.php), so an impossible date such as
+`2026-02-30` stays a string instead of rolling over to 2 March, and the adapter answers
+it with the same `400`. Like [`WhereThrough`](#traversing-a-relationship-path)
 these are data-layer-specific: core ships the metadata and the reference in-memory
 apply, and a database adapter translates each into two push-down `andWhere`
 predicates.
@@ -314,12 +317,13 @@ the filters that carry the helper expose it:
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 
 ```php
+use haddowg\JsonApi\Resource\DateTimeParser;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
 
 Where::make('explicit')->asBoolean();
 Where::make('createdAfter', column: 'created_at', operator: '>')
-    ->deserializeUsing(static fn(mixed $v): \DateTimeImmutable => new \DateTimeImmutable((string) $v));
+    ->deserializeUsing(static fn(mixed $v): mixed => DateTimeParser::tryParse($v) ?? $v);
 WhereIn::make('genres')->delimiter('|');
 ```
 

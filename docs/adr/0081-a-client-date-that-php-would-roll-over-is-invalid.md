@@ -1,0 +1,3 @@
+# A client date that PHP would roll over is invalid
+
+`new \DateTimeImmutable('2026-02-30')` answers 2 March and only records a warning, so a `DateRange` bound or a date-time attribute could silently mean a different day from the one the client sent. Every client date now goes through one `DateTimeParser`, which accepts what the constructor accepts and rejects anything that raises a parse warning, so a filter answers `400` and a write answers `422`. We kept the constructor's grammar instead of matching a fixed list of `createFromFormat()` shapes because narrowing the accepted strings would break clients for reasons unrelated to the bug. The parser is public so an adapter, or an author's `Where` deserializer, reads dates the same way core does.
