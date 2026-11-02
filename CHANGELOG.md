@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.0](https://github.com/haddowg/json-api/compare/v1.22.1...v1.23.0) (2026-11-02)
+
+
+### Features
+
+* let a root resource exclude include paths ([#278](https://github.com/haddowg/json-api/issues/278)) ([2462bb5](https://github.com/haddowg/json-api/commit/2462bb5e9eb6ba7529a2f3de0c9beb31a9717142))
+
 ## [1.22.1](https://github.com/haddowg/json-api/compare/v1.22.0...v1.22.1) (2026-11-02)
 
 
