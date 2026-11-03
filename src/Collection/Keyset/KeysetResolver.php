@@ -8,9 +8,12 @@ use haddowg\JsonApi\Exception\CursorStale;
 use haddowg\JsonApi\Exception\SortingUnsupported;
 use haddowg\JsonApi\Exception\SortParamUnrecognized;
 use haddowg\JsonApi\Pagination\CursorBoundary;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Sort\KeysetSortInterface;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Resource\Sort\SortDirective;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
+use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Resource\Sort\UnsupportedSort;
 
 /**
@@ -24,8 +27,9 @@ use haddowg\JsonApi\Resource\Sort\UnsupportedSort;
  * vocabulary (an unknown key → 400 {@see SortParamUnrecognized}; sorting with
  * no declared sorts → 400 {@see SortingUnsupported}), falling back to the
  * resource's `defaultSort()` directives when none is requested — so the
- * cursor path's 400s are byte-identical to the offset path's. Each matched
- * directive must be a {@see SortByField} (a computed/multi-column sort has no
+ * cursor path's 400s are byte-identical to the offset path's. Keys match through
+ * {@see SortMatcher}, sort families included. Each matched directive must be a
+ * {@see SortByField} or a {@see KeysetSortInterface} (any other sort has no
  * keyset translation → 500 {@see UnsupportedSort}, exactly as a plain sort
  * handler rejects it).
  *
@@ -51,31 +55,35 @@ final class KeysetResolver
      * @param list<SortDirective> $defaultSort         the resource's default sort directives, applied when no `sort` is requested
      * @param string              $pkColumn            the primary-key column (the type's id member)
      * @param bool                $pkDefaultDescending the PK direction for a PK-only keyset (no active sort), e.g. the resource's defaultSort-on-PK direction
+     * @param ?JsonApiRequestInterface $request        the request, which a sort family needs to resolve a key
      *
      * @return list<KeysetColumn> the active-sort columns most-significant-first, terminated by the PK
      *
      * @throws SortParamUnrecognized when a requested (or default) sort field is not declared
      * @throws SortingUnsupported    when sorting is requested but no sorts are declared
-     * @throws UnsupportedSort       when a matched sort directive is not a {@see SortByField}
+     * @throws UnsupportedSort       when a matched sort is neither a {@see SortByField} nor a {@see KeysetSortInterface}
      */
-    public function resolve(array $requestedSort, array $sorts, array $defaultSort, string $pkColumn, bool $pkDefaultDescending = false): array
+    public function resolve(array $requestedSort, array $sorts, array $defaultSort, string $pkColumn, bool $pkDefaultDescending = false, ?JsonApiRequestInterface $request = null): array
     {
-        $directives = $this->activeDirectives($requestedSort, $sorts, $defaultSort);
+        $directives = $this->activeDirectives($requestedSort, $sorts, $defaultSort, $request);
 
         $columns = [];
         $lastDescending = $pkDefaultDescending;
         $sawPk = false;
         foreach ($directives as $directive) {
             $sort = $directive->sort;
-            if (!$sort instanceof SortByField) {
+            if ($sort instanceof SortByField) {
+                $columns[] = new KeysetColumn($sort->column, $directive->descending);
+                if ($sort->column === $pkColumn) {
+                    $sawPk = true;
+                }
+            } elseif ($sort instanceof KeysetSortInterface) {
+                $columns[] = new KeysetColumn($sort->key(), $directive->descending, $sort);
+            } else {
                 throw new UnsupportedSort($sort);
             }
 
-            $columns[] = new KeysetColumn($sort->column, $directive->descending);
             $lastDescending = $directive->descending;
-            if ($sort->column === $pkColumn) {
-                $sawPk = true;
-            }
         }
 
         // Append the PK tiebreak unless the client already sorts by it (its own
@@ -166,11 +174,11 @@ final class KeysetResolver
      * @throws SortParamUnrecognized
      * @throws SortingUnsupported
      */
-    private function activeDirectives(array $requestedSort, array $sorts, array $defaultSort): array
+    private function activeDirectives(array $requestedSort, array $sorts, array $defaultSort, ?JsonApiRequestInterface $request): array
     {
         if ($requestedSort === []) {
             foreach ($defaultSort as $directive) {
-                if ($this->sortFor($sorts, $directive->sort->key()) === null) {
+                if (SortMatcher::match($sorts, $directive->sort->key(), $request) === null) {
                     throw new SortParamUnrecognized($directive->sort->key());
                 }
             }
@@ -178,35 +186,6 @@ final class KeysetResolver
             return $defaultSort;
         }
 
-        if ($sorts === []) {
-            throw new SortingUnsupported();
-        }
-
-        $directives = [];
-        foreach ($requestedSort as $field) {
-            $descending = \str_starts_with($field, '-');
-            $key = $descending ? \substr($field, 1) : $field;
-
-            $sort = $this->sortFor($sorts, $key)
-                ?? throw new SortParamUnrecognized($key);
-
-            $directives[] = new SortDirective($sort, $descending);
-        }
-
-        return $directives;
-    }
-
-    /**
-     * @param list<SortInterface> $sorts
-     */
-    private function sortFor(array $sorts, string $key): ?SortInterface
-    {
-        foreach ($sorts as $sort) {
-            if ($sort->key() === $key) {
-                return $sort;
-            }
-        }
-
-        return null;
+        return SortMatcher::directives($requestedSort, $sorts, $request);
     }
 }

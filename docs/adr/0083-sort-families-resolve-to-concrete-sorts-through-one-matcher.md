@@ -1,0 +1,3 @@
+# Sort families resolve to concrete sorts through one matcher
+
+Sort keys that are data, such as `value.cap` for a per-campaign placeholder, can't be declared one by one, so a `SortFamily` answers every `<prefix>.<suffix>` key and resolves the suffix, with the request, to an ordinary `SortInterface` keyed by the full key. Resolving to a concrete sort keeps handlers, default sorts and cursor tokens working on exact keys, and putting the exact-then-longest-prefix rule in one public `SortMatcher` stops core, the Symfony bundle and the Laravel package each matching keys their own way. A custom sort orders cursor pages only by implementing `KeysetSortInterface`, since core can read a row's value for the token but the comparison expression belongs to each data layer's arm.

@@ -38,7 +38,7 @@ final class CursorTokenMinter
      *
      * @param list<KeysetColumn>                    $columns   the keyset columns the values are read for
      * @param list<object>                          $rows      the page rows in natural forward order
-     * @param callable(object,string):(scalar|null) $readValue reads a row's keyset value for a column, already JSON-safe-coercible
+     * @param callable(object,string):(scalar|null) $readValue reads a row's keyset value for a store column, already JSON-safe-coercible; a custom-sort level reads {@see \haddowg\JsonApi\Resource\Sort\KeysetSortInterface::keysetValue()} instead
      *
      * @return CursorCollectionResult<object>
      */
@@ -82,7 +82,7 @@ final class CursorTokenMinter
         $values = [];
         $descending = [];
         foreach ($columns as $column) {
-            $values[$column->column] = $this->jsonSafe($readValue($row, $column->column));
+            $values[$column->column] = $this->jsonSafe($column->valueOf($row, $readValue));
             $descending[$column->column] = $column->descending;
         }
 
@@ -98,7 +98,8 @@ final class CursorTokenMinter
      * Coerces a keyset value to a JSON-safe scalar the codec accepts (and that
      * round-trips exactly back to the comparison): a {@see \DateTimeInterface} →
      * an RFC3339 string with microseconds, a {@see \Stringable} id (Uuid/Ulid) →
-     * its string form, a scalar passes through, null stays null.
+     * its string form, a backed enum → its value, a scalar passes through, null
+     * stays null.
      *
      * Shared with {@see InMemoryKeyset}, which coerces a ROW's value the same way
      * before comparing it to a boundary (which is already this wire form), so the
@@ -116,6 +117,10 @@ final class CursorTokenMinter
 
         if ($value instanceof \Stringable) {
             return (string) $value;
+        }
+
+        if ($value instanceof \BackedEnum) {
+            return $value->value;
         }
 
         return null;

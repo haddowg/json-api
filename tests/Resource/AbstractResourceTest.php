@@ -337,6 +337,33 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function allSortsKeepsAFamilyBesideAnExactSortSharingItsKey(): void
+    {
+        $family = \haddowg\JsonApi\Resource\Sort\SortFamily::make('title', static fn(string $suffix): ?\haddowg\JsonApi\Resource\Sort\SortInterface => null);
+        $resource = new class ($family) extends AbstractResource {
+            public static string $type = 'posts';
+
+            public function __construct(private readonly \haddowg\JsonApi\Resource\Sort\SortFamily $family) {}
+
+            public function fields(): array
+            {
+                return [Id::make(), Str::make('title')->sortable()];
+            }
+
+            public function sorts(): array
+            {
+                return [$this->family];
+            }
+        };
+
+        $sorts = $resource->allSorts();
+
+        self::assertContains($family, $sorts);
+        self::assertNotNull(\haddowg\JsonApi\Resource\Sort\SortMatcher::match($sorts, 'title'));
+        self::assertNotSame($family, \haddowg\JsonApi\Resource\Sort\SortMatcher::match($sorts, 'title'));
+    }
+
+    #[Test]
     public function filtersAndPaginationAreExposed(): void
     {
         $resource = new PostResource();

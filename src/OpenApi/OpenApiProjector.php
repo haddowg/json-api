@@ -171,7 +171,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths)),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -255,7 +255,7 @@ final class OpenApiProjector
      * metadata-driven: it describes the structure this library emits, so a server has
      * nothing to say about it.
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -277,7 +277,28 @@ final class OpenApiProjector
             singleTargetPolymorphism: self::hasSingleTargetPolymorphism($server),
             actionLocations: $actionLocations,
             discriminatedUnions: self::hasDiscriminatedUnion($server),
+            sortFamilies: $sortFamilies,
         ));
+    }
+
+    /**
+     * Whether some operation's `sort` parameter accepts a family of keys by prefix.
+     */
+    private static function acceptsSortFamilies(Paths $paths): bool
+    {
+        foreach ($paths->items as $pathItem) {
+            foreach ($pathItem->operations as $operation) {
+                foreach ($operation->parameters as $parameter) {
+                    if ($parameter instanceof Parameter
+                        && $parameter->schema instanceof Schema
+                        && $parameter->schema->extension(OperationProjector::SORT_FAMILIES_EXTENSION) !== null) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

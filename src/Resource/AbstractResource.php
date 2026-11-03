@@ -132,7 +132,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * Sorts that don't map directly to a single sortable field. The base
      * already derives a {@see \haddowg\JsonApi\Resource\Sort\SortByField} for
      * every field that declared `->sortable()`; override only to add computed or
-     * multi-column sorts.
+     * multi-column sorts, or a {@see \haddowg\JsonApi\Resource\Sort\SortFamily}
+     * matching a family of keys by prefix.
      *
      * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
      */
@@ -234,27 +235,25 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * Every sort the resource accepts: the field-derived
      * {@see \haddowg\JsonApi\Resource\Sort\SortByField}s plus any explicit
-     * {@see sorts()}. Keyed by sort key (later entries win), returned as a list.
+     * {@see sorts()}. Keyed by sort key (later entries win), returned as a list; a
+     * {@see \haddowg\JsonApi\Resource\Sort\SortFamilyInterface} never replaces an
+     * exact sort sharing its key ({@see \haddowg\JsonApi\Resource\Sort\SortMatcher::merge()}).
      *
      * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
      */
     public function allSorts(): array
     {
-        $sorts = [];
+        $derived = [];
         foreach ($this->allFields() as $field) {
             if ($field->isSortable()) {
-                $sorts[$field->name()] = \haddowg\JsonApi\Resource\Sort\SortByField::make(
+                $derived[] = \haddowg\JsonApi\Resource\Sort\SortByField::make(
                     $field->name(),
                     $field->column() ?? $field->name(),
                 );
             }
         }
 
-        foreach ($this->sorts() as $sort) {
-            $sorts[$sort->key()] = $sort;
-        }
-
-        return \array_values($sorts);
+        return \haddowg\JsonApi\Resource\Sort\SortMatcher::merge($derived, $this->sorts());
     }
 
     /**

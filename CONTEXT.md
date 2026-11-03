@@ -70,6 +70,15 @@ _Avoid_: default (a default is a value the client can override)
 **Sort**:
 Metadata describing a sort key a type accepts.
 
+**Sort family**:
+A **Sort** that answers every key starting with its prefix and a dot (`value.cap`, `value.end_date`),
+resolving the suffix to a concrete **Sort** per request. Never matches the bare prefix.
+_Avoid_: wildcard sort, dynamic sort
+
+**Keyset sort**:
+A custom **Sort** that can order a cursor page because it reports the value a row carries for the
+cursor token.
+
 **Adapter**:
 Consumer-provided code that executes **Filter** and **Sort** metadata against a real data store.
 _Avoid_: bare "handler" (see **Operation handler**)
