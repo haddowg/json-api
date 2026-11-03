@@ -14,7 +14,7 @@ fixtures and no framework.
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
 schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
-extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`). For *serving* the document,
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`, `x-sort-families`). For *serving* the document,
 the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
@@ -200,7 +200,7 @@ sketch:
   `<Type>ResourceIdentifier`, since a resource with no attributes is also an identifier.
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
-  its `sort` keys, and `include` — the last only when the type actually exposes an
+  its `sort` keys (and the patterns of its [sort families](#sort-families-x-sort-families)), and `include` — the last only when the type actually exposes an
   includable path, so `?include` is never advertised where the runtime would reject it.
 - **`?include` / `fields[…]` on writes.** These two shape the *rendered document*, not the
   query that selects it, so they belong to every operation that answers with a resource
@@ -1176,7 +1176,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 19 }
+  "x-generator": { "contract": 20 }
 }
 ```
 
@@ -1236,6 +1236,34 @@ top-level `meta.total` (also in `meta.page.total` when the collection is paginat
 one that accepts relation tokens it names the first, e.g. "Request a relation name, e.g.
 `withCount=comments`, to receive that relation's total on each resource in
 `relationships.comments.meta.total`".
+
+### Sort families: `x-sort-families`
+
+A [sort family](sorts.md#sort-families-keys-matched-by-prefix) accepts keys that
+can't be listed, so its keys can't join the `sort` enum. When an endpoint's sort
+vocabulary has a family, the `sort` array's `items` become an `anyOf`: the enum of
+fixed keys and their `-` forms, then one string `pattern` per family. The pattern
+is `^-?`, the escaped prefix, a dot and the family's suffix pattern. The array
+schema also lists each family under `x-sort-families`, so a generator can offer a
+typed helper rather than parse the pattern back:
+
+```json
+"schema": {
+  "type": "array",
+  "items": {
+    "anyOf": [
+      { "type": "string", "enum": ["title", "-title"] },
+      { "type": "string", "pattern": "^-?value\\.(?:[a-z_]+)$" }
+    ]
+  },
+  "x-sort-families": [
+    { "prefix": "value", "suffixPattern": "[a-z_]+" }
+  ]
+}
+```
+
+An endpoint with no family keeps the plain enum, and a document whose endpoints
+declare none carries no `x-sort-families` and keeps the lower contract stamp.
 
 ### Action safety: `x-safety`
 

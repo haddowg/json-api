@@ -62,18 +62,19 @@ walks the fields and produces a `SortByField` for each one marked `->sortable()`
 (keyed by the field name, targeting the field's column and falling back to the
 field name), then merges in whatever `sorts()` returns. The merge is keyed by sort
 key, **later entries win**, so an explicit `sorts()` entry overrides a
-field-derived one with the same key:
+field-derived one with the same key. A [sort family](#sort-families-keys-matched-by-prefix)
+is the exception: it never answers its bare prefix, so it sits beside an exact sort
+with the same key instead of replacing it.
 
 ```php
 // AbstractResource::allSorts() — derived first, explicit sorts() merged over them
 foreach ($this->allFields() as $field) {
     if ($field->isSortable()) {
-        $sorts[$field->name()] = SortByField::make($field->name(), $field->column() ?? $field->name());
+        $derived[] = SortByField::make($field->name(), $field->column() ?? $field->name());
     }
 }
-foreach ($this->sorts() as $sort) {
-    $sorts[$sort->key()] = $sort;
-}
+
+return SortMatcher::merge($derived, $this->sorts());
 ```
 
 You only ever override `sorts()` for the non-trivial cases below — for the common
@@ -199,6 +200,69 @@ final readonly class TrackCountSort implements SortInterface
 For it to do anything, a handler must recognise it — see *Executing sorts* below.
 A custom sort and the handler arm that understands it are written together.
 
+## Sort families: keys matched by prefix
+
+Some sort keys are data rather than vocabulary: a campaign's placeholder values,
+custom fields, EAV attributes, members of a JSON column. You can't list them in
+`sorts()` because they differ per record set, but clients still want
+`?sort=value.cap,-value.end_date`.
+
+A [`SortFamily`](../src/Resource/Sort/SortFamily.php) answers every key that
+starts with a prefix and a dot. You give it the prefix and a resolver that turns
+the rest of the key, the suffix, into a concrete sort:
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Sort\SortFamily;
+use haddowg\JsonApi\Resource\Sort\SortInterface;
+
+public function sorts(): array
+{
+    return [
+        SortFamily::make('value', fn(string $suffix, JsonApiRequestInterface $request): ?SortInterface
+            => $this->placeholders->exists($suffix)
+                ? new PlaceholderValueSort('value.' . $suffix, $suffix)
+                : null),
+    ];
+}
+```
+
+`?sort=-value.end_date` calls the resolver with `end_date` and sorts descending by
+the sort it returns. The rules:
+
+- The suffix is everything after `<prefix>.`, dots included, so `value.a.b` hands
+  the resolver `a.b`. The bare prefix never matches: `?sort=value` is unrecognized
+  unless an exact sort is keyed `value`, and the two can sit side by side.
+- Returning `null` rejects the key with the usual `400` `SortParamUnrecognized`,
+  naming the full key.
+- The sort you return must be keyed by the full requested key (`value.end_date`
+  above). Anything else is a `\LogicException` naming the family, since a data
+  layer and a cursor token both identify the sort by that key.
+- An exact key always wins over a family. When two families' prefixes both fit,
+  the longer prefix decides, and its `null` is final.
+
+By default any non-empty suffix without a comma is accepted. Narrow it with
+`withSuffixPattern()`, a regular-expression fragment the whole suffix must match.
+A suffix that fails it is rejected without calling the resolver, and the pattern
+also lands in the [OpenAPI document](openapi.md#sort-families-x-sort-families).
+Stick to syntax PCRE and ECMA-262 share:
+
+```php
+SortFamily::make('value', $resolver)->withSuffixPattern('[a-z][a-z_]*');
+```
+
+A family is never handed to a sort handler. Matching replaces it with the sort its
+resolver returns, so the handler arm for `PlaceholderValueSort` is the same arm a
+fixed custom sort would need. Families work wherever a sort key does: the primary
+`sort`, a relation's `withSorts()`, the
+[Relationship Queries](profiles/relationship-queries.md) profile's `relatedQuery[<path>][sort]`, and a
+`defaultSort()` directive whose sort carries a key a family answers.
+
+To write your own family, implement
+[`SortFamilyInterface`](../src/Resource/Sort/SortFamilyInterface.php): `key()`
+returns the prefix, `suffixPattern()` the fragment and `resolve($suffix, $request)`
+the sort.
+
 ## Executing sorts
 
 The metadata never orders anything on its own. Execution lives in a
@@ -239,7 +303,30 @@ The requested sorts reach you through the request's parsed `sort` list. From an
 (a `list<string>` with the leading `-` preserved), or directly from the request
 with `JsonApiRequestInterface::getSorting()`. You match each requested key against
 the type's `allSorts()`, build a `SortDirective` per match, and hand the whole
-list to the handler. The catalog's
+list to the handler.
+
+[`SortMatcher`](../src/Resource/Sort/SortMatcher.php) does the matching the way
+the rest of the library does, sort families included:
+
+```php
+use haddowg\JsonApi\Resource\Sort\SortMatcher;
+
+// 400 SortingUnsupported / SortParamUnrecognized on a bad key
+$directives = SortMatcher::directives($request->getSorting(), $resource->allSorts(), $request);
+
+// one key, or null when nothing declared answers it
+$sort = SortMatcher::match($resource->allSorts(), 'value.cap', $request);
+
+// a related endpoint's vocabulary: the related type's sorts, then the relation's
+$sorts = SortMatcher::merge($relatedResource->allSorts(), $relation->sorts());
+```
+
+The request is optional for exact keys, but a family needs it to resolve one, so
+matching a family key without it is a `\LogicException`. `merge()` lets a later
+sort replace an earlier one with the same key, and keeps a family beside an exact
+sort sharing its key.
+
+The catalog's
 [`CriteriaApplier`](../examples/music-catalog/src/Data/CriteriaApplier.php) does
 exactly this:
 
@@ -334,6 +421,38 @@ This is distinct from
 [`SortParamUnrecognized`](errors-and-exceptions.md), which is a *client* `400` for a `sort`
 parameter the server rejects outright; `UnsupportedSort` is purely about a handler
 gap on the server side.
+
+### Sorting a cursor page by a custom sort
+
+[Cursor pagination](pagination.md#cursor-pagination) walks a total order and
+writes the boundary row's sort values into each cursor token, so a sort has to
+say what its value is for a row. A `SortByField` reads its column. A custom sort
+opts in by implementing
+[`KeysetSortInterface`](../src/Resource/Sort/KeysetSortInterface.php):
+
+```php
+final readonly class PlaceholderValueSort implements KeysetSortInterface
+{
+    public function __construct(public string $key, public string $placeholder) {}
+
+    public function key(): string
+    {
+        return $this->key;
+    }
+
+    public function keysetValue(mixed $row): mixed
+    {
+        return $row->placeholderValue($this->placeholder); // scalar, null or a DateTime
+    }
+}
+```
+
+`keysetValue()` runs only for the rows a token is minted from. The data layer's
+arm for the sort still does the ordering and the "strictly after this value"
+comparison, with null ordered as the largest value; see
+[the keyset execution toolkit](pagination.md#the-keyset-execution-toolkit). A
+custom sort that doesn't implement the interface stays a `500` `UnsupportedSort`
+under cursor pagination.
 
 ## Next / see also
 

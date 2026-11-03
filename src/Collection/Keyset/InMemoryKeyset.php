@@ -17,7 +17,8 @@ use haddowg\JsonApi\Resource\Field\Accessor;
  * the decoded boundary under the SAME order via the lexicographic AFTER
  * predicate, over-fetches `limit + 1`, slices, and (for a backward page) flips
  * the directions and reverses. Values are read off a row with core's
- * {@see Accessor}, so the witness reads exactly what the serializer renders.
+ * {@see Accessor}, so the witness reads exactly what the serializer renders; a
+ * level ordered by a custom sort reads the sort's own keyset value instead.
  *
  * @see KeysetColumn the per-column (column, direction) the order is built from
  */
@@ -76,7 +77,7 @@ final class InMemoryKeyset
             $prefixHolds = true;
             for ($i = 0; $i < $level; $i++) {
                 $higher = $columns[$i];
-                if (!$this->equals(Accessor::get($row, $higher->column), $boundary->values[$higher->column] ?? null)) {
+                if (!$this->equals($this->value($row, $higher), $boundary->values[$higher->column] ?? null)) {
                     $prefixHolds = false;
 
                     break;
@@ -87,7 +88,7 @@ final class InMemoryKeyset
                 continue;
             }
 
-            if ($this->isAfterOnColumn(Accessor::get($row, $column->column), $boundary->values[$column->column] ?? null, $column->descending)) {
+            if ($this->isAfterOnColumn($this->value($row, $column), $boundary->values[$column->column] ?? null, $column->descending)) {
                 return true;
             }
         }
@@ -107,8 +108,8 @@ final class InMemoryKeyset
     {
         foreach ($columns as $column) {
             $cmp = $this->compareValues(
-                Accessor::get($a, $column->column),
-                Accessor::get($b, $column->column),
+                $this->value($a, $column),
+                $this->value($b, $column),
                 $column->descending,
             );
             if ($cmp !== 0) {
@@ -117,6 +118,15 @@ final class InMemoryKeyset
         }
 
         return 0;
+    }
+
+    /**
+     * A row's value on one level: read off the row with {@see Accessor}, or from a
+     * custom sort's {@see \haddowg\JsonApi\Resource\Sort\KeysetSortInterface::keysetValue()}.
+     */
+    private function value(object $row, KeysetColumn $column): mixed
+    {
+        return $column->valueOf($row, Accessor::get(...));
     }
 
     /**

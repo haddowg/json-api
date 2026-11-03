@@ -26,6 +26,8 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
+use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
@@ -57,6 +59,11 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
  */
 final class OperationProjector
 {
+    /**
+     * The `sort` parameter schema's list of the sort families it accepts.
+     */
+    public const string SORT_FAMILIES_EXTENSION = 'x-sort-families';
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
     ) {}
@@ -1303,6 +1310,10 @@ final class OperationProjector
      * preserved as the array `items` enum. Returns `null` when the type declares no
      * sorts.
      *
+     * A {@see SortFamilyInterface} has no closed token list, so with one the items
+     * become an `anyOf` of that enum and one `pattern` per family, and the array
+     * schema lists each family's prefix and suffix pattern under `x-sort-families`.
+     *
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface> $sorts
      */
     private function sortParameter(array $sorts): ?Parameter
@@ -1312,13 +1323,34 @@ final class OperationProjector
         }
 
         $tokens = [];
+        $families = [];
         foreach ($sorts as $sort) {
+            if ($sort instanceof SortFamilyInterface) {
+                $families[] = $sort;
+
+                continue;
+            }
             $tokens[] = $sort->key();
             $tokens[] = '-' . $sort->key();
         }
 
-        $schema = Schema::ofType('array')
-            ->withItems(Schema::ofType('string')->withEnum($tokens));
+        $items = Schema::ofType('string')->withEnum($tokens);
+        $schema = Schema::ofType('array');
+
+        if ($families !== []) {
+            $anyOf = $tokens === [] ? [] : [$items];
+            $declared = [];
+            foreach ($families as $family) {
+                $anyOf[] = Schema::ofType('string')->withPattern(
+                    '^-?' . self::escapeEcmaPattern($family->key()) . '\\.(?:' . $family->suffixPattern() . ')$',
+                );
+                $declared[] = ['prefix' => $family->key(), 'suffixPattern' => $family->suffixPattern()];
+            }
+            $items = Schema::create()->withAnyOf($anyOf);
+            $schema = $schema->withExtension(self::SORT_FAMILIES_EXTENSION, $declared);
+        }
+
+        $schema = $schema->withItems($items);
 
         return Parameter::query(
             'sort',
@@ -1521,15 +1553,16 @@ final class OperationProjector
      */
     private function relatedSortVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
     {
-        $byKey = [];
-        foreach ($this->relatedTypeMetadata($relation, $server)?->sorts() ?? [] as $sort) {
-            $byKey[$sort->key()] = $sort;
-        }
-        foreach ($relation->sorts() as $sort) {
-            $byKey[$sort->key()] = $sort;
-        }
+        return SortMatcher::merge($this->relatedTypeMetadata($relation, $server)?->sorts() ?? [], $relation->sorts());
+    }
 
-        return \array_values($byKey);
+    /**
+     * Escapes a literal for an ECMA-262 pattern, which rejects the identity escapes
+     * `preg_quote()` adds for characters such as `#` under the `u` flag.
+     */
+    private static function escapeEcmaPattern(string $literal): string
+    {
+        return \preg_replace('/[\\\\^$.*+?()[\]{}|\/]/', '\\\\$0', $literal) ?? $literal;
     }
 
     /**

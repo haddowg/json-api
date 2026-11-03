@@ -420,7 +420,9 @@ every adapter so the SQL push-down and any in-memory execution cannot drift:
   final total-order column) and enforces cursor **staleness**: `assertFresh()`
   rejects a boundary minted under different columns *or* flipped directions.
 - [`KeysetColumn`](../src/Collection/Keyset/KeysetColumn.php) — one resolved
-  `(column, direction)` level of that order.
+  `(column, direction)` level of that order. A level ordered by a custom sort
+  carries it as `$sort` (see below); `flipped()` reverses a level for a backward
+  page and keeps that sort.
 - [`InMemoryKeyset`](../src/Collection/Keyset/InMemoryKeyset.php) — the PHP
   execution of the order: the forced NULL=largest comparator (`sort()`) and the
   lexicographic strictly-after predicate (`after()`/`isAfter()`). It is both a
@@ -436,6 +438,37 @@ rows over-fetched by one, slice, re-orient a backward page, mint — is witnesse
 end-to-end by [`KeysetCursorRoundTripTest`](../tests/Collection/Keyset/KeysetCursorRoundTripTest.php);
 an adapter supplies only its store's fetch (a pushed-down `WHERE`/`ORDER BY`, or
 `InMemoryKeyset` as-is) and a row → keyset-value reader.
+
+Pass the request as `KeysetResolver::resolve()`'s trailing `$request` argument.
+Keys match through [`SortMatcher`](sorts.md#reading-the-requested-sorts), and a
+[sort family](sorts.md#sort-families-keys-matched-by-prefix) needs the request to
+resolve one.
+
+#### Custom sorts under a cursor
+
+The resolver accepts a `SortByField` or a sort implementing
+[`KeysetSortInterface`](sorts.md#sorting-a-cursor-page-by-a-custom-sort); any other
+sort is a `500` `UnsupportedSort`. A custom sort becomes a `KeysetColumn` whose
+`$sort` holds it and whose `$column` is its key, say `value.cap`. That key is
+what the cursor token stores the value under, so a token minted under
+`?sort=value.cap` is stale under `?sort=value.ends`.
+
+`CursorTokenMinter` and `InMemoryKeyset` read such a level's value from
+`keysetValue()` instead of the row reader. `KeysetColumn::valueOf()` does the same
+choice for an adapter's own code. A pushed-down store has nothing to read for the
+level and builds it from its arm for the sort instead:
+
+- the `ORDER BY` term is the arm's sort expression, with null as the largest value
+  in the level's direction, exactly as for a column;
+- the keyset `WHERE` compares that expression with the boundary value the token
+  carries under the sort key, null-aware in the same four cases as a column;
+- the boundary value arrives in its wire form (a `DateTimeInterface` as an RFC 3339
+  string with microseconds, a `Stringable` or backed enum as its string or value),
+  so the expression must compare against that form.
+
+[`KeysetCustomSortRoundTripTest`](../tests/Collection/Keyset/KeysetCustomSortRoundTripTest.php)
+walks the in-memory version: ascending and descending pages, nulls, a custom sort
+after a field sort, backward navigation and a date value through the token.
 
 ## The `Page` value object
 

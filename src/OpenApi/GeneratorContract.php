@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twelve scoped
+ * is warned only by the documents that contain it. There are thirteen scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -58,8 +58,9 @@ namespace haddowg\JsonApi\OpenApi;
  * ({@see ACTION_SAFETY}), its own vendor extensions ({@see ACTION_EXTENSIONS}), the
  * scopes an operation needs ({@see SCOPES}), a polymorphic relation with a single
  * related type ({@see SINGLE_TARGET_POLYMORPHISM}), an action answering with a URL
- * ({@see ACTION_LOCATION}) and the `type`-discriminated unions of a polymorphic relation
- * or a typed `included` ({@see DISCRIMINATED_UNIONS}). A change that moves every
+ * ({@see ACTION_LOCATION}), the `type`-discriminated unions of a polymorphic relation
+ * or a typed `included` ({@see DISCRIMINATED_UNIONS}) and a `sort` parameter accepting
+ * a family of keys by prefix ({@see SORT_FAMILIES}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -73,7 +74,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 19;
+    public const CONTRACT = 20;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -179,6 +180,14 @@ final class GeneratorContract
     public const DISCRIMINATED_UNIONS = 19;
 
     /**
+     * The contract that introduced sort families: a `sort` parameter whose items are an
+     * `anyOf` of the fixed-key enum and one `pattern` per family of keys matched by
+     * prefix, with the families listed under the array schema's `x-sort-families`. A
+     * document carries it only when some `sort` parameter accepts a family.
+     */
+    public const SORT_FAMILIES = 20;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -195,6 +204,7 @@ final class GeneratorContract
         bool $singleTargetPolymorphism = false,
         bool $actionLocations = false,
         bool $discriminatedUnions = false,
+        bool $sortFamilies = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -209,6 +219,7 @@ final class GeneratorContract
             $singleTargetPolymorphism ? self::SINGLE_TARGET_POLYMORPHISM : self::BASELINE,
             $actionLocations ? self::ACTION_LOCATION : self::BASELINE,
             $discriminatedUnions ? self::DISCRIMINATED_UNIONS : self::BASELINE,
+            $sortFamilies ? self::SORT_FAMILIES : self::BASELINE,
         )];
     }
 }

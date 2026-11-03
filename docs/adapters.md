@@ -242,6 +242,10 @@ foreach ($requested as $entry) {
 $sorted = $this->sorts->apply($directives, $rows);   // one call, full ordered list
 ```
 
+The keyed lookup only finds exact keys. Swap it for
+`SortMatcher::match($resource->allSorts(), $key, $request)` and the same loop
+also answers [sort families](sorts.md#sort-families-keys-matched-by-prefix).
+
 A `filter[…]` key or `sort` field that matches no declared metadata is simply
 skipped — the library never auto-applies anything, so an undeclared parameter
 cannot narrow or reorder the collection. (See
@@ -391,7 +395,16 @@ under `Collection\Keyset` — see
 [the keyset execution toolkit](pagination.md#the-keyset-execution-toolkit). An
 adapter adding cursor pagination consumes `KeysetResolver`, `InMemoryKeyset` and
 `CursorTokenMinter` rather than reimplementing the column resolution, the
-NULL=largest order, the staleness check, or the token minting.
+NULL=largest order, the staleness check, or the token minting. A sort arm that
+should also order cursor pages pairs with a sort implementing `KeysetSortInterface`
+and supplies the keyset comparison for it; the toolkit section lists what that
+comparison must do.
+
+Match requested sort keys with
+[`SortMatcher`](sorts.md#reading-the-requested-sorts) rather than a loop of your own.
+It is the one place that knows exact keys win over
+[sort families](sorts.md#sort-families-keys-matched-by-prefix), so every adapter
+accepts and rejects the same keys.
 
 ## Next / see also
 
