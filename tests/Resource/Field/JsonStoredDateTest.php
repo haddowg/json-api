@@ -19,15 +19,29 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A nested date child hydrates to a `\DateTimeInterface`, which a JSON column stores as
- * PHP's `{date, timezone_type, timezone}` dump. Reading it back must still render the
- * formatted date-time.
+ * A nested date child hydrates to a string a JSON column keeps as it is. A value stored
+ * before that, as a `\DateTimeInterface` or PHP's `{date, timezone_type, timezone}` dump
+ * of one, must still render the formatted date-time. Runs under a non-UTC default zone,
+ * which a stored `DateTime` string renders in when no output zone applies.
  */
 #[CoversClass(DateTime::class)]
 #[CoversClass(Date::class)]
 #[CoversClass(Time::class)]
 final class JsonStoredDateTest extends TestCase
 {
+    private string $defaultZone;
+
+    protected function setUp(): void
+    {
+        $this->defaultZone = \date_default_timezone_get();
+        \date_default_timezone_set('Europe/Paris');
+    }
+
+    protected function tearDown(): void
+    {
+        \date_default_timezone_set($this->defaultZone);
+    }
+
     #[Test]
     public function anObjDateTimeChildSurvivesAJsonColumn(): void
     {
@@ -56,7 +70,7 @@ final class JsonStoredDateTest extends TestCase
         $field = ArrayList::make('sources')->of(Obj::make('source')->fields(DateTime::make('retrievedAt')))->build();
 
         self::assertSame(
-            [['retrievedAt' => '2024-07-01T12:30:00+00:00'], ['retrievedAt' => '2024-07-02T08:00:00-05:00']],
+            [['retrievedAt' => '2024-07-01T14:30:00+02:00'], ['retrievedAt' => '2024-07-02T15:00:00+02:00']],
             $this->roundTrip($field, [['retrievedAt' => '2024-07-01T12:30:00Z'], ['retrievedAt' => '2024-07-02T08:00:00-05:00']]),
         );
     }
@@ -102,7 +116,8 @@ final class JsonStoredDateTest extends TestCase
             '2024-07-01T12:30:00+00:00',
         ];
         yield 'an RFC 3339 string' => ['2024-07-01T12:30:00.5+02:00', '2024-07-01T12:30:00+02:00'];
-        yield 'a UTC designator' => ['2024-07-01T12:30:00Z', '2024-07-01T12:30:00+00:00'];
+        yield 'a UTC designator' => ['2024-07-01T12:30:00Z', '2024-07-01T14:30:00+02:00'];
+        yield 'a negative offset' => ['2024-07-01T06:30:00-04:00', '2024-07-01T12:30:00+02:00'];
         yield 'a space-separated ISO 8601 string' => ['2024-07-01 12:30:00+0200', '2024-07-01T12:30:00+02:00'];
     }
 
@@ -142,6 +157,25 @@ final class JsonStoredDateTest extends TestCase
     {
         // `05/09/2024` would read as 9 May if parsed, so only ISO 8601 shapes are.
         self::assertSame('05/09/2024 09:08', $this->render(DateTime::make('at')->format('d/m/Y H:i')->build(), '05/09/2024 09:08'));
+    }
+
+    #[Test]
+    public function aStoredStringRendersInTheDefaultZoneAsANaiveColumnWould(): void
+    {
+        \date_default_timezone_set('Asia/Tokyo');
+
+        self::assertSame('2024-07-01T19:30:00+09:00', $this->render(DateTime::make('at')->build(), '2024-07-01T10:30:00.000000+00:00'));
+        // A naive column comes back from the ORM in the default zone, and renders the same.
+        self::assertSame('2024-07-01T19:30:00+09:00', $this->render(DateTime::make('at')->build(), new \DateTimeImmutable('2024-07-01 19:30:00')));
+    }
+
+    #[Test]
+    public function aStoredDateOrTimeStringKeepsItsOwnOffset(): void
+    {
+        \date_default_timezone_set('Pacific/Kiritimati');
+
+        self::assertSame('2024-07-01', $this->render(Date::make('day')->build(), '2024-07-01T12:30:00+00:00'));
+        self::assertSame('12:30:00', $this->render(Time::make('at')->build(), '2024-07-01T12:30:00+00:00'));
     }
 
     #[Test]

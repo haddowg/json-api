@@ -25,4 +25,15 @@ final readonly class Date extends DateTime
     {
         return $this;
     }
+
+    /**
+     * The calendar day in this field's format, unmoved. Read back, a string that names no
+     * instant renders unchanged, so this is already its wire form.
+     */
+    protected function deserializeNestedValue(mixed $value): mixed
+    {
+        $date = $this->parseWireValue($value);
+
+        return $date instanceof \DateTimeImmutable ? $date->format($this->format) : $date;
+    }
 }
