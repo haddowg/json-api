@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.1](https://github.com/haddowg/json-api/compare/v1.25.0...v1.25.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* render json-stored nested dates as formatted date-times ([#284](https://github.com/haddowg/json-api/issues/284)) ([c537cf7](https://github.com/haddowg/json-api/commit/c537cf7c7f38579151bd6f36fb0dae06c0828c75))
+
 ## [1.25.0](https://github.com/haddowg/json-api/compare/v1.24.0...v1.25.0) (2026-11-03)
 
 
