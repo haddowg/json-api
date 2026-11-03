@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.0](https://github.com/haddowg/json-api/compare/v1.23.0...v1.24.0) (2026-11-03)
+
+
+### Features
+
+* add sort families and cursor support for custom sorts ([#280](https://github.com/haddowg/json-api/issues/280)) ([82c0759](https://github.com/haddowg/json-api/commit/82c07591cf9e1290ef22fa8a383fc0ff515cc30b))
+
 ## [1.23.0](https://github.com/haddowg/json-api/compare/v1.22.1...v1.23.0) (2026-11-02)
 
 
