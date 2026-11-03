@@ -231,7 +231,7 @@ final class StructuredArrayListTest extends TestCase
         );
 
         $model = $field->hydrate([], [['title' => 'B', 'entries' => [['at' => self::AT]]]], [], $this->request(), true);
-        self::assertInstanceOf(\DateTimeImmutable::class, self::at($model, 'sections', 0, 'entries', 0, 'at'));
+        self::assertSame('2024-07-01T12:30:00.000000+00:00', self::at($model, 'sections', 0, 'entries', 0, 'at'));
     }
 
     // ---- Writes ---------------------------------------------------------------------
@@ -263,8 +263,7 @@ final class StructuredArrayListTest extends TestCase
         self::assertIsArray($list[0]);
         self::assertSame('https://a.example', $list[0]['url']);
         self::assertSame(20, $list[0]['rank_x10']);
-        self::assertInstanceOf(\DateTimeImmutable::class, $list[0]['retrievedAt']);
-        self::assertSame(self::AT, $list[0]['retrievedAt']->format(\DateTimeInterface::ATOM));
+        self::assertSame('2024-07-01T12:30:00.000000+00:00', $list[0]['retrievedAt']);
         // An undeclared key is not written.
         self::assertSame(['url' => 'https://b.example'], $list[1]);
     }

@@ -213,7 +213,8 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     }
 
     /**
-     * Hydrates each writable child the request value carries onto `$nested`.
+     * Hydrates each writable child the request value carries onto `$nested`. A date
+     * child stores a string here, as {@see DateTime::hydrateNested()} explains.
      *
      * @internal
      *
@@ -229,7 +230,9 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             }
 
             if (\array_key_exists($child->name(), $value)) {
-                $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
+                $nested = $child instanceof DateTime
+                    ? $child->hydrateNested($nested, $value[$child->name()], $data, $request, $creating)
+                    : $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
             }
         }
 

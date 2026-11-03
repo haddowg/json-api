@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\DateTimeParser;
 use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
@@ -15,7 +16,9 @@ use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
  * object before use. Serializes a `\DateTimeInterface` to a string in
  * {@see $format}, first moving it into {@see $outputTimezone} when one is set;
  * hydrates a string back to a `\DateTimeImmutable`, moved into
- * {@see $useTimezone} (the builder's `inputTimezone()`) when one is set.
+ * {@see $useTimezone} (the builder's `inputTimezone()`) when one is set. Inside an
+ * {@see Obj}, {@see OneOf} or structured {@see ArrayList} it hydrates to a string
+ * instead ({@see hydrateNested()}), since a JSON column cannot hold the object.
  *
  * Because {@see $format} is configurable, the class alone does not say what shape
  * reaches the wire — {@see schemaFormat()} answers that, and is what the generated
@@ -42,6 +45,11 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      * without guessing a zone.
      */
     private const STORED_INSTANT_SHAPE = '/^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}(:?\d{2})?)$/';
+
+    /**
+     * What a nested child stores: its instant in UTC, to the microsecond.
+     */
+    private const NESTED_FORMAT = 'Y-m-d\\TH:i:s.uP';
 
     /**
      * The reference instants {@see schemaFormat()} renders. Between them they force
@@ -259,6 +267,27 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     }
 
     /**
+     * Hydrates the value into a nested value: a key of an {@see Obj}, a {@see OneOf}
+     * variant or a structured {@see ArrayList} element. The value is stored as the
+     * string {@see deserializeNestedValue()} answers, so a JSON column keeps it as an
+     * ISO 8601 string rather than PHP's dump of the object. A `fillUsing()` or
+     * `deserializeUsing()` hook still owns the value.
+     *
+     * @internal
+     *
+     * @param array<string, mixed> $data
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $column = $this->state->column;
+        if ($this->hydratesThroughHook() || $column === null) {
+            return $this->hydrate($nested, $value, $data, $request, $creating);
+        }
+
+        return Accessor::set($nested, $column, $this->deserializeNestedValue($value));
+    }
+
+    /**
      * A non-string or empty value passes through unchanged (leniency shared with
      * the other attribute casts — type validity is a constraint/validation
      * concern, not the cast's). A non-empty string that {@see DateTimeParser}
@@ -271,20 +300,43 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      */
     protected function deserializeValue(mixed $value): mixed
     {
+        $date = $this->parseWireValue($value);
+        if ($date instanceof \DateTimeImmutable && $this->useTimezone !== null) {
+            $date = $date->setTimezone(new \DateTimeZone($this->useTimezone));
+        }
+
+        return $date;
+    }
+
+    /**
+     * The instant in UTC with microseconds and its offset, which
+     * {@see serializeValue()} reads back as the same instant.
+     */
+    protected function deserializeNestedValue(mixed $value): mixed
+    {
+        $date = $this->deserializeValue($value);
+
+        return $date instanceof \DateTimeImmutable
+            ? $date->setTimezone(new \DateTimeZone('UTC'))->format(self::NESTED_FORMAT)
+            : $date;
+    }
+
+    /**
+     * The value parsed in the zone it names, or unchanged when it is not a non-empty
+     * string.
+     *
+     * @throws AttributeValueInvalid when the string is not a valid date, date-time or time
+     */
+    protected function parseWireValue(mixed $value): mixed
+    {
         if (!\is_string($value) || $value === '') {
             return $value;
         }
 
         try {
-            $date = DateTimeParser::parse($value);
+            return DateTimeParser::parse($value);
         } catch (\InvalidArgumentException $e) {
             throw new AttributeValueInvalid($this->name(), $e->getMessage());
         }
-
-        if ($this->useTimezone !== null) {
-            $date = $date->setTimezone(new \DateTimeZone($this->useTimezone));
-        }
-
-        return $date;
     }
 }

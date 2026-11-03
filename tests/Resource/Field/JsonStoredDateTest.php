@@ -19,9 +19,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A nested date child hydrates to a `\DateTimeInterface`, which a JSON column stores as
- * PHP's `{date, timezone_type, timezone}` dump. Reading it back must still render the
- * formatted date-time.
+ * A nested date child hydrates to a string a JSON column keeps as it is. A value stored
+ * before that, as a `\DateTimeInterface` or PHP's `{date, timezone_type, timezone}` dump
+ * of one, must still render the formatted date-time.
  */
 #[CoversClass(DateTime::class)]
 #[CoversClass(Date::class)]
@@ -34,7 +34,7 @@ final class JsonStoredDateTest extends TestCase
         $field = Obj::make('window')->fields(DateTime::make('startsAt'), Str::make('label'))->build();
 
         self::assertSame(
-            ['startsAt' => '2024-07-01T12:30:00+02:00', 'label' => 'launch'],
+            ['startsAt' => '2024-07-01T10:30:00+00:00', 'label' => 'launch'],
             $this->roundTrip($field, ['startsAt' => '2024-07-01T12:30:00+02:00', 'label' => 'launch']),
         );
     }
@@ -45,7 +45,7 @@ final class JsonStoredDateTest extends TestCase
         $field = OneOf::make('slot')->variant('timed', DateTime::make('startsAt'))->build();
 
         self::assertSame(
-            ['type' => 'timed', 'startsAt' => '2024-07-01T12:30:00+02:00'],
+            ['type' => 'timed', 'startsAt' => '2024-07-01T10:30:00+00:00'],
             $this->roundTrip($field, ['type' => 'timed', 'startsAt' => '2024-07-01T12:30:00+02:00']),
         );
     }
@@ -56,7 +56,7 @@ final class JsonStoredDateTest extends TestCase
         $field = ArrayList::make('sources')->of(Obj::make('source')->fields(DateTime::make('retrievedAt')))->build();
 
         self::assertSame(
-            [['retrievedAt' => '2024-07-01T12:30:00+00:00'], ['retrievedAt' => '2024-07-02T08:00:00-05:00']],
+            [['retrievedAt' => '2024-07-01T12:30:00+00:00'], ['retrievedAt' => '2024-07-02T13:00:00+00:00']],
             $this->roundTrip($field, [['retrievedAt' => '2024-07-01T12:30:00Z'], ['retrievedAt' => '2024-07-02T08:00:00-05:00']]),
         );
     }

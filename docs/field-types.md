@@ -131,12 +131,38 @@ releases" always means *now*, per request — not the moment the resource class 
 loaded. The same closure form works for `after()` and for either bound of
 `between()`.
 
+### Nested dates are stored as strings
+
+A top-level `DateTime`, `Date` or `Time` hydrates to a `\DateTimeImmutable` on the
+model, where your ORM maps it to a date column. A date child of an `Obj`, a `OneOf`
+variant or a structured `ArrayList` element, at any depth, hydrates to a string
+instead. That value lives inside one JSON column or array cast, and `json_encode`
+would write an object out as PHP's `{date, timezone_type, timezone}` dump, which no
+other reader of the column understands.
+
+- A `DateTime` child stores its instant in UTC with microseconds and offset, in the
+  format `Y-m-d\TH:i:s.uP`, such as `2026-11-03T15:52:53.000000+00:00`. The value is
+  parsed and moved by `inputTimezone()` first, as a top-level one is, so the instant
+  is the one the client sent.
+- A `Date` or `Time` child stores its value in the field's own format, `Y-m-d` or
+  `H:i:s` unless you set another, with no zone conversion, so the day or the time of
+  day stays the one the client sent.
+
+So code that reads a nested date off the model gets a string, not a
+`\DateTimeImmutable`. A child's own `fillUsing()` or `deserializeUsing()`, or a
+`fillUsing()` on the parent, still decides what is stored.
+
+On a read a stored `DateTime` string moves into the field's `outputTimezone()` or the
+server's [default output zone](server.md#output-timezone), and renders as the object
+did. With neither set it renders in UTC, since the string keeps no other zone. A
+`Date` or `Time` string is already in wire form and renders unchanged.
+
 ### Reading a stored value back
 
-Serialization formats a `\DateTimeInterface`. It also reads the two shapes a JSON
-column hands back for one, which matters most for a date child of an `Obj`, `OneOf`
-or structured `ArrayList`, since `json_encode` writes the hydrated object out as
-PHP's dump.
+Serialization formats a `\DateTimeInterface`. It also reads the shapes a JSON column
+hands back for one. That covers the strings nested dates are stored as, and an object
+or its dump that something else left in the column, so a `PATCH` that merges onto such
+an `Obj` renders both.
 
 - An ISO 8601 date-time string that carries its offset or `Z`, such as
   `2024-07-01T12:30:00+02:00`, is parsed and rendered again in the field's format.
@@ -318,9 +344,8 @@ Write semantics on the single value:
 - a **partial `PATCH` merges per-child** — an un-supplied child keeps its stored
   value (the single-value twin of `Map`'s per-column merge);
 - an **explicit `null` clears the whole object**;
-- a `DateTime`, `Date` or `Time` child stores the `\DateTimeImmutable` it hydrates,
-  and reads back what a JSON column returns for one. See
-  [stored values](#reading-a-stored-value-back);
+- a `DateTime`, `Date` or `Time` child stores a string, a `DateTime` its instant in
+  UTC. See [nested dates](#nested-dates-are-stored-as-strings);
 - the field-level `serializeUsing()`/`fillUsing()` hooks remain the escape hatch
   when a child value needs a richer PHP type than JSON can hold, such as a value
   object.
