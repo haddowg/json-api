@@ -131,6 +131,24 @@ releases" always means *now*, per request — not the moment the resource class 
 loaded. The same closure form works for `after()` and for either bound of
 `between()`.
 
+### Reading a stored value back
+
+Serialization formats a `\DateTimeInterface`. It also reads the two shapes a JSON
+column hands back for one, which matters most for a date child of an `Obj`, `OneOf`
+or structured `ArrayList`, since `json_encode` writes the hydrated object out as
+PHP's dump.
+
+- An ISO 8601 date-time string that carries its offset or `Z`, such as
+  `2024-07-01T12:30:00+02:00`, is parsed and rendered again in the field's format.
+- PHP's dump of a date object, `{"date": "2024-07-01 12:30:00.000000",
+  "timezone_type": 3, "timezone": "Europe/Paris"}`, is rebuilt as that instant in its
+  stored zone.
+
+Either one then moves into the output zone and takes the field's format exactly as an
+object does. Any other value renders as stored, including a string with no offset,
+since it names no instant without guessing a zone. A string from `computedUsing()` or
+`extractUsing()` is taken as already formatted and also renders unchanged.
+
 ### Timezones on the way in and out
 
 `inputTimezone()` and `outputTimezone()` act on opposite directions and are
@@ -300,10 +318,12 @@ Write semantics on the single value:
 - a **partial `PATCH` merges per-child** — an un-supplied child keeps its stored
   value (the single-value twin of `Map`'s per-column merge);
 - an **explicit `null` clears the whole object**;
+- a `DateTime`, `Date` or `Time` child stores the `\DateTimeImmutable` it hydrates,
+  and reads back what a JSON column returns for one. See
+  [stored values](#reading-a-stored-value-back);
 - the field-level `serializeUsing()`/`fillUsing()` hooks remain the escape hatch
-  when a child value needs a richer PHP type than JSON scalars (a `DateTime`
-  inside the object, a value object) — the stored children are otherwise plain
-  scalars in one array.
+  when a child value needs a richer PHP type than JSON can hold, such as a value
+  object.
 
 A value from `computedUsing()` or `extractUsing()` goes through the declared children
 the same way a stored value does, so a `DateTime` child renders its formatted string

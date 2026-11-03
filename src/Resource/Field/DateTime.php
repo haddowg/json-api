@@ -38,6 +38,12 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     private const TIME_SHAPE = '/^\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/';
 
     /**
+     * An ISO 8601 date-time that names its own offset, so it reads as one instant
+     * without guessing a zone.
+     */
+    private const STORED_INSTANT_SHAPE = '/^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}(:?\d{2})?)$/';
+
+    /**
      * The reference instants {@see schemaFormat()} renders. Between them they force
      * every value-dependent format character to give itself away: a single-digit
      * month / day / hour (so an unpadded `n` / `j` / `G` renders one character short),
@@ -198,8 +204,18 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
         return $this->outputTimezone === null ? $probe : $probe->setTimezone(new \DateTimeZone($this->outputTimezone));
     }
 
+    /**
+     * A string from a closure is taken as already in wire form, whatever its shape, so
+     * only a stored string is read back as an instant.
+     */
+    protected function serializeComputedValue(mixed $value): mixed
+    {
+        return \is_string($value) ? $value : $this->serializeValue($value);
+    }
+
     protected function serializeValue(mixed $raw): mixed
     {
+        $raw = self::storedInstant($raw);
         if (!$raw instanceof \DateTimeInterface) {
             return $raw;
         }
@@ -210,6 +226,36 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
         }
 
         return $raw->format($this->format);
+    }
+
+    /**
+     * Reads a stored value back as an instant. Besides a `\DateTimeInterface`, that is
+     * what a JSON column hands back for one: an ISO 8601 string carrying its offset, or
+     * PHP's `{date, timezone_type, timezone}` dump of the object, rebuilt in its stored
+     * zone. Anything else, including a string with no offset, is returned unchanged.
+     */
+    private static function storedInstant(mixed $raw): mixed
+    {
+        if (\is_string($raw)) {
+            return \preg_match(self::STORED_INSTANT_SHAPE, $raw) === 1 ? DateTimeParser::tryParse($raw) ?? $raw : $raw;
+        }
+
+        $dump = $raw instanceof \stdClass ? \get_object_vars($raw) : $raw;
+        if (!\is_array($dump) || \count($dump) !== 3
+            || !\is_string($dump['date'] ?? null) || !\is_int($dump['timezone_type'] ?? null) || !\is_string($dump['timezone'] ?? null)) {
+            return $raw;
+        }
+
+        try {
+            $zone = new \DateTimeZone($dump['timezone']);
+        } catch (\Exception) {
+            return $raw;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.u', $dump['date'], $zone);
+        $errors = \DateTimeImmutable::getLastErrors();
+
+        return $date === false || ($errors !== false && $errors['warning_count'] > 0) ? $raw : $date;
     }
 
     /**
