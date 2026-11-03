@@ -30,6 +30,8 @@ use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 
@@ -69,6 +71,12 @@ final class SchemaProjector
      */
     private bool $reading = false;
 
+    /**
+     * Set while a structured list's element is being projected: a write builds each
+     * element whole, so an update requires what the update context requires.
+     */
+    private bool $wholeValue = false;
+
     public function __construct(
         private readonly EnumDescriptionMode $enumDescriptionMode = EnumDescriptionMode::Both,
     ) {}
@@ -99,11 +107,35 @@ final class SchemaProjector
             return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
         }
 
-        $schema = $field instanceof Map
-            ? $this->projectNestedObject($field, $field->children(), $creating, $collector)
-            : $this->typeSchema($field);
+        $schema = match (true) {
+            $field instanceof Map => $this->projectNestedObject($field, $field->children(), $creating, $collector),
+            $field instanceof ArrayList && $field->element() !== null => Schema::ofType('array')
+                ->withItems($this->projectListElement($field, $field->element(), $creating, $collector)),
+            default => $this->typeSchema($field),
+        };
 
         return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+    }
+
+    /**
+     * Projects a structured list's element as its {@see Obj} or {@see OneOf} would project
+     * as an attribute, less the `null` a list never holds in place of an element.
+     */
+    private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        $shapedByHook = $list->rendersThroughHook();
+        $previous = $this->wholeValue;
+        $this->wholeValue = true;
+
+        try {
+            $schema = $element instanceof OneOf
+                ? $element->projectVariants($this, $creating, $collector, $shapedByHook)
+                : $this->projectNestedObject($element, $element->children(), $creating, $collector, $shapedByHook);
+        } finally {
+            $this->wholeValue = $previous;
+        }
+
+        return $this->applyExample($this->applyDescription($schema, $element, []), $element);
     }
 
     /**
@@ -112,7 +144,9 @@ final class SchemaProjector
      * node, following the same per-representation rules as {@see projectAttributes()}:
      *
      * - **Create** lists each child a create must supply.
-     * - **Update** lists none, since an absent member means "no change".
+     * - **Update** lists none, since an absent member means "no change", except inside a
+     *   structured list's element, which a write builds whole: there it lists each child
+     *   the update context requires.
      * - **Read** lists every child the parent always renders: all of them except a
      *   write-only one, a `hidden(when:)` / `writeOnly(when:)` one, and every child of a
      *   parent whose `serializeUsing()` / `extractUsing()` hook produces its own shape. A
@@ -121,12 +155,15 @@ final class SchemaProjector
      * A hidden child is never projected. Presence says nothing about `null`; the child's
      * own schema does.
      *
+     * `$shapedByHook` marks the object as author-shaped when a hook outside the parent
+     * renders it, as an {@see ArrayList}'s hook renders each of its elements.
+     *
      * @param iterable<FieldInterface> $children
      */
-    public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null): Schema
+    public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false): Schema
     {
         $reading = $this->reading && !$creating;
-        $authorShaped = $parent instanceof AbstractFieldValue && $parent->rendersThroughHook();
+        $authorShaped = $shapedByHook || ($parent instanceof AbstractFieldValue && $parent->rendersThroughHook());
         $properties = [];
         $required = [];
         foreach ($children as $child) {
@@ -138,7 +175,7 @@ final class SchemaProjector
             $isRequired = match (true) {
                 $creating => $this->isRequired($child, true),
                 $reading => !$authorShaped && !$child->hasConditionalReadVisibility(),
-                default => false,
+                default => $this->writesWholeValue() && $this->isRequired($child, false),
             };
             if ($isRequired) {
                 $required[] = $child->name();
@@ -158,6 +195,16 @@ final class SchemaProjector
     public function isReading(): bool
     {
         return $this->reading;
+    }
+
+    /**
+     * Whether a write is being projected for a value it builds whole rather than merges,
+     * as it builds each element of a structured list, so an update must carry what makes
+     * the value valid.
+     */
+    public function writesWholeValue(): bool
+    {
+        return $this->wholeValue && !$this->reading;
     }
 
     /**

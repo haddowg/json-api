@@ -1311,6 +1311,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      */
     private function guardReservedNestedMembers(\haddowg\JsonApi\Resource\Field\FieldInterface $field, string $path): void
     {
+        if ($field instanceof \haddowg\JsonApi\Resource\Field\ArrayList && $field->element() !== null) {
+            $this->guardReservedNestedMembers($field->element(), $path);
+
+            return;
+        }
+
         $members = match (true) {
             $field instanceof \haddowg\JsonApi\Resource\Field\Obj, $field instanceof \haddowg\JsonApi\Resource\Field\Map => $field->children(),
             $field instanceof \haddowg\JsonApi\Resource\Field\OneOf => \array_merge(...\array_values(\array_map(

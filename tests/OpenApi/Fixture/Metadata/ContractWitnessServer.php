@@ -131,14 +131,16 @@ final class ContractWitnessServer
      *                              URL, which the baseline witness leaves out too
      * @param bool $sortFamilies whether the articles accept sort families, which the
      *                           baseline witness leaves out too
+     * @param bool $structuredLists whether the articles carry lists of structured elements,
+     *                              which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists),
                 self::people(),
                 self::tags(),
                 self::images($declaredLinks),
@@ -229,7 +231,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -297,6 +299,21 @@ final class ContractWitnessServer
                 Integer::make('commentCount')->computedUsing(static fn(mixed $model): int => 0)->build(),
                 Str::make('authorName')->on('author')->build(),
                 Integer::make('score')->sparseByDefault()->build(),
+                // Lists of structured elements: items built from an Obj's children, and a
+                // discriminated union whose variant nests an object.
+                ...($structuredLists ? [
+                    ArrayList::make('sources')->of(Obj::make('source')->fields(
+                        Url::make('href')->required(),
+                        DateTime::make('retrievedAt'),
+                    ))->maxItems(5)->build(),
+                    ArrayList::make('steps')->of(OneOf::make('step')
+                        ->discriminator('operation')
+                        ->variant('trim')
+                        ->variant('find_replace', Obj::make('params')->fields(
+                            Str::make('find')->guaranteed(),
+                            Str::make('replace')->guaranteed(),
+                        )))->maxItems(50)->build(),
+                ] : []),
             ],
             relations: [
                 new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.'),

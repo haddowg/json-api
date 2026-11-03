@@ -94,11 +94,17 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
         }
 
-        $value = Accessor::get($model, $this->state->column ?? $name);
-        if ($value === null) {
-            return null;
-        }
+        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request);
+    }
 
+    /**
+     * Renders a stored value through the variant its discriminator names. {@see ArrayList}
+     * renders each element of a structured list through it.
+     *
+     * @internal
+     */
+    public function serializeStored(mixed $value, JsonApiRequestInterface $request): mixed
+    {
         if (!\is_array($value)) {
             return $value;
         }
@@ -128,8 +134,10 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
      * renders a computed object: each declared child serializes its own key and an
      * undeclared key, the discriminator among them, passes through. A value naming no
      * variant is emitted as it is, like a stored one.
+     *
+     * @internal
      */
-    private function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    public function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
@@ -184,21 +192,30 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         $nested = $existingDiscriminator === $discriminatorValue ? $existing : [];
         $nested[$this->discriminator] = $discriminatorValue;
 
-        $nested = JsonObject::hydrateChildren($this->name(), static function () use ($variant, $nested, $value, $data, $request, $creating): mixed {
-            foreach ($variant->children() as $child) {
-                if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
-                    continue;
-                }
-
-                if (\array_key_exists($child->name(), $value)) {
-                    $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
-                }
-            }
-
-            return $nested;
-        });
+        $nested = JsonObject::hydrateChildren($this->name(), static fn(): mixed => Obj::hydrateChildrenOnto($variant->children(), $nested, $value, $data, $request, $creating));
 
         return Accessor::set($model, $column, $nested);
+    }
+
+    /**
+     * Builds one element of a structured {@see ArrayList} from its request value through
+     * the variant its discriminator names, starting from nothing rather than a stored
+     * element. A value naming no variant is kept as sent, as {@see hydrate()} keeps it.
+     *
+     * @internal
+     *
+     * @param array<array-key, mixed> $value
+     * @param array<string, mixed>    $data
+     */
+    public function hydrateElement(array $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $discriminatorValue = $value[$this->discriminator] ?? null;
+        $variant = $this->variantFor($discriminatorValue);
+        if ($variant === null) {
+            return $value;
+        }
+
+        return Obj::hydrateChildrenOnto($variant->children(), [$this->discriminator => $discriminatorValue], $value, $data, $request, $creating);
     }
 
     protected function deserializeValue(mixed $value): mixed
@@ -210,21 +227,33 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
     {
+        return $this->projectVariants($projector, $creating, $collector);
+    }
+
+    /**
+     * The union's `oneOf`, with `$shapedByHook` standing in for a hook on the union
+     * itself when an enclosing {@see ArrayList}'s hook renders it.
+     *
+     * @internal
+     */
+    public function projectVariants(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector, bool $shapedByHook = false): Schema
+    {
+        $shapedByHook = $shapedByHook || $this->rendersThroughHook();
         $branches = [];
         foreach ($this->variants as $variantName => $shape) {
             // The union is the parent, so its own serializeUsing()/extractUsing() hook
             // keeps the variants' children out of the read `required`.
-            $schema = $projector->projectNestedObject($this, $shape->children(), $creating, $collector);
+            $schema = $projector->projectNestedObject($this, $shape->children(), $creating, $collector, $shapedByHook);
 
-            // Each branch carries the discriminator as a const property (and, on create
-            // and on a read the union renders itself, in `required`) so a consumer can
-            // match the value to its variant.
+            // Each branch carries the discriminator as a const property (and, on create,
+            // on a read the union renders itself and on any write of a list element, in
+            // `required`) so a consumer can match the value to its variant.
             /** @var array<string, Schema> $properties */
             $properties = \is_array($schema->get('properties')) ? $schema->get('properties') : [];
             $properties[$this->discriminator] = Schema::ofType('string')->withConst($variantName);
             $schema = $schema->withProperties($properties);
 
-            if ($creating || ($projector->isReading() && !$this->rendersThroughHook())) {
+            if ($creating || $projector->writesWholeValue() || ($projector->isReading() && !$shapedByHook)) {
                 /** @var list<string> $required */
                 $required = \is_array($schema->get('required')) ? \array_values($schema->get('required')) : [];
                 if (!\in_array($this->discriminator, $required, true)) {

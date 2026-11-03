@@ -20,6 +20,11 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
@@ -278,7 +283,49 @@ final class OpenApiProjector
             actionLocations: $actionLocations,
             discriminatedUnions: self::hasDiscriminatedUnion($server),
             sortFamilies: $sortFamilies,
+            structuredListElements: self::hasStructuredList($server),
         ));
+    }
+
+    /**
+     * Whether some attribute or pivot field, at any depth, is a list of structured
+     * elements.
+     */
+    private static function hasStructuredList(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            $fields = $type->fields();
+            foreach ($type->relations() as $relation) {
+                $fields = [...$fields, ...$relation->pivotFields()];
+            }
+            foreach ($fields as $field) {
+                if (self::declaresStructuredList($field)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function declaresStructuredList(FieldInterface $field): bool
+    {
+        if ($field instanceof ArrayList) {
+            return $field->element() !== null;
+        }
+
+        $members = match (true) {
+            $field instanceof Obj, $field instanceof Map => $field->children(),
+            $field instanceof OneOf => \array_values($field->variants()),
+            default => [],
+        };
+        foreach ($members as $member) {
+            if (self::declaresStructuredList($member)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

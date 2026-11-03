@@ -636,8 +636,9 @@ The examples show what the server sends and accepts:
   examples, and a `OneOf` from its first variant. That holds for a nullable or computed
   one too, since a `computedUsing()` or `extractUsing()` value still renders through the
   children; a `serializeUsing()` hook shapes the value itself, so that field needs its own
-  example. An `ArrayList` or `ArrayHash` has no children and needs its own example. A
-  declared `null` example stays `null`.
+  example. A structured `ArrayList` shows one element built the same way from its `Obj`
+  or `OneOf`. A scalar `ArrayList` or an `ArrayHash` has no children and needs its own
+  example. A declared `null` example stays `null`.
 - Linkage is built from the related type's `Id` example. Where the related type gives
   none, because the server does not register it or its `Id` declares no example, the
   relation's own [`exampleId()`](relations.md#example-ids-for-linkage) is used. A
@@ -1176,7 +1177,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 20 }
+  "x-generator": { "contract": 21 }
 }
 ```
 

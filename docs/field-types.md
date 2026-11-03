@@ -364,10 +364,12 @@ A zero-indexed array attribute (JSON `type: array`).
 | Method | Adds / effect |
 |---|---|
 | `of(string $elementType)` | Types the projected `items` schema as `string`, `integer`, `number` or `boolean` (default `string`, so a list never projects as untyped); it does not cast values. |
+| `of(Obj\|OneOf $element)` | Makes a list of [structured elements](#lists-of-structured-elements), each read and written through the shape's children. Builders are accepted too. |
 | `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems`. |
 | `uniqueItems()` | `UniqueItems`. |
-| `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. |
-| `sorted()` | Sorts the list on serialization. |
+| `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. Scalar lists only. |
+| `sorted()` | Sorts the list on serialization. Scalar lists only. |
+| `element()` | The built `Obj` or `OneOf` of a structured list, `null` for a scalar one (for adapters and projection). |
 
 The track's [`genres`](../examples/music-catalog/src/Resource/TrackResource.php)
 is the worked example — at least one genre, each a non-empty string, no
@@ -382,6 +384,72 @@ ArrayList::make('genres')
     ->each(new MinLength(1))
     ->uniqueItems();
 ```
+
+### Lists of structured elements
+
+Pass an `Obj` or a `OneOf` to `of()` and every element of the list takes that shape.
+A list of edits, each one either a bare `trim` or a `find_replace` carrying its
+parameters, looks like this:
+
+```php
+ArrayList::make('steps')
+    ->of(OneOf::make('step')
+        ->discriminator('operation')
+        ->variant('trim')
+        ->variant('find_replace', Obj::make('params')->fields(
+            Str::make('find')->guaranteed(),
+            Str::make('replace')->guaranteed(),
+        )))
+    ->maxItems(50);
+```
+
+and accepts
+
+```json
+"steps": [
+  { "operation": "trim" },
+  { "operation": "find_replace", "params": { "find": "colour", "replace": "color" } }
+]
+```
+
+Each element behaves as the `Obj` or `OneOf` would as an attribute of its own. Its
+children read and write keys inside the element, so a child's `storedAs()`,
+`fillUsing()`, `deserializeUsing()`, `extractUsing()` and `serializeUsing()` hooks, a
+`DateTime` child's parsing and formatting, and the `hidden()`, `writeOnly()` and
+`readOnly()` rules all apply per element. A `OneOf` element picks its variant from its
+own discriminator. The element's name (`step` above) never reaches the wire.
+
+A write replaces the whole list. Every element is built fresh from the request, in the
+order sent, and is never merged with the stored element at the same index, because a
+list has no identity to match elements by. A child that the operation may not write,
+such as a `readOnlyOnUpdate()` one on a `PATCH`, is left out of the new element rather
+than carried over. An empty list stores `[]` and a `null` clears the list.
+
+Hooks belong on the list or on the element's children, not on the element itself.
+`extractUsing()` or `computedUsing()` on the list supplies the elements, and each one
+still renders through the children, as a computed `Obj` does. `serializeUsing()` and
+`fillUsing()` on the list own the whole value and skip the elements. An element
+carrying its own hook, `each()` and `sorted()` all throw a `LogicException` when the
+list is built: put per-element rules on the children, and keep the order the client
+sends. A list nested inside an element works the same way, one level down.
+
+The structural checks `Obj` and `OneOf` make on write apply to each element, with the
+index in the pointer. A JSON object sent for the list is refused with a `422`
+`ATTRIBUTE_VALUE_INVALID` at `/data/attributes/steps`, an element sent as a list at
+`/data/attributes/steps/2`, and a child of an element at
+`/data/attributes/steps/2/params`. An empty `{}` decodes to the same empty array as
+`[]`, so it reads as an empty list. As with a `OneOf` attribute, an element naming no
+variant is stored as sent for the adapter's validator to reject, and so is a scalar or
+`null` element. Rule validation of the
+children (presence, enums, lengths) is the adapter's job, which reaches the shape
+through `element()` and validates each element at `<list>/<index>`.
+
+In the generated OpenAPI document the list's `items` is the element's schema, built as
+the `Obj` or `OneOf` would project as an attribute, and the list's own `minItems`,
+`maxItems` and `uniqueItems` still apply. Because an update builds each element whole,
+the update schema requires the same children and discriminator inside an element that
+a create does. An operation example builds each element from its children's examples,
+so a child with no example is reported missing, as an `Obj` child is.
 
 ## `ArrayHash`
 

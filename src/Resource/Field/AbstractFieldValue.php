@@ -180,6 +180,16 @@ abstract readonly class AbstractFieldValue implements FieldInterface
         return $this->state->serializeUsing !== null;
     }
 
+    /**
+     * Whether a `fillUsing()` or `deserializeUsing()` hook takes over hydration.
+     *
+     * @internal
+     */
+    public function hydratesThroughHook(): bool
+    {
+        return $this->state->fillUsing !== null || $this->state->deserializeUsing !== null;
+    }
+
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {

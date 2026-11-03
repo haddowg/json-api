@@ -81,7 +81,17 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
         }
 
-        $value = Accessor::get($model, $this->state->column ?? $name);
+        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request);
+    }
+
+    /**
+     * Runs the declared children over a stored object value. {@see ArrayList} renders
+     * each element of a structured list through it.
+     *
+     * @internal
+     */
+    public function serializeStored(mixed $value, JsonApiRequestInterface $request): mixed
+    {
         if ($value === null) {
             return null;
         }
@@ -183,21 +193,47 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         $nested = Accessor::get($model, $column);
         $nested = \is_array($nested) ? $nested : [];
 
-        $nested = JsonObject::hydrateChildren($this->name(), function () use ($nested, $value, $data, $request, $creating): mixed {
-            foreach ($this->children as $child) {
-                if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
-                    continue;
-                }
-
-                if (\array_key_exists($child->name(), $value)) {
-                    $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
-                }
-            }
-
-            return $nested;
-        });
+        $nested = JsonObject::hydrateChildren($this->name(), fn(): mixed => self::hydrateChildrenOnto($this->children, $nested, $value, $data, $request, $creating));
 
         return Accessor::set($model, $column, $nested);
+    }
+
+    /**
+     * Builds one element of a structured {@see ArrayList} from its request value,
+     * starting from nothing rather than a stored element.
+     *
+     * @internal
+     *
+     * @param array<array-key, mixed> $value
+     * @param array<string, mixed>    $data
+     */
+    public function hydrateElement(array $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return self::hydrateChildrenOnto($this->children, [], $value, $data, $request, $creating);
+    }
+
+    /**
+     * Hydrates each writable child the request value carries onto `$nested`.
+     *
+     * @internal
+     *
+     * @param list<FieldInterface>    $children
+     * @param array<array-key, mixed> $value
+     * @param array<string, mixed>    $data
+     */
+    public static function hydrateChildrenOnto(array $children, mixed $nested, array $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        foreach ($children as $child) {
+            if ($child->isHidden() || $child->isReadOnlyFor($creating, $request)) {
+                continue;
+            }
+
+            if (\array_key_exists($child->name(), $value)) {
+                $nested = $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
+            }
+        }
+
+        return $nested;
     }
 
     protected function deserializeValue(mixed $value): mixed
