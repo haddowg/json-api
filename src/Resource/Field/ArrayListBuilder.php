@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
@@ -20,39 +21,58 @@ final class ArrayListBuilder extends AbstractFieldBuilder
     /**
      * The JSON type of each element, surfaced as the OpenAPI `items` type. Defaults
      * to `string` so a list attribute never projects as an untyped `unknown[]`; set
-     * another scalar with {@see of()}.
+     * another scalar, or a structured element, with {@see of()}.
      */
     private string $elementType = 'string';
+
+    private Obj|ObjBuilder|OneOf|OneOfBuilder|null $element = null;
 
     private bool $sorted = false;
 
     public function build(): ArrayList
     {
-        return new ArrayList($this->fieldState(), $this->elementType, $this->sorted);
+        $element = $this->element instanceof FieldBuilderInterface ? $this->element->build() : $this->element;
+        if ($element !== null) {
+            $this->assertStructurable($element);
+        }
+
+        return new ArrayList($this->fieldState(), $this->elementType, $this->sorted, $element);
     }
 
     /**
-     * Declares the JSON type of each list element for the OpenAPI projection (the
-     * `items` schema). Accepts a JSON scalar type — `string` (the default),
-     * `integer`, `number` or `boolean`. This narrows only the projected schema; it
-     * does not cast the serialized value. Any `each()` item constraints compose on
-     * top of the declared type.
+     * Declares what each list element is. A JSON scalar type — `string` (the default),
+     * `integer`, `number` or `boolean` — narrows only the projected `items` schema; it
+     * does not cast the serialized value, and any `each()` item constraints compose on
+     * top of it.
+     *
+     * An {@see Obj} or {@see OneOf} (built or still a builder) makes a structured list:
+     * every element reads and writes through that shape's children, as the shape would
+     * as an attribute of its own. Its name is never used. A structured list takes no
+     * `each()` and no `sorted()`; constrain the children instead.
      *
      * @return static
      */
-    public function of(string $elementType): static
+    public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder $element): static
     {
+        if (!\is_string($element)) {
+            $this->element = $element;
+            $this->elementType = 'object';
+
+            return $this;
+        }
+
         $allowed = ['string', 'integer', 'number', 'boolean'];
-        if (!\in_array($elementType, $allowed, true)) {
+        if (!\in_array($element, $allowed, true)) {
             throw new \InvalidArgumentException(\sprintf(
-                'ArrayList "%s" element type must be one of %s, got "%s".',
+                'ArrayList "%s" element type must be one of %s, or an Obj or OneOf, got "%s".',
                 $this->name(),
                 \implode(', ', $allowed),
-                $elementType,
+                $element,
             ));
         }
 
-        $this->elementType = $elementType;
+        $this->element = null;
+        $this->elementType = $element;
 
         return $this;
     }
@@ -86,7 +106,7 @@ final class ArrayListBuilder extends AbstractFieldBuilder
      *
      * @return static
      */
-    public function each(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$constraints): static
+    public function each(ConstraintInterface ...$constraints): static
     {
         return $this->addConstraint(new Each(\array_values($constraints), $this->currentContext()));
     }
@@ -101,5 +121,18 @@ final class ArrayListBuilder extends AbstractFieldBuilder
         $this->sorted = true;
 
         return $this;
+    }
+
+    private function assertStructurable(Obj|OneOf $element): void
+    {
+        $problem = match (true) {
+            $this->sorted => 'cannot be sorted(), since its elements have no natural order',
+            \array_filter($this->fieldState()->constraints, static fn(ConstraintInterface $constraint): bool => $constraint instanceof Each) !== [] => 'cannot take each() item constraints; constrain the element\'s children instead',
+            $element->rendersThroughHook() || $element->hydratesThroughHook() => 'cannot use an element with its own serialize, extract, deserialize or fill hook; put the hook on the list or on the element\'s children',
+            default => null,
+        };
+        if ($problem !== null) {
+            throw new \LogicException(\sprintf('ArrayList "%s" has structured elements, so it %s.', $this->name(), $problem));
+        }
     }
 }

@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are thirteen scoped
+ * is warned only by the documents that contain it. There are fourteen scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -59,8 +59,9 @@ namespace haddowg\JsonApi\OpenApi;
  * scopes an operation needs ({@see SCOPES}), a polymorphic relation with a single
  * related type ({@see SINGLE_TARGET_POLYMORPHISM}), an action answering with a URL
  * ({@see ACTION_LOCATION}), the `type`-discriminated unions of a polymorphic relation
- * or a typed `included` ({@see DISCRIMINATED_UNIONS}) and a `sort` parameter accepting
- * a family of keys by prefix ({@see SORT_FAMILIES}). A change that moves every
+ * or a typed `included` ({@see DISCRIMINATED_UNIONS}), a `sort` parameter accepting
+ * a family of keys by prefix ({@see SORT_FAMILIES}) and a list attribute whose items are
+ * objects or a discriminated union ({@see STRUCTURED_LIST_ELEMENTS}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -74,7 +75,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 20;
+    public const CONTRACT = 21;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -188,6 +189,14 @@ final class GeneratorContract
     public const SORT_FAMILIES = 20;
 
     /**
+     * The contract that introduced structured list elements: an `array` attribute, or an
+     * array member nested in one, whose `items` is an object schema built from child
+     * fields or a `oneOf` with a `discriminator` over such objects, rather than a scalar.
+     * A document carries it only when some attribute declares one.
+     */
+    public const STRUCTURED_LIST_ELEMENTS = 21;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -205,6 +214,7 @@ final class GeneratorContract
         bool $actionLocations = false,
         bool $discriminatedUnions = false,
         bool $sortFamilies = false,
+        bool $structuredListElements = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -220,6 +230,7 @@ final class GeneratorContract
             $actionLocations ? self::ACTION_LOCATION : self::BASELINE,
             $discriminatedUnions ? self::DISCRIMINATED_UNIONS : self::BASELINE,
             $sortFamilies ? self::SORT_FAMILIES : self::BASELINE,
+            $structuredListElements ? self::STRUCTURED_LIST_ELEMENTS : self::BASELINE,
         )];
     }
 }

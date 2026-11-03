@@ -29,8 +29,16 @@ use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\ServerVariable;
 use haddowg\JsonApi\OpenApi\Tag;
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\DateTime;
+use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
+use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContractWitnessServer;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ExtendedTypeMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -251,6 +259,27 @@ final class OpenApiMetaValidationTest extends TestCase
         // reaches), so it is also the strongest meta-validation check available — including the
         // `info.x-generator` stamp, which the meta-schema admits as an Info extension.
         $this->assertValidOpenApiDocument((new OpenApiProjector())->project(ContractWitnessServer::build()));
+    }
+
+    #[Test]
+    public function aDocumentWithStructuredListsValidates(): void
+    {
+        $type = FakeTypeMetadata::resource('recipes', [
+            Id::make()->example('r-1')->build(),
+            ArrayList::make('sources')->of(Obj::make('source')->fields(
+                Str::make('href')->required()->example('https://a.example'),
+                DateTime::make('retrievedAt')->example('2024-07-01T12:30:00+00:00'),
+            ))->maxItems(5)->build(),
+            ArrayList::make('steps')->of(OneOf::make('step')
+                ->discriminator('operation')
+                ->variant('trim')
+                ->variant('find_replace', Obj::make('params')->fields(
+                    Str::make('find')->guaranteed()->example('a'),
+                    Str::make('replace')->guaranteed()->example('b'),
+                )))->minItems(1)->uniqueItems()->build(),
+        ]);
+
+        $this->assertValidOpenApiDocument((new OpenApiProjector())->project(new FakeServerMetadata('Recipes', '1.0.0', [$type], servers: [new Server('https://api.example.com')])));
     }
 
     #[Test]

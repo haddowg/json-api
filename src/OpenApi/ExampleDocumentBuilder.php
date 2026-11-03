@@ -13,6 +13,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -549,6 +550,10 @@ final class ExampleDocumentBuilder
         // A serialize hook shapes the read value itself, so its children say nothing about
         // it. A computed or extracted value still renders through the children.
         $hooked = $context === RepresentationContext::Read && $field instanceof AbstractFieldValue && $field->rendersThroughSerializeHook();
+
+        if (!$hooked && $field instanceof ArrayList && $field->element() !== null) {
+            return [$this->value($field->element(), $context, $type, $path)];
+        }
 
         if (!$hooked && $field instanceof OneOf) {
             foreach ($field->variants() as $variant => $shape) {
