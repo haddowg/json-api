@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.0](https://github.com/haddowg/json-api/compare/v1.24.0...v1.25.0) (2026-11-03)
+
+
+### Features
+
+* let an ArrayList hold Obj or OneOf elements ([#282](https://github.com/haddowg/json-api/issues/282)) ([a6fb27c](https://github.com/haddowg/json-api/commit/a6fb27c72007bc018c9c28e18f6197094704ee5a))
+
 ## [1.24.0](https://github.com/haddowg/json-api/compare/v1.23.0...v1.24.0) (2026-11-03)
 
 
