@@ -269,8 +269,10 @@ final class NestedDateStorageTest extends TestCase
         self::assertSame($legacy, $model['window']['startsAt'] ?? null);
         self::assertSame('2026-11-03T18:00:00.000000+00:00', $model['window']['endsAt'] ?? null);
 
+        // The old value keeps the zone it carries, as a top-level object does; the new
+        // string renders in the default zone.
         self::assertSame(
-            ['startsAt' => '2026-11-03T17:52:53+02:00', 'endsAt' => '2026-11-03T18:00:00+00:00'],
+            ['startsAt' => '2026-11-03T17:52:53+02:00', 'endsAt' => '2026-11-03T13:00:00-05:00'],
             $field->serialize($model, $request, 'window'),
         );
         self::assertSame(

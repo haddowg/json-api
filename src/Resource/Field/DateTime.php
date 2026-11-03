@@ -223,7 +223,7 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
 
     protected function serializeValue(mixed $raw): mixed
     {
-        $raw = self::storedInstant($raw);
+        $raw = $this->storedInstant($raw);
         if (!$raw instanceof \DateTimeInterface) {
             return $raw;
         }
@@ -241,11 +241,23 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      * what a JSON column hands back for one: an ISO 8601 string carrying its offset, or
      * PHP's `{date, timezone_type, timezone}` dump of the object, rebuilt in its stored
      * zone. Anything else, including a string with no offset, is returned unchanged.
+     *
+     * A `DateTime` moves a string into PHP's default zone, the zone an ORM hands back a
+     * naive date-time column in, so with no output zone a nested date renders as a
+     * top-level one does. A `Date` or `Time` keeps the string's own offset, so its day
+     * or time of day is never moved.
      */
-    private static function storedInstant(mixed $raw): mixed
+    private function storedInstant(mixed $raw): mixed
     {
         if (\is_string($raw)) {
-            return \preg_match(self::STORED_INSTANT_SHAPE, $raw) === 1 ? DateTimeParser::tryParse($raw) ?? $raw : $raw;
+            $date = \preg_match(self::STORED_INSTANT_SHAPE, $raw) === 1 ? DateTimeParser::tryParse($raw) : null;
+            if ($date === null) {
+                return $raw;
+            }
+
+            return $this instanceof Date || $this instanceof Time
+                ? $date
+                : $date->setTimezone(new \DateTimeZone(\date_default_timezone_get()));
         }
 
         $dump = $raw instanceof \stdClass ? \get_object_vars($raw) : $raw;

@@ -154,8 +154,10 @@ So code that reads a nested date off the model gets a string, not a
 
 On a read a stored `DateTime` string moves into the field's `outputTimezone()` or the
 server's [default output zone](server.md#output-timezone), and renders as the object
-did. With neither set it renders in UTC, since the string keeps no other zone. A
-`Date` or `Time` string is already in wire form and renders unchanged.
+did. With neither set it renders in PHP's default zone, `date_default_timezone_get()`.
+That is the zone an ORM hands back a naive date-time column in, so a nested date
+renders as a top-level one does. A `Date` or `Time` string is already in wire form and
+renders unchanged.
 
 ### Reading a stored value back
 
@@ -165,7 +167,9 @@ or its dump that something else left in the column, so a `PATCH` that merges ont
 an `Obj` renders both.
 
 - An ISO 8601 date-time string that carries its offset or `Z`, such as
-  `2024-07-01T12:30:00+02:00`, is parsed and rendered again in the field's format.
+  `2024-07-01T12:30:00+02:00`, is parsed and rendered again in the field's format. A
+  `DateTime` moves it into PHP's default zone first. A `Date` or `Time` keeps the
+  string's own offset, so its day or time of day does not move.
 - PHP's dump of a date object, `{"date": "2024-07-01 12:30:00.000000",
   "timezone_type": 3, "timezone": "Europe/Paris"}`, is rebuilt as that instant in its
   stored zone.
@@ -181,7 +185,7 @@ since it names no instant without guessing a zone. A string from `computedUsing(
 independent. `inputTimezone()` moves a value the client sent into a zone before it
 reaches your domain object. `outputTimezone()` moves the domain value into a zone
 before it is formatted for the response. Without `outputTimezone()`, a value renders
-in whatever zone it carries.
+in whatever zone it carries, and a stored date-time string in PHP's default zone.
 
 ```php
 // Stored in the enterprise's local zone, always rendered in UTC.

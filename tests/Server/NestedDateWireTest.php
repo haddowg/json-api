@@ -34,6 +34,19 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Obj::class)]
 final class NestedDateWireTest extends TestCase
 {
+    private string $defaultZone;
+
+    protected function setUp(): void
+    {
+        $this->defaultZone = \date_default_timezone_get();
+        \date_default_timezone_set('Europe/Paris');
+    }
+
+    protected function tearDown(): void
+    {
+        \date_default_timezone_set($this->defaultZone);
+    }
+
     private const string BODY = '{"data":{"type":"nested-date-events","attributes":{'
         . '"window":{"startsAt":"2026-11-03T17:52:53+02:00","endsAt":"2026-11-03T18:30:00+02:00","day":"2026-11-03","opensAt":"09:15:00"},'
         . '"slots":[{"type":"timed","at":"2026-11-03T10:00:00-05:00"}]}}}';
@@ -63,21 +76,24 @@ final class NestedDateWireTest extends TestCase
         self::assertSame($expected, $this->read($server, self::throughJsonColumn($legacy)));
     }
 
+    /**
+     * The zone a top-level date-time from a naive column renders in.
+     */
     #[Test]
-    public function withNoOutputZoneANestedDateTimeRendersItsInstantInUtc(): void
+    public function withNoOutputZoneANestedDateTimeRendersInTheDefaultZone(): void
     {
         $server = Server::make();
         [$created, $stored] = $this->create($server);
 
         $expected = [
             'window' => [
-                'startsAt' => '2026-11-03T15:52:53+00:00',
+                'startsAt' => '2026-11-03T16:52:53+01:00',
                 // The field's own outputTimezone still applies.
                 'endsAt' => '2026-11-03T11:30:00-05:00',
                 'day' => '2026-11-03',
                 'opensAt' => '09:15:00',
             ],
-            'slots' => [['type' => 'timed', 'at' => '2026-11-03T15:00:00+00:00']],
+            'slots' => [['type' => 'timed', 'at' => '2026-11-03T16:00:00+01:00']],
         ];
 
         self::assertSame($expected, $created);
