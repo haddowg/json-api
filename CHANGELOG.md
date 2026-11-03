@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.2](https://github.com/haddowg/json-api/compare/v1.25.1...v1.25.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* store nested dates as UTC strings ([#286](https://github.com/haddowg/json-api/issues/286)) ([b68b1d0](https://github.com/haddowg/json-api/commit/b68b1d055a5b50dd05e97d9a241987f6a383f4c8))
+
 ## [1.25.1](https://github.com/haddowg/json-api/compare/v1.25.0...v1.25.1) (2026-11-03)
 
 
