@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.0](https://github.com/haddowg/json-api/compare/v1.25.2...v1.26.0) (2026-11-06)
+
+
+### Features
+
+* declare openapi extensions per operation name ([#288](https://github.com/haddowg/json-api/issues/288)) ([2bfe278](https://github.com/haddowg/json-api/commit/2bfe278497d9b10f4f5d80de2f4621fe3cb53e04))
+
 ## [1.25.2](https://github.com/haddowg/json-api/compare/v1.25.1...v1.25.2) (2026-11-03)
 
 
