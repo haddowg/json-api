@@ -22,6 +22,7 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * @property-read ?string                   $description
  * @property-read bool                      $hasExample
  * @property-read mixed                     $example
+ * @property-read bool                      $deprecated
  */
 trait ExposesValueMetadata
 {
@@ -57,5 +58,13 @@ trait ExposesValueMetadata
     public function getExample(): mixed
     {
         return $this->example;
+    }
+
+    /**
+     * Whether the filter is declared deprecated in the OpenAPI document.
+     */
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
     }
 }

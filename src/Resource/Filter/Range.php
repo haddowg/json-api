@@ -28,7 +28,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  *
  * {@see DateRange} is the only subclass and never widens the constructor.
  */
-readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
@@ -44,6 +44,7 @@ readonly class Range implements \haddowg\JsonApi\Resource\Filter\DescribedFilter
         public ?string $description = null,
         public bool $hasExample = false,
         public mixed $example = null,
+        public bool $deprecated = false,
     ) {}
 
     public static function make(string $key, ?string $column = null): RangeBuilder

@@ -13,7 +13,9 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresNamedOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
@@ -28,6 +30,7 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -66,6 +69,11 @@ final class OperationProjector
      */
     public const string SORT_FAMILIES_EXTENSION = 'x-sort-families';
 
+    /**
+     * The `sort` parameter schema's list of the exact sort keys declared deprecated.
+     */
+    public const string DEPRECATED_SORTS_EXTENSION = 'x-deprecated-sorts';
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
     ) {}
@@ -95,6 +103,65 @@ final class OperationProjector
 
         if ($type instanceof DeclaresOperationExtensions || $type instanceof DeclaresNamedOperationExtensions) {
             $paths = $this->withDeclaredExtensions($type, $operations, $paths);
+        }
+
+        return $this->withDeprecations($type, $operations, $paths);
+    }
+
+    /**
+     * Marks the type's deprecated operations `deprecated: true`: every operation of a
+     * deprecated type, each operation the type names in
+     * {@see DeclaresDeprecation::deprecatedOperations()}, and each method of an action
+     * declaring itself deprecated. A declared sunset appends a sentence naming its date
+     * to the description of every operation of the type.
+     *
+     * @param list<EnumeratedOperation> $operations
+     * @param array<string, PathItem>   $paths
+     *
+     * @return array<string, PathItem>
+     */
+    private function withDeprecations(TypeMetadataInterface $type, array $operations, array $paths): array
+    {
+        $declares = $type instanceof DeclaresDeprecation;
+        $typeDeprecated = $declares && $type->isDeprecated();
+        $sunset = $declares ? $type->sunset() : null;
+        $named = $declares ? \array_fill_keys($type->deprecatedOperations(), true) : [];
+        $known = [];
+
+        foreach ($operations as $enumerated) {
+            $action = $enumerated->action;
+            if ($action === null) {
+                $known[$enumerated->key->name()] = true;
+            }
+            $deprecated = $typeDeprecated
+                || ($action === null && isset($named[$enumerated->key->name()]))
+                || ($action instanceof DeclaresActionDeprecation && $action->isDeprecated());
+            if (!$deprecated && $sunset === null) {
+                continue;
+            }
+
+            $item = $paths[$enumerated->path];
+            $operation = $item->operations[$enumerated->method];
+            if ($deprecated) {
+                $operation = $operation->withDeprecated(true);
+            }
+            if ($sunset !== null) {
+                $sentence = 'This operation may stop responding on or after ' . $sunset->format('Y-m-d') . ', its sunset date.';
+                $operation = $operation->withDescription($operation->description === null ? $sentence : $operation->description . "\n\n" . $sentence);
+            }
+            $paths[$enumerated->path] = $item->withOperation($enumerated->method, $operation);
+        }
+
+        foreach (\array_keys($named) as $name) {
+            $key = OperationKey::tryFromName((string) $name);
+            if ($key === null || !isset($known[$key->name()])) {
+                throw new \InvalidArgumentException(\sprintf(
+                    'The type "%s" declares the operation "%s" deprecated, which it does not expose. Name one of: %s. Deprecate an action through its own metadata.',
+                    $type->type(),
+                    $name,
+                    \implode(', ', \array_keys($known)),
+                ));
+            }
         }
 
         return $paths;
@@ -1243,6 +1310,9 @@ final class OperationProjector
             if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
                 $parameter = $parameter->withExample($filter->getExample());
             }
+            if ($filter instanceof Deprecatable && $filter->isDeprecated()) {
+                $parameter = $parameter->withDeprecated(true);
+            }
             $parameters[] = $parameter;
         }
 
@@ -1335,7 +1405,9 @@ final class OperationProjector
      *
      * A {@see SortFamilyInterface} has no closed token list, so with one the items
      * become an `anyOf` of that enum and one `pattern` per family, and the array
-     * schema lists each family's prefix and suffix pattern under `x-sort-families`.
+     * schema lists each family's prefix and suffix pattern under `x-sort-families`, with
+     * `deprecated: true` on a deprecated family's entry. The exact keys declared
+     * deprecated are listed, without the `-`, under `x-deprecated-sorts`.
      *
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface> $sorts
      */
@@ -1347,6 +1419,7 @@ final class OperationProjector
 
         $tokens = [];
         $families = [];
+        $deprecated = [];
         foreach ($sorts as $sort) {
             if ($sort instanceof SortFamilyInterface) {
                 $families[] = $sort;
@@ -1355,6 +1428,9 @@ final class OperationProjector
             }
             $tokens[] = $sort->key();
             $tokens[] = '-' . $sort->key();
+            if ($sort instanceof Deprecatable && $sort->isDeprecated()) {
+                $deprecated[] = $sort->key();
+            }
         }
 
         $items = Schema::ofType('string')->withEnum($tokens);
@@ -1367,10 +1443,18 @@ final class OperationProjector
                 $anyOf[] = Schema::ofType('string')->withPattern(
                     '^-?' . self::escapeEcmaPattern($family->key()) . '\\.(?:' . $family->suffixPattern() . ')$',
                 );
-                $declared[] = ['prefix' => $family->key(), 'suffixPattern' => $family->suffixPattern()];
+                $entry = ['prefix' => $family->key(), 'suffixPattern' => $family->suffixPattern()];
+                if ($family instanceof Deprecatable && $family->isDeprecated()) {
+                    $entry['deprecated'] = true;
+                }
+                $declared[] = $entry;
             }
             $items = Schema::create()->withAnyOf($anyOf);
             $schema = $schema->withExtension(self::SORT_FAMILIES_EXTENSION, $declared);
+        }
+
+        if ($deprecated !== []) {
+            $schema = $schema->withExtension(self::DEPRECATED_SORTS_EXTENSION, $deprecated);
         }
 
         $schema = $schema->withItems($items);

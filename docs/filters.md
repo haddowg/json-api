@@ -315,6 +315,7 @@ the filters that carry the helper expose it:
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
+| `deprecated()` | every built-in filter | marks the `filter[<key>]` parameter `deprecated: true` in the [OpenAPI document](openapi.md#deprecation); the filter still applies as before |
 
 ```php
 use haddowg\JsonApi\Resource\DateTimeParser;
@@ -328,8 +329,13 @@ WhereIn::make('genres')->delimiter('|');
 ```
 
 The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`,
-`WhereDoesntHave`) carry no refinement helpers: their requested presence *is*
-their semantics.
+`WhereDoesntHave`) carry no refinement helpers other than `deprecated()`: their
+requested presence *is* their semantics.
+
+A custom filter is marked deprecated by implementing
+`haddowg\JsonApi\Resource\Deprecatable`, whose `isDeprecated()` the projector reads. A
+filter built on the `HasValueConstraints` trait has no `deprecated()` of its own, so it
+implements that interface the same way.
 
 ## Singular filters
 

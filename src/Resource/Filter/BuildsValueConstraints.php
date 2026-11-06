@@ -49,6 +49,8 @@ trait BuildsValueConstraints
 
     protected mixed $example = null;
 
+    protected bool $deprecated = false;
+
     /**
      * Sets a human-readable description surfaced by the OpenAPI generator.
      *
@@ -71,6 +73,20 @@ trait BuildsValueConstraints
     {
         $this->hasExample = true;
         $this->example = $example;
+
+        return $this;
+    }
+
+    /**
+     * Marks the filter deprecated in the OpenAPI document: its `filter[<key>]`
+     * parameter carries `deprecated: true`. Documentation only; the filter still
+     * applies as before.
+     *
+     * @return static
+     */
+    public function deprecated(): static
+    {
+        $this->deprecated = true;
 
         return $this;
     }

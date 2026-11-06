@@ -14,7 +14,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *     => new PlaceholderValueSort('value.' . $suffix, $suffix));
  * ```
  */
-final readonly class SortFamily implements SortFamilyInterface
+final readonly class SortFamily implements SortFamilyInterface, \haddowg\JsonApi\Resource\Deprecatable
 {
     /**
      * @param \Closure(string, JsonApiRequestInterface): ?SortInterface $resolver
@@ -23,6 +23,7 @@ final readonly class SortFamily implements SortFamilyInterface
         private string $prefix,
         private \Closure $resolver,
         private string $suffixPattern,
+        private bool $deprecated = false,
     ) {}
 
     /**
@@ -48,7 +49,21 @@ final readonly class SortFamily implements SortFamilyInterface
             throw new \InvalidArgumentException(\sprintf('The suffix pattern "%s" of sort family "%s" is not a valid regular expression.', $pattern, $this->prefix));
         }
 
-        return new self($this->prefix, $this->resolver, $pattern);
+        return new self($this->prefix, $this->resolver, $pattern, $this->deprecated);
+    }
+
+    /**
+     * A copy marked deprecated in the OpenAPI document: the family's entry in the `sort`
+     * parameter's `x-sort-families` carries `deprecated: true`. Documentation only.
+     */
+    public function deprecated(): self
+    {
+        return new self($this->prefix, $this->resolver, $this->suffixPattern, true);
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
     }
 
     public function key(): string

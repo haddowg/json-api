@@ -46,7 +46,7 @@ final class DateRangeBuilder extends RangeBuilder
 
     public function build(): DateRange
     {
-        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     /**

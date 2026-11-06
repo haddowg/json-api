@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * already an array, or a comma-delimited string). Authors declare one with
  * {@see make()}, which returns a mutable {@see WhereInBuilder}.
  */
-final readonly class WhereIn implements \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
@@ -29,6 +29,7 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Filter\Describ
         public ?string $description = null,
         public bool $hasExample = false,
         public mixed $example = null,
+        public bool $deprecated = false,
     ) {}
 
     public static function make(string $key, ?string $column = null): WhereInBuilder

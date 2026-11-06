@@ -13,6 +13,6 @@ final class WhereAllBuilder extends WhereGroupBuilder
 {
     public function build(): WhereAll
     {
-        return new WhereAll($this->key, $this->buildChildren(), $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereAll($this->key, $this->buildChildren(), $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 }

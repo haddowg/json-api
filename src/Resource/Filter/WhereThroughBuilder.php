@@ -36,7 +36,7 @@ final class WhereThroughBuilder implements FilterBuilderInterface
 
     public function build(): WhereThrough
     {
-        return new WhereThrough($this->key, $this->path, $this->operator, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereThrough($this->key, $this->path, $this->operator, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     /**

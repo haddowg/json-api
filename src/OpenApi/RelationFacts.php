@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
@@ -32,6 +33,14 @@ final class RelationFacts
     public static function isWriteOnly(RelationMetadataInterface $relation): bool
     {
         return $relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly();
+    }
+
+    /**
+     * Whether the relation is declared deprecated.
+     */
+    public static function isDeprecated(RelationMetadataInterface $relation): bool
+    {
+        return $relation instanceof DeclaresDeprecatedRelation && $relation->isDeprecated();
     }
 
     /**

@@ -9,11 +9,12 @@ namespace haddowg\JsonApi\Resource\Filter;
  * narrowed by a nested filter). Data-layer-specific; core ships the metadata,
  * adapters interpret the relationship traversal.
  */
-final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+final readonly class WhereHas implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
         public string $relationship,
+        public bool $deprecated = false,
     ) {}
 
     public static function make(string $key, ?string $relationship = null): self
@@ -24,6 +25,20 @@ final readonly class WhereHas implements \haddowg\JsonApi\Resource\Filter\Filter
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * A copy marked deprecated in the OpenAPI document: its `filter[<key>]` parameter
+     * carries `deprecated: true`. Documentation only.
+     */
+    public function deprecated(): self
+    {
+        return new self($this->key, $this->relationship, true);
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
     }
 
     /**

@@ -19,6 +19,7 @@ use haddowg\JsonApi\Resource\Constraint\ProvidesJsonSchema;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\Sequentially;
 use haddowg\JsonApi\Resource\Constraint\When;
+use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Enum\DescribedEnum;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
@@ -231,6 +232,9 @@ final class SchemaProjector
         $schema = $this->applyRequiredNonEmpty($schema, $field, $applies);
         $schema = $this->applyNullability($schema, $field, $creating);
         $schema = $this->applyDescription($schema, $field, $notes);
+        if ($field instanceof Deprecatable && $field->isDeprecated()) {
+            $schema = $schema->withDeprecated();
+        }
 
         return $this->applyExample($schema, $field);
     }

@@ -263,6 +263,28 @@ To write your own family, implement
 returns the prefix, `suffixPattern()` the fragment and `resolve($suffix, $request)`
 the sort.
 
+## Deprecating a sort
+
+`SortByField` and `SortFamily` each have a `deprecated()` wither that returns a copy
+marked deprecated. A `->sortable()` field declared `deprecated()` derives a deprecated
+`SortByField` on its own.
+
+```php
+public function sorts(): array
+{
+    return [
+        SortByField::make('name', 'last_name')->deprecated(),
+        SortFamily::make('value', $resolver)->deprecated(),
+    ];
+}
+```
+
+It is documentation only: the key still sorts. OpenAPI cannot deprecate a single enum
+value, so the document lists the deprecated keys, without the `-`, under the `sort`
+schema's [`x-deprecated-sorts`](openapi.md#deprecated-sorts-x-deprecated-sorts), and a
+deprecated family's entry in `x-sort-families` carries `deprecated: true`. A custom sort or
+family opts in by implementing `haddowg\JsonApi\Resource\Deprecatable`.
+
 ## Executing sorts
 
 The metadata never orders anything on its own. Execution lives in a

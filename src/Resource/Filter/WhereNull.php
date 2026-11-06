@@ -8,11 +8,12 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows whose column is null. Presence-only: sending the key applies the
  * condition and the value carried with it is ignored.
  */
-final readonly class WhereNull implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+final readonly class WhereNull implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
         public string $column,
+        public bool $deprecated = false,
     ) {}
 
     public static function make(string $key, ?string $column = null): self
@@ -23,6 +24,20 @@ final readonly class WhereNull implements \haddowg\JsonApi\Resource\Filter\Filte
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * A copy marked deprecated in the OpenAPI document: its `filter[<key>]` parameter
+     * carries `deprecated: true`. Documentation only.
+     */
+    public function deprecated(): self
+    {
+        return new self($this->key, $this->column, true);
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
     }
 
     /**

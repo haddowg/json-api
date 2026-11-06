@@ -37,7 +37,7 @@ final class WhereNotInBuilder implements FilterBuilderInterface
 
     public function build(): WhereNotIn
     {
-        return new WhereNotIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereNotIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     public function delimiter(string $delimiter): self

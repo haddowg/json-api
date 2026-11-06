@@ -43,7 +43,7 @@ class RangeBuilder implements FilterBuilderInterface
 
     public function build(): Range
     {
-        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     /**

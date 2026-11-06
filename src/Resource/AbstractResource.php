@@ -246,10 +246,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $derived = [];
         foreach ($this->allFields() as $field) {
             if ($field->isSortable()) {
-                $derived[] = \haddowg\JsonApi\Resource\Sort\SortByField::make(
+                $sort = \haddowg\JsonApi\Resource\Sort\SortByField::make(
                     $field->name(),
                     $field->column() ?? $field->name(),
                 );
+                $derived[] = $field instanceof Deprecatable && $field->isDeprecated() ? $sort->deprecated() : $sort;
             }
         }
 

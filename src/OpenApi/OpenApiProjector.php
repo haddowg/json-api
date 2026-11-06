@@ -1327,7 +1327,8 @@ final class OpenApiProjector
         $properties = [];
         foreach ($relations as $relation) {
             $component = $base . $this->componentBase($relation->name()) . 'Relationship';
-            $properties[$relation->name()] = Schema::ref('#/components/schemas/' . $component);
+            $property = Schema::ref('#/components/schemas/' . $component);
+            $properties[$relation->name()] = RelationFacts::isDeprecated($relation) ? $property->withDeprecated() : $property;
         }
 
         return $resource->withProperty('relationships', Schema::ofType('object')->withProperties($properties));
@@ -1377,6 +1378,9 @@ final class OpenApiProjector
             // show only by its absence; say it here, where the relation is.
             if (RelationFacts::isWriteOnly($relation)) {
                 $property = $property->withWriteOnly();
+            }
+            if (RelationFacts::isDeprecated($relation)) {
+                $property = $property->withDeprecated();
             }
             $properties[$relation->name()] = $property;
         }
