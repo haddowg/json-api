@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.0](https://github.com/haddowg/json-api/compare/v1.26.0...v1.27.0) (2026-11-06)
+
+
+### Features
+
+* mark deprecated types, operations and members in openapi ([#291](https://github.com/haddowg/json-api/issues/291)) ([c8dcdf8](https://github.com/haddowg/json-api/commit/c8dcdf8f9b1a571c4b4dd83eb6caee7edadfffc8))
+
 ## [1.26.0](https://github.com/haddowg/json-api/compare/v1.25.2...v1.26.0) (2026-11-06)
 
 
