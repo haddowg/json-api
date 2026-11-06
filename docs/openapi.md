@@ -267,7 +267,7 @@ sketch:
   narrows the type itself. The rule recurses into `Map`, `Obj` and `OneOf` values: a
   nested object lists every child it renders, leaving out a write-only child (absent from
   the read `properties` too) and a `hidden(when:)` / `writeOnly(when:)` one, and a
-  `OneOf` branch also requires its discriminator. A nested object whose
+  discriminated `OneOf` branch also requires its discriminator. A nested object whose
   `serializeUsing()` or `extractUsing()` hook builds the value lists none, and a
   `OneOf` with such a hook stops requiring its discriminator, since the hook decides
   its shape. Its `properties` are still projected from the declared children. An

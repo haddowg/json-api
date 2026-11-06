@@ -208,6 +208,29 @@ final class SchemaProjector
     }
 
     /**
+     * Runs `$projection` for a value every write builds whole rather than merges, as an
+     * undiscriminated {@see OneOf} is, so an update requires what the update context
+     * requires.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    public function wholeValue(\Closure $projection): mixed
+    {
+        $previous = $this->wholeValue;
+        $this->wholeValue = true;
+
+        try {
+            return $projection();
+        } finally {
+            $this->wholeValue = $previous;
+        }
+    }
+
+    /**
      * Whether a write is being projected for a value it builds whole rather than merges,
      * as it builds each element of a structured list, so an update must carry what makes
      * the value valid.

@@ -557,7 +557,10 @@ final class ExampleDocumentBuilder
 
         if (!$hooked && $field instanceof OneOf) {
             foreach ($field->variants() as $variant => $shape) {
-                return [$field->discriminatorName() => $variant, ...$this->nested($shape->children(), $context, $type, $path)];
+                $nested = $this->nested($shape->children(), $context, $type, $path);
+                $discriminator = $field->discriminatorName();
+
+                return $discriminator === null ? $nested : [$discriminator => $variant, ...$nested];
             }
         }
 

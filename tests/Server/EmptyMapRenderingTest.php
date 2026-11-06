@@ -210,7 +210,7 @@ final class EmptyMapAccountResource extends AbstractResource
             Map::make('address')->fields(Str::make('postcode')->writeOnly()),
             Obj::make('settings')->nullable()->fields(Str::make('label')),
             Obj::make('shape')->nullable()->fields(Str::make('secret')->writeOnly()),
-            OneOf::make('variant')->nullable()->variant('circle', Str::make('radius')),
+            OneOf::make('variant')->discriminator('type')->nullable()->variant('circle', Str::make('radius')),
         ];
     }
 

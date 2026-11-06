@@ -1354,7 +1354,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             default => [],
         };
         $names = \array_map(static fn(\haddowg\JsonApi\Resource\Field\FieldInterface $member): string => $member->name(), $members);
-        if ($field instanceof \haddowg\JsonApi\Resource\Field\OneOf) {
+        if ($field instanceof \haddowg\JsonApi\Resource\Field\OneOf && $field->discriminatorName() !== null) {
             $names[] = $field->discriminatorName();
         }
 

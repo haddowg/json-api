@@ -250,6 +250,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -445,6 +446,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -636,6 +638,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -836,6 +839,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -1338,6 +1342,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -3507,6 +3512,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -4871,6 +4877,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -7116,6 +7123,41 @@
                             "propertyName": "kind"
                         }
                     },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
                     "contact": {
                         "type": [
                             "object",
@@ -7212,6 +7254,7 @@
                     "analytics",
                     "address",
                     "block",
+                    "shape",
                     "contact",
                     "createdAt",
                     "legacyRef",
@@ -7552,6 +7595,41 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "contact": {
                         "type": [
@@ -8535,6 +8613,41 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "contact": {
                         "type": [

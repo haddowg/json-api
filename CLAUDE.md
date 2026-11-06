@@ -418,7 +418,12 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   (`additionalProperties: false`), and hydration refuses an undeclared member with
   `ATTRIBUTE_MEMBER_UNRECOGNIZED` through `UndeclaredAttributeMembers`. Only a hook producing
   the value in the projected direction opens it; a declared read-only member stays ignored
-  ([ADR 0086](docs/adr/0086-declared-objects-are-closed.md)).
+  ([ADR 0088](docs/adr/0088-declared-objects-are-closed.md)).
+- A `OneOf` has no default discriminator. An undiscriminated one selects its variant by a
+  required, always-rendered signature member only that variant declares, rejects a variant
+  without one at build, and is written whole on every write; adapters select through
+  `OneOf::variantOf()`, never by reading a discriminator key themselves
+  ([ADR 0089](docs/adr/0089-an-undiscriminated-oneof-is-selected-by-a-required-signature-and-written-whole.md)).
 - A polymorphic relation's linkage and related resource, and a compound document's
   `included`, are a `oneOf` discriminated by `type`. `included` reaches what the `include`
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one

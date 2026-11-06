@@ -511,7 +511,7 @@ final class AbstractResourceTest extends TestCase
         ];
         yield 'obj child that is itself an obj' => [Obj::make('address')->fields(Obj::make('links')), 'address.links'];
         yield 'oneOf variant child' => [
-            OneOf::make('payment')->variant('card', Str::make('links')),
+            OneOf::make('payment')->discriminator('type')->variant('card', Str::make('links')),
             'payment.links',
         ];
         yield 'oneOf discriminator' => [
@@ -563,7 +563,7 @@ final class AbstractResourceTest extends TestCase
             HasMany::make('relationships', 'others'),
             Obj::make('address')->fields(Str::make('link'), Str::make('selfLinks'), Str::make('Links'), Str::make('relationshipsCount')),
             Map::make('labels')->fields(Str::make('linked'), Obj::make('meta')->fields(Str::make('relationship'))),
-            OneOf::make('payment')->variant('links', Str::make('last4')),
+            OneOf::make('payment')->discriminator('type')->variant('links', Str::make('last4')),
             BelongsToMany::make('tags', 'tags')->fields(Str::make('links'), Str::make('relationships')),
         ]);
 

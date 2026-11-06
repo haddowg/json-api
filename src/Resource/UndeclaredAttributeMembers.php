@@ -98,9 +98,10 @@ final class UndeclaredAttributeMembers
         }
 
         if ($field instanceof OneOf) {
-            $variant = $field->variantFor($value[$field->discriminatorName()] ?? null);
+            $variant = $field->variantOf($value);
+            $discriminator = $field->discriminatorName();
             if ($variant !== null) {
-                self::walk(self::byName($variant->children()), $value, $path, $pointers, [$field->discriminatorName()]);
+                self::walk(self::byName($variant->children()), $value, $path, $pointers, $discriminator === null ? [] : [$discriminator]);
             }
         }
     }

@@ -282,6 +282,12 @@ final class ContractWitnessServer
                     ->variant('heading', Str::make('text')->required()->build())
                     ->variant('image', Url::make('src')->build())
                     ->build(),
+                // An undiscriminated union: each variant's required signature selects it,
+                // and every write replaces the whole value.
+                OneOf::make('shape')->nullable()
+                    ->variant('circle', Integer::make('radius')->required()->build())
+                    ->variant('rectangle', Integer::make('width')->required()->build(), Integer::make('height')->required()->build())
+                    ->build(),
                 // Read presence inside a nested object: every child the runtime always
                 // renders is required, recursively; a write-only child is not rendered and
                 // a request-conditional one may be absent.

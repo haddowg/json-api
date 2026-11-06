@@ -381,14 +381,15 @@ declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.
 
 ## `OneOf`
 
-A **discriminated union** attribute: one of several declared object shapes
-(variants), selected by a discriminator property inside the value, stored — like
-`Obj` — as a single backing value that includes the discriminator.
+A **union** attribute: one of several declared object shapes (variants), stored,
+like `Obj`, as a single backing value. A union is either **discriminated**, where a
+property inside the value names the variant, or **undiscriminated**, where the
+members the value carries say which variant it is.
 
 | Method | Effect |
 |---|---|
-| `discriminator(string $property)` | Names the property whose value selects the variant (default `type`). |
-| `variant(string $name, FieldInterface ...$children)` | Declares a variant: the discriminator value that selects it, and its child fields. |
+| `discriminator(string $property)` | Names the property whose value selects the variant. Leave it out for an undiscriminated union. |
+| `variant(string $name, FieldInterface ...$children)` | Declares a variant: its name (the discriminator value that selects it, when there is one) and its child fields. |
 
 ```php
 OneOf::make('block')->nullable()->discriminator('kind')
@@ -398,16 +399,42 @@ OneOf::make('block')->nullable()->discriminator('kind')
 
 Only the **selected** variant's children run: a `heading` block validates and
 hydrates `text`/`level`, an `image` block `src`/`alt`. On a partial `PATCH` the
-incoming discriminator falls back to the stored one — the same variant merges
-per-child, a **different** variant starts fresh (stale keys from the old variant
-are not carried over). An unknown or missing discriminator has no variant to
+incoming discriminator falls back to the stored one. The same variant merges
+per-child, and a **different** variant starts fresh, so stale keys from the old variant
+are not carried over. An unknown or missing discriminator has no variant to
 hydrate through, so the raw value is stored for the adapter's validator to reject
-(hydration never validates) — the host surfaces it as a `422` pointing at
+(hydration never validates). The host surfaces it as a `422` pointing at
 `/data/attributes/<field>/<discriminator>`.
 
-In the generated OpenAPI document a `OneOf` projects `oneOf` + a `discriminator`
-object, each branch carrying the discriminator as a `const` (and, on create, in
-its `required` list) — so a consumer can match a value to its variant statically.
+In the generated OpenAPI document a discriminated `OneOf` projects `oneOf` + a
+`discriminator` object, each branch carrying the discriminator as a `const` (and, on
+create, in its `required` list), so a consumer can match a value to its variant
+statically.
+
+### Undiscriminated unions
+
+Leave out `discriminator()` and the value's own members select the variant. Each
+variant must then declare a **signature**: a member no other variant declares that is
+`required()` on every write and always rendered (not hidden, write-only or conditionally
+visible). A variant without one is rejected when the resource is built, since nothing
+could tell its values apart from another variant's.
+
+```php
+OneOf::make('shape')
+    ->variant('circle', Integer::make('radius')->required())
+    ->variant('rectangle', Integer::make('width')->required(), Integer::make('height')->required());
+```
+
+A value carrying `radius` is a circle and one carrying `width` or `height` a rectangle.
+One carrying the signatures of both selects neither, and the adapter's validator
+rejects it at `/data/attributes/<field>`.
+
+There is no stored discriminator to fall back to, so every write **replaces the whole
+value**: a `PATCH` must send the complete variant, and its update schema requires what
+the variant requires, as a [structured list element](#lists-of-structured-elements)
+does. Each `oneOf` branch is closed and requires its signature, so exactly one branch
+can match any value. Prefer a discriminator when clients need to update one member of
+a large variant.
 
 For asserting a shape over a **free-form** value instead of declaring fields —
 including unions of raw member schemas — see the

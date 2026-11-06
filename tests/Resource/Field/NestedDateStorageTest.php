@@ -113,7 +113,7 @@ final class NestedDateStorageTest extends TestCase
     #[Test]
     public function aOneOfVariantDateTimeStoresItsInstantInUtc(): void
     {
-        $field = OneOf::make('slot')->variant('timed', DateTime::make('startsAt'), Date::make('day'))->build();
+        $field = OneOf::make('slot')->discriminator('type')->variant('timed', DateTime::make('startsAt'), Date::make('day'))->build();
 
         self::assertSame(
             ['slot' => ['type' => 'timed', 'startsAt' => '2026-11-03T15:52:53.000000+00:00', 'day' => '2026-11-03']],
@@ -136,7 +136,7 @@ final class NestedDateStorageTest extends TestCase
     public function aStructuredListOfOneOfStoresEachElementsDateAsAString(): void
     {
         $field = ArrayList::make('steps')->of(
-            OneOf::make('step')
+            OneOf::make('step')->discriminator('type')
                 ->variant('wait', DateTime::make('until'))
                 ->variant('open', Time::make('at')),
         )->build();
@@ -153,7 +153,7 @@ final class NestedDateStorageTest extends TestCase
         $field = Obj::make('plan')->fields(
             Obj::make('phase')->fields(
                 ArrayList::make('slots')->of(
-                    OneOf::make('slot')->variant('timed', Obj::make('window')->fields(DateTime::make('startsAt'))),
+                    OneOf::make('slot')->discriminator('type')->variant('timed', Obj::make('window')->fields(DateTime::make('startsAt'))),
                 ),
             ),
         )->build();
