@@ -1229,6 +1229,11 @@ marked inside the `sort` enum, so its key is listed under
 [`x-deprecated-sorts`](#deprecated-sorts-x-deprecated-sorts), and a deprecated sort family's
 entry in [`x-sort-families`](#sort-families-x-sort-families) carries `deprecated: true`.
 
+A document that carries any of these markers declares the `DEPRECATION` contract tier in
+its [`x-generator`](#the-generator-contract-x-generator) stamp, so an older generator is
+warned that it may drop them. A document with none of them, including one whose only
+declaration is a sunset, keeps the lower stamp.
+
 ## Vendor extensions
 
 The projection emits a few OpenAPI **vendor extensions** (`x-…` keywords) to carry
@@ -1242,7 +1247,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 21 }
+  "x-generator": { "contract": 22 }
 }
 ```
 

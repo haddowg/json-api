@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
@@ -42,6 +43,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
 #[CoversClass(SchemaProjector::class)]
+#[CoversClass(GeneratorContract::class)]
 final class DeprecationProjectionTest extends TestCase
 {
     private const array ARTICLE_OPERATIONS = [
@@ -330,12 +332,53 @@ final class DeprecationProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aDocumentWithAMarkerDeclaresTheDeprecationTier(): void
+    {
+        $marked = FakeTypeMetadata::resource(type: 'articles', fields: [Id::make()->build(), Obj::make('seo')->fields(Str::make('slug')->deprecated())->build()]);
+
+        self::assertSame(
+            ['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DEPRECATION)],
+            $this->stamp(new FakeServerMetadata(title: 'Blog API', version: '1.0.0', types: [$marked])),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{TypeMetadataInterface}>
+     */
+    public static function unmarkedTypes(): iterable
+    {
+        $articles = FakeTypeMetadata::resource(type: 'articles', fields: [Id::make()->build(), Str::make('title')->build()]);
+
+        yield 'nothing declared' => [$articles];
+        yield 'a sunset alone' => [new DeprecatedTypeMetadata($articles, sunset: new \DateTimeImmutable('2027-06-30T00:00:00Z'))];
+        yield 'a hidden deprecated field' => [FakeTypeMetadata::resource(type: 'articles', fields: [Id::make()->build(), Str::make('secret')->hidden()->deprecated()->build()])];
+    }
+
+    #[Test]
+    #[DataProvider('unmarkedTypes')]
+    public function aDocumentWithoutAMarkerKeepsItsContract(TypeMetadataInterface $type): void
+    {
+        self::assertSame(
+            ['contract' => GeneratorContract::BASELINE],
+            $this->stamp(new FakeServerMetadata(title: 'Blog API', version: '1.0.0', types: [$type])),
+        );
+    }
+
+    #[Test]
     public function theSchemaKeywordIsEmittedBesideTheDescription(): void
     {
         self::assertSame(
             ['type' => 'string', 'description' => 'Old.', 'deprecated' => true],
             Schema::ofType('string')->withDeprecated()->withDescription('Old.')->toArray(),
         );
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function stamp(FakeServerMetadata $server): array
+    {
+        return $this->arrAt((new OpenApiProjector())->project($server)->toArray(), 'info', 'x-generator');
     }
 
     private function articles(): FakeTypeMetadata

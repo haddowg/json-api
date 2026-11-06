@@ -74,7 +74,7 @@ final class ContractWitnessTest extends TestCase
     }
 
     /**
-     * The same server without its raw action responses, accepted bodies, examples, declared links, action declarations, scopes, single-target polymorphic relations, actions answering with a URL and sort families: the
+     * The same server without its raw action responses, accepted bodies, examples, declared links, action declarations, scopes, single-target polymorphic relations, actions answering with a URL, sort families, structured lists and deprecations: the
      * shape every document shares, stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
      * this file, so a change that moves every document cannot hide behind a scoped bump.
      */
@@ -99,7 +99,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false, deprecations: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
@@ -108,7 +108,8 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true, deprecation: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DEPRECATION)], GeneratorContract::toArray(deprecation: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::STRUCTURED_LIST_ELEMENTS)], GeneratorContract::toArray(structuredListElements: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SORT_FAMILIES)], GeneratorContract::toArray(sortFamilies: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DISCRIMINATED_UNIONS)], GeneratorContract::toArray(discriminatedUnions: true));
@@ -129,6 +130,6 @@ final class ContractWitnessTest extends TestCase
      */
     private function project(bool $scoped = true): string
     {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
+        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
     }
 }

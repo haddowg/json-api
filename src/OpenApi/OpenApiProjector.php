@@ -9,7 +9,9 @@ use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
@@ -20,11 +22,14 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
@@ -284,7 +289,74 @@ final class OpenApiProjector
             discriminatedUnions: self::hasDiscriminatedUnion($server),
             sortFamilies: $sortFamilies,
             structuredListElements: self::hasStructuredList($server),
+            deprecation: self::declaresDeprecation($server),
         ));
+    }
+
+    /**
+     * Whether something the document describes is declared deprecated: a type or one of
+     * its named operations, an action, a relation, a projected attribute or pivot field at
+     * any depth, a filter or a sort. A sunset alone adds prose only, so it does not count.
+     */
+    private static function declaresDeprecation(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            if ($type instanceof DeclaresDeprecation && ($type->isDeprecated() || $type->deprecatedOperations() !== [])) {
+                return true;
+            }
+            foreach ($type->actions() as $action) {
+                if ($action instanceof DeclaresActionDeprecation && $action->isDeprecated()) {
+                    return true;
+                }
+            }
+            $fields = $type->fields();
+            $filters = $type->filters();
+            $sorts = $type->sorts();
+            foreach ($type->relations() as $relation) {
+                if (RelationFacts::isDeprecated($relation)) {
+                    return true;
+                }
+                $fields = [...$fields, ...$relation->pivotFields()];
+                $filters = [...$filters, ...$relation->filters()];
+                $sorts = [...$sorts, ...$relation->sorts()];
+            }
+            foreach ([...$filters, ...$sorts] as $member) {
+                if ($member instanceof Deprecatable && $member->isDeprecated()) {
+                    return true;
+                }
+            }
+            foreach ($fields as $field) {
+                if (!$field instanceof Id && !$field instanceof RelationInterface && self::declaresDeprecatedField($field)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function declaresDeprecatedField(FieldInterface $field): bool
+    {
+        if ($field->isHidden()) {
+            return false;
+        }
+        if ($field instanceof Deprecatable && $field->isDeprecated()) {
+            return true;
+        }
+
+        $members = match (true) {
+            $field instanceof ArrayList => $field->element() !== null ? [$field->element()] : [],
+            $field instanceof Obj, $field instanceof Map => $field->children(),
+            $field instanceof OneOf => \array_values($field->variants()),
+            default => [],
+        };
+        foreach ($members as $member) {
+            if (self::declaresDeprecatedField($member)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

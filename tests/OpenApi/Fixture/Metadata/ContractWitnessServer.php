@@ -133,16 +133,19 @@ final class ContractWitnessServer
      *                           baseline witness leaves out too
      * @param bool $structuredLists whether the articles carry lists of structured elements,
      *                              which the baseline witness leaves out too
+     * @param bool $deprecations whether the tags type, an articles operation, action,
+     *                           attribute, relation, filter, sort and sort family are
+     *                           declared deprecated, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations),
                 self::people(),
-                self::tags(),
+                self::tags($deprecations),
                 self::images($declaredLinks),
                 // Names one video in prose through the opt-in singular-name seam.
                 new SingularNameTypeMetadata(self::videos(), 'video clip'),
@@ -231,7 +234,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -314,6 +317,7 @@ final class ContractWitnessServer
                             Str::make('replace')->guaranteed(),
                         )))->maxItems(50)->build(),
                 ] : []),
+                ...($deprecations ? [Str::make('subtitle')->deprecated()->build()] : []),
             ],
             relations: [
                 new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.'),
@@ -365,6 +369,7 @@ final class ContractWitnessServer
                     FakeRelationMetadata::morph('subject', ['people']),
                     FakeRelationMetadata::morph('gallery', ['images'], toMany: true),
                 ] : []),
+                ...($deprecations ? [new FakeRelationMetadata('formerAuthor', ['people'], false, relatedEndpoint: false, deprecated: true)] : []),
             ],
             tags: ['Articles'],
             description: 'A blog article.',
@@ -390,16 +395,20 @@ final class ContractWitnessServer
                 WhereIn::make('keywords')->example(['php', 'json'])->build(),
                 WhereThrough::make('author.name')->build(),
                 WhereNull::make('unpublished', 'publishedAt'),
+                ...($deprecations ? [Where::make('state', 'status')->deprecated()->build()] : []),
             ],
             sorts: [
                 SortByField::make('title'),
                 SortByField::make('wordCount'),
+                ...($deprecations ? [SortByField::make('length', 'wordCount')->deprecated()] : []),
                 ...($sortFamilies ? [
+                    ...($deprecations ? [SortFamily::make('legacy', static fn(string $suffix): ?SortInterface => null)->deprecated()] : []),
                     SortFamily::make('meta', static fn(string $suffix): ?SortInterface => null)->withSuffixPattern('[a-z][a-z_]*'),
                     SortFamily::make('custom.fields', static fn(string $suffix): ?SortInterface => null),
                 ] : []),
             ],
             actions: [
+                ...($deprecations ? [new FakeActionMetadata('retract', ['POST'], ActionScope::Resource, ActionInputMode::None, tags: ['Articles'], example: false, deprecated: true)] : []),
                 new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', example: false),
                 new FakeActionMetadata('import', ['POST'], ActionScope::Collection, ActionInputMode::Raw, tags: ['Articles']),
                 new FakeActionMetadata('draft', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'articles', tags: ['Articles'], description: 'Save a draft revision.'),
@@ -465,6 +474,7 @@ final class ContractWitnessServer
                 OperationType::Update->value => [new Ok(), new Accepted('article-jobs')],
                 OperationType::Delete->value => [new NoContent(), new MetaResult()],
             ],
+            deprecatedOperations: $deprecations ? ['fetchRelated.author'] : [],
         );
     }
 
@@ -500,7 +510,7 @@ final class ContractWitnessServer
      * already knows the id it sent, so there is no resource document to echo — and
      * therefore nothing for `?include` / `fields[…]` to shape.
      */
-    private static function tags(): FakeTypeMetadata
+    private static function tags(bool $deprecations): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'tags',
@@ -522,6 +532,8 @@ final class ContractWitnessServer
             ],
             sorts: [SortByField::make('id')],
             responses: [OperationType::Create->value => [new NoContent()]],
+            deprecated: $deprecations,
+            sunset: $deprecations ? new \DateTimeImmutable('2027-06-30T00:00:00Z') : null,
         );
     }
 
