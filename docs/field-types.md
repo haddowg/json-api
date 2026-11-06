@@ -324,6 +324,10 @@ children across separate flat columns and the nested object is only a wire view,
 `Obj` keeps the whole object as one value and its children address keys **inside**
 it. Use it when a structured attribute's natural storage is a single JSON document.
 
+Like `Map` and each `OneOf` branch, the object is **closed**: its schema admits only the
+declared children, so a key the client sends that no child declares is rejected rather
+than dropped.
+
 | Method | Effect |
 |---|---|
 | `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |

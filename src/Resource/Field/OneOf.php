@@ -238,7 +238,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
      */
     public function projectVariants(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector, bool $shapedByHook = false): Schema
     {
-        $shapedByHook = $shapedByHook || $this->rendersThroughHook();
+        $shapedByHook = $shapedByHook || ($projector->isReading() && $this->rendersThroughHook());
         $branches = [];
         foreach ($this->variants as $variantName => $shape) {
             // The union is the parent, so its own serializeUsing()/extractUsing() hook

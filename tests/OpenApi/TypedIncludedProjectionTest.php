@@ -92,7 +92,7 @@ final class TypedIncludedProjectionTest extends TestCase
     public function aDocumentWithATypedIncludedCarriesTheDiscriminatedUnionsContract(): void
     {
         self::assertSame(
-            ['contract' => GeneratorContract::DISCRIMINATED_UNIONS],
+            ['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DISCRIMINATED_UNIONS)],
             $this->arrAt($this->document(), 'info', 'x-generator'),
         );
     }

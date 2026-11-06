@@ -51,6 +51,7 @@ final class StructuredListProjectionTest extends TestCase
                 'retrievedAt' => ['type' => 'string', 'format' => 'date-time'],
             ],
             'required' => ['href'],
+            'additionalProperties' => false,
         ];
         self::assertSame(['type' => 'array', 'description' => 'Where the article came from.', 'maxItems' => 5, 'items' => $element], $this->attribute($field, RepresentationContext::Create));
         // An update builds every element whole, so it requires what a create does.
@@ -66,6 +67,7 @@ final class StructuredListProjectionTest extends TestCase
                     'retrievedAt' => ['type' => ['string', 'null'], 'format' => 'date-time'],
                 ],
                 'required' => ['href', 'retrievedAt'],
+                'additionalProperties' => false,
             ],
         ], $this->attribute($field, RepresentationContext::Read));
     }
@@ -79,6 +81,7 @@ final class StructuredListProjectionTest extends TestCase
             'type' => 'object',
             'properties' => ['operation' => ['type' => 'string', 'const' => 'trim']],
             'required' => ['operation'],
+            'additionalProperties' => false,
         ];
         $findReplace = static fn(array $params, array $required): array => [
             'type' => 'object',
@@ -87,10 +90,12 @@ final class StructuredListProjectionTest extends TestCase
                 'operation' => ['type' => 'string', 'const' => 'find_replace'],
             ],
             'required' => $required,
+            'additionalProperties' => false,
         ];
         $writeParams = [
             'type' => 'object',
             'properties' => ['find' => ['type' => 'string'], 'replace' => ['type' => 'string']],
+            'additionalProperties' => false,
         ];
 
         foreach ([RepresentationContext::Create, RepresentationContext::Update] as $context) {
@@ -113,7 +118,7 @@ final class StructuredListProjectionTest extends TestCase
                 'description' => 'One edit applied in order.',
                 'oneOf' => [
                     $trim,
-                    $findReplace(['type' => ['object', 'null'], 'properties' => $writeParams['properties'], 'required' => ['find', 'replace']], ['params', 'operation']),
+                    $findReplace(['type' => ['object', 'null'], 'properties' => $writeParams['properties'], 'required' => ['find', 'replace'], 'additionalProperties' => false], ['params', 'operation']),
                 ],
                 'example' => ['operation' => 'trim'],
                 'discriminator' => ['propertyName' => 'operation'],
@@ -172,8 +177,8 @@ final class StructuredListProjectionTest extends TestCase
         $nested = $this->project([Id::make()->build(), Obj::make('meta')->fields($this->sources())->build()]);
 
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($plain, 'info', 'x-generator'));
-        self::assertSame(['contract' => GeneratorContract::STRUCTURED_LIST_ELEMENTS], self::at($listed, 'info', 'x-generator'));
-        self::assertSame(['contract' => GeneratorContract::STRUCTURED_LIST_ELEMENTS], self::at($nested, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::STRUCTURED_LIST_ELEMENTS)], self::at($listed, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::STRUCTURED_LIST_ELEMENTS)], self::at($nested, 'info', 'x-generator'));
     }
 
     #[Test]

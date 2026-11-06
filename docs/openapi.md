@@ -140,6 +140,12 @@ sketch:
   `required` but not the update shape's (an absent update member means "no change").
   The create/update components are emitted **only** when the type's operation allow-list
   exposes that write, so a read-only type dangles no write components.
+- **Closed objects.** Every attributes component and every nested object a field declares
+  (`Map`, `Obj`, each `OneOf` branch, a structured list's element) carries
+  `additionalProperties: false`, so a member the type does not declare is rejected rather
+  than silently dropped. A nested object a hook produces stays open in that direction:
+  `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
+  write, since the hook, not the declared children, owns its shape.
 - **Id policy.** A create request `$ref`s the create attributes and shapes `id`
   according to the type's client-id policy: **forbidden** (a `false` schema) when the
   server assigns it, **permitted** when a client id is allowed, **required** when it is

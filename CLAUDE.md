@@ -414,6 +414,11 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   both defer to it rather than switching on the field class. Never derive a `pattern` from a
   PHP format string
   ([ADR 0052](docs/adr/0052-a-temporal-format-keyword-is-emitted-only-when-the-field-really-writes-rfc-3339.md)).
+- The attributes object and every object a field declares are closed
+  (`additionalProperties: false`), and hydration refuses an undeclared member with
+  `ATTRIBUTE_MEMBER_UNRECOGNIZED` through `UndeclaredAttributeMembers`. Only a hook producing
+  the value in the projected direction opens it; a declared read-only member stays ignored
+  ([ADR 0086](docs/adr/0086-declared-objects-are-closed.md)).
 - A polymorphic relation's linkage and related resource, and a compound document's
   `included`, are a `oneOf` discriminated by `type`. `included` reaches what the `include`
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Exception\AdditionProhibited;
+use haddowg\JsonApi\Exception\AttributeMemberUnrecognized;
 use haddowg\JsonApi\Exception\AttributeWriteProhibited;
 use haddowg\JsonApi\Exception\ClientGeneratedIdNotSupported;
 use haddowg\JsonApi\Exception\ClientGeneratedIdRequired;
@@ -842,6 +843,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
      * @throws AttributeWriteProhibited
+     * @throws AttributeMemberUnrecognized
      */
     protected function hydrateForCreate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -853,6 +855,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         /** @var array<string, mixed> $data */
         $this->validateType($data);
 
+        $this->rejectUndeclaredAttributeMembers($data);
         $this->rejectReadOnlyAttributes($data, $request, true);
 
         $domainObject = $this->hydrateId($domainObject, $data);
@@ -873,6 +876,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
      * @throws AttributeWriteProhibited
+     * @throws AttributeMemberUnrecognized
      */
     protected function hydrateForUpdate(JsonApiRequestInterface $request, mixed $domainObject): mixed
     {
@@ -884,6 +888,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         /** @var array<string, mixed> $data */
         $this->validateType($data);
 
+        $this->rejectUndeclaredAttributeMembers($data);
         $this->rejectReadOnlyAttributes($data, $request, false);
 
         $domainObject = $this->hydrateAttributes($domainObject, $data, $request, false);
@@ -891,6 +896,28 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
         // Flattened (`on()`) attributes hydrate LAST (see hydrateForCreate()).
         return $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
+    }
+
+    /**
+     * Refuses a body that sends a member the resource does not declare, at the top of
+     * `data.attributes` or inside a declared object value ({@see UndeclaredAttributeMembers}).
+     * Runs before anything is hydrated and names every offending member at once.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws AttributeMemberUnrecognized
+     */
+    protected function rejectUndeclaredAttributeMembers(array $data): void
+    {
+        $attributes = $data['attributes'] ?? null;
+        if (!\is_array($attributes)) {
+            return;
+        }
+
+        $pointers = UndeclaredAttributeMembers::in($this->attributeFields(), $attributes);
+        if ($pointers !== []) {
+            throw new AttributeMemberUnrecognized($pointers);
+        }
     }
 
     /**

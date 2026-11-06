@@ -33,7 +33,8 @@ use haddowg\JsonApi\Resource\Field\Map;
  * The output is exactly the shape {@see DocumentValidator::validateRequest()}'s
  * `$additionalSchemas` list takes: it `allOf`-composes with the base/request
  * root, so it only constrains `data.attributes` / `data.relationships` (and the
- * per-context `required` arrays). It does **not** restate base members or touch
+ * per-context `required` arrays). The attributes object and each `Map` it holds
+ * are closed: a member the resource does not declare is rejected. It does **not** restate base members or touch
  * `unevaluatedProperties` (the composite owns that).
  *
  * Internally the schema is assembled as nested PHP arrays and converted to the
@@ -91,13 +92,14 @@ final class SchemaCompiler
 
         $dataProperties = [];
 
+        $attributes = ['type' => 'object', 'additionalProperties' => false];
         if ($attributeProperties !== []) {
-            $attributes = ['type' => 'object', 'properties' => $attributeProperties];
-            if ($creating && $attributeRequired !== []) {
-                $attributes['required'] = $attributeRequired;
-            }
-            $dataProperties['attributes'] = $attributes;
+            $attributes['properties'] = $attributeProperties;
         }
+        if ($creating && $attributeRequired !== []) {
+            $attributes['required'] = $attributeRequired;
+        }
+        $dataProperties['attributes'] = $attributes;
 
         if ($relationshipProperties !== []) {
             $relationships = ['type' => 'object', 'properties' => $relationshipProperties];
@@ -107,12 +109,7 @@ final class SchemaCompiler
             $dataProperties['relationships'] = $relationships;
         }
 
-        $data = ['type' => 'object'];
-        if ($dataProperties !== []) {
-            $data['properties'] = $dataProperties;
-        }
-
-        return ['type' => 'object', 'properties' => ['data' => $data]];
+        return ['type' => 'object', 'properties' => ['data' => ['type' => 'object', 'properties' => $dataProperties]]];
     }
 
     /**
@@ -130,6 +127,7 @@ final class SchemaCompiler
             if ($childProperties !== []) {
                 $schema['properties'] = $childProperties;
             }
+            $schema['additionalProperties'] = false;
         }
 
         foreach ($field->constraints() as $constraint) {
