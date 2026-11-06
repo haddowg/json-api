@@ -246,9 +246,11 @@ The keyed lookup only finds exact keys. Swap it for
 `SortMatcher::match($resource->allSorts(), $key, $request)` and the same loop
 also answers [sort families](sorts.md#sort-families-keys-matched-by-prefix).
 
-A `filter[…]` key or `sort` field that matches no declared metadata is simply
-skipped — the library never auto-applies anything, so an undeclared parameter
-cannot narrow or reorder the collection. (See
+This loop skips a `filter[…]` key or `sort` field that matches no declared metadata,
+so an undeclared parameter cannot narrow or reorder the collection. Core never
+applies either itself, so skipping or rejecting is the adapter's call: throw
+`FilterParamUnrecognized` or `SortParamUnrecognized`, both a `400`, to reject.
+`SortMatcher::directives()` rejects an unknown sort key for you. (See
 [`FiltersTest`](../examples/music-catalog/tests/FiltersTest.php) and
 [`SortsTest`](../examples/music-catalog/tests/SortsTest.php) for these run as
 real requests.)

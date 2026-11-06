@@ -261,9 +261,13 @@ sketch:
   nested object lists every child it renders, leaving out a write-only child (absent from
   the read `properties` too) and a `hidden(when:)` / `writeOnly(when:)` one, and a
   `OneOf` branch also requires its discriminator. A nested object whose
-  `serializeUsing()` or `extractUsing()` hook builds the value lists none, since the
-  hook decides its shape. A nullable nested object can still be `null`; when it is
-  present, its required children are there.
+  `serializeUsing()` or `extractUsing()` hook builds the value lists none, and a
+  `OneOf` with such a hook stops requiring its discriminator, since the hook decides
+  its shape. Its `properties` are still projected from the declared children. An
+  `extractUsing()` value still renders through those children, but a
+  `serializeUsing()` hook's return value goes out as it is, so keep it to the
+  declared shape or the response won't match the documented one. A nullable nested
+  object can still be `null`; when it is present, its required children are there.
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list
   `minItems: 1` and a required `ArrayHash` / `Map` / `Obj` `minProperties: 1`, in each

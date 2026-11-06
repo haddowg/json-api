@@ -42,8 +42,7 @@ use haddowg\JsonApi\Resource\Field\Map;
  *
  * **Context.** `compile($resource, creating: true)` emits the POST schema
  * (`Required`/`requiredOnCreate` → `required`); `creating: false` emits the
- * PATCH schema (absent members allowed; only `requiredOnUpdate` and supplied
- * values constrained). `When` (an opaque closure) and `CompareField` (no
+ * PATCH schema (no member required; only supplied values constrained). `When` (an opaque closure) and `CompareField` (no
  * cross-property comparison in draft 2020-12) are **skipped** — they do not
  * round-trip to JSON Schema.
  */

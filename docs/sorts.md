@@ -346,7 +346,7 @@ foreach ($requested as $entry) {
 
     $sort = $allSorts[$key] ?? null;
     if ($sort === null) {
-        continue; // an unknown sort key is skipped, not an error
+        continue; // this loop skips an unknown sort key
     }
 
     $directives[] = new SortDirective($sort, $descending);
@@ -355,15 +355,18 @@ foreach ($requested as $entry) {
 $sorted = $this->sorts->apply($directives, $rows);
 ```
 
-A `sort` key matching no declared or derived sort is ignored — the applier skips
-it and leaves the order untouched, rather than rejecting the request.
+This loop skips a `sort` key matching no declared or derived sort and leaves the
+order untouched. Whether an unknown key is skipped or rejected is the handler's
+call, since core never applies a sort itself. `SortMatcher::directives()` (above)
+rejects it with a `400` `SortParamUnrecognized`, and so do the Symfony bundle and the
+Laravel adapter.
 
-That silent-ignore is **key-level** — an unrecognized key *inside* the `sort`
-family. The `sort` **family** itself is always recognized, so it never trips the
+That choice is **key-level**: an unrecognized key *inside* the `sort` family. The
+`sort` **family** itself is always recognized, so it never trips the
 [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
 `Server` runs by default: an unrecognized query-parameter *family* (a misspelled
-`?srot=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`,
-distinct from this key-level tolerance within a recognized family.
+`?srot=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`
+whatever the handler does with keys.
 
 ### The reference `ArraySortHandler`
 

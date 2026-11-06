@@ -366,8 +366,9 @@ Str::make('slug')->onCreate(function (StrBuilder $field): void {
 });
 ```
 
-Inside `onUpdate()`, an `Str::make('slug')->required()` becomes "required on
-update only" — the closure context wins over the helper's default.
+Inside `onUpdate()`, an `Str::make('slug')->required()` applies on update only,
+where it means "non-empty when supplied". The closure context wins over the
+helper's default.
 
 ## Composition and cross-field rules
 

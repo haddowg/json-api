@@ -366,8 +366,11 @@ from its children (it self-describes via `ProvidesFieldSchema`). A `Map` project
 same way. The create schema requires each child a create must supply, the update schema
 requires none, and the read schema requires every child the object renders, which is
 all of them except a write-only or request-conditional child. A field with its own
-`serializeUsing()` / `extractUsing()` hook requires no children on read. See
-[presence on read](openapi.md).
+`serializeUsing()` / `extractUsing()` hook requires no children on read, and a `OneOf`
+with one doesn't require its discriminator either. The schema still lists the
+children's properties, and nothing checks a `serializeUsing()` return value against
+them, so a hook that returns another shape puts a value on the wire the document
+doesn't describe. See [presence on read](openapi.md).
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
 declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.

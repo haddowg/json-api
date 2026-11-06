@@ -14,7 +14,7 @@ touch PSR-7 inside a handler.
 > response value objects are the entire public "return a response" surface. See
 > [Concepts](concepts.md).
 
-There are six, one per kind of outcome:
+There are ten, one per kind of outcome. These six are the everyday ones:
 
 | Response | Document | Default status |
 |---|---|---|
@@ -25,18 +25,26 @@ There are six, one per kind of outcome:
 | [`NoContentResponse`](#nocontentresponse) | empty body | `204` |
 | [`ErrorResponse`](#errorresponse) | one or more [error objects](errors-and-exceptions.md) | derived from the errors |
 
-All six extend `Response\AbstractResponse` and share one immutability contract:
+The other four answer more specialised requests: [`RawResponse`](#raw-responses) for
+a custom action that answers a non-JSON:API media type,
+[`SeeOtherResponse`](#location-responses) for a `303` redirect or a URL an action
+hands out, [`AcceptedResponse`](#asynchronous-processing) for a write accepted for
+later, and [`AtomicResultsResponse`](atomic-operations.md) for an Atomic Operations
+batch.
+
+All of them except `RawResponse` extend `Response\AbstractResponse` and share one
+immutability contract:
 like the wrap-once [`JsonApiRequest`](architecture.md), they are **not**
 `readonly`; each `with…()` clones, assigns, and returns a new `static`, so a
 response value is safe to pass around and reuse.
 
 The worked referent for this whole page is the example app's single handler,
 [`MusicCatalogHandler`](../examples/music-catalog/src/Handler/MusicCatalogHandler.php) —
-one `match (true)` over the nine concrete operations, each arm returning one of
+one `match (true)` over the nine standard operations, each arm returning one of
 five of these value objects (`DataResponse`, `RelatedResponse`,
-`IdentifierResponse`, `NoContentResponse`, `ErrorResponse`); `MetaResponse` is the
-sixth in the [`OperationHandlerInterface`](operations.md) union but the example app
-never returns it.
+`IdentifierResponse`, `NoContentResponse`, `ErrorResponse`). The
+[`OperationHandlerInterface`](operations.md) union allows all ten, but the example
+app never returns the other five.
 
 ## `DataResponse`
 
@@ -359,12 +367,12 @@ per-page `self`, or a `self` you set with `withLinks()`, takes precedence. See
 
 Inside an [`OperationHandlerInterface`](operations.md) you simply return the value
 object — the operations adapter renders it. `handle()` declares the union of all
-six:
+ten:
 
 ```php
 public function handle(
     JsonApiOperationInterface $operation,
-): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse {
+): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|AcceptedResponse|SeeOtherResponse|AtomicResultsResponse|ErrorResponse|RawResponse {
     // … match (true) over the operation types
 }
 ```

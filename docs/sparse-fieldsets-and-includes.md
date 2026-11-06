@@ -156,6 +156,11 @@ unaffected — only the compound expansion is suppressed.
 BelongsTo::make('internalNotes', 'notes')->cannotBeIncluded(),
 ```
 
+`cannotBeIncluded()` also takes a `(mixed $model, JsonApiRequestInterface $request): bool`
+closure, which prohibits the include only for the resources and requests it returns
+`true` for. It runs at render time, once per resource carrying the relation, and an
+include it prohibits is the same `400`. See [relations](relations.md#includability).
+
 ### Maximum include depth
 
 Depth is the number of relationship hops from the primary resource:
@@ -256,15 +261,21 @@ reads these off the operation when it builds a response. Malformed values are
 tolerated and skipped during parsing — well-formedness of the request itself is
 the negotiation layer's job, not this projection's.
 
-That tolerance is **key-level** — a bad value or unknown member *inside* the
-`fields` / `include` families. The families themselves are always recognized, so
-they never trip the
+An unknown `fields[type]` member is not tolerated while
 [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
-`Server` runs by default: an unrecognized query-parameter *family* (a misspelled
-`?inclde=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`,
-distinct from this key-level tolerance within a recognized family. (An `include`
-*path* naming an unknown relationship is its own `400 InclusionUnrecognized`,
-covered in [Spec errors](#spec-errors) below.)
+is on, as it is by default. Before the handler runs, `Server` checks every member
+of every `fields[type]` against that type's declared field names and rejects one
+that names no declared field with a `400` `FieldsetMemberUnrecognized`. The check
+covers the types of included resources too, and counts hidden and write-only fields
+as declared, so it gives nothing away about them. It skips a type the server doesn't
+register and a serializer that doesn't declare its field names. With strict
+validation off, an unknown member is ignored.
+
+The `fields` and `include` families themselves are always recognized, so they never
+trip the family-level check: an unrecognized query-parameter *family* (a misspelled
+`?inclde=...`, an unregistered custom parameter) is a `400` `QueryParamUnrecognized`.
+An `include` *path* naming an unknown relationship is its own
+`400 InclusionUnrecognized`, covered in [Spec errors](#spec-errors) below.
 
 ### Include paths are checked before any data
 
@@ -293,8 +304,9 @@ atomic operations are not checked up front.
 | `InclusionNotAllowed` | `400` | An `include` path names a relationship marked `cannotBeIncluded()`, a path outside the root resource's `getAllowedIncludePaths()` whitelist, or a path at or below one of its `getExcludedIncludePaths()`. Lists the offending paths. |
 | `InclusionDepthExceeded` | `400` | An `include` path is deeper than the effective maximum include depth. Lists the offending paths and the cap. |
 | `InclusionUnsupported` | `400` | The endpoint does not support inclusion at all. |
+| `FieldsetMemberUnrecognized` | `400` | Under strict query-parameter validation, a `fields[type]` member names no declared field of that type. Its `source.parameter` is `fields`. |
 
-Both render as JSON:API errors with `source.parameter` set to `include`. See
+The `Inclusion…` errors render as JSON:API errors with `source.parameter` set to `include`. See
 [errors and exceptions](errors-and-exceptions.md) for the propagation model and the
 full exception catalogue.
 

@@ -185,10 +185,10 @@ recognized set for a request is:
   `filter`, `profile`) — their *internal* key validation (an unknown
   `filter`/`sort` key, a malformed `page`) is unchanged and still each family's
   own job; strict mode only adds the **family**-level check;
-- the always-on `withCount` custom family;
 - the reserved keywords of every registered [profile](profiles.md) the request
-  **negotiated** — so the relationship-queries profile's `relatedQuery` / `rQ`
-  families are recognized only when that profile's URI is in the `Accept`
+  **negotiated** — so the Countable profile's `withCount` and the
+  relationship-queries profile's `relatedQuery` / `rQ` families are recognized only
+  when the profile is registered on the server and its URI is in the `Accept`
   `profile` parameter, and are rejected otherwise;
 - any host-registered custom families.
 
