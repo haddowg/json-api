@@ -14,10 +14,12 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresNamedOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -91,7 +93,7 @@ final class OperationProjector
             $paths[$operation->path] = $item->withOperation($operation->method, $this->operation($type, $operation, $server));
         }
 
-        if ($type instanceof DeclaresOperationExtensions) {
+        if ($type instanceof DeclaresOperationExtensions || $type instanceof DeclaresNamedOperationExtensions) {
             $paths = $this->withDeclaredExtensions($type, $operations, $paths);
         }
 
@@ -100,28 +102,49 @@ final class OperationProjector
 
     /**
      * Stamps the type's declared vendor extensions on each of its operations: the
-     * type-wide set everywhere, with a CRUD operation's own set merged over it.
+     * type-wide set everywhere, then a CRUD operation's own set, then the set declared
+     * under the operation's name, each merged over the last.
      *
      * @param list<EnumeratedOperation> $operations
      * @param array<string, PathItem>   $paths
      *
      * @return array<string, PathItem>
      */
-    private function withDeclaredExtensions(DeclaresOperationExtensions $type, array $operations, array $paths): array
+    private function withDeclaredExtensions(TypeMetadataInterface $type, array $operations, array $paths): array
     {
-        $typeWide = $type->extensions();
+        $typeWide = $type instanceof DeclaresOperationExtensions ? VendorExtensions::normalise($type->extensions()) : [];
+        $named = $type instanceof DeclaresNamedOperationExtensions ? $type->namedOperationExtensions() : [];
+        $known = [];
 
         foreach ($operations as $enumerated) {
+            $extensions = $typeWide;
             $crudOperation = $enumerated->key->kind->operationType();
-            $extensions = $crudOperation !== null
-                ? [...$typeWide, ...$type->operationExtensions($crudOperation)]
-                : $typeWide;
+            if ($crudOperation !== null && $type instanceof DeclaresOperationExtensions) {
+                $extensions = [...$extensions, ...VendorExtensions::normalise($type->operationExtensions($crudOperation))];
+            }
+            if ($enumerated->action === null) {
+                $name = $enumerated->key->name();
+                $known[$name] = true;
+                $extensions = [...$extensions, ...VendorExtensions::normalise($named[$name] ?? [])];
+            }
 
             // An action's own extensions are already on its operation, and win.
             $item = $paths[$enumerated->path];
             $operation = $item->operations[$enumerated->method];
             if ($extensions !== []) {
-                $paths[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withExtensions([...VendorExtensions::normalise($extensions), ...$operation->extensions()]));
+                $paths[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withExtensions([...$extensions, ...$operation->extensions()]));
+            }
+        }
+
+        foreach (\array_keys($named) as $name) {
+            $key = OperationKey::tryFromName((string) $name);
+            if ($key === null || !isset($known[$key->name()])) {
+                throw new \InvalidArgumentException(\sprintf(
+                    'The type "%s" declares extensions for the operation "%s", which it does not expose. Name one of: %s.',
+                    $type->type(),
+                    $name,
+                    \implode(', ', \array_keys($known)),
+                ));
             }
         }
 
