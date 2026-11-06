@@ -7127,6 +7127,7 @@
                         "oneOf": [
                             {
                                 "type": "object",
+                                "title": "circle",
                                 "properties": {
                                     "radius": {
                                         "type": "integer"
@@ -7139,6 +7140,7 @@
                             },
                             {
                                 "type": "object",
+                                "title": "rectangle",
                                 "properties": {
                                     "width": {
                                         "type": "integer"
@@ -7600,6 +7602,7 @@
                         "oneOf": [
                             {
                                 "type": "object",
+                                "title": "circle",
                                 "properties": {
                                     "radius": {
                                         "type": "integer"
@@ -7612,6 +7615,7 @@
                             },
                             {
                                 "type": "object",
+                                "title": "rectangle",
                                 "properties": {
                                     "width": {
                                         "type": "integer"
@@ -8618,6 +8622,7 @@
                         "oneOf": [
                             {
                                 "type": "object",
+                                "title": "circle",
                                 "properties": {
                                     "radius": {
                                         "type": "integer"
@@ -8630,6 +8635,7 @@
                             },
                             {
                                 "type": "object",
+                                "title": "rectangle",
                                 "properties": {
                                     "width": {
                                         "type": "integer"

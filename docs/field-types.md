@@ -432,8 +432,9 @@ rejects it at `/data/attributes/<field>`.
 There is no stored discriminator to fall back to, so every write **replaces the whole
 value**: a `PATCH` must send the complete variant, and its update schema requires what
 the variant requires, as a [structured list element](#lists-of-structured-elements)
-does. Each `oneOf` branch is closed and requires its signature, so exactly one branch
-can match any value. Prefer a discriminator when clients need to update one member of
+does. Each `oneOf` branch is closed, requires its signature and carries the variant's
+name as its `title`, so exactly one branch can match any value and a code generator can
+name the branch it reads. Prefer a discriminator when clients need to update one member of
 a large variant.
 
 For asserting a shape over a **free-form** value instead of declaring fields —

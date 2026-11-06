@@ -417,7 +417,9 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             // keeps the variants' children out of the read `required`.
             $schema = $projector->projectNestedObject($this, $shape->children(), $creating, $collector, $shapedByHook);
             if ($this->discriminator === null) {
-                $branches[] = $schema;
+                // No member names the variant, so the branch's title does, giving a code
+                // generator a name for the branch it reads.
+                $branches[] = $schema->withTitle($variantName);
 
                 continue;
             }

@@ -129,8 +129,8 @@ final class UndiscriminatedOneOfTest extends TestCase
 
             self::assertArrayNotHasKey('discriminator', $schema, $context->name);
             self::assertSame([
-                ['type' => 'object', 'properties' => ['radius' => ['type' => 'integer'], 'label' => ['type' => 'string']], 'required' => $context === RepresentationContext::Read ? ['radius', 'label'] : ['radius'], 'additionalProperties' => false],
-                ['type' => 'object', 'properties' => ['width' => ['type' => 'integer'], 'height' => ['type' => 'integer']], 'required' => ['width', 'height'], 'additionalProperties' => false],
+                ['type' => 'object', 'title' => 'circle', 'properties' => ['radius' => ['type' => 'integer'], 'label' => ['type' => 'string']], 'required' => $context === RepresentationContext::Read ? ['radius', 'label'] : ['radius'], 'additionalProperties' => false],
+                ['type' => 'object', 'title' => 'rectangle', 'properties' => ['width' => ['type' => 'integer'], 'height' => ['type' => 'integer']], 'required' => ['width', 'height'], 'additionalProperties' => false],
             ], $this->withoutNullTypes($schema['oneOf'] ?? null), $context->name);
         }
     }
