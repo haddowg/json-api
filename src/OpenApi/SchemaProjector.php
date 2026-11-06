@@ -452,7 +452,13 @@ final class SchemaProjector
         $properties = [
             'type' => Schema::ofType('string')->withConst($type),
             'id' => $this->projectId($fields),
-            'attributes' => $attributesRef !== null ? Schema::ref($attributesRef) : $this->projectAttributes($fields, RepresentationContext::Read, $collector),
+            // A standalone serializer declares no field inventory, so nothing says what its
+            // attributes are: they stay an open object rather than a closed empty one.
+            'attributes' => match (true) {
+                $attributesRef !== null => Schema::ref($attributesRef),
+                $fields === [] => Schema::ofType('object'),
+                default => $this->projectAttributes($fields, RepresentationContext::Read, $collector),
+            },
             'relationships' => Schema::ofType('object'),
             'links' => Schema::ofType('object'),
             'meta' => Schema::ofType('object'),

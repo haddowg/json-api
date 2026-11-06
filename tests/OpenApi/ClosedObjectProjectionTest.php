@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\RepresentationContext;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
@@ -33,6 +34,16 @@ final class ClosedObjectProjectionTest extends TestCase
 
             self::assertFalse($attributes['additionalProperties'] ?? null, $context->name);
         }
+    }
+
+    #[Test]
+    public function aTypeWithNoFieldInventoryKeepsItsAttributesOpen(): void
+    {
+        $standalone = (new SchemaProjector())->projectResourceObject('things', [])->toArray();
+        $attributeless = (new SchemaProjector())->projectResourceObject('things', [Id::make()->build()])->toArray();
+
+        self::assertSame(['type' => 'object'], self::at($standalone, 'properties', 'attributes'));
+        self::assertFalse(self::at($attributeless, 'properties', 'attributes', 'additionalProperties'));
     }
 
     #[Test]

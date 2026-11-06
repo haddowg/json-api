@@ -145,7 +145,8 @@ sketch:
   `additionalProperties: false`, so a member the type does not declare is rejected rather
   than silently dropped. A nested object a hook produces stays open in that direction:
   `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
-  write, since the hook, not the declared children, owns its shape.
+  write, since the hook, not the declared children, owns its shape. A standalone
+  serializer with no field inventory keeps an open attributes object.
 - **Id policy.** A create request `$ref`s the create attributes and shapes `id`
   according to the type's client-id policy: **forbidden** (a `false` schema) when the
   server assigns it, **permitted** when a client id is allowed, **required** when it is
