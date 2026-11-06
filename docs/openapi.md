@@ -792,7 +792,9 @@ operation is one method on one path.
 
 A second sits beside `TypeMetadataInterface`: `DeclaresOperationExtensions` adds
 `extensions(): array` and `operationExtensions(OperationType): array`, the vendor
-extensions for a type's operations. See
+extensions for a type's operations. `DeclaresNamedOperationExtensions` adds
+`namedOperationExtensions(): array`, extensions for single operations keyed by operation
+name. See
 [your own extensions](#your-own-extensions-on-operations-paths-parameters-and-responses).
 
 A third sits beside `RelationMetadataInterface`: `DeclaresWriteOnlyRelation` adds
@@ -1343,6 +1345,32 @@ custom actions. It then merges `operationExtensions($operation)` over that for e
 operation, so the operation's value wins on a shared key. Metadata that doesn't implement
 the interface projects as before. A framework integration builds the two maps from its
 own resource configuration.
+
+To target one operation that is not CRUD, such as a single related endpoint, implement
+`DeclaresNamedOperationExtensions` as well or instead. Its `namedOperationExtensions()`
+returns a map keyed by operation name, the same names
+[`operationExamples()`](#operation-examples) and `operationScopes()` use: `fetchCollection`,
+`fetchOne`, `create`, `update`, `delete`, or `fetchRelated`, `fetchRelationship`,
+`updateRelationship`, `addRelationship` or `removeRelationship` followed by a dot and the
+relation name.
+
+```php
+public function namedOperationExtensions(): array
+{
+    return [
+        'fetchRelated.agencies' => ['feature' => 'agency'],
+        'fetchRelationship.agencies' => ['feature' => 'agency'],
+    ];
+}
+```
+
+The projector layers the sets for each operation in this order, a later one winning on a
+shared key: the type-wide `extensions()`, then `operationExtensions()` for a CRUD
+operation, then the set named for the operation. Every layer is normalised to `x-` keys
+before the merge, so `feature` and `x-feature` are the same key. A name the type does not
+expose fails the projection with an `\InvalidArgumentException`. Actions have no name in
+this map, since they declare their own as below. `OperationKey::tryFromName()` parses a
+name, so an integration can check its configuration before it projects.
 
 An action declares its own with action metadata that implements `DeclaresActionExtensions`,
 whose `extensions()` returns the map. It lands on that action's operation only, merged over
