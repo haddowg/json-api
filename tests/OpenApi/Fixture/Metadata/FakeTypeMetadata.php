@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
@@ -28,7 +29,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -46,6 +47,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      * @param list<DeclaredLink>              $declaredLinks
      * @param list<ActionLink>                $actionLinks
+     * @param list<string>                    $deprecatedOperations
      */
     public function __construct(
         private readonly string $type,
@@ -73,7 +75,25 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         private readonly bool $alwaysCounts = false,
         private readonly array $declaredLinks = [],
         private readonly array $actionLinks = [],
+        private readonly bool $deprecated = false,
+        private readonly ?\DateTimeInterface $sunset = null,
+        private readonly array $deprecatedOperations = [],
     ) {}
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
+    }
+
+    public function sunset(): ?\DateTimeInterface
+    {
+        return $this->sunset;
+    }
+
+    public function deprecatedOperations(): array
+    {
+        return $this->deprecatedOperations;
+    }
 
     public function actionLinks(): array
     {
@@ -111,6 +131,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
      * @param list<ActionLink>                $actionLinks
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
+     * @param list<string>                    $deprecatedOperations operation names declared deprecated
      */
     public static function resource(
         string $type,
@@ -138,6 +159,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
         bool $alwaysCounts = false,
         array $declaredLinks = [],
         array $actionLinks = [],
+        bool $deprecated = false,
+        ?\DateTimeInterface $sunset = null,
+        array $deprecatedOperations = [],
     ): self {
         return new self(
             type: $type,
@@ -171,6 +195,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresOperation
             alwaysCounts: $alwaysCounts,
             declaredLinks: $declaredLinks,
             actionLinks: $actionLinks,
+            deprecated: $deprecated,
+            sunset: $sunset,
+            deprecatedOperations: $deprecatedOperations,
         );
     }
 

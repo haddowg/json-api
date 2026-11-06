@@ -341,6 +341,29 @@ Str::make('status')->guaranteed(),  // the entity defaults it to 'draft'
 create and update schemas still follow `nullable()`. Declared on a field that can render
 `null`, it makes the document lie to every client generated from it.
 
+### Deprecation: `deprecated()`
+
+`deprecated()` marks a field as one clients should stop using. The field's property in the
+OpenAPI read schema and in the create and update schemas carries `deprecated: true`.
+Nothing else changes: the server still renders, hydrates and validates the field exactly as
+before, so removing it later is still a breaking change you make on purpose.
+
+```php
+Str::make('subtitle')->deprecated()->describedAs('Use `tagline` instead.'),
+Obj::make('seo')->fields(
+    Str::make('keywords')->deprecated(),
+    Str::make('slug'),
+),
+```
+
+It works on every field builder, the children of an `Obj` or `Map` among them, and on
+relations. A deprecated relation's property under `relationships` is marked once the
+framework integration passes it on, which it does through the relation metadata's
+`DeclaresDeprecatedRelation`. Its related and relationship endpoints are left unmarked. A
+deprecated field that is also `sortable()` derives a deprecated sort, listed under the
+[`sort` parameter's `x-deprecated-sorts`](openapi.md#deprecated-sorts-x-deprecated-sorts).
+Say what replaces the field in its description, since `deprecated` has no room for it.
+
 ## Enumeration
 
 Every field can constrain its value to (or away from) a fixed set:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
@@ -18,7 +19,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers
 {
     /**
      * @param list<string>          $relatedTypes
@@ -50,7 +51,13 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresR
         private readonly bool $alwaysCounts = false,
         private readonly bool $polymorphic = false,
         private readonly bool $identifiesMembers = false,
+        private readonly bool $deprecated = false,
     ) {}
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
+    }
 
     /**
      * A polymorphic to-many whose members are stored `[type, id]` pairs, a `MorphToMany`

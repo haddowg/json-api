@@ -20,7 +20,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * fluent authoring surface lives on the mirror {@see AbstractFieldBuilder}; this
  * object exposes none of it.
  */
-abstract readonly class AbstractFieldValue implements FieldInterface
+abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\JsonApi\Resource\Deprecatable
 {
     public function __construct(
         protected FieldState $state,
@@ -113,6 +113,11 @@ abstract readonly class AbstractFieldValue implements FieldInterface
     public function hasExample(): bool
     {
         return $this->state->hasExample;
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->state->deprecated;
     }
 
     public function getExample(): mixed

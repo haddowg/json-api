@@ -13,6 +13,6 @@ final class WhereAnyBuilder extends WhereGroupBuilder
 {
     public function build(): WhereAny
     {
-        return new WhereAny($this->key, $this->buildChildren(), $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereAny($this->key, $this->buildChildren(), $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 }

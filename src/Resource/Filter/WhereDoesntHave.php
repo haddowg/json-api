@@ -8,11 +8,12 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows that lack a related record on the named relationship (the
  * negation of {@see WhereHas}).
  */
-final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
         public string $relationship,
+        public bool $deprecated = false,
     ) {}
 
     public static function make(string $key, ?string $relationship = null): self
@@ -23,6 +24,20 @@ final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Filter
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * A copy marked deprecated in the OpenAPI document: its `filter[<key>]` parameter
+     * carries `deprecated: true`. Documentation only.
+     */
+    public function deprecated(): self
+    {
+        return new self($this->key, $this->relationship, true);
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
     }
 
     /**

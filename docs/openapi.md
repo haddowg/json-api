@@ -858,6 +858,14 @@ Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `read
 the action's own vendor extensions. Action metadata that implements neither projects as
 before.
 
+Three more carry [deprecation](#deprecation). `DeclaresDeprecation` extends
+`TypeMetadataInterface` with `isDeprecated(): bool`, `sunset(): ?\DateTimeInterface` and
+`deprecatedOperations(): list<string>`; fill it from the declaration behind the type's
+`Deprecation` and `Sunset` response headers. `DeclaresActionDeprecation` extends
+`ActionMetadataInterface` with `isDeprecated(): bool`. `DeclaresDeprecatedRelation` extends
+`RelationMetadataInterface` with `isDeprecated(): bool`: return the relation field's
+`isDeprecated()`. Metadata that implements none of them projects no deprecation markers.
+
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
 resource-object schema and no attribute / write-request components, exactly mirroring the
@@ -1170,6 +1178,62 @@ for descending, the profile that must be negotiated, where a count lands) and st
 A backed enum's `value → description` table stays, because it carries what each value
 means, which an `enum` cannot.
 
+## Deprecation
+
+A type, a single operation, an action, a field, a relation, a filter and a sort can each be
+marked deprecated. Every marker is documentation only. The server keeps serving whatever is
+marked exactly as before; the document just tells clients to move off it.
+
+A **type** whose metadata implements `DeclaresDeprecation` and reports `isDeprecated()`
+marks every operation the document emits for it `deprecated: true`: its CRUD operations,
+its related and relationship endpoints and its custom actions. A declared `sunset()` adds a
+sentence naming the date to the end of each of those operations' descriptions, after any
+description an author declared:
+
+```json
+"/articles": {
+  "get": {
+    "description": "…\n\nThis operation may stop responding on or after 2027-06-30, its sunset date.",
+    "deprecated": true
+  }
+}
+```
+
+A sunset is a date rather than a flag, so it marks nothing deprecated on its own.
+
+**Single operations** are listed by name in `deprecatedOperations()`, in the grammar
+[operation examples](#operation-examples) and scopes are keyed by: `fetchCollection`,
+`fetchOne`, `create`, `update`, `delete`, or `fetchRelated`, `fetchRelationship`,
+`updateRelationship`, `addRelationship` or `removeRelationship` with a dot and the relation
+name. A name the type does not expose fails the projection with an
+`\InvalidArgumentException`. `OperationKey::tryFromName()` checks a name earlier. An
+**action** is not named there; its metadata implements `DeclaresActionDeprecation`
+instead.
+
+A **field** declared [`deprecated()`](fields.md#deprecation-deprecated) carries
+`deprecated: true` on its property in the read, create and update attribute schemas, at
+whatever depth it sits. A **relation** carries it on its property under `relationships` in
+the read resource and the write requests, beside the `$ref`:
+
+```json
+"relationships": {
+  "type": "object",
+  "properties": {
+    "author": { "$ref": "#/components/schemas/ArticlesAuthorRelationship", "deprecated": true }
+  }
+}
+```
+
+A **filter** marks its `filter[<key>]` parameter `deprecated: true`. A **sort** cannot be
+marked inside the `sort` enum, so its key is listed under
+[`x-deprecated-sorts`](#deprecated-sorts-x-deprecated-sorts), and a deprecated sort family's
+entry in [`x-sort-families`](#sort-families-x-sort-families) carries `deprecated: true`.
+
+A document that carries any of these markers declares the `DEPRECATION` contract tier in
+its [`x-generator`](#the-generator-contract-x-generator) stamp, so an older generator is
+warned that it may drop them. A document with none of them, including one whose only
+declaration is a sunset, keeps the lower stamp.
+
 ## Vendor extensions
 
 The projection emits a few OpenAPI **vendor extensions** (`x-…` keywords) to carry
@@ -1183,7 +1247,7 @@ Every projected document stamps its `info` with one integer:
 "info": {
   "title": "Music API",
   "version": "1.2.0",
-  "x-generator": { "contract": 21 }
+  "x-generator": { "contract": 22 }
 }
 ```
 
@@ -1271,6 +1335,27 @@ typed helper rather than parse the pattern back:
 
 An endpoint with no family keeps the plain enum, and a document whose endpoints
 declare none carries no `x-sort-families` and keeps the lower contract stamp.
+
+A [deprecated](sorts.md#deprecating-a-sort) family's entry adds `"deprecated": true` beside
+its `prefix` and `suffixPattern`. The flag sits in the family's own entry so a prefix is
+never mistaken for an exact key.
+
+### Deprecated sorts: `x-deprecated-sorts`
+
+The `sort` array schema lists the exact keys declared [deprecated](sorts.md#deprecating-a-sort)
+under `x-deprecated-sorts`, without the `-`. Each key stays in the `items` enum in both
+directions, because a deprecated sort still works:
+
+```json
+"schema": {
+  "type": "array",
+  "items": { "type": "string", "enum": ["name", "-name", "rank", "-rank"] },
+  "x-deprecated-sorts": ["name"]
+}
+```
+
+A `sort` parameter with no deprecated key carries no `x-deprecated-sorts`, and a deprecated
+family is flagged in `x-sort-families` rather than listed here.
 
 ### Action safety: `x-safety`
 

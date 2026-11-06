@@ -268,6 +268,15 @@ final class Schema implements \JsonSerializable
         return $this->with('writeOnly', $value);
     }
 
+    /**
+     * Sets the `deprecated` annotation (JSON Schema 2020-12 / OAS 3.1): the member still
+     * works but should no longer be used.
+     */
+    public function withDeprecated(bool $value = true): self
+    {
+        return $this->with('deprecated', $value);
+    }
+
     public function withMinProperties(int $value): self
     {
         return $this->with('minProperties', $value);
@@ -476,7 +485,7 @@ final class Schema implements \JsonSerializable
 
         $order = [
             '$ref',
-            'type', 'format', 'title', 'description',
+            'type', 'format', 'title', 'description', 'deprecated',
             'enum', 'const', 'default',
             'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
             'minLength', 'maxLength', 'pattern',

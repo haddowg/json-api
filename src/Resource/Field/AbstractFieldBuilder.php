@@ -110,6 +110,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     protected bool $guaranteed = false;
 
+    protected bool $deprecated = false;
+
     /**
      * The context applied to constraints appended while inside an
      * `onCreate()` / `onUpdate()` builder; `null` means {@see Context::always()}.
@@ -550,6 +552,20 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
+     * Marks the field deprecated in the OpenAPI document: its property in the read and
+     * write schemas carries `deprecated: true`. Documentation only; the field still
+     * renders and hydrates as before.
+     *
+     * @return static
+     */
+    public function deprecated(): static
+    {
+        $this->deprecated = true;
+
+        return $this;
+    }
+
+    /**
      * Scopes every constraint appended inside `$builder` to create (POST) requests.
      *
      * @param \Closure(static): void $builder
@@ -680,6 +696,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
             deserializeUsing: $this->deserializeUsing,
             fillUsing: $this->fillUsing,
             guaranteed: $this->guaranteed,
+            deprecated: $this->deprecated,
         );
     }
 

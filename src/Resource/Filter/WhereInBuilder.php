@@ -36,7 +36,7 @@ final class WhereInBuilder implements FilterBuilderInterface
 
     public function build(): WhereIn
     {
-        return new WhereIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     public function delimiter(string $delimiter): self

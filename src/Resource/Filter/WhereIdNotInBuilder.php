@@ -31,7 +31,7 @@ final class WhereIdNotInBuilder implements FilterBuilderInterface
 
     public function build(): WhereIdNotIn
     {
-        return new WhereIdNotIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example);
+        return new WhereIdNotIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
     }
 
     public function delimiter(string $delimiter): self

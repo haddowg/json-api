@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponse;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedBodies;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
@@ -24,7 +25,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample, DeclaresActionSafety, DeclaresActionExtensions
+final class FakeActionMetadata implements DeclaresActionDeprecation, DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample, DeclaresActionSafety, DeclaresActionExtensions
 {
     /**
      * @param list<string>                  $methods
@@ -52,7 +53,13 @@ final class FakeActionMetadata implements DeclaresActionLink, DeclaresAcceptedBo
         private readonly ?bool $destructive = null,
         private readonly ?bool $idempotent = null,
         private readonly array $extensions = [],
+        private readonly bool $deprecated = false,
     ) {}
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
+    }
 
     public function readOnly(): ?bool
     {
