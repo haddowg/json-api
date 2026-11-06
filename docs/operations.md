@@ -2,7 +2,7 @@
 
 A JSON:API request — once negotiated, parsed and routed — becomes a single
 *operation* value object that you hand to *one* method you implement. This page is
-the model behind that: the nine operation VOs, the [`Target`](#target) that
+the model behind that: the eleven operation VOs, the [`Target`](#target) that
 identifies the endpoint, the [`OperationFactory`](#operationfactory-from-request-to-operation)
 that picks the right operation, the [`OperationContext`](#operationcontext) and
 [`QueryParameters`](#queryparameters) carried alongside, and the
@@ -36,21 +36,24 @@ interface JsonApiOperationInterface
 }
 ```
 
-The five *mutating* operations — create, update, delete-relationship-member, and
-the two relationship-mutation verbs — add one more method, `body(): JsonApiRequestInterface`,
-giving you the parsed write document. The other four operations have no body: the
-three reads (`FetchResourceOperation`, `FetchRelatedOperation`,
-`FetchRelationshipOperation`) plus `DeleteResourceOperation`.
+The five *mutating* operations, create, update and the three relationship-mutation
+verbs, add one more method, `body(): JsonApiRequestInterface`, giving you the parsed
+write document. `CustomActionOperation` has a nullable `body()`, set only when the
+action takes a JSON:API document. The other five operations have no body: the three
+reads (`FetchResourceOperation`, `FetchRelatedOperation`,
+`FetchRelationshipOperation`), `DeleteResourceOperation` and
+`AtomicOperationsOperation`, which carries its parsed batch instead.
 
 Dispatching on the concrete operation *type* (rather than inspecting an HTTP verb)
 is the whole point: each verb-crossed-with-shape combination is its own class, so a
 `match (true)` over types is exhaustive and type-safe — the body is present exactly
 where the type guarantees it.
 
-## The nine operations
+## The eleven operations
 
-There are nine concrete operation VOs, one per JSON:API endpoint. The HTTP method
-crossed with the [`Target`](#target) shape selects which one you receive.
+There are eleven concrete operation VOs. Nine cover the standard JSON:API endpoints,
+where the HTTP method crossed with the [`Target`](#target) shape selects which one you
+receive. The last two cover a custom action and an Atomic Operations batch.
 
 | Operation | Endpoint | Body? |
 |---|---|---|
@@ -63,6 +66,8 @@ crossed with the [`Target`](#target) shape selects which one you receive.
 | [`UpdateRelationshipOperation`](../src/Operation/UpdateRelationshipOperation.php) | `PATCH /tracks/1/relationships/playlists` (replace) | yes |
 | [`AddToRelationshipOperation`](../src/Operation/AddToRelationshipOperation.php) | `POST /tracks/1/relationships/playlists` (add) | yes |
 | [`RemoveFromRelationshipOperation`](../src/Operation/RemoveFromRelationshipOperation.php) | `DELETE /tracks/1/relationships/playlists` (remove) | yes |
+| [`CustomActionOperation`](../src/Operation/CustomActionOperation.php) | `POST /albums/1/-actions/publish` or `POST /albums/-actions/import` (a custom action) | when the action takes a document |
+| [`AtomicOperationsOperation`](../src/Operation/AtomicOperationsOperation.php) | `POST /operations` ([Atomic Operations](atomic-operations.md)) | the parsed batch |
 
 A `FetchResourceOperation` covers both the collection and the single-resource read:
 the same operation serves `GET /albums` and `GET /albums/1`, and you branch on
@@ -71,7 +76,7 @@ the same operation serves `GET /albums` and `GET /albums/1`, and you branch on
 ## A handler as a match over operation types
 
 The music-catalog example app implements exactly one handler. Its `handle()` is a
-`match (true)` over the nine concrete types — the canonical shape for a handler.
+`match (true)` over the nine standard types — the canonical shape for a handler.
 Each arm calls a private method that knows how to service that one operation; the
 `default` arm guards against an unknown operation type with a `404`.
 
@@ -96,10 +101,10 @@ public function handle(
 }
 ```
 
-The handler's return union here lists five response VOs; the sixth allowed return,
-the meta-only [`MetaResponse`](responses.md#metaresponse), is simply one the
-music-catalog handler never produces (the full closed union is shown under
-[`OperationHandlerInterface`](#operationhandlerinterface-the-one-seam)).
+The handler's return union here lists five of the ten response VOs the interface
+allows. The music-catalog handler never produces the other five, such as the
+meta-only [`MetaResponse`](responses.md#metaresponse). The full closed union is
+shown under [`OperationHandlerInterface`](#operationhandlerinterface-the-one-seam).
 
 Notice the single read arm for collection-or-single, and that the three
 relationship-mutation arms read `$operation->body()` — only available because those
@@ -188,8 +193,9 @@ public function fromRequest(
 }
 ```
 
-It is a public, stateless seam — construct it, then call `fromRequest()`. A few
-deliberate boundaries:
+It is a public, stateless seam — construct it, then call `fromRequest()`. It builds
+the nine standard operations only; the integration that routes a custom action or an
+Atomic Operations request builds those two itself. A few deliberate boundaries:
 
 - It takes the **already-parsed** `JsonApiRequestInterface`, so the body source and
   `QueryParameters::fromRequest()` read from the same memoized wrapper; wrapping and
@@ -289,12 +295,14 @@ interface OperationHandlerInterface
 {
     public function handle(
         JsonApiOperationInterface $operation,
-    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse;
+    ): DataResponse|MetaResponse|RelatedResponse|IdentifierResponse|NoContentResponse|AcceptedResponse|SeeOtherResponse|AtomicResultsResponse|ErrorResponse|RawResponse;
 }
 ```
 
-The return type is a **closed union** of six response VOs — the only things a handler
-may produce. The handler stays PSR-7-decoupled (the optional originating request is
+The return type is a **closed union** of ten response VOs — the only things a handler
+may produce. A decorator that wraps another handler must declare the whole union,
+since a narrower one throws a `TypeError` when the inner handler returns a member it
+left out. The handler stays PSR-7-decoupled (the optional originating request is
 reachable through `context()->httpRequest()`), and the [adapter](#psr7tooperationhandleradapter-the-psr-15-join)
 encodes whatever you return back to PSR-7. The response VOs themselves are covered
 in [responses](responses.md). You can also *decorate* a handler — wrap another
@@ -379,7 +387,7 @@ code runs unchanged on both paths.
 
 ## Next
 
-- [Responses](responses.md) — the six response VOs a handler returns, and how they
+- [Responses](responses.md) — the response VOs a handler returns, and how they
   render.
 - [Related endpoints](related-endpoints.md) and
   [relationship mutation](relationship-mutation.md) — the read and mutation arms in

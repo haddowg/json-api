@@ -70,8 +70,8 @@ re-stamps the constraint it adds. The one exception is **`constrain()`**: it
 attaches a constraint you built yourself and does **not** re-stamp it, so a custom
 constraint carries whatever `Context` you constructed it with.
 
-For the common presence case there are direct shortcuts — `requiredOnCreate()` and
-`requiredOnUpdate()` — that need no closure.
+For the common presence case there are direct shortcuts, `requiredOnCreate()` and
+`requiredOnUpdate()`, that need no closure.
 
 ### `Required` and `Nullable` semantics
 
@@ -82,9 +82,14 @@ For the common presence case there are direct shortcuts — `requiredOnCreate()`
   **not** force the member to appear; only an explicitly-supplied empty value
   fails.
 
-If you need a member present on a PATCH too, scope a `Required` to update with
-`->requiredOnUpdate()`; `->requiredOnCreate()` is the create-only form, and
-`->required()` applies in both contexts (with the per-context strictness above).
+`->requiredOnUpdate()` scopes a `Required` to update, so it means "non-empty when
+supplied on a PATCH". It does not make the member mandatory: a PATCH that leaves it
+out still passes. `->requiredOnCreate()` is the create-only form, and `->required()`
+applies in both contexts, with the per-context strictness above.
+
+The library has no constraint that forces a member to be present on a PATCH. If you
+need one, check for the member in your handler, or in your framework adapter's
+before-update hook.
 
 `Nullable` widens the allowed value to include an explicit `null` (a nullable
 `type` union in JSON Schema). It is **independent of presence** — a field can be
@@ -100,7 +105,7 @@ type carries which method); construct the VO directly only inside `each()`,
 
 | Constraint | Applies to | Emitted by | Options / notes |
 |---|---|---|---|
-| `Required` | any field | `->required()` / `->requiredOnCreate()` / `->requiredOnUpdate()` | present + non-empty (context-sensitive on PATCH) |
+| `Required` | any field | `->required()` / `->requiredOnCreate()` / `->requiredOnUpdate()` | present and non-empty on create; non-empty when supplied on PATCH |
 | `Nullable` | any field | `->nullable()` | explicit `null` allowed; independent of presence |
 | `Min` / `Max` | `Integer`, `Decimal` | `->min($v)` / `->max($v)` | inclusive numeric bound |
 | `ExclusiveMin` / `ExclusiveMax` | `Integer`, `Decimal` | `->exclusiveMin($v)` / `->exclusiveMax($v)` | exclusive numeric bound |
@@ -159,12 +164,20 @@ DateTime::make('releasedAt')
     ->sortable(),
 ```
 
-The two bound kinds round-trip differently. A **fixed** bound is schema-visible —
-the compiler emits a `formatMinimum` / `formatMaximum` keyword for it. A **closure**
-bound is opaque PHP, so it **does not** round-trip to JSON Schema; only an adapter
-that executes validation evaluates the closure (here, against "now" for each
-request). That is the right trade: a relative bound like "no future dates" can't be
-frozen into a static schema, so it stays adapter-only.
+An adapter's validator enforces both bound kinds, evaluating a closure bound at
+validation time (here, against "now" for each request). Neither kind is enforced by a
+JSON Schema, and the two kinds reach the schemas differently:
+
+- A **fixed** bound is written into the request-validation schema
+  [`SchemaCompiler`](schema-validation.md) builds, as a `formatMinimum` /
+  `formatMaximum` keyword. Those keywords come from a non-standard format vocabulary
+  that opis, the validator behind [schema validation](schema-validation.md), does not
+  implement, so they describe the bound without rejecting a value outside it.
+- The [OpenAPI document](openapi.md) has no keyword for a date bound. A fixed bound
+  becomes a note in the field's `description` naming its value, and a closure bound a
+  note that the bound is resolved at request time.
+- A **closure** bound is opaque PHP, so the compiler leaves it out. A relative bound
+  like "no future dates" can't be frozen into a static schema.
 
 ## Worked: composition
 

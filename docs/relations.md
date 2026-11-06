@@ -434,7 +434,7 @@ whose `storesIdentifiers()` says whether a relation was declared this way.
 
 ## Backing and advisory metadata
 
-A relation shares the field backing surface and adds two advisory flags for
+A relation shares the field backing surface and adds one advisory flag for
 adapters:
 
 | Method | Effect |
@@ -442,7 +442,6 @@ adapters:
 | `storedAs(string $column)` | Read/write the related value from a differently-named domain member than the relationship name. |
 | `computed()` | No backing column; pair with `extractUsing()` to supply the related value. |
 | `inverseType(string $name)` | Records the inverse relationship name on the related type. **Advisory** — metadata for adapters / OpenAPI generation. |
-| `cannotEagerLoad()` | Hints that a data-layer adapter should not eager-load this relation. **Advisory** — core ships metadata only. |
 
 ## Example ids for linkage
 
@@ -646,6 +645,23 @@ linkage and `self` / `related` links are unaffected.
 ```php
 BelongsTo::make('internalNotes', 'notes')->cannotBeIncluded(),
 ```
+
+Pass a closure to decide per request and per model. It receives the model and the
+request, and returning `true` prohibits the include for that model:
+
+```php
+HasMany::make('drafts', 'posts')->cannotBeIncluded(
+    static fn(mixed $author, JsonApiRequestInterface $request): bool
+        => $request->getHeaderLine('X-Role') !== 'editor',
+),
+```
+
+The closure runs while the document renders, once for each resource carrying the
+relation. A requested include it prohibits is the same `400 InclusionNotAllowed`, and
+a default include it prohibits is dropped for that resource. Since the decision needs
+a model, a request that renders no resource carrying the relation, such as an empty
+collection, never runs it. The OpenAPI document still lists the relation among the
+includable paths, because it is includable for some requests.
 
 This is the per-relation half of the include safeguards; a root-scoped
 allowed-include-paths whitelist and a maximum include depth are documented under

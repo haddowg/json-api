@@ -811,19 +811,21 @@ is an `AbstractJsonApiException` like the rest of the
 document automatically. It exposes the offending filter via its public `$filter`
 property.
 
-An *undeclared* filter key (one no resource lists) is a different case: it is
-silently ignored. The library never auto-applies filters, and a handler only
-dispatches the declared VOs it is handed — so `GET /artists?filter[withinRadius]=51.5`
-against a resource that doesn't declare `withinRadius` returns the full
-collection, unnarrowed.
+An *undeclared* filter key (one no resource lists) is a different case, and core
+leaves it to the handler. Core never applies a filter itself, so it never sees the
+key. A handler that skips it, as the example app's below does, answers
+`GET /artists?filter[withinRadius]=51.5` against a resource that doesn't declare
+`withinRadius` with the full collection, unnarrowed. A handler that rejects it throws
+[`FilterParamUnrecognized`](errors-and-exceptions.md), a `400`
+`FILTERING_UNRECOGNIZED` naming the key. The Symfony bundle and the Laravel adapter
+both reject it.
 
-That silent-ignore is **key-level** — an unrecognized key *inside* the `filter`
-family. The `filter` **family** itself is always recognized, so it never trips the
+That choice is **key-level**: an unrecognized key *inside* the `filter` family. The
+`filter` **family** itself is always recognized, so it never trips the
 [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default)
 that `Server` runs by default: an unrecognized query-parameter *family* (a
 misspelled `?fitler[...]`, an unregistered custom parameter) is a `400`
-`QueryParamUnrecognized`, distinct from this key-level tolerance within a
-recognized family.
+`QueryParamUnrecognized` whatever the handler does with keys.
 
 ## Reading requested filters off the operation
 
@@ -850,7 +852,7 @@ $requested = $foldDefaults
 foreach ($requested as $key => $value) {
     $filter = $declared[$key] ?? null;
     if ($filter === null) {
-        continue; // an undeclared key is silently ignored
+        continue; // this handler skips an undeclared key
     }
     // … dispatch $filter + $value to the handler …
 }

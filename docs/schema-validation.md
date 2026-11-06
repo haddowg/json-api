@@ -191,8 +191,8 @@ contexts in [validation](constraints.md):
 
 - `creating: true` (POST) — `Required` / `requiredOnCreate` fields become
   `required[]`.
-- `creating: false` (PATCH) — absent members are allowed; only `requiredOnUpdate`
-  fields and the values actually supplied are constrained.
+- `creating: false` (PATCH) — no member is required, a `requiredOnUpdate` one
+  included, and only the values actually supplied are constrained.
 
 It maps the round-trippable constraint vocabulary directly onto JSON Schema
 keywords — `maxLength`, `minLength`, `minItems`/`maxItems`/`uniqueItems`,
@@ -216,7 +216,7 @@ enforces them:
 |---|---|
 | `When` | an opaque closure condition — no JSON Schema analogue |
 | `CompareField` | cross-property comparison has no draft-2020-12 expression |
-| Closure date bounds (`Before`/`After`/`Between` with a `\Closure`) | the bound is resolved per request, so it cannot be baked into a static schema (a fixed `\DateTimeInterface` bound *does* round-trip via `formatMinimum`/`formatMaximum`) |
+| Closure date bounds (`Before`/`After`/`Between` with a `\Closure`) | the bound is resolved per request, so it cannot be baked into a static schema. A fixed `\DateTimeInterface` bound is written as `formatMinimum`/`formatMaximum`, which opis does not implement, so it documents the bound without rejecting anything |
 
 For example, [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)'s
 `releasedAt` uses a closure bound (`->before(static fn() => new \DateTimeImmutable())`)
