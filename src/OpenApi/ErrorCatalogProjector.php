@@ -13,6 +13,7 @@ use haddowg\JsonApi\Exception\ErrorSourceShape;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
@@ -83,7 +84,8 @@ final class ErrorCatalogProjector
 
     /**
      * The scoped shapes `$operation` of `$type` offers, by status, in catalogue order: those
-     * of the codes whose scope covers it.
+     * of the codes whose scope covers it. The Atomic Operations endpoint is `atomic` of the
+     * empty type.
      *
      * @return array<int, list<string>>
      */
@@ -316,7 +318,8 @@ final class ErrorCatalogProjector
 
     /**
      * The operations of the server's types `$scope` covers, as `<type>\0<operation name>`,
-     * sorted. A scope naming a type the server does not register covers nothing there.
+     * sorted. A scope naming a type the server does not register covers nothing there. The
+     * Atomic Operations endpoint belongs to no type, so it is keyed under the empty type.
      *
      * @return list<string>
      */
@@ -329,6 +332,10 @@ final class ErrorCatalogProjector
                     $covered[] = $type->type() . "\0" . $enumerated->key->name();
                 }
             }
+        }
+        $atomic = OperationKey::atomic();
+        if ($server->atomicOperations() !== null && $scope->covers('', $atomic)) {
+            $covered[] = "\0" . $atomic->name();
         }
         \sort($covered, \SORT_STRING);
 

@@ -16,7 +16,8 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
  * A scope names operations of a type by name, in the grammar
  * {@see OperationKey::name()} writes (`update`, `fetchRelated.author`,
  * `action.publish.post`), or every operation of a type when it names none; or operations
- * of every type by {@see OperationKind}. {@see and()} combines scopes.
+ * of every type by {@see OperationKind}, where {@see OperationKind::Atomic} is the Atomic
+ * Operations endpoint. {@see and()} combines scopes.
  */
 final readonly class ErrorScope
 {

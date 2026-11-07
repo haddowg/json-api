@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RawResult;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -240,7 +241,8 @@ final class OpenApiProjector
      * ({@see \haddowg\JsonApi\Exception\ErrorScope}) at an error
      * response offering them beside the codes every operation raises, adding the status
      * when the operation did not advertise it. Operations raising the same scoped codes at a
-     * status share one such response, named for the status and those codes.
+     * status share one such response, named for the status and those codes. The Atomic
+     * Operations endpoint is one of them when a scope covers {@see OperationKind::Atomic}.
      *
      * @return array{Paths, array<string, array{status: int, shapes: list<string>, document: string}>} the paths, and each narrowed response's status, shapes and error document component
      */
@@ -251,33 +253,42 @@ final class OpenApiProjector
         $items = $paths->items;
         $sets = [];
 
+        $targets = [];
         foreach ($server->types() as $type) {
             foreach (OperationEnumerator::forType($type) as $enumerated) {
-                $scoped = $catalog->scopedShapes($server, $type->type(), $enumerated->key->name());
-                $item = $items[$enumerated->path] ?? null;
-                $operation = $item?->operations[$enumerated->method] ?? null;
-                if ($scoped === [] || $item === null || $operation === null) {
-                    continue;
-                }
-
-                $responses = $operation->responses->responses;
-                foreach ($scoped as $status => $shapes) {
-                    $suffix = 'With' . \implode('', \array_map(static fn(string $shape): string => ErrorCatalogProjector::shapeSuffix($shape, $status), $shapes));
-                    $name = ErrorResponseProjector::name((string) $status) . $suffix;
-                    $sets[$name] = ['status' => $status, 'shapes' => [...$shared[$status] ?? [], ...$shapes], 'document' => 'ErrorDocument' . $status . $suffix];
-
-                    $existing = $responses[(string) $status] ?? null;
-                    $responses[(string) $status] = new Reference(
-                        Reference::to('responses', $name)->ref,
-                        description: $existing instanceof Reference ? $existing->description : null,
-                    );
-                }
-                $narrowed = new Responses();
-                foreach ($responses as $status => $response) {
-                    $narrowed = $narrowed->with((string) $status, $response);
-                }
-                $items[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withResponses($narrowed));
+                $targets[] = [$type->type(), $enumerated->key->name(), $enumerated->path, $enumerated->method];
             }
+        }
+        $atomic = $server->atomicOperations();
+        if ($atomic !== null) {
+            $targets[] = ['', OperationKey::atomic()->name(), $atomic->path(), 'post'];
+        }
+
+        foreach ($targets as [$type, $name, $path, $method]) {
+            $scoped = $catalog->scopedShapes($server, $type, $name);
+            $item = $items[$path] ?? null;
+            $operation = $item?->operations[$method] ?? null;
+            if ($scoped === [] || $item === null || $operation === null) {
+                continue;
+            }
+
+            $responses = $operation->responses->responses;
+            foreach ($scoped as $status => $shapes) {
+                $suffix = 'With' . \implode('', \array_map(static fn(string $shape): string => ErrorCatalogProjector::shapeSuffix($shape, $status), $shapes));
+                $responseName = ErrorResponseProjector::name((string) $status) . $suffix;
+                $sets[$responseName] = ['status' => $status, 'shapes' => [...$shared[$status] ?? [], ...$shapes], 'document' => 'ErrorDocument' . $status . $suffix];
+
+                $existing = $responses[(string) $status] ?? null;
+                $responses[(string) $status] = new Reference(
+                    Reference::to('responses', $responseName)->ref,
+                    description: $existing instanceof Reference ? $existing->description : null,
+                );
+            }
+            $narrowed = new Responses();
+            foreach ($responses as $status => $response) {
+                $narrowed = $narrowed->with((string) $status, $response);
+            }
+            $items[$path] = $item->withOperation($method, $operation->withResponses($narrowed));
         }
 
         return [new Paths($items), $sets];
