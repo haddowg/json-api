@@ -225,21 +225,6 @@ final class ExceptionErrorDetailTest extends TestCase
     }
 
     #[Test]
-    public function requestBodyInvalidJsonApiAttachesOriginalBodyToFirstErrorWhenRequested(): void
-    {
-        $exception = new RequestBodyInvalidJsonApi(
-            [['message' => 'abc'], ['message' => 'def']],
-            originalBody: ['a' => 'b'],
-            includeOriginalBody: true,
-        );
-
-        $errors = $exception->getErrors();
-
-        self::assertSame(['original' => ['a' => 'b']], $errors[0]->meta);
-        self::assertSame([], $errors[1]->meta);
-    }
-
-    #[Test]
     public function responseBodyInvalidJsonApiUsesServerErrorStatus(): void
     {
         $errors = (new ResponseBodyInvalidJsonApi([

@@ -13,8 +13,6 @@ final class RequestBodyInvalidJsonApi extends AbstractJsonApiException implement
      */
     public function __construct(
         public readonly array $validationErrors,
-        public readonly mixed $originalBody = null,
-        public readonly bool $includeOriginalBody = false,
     ) {
         parent::__construct('Request body is an invalid JSON:API document!' . \print_r($validationErrors, true), self::describe()->status);
     }
@@ -34,7 +32,6 @@ final class RequestBodyInvalidJsonApi extends AbstractJsonApiException implement
     public function getErrors(): array
     {
         $errors = [];
-        $first = true;
 
         foreach ($this->validationErrors as $validationError) {
             $property = $validationError['property'] ?? '';
@@ -42,10 +39,8 @@ final class RequestBodyInvalidJsonApi extends AbstractJsonApiException implement
             $errors[] = self::describe()->toError(
                 detail: \ucfirst($validationError['message']),
                 source: $property !== '' ? ErrorSource::fromPointer($property) : null,
-                meta: $first && $this->includeOriginalBody ? ['original' => $this->originalBody] : [],
             );
 
-            $first = false;
         }
 
         return $errors;
