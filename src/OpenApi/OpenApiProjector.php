@@ -272,12 +272,11 @@ final class OpenApiProjector
                         description: $existing instanceof Reference ? $existing->description : null,
                     );
                 }
-                \ksort($responses, \SORT_STRING);
-                $sorted = new Responses();
+                $narrowed = new Responses();
                 foreach ($responses as $status => $response) {
-                    $sorted = $sorted->with((string) $status, $response);
+                    $narrowed = $narrowed->with((string) $status, $response);
                 }
-                $items[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withResponses($sorted));
+                $items[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withResponses($narrowed));
             }
         }
 
