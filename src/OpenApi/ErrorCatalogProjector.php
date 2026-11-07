@@ -319,22 +319,26 @@ final class ErrorCatalogProjector
     /**
      * The operations of the server's types `$scope` covers, as `<type>\0<operation name>`,
      * sorted. A scope naming a type the server does not register covers nothing there. The
-     * Atomic Operations endpoint belongs to no type, so it is keyed under the empty type.
+     * Atomic Operations endpoint belongs to no type, so it is keyed under the empty type. It
+     * is covered when the scope names its kind, or covers a write a batch entry can perform,
+     * since the batch runs that write through the same handler.
      *
      * @return list<string>
      */
     private static function operationsCovered(ServerMetadataInterface $server, ErrorScope $scope): array
     {
         $covered = [];
+        $viaBatch = false;
         foreach ($server->types() as $type) {
             foreach (OperationEnumerator::forType($type) as $enumerated) {
                 if ($scope->covers($type->type(), $enumerated->key)) {
                     $covered[] = $type->type() . "\0" . $enumerated->key->name();
+                    $viaBatch = $viaBatch || $enumerated->key->kind->isAtomicWrite();
                 }
             }
         }
         $atomic = OperationKey::atomic();
-        if ($server->atomicOperations() !== null && $scope->covers('', $atomic)) {
+        if ($server->atomicOperations() !== null && ($viaBatch || $scope->covers('', $atomic))) {
             $covered[] = "\0" . $atomic->name();
         }
         \sort($covered, \SORT_STRING);

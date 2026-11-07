@@ -453,7 +453,9 @@ new ErrorDescriptor(
 scopes are keyed by (`update`, `fetchRelated.author`, `action.publish.post`), or every
 operation of the type when it names none. `ErrorScope::kinds()` covers operations of a kind
 on every type, for an error that is not one type's, and `and()` combines scopes. The Atomic
-Operations endpoint belongs to no type, so only `OperationKind::Atomic` covers it. For an
+Operations endpoint offers a code whose scope names `OperationKind::Atomic`, and one whose
+scope covers a create, update, delete or relationship write, since a batch entry runs that
+write through the same handler. A code scoped to reads stays off the batch. For an
 error you do not own, catalogue it through a `ScopedErrorSource`, whose scope replaces the
 descriptor's:
 

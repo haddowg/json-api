@@ -93,6 +93,23 @@ enum OperationKind: string
     }
 
     /**
+     * Whether an entry of an Atomic Operations batch can perform an operation of this kind
+     * ({@see OperationKey::forAtomicOperation()}).
+     */
+    public function isAtomicWrite(): bool
+    {
+        return match ($this) {
+            self::Create,
+            self::Update,
+            self::Delete,
+            self::AddRelationship,
+            self::UpdateRelationship,
+            self::RemoveRelationship => true,
+            default => false,
+        };
+    }
+
+    /**
      * The upper-case HTTP method every operation of this kind answers to, or `null` for
      * an action, whose method is declared.
      */

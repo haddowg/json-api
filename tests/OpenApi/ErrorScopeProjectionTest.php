@@ -143,11 +143,28 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aTypedScopeLeavesTheAtomicEndpointAlone(): void
+    public function aScopedWriteIsAlsoOfferedOnTheBatchThatCanPerformIt(): void
     {
-        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::kinds(OperationKind::Create), PaymentRequired::class));
+        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::on('articles', 'create'), PaymentRequired::class));
+
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/operations', 'post', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/articles', 'post', 'responses', '402', '$ref'));
+    }
+
+    #[Test]
+    public function aScopedReadLeavesTheBatchAlone(): void
+    {
+        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::on('articles', 'fetchOne')->and(ErrorScope::kinds(OperationKind::FetchCollection)), PaymentRequired::class));
 
         self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/operations', 'post', 'responses'));
+    }
+
+    #[Test]
+    public function aScopedWriteNeedsTheBatchToBeEnabled(): void
+    {
+        $document = $this->project(new ScopedErrorSource(ErrorScope::on('articles', 'create'), PaymentRequired::class));
+
+        self::assertArrayNotHasKey('/operations', $this->arr($document, 'paths'));
     }
 
     #[Test]
