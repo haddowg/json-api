@@ -75,10 +75,10 @@ final class ErrorScopeProjectionTest extends TestCase
     {
         $document = $this->project(new ScopedErrorSource(ErrorScope::on('articles', 'update'), PaymentRequired::class));
 
-        self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '402', '$ref'));
         self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'delete', 'responses'));
         // Nothing else answers 402, so no shared 402 response is left behind.
-        self::assertArrayNotHasKey('Status402', $this->arr($document, 'components', 'responses'));
+        self::assertArrayNotHasKey('PaymentRequired', $this->arr($document, 'components', 'responses'));
         self::assertSame(
             [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/Error402PaymentRequired']],
             $this->at($document, 'components', 'schemas', 'ErrorDocument402WithPaymentRequired', 'properties', 'errors', 'items', 'anyOf'),
@@ -104,7 +104,7 @@ final class ErrorScopeProjectionTest extends TestCase
 
         foreach (['/articles' => ['get', 'post'], '/articles/{id}' => ['get', 'patch', 'delete']] as $path => $methods) {
             foreach ($methods as $method) {
-                self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', $path, $method, 'responses', '402', '$ref'), "{$method} {$path}");
+                self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', $path, $method, 'responses', '402', '$ref'), "{$method} {$path}");
             }
         }
     }
@@ -114,8 +114,8 @@ final class ErrorScopeProjectionTest extends TestCase
     {
         $document = $this->project(new ScopedErrorSource(ErrorScope::kinds(OperationKind::Delete), PaymentRequired::class));
 
-        self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'delete', 'responses', '402', '$ref'));
-        self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/tags/{id}', 'delete', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'delete', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/tags/{id}', 'delete', 'responses', '402', '$ref'));
         self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'patch', 'responses'));
     }
 

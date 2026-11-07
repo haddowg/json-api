@@ -496,7 +496,8 @@ components:
 ```
 
 One response component per status your server advertises — nothing more, in keeping with
-the rest of the document. An endpoint that phrases a status its own way keeps its wording
+the rest of the document. Each is named for its status's reason phrase (`UnprocessableEntity`,
+`PaymentRequired`, `TooManyRequests`, …); a status without one is named `Status<code>`. An endpoint that phrases a status its own way keeps its wording
 on the `$ref` as an OAS 3.1 Reference Object `description`, which overrides the
 component's; the [Atomic Operations](atomic-operations.md) batch does this for the six it
 describes in terms of an operation within the batch rather than the request as a whole.
