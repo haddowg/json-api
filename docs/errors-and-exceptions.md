@@ -573,8 +573,8 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 
 | Exception | Status | Error code | Source | Thrown when |
 |---|---|---|---|---|
-| `MediaTypeUnsupported` | 415 | `MEDIA_TYPE_UNSUPPORTED` | parameter | The request `Content-Type` media type is not supported. |
-| `MediaTypeUnacceptable` | 406 | `MEDIA_TYPE_UNACCEPTABLE` | parameter | No `Accept` media type can be satisfied. |
+| `MediaTypeUnsupported` | 415 | `MEDIA_TYPE_UNSUPPORTED` | header | The request `Content-Type` media type is not supported. |
+| `MediaTypeUnacceptable` | 406 | `MEDIA_TYPE_UNACCEPTABLE` | header | No `Accept` media type can be satisfied. |
 
 The `415` / `406` asymmetry is intentional — see
 [content negotiation](content-negotiation.md) for why an unsupported

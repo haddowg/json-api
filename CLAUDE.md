@@ -124,10 +124,10 @@ deviations and component-specific gotchas.
   directly; `Deserializer` / engine `SerializerInterface` → inline
   `\json_decode`/`\json_encode` with `\JSON_THROW_ON_ERROR` passed **inline** (lets
   PHPStan narrow to `string`, never a `(string)` cast).
-- **Preserve yin's spec surface verbatim** — status codes, `code`, `title`,
-  `detail`, `source`/`meta`, **including yin's existing typos**, are spec-compliance
-  fidelity. yin's error `detail` often differs from the thrown message, so spell out
-  the literal `detail:` string rather than reusing the message.
+- **yin is inspiration, not a contract** — there is no compatibility with or upgrade
+  path from yin, so its error surface (`code`, `title`, `detail`, `source`/`meta`) and
+  any other design choice is kept only where it is still the best reading of the spec.
+  Improve on it freely.
 - **`@internal` machinery is never consumer surface** — `Transformer\*`,
   `Schema\Document\*`, `Response\Internal\*`, and every `…\Internal\…` helper.
 

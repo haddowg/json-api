@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 23
+            "contract": 24
         }
     },
     "servers": [
@@ -11508,10 +11508,10 @@
                             "source": {
                                 "type": "object",
                                 "required": [
-                                    "parameter"
+                                    "header"
                                 ],
                                 "example": {
-                                    "parameter": "accept"
+                                    "header": "Accept"
                                 }
                             },
                             "detail": {
@@ -11548,10 +11548,10 @@
                             "source": {
                                 "type": "object",
                                 "required": [
-                                    "parameter"
+                                    "header"
                                 ],
                                 "example": {
-                                    "parameter": "content-type"
+                                    "header": "Content-Type"
                                 }
                             },
                             "detail": {

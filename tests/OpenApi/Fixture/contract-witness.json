@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 23
+            "contract": 24
         }
     },
     "servers": [
@@ -16029,10 +16029,10 @@
                             "source": {
                                 "type": "object",
                                 "required": [
-                                    "parameter"
+                                    "header"
                                 ],
                                 "example": {
-                                    "parameter": "accept"
+                                    "header": "Accept"
                                 }
                             },
                             "detail": {
@@ -16069,10 +16069,10 @@
                             "source": {
                                 "type": "object",
                                 "required": [
-                                    "parameter"
+                                    "header"
                                 ],
                                 "example": {
-                                    "parameter": "content-type"
+                                    "header": "Content-Type"
                                 }
                             },
                             "detail": {
@@ -18659,7 +18659,7 @@
                                     "title": "The provided media type is unacceptable",
                                     "detail": "The media type 'application/vnd.api+json; version=2' is unacceptable in the 'Accept' header!",
                                     "source": {
-                                        "parameter": "accept"
+                                        "header": "Accept"
                                     }
                                 }
                             ],
@@ -18711,7 +18711,7 @@
                                     "title": "The provided media type is unsupported",
                                     "detail": "The media type 'application/vnd.api+json; charset=utf-8' is unsupported in the 'Content-Type' header!",
                                     "source": {
-                                        "parameter": "content-type"
+                                        "header": "Content-Type"
                                     }
                                 }
                             ],

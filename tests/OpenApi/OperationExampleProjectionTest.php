@@ -384,7 +384,7 @@ final class OperationExampleProjectionTest extends TestCase
                 'code' => 'MEDIA_TYPE_UNACCEPTABLE',
                 'title' => 'The provided media type is unacceptable',
                 'detail' => 'The media type \'application/vnd.api+json; version=2\' is unacceptable in the \'Accept\' header!',
-                'source' => ['parameter' => 'accept'],
+                'source' => ['header' => 'Accept'],
             ]],
             'jsonapi' => ['version' => '1.1'],
         ], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'example'));

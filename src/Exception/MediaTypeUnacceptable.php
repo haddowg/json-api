@@ -20,8 +20,8 @@ final class MediaTypeUnacceptable extends AbstractJsonApiException implements De
             status: 406,
             title: 'The provided media type is unacceptable',
             context: ['mediaType' => ErrorContextType::Str, 'header' => ErrorContextType::Str],
-            source: ErrorSourceShape::Parameter,
-            exampleSource: 'accept',
+            source: ErrorSourceShape::Header,
+            exampleSource: 'Accept',
             description: 'Every `application/vnd.api+json` entry in the `Accept` header carries a parameter other than `ext` or `profile`, or asks for an `ext` the server does not support. Accept `application/vnd.api+json` with no other parameters.',
             exampleDetail: 'The media type \'application/vnd.api+json; version=2\' is unacceptable in the \'Accept\' header!',
         );
@@ -33,7 +33,7 @@ final class MediaTypeUnacceptable extends AbstractJsonApiException implements De
             self::describe()->toError(
                 detail: $this->getMessage(),
                 context: ['mediaType' => $this->mediaTypeName, 'header' => 'Accept'],
-                source: ErrorSource::fromParameter('accept'),
+                source: ErrorSource::fromHeader('Accept'),
             ),
         ];
     }
