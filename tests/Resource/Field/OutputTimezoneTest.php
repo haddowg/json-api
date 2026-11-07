@@ -123,7 +123,7 @@ final class OutputTimezoneTest extends TestCase
             $obj->serialize(['window' => ['startsAt' => $paris]], StubJsonApiRequest::create(), 'window'),
         );
 
-        $oneOf = OneOf::make('slot')
+        $oneOf = OneOf::make('slot')->discriminator('type')
             ->variant('timed', DateTime::make('startsAt'))
             ->build()
             ->withDefaultOutputTimezone('UTC');

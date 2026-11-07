@@ -25,9 +25,9 @@ use function haddowg\JsonApi\Examples\MusicCatalog\bootstrapWithRepository;
  * `PATCH /{type}/{id}` → `200`, `DELETE /{type}/{id}` → `204` (empty body) — and the
  * two write-safety behaviours the field walk gives you for free:
  *
- *  - **over-posting drop**: an attribute the resource never declared is silently
- *    ignored (the hydrator only iterates declared `attributeFields()`), so a client
- *    cannot smuggle arbitrary state in;
+ *  - **over-posting refusal**: an attribute the resource never declared is a `400`
+ *    naming the member, so a client can neither smuggle state in nor lose a misspelt
+ *    key without noticing;
  *  - **read-only drop**: a `readOnly()` field present in the body is skipped during
  *    hydration (e.g. the server-computed `averageRating`);
  *  - **write-only**: a `writeOnly()` field (the users `password`) is hydrated and
@@ -143,10 +143,10 @@ final class WritesTest extends MusicCatalogTestCase
     }
 
     #[Test]
-    public function anUndeclaredAttributeIsSilentlyDroppedOnCreate(): void
+    public function anUndeclaredAttributeIsRejectedOnCreate(): void
     {
-        // Over-posting: `secretFlag` is not a declared field, so the hydrator never
-        // reads it. The created resource carries only declared attributes.
+        // Over-posting: `secretFlag` is not a declared field, so the closed attributes
+        // object refuses it, naming the member, and nothing is created.
         $response = $this->post('/albums', [
             'data' => [
                 'type' => 'albums',
@@ -157,11 +157,8 @@ final class WritesTest extends MusicCatalogTestCase
             ],
         ]);
 
-        self::assertSame(201, $response->getStatusCode());
-
-        $attributes = $this->attributes($response);
-        self::assertArrayHasKey('title', $attributes);
-        self::assertArrayNotHasKey('secretFlag', $attributes, 'an undeclared attribute is never persisted');
+        self::assertSame(400, $response->getStatusCode());
+        JsonApiErrors::of($response)->assertHasError('400', '/data/attributes/secretFlag', 'ATTRIBUTE_MEMBER_UNRECOGNIZED');
     }
 
     #[Test]

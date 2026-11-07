@@ -124,7 +124,7 @@ final class SchemaProjector
      */
     private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $shapedByHook = $list->rendersThroughHook();
+        $shapedByHook = $this->reading ? $list->rendersThroughHook() : $list->hydratesThroughHook();
         $previous = $this->wholeValue;
         $this->wholeValue = true;
 
@@ -156,15 +156,20 @@ final class SchemaProjector
      * A hidden child is never projected. Presence says nothing about `null`; the child's
      * own schema does.
      *
+     * The object is **closed** (`additionalProperties: false`) unless a hook produces it in
+     * the direction being projected: `serializeUsing()` / `extractUsing()` on a read,
+     * `fillUsing()` / `deserializeUsing()` on a write. A hook owns the shape it reads or
+     * writes, so the declared children do not bound it.
+     *
      * `$shapedByHook` marks the object as author-shaped when a hook outside the parent
-     * renders it, as an {@see ArrayList}'s hook renders each of its elements.
+     * shapes it, as an {@see ArrayList}'s hook shapes each of its elements.
      *
      * @param iterable<FieldInterface> $children
      */
     public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false): Schema
     {
         $reading = $this->reading && !$creating;
-        $authorShaped = $shapedByHook || ($parent instanceof AbstractFieldValue && $parent->rendersThroughHook());
+        $authorShaped = $shapedByHook || ($parent instanceof AbstractFieldValue && ($reading ? $parent->rendersThroughHook() : $parent->hydratesThroughHook()));
         $properties = [];
         $required = [];
         foreach ($children as $child) {
@@ -183,9 +188,13 @@ final class SchemaProjector
             }
         }
 
-        return Schema::ofType('object')
+        $schema = Schema::ofType('object')
             ->withProperties($properties)
             ->withRequired($required);
+
+        // A declared shape is closed: a member it does not declare is a mistake, not data.
+        // A hook producing the value in this direction owns its shape, so it stays open.
+        return $authorShaped ? $schema : $schema->withAdditionalProperties(false);
     }
 
     /**
@@ -196,6 +205,29 @@ final class SchemaProjector
     public function isReading(): bool
     {
         return $this->reading;
+    }
+
+    /**
+     * Runs `$projection` for a value every write builds whole rather than merges, as an
+     * undiscriminated {@see OneOf} is, so an update requires what the update context
+     * requires.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    public function wholeValue(\Closure $projection): mixed
+    {
+        $previous = $this->wholeValue;
+        $this->wholeValue = true;
+
+        try {
+            return $projection();
+        } finally {
+            $this->wholeValue = $previous;
+        }
     }
 
     /**
@@ -269,9 +301,10 @@ final class SchemaProjector
     }
 
     /**
-     * Projects a type's **attributes** object schema: a `{type: object,
-     * properties: {…}}` over the non-id, non-relationship, non-hidden fields.
-     * Write-only fields are excluded from a read projection (`$creating === false`).
+     * Projects a type's **attributes** object schema: a closed `{type: object,
+     * properties: {…}, additionalProperties: false}` over the non-id, non-relationship,
+     * non-hidden fields. Write-only fields are excluded from a read projection and
+     * read-only ones from the write projection they are read-only for.
      *
      * The `required` array is populated by context:
      * - **Create** — the fields a POST body must carry (a PATCH is partial, so an
@@ -313,7 +346,8 @@ final class SchemaProjector
 
         return Schema::ofType('object')
             ->withProperties($properties)
-            ->withRequired($required);
+            ->withRequired($required)
+            ->withAdditionalProperties(false);
     }
 
     /**
@@ -441,7 +475,13 @@ final class SchemaProjector
         $properties = [
             'type' => Schema::ofType('string')->withConst($type),
             'id' => $this->projectId($fields),
-            'attributes' => $attributesRef !== null ? Schema::ref($attributesRef) : $this->projectAttributes($fields, RepresentationContext::Read, $collector),
+            // A standalone serializer declares no field inventory, so nothing says what its
+            // attributes are: they stay an open object rather than a closed empty one.
+            'attributes' => match (true) {
+                $attributesRef !== null => Schema::ref($attributesRef),
+                $fields === [] => Schema::ofType('object'),
+                default => $this->projectAttributes($fields, RepresentationContext::Read, $collector),
+            },
             'relationships' => Schema::ofType('object'),
             'links' => Schema::ofType('object'),
             'meta' => Schema::ofType('object'),

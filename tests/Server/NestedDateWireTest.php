@@ -223,7 +223,7 @@ final class NestedDateEventResource extends AbstractResource
                 Date::make('day'),
                 Time::make('opensAt'),
             ),
-            ArrayList::make('slots')->nullable()->of(OneOf::make('slot')->variant('timed', DateTime::make('at'))),
+            ArrayList::make('slots')->nullable()->of(OneOf::make('slot')->discriminator('type')->variant('timed', DateTime::make('at'))),
         ];
     }
 }

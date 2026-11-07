@@ -56,7 +56,7 @@ final class JsonStoredDateTest extends TestCase
     #[Test]
     public function aOneOfDateTimeChildSurvivesAJsonColumn(): void
     {
-        $field = OneOf::make('slot')->variant('timed', DateTime::make('startsAt'))->build();
+        $field = OneOf::make('slot')->discriminator('type')->variant('timed', DateTime::make('startsAt'))->build();
 
         self::assertSame(
             ['type' => 'timed', 'startsAt' => '2024-07-01T12:30:00+02:00'],

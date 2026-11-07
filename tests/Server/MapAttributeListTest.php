@@ -134,7 +134,7 @@ final class MapAttributeListTest extends TestCase
         yield 'ArrayHash' => [static fn() => ArrayHash::make('tags')->build()];
         yield 'Map' => [static fn() => Map::make('tags')->fields(Str::make('a'))->build()];
         yield 'Obj' => [static fn() => Obj::make('tags')->fields(Str::make('a'))->build()];
-        yield 'OneOf' => [static fn() => OneOf::make('tags')->variant('x', Str::make('a'))->build()];
+        yield 'OneOf' => [static fn() => OneOf::make('tags')->discriminator('type')->variant('x', Str::make('a'))->build()];
     }
 
     /**
@@ -222,7 +222,7 @@ final class MapListWidgetResource extends AbstractResource
                 DateTime::make('since'),
                 Obj::make('inner')->fields(ArrayHash::make('labels')),
             ),
-            OneOf::make('block')->nullable()
+            OneOf::make('block')->discriminator('type')->nullable()
                 ->variant('heading', Str::make('text'))
                 ->variant('image', Str::make('src'), ArrayHash::make('attrs')),
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Validation;
 
 use haddowg\JsonApi\OpenApi\Schema;
+use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Constraint\After;
 use haddowg\JsonApi\Resource\Constraint\AtLeastOneOf;
@@ -24,6 +25,7 @@ use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 
 /**
  * Compiles a {@see AbstractResource}'s field + constraint metadata into a decoded
@@ -33,7 +35,8 @@ use haddowg\JsonApi\Resource\Field\Map;
  * The output is exactly the shape {@see DocumentValidator::validateRequest()}'s
  * `$additionalSchemas` list takes: it `allOf`-composes with the base/request
  * root, so it only constrains `data.attributes` / `data.relationships` (and the
- * per-context `required` arrays). It does **not** restate base members or touch
+ * per-context `required` arrays). The attributes object and each `Map` it holds
+ * are closed: a member the resource does not declare is rejected. It does **not** restate base members or touch
  * `unevaluatedProperties` (the composite owns that).
  *
  * Internally the schema is assembled as nested PHP arrays and converted to the
@@ -48,6 +51,13 @@ use haddowg\JsonApi\Resource\Field\Map;
  */
 final class SchemaCompiler
 {
+    private readonly SchemaProjector $projector;
+
+    public function __construct()
+    {
+        $this->projector = new SchemaProjector();
+    }
+
     /**
      * Produces the per-resource JSON Schema fragment for `$resource` in the
      * given context.
@@ -91,13 +101,14 @@ final class SchemaCompiler
 
         $dataProperties = [];
 
+        $attributes = ['type' => 'object', 'additionalProperties' => false];
         if ($attributeProperties !== []) {
-            $attributes = ['type' => 'object', 'properties' => $attributeProperties];
-            if ($creating && $attributeRequired !== []) {
-                $attributes['required'] = $attributeRequired;
-            }
-            $dataProperties['attributes'] = $attributes;
+            $attributes['properties'] = $attributeProperties;
         }
+        if ($creating && $attributeRequired !== []) {
+            $attributes['required'] = $attributeRequired;
+        }
+        $dataProperties['attributes'] = $attributes;
 
         if ($relationshipProperties !== []) {
             $relationships = ['type' => 'object', 'properties' => $relationshipProperties];
@@ -107,12 +118,7 @@ final class SchemaCompiler
             $dataProperties['relationships'] = $relationships;
         }
 
-        $data = ['type' => 'object'];
-        if ($dataProperties !== []) {
-            $data['properties'] = $dataProperties;
-        }
-
-        return ['type' => 'object', 'properties' => ['data' => $data]];
+        return ['type' => 'object', 'properties' => ['data' => ['type' => 'object', 'properties' => $dataProperties]]];
     }
 
     /**
@@ -120,6 +126,13 @@ final class SchemaCompiler
      */
     private function fieldSchema(\haddowg\JsonApi\Resource\Field\FieldInterface $field, bool $creating): array
     {
+        // A structured field (an Obj, a OneOf, a list of either, or an application's own
+        // ProvidesFieldSchema composite) compiles exactly as the OpenAPI projection
+        // describes it, so the two can never disagree about its shape.
+        if ($field instanceof ProvidesFieldSchema || ($field instanceof ArrayList && $field->element() !== null)) {
+            return $this->projector->projectField($field, $creating)->toArray();
+        }
+
         $schema = $this->typeSchema($field);
 
         if ($field instanceof Map) {
@@ -130,6 +143,7 @@ final class SchemaCompiler
             if ($childProperties !== []) {
                 $schema['properties'] = $childProperties;
             }
+            $schema['additionalProperties'] = false;
         }
 
         foreach ($field->constraints() as $constraint) {

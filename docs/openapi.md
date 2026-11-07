@@ -140,6 +140,13 @@ sketch:
   `required` but not the update shape's (an absent update member means "no change").
   The create/update components are emitted **only** when the type's operation allow-list
   exposes that write, so a read-only type dangles no write components.
+- **Closed objects.** Every attributes component and every nested object a field declares
+  (`Map`, `Obj`, each `OneOf` branch, a structured list's element) carries
+  `additionalProperties: false`, so a member the type does not declare is rejected rather
+  than silently dropped. A nested object a hook produces stays open in that direction:
+  `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
+  write, since the hook, not the declared children, owns its shape. A standalone
+  serializer with no field inventory keeps an open attributes object.
 - **Id policy.** A create request `$ref`s the create attributes and shapes `id`
   according to the type's client-id policy: **forbidden** (a `false` schema) when the
   server assigns it, **permitted** when a client id is allowed, **required** when it is
@@ -260,7 +267,7 @@ sketch:
   narrows the type itself. The rule recurses into `Map`, `Obj` and `OneOf` values: a
   nested object lists every child it renders, leaving out a write-only child (absent from
   the read `properties` too) and a `hidden(when:)` / `writeOnly(when:)` one, and a
-  `OneOf` branch also requires its discriminator. A nested object whose
+  discriminated `OneOf` branch also requires its discriminator. A nested object whose
   `serializeUsing()` or `extractUsing()` hook builds the value lists none, and a
   `OneOf` with such a hook stops requiring its discriminator, since the hook decides
   its shape. Its `properties` are still projected from the declared children. An

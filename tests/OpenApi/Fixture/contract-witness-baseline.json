@@ -14,7 +14,7 @@
         },
         "version": "3.4.1",
         "x-generator": {
-            "contract": 19
+            "contract": 23
         }
     },
     "servers": [
@@ -250,6 +250,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -445,6 +446,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -636,6 +638,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -836,6 +839,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -1338,6 +1342,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -3507,6 +3512,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -4871,6 +4877,7 @@
                                     "analytics",
                                     "address",
                                     "block",
+                                    "shape",
                                     "contact",
                                     "createdAt",
                                     "legacyRef",
@@ -7064,7 +7071,8 @@
                         "required": [
                             "street",
                             "city"
-                        ]
+                        ],
+                        "additionalProperties": false
                     },
                     "block": {
                         "oneOf": [
@@ -7083,7 +7091,8 @@
                                 "required": [
                                     "text",
                                     "kind"
-                                ]
+                                ],
+                                "additionalProperties": false
                             },
                             {
                                 "type": "object",
@@ -7103,7 +7112,8 @@
                                 "required": [
                                     "src",
                                     "kind"
-                                ]
+                                ],
+                                "additionalProperties": false
                             },
                             {
                                 "type": "null"
@@ -7112,6 +7122,43 @@
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "title": "circle",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "title": "rectangle",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "contact": {
                         "type": [
@@ -7149,14 +7196,16 @@
                                 },
                                 "required": [
                                     "lat"
-                                ]
+                                ],
+                                "additionalProperties": false
                             }
                         },
                         "required": [
                             "firstName",
                             "nickname",
                             "geo"
-                        ]
+                        ],
+                        "additionalProperties": false
                     },
                     "createdAt": {
                         "type": "string",
@@ -7207,12 +7256,14 @@
                     "analytics",
                     "address",
                     "block",
+                    "shape",
                     "contact",
                     "createdAt",
                     "legacyRef",
                     "commentCount",
                     "authorName"
-                ]
+                ],
+                "additionalProperties": false
             },
             "ArticlesAuthorRelatedDocument": {
                 "type": "object",
@@ -7502,7 +7553,8 @@
                         },
                         "required": [
                             "street"
-                        ]
+                        ],
+                        "additionalProperties": false
                     },
                     "block": {
                         "oneOf": [
@@ -7521,7 +7573,8 @@
                                 "required": [
                                     "text",
                                     "kind"
-                                ]
+                                ],
+                                "additionalProperties": false
                             },
                             {
                                 "type": "object",
@@ -7537,12 +7590,50 @@
                                 },
                                 "required": [
                                     "kind"
-                                ]
+                                ],
+                                "additionalProperties": false
                             }
                         ],
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "title": "circle",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "title": "rectangle",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "contact": {
                         "type": [
@@ -7568,9 +7659,11 @@
                                     "lat": {
                                         "type": "integer"
                                     }
-                                }
+                                },
+                                "additionalProperties": false
                             }
-                        }
+                        },
+                        "additionalProperties": false
                     },
                     "authorName": {
                         "type": "string"
@@ -7581,7 +7674,8 @@
                 },
                 "required": [
                     "title"
-                ]
+                ],
+                "additionalProperties": false
             },
             "ArticlesCreateRequest": {
                 "type": "object",
@@ -8486,7 +8580,8 @@
                             "city": {
                                 "type": "string"
                             }
-                        }
+                        },
+                        "additionalProperties": false
                     },
                     "block": {
                         "oneOf": [
@@ -8501,7 +8596,8 @@
                                         "type": "string",
                                         "const": "heading"
                                     }
-                                }
+                                },
+                                "additionalProperties": false
                             },
                             {
                                 "type": "object",
@@ -8514,12 +8610,50 @@
                                         "type": "string",
                                         "const": "image"
                                     }
-                                }
+                                },
+                                "additionalProperties": false
                             }
                         ],
                         "discriminator": {
                             "propertyName": "kind"
                         }
+                    },
+                    "shape": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "title": "circle",
+                                "properties": {
+                                    "radius": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "title": "rectangle",
+                                "properties": {
+                                    "width": {
+                                        "type": "integer"
+                                    },
+                                    "height": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "required": [
+                                    "width",
+                                    "height"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "contact": {
                         "type": [
@@ -8545,9 +8679,11 @@
                                     "lat": {
                                         "type": "integer"
                                     }
-                                }
+                                },
+                                "additionalProperties": false
                             }
-                        }
+                        },
+                        "additionalProperties": false
                     },
                     "authorName": {
                         "type": "string"
@@ -8555,7 +8691,8 @@
                     "score": {
                         "type": "integer"
                     }
-                }
+                },
+                "additionalProperties": false
             },
             "ArticlesUpdateRequest": {
                 "type": "object",
@@ -9382,6 +9519,46 @@
                     "data"
                 ]
             },
+            "AttributeMemberUnrecognizedError": {
+                "title": "Attribute member is not recognized",
+                "description": "The request body sent an attribute, or a key inside an object attribute, that the resource type does not declare. Remove it, or correct its name, and send the request again.",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "const": "ATTRIBUTE_MEMBER_UNRECOGNIZED"
+                            },
+                            "status": {
+                                "type": "string",
+                                "const": "400"
+                            },
+                            "source": {
+                                "type": "object",
+                                "required": [
+                                    "pointer"
+                                ],
+                                "example": {
+                                    "pointer": "/data/attributes/colour"
+                                }
+                            },
+                            "detail": {
+                                "type": "string",
+                                "example": "The resource does not declare the member 'colour'!"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "status",
+                            "source"
+                        ]
+                    }
+                ]
+            },
             "AttributeValueInvalidError": {
                 "title": "Attribute value is invalid",
                 "description": "The server could not accept the value of the attribute at `source.pointer`, for example a date-time it cannot parse. Correct the value and send the request again.",
@@ -9841,6 +10018,9 @@
                                     "$ref": "#/components/schemas/AtomicOperationsInvalidError"
                                 },
                                 {
+                                    "$ref": "#/components/schemas/AttributeMemberUnrecognizedError"
+                                },
+                                {
                                     "$ref": "#/components/schemas/AttributeValueInvalidError"
                                 },
                                 {
@@ -10027,6 +10207,9 @@
                                 },
                                 {
                                     "$ref": "#/components/schemas/AtomicOperationsInvalidError"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/AttributeMemberUnrecognizedError"
                                 },
                                 {
                                     "$ref": "#/components/schemas/CursorMalformedError"
@@ -10751,7 +10934,8 @@
                 },
                 "required": [
                     "url"
-                ]
+                ],
+                "additionalProperties": false
             },
             "ImagesClipsRelatedCollection": {
                 "type": "object",
@@ -11676,7 +11860,8 @@
                 "required": [
                     "name",
                     "role"
-                ]
+                ],
+                "additionalProperties": false
             },
             "PeopleCollection": {
                 "type": "object",
@@ -11763,7 +11948,8 @@
                 },
                 "required": [
                     "name"
-                ]
+                ],
+                "additionalProperties": false
             },
             "PeopleCreateRequest": {
                 "type": "object",
@@ -11884,7 +12070,8 @@
                     "role": {
                         "$ref": "#/components/schemas/Status"
                     }
-                }
+                },
+                "additionalProperties": false
             },
             "PeopleUpdateRequest": {
                 "type": "object",
@@ -13278,7 +13465,8 @@
                 },
                 "required": [
                     "label"
-                ]
+                ],
+                "additionalProperties": false
             },
             "TagsCollection": {
                 "type": "object",
@@ -13314,7 +13502,8 @@
                 },
                 "required": [
                     "label"
-                ]
+                ],
+                "additionalProperties": false
             },
             "TagsCreateRequest": {
                 "type": "object",
@@ -13433,7 +13622,8 @@
                         "minLength": 1,
                         "example": "php"
                     }
-                }
+                },
+                "additionalProperties": false
             },
             "TagsUpdateRequest": {
                 "type": "object",
@@ -13660,7 +13850,8 @@
                 "required": [
                     "url",
                     "seconds"
-                ]
+                ],
+                "additionalProperties": false
             },
             "VideosCollection": {
                 "type": "object",
@@ -13697,7 +13888,8 @@
                         "type": "integer",
                         "example": 90
                     }
-                }
+                },
+                "additionalProperties": false
             },
             "VideosCreateRequest": {
                 "type": "object",
@@ -13804,7 +13996,8 @@
                         "type": "integer",
                         "example": 90
                     }
-                }
+                },
+                "additionalProperties": false
             },
             "VideosUpdateRequest": {
                 "type": "object",

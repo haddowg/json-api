@@ -142,6 +142,14 @@ final class SchemaCompilerTest extends TestCase
     }
 
     #[Test]
+    public function theCompiledAttributesObjectIsClosedInBothContexts(): void
+    {
+        foreach ([true, false] as $creating) {
+            self::assertFalse($this->at($this->compileToArray($creating), 'properties', 'data', 'properties', 'attributes', 'additionalProperties'));
+        }
+    }
+
+    #[Test]
     public function compiledSchemaIncludesTheArrayBoundsTrio(): void
     {
         // minItems / maxItems / uniqueItems all compile onto an array field — the

@@ -78,12 +78,14 @@ Hydration is **allow-list based**: it walks the resource's *declared* field
 inventory and reads each declared field from the body — it never iterates the
 client's keys. This is a structural guard against mass-assignment.
 
-- **Undeclared members are silently ignored.** An attribute or relationship the
-  resource did not declare (the classic over-post of an `isAdmin` or `secretFlag`
-  flag) is never read and never written. In the music catalog,
+- **Undeclared attributes are refused.** The attributes object is closed: an
+  attribute the resource did not declare (the classic over-post of an `isAdmin` or
+  `secretFlag` flag), or a key inside an `Obj`, `Map`, `OneOf` variant or structured
+  list element that none of its children declare, is a
+  `400 ATTRIBUTE_MEMBER_UNRECOGNIZED` with one error per member at its pointer.
+  Nothing is hydrated. In the music catalog,
   [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php) does
-  not declare a `secretFlag`, so a `POST` carrying one creates the album with that
-  member dropped:
+  not declare a `secretFlag`, so a `POST` carrying one is refused:
 
   ```php
   $response = $this->post('/albums', [
@@ -96,9 +98,13 @@ client's keys. This is a structural guard against mass-assignment.
       ],
   ]);
 
-  // 201 — and the created album has no `secretFlag`:
-  self::assertArrayNotHasKey('secretFlag', $attributes);
+  self::assertSame(400, $response->getStatusCode());
+  JsonApiErrors::of($response)->assertHasError('400', '/data/attributes/secretFlag', 'ATTRIBUTE_MEMBER_UNRECOGNIZED');
   ```
+
+  A value a `fillUsing()` or `deserializeUsing()` hook takes is not looked inside;
+  the hook owns its shape. An undeclared *relationship* is still never read and
+  never written, but it is ignored rather than refused.
 
   (from [`WritesTest`](../examples/music-catalog/tests/WritesTest.php))
 
@@ -120,7 +126,7 @@ client's keys. This is a structural guard against mass-assignment.
   client-generated UUID. See [client-generated ids](ids.md).
 
 This is a structural guard, not per-user field authorisation: it stops a client
-writing fields the *resource* never declared, but it does not decide whether
+writing attributes the *resource* never declared, but it does not decide whether
 *this* user may write a field the resource *does* declare. That decision is yours
 — see [Treat hydrated input as untrusted](#what-you-must-do). The hydration
 mechanics are covered in [hydrators](hydrators.md).

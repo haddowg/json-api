@@ -64,7 +64,7 @@ final class SortFamilyProjectionTest extends TestCase
             ],
             $this->sortSchema($document, '/campaigns'),
         );
-        self::assertSame(['contract' => GeneratorContract::SORT_FAMILIES], $this->arrAt($document, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SORT_FAMILIES)], $this->arrAt($document, 'info', 'x-generator'));
     }
 
     #[Test]
@@ -119,7 +119,7 @@ final class SortFamilyProjectionTest extends TestCase
             ]],
             $this->arrAt($schema, 'items'),
         );
-        self::assertSame(['contract' => GeneratorContract::SORT_FAMILIES], $this->arrAt($document, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SORT_FAMILIES)], $this->arrAt($document, 'info', 'x-generator'));
     }
 
     private function family(string $prefix): SortFamily

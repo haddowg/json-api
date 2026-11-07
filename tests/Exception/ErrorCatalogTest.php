@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\AccessDenied;
 use haddowg\JsonApi\Exception\AdditionProhibited;
 use haddowg\JsonApi\Exception\ApplicationError;
 use haddowg\JsonApi\Exception\AtomicOperationsInvalid;
+use haddowg\JsonApi\Exception\AttributeMemberUnrecognized;
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Exception\AttributeWriteProhibited;
 use haddowg\JsonApi\Exception\AuthenticationRequired;
@@ -194,6 +195,7 @@ final class ErrorCatalogTest extends TestCase
     {
         yield 'ATOMIC_OPERATIONS_INVALID' => [new AtomicOperationsInvalid("Unknown atomic operation code 'upsert'.", '/atomic:operations/0/op')];
         yield 'ATTRIBUTE_WRITE_PROHIBITED' => [new AttributeWriteProhibited(['createdAt'])];
+        yield 'ATTRIBUTE_MEMBER_UNRECOGNIZED' => [new AttributeMemberUnrecognized(['/data/attributes/colour'])];
         yield 'ATTRIBUTE_VALUE_INVALID' => [new AttributeValueInvalid('publishedAt', 'Failed to parse time string (next blursday) at position 0 (n): The timezone could not be found in the database')];
         yield 'FIELDSET_MEMBER_UNRECOGNIZED' => [new FieldsetMemberUnrecognized('articles', ['colour'])];
         yield 'FILTERING_UNRECOGNIZED' => [new FilterParamUnrecognized('colour')];

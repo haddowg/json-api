@@ -335,7 +335,7 @@ final class StructuredArrayListTest extends TestCase
     public function aFillHookOnTheListOwnsTheWrite(): void
     {
         $field = ArrayList::make('steps')
-            ->of(OneOf::make('step')->variant('trim'))
+            ->of(OneOf::make('step')->discriminator('type')->variant('trim'))
             ->fillUsing(static fn(mixed $model, mixed $value): array => ['raw' => $value])
             ->build();
 
