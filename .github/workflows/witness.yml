@@ -3,7 +3,8 @@ name: Contract witness
 # The contract witness is published as @haddowg/json-api-witness on GitHub Packages rather
 # than committed. Each pull request from this repository publishes a prerelease the code
 # generators can pin while they test against it, deleted when the pull request closes, and
-# every pull request reports how it changes the witness against its base.
+# every pull request reports how it changes the witness against its base. A release
+# pull request only bumps the version and changelog, so it does neither.
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled, closed]
@@ -28,6 +29,7 @@ jobs:
       github.event_name == 'pull_request'
       && contains(fromJSON('["opened", "synchronize", "reopened"]'), github.event.action)
       && github.event.pull_request.head.repo.full_name == github.repository
+      && !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -86,6 +88,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' && github.event.action == 'closed'
       && github.event.pull_request.head.repo.full_name == github.repository
+      && !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -124,7 +127,9 @@ jobs:
 
   generated-output:
     name: Generated output
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: >-
+      github.event_name == 'pull_request' && github.event.action != 'closed'
+      && !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
