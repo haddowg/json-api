@@ -16,10 +16,14 @@ final readonly class MediaType implements \JsonSerializable
      */
     public const JSON_API = 'application/vnd.api+json';
 
+    /**
+     * @param array<string, array{summary: string, value: mixed}> $examples named Example Objects, emitted as `examples`
+     */
     public function __construct(
         public Schema|Reference|null $schema = null,
         public mixed $example = null,
         public bool $hasExample = false,
+        public array $examples = [],
     ) {}
 
     /**
@@ -37,12 +41,23 @@ final readonly class MediaType implements \JsonSerializable
      */
     public function withExample(mixed $example): self
     {
-        return new self($this->schema, $example, true);
+        return new self($this->schema, $example, true, $this->examples);
+    }
+
+    /**
+     * Returns a copy carrying named Example Objects, each a `summary` and a `value`, in
+     * place of a single `example`.
+     *
+     * @param array<string, array{summary: string, value: mixed}> $examples
+     */
+    public function withExamples(array $examples): self
+    {
+        return new self($this->schema, null, false, $examples);
     }
 
     public function withSchema(Schema|Reference|null $schema): self
     {
-        return new self($schema, $this->example, $this->hasExample);
+        return new self($schema, $this->example, $this->hasExample, $this->examples);
     }
 
     /**
@@ -57,6 +72,9 @@ final readonly class MediaType implements \JsonSerializable
         if ($this->hasExample) {
             $out['example'] = $this->example;
         }
+        if ($this->examples !== []) {
+            $out['examples'] = $this->examples;
+        }
 
         return $out;
     }
@@ -69,6 +87,13 @@ final readonly class MediaType implements \JsonSerializable
         }
         if ($this->hasExample) {
             $object->example = Serialization::convert($this->example);
+        }
+        if ($this->examples !== []) {
+            $examples = new \stdClass();
+            foreach ($this->examples as $name => $example) {
+                $examples->{$name} = (object) ['summary' => $example['summary'], 'value' => Serialization::convert($example['value'])];
+            }
+            $object->examples = $examples;
         }
 
         return $object;

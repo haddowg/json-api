@@ -44,9 +44,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The projected error-code catalogue: one named component per code a server can raise,
- * offered from `ErrorDocument.errors.items` by an `anyOf` whose first branch is the
- * open generic `Error`.
+ * The projected error-code catalogue: every code a server can raise is a `const` branch of
+ * the one shape its status, `source` and `meta` select, and the shapes are offered from
+ * `ErrorDocument.errors.items` by an `anyOf` whose first branch is the open generic `Error`.
  *
  * The load-bearing test is {@see anErrorCarryingAnUndocumentedCodeStillValidates}. The
  * catalogue is core's, not the world's — an application throws codes this projection
@@ -61,29 +61,61 @@ final class ErrorCatalogProjectionTest extends TestCase
     // ---- The catalogue ------------------------------------------------------------
 
     #[Test]
-    public function everyCodeAServerCanRaiseIsANamedComponent(): void
+    public function everyCodeAServerCanRaiseIsCatalogued(): void
     {
-        $schemas = $this->schemas($this->fullServer());
+        $codes = $this->codes($this->schemas($this->fullServer()));
 
         foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
-            $component = ErrorCatalogProjector::componentName($descriptor->code);
-            self::assertArrayHasKey($component, $schemas, "missing error component {$component}");
+            self::assertArrayHasKey($descriptor->code, $codes, "{$descriptor->code} is not catalogued");
         }
     }
 
     #[Test]
-    public function aVariantNarrowsTheSharedErrorByCodeAndStatus(): void
+    public function codesSharingAStatusSourceAndMetaShareOneShape(): void
     {
-        $variant = $this->arrAt($this->schemas($this->fullServer()), 'FilteringUnrecognizedError');
+        $codes = $this->codes($this->schemas($this->fullServer()));
 
-        self::assertSame('Filtering parameter is unrecognized', $variant['title']);
+        self::assertSame('Error400Parameter', $codes['FILTERING_UNRECOGNIZED']);
+        self::assertSame('Error400Parameter', $codes['QUERY_PARAM_UNRECOGNIZED']);
+        self::assertSame('Error404', $codes['RESOURCE_NOT_FOUND']);
+        self::assertSame('Error406Header', $codes['MEDIA_TYPE_UNACCEPTABLE']);
+        self::assertSame('Error415Header', $codes['MEDIA_TYPE_UNSUPPORTED']);
+        self::assertSame('Error403InsufficientScope', $codes['INSUFFICIENT_SCOPE']);
+        self::assertSame('Error400RequestBodyInvalidJson', $codes['REQUEST_BODY_INVALID_JSON']);
+    }
 
-        $branches = $this->listAt($variant, 'allOf');
+    #[Test]
+    public function aDeclaredMetaIsClosedAndRequiredOnlyWhenAMemberIs(): void
+    {
+        $schemas = $this->schemas($this->fullServer());
+
+        $scope = $this->narrowingFor($schemas, 'INSUFFICIENT_SCOPE');
+        self::assertSame(['code', 'status', 'meta'], $this->listAt($scope, 'required'));
+        self::assertFalse($this->at($scope, 'properties', 'meta', 'additionalProperties'));
+        self::assertSame(['requiredScopes', 'missingScopes'], $this->listAt($scope, 'properties', 'meta', 'required'));
+        self::assertSame(['requiredScopes', 'missingScopes', 'include'], \array_keys($this->arrAt($scope, 'properties', 'meta', 'properties')));
+
+        $invalidJson = $this->narrowingFor($schemas, 'REQUEST_BODY_INVALID_JSON');
+        self::assertSame(['code', 'status'], $this->listAt($invalidJson, 'required'));
+        self::assertFalse($this->at($invalidJson, 'properties', 'meta', 'additionalProperties'));
+        self::assertArrayHasKey('original', $this->arrAt($invalidJson, 'properties', 'meta', 'properties'));
+    }
+
+    #[Test]
+    public function aShapeNarrowsTheSharedErrorByCodeAndStatus(): void
+    {
+        $schemas = $this->schemas($this->fullServer());
+        $shape = $this->arrAt($schemas, 'Error400Parameter');
+
+        $branches = $this->listAt($shape, 'allOf');
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
+
+        $branch = $this->branchFor($schemas, 'FILTERING_UNRECOGNIZED');
+        self::assertSame('string', $branch['type']);
+        self::assertSame('Filtering parameter is unrecognized', $branch['title']);
 
         $narrowing = $branches[1];
         self::assertIsArray($narrowing);
-        self::assertSame('FILTERING_UNRECOGNIZED', $this->at($narrowing, 'properties', 'code', 'const'));
         self::assertSame('400', $this->at($narrowing, 'properties', 'status', 'const'));
         self::assertSame(['parameter'], $this->listAt($narrowing, 'properties', 'source', 'required'));
         self::assertSame(['code', 'status', 'source'], $this->listAt($narrowing, 'required'));
@@ -95,8 +127,7 @@ final class ErrorCatalogProjectionTest extends TestCase
         // `code` / `status` are the machine contract and are pinned to a const; `title`
         // is copy an ErrorMessageResolver localizes, so pinning it would
         // publish a constraint the server itself breaks the moment one is bound.
-        $narrowing = $this->listAt($this->schemas($this->fullServer()), 'FilteringUnrecognizedError', 'allOf')[1];
-        self::assertIsArray($narrowing);
+        $narrowing = $this->narrowingFor($this->schemas($this->fullServer()), 'FILTERING_UNRECOGNIZED');
 
         self::assertArrayNotHasKey('title', $this->arrAt($narrowing, 'properties'));
     }
@@ -111,13 +142,11 @@ final class ErrorCatalogProjectionTest extends TestCase
         $descriptor = $this->descriptorFor('INCLUSION_DEPTH_EXCEEDED');
         self::assertNotSame([], $descriptor->context, 'this code must declare placeholders for the test to mean anything');
 
-        $variant = $this->arrAt($this->schemas($this->fullServer()), 'InclusionDepthExceededError');
+        $schemas = $this->schemas($this->fullServer());
 
-        self::assertArrayNotHasKey('x-error-context', $variant);
-
-        $narrowing = $this->listAt($variant, 'allOf')[1];
-        self::assertIsArray($narrowing);
-        self::assertArrayNotHasKey('context', $this->arrAt($narrowing, 'properties'));
+        self::assertArrayNotHasKey('x-error-context', $this->shapeFor($schemas, 'INCLUSION_DEPTH_EXCEEDED'));
+        self::assertArrayNotHasKey('x-error-context', $this->branchFor($schemas, 'INCLUSION_DEPTH_EXCEEDED'));
+        self::assertArrayNotHasKey('context', $this->arrAt($this->narrowingFor($schemas, 'INCLUSION_DEPTH_EXCEEDED'), 'properties'));
     }
 
     #[Test]
@@ -127,7 +156,11 @@ final class ErrorCatalogProjectionTest extends TestCase
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
-        self::assertCount(\count(ErrorCatalog::core()->descriptors()) + 1, $branches);
+        $shapes = \array_values(\array_unique($this->codes($schemas)));
+        self::assertEqualsCanonicalizing(
+            \array_map(static fn(string $shape): array => ['$ref' => '#/components/schemas/' . $shape], $shapes),
+            \array_slice($branches, 1),
+        );
     }
 
     // ---- Contributed codes ----------------------------------------------------------
@@ -142,16 +175,14 @@ final class ErrorCatalogProjectionTest extends TestCase
 
         $schemas = $this->schemas($server);
 
-        self::assertArrayHasKey('PaymentRequiredError', $schemas);
-        self::assertArrayHasKey('ResourceNotFoundError', $schemas);
+        $codes = $this->codes($schemas);
+        self::assertSame('Error402', $codes['PAYMENT_REQUIRED'] ?? null);
+        self::assertArrayHasKey('RESOURCE_NOT_FOUND', $codes);
 
-        $narrowing = $this->listAt($schemas, 'PaymentRequiredError', 'allOf')[1];
-        self::assertIsArray($narrowing);
-        self::assertSame('PAYMENT_REQUIRED', $this->at($narrowing, 'properties', 'code', 'const'));
-        self::assertSame('402', $this->at($narrowing, 'properties', 'status', 'const'));
+        self::assertSame('402', $this->at($this->narrowingFor($schemas, 'PAYMENT_REQUIRED'), 'properties', 'status', 'const'));
 
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
-        self::assertContains(['$ref' => '#/components/schemas/PaymentRequiredError'], $branches);
+        self::assertContains(['$ref' => '#/components/schemas/Error402'], $branches);
     }
 
     #[Test]
@@ -159,7 +190,7 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         // The catalogue is assembled per server, so one server's errors never leak into
         // another's document.
-        self::assertArrayNotHasKey('PaymentRequiredError', $this->schemas($this->fullServer()));
+        self::assertArrayNotHasKey('PAYMENT_REQUIRED', $this->codes($this->schemas($this->fullServer())));
     }
 
     #[Test]
@@ -174,30 +205,25 @@ final class ErrorCatalogProjectionTest extends TestCase
             new ClassListErrorSource(PaymentRequired::class),
         );
 
-        self::assertArrayHasKey('PaymentRequiredError', $this->schemas($server));
+        self::assertArrayHasKey('PAYMENT_REQUIRED', $this->codes($this->schemas($server)));
     }
 
     // ---- Consumer-facing description ------------------------------------------------
 
     #[Test]
-    public function aDescriptionAndExampleDetailAreProjectedOntoTheVariant(): void
+    public function aDescriptionIsProjectedOntoTheCodesBranch(): void
     {
         $server = new ContributingServerMetadata(
             $this->fullServer(),
             new ClassListErrorSource(SubscriptionExpired::class),
         );
+        $schemas = $this->schemas($server);
 
-        $variant = $this->arrAt($this->schemas($server), 'SubscriptionExpiredError');
+        self::assertSame(SubscriptionExpired::describe()->description, $this->branchFor($schemas, 'SUBSCRIPTION_EXPIRED')['description'] ?? null);
 
-        self::assertSame(SubscriptionExpired::describe()->description, $variant['description'] ?? null);
-
-        $narrowing = $this->listAt($variant, 'allOf')[1];
-        self::assertIsArray($narrowing);
-        self::assertSame(
-            ['type' => 'string', 'example' => 'The premium subscription has expired.'],
-            $this->at($narrowing, 'properties', 'detail'),
-        );
-        // The example illustrates `detail`; it does not make the member mandatory.
+        // The example detail lives in the error response's examples, not on the schema.
+        $narrowing = $this->narrowingFor($schemas, 'SUBSCRIPTION_EXPIRED');
+        self::assertArrayNotHasKey('detail', $this->arrAt($narrowing, 'properties'));
         self::assertSame(['code', 'status'], $this->listAt($narrowing, 'required'));
     }
 
@@ -211,28 +237,25 @@ final class ErrorCatalogProjectionTest extends TestCase
         $schemas = $this->schemas($server);
 
         foreach ([InclusionDepthExceeded::describe(), SubscriptionExpired::describe()] as $descriptor) {
-            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
-            $narrowing = $this->listAt($variant, 'allOf')[1];
-            self::assertIsArray($narrowing);
+            $branch = $this->branchFor($schemas, $descriptor->code);
 
-            self::assertSame($descriptor->description, $variant['description'] ?? null);
-            self::assertSame($descriptor->exampleDetail, $this->at($narrowing, 'properties', 'detail', 'example'));
+            self::assertSame($descriptor->title, $branch['title'] ?? null);
+            self::assertSame($descriptor->description, $branch['description'] ?? null);
         }
     }
 
     #[Test]
-    public function everyCoreVariantCarriesItsDescription(): void
+    public function everyCoreCodeBranchCarriesItsDescription(): void
     {
         $schemas = $this->schemas($this->fullServer());
 
         foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
-            $variant = $this->arrAt($schemas, ErrorCatalogProjector::componentName($descriptor->code));
-            self::assertSame($descriptor->description, $variant['description'] ?? null, $descriptor->code);
+            self::assertSame($descriptor->description, $this->branchFor($schemas, $descriptor->code)['description'] ?? null, $descriptor->code);
         }
     }
 
     #[Test]
-    public function aDescriptorWithoutThemProjectsExactlyAsBefore(): void
+    public function aCodeWithNoSourceOrMetaJoinsThePlainShapeOfItsStatus(): void
     {
         $server = new ContributingServerMetadata(
             $this->fullServer(),
@@ -241,20 +264,21 @@ final class ErrorCatalogProjectionTest extends TestCase
 
         self::assertSame(
             [
-                'title' => 'Payment required',
+                'title' => 'A 402 error',
+                'description' => 'A `402` error. Its `code` is one of the branches below, each describing what the code means and what a client should do about it.',
                 'allOf' => [
                     ['$ref' => '#/components/schemas/Error'],
                     [
                         'type' => 'object',
                         'properties' => [
-                            'code' => ['type' => 'string', 'const' => 'PAYMENT_REQUIRED'],
+                            'code' => ['anyOf' => [['type' => 'string', 'title' => 'Payment required', 'const' => 'PAYMENT_REQUIRED']]],
                             'status' => ['type' => 'string', 'const' => '402'],
                         ],
                         'required' => ['code', 'status'],
                     ],
                 ],
             ],
-            $this->arrAt($this->schemas($server), 'PaymentRequiredError'),
+            $this->arrAt($this->schemas($server), 'Error402'),
         );
     }
 
@@ -355,8 +379,8 @@ final class ErrorCatalogProjectionTest extends TestCase
         // The marker lives on the arm, not the menu, so the gate has to look inside.
         $schemas = $this->schemas($this->fullServer());
 
-        self::assertArrayHasKey('CursorStaleError', $schemas);
-        self::assertArrayHasKey('PaginationKindUnknownError', $schemas);
+        self::assertArrayHasKey('CURSOR_STALE', $this->codes($schemas));
+        self::assertArrayHasKey('PAGINATION_KIND_UNKNOWN', $this->codes($schemas));
     }
 
     #[Test]
@@ -405,11 +429,11 @@ final class ErrorCatalogProjectionTest extends TestCase
         );
 
         $declinedSchemas = $this->schemas(new ReadOnlyAttributeRejectingServerMetadata($this->fullServer(rejectsReadOnlyAttributes: false), rejects: false));
-        self::assertArrayNotHasKey('AttributeWriteProhibitedError', $declinedSchemas);
+        self::assertArrayNotHasKey('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($declinedSchemas));
 
         // Rejecting writes means nothing on a server that takes none.
         $readOnlySchemas = $this->schemas(new ReadOnlyAttributeRejectingServerMetadata($this->readOnlyServer()));
-        self::assertArrayNotHasKey('AttributeWriteProhibitedError', $readOnlySchemas);
+        self::assertArrayNotHasKey('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($readOnlySchemas));
     }
 
     #[Test]
@@ -431,12 +455,12 @@ final class ErrorCatalogProjectionTest extends TestCase
         );
 
         $declinedSchemas = $this->schemas(new MethodNotAllowedServerMetadata($this->fullServer(rendersMethodNotAllowed: false), renders: false));
-        self::assertArrayNotHasKey('MethodNotAllowedError', $declinedSchemas);
+        self::assertArrayNotHasKey('METHOD_NOT_ALLOWED', $this->codes($declinedSchemas));
 
         // A read-only server is where a client meets it most: every write is refused.
         $readOnlySchemas = $this->schemas(new MethodNotAllowedServerMetadata($this->readOnlyServer()));
-        self::assertArrayHasKey('MethodNotAllowedError', $readOnlySchemas);
-        self::assertSame('405', $this->at($readOnlySchemas, 'MethodNotAllowedError', 'allOf', '1', 'properties', 'status', 'const'));
+        self::assertArrayHasKey('METHOD_NOT_ALLOWED', $this->codes($readOnlySchemas));
+        self::assertSame('405', $this->at($this->narrowingFor($readOnlySchemas, 'METHOD_NOT_ALLOWED'), 'properties', 'status', 'const'));
     }
 
     #[Test]
@@ -463,7 +487,7 @@ final class ErrorCatalogProjectionTest extends TestCase
 
         $schemas = $this->schemas(new FakeServerMetadata(title: 'API', version: '1.0.0', types: [$type]));
 
-        self::assertArrayNotHasKey('DataMemberMissingError', $schemas);
+        self::assertArrayNotHasKey('DATA_MEMBER_MISSING', $this->codes($schemas));
     }
 
     #[Test]
@@ -472,16 +496,19 @@ final class ErrorCatalogProjectionTest extends TestCase
         $schemas = $this->schemas($this->readOnlyServer());
 
         // Nothing gated survives; everything ungated does.
-        self::assertArrayHasKey('ResourceNotFoundError', $schemas);
-        self::assertArrayHasKey('QueryParamUnrecognizedError', $schemas);
-        self::assertArrayNotHasKey('LocalIdConflictError', $schemas);
+        $codes = $this->codes($schemas);
+        self::assertArrayHasKey('RESOURCE_NOT_FOUND', $codes);
+        self::assertArrayHasKey('QUERY_PARAM_UNRECOGNIZED', $codes);
+        self::assertArrayNotHasKey('LOCAL_ID_CONFLICT', $codes);
 
-        $universal = \array_filter(
-            ErrorCatalog::core()->descriptors(),
-            static fn(ErrorDescriptor $descriptor): bool => $descriptor->feature === null,
+        $universal = \array_map(
+            static fn(ErrorDescriptor $descriptor): string => $descriptor->code,
+            \array_values(\array_filter(
+                ErrorCatalog::core()->descriptors(),
+                static fn(ErrorDescriptor $descriptor): bool => $descriptor->feature === null,
+            )),
         );
-        $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
-        self::assertCount(\count($universal) + 1, $branches);
+        self::assertEqualsCanonicalizing($universal, \array_keys($codes));
     }
 
     // ---- Fixtures & helpers ---------------------------------------------------------
@@ -506,12 +533,12 @@ final class ErrorCatalogProjectionTest extends TestCase
      */
     private function assertGatedBy(ErrorFeature $feature, ServerMetadataInterface $offering, ServerMetadataInterface $withholding): void
     {
-        $offered = $this->schemas($offering);
-        $withheld = $this->schemas($withholding);
+        $offered = $this->codes($this->schemas($offering));
+        $withheld = $this->codes($this->schemas($withholding));
 
         $gated = 0;
         foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
-            $component = ErrorCatalogProjector::componentName($descriptor->code);
+            $component = $descriptor->code;
 
             if ($descriptor->feature === $feature) {
                 ++$gated;
@@ -608,6 +635,76 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     /**
+     * Every catalogued code, mapped to the shape component whose `code` branches hold it.
+     *
+     * @param array<array-key, mixed> $schemas
+     *
+     * @return array<string, string>
+     */
+    private function codes(array $schemas): array
+    {
+        $codes = [];
+        foreach ($schemas as $name => $schema) {
+            $branches = self::dig($schema, 'allOf', 1, 'properties', 'code', 'anyOf');
+            if (!\is_array($branches)) {
+                continue;
+            }
+            foreach ($branches as $branch) {
+                if (\is_array($branch) && \is_string($branch['const'] ?? null)) {
+                    $codes[$branch['const']] = (string) $name;
+                }
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * The shape component cataloguing `$code`.
+     *
+     * @param array<array-key, mixed> $schemas
+     *
+     * @return array<array-key, mixed>
+     */
+    private function shapeFor(array $schemas, string $code): array
+    {
+        $shape = $this->codes($schemas)[$code] ?? null;
+        self::assertNotNull($shape, "{$code} is not catalogued");
+
+        return $this->arrAt($schemas, $shape);
+    }
+
+    /**
+     * The narrowing (`allOf[1]`) of the shape cataloguing `$code`.
+     *
+     * @param array<array-key, mixed> $schemas
+     *
+     * @return array<array-key, mixed>
+     */
+    private function narrowingFor(array $schemas, string $code): array
+    {
+        return $this->arrAt($this->shapeFor($schemas, $code), 'allOf', '1');
+    }
+
+    /**
+     * `$code`'s own `const` branch of its shape's `code`.
+     *
+     * @param array<array-key, mixed> $schemas
+     *
+     * @return array<array-key, mixed>
+     */
+    private function branchFor(array $schemas, string $code): array
+    {
+        foreach ($this->listAt($this->narrowingFor($schemas, $code), 'properties', 'code', 'anyOf') as $branch) {
+            if (\is_array($branch) && ($branch['const'] ?? null) === $code) {
+                return $branch;
+            }
+        }
+
+        self::fail("{$code} has no branch");
+    }
+
+    /**
      * @return array<array-key, mixed>
      */
     private function schemas(ServerMetadataInterface $server): array
@@ -649,5 +746,17 @@ final class ErrorCatalogProjectionTest extends TestCase
     private function listAt(array $schema, string ...$keys): array
     {
         return \array_values($this->arrAt($schema, ...$keys));
+    }
+
+    private static function dig(mixed $value, int|string ...$keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (!\is_array($value) || !\array_key_exists($key, $value)) {
+                return null;
+            }
+            $value = $value[$key];
+        }
+
+        return $value;
     }
 }

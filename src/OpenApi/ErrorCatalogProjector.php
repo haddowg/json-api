@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\CoreErrorSource;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
+use haddowg\JsonApi\Exception\ErrorSourceShape;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
@@ -15,16 +16,23 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Pagination\MultiPaginator;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
 /**
- * Projects the server's {@see ErrorCatalog} into one named schema component per error
- * code, and the `anyOf` that offers them from `ErrorDocument.errors.items`.
+ * Projects the server's {@see ErrorCatalog} into one schema component per error *shape*,
+ * and the `anyOf` that offers them from `ErrorDocument.errors.items`.
  *
- * A variant narrows the shared `Error` rather than restating it: `allOf: [$ref Error,
- * {code: const, status: const, …}]`. So a generator reads the code off
- * `allOf[1].properties.code.const` and emits a typed exception subclass, while the
- * member vocabulary stays in one place and a variant cannot drift from it.
+ * A shape is the codes at one status that share a `source` member and a `meta`
+ * declaration, so a new code usually joins an existing shape as one more `code` branch
+ * rather than adding a component and a union branch. Each code is a `const` branch of the
+ * shape's `code`, carrying the code's own `title` and `description`. A shape narrows the
+ * shared `Error` rather than restating it: `allOf: [$ref Error, {code: anyOf [const, …],
+ * status: const, source?, meta?}]`. The `code` is an `anyOf` even with one branch, so
+ * adding a code is always one more branch.
+ *
+ * A shape is named after its status, its `source` member and, when it declares `meta`, its
+ * first code: `Error403`, `Error422Pointer`, `Error403InsufficientScope`.
  *
  * **The `anyOf` is a catalogue, not a constraint.** Its first branch is the open generic
  * `Error`, which every error object satisfies — including one carrying an application's
@@ -51,35 +59,41 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  */
 final class ErrorCatalogProjector
 {
+    private readonly SchemaProjector $fields;
+
+    public function __construct()
+    {
+        $this->fields = new SchemaProjector();
+    }
+
     /**
-     * The per-code variant components, keyed by component name, in catalogue order —
-     * restricted to the codes this server can actually raise.
+     * The shape components, keyed by component name, in catalogue order of each shape's
+     * first code — restricted to the codes this server can actually raise.
      *
      * @return array<string, Schema>
      */
     public function components(ServerMetadataInterface $server): array
     {
         $components = [];
-        foreach ($this->raisable($server) as $descriptor) {
-            $components[self::componentName($descriptor->code)] = $this->variant($descriptor);
+        foreach ($this->shapes($server) as $name => $shape) {
+            $components[$name] = $this->shapeSchema($shape['status'], $shape['source'], $shape['meta'], $shape['descriptors']);
         }
 
         return $components;
     }
 
     /**
-     * The same variant component names, grouped by the status each pins to a `const` —
-     * the input to the per-status `ErrorDocument` narrowing. A status the catalogue never
-     * claims is absent from the map, so the narrowing is derivable from the catalogue
-     * alone.
+     * The shape component names, grouped by the status each pins to a `const` — the input
+     * to the per-status `ErrorDocument` narrowing. A status the catalogue never claims is
+     * absent from the map, so the narrowing is derivable from the catalogue alone.
      *
      * @return array<int, list<string>>
      */
     public function componentsByStatus(ServerMetadataInterface $server): array
     {
         $byStatus = [];
-        foreach ($this->raisable($server) as $descriptor) {
-            $byStatus[$descriptor->status][] = self::componentName($descriptor->code);
+        foreach ($this->shapes($server) as $name => $shape) {
+            $byStatus[$shape['status']][] = $name;
         }
 
         return $byStatus;
@@ -142,10 +156,10 @@ final class ErrorCatalogProjector
         return Schema::create()
             ->withDescription(
                 $status === null
-                    ? 'A JSON:API error object. The named branches catalogue the codes this server '
+                    ? 'A JSON:API error object. The named shapes catalogue the codes this server '
                         . 'documents; the leading generic `Error` keeps the list open, so an error '
                         . 'carrying an undocumented `code` is still a valid error object.'
-                    : 'A JSON:API error object in a `' . $status . '` document. The named branches catalogue '
+                    : 'A JSON:API error object in a `' . $status . '` document. The named shapes catalogue '
                         . 'the codes this server documents at that status; the leading generic `Error` keeps '
                         . 'the list open, so an error carrying an undocumented `code` — or one whose own '
                         . '`status` differs, which happens when a document of mixed statuses takes the '
@@ -155,16 +169,20 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The component name for a code: `FILTERING_UNRECOGNIZED` → `FilteringUnrecognizedError`.
-     * The suffix keeps a code clear of the shared `Error` / `ErrorSource` / `ErrorDocument`
-     * components and of a resource type's component set, and is not doubled on a code that
-     * already ends in it (`APPLICATION_ERROR` → `ApplicationError`).
+     * The shape component name for codes at `$status` sharing `$source` and, when
+     * `$metaCode` is given, the `meta` declaration that code introduced.
      */
-    public static function componentName(string $code): string
+    public static function shapeName(int $status, ?ErrorSourceShape $source, ?string $metaCode): string
     {
-        $base = ComponentNaming::base(\strtolower($code));
+        $name = 'Error' . $status;
+        if ($source !== null) {
+            $name .= \ucfirst($source->value);
+        }
+        if ($metaCode !== null) {
+            $name .= ComponentNaming::base(\strtolower($metaCode));
+        }
 
-        return \str_ends_with($base, 'Error') ? $base : $base . 'Error';
+        return $name;
     }
 
     /**
@@ -185,51 +203,119 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * One code's variant: the shared `Error`, narrowed by the two members a client may
-     * dispatch on (`code` and `status` are the machine contract and are never
-     * resolver-overridable) plus the `source` member the exception always fills.
+     * The codes this server can raise, grouped into shapes by status, `source` member and
+     * projected `meta`, keyed by shape name in catalogue order of each shape's first code.
      *
-     * `title` stays a plain string — a bound
-     * {@see \haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface} replaces it per
-     * locale — so core's default is carried as the schema's `title` annotation instead
-     * of a `const` the server would then violate.
-     *
-     * A descriptor's consumer-facing `description` becomes the component's description,
-     * and its `exampleDetail` an `example` on `detail`. `detail` is not required: the
-     * example illustrates the member, it does not promise one.
+     * @return array<string, array{status: int, source: ?ErrorSourceShape, meta: ?Schema, descriptors: non-empty-list<ErrorDescriptor>}>
      */
-    private function variant(ErrorDescriptor $descriptor): Schema
+    private function shapes(ServerMetadataInterface $server): array
     {
+        $shapes = [];
+        $names = [];
+        $members = [];
+        foreach ($this->raisable($server) as $descriptor) {
+            $meta = $this->metaSchema($descriptor);
+            $key = $descriptor->status . "\0" . ($descriptor->source->value ?? '') . "\0"
+                . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR));
+            if (!isset($names[$key])) {
+                $name = self::shapeName($descriptor->status, $descriptor->source, $meta === null ? null : $descriptor->code);
+                $names[$key] = $name;
+                $shapes[$name] = ['status' => $descriptor->status, 'source' => $descriptor->source, 'meta' => $meta];
+            }
+            $members[$names[$key]][] = $descriptor;
+        }
+
+        $out = [];
+        foreach ($shapes as $name => $shape) {
+            $out[$name] = $shape + ['descriptors' => $members[$name]];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The closed `meta` object a descriptor declares, or `null` when it declares none. A
+     * member declared `required()` is required; any other is optional.
+     */
+    private function metaSchema(ErrorDescriptor $descriptor): ?Schema
+    {
+        if ($descriptor->meta === []) {
+            return null;
+        }
+
+        return $this->fields->projectField(Obj::make('meta')->fields(...$descriptor->meta)->build(), true);
+    }
+
+    /**
+     * One shape: the shared `Error`, narrowed by the two members a client may dispatch on
+     * (`code` and `status` are the machine contract and are never resolver-overridable),
+     * the `source` member every one of its codes always fills, and its declared `meta`.
+     *
+     * Each code is a `const` branch of `code` titled with the code's default `title` and
+     * described by its `description`. `title` itself stays a plain string — a bound
+     * {@see \haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface} replaces it per
+     * locale — so the default is carried as an annotation rather than a `const` the server
+     * would then violate. A code's example `detail` and `source` live in its entry of each
+     * error response's `examples`, not on the schema.
+     *
+     * `meta` is required only when its declaration has a required member.
+     *
+     * @param non-empty-list<ErrorDescriptor> $descriptors
+     */
+    private function shapeSchema(int $status, ?ErrorSourceShape $source, ?Schema $meta, array $descriptors): Schema
+    {
+        $codes = [];
+        foreach ($descriptors as $descriptor) {
+            $branch = Schema::ofType('string')->withConst($descriptor->code)->withTitle($descriptor->title);
+            if ($descriptor->description !== null) {
+                $branch = $branch->withDescription($descriptor->description);
+            }
+            $codes[] = $branch;
+        }
+
         $required = ['code', 'status'];
         $narrowing = Schema::ofType('object')
-            ->withProperty('code', Schema::ofType('string')->withConst($descriptor->code))
-            ->withProperty('status', Schema::ofType('string')->withConst((string) $descriptor->status));
+            ->withProperty('code', Schema::create()->withAnyOf($codes))
+            ->withProperty('status', Schema::ofType('string')->withConst((string) $status));
 
-        if ($descriptor->source !== null) {
-            $source = Schema::ofType('object')->withRequired([$descriptor->source->value]);
-            if ($descriptor->exampleSource !== null) {
-                $source = $source->withExample([$descriptor->source->value => $descriptor->exampleSource]);
-            }
-            $narrowing = $narrowing->withProperty('source', $source);
+        if ($source !== null) {
+            $narrowing = $narrowing->withProperty('source', Schema::ofType('object')->withRequired([$source->value]));
             $required[] = 'source';
         }
 
-        if ($descriptor->exampleDetail !== null) {
-            $narrowing = $narrowing->withProperty(
-                'detail',
-                Schema::ofType('string')->withExample($descriptor->exampleDetail),
-            );
+        if ($meta !== null) {
+            $narrowing = $narrowing->withProperty('meta', $meta);
+            $metaRequired = $meta->get('required');
+            if (\is_array($metaRequired) && $metaRequired !== []) {
+                $required[] = 'meta';
+            }
         }
 
-        $variant = Schema::create()->withTitle($descriptor->title);
-        if ($descriptor->description !== null) {
-            $variant = $variant->withDescription($descriptor->description);
-        }
+        $title = $meta !== null
+            ? $descriptors[0]->title
+            : match ($source) {
+                null => 'A ' . $status . ' error',
+                ErrorSourceShape::Pointer => 'A ' . $status . ' error located by a pointer',
+                ErrorSourceShape::Parameter => 'A ' . $status . ' error caused by a query parameter',
+                ErrorSourceShape::Header => 'A ' . $status . ' error caused by a header',
+            };
 
-        return $variant->withAllOf([
-            Schema::ref(ComponentNaming::schemaRef('Error')),
-            $narrowing->withRequired($required),
-        ]);
+        $description = 'A `' . $status . '` error. Its `code` is one of the branches below, each '
+            . 'describing what the code means and what a client should do about it.';
+        $description .= match ($source) {
+            null => '',
+            ErrorSourceShape::Pointer => ' `source.pointer` locates the member of the request document at fault.',
+            ErrorSourceShape::Parameter => ' `source.parameter` names the query parameter at fault.',
+            ErrorSourceShape::Header => ' `source.header` names the request header at fault.',
+        };
+
+        return Schema::create()
+            ->withTitle($title)
+            ->withDescription($description)
+            ->withAllOf([
+                Schema::ref(ComponentNaming::schemaRef('Error')),
+                $narrowing->withRequired($required),
+            ]);
     }
 
     /**

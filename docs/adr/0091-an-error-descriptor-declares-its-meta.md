@@ -1,0 +1,3 @@
+# An error descriptor declares its meta
+
+An error that puts data in `meta` declares those members on its `ErrorDescriptor` with the same field builders a resource's attributes use, and the catalogue projects them as a closed `meta` object on the code's shape, so a generated client can type it instead of handing back an untyped map. A member declared `required()` makes `meta` required on the shape, and any other member is optional, because some errors put a member in `meta` only on some error objects. Reusing the field builders keeps one way to describe a JSON value and one projection for it, and each member's `example()` feeds the code's example under the same rule as an attribute's.

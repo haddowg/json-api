@@ -386,6 +386,12 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates` guards it,
   so do not "tighten" it. `Error::$context` is not projected in any spelling
   ([ADR 0053](docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
+- The catalogue groups the codes at one status sharing a `source` member and a declared
+  `meta` into one shape, each code a `const` branch of an `anyOf` `code` carrying its own
+  `title` and `description`, even when the shape holds one code. Never go back to one
+  component per code, and keep per-code examples in the responses' `examples`, not on the
+  schema ([ADR 0090](docs/adr/0090-error-codes-are-grouped-into-shapes-per-status.md),
+  [ADR 0091](docs/adr/0091-an-error-descriptor-declares-its-meta.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
   claims that status and the generic `ErrorDocument` when it does not. The

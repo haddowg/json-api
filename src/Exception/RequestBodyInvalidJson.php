@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
+use haddowg\JsonApi\Resource\Field\Str;
+
 final class RequestBodyInvalidJson extends AbstractJsonApiException implements DescribedErrorInterface
 {
     public function __construct(
@@ -23,6 +25,9 @@ final class RequestBodyInvalidJson extends AbstractJsonApiException implements D
             context: ['message' => ErrorContextType::Str],
             feature: ErrorFeature::Writes,
             description: 'The request body is not well-formed JSON. Fix the syntax the `detail` reports and send the request again.',
+            meta: [
+                Str::make('original')->describedAs('The raw request body that failed to parse, when the server has it.'),
+            ],
         );
     }
 

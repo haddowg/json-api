@@ -54,8 +54,9 @@ The projection is a small pipeline of **pure** classes in
   its declared success responses (see [Response declarations](#response-declarations)) and a
   `$ref` per standard error status, and carries its tags and per-operation security.
 
-- **`ErrorCatalogProjector`** — projects the server's error codes into one named schema
-  component each, and the `anyOf` that offers them from `ErrorDocument.errors.items`. See
+- **`ErrorCatalogProjector`** — groups the server's error codes into one named shape per
+  status, `source` member and `meta` declaration, each code a `const` branch of its shape,
+  and the `anyOf` that offers the shapes from `ErrorDocument.errors.items`. See
   [The error-code catalogue](#the-error-code-catalogue).
 
 - **`ErrorResponseProjector`** — projects the `components.responses` entry every operation's
@@ -319,44 +320,84 @@ number of types, as before.
 ### The error-code catalogue
 
 Every [typed exception](errors-and-exceptions.md) core raises carries a stable `code`, a
-fixed HTTP status, a default title and — usually — a known `source` member. The
-projection publishes each one as its own schema component, so a generated client can
-offer a typed exception per code instead of an opaque string to `switch` on:
+fixed HTTP status, a default title and, usually, a known `source` member. The projection
+groups the codes into **shapes**: the codes at one status that fill the same `source`
+member and declare the same `meta` share one schema component, and each code is a `const`
+branch of that component's `code`. A generated client still offers a typed exception per
+code, and a new code usually adds one branch rather than a component:
 
 ```yaml
 components:
   schemas:
-    FilteringUnrecognizedError:
-      title: Filtering parameter is unrecognized
-      description: The request filtered on a key this endpoint does not declare. Filter only on the keys the API documents for this resource type.
+    Error400Parameter:
+      title: A 400 error caused by a query parameter
+      description: A `400` error. Its `code` is one of the branches below, … `source.parameter` names the query parameter at fault.
       allOf:
         - $ref: '#/components/schemas/Error'
         - type: object
           properties:
-            code:   { type: string, const: FILTERING_UNRECOGNIZED }
+            code:
+              anyOf:
+                - type: string
+                  const: FILTERING_UNRECOGNIZED
+                  title: Filtering parameter is unrecognized
+                  description: The request filtered on a key this endpoint does not declare. Filter only on the keys the API documents for this resource type.
+                - type: string
+                  const: QUERY_PARAM_UNRECOGNIZED
+                  title: Query parameter is unrecognized
+                  description: …
+                - …
             status: { type: string, const: '400' }
             source: { type: object, required: [parameter] }
-            detail: { type: string, example: "Filtering parameter 'colour' can't be recognized by the endpoint!" }
           required: [code, status, source]
 ```
 
-A variant **narrows** the shared `Error` rather than restating it, so the member
-vocabulary lives in one place. `code` and `status` are pinned to a `const` — they are the
-machine and HTTP contract and no [message resolver](errors-and-exceptions.md#localizing-and-overriding-error-copy)
-can change them. `title` stays a plain string, because a resolver replaces it per locale;
-core's default is the schema's `title` annotation. `source` names the member the exception
-always fills, so a client can read `source.parameter` without a null check on the codes
-that guarantee it.
+A shape **narrows** the shared `Error` rather than restating it, so the member vocabulary
+lives in one place. `code` and `status` are pinned, the code to one of its branches and the
+status to a `const`: they are the machine and HTTP contract and no
+[message resolver](errors-and-exceptions.md#localizing-and-overriding-error-copy) can change
+them. `title` stays a plain string, because a resolver replaces it per locale; core's
+default is the `title` annotation on the code's branch. `source` names the member every code
+in the shape always fills, so a client can read `source.parameter` without a null check on
+the codes that guarantee it. The `code` is an `anyOf` even when the shape holds one code, so
+adding a code is always one more branch.
 
-The component's `description` says what the code means and what a client should do about
-it, which a generator can carry onto the typed exception it emits. Where the `detail` a
-client receives names part of its own request, the `detail` property carries an `example`
-of one. It stays out of `required`: the example shows the member and promises nothing.
-Every code core ships has a description; your own codes get one from the
+A shape is named for its status, then its `source` member, then, when it declares `meta`, its
+first code: `Error404`, `Error422Pointer`, `Error406Header`, `Error403InsufficientScope`.
+
+Each branch's `description` says what its code means and what a client should do about it,
+which a generator can carry onto the typed exception it emits. Every code core ships has a
+description; your own codes get one from the
 [descriptor](errors-and-exceptions.md#telling-api-consumers-what-a-code-means), and a code
-without one projects with neither member.
+without one projects its branch without it. A code's example `detail`, `source` and `meta`
+are in its entry of the error responses' [examples](#operation-examples), not on the schema.
 
-What the variant does **not** carry is the error's interpolation context. The
+**Meta.** A code whose descriptor [declares its `meta`](errors-and-exceptions.md#declaring-what-an-error-puts-in-meta)
+gets a closed `meta` object built from those members, with the same field builders and the
+same projection an attribute uses. `meta` is required when a member is declared `required()`
+and optional otherwise. `INSUFFICIENT_SCOPE` shows both kinds:
+
+```yaml
+    Error403InsufficientScope:
+      title: Insufficient scope
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            code: { anyOf: [ { type: string, const: INSUFFICIENT_SCOPE, title: Insufficient scope, description: … } ] }
+            status: { type: string, const: '403' }
+            meta:
+              type: object
+              properties:
+                requiredScopes: { type: array, items: { type: string }, description: Every scope the request needs. }
+                missingScopes:  { type: array, items: { type: string }, description: The required scopes the access token does not grant. }
+                include:        { type: string, description: … }
+              required: [requiredScopes, missingScopes]
+              additionalProperties: false
+          required: [code, status, meta]
+```
+
+What a shape does **not** carry is the error's interpolation context. The
 `{placeholder}` tokens core fills into `title` and `detail` are resolved before the
 response leaves, so the context itself never reaches a client. Describing its shape in a
 document a client reads would describe something it can never receive. Those tokens are a
@@ -370,7 +411,7 @@ writes a replacement template is already working.
 items:
   anyOf:
     - $ref: '#/components/schemas/Error'          # the open branch
-    - $ref: '#/components/schemas/FilteringUnrecognizedError'
+    - $ref: '#/components/schemas/Error400Parameter'
     - …
 ```
 
@@ -378,7 +419,7 @@ items:
 throws error codes this projection has never heard of, and a closed `oneOf` would make
 those documents fail your own published schema. The `anyOf` is a **catalogue, not a
 constraint**: it constrains nothing, and that is the point. A generator reads the named
-variants for the codes it can type and falls back to a status-based exception, raw code
+shapes for the codes it can type and falls back to a status-based exception, raw code
 intact, for anything else.
 
 The catalogue is registration-aware, like the rest of the document: a code that depends
@@ -420,9 +461,9 @@ component's; the [Atomic Operations](atomic-operations.md) batch does this for t
 describes in terms of an operation within the batch rather than the request as a whole.
 
 **Each response carries the narrowest error document its status supports.** Every
-catalogued code pins its `status` to a `const`, so `ErrorDocument422` is the error document
-whose `errors.items.anyOf` offers only the codes that can arrive with a `422` — and the
-open generic `Error` still leads it. A status the catalogue claims no code for keeps the
+catalogued shape pins its `status` to a `const`, so `ErrorDocument422` is the error document
+whose `errors.items.anyOf` offers only the shapes whose codes can arrive with a `422` — and
+the open generic `Error` still leads it. A status the catalogue claims no code for keeps the
 generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
 `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
 for the adapters to render when the framework's security layer refuses a request, so
@@ -626,10 +667,11 @@ as that `$ref`.
 ### Operation examples
 
 Every operation's request body and success responses carry a whole worked `example` on
-their `application/vnd.api+json` media type, and so does each shared error response. The
-projector builds them from the examples you already declare, the `example()` on each field
-and the `exampleDetail` / `exampleSource` on each error descriptor, so they follow the
-fields as they change and nobody maintains a second copy. A code generator or an MCP tool
+their `application/vnd.api+json` media type, and each shared error response carries named
+`examples`, one per code. The projector builds them from the examples you already declare:
+the `example()` on each field, and the `exampleDetail`, `exampleSource` and meta members'
+`example()` on each error descriptor. They follow the fields as they change and nobody
+maintains a second copy. A code generator or an MCP tool
 description can quote one as is.
 
 The examples show what the server sends and accepts:
@@ -677,15 +719,16 @@ The examples show what the server sends and accepts:
 - A custom action's response is built from the type its `ActionResource` names, and its
   request body from its input type when the input is a resource document. A `RawResult`
   keeps its own `example`.
-- An error response carries one error, with its code's `status`, `code`, `title`,
-  `exampleDetail` and `source`. The response is shared by every operation that can answer
-  with that status, so the code is the one a reader most likely meets there:
-  `QUERY_PARAM_MALFORMED` (else `REQUEST_BODY_INVALID_JSON_API`) for a `400`,
-  `ACCESS_DENIED` for a `403`, `RESOURCE_NOT_FOUND` for a `404`,
-  `RESOURCE_TYPE_UNACCEPTABLE` for a `409` and `ATTRIBUTE_VALUE_INVALID` for a `422`. Any
-  other status, or one whose preferred code the server cannot raise, shows the first code
-  catalogued for it. Listing every code would bury the shape under a long list wherever the
-  example is quoted.
+- An error response carries one named example per code its status catalogues, keyed by the
+  code and summarised by its title. Each is a document holding that code's one error, with
+  its `status`, `code`, `title`, `exampleDetail`, `source` and declared `meta`. A viewer shows
+  the first entry by default, so the map leads with the code a reader most likely meets on
+  the operations sharing the response: `QUERY_PARAM_MALFORMED` (else
+  `REQUEST_BODY_INVALID_JSON_API`) for a `400`, `ACCESS_DENIED` for a `403`,
+  `RESOURCE_NOT_FOUND` for a `404`, `RESOURCE_TYPE_UNACCEPTABLE` for a `409` and
+  `ATTRIBUTE_VALUE_INVALID` for a `422`. The rest follow in catalogue order. A code whose
+  example needs a value nothing declares, such as a `source` with no `exampleSource` or a
+  required meta member with no `example()`, is left out of the map and reported.
 
 Nothing is invented. When any value an operation's examples need has no declared example,
 that operation gets none, and the projector says which field was missing:

@@ -374,10 +374,12 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
-    public function anErrorResponseCarriesTheFirstCodeItsStatusCatalogues(): void
+    public function anErrorResponseCarriesOneNamedExamplePerCode(): void
     {
         $document = $this->project([$this->articles()]);
 
+        self::assertSame(['MEDIA_TYPE_UNACCEPTABLE'], \array_keys(self::arr(self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples'))));
+        self::assertSame('The provided media type is unacceptable', self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'summary'));
         self::assertSame([
             'errors' => [[
                 'status' => '406',
@@ -387,10 +389,16 @@ final class OperationExampleProjectionTest extends TestCase
                 'source' => ['header' => 'Accept'],
             ]],
             'jsonapi' => ['version' => '1.1'],
-        ], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'example'));
+        ], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'value'));
 
-        // A status catalogues many codes; the example shows one error, never the whole list.
-        self::assertCount(1, self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example', 'errors')));
+        // A status catalogues many codes: each gets its own example, each showing one error.
+        $badRequest = self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'examples'));
+        self::assertGreaterThan(1, \count($badRequest));
+        foreach ($badRequest as $code => $example) {
+            self::assertSame($code, self::at(self::arr($example), 'value', 'errors', '0', 'code'));
+            self::assertCount(1, self::arr(self::at(self::arr($example), 'value', 'errors')));
+        }
+        self::assertArrayNotHasKey('example', self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json')));
     }
 
     #[Test]
@@ -417,25 +425,40 @@ final class OperationExampleProjectionTest extends TestCase
     public function anErrorResponsePrefersTheCodeAReaderMostLikelyMeets(): void
     {
         $document = $this->project([$this->articles()]);
-        $code = static fn(string $response): mixed => self::at($document, 'components', 'responses', $response, 'content', 'application/vnd.api+json', 'example', 'errors', '0', 'code');
+        $code = static fn(string $response): mixed => \array_key_first(self::arr(self::at($document, 'components', 'responses', $response, 'content', 'application/vnd.api+json', 'examples')));
 
         self::assertSame('QUERY_PARAM_MALFORMED', $code('BadRequest'));
         self::assertSame('ACCESS_DENIED', $code('Forbidden'));
         self::assertSame('RESOURCE_NOT_FOUND', $code('NotFound'));
         self::assertSame('RESOURCE_TYPE_UNACCEPTABLE', $code('Conflict'));
         self::assertSame('ATTRIBUTE_VALUE_INVALID', $code('UnprocessableEntity'));
-        // A status with no preferred code keeps the first one catalogued.
+        // A status with no preferred code leads with the first one catalogued.
         self::assertSame('MEDIA_TYPE_UNSUPPORTED', $code('UnsupportedMediaType'));
     }
 
     #[Test]
-    public function aContributedCodeLaterInTheCatalogueLeavesTheExampleAlone(): void
+    public function aCodeMissingAnExampleValueDropsOnlyItsOwnExample(): void
     {
         $server = new ContributingServerMetadata($this->server([$this->articles()]), new ClassListErrorSource(QuotaParameterRejected::class));
         $projection = (new OpenApiProjector())->projectWithDiagnostics($server);
 
-        self::assertNotNull(self::at($projection->document->toArray(), 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'example'));
-        self::assertNotContainsEquals(new MissingExample('BadRequest', 'QUOTA_PARAMETER_REJECTED', 'source'), $projection->missingExamples);
+        $examples = self::arr(self::at($projection->document->toArray(), 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'examples'));
+        self::assertArrayHasKey('QUERY_PARAM_MALFORMED', $examples);
+        self::assertArrayNotHasKey('QUOTA_PARAMETER_REJECTED', $examples);
+        self::assertContainsEquals(new MissingExample('BadRequest', 'QUOTA_PARAMETER_REJECTED', 'source'), $projection->missingExamples);
+    }
+
+    #[Test]
+    public function aDeclaredMetaFeedsItsCodesExample(): void
+    {
+        $server = $this->server([]);
+        $builder = new ExampleDocumentBuilder($server, new LinkSchemaProjector($server, new Paths()));
+
+        self::assertSame(
+            ['requiredScopes' => ['articles:read', 'articles:write'], 'missingScopes' => ['articles:write']],
+            self::at($builder->errorDocument(\haddowg\JsonApi\Exception\InsufficientScope::describe()), 'errors', '0', 'meta'),
+        );
+        self::assertArrayNotHasKey('meta', self::arr(self::at($builder->errorDocument(\haddowg\JsonApi\Exception\RequestBodyInvalidJson::describe()), 'errors', '0')));
     }
 
     #[Test]

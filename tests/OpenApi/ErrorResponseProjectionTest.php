@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
-use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
 use haddowg\JsonApi\OpenApi\ErrorResponseProjector;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -127,23 +126,22 @@ final class ErrorResponseProjectionTest extends TestCase
     // ---- Per-status narrowing --------------------------------------------------------
 
     #[Test]
-    public function aNarrowedDocumentOffersOnlyTheCodesOfItsStatusBehindTheGenericBranch(): void
+    public function aNarrowedDocumentOffersOnlyTheShapesOfItsStatusBehindTheGenericBranch(): void
     {
         $schemas = $this->arrAt($this->project($this->fullServer()), 'components', 'schemas');
-        $branches = $this->listAt($schemas, 'ErrorDocument415', 'properties', 'errors', 'items', 'anyOf');
+        $branches = $this->listAt($schemas, 'ErrorDocument400', 'properties', 'errors', 'items', 'anyOf');
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0], 'the generic branch must lead');
 
         $expected = [];
-        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
-            $component = ErrorCatalogProjector::componentName($descriptor->code);
-            if ($descriptor->status === 415 && isset($schemas[$component])) {
-                $expected[] = ['$ref' => '#/components/schemas/' . $component];
+        foreach ($schemas as $name => $schema) {
+            if (self::dig($schema, 'allOf', 1, 'properties', 'status', 'const') === '400') {
+                $expected[] = ['$ref' => '#/components/schemas/' . $name];
             }
         }
 
-        self::assertNotSame([], $expected, 'no catalogued code carries 415');
-        self::assertSame($expected, \array_slice($branches, 1));
+        self::assertGreaterThan(1, \count($expected), 'the 400 codes should span several shapes');
+        self::assertEqualsCanonicalizing($expected, \array_slice($branches, 1));
     }
 
     #[Test]
@@ -156,7 +154,7 @@ final class ErrorResponseProjectionTest extends TestCase
             $this->strAt($document, 'components', 'responses', 'Unauthorized', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
         self::assertSame(
-            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/AuthenticationRequiredError']],
+            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/Error401']],
             $this->listAt($document, 'components', 'schemas', 'ErrorDocument401', 'properties', 'errors', 'items', 'anyOf'),
         );
     }
@@ -173,7 +171,7 @@ final class ErrorResponseProjectionTest extends TestCase
             $this->strAt($document, 'components', 'responses', 'Forbidden', 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
         self::assertSame(
-            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/AccessDeniedError']],
+            [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/Error403']],
             $this->listAt($document, 'components', 'schemas', 'ErrorDocument403', 'properties', 'errors', 'items', 'anyOf'),
         );
     }
@@ -373,6 +371,18 @@ final class ErrorResponseProjectionTest extends TestCase
     {
         $value = $this->at($document, ...$keys);
         self::assertIsString($value);
+
+        return $value;
+    }
+
+    private static function dig(mixed $value, int|string ...$keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (!\is_array($value) || !\array_key_exists($key, $value)) {
+                return null;
+            }
+            $value = $value[$key];
+        }
 
         return $value;
     }

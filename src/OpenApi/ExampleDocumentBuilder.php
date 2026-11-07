@@ -58,10 +58,13 @@ final class ExampleDocumentBuilder
     /** @var array<string, array{string, string}> */
     private array $misses = [];
 
+    private readonly SchemaProjector $schemas;
+
     public function __construct(
         private readonly ServerMetadataInterface $server,
         private readonly LinkSchemaProjector $links,
     ) {
+        $this->schemas = new SchemaProjector();
         foreach ($server->types() as $type) {
             $this->types[$type->type()] = $type;
         }
@@ -279,6 +282,17 @@ final class ExampleDocumentBuilder
                 $this->miss($descriptor->code, 'source');
             }
             $error['source'] = [$descriptor->source->value => $descriptor->exampleSource ?? ''];
+        }
+        $meta = [];
+        foreach ($descriptor->meta as $member) {
+            if ($member->hasExample()) {
+                $meta[$member->name()] = $member->getExample();
+            } elseif ($this->schemas->isRequired($member, true)) {
+                $this->miss($descriptor->code, 'meta.' . $member->name());
+            }
+        }
+        if ($meta !== []) {
+            $error['meta'] = $meta;
         }
 
         return ['errors' => [$error], 'jsonapi' => $this->jsonApi([])];

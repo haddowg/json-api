@@ -62,11 +62,11 @@ final class OperationExampleProjector
     }
 
     /**
-     * The shared error responses with an example holding one error: the status's
-     * representative code ({@see REPRESENTATIVE_CODES}) when the catalogue has it, else
-     * the first code catalogued for the status. A document listing every code a status
-     * can carry reads as noise wherever the example is quoted. A status no catalogued
-     * code claims gets none.
+     * The shared error responses with one named example per code the status catalogues,
+     * keyed by code: each an error document holding that code's one error, led by the
+     * status's representative code ({@see REPRESENTATIVE_CODES}) when the catalogue has
+     * it. A code whose example needs a value nothing declares is left out and recorded as
+     * a {@see MissingExample}. A status no catalogued code claims gets none.
      *
      * @param array<string, Response>                                               $components   response component name → response
      * @param array<int, non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor>> $descriptors status → descriptors, in catalogue order
@@ -82,12 +82,18 @@ final class OperationExampleProjector
                 continue;
             }
 
-            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument(self::representative($status, $byStatus)));
-            foreach ($misses as [$code, $field]) {
-                $this->recordMiss($name, $code, $field);
+            $examples = [];
+            foreach (self::representativeFirst($status, $byStatus) as $descriptor) {
+                [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument($descriptor));
+                foreach ($misses as [$code, $field]) {
+                    $this->recordMiss($name, $code, $field);
+                }
+                if ($example !== null) {
+                    $examples[$descriptor->code] = ['summary' => $descriptor->title, 'value' => $example];
+                }
             }
-            if ($example !== null) {
-                $components[$name] = $this->withResponseExample($response, $example);
+            if ($examples !== []) {
+                $components[$name] = $this->withResponseExamples($response, $examples);
             }
         }
 
@@ -95,10 +101,10 @@ final class OperationExampleProjector
     }
 
     /**
-     * The core code each shared error response's example prefers, in order, when the
-     * catalogue has it: the error a reader most likely meets at that status on any of the
-     * operations sharing the response. Catalogue order sorts by class name, which would
-     * show an atomic-batch error for every `400` and a missing relationship for every `404`.
+     * The core code each shared error response's examples lead with, in order of
+     * preference, when the catalogue has it: the error a reader most likely meets at that
+     * status on any of the operations sharing the response. Catalogue order sorts by class name, which would
+     * lead every `400` with an atomic-batch error and every `404` with a missing relationship.
      */
     private const REPRESENTATIVE_CODES = [
         400 => ['QUERY_PARAM_MALFORMED', 'REQUEST_BODY_INVALID_JSON_API'],
@@ -109,19 +115,26 @@ final class OperationExampleProjector
     ];
 
     /**
+     * The descriptors at a status, the one its example map leads with first and the rest in
+     * catalogue order. A viewer shows the first entry by default.
+     *
      * @param non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor> $descriptors
+     *
+     * @return list<\haddowg\JsonApi\Exception\ErrorDescriptor>
      */
-    private static function representative(int $status, array $descriptors): \haddowg\JsonApi\Exception\ErrorDescriptor
+    private static function representativeFirst(int $status, array $descriptors): array
     {
         foreach (self::REPRESENTATIVE_CODES[$status] ?? [] as $code) {
-            foreach ($descriptors as $descriptor) {
+            foreach ($descriptors as $index => $descriptor) {
                 if ($descriptor->code === $code) {
-                    return $descriptor;
+                    unset($descriptors[$index]);
+
+                    return [$descriptor, ...\array_values($descriptors)];
                 }
             }
         }
 
-        return $descriptors[0];
+        return $descriptors;
     }
 
     /**
@@ -424,6 +437,20 @@ final class OperationExampleProjector
         $this->emitted = true;
 
         return $response->withMediaType(MediaType::JSON_API, $media->withExample($example));
+    }
+
+    /**
+     * @param array<string, array{summary: string, value: mixed}> $examples
+     */
+    private function withResponseExamples(Response $response, array $examples): Response
+    {
+        $media = $response->content[MediaType::JSON_API] ?? null;
+        if ($media === null) {
+            return $response;
+        }
+        $this->emitted = true;
+
+        return $response->withMediaType(MediaType::JSON_API, $media->withExamples($examples));
     }
 
     private function recordMiss(string $operation, string $type, string $field): void
