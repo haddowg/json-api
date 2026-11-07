@@ -485,7 +485,8 @@ says otherwise. When only some operations raise it, give the descriptor a `scope
 `ErrorScope::on('articles', 'update', 'delete')` for operations of one type,
 `ErrorScope::kinds(OperationKind::Delete)` for every delete. The
 [projection](openapi.md#scoping-a-code-to-the-operations-that-raise-it) then offers the code
-only there. To scope an error you do not own, catalogue it through a `ScopedErrorSource`,
+only there, and on the Atomic Operations endpoint when the scope covers a write a batch can
+perform. To scope an error you do not own, catalogue it through a `ScopedErrorSource`,
 whose scope replaces the descriptor's.
 ## Writing your own exception
 
