@@ -75,7 +75,8 @@ final class ErrorResponseProjector
     }
 
     /**
-     * The error statuses the projected paths reference, ascending. Read off the built
+     * The error statuses whose shared response the projected paths reference, ascending.
+     * An operation pointed at a response narrowed to its scoped codes does not count. Read off the built
      * document rather than re-derived from metadata, so the component set cannot drift
      * from the per-operation status lists that produced it.
      *
@@ -87,7 +88,7 @@ final class ErrorResponseProjector
         foreach ($paths->items as $item) {
             foreach ($item->operations as $operation) {
                 foreach ($operation->responses->responses as $status => $response) {
-                    if ($response instanceof Reference) {
+                    if ($response instanceof Reference && $response->ref === Reference::to('responses', self::name((string) $status))->ref) {
                         $seen[$status] = true;
                     }
                 }

@@ -112,6 +112,28 @@ final class ContractGuardTest extends TestCase
     }
 
     #[Test]
+    public function anExampleComponentsValueIsNotStructure(): void
+    {
+        $witness = static fn(array $examples): string => \json_encode([
+            'openapi' => '3.1.0',
+            'info' => ['title' => 'Witness', 'version' => '1', 'x-generator' => ['contract' => 3]],
+            'components' => ['schemas' => ['Link' => self::link()], 'examples' => $examples],
+        ], \JSON_THROW_ON_ERROR);
+        \file_put_contents($this->repo . '/' . self::WITNESS, $witness(['A' => ['summary' => 'A', 'value' => ['n' => 1]]]));
+        $this->git('add', '.');
+        $this->git('commit', '-q', '-m', 'release 1.0.1');
+        $this->git('tag', 'v1.0.1');
+
+        \file_put_contents($this->repo . '/' . self::WITNESS, $witness(['A' => ['summary' => 'Reworded', 'value' => ['n' => 2]]]));
+        [$status, $output] = $this->guard();
+        self::assertSame(0, $status, $output);
+
+        \file_put_contents($this->repo . '/' . self::WITNESS, $witness(['A' => ['summary' => 'A', 'value' => []], 'B' => ['summary' => 'B', 'value' => []]]));
+        [$status, $output] = $this->guard();
+        self::assertSame(1, $status, $output);
+    }
+
+    #[Test]
     public function theReleasedPackageIsComparedInsteadOfTheTag(): void
     {
         // The tag committed a witness, but the published package is what the release shipped.

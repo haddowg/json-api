@@ -379,7 +379,9 @@ final class OperationExampleProjectionTest extends TestCase
         $document = $this->project([$this->articles()]);
 
         self::assertSame(['MEDIA_TYPE_UNACCEPTABLE'], \array_keys(self::arr(self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples'))));
-        self::assertSame('The provided media type is unacceptable', self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'summary'));
+        // Each code's example is one component, which every response offering the code references.
+        self::assertSame(['$ref' => '#/components/examples/MEDIA_TYPE_UNACCEPTABLE'], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples', 'MEDIA_TYPE_UNACCEPTABLE'));
+        self::assertSame('The provided media type is unacceptable', self::at($document, 'components', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'summary'));
         self::assertSame([
             'errors' => [[
                 'status' => '406',
@@ -389,14 +391,15 @@ final class OperationExampleProjectionTest extends TestCase
                 'source' => ['header' => 'Accept'],
             ]],
             'jsonapi' => ['version' => '1.1'],
-        ], self::at($document, 'components', 'responses', 'NotAcceptable', 'content', 'application/vnd.api+json', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'value'));
+        ], self::at($document, 'components', 'examples', 'MEDIA_TYPE_UNACCEPTABLE', 'value'));
 
         // A status catalogues many codes: each gets its own example, each showing one error.
         $badRequest = self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json', 'examples'));
         self::assertGreaterThan(1, \count($badRequest));
-        foreach ($badRequest as $code => $example) {
-            self::assertSame($code, self::at(self::arr($example), 'value', 'errors', '0', 'code'));
-            self::assertCount(1, self::arr(self::at(self::arr($example), 'value', 'errors')));
+        foreach (\array_keys($badRequest) as $code) {
+            $example = self::arr(self::at($document, 'components', 'examples', (string) $code));
+            self::assertSame($code, self::at($example, 'value', 'errors', '0', 'code'));
+            self::assertCount(1, self::arr(self::at($example, 'value', 'errors')));
         }
         self::assertArrayNotHasKey('example', self::arr(self::at($document, 'components', 'responses', 'BadRequest', 'content', 'application/vnd.api+json')));
     }

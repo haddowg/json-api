@@ -217,6 +217,13 @@ function structure(mixed $value, bool $named = false, bool $mediaTypes = false):
         if ($key === 'x-generator') {
             continue;
         }
+        // Named Example Objects, such as `components.examples`: which exist is structure,
+        // what they say is not.
+        if (!$named && $key === 'examples' && \is_array($item) && !\array_is_list($item)) {
+            $out[$key] = \array_fill_keys(\array_keys($item), true);
+
+            continue;
+        }
         $out[$key] = structure($item, !$named && \in_array($key, NAMED_MAPS, true), !$named && $key === 'content');
     }
 

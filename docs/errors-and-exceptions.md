@@ -477,6 +477,17 @@ their own discovery.
 contributed descriptor leaves `feature` at `null` and is published on every server that
 registers it.
 
+
+### Scoping a code to the operations that raise it
+
+A code contributed to the catalogue is offered by every operation's error response for its
+status. When only some operations raise it, declare it on the type instead: a type's
+metadata implementing `DeclaresOperationErrors` maps operation names (or `*`) to the
+described error classes those operations raise, and the
+[projection](openapi.md#scoping-a-code-to-the-operations-that-raise-it) offers each code
+only there. The Symfony bundle and the Laravel package take the same map on the resource.
+Declare a code either way, not both: one the server contributes for every operation ignores
+a scope.
 ## Writing your own exception
 
 Domain-specific failures fit the same model. Extend `AbstractJsonApiException`,

@@ -22,6 +22,7 @@ final readonly class Components implements \JsonSerializable
      * @param array<string, RequestBody|Reference>   $requestBodies
      * @param array<string, Header|Reference>        $headers
      * @param array<string, SecurityScheme|Reference> $securitySchemes
+     * @param array<string, array{summary: string, value: mixed}> $examples named Example Objects a media type's `examples` reference
      */
     public function __construct(
         public array $schemas = [],
@@ -30,6 +31,7 @@ final readonly class Components implements \JsonSerializable
         public array $requestBodies = [],
         public array $headers = [],
         public array $securitySchemes = [],
+        public array $examples = [],
     ) {}
 
     /**
@@ -40,7 +42,7 @@ final readonly class Components implements \JsonSerializable
         $schemas = $this->schemas;
         $schemas[$name] = $schema;
 
-        return new self($schemas, $this->responses, $this->parameters, $this->requestBodies, $this->headers, $this->securitySchemes);
+        return new self($schemas, $this->responses, $this->parameters, $this->requestBodies, $this->headers, $this->securitySchemes, $this->examples);
     }
 
     /**
@@ -51,7 +53,7 @@ final readonly class Components implements \JsonSerializable
         $schemes = $this->securitySchemes;
         $schemes[$name] = $scheme;
 
-        return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $this->headers, $schemes);
+        return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $this->headers, $schemes, $this->examples);
     }
 
     /**
@@ -62,7 +64,7 @@ final readonly class Components implements \JsonSerializable
         $responses = $this->responses;
         $responses[$name] = $response;
 
-        return new self($this->schemas, $responses, $this->parameters, $this->requestBodies, $this->headers, $this->securitySchemes);
+        return new self($this->schemas, $responses, $this->parameters, $this->requestBodies, $this->headers, $this->securitySchemes, $this->examples);
     }
 
     /**
@@ -73,7 +75,7 @@ final readonly class Components implements \JsonSerializable
         $parameters = $this->parameters;
         $parameters[$name] = $parameter;
 
-        return new self($this->schemas, $this->responses, $parameters, $this->requestBodies, $this->headers, $this->securitySchemes);
+        return new self($this->schemas, $this->responses, $parameters, $this->requestBodies, $this->headers, $this->securitySchemes, $this->examples);
     }
 
     /**
@@ -84,7 +86,7 @@ final readonly class Components implements \JsonSerializable
         $requestBodies = $this->requestBodies;
         $requestBodies[$name] = $requestBody;
 
-        return new self($this->schemas, $this->responses, $this->parameters, $requestBodies, $this->headers, $this->securitySchemes);
+        return new self($this->schemas, $this->responses, $this->parameters, $requestBodies, $this->headers, $this->securitySchemes, $this->examples);
     }
 
     /**
@@ -95,7 +97,7 @@ final readonly class Components implements \JsonSerializable
         $headers = $this->headers;
         $headers[$name] = $header;
 
-        return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $headers, $this->securitySchemes);
+        return new self($this->schemas, $this->responses, $this->parameters, $this->requestBodies, $headers, $this->securitySchemes, $this->examples);
     }
 
     public function isEmpty(): bool
@@ -105,7 +107,8 @@ final readonly class Components implements \JsonSerializable
             && $this->parameters === []
             && $this->requestBodies === []
             && $this->headers === []
-            && $this->securitySchemes === [];
+            && $this->securitySchemes === []
+            && $this->examples === [];
     }
 
     /**
@@ -120,6 +123,9 @@ final readonly class Components implements \JsonSerializable
         $this->mapInto($out, 'requestBodies', $this->requestBodies);
         $this->mapInto($out, 'headers', $this->headers);
         $this->mapInto($out, 'securitySchemes', $this->securitySchemes);
+        if ($this->examples !== []) {
+            $out['examples'] = $this->examples;
+        }
 
         return $out;
     }
@@ -133,6 +139,13 @@ final readonly class Components implements \JsonSerializable
         $this->mapIntoJson($object, 'requestBodies', $this->requestBodies);
         $this->mapIntoJson($object, 'headers', $this->headers);
         $this->mapIntoJson($object, 'securitySchemes', $this->securitySchemes);
+        if ($this->examples !== []) {
+            $examples = new \stdClass();
+            foreach ($this->examples as $name => $example) {
+                $examples->{$name} = (object) ['summary' => $example['summary'], 'value' => Serialization::convert($example['value'])];
+            }
+            $object->examples = $examples;
+        }
 
         return $object;
     }

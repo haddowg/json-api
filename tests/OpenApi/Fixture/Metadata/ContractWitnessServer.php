@@ -77,6 +77,7 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Scope\OperationScopeResolverInterface;
 use haddowg\JsonApi\Scope\ScopeTableBuilder;
+use haddowg\JsonApi\Tests\Exception\Fixture\ArticleLocked;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleImportRow;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
@@ -481,6 +482,9 @@ final class ContractWitnessServer
                 OperationType::Delete->value => [new NoContent(), new MetaResult()],
             ],
             deprecatedOperations: $deprecations ? ['fetchRelated.author'] : [],
+            // Raised by an update and a delete alone, so those two offer it and a delete,
+            // which advertises no 409 otherwise, gains one.
+            operationErrors: ['update' => [ArticleLocked::class], 'delete' => [ArticleLocked::class]],
         );
     }
 

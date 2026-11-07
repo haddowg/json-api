@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\CoreErrorSource;
+use haddowg\JsonApi\Exception\DescribedErrorInterface;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\ErrorSourceShape;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationErrors;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -31,8 +34,13 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * status: const, source?, meta?}]`. The `code` is an `anyOf` even with one branch, so
  * adding a code is always one more branch.
  *
- * A shape is named after its status, its `source` member and, when it declares `meta`, its
- * first code: `Error403`, `Error422Pointer`, `Error403InsufficientScope`.
+ * A shape is named after its status, its `source` member and, when it declares `meta` or is
+ * scoped, its first code: `Error403`, `Error422Pointer`, `Error403InsufficientScope`.
+ *
+ * **Scoped codes.** A type implementing {@see DeclaresOperationErrors} declares codes only
+ * some of its operations raise. Such a code is catalogued like any other, but in a shape of
+ * its own scope, so where it can arrive is part of what groups it with other codes, and only the
+ * operations it is declared for offer it ({@see scopedShapes()}).
  *
  * **The `anyOf` is a catalogue, not a constraint.** Its first branch is the open generic
  * `Error`, which every error object satisfies — including one carrying an application's
@@ -61,9 +69,47 @@ final class ErrorCatalogProjector
 {
     private readonly SchemaProjector $fields;
 
+    /**
+     * The last server's shapes and scoped shapes, so the per-operation lookups a projection
+     * makes build them once.
+     *
+     * @var array{server: ServerMetadataInterface, shapes: array<string, array{status: int, source: ?ErrorSourceShape, meta: ?Schema, scope: ?string, descriptors: non-empty-list<ErrorDescriptor>}>, scoped: array<string, array<int, list<string>>>}|null
+     */
+    private ?array $memo = null;
+
     public function __construct()
     {
         $this->fields = new SchemaProjector();
+    }
+
+    /**
+     * The scoped shapes `$operation` of `$type` offers, by status, in catalogue order: the
+     * codes the type declares for that operation, or for all of its operations.
+     *
+     * @return array<int, list<string>>
+     */
+    public function scopedShapes(ServerMetadataInterface $server, string $type, string $operation): array
+    {
+        return $this->build($server)['scoped'][$type . "\0" . $operation] ?? [];
+    }
+
+    /**
+     * Every shape's codes, keyed by shape name.
+     *
+     * @return array<string, non-empty-list<ErrorDescriptor>>
+     */
+    public function descriptorsByShape(ServerMetadataInterface $server): array
+    {
+        return \array_map(static fn(array $shape): array => $shape['descriptors'], $this->build($server)['shapes']);
+    }
+
+    /**
+     * What a scoped shape's name adds to its status: the source and code it is named after,
+     * such as `ArticleLocked` for `Error409ArticleLocked`.
+     */
+    public static function shapeSuffix(string $shape, int $status): string
+    {
+        return \substr($shape, \strlen('Error' . $status));
     }
 
     /**
@@ -75,41 +121,50 @@ final class ErrorCatalogProjector
     public function components(ServerMetadataInterface $server): array
     {
         $components = [];
-        foreach ($this->shapes($server) as $name => $shape) {
-            $components[$name] = $this->shapeSchema($shape['status'], $shape['source'], $shape['meta'], $shape['descriptors']);
+        foreach ($this->build($server)['shapes'] as $name => $shape) {
+            $components[$name] = $this->shapeSchema($shape['status'], $shape['source'], $shape['meta'], $shape['scope'] !== null, $shape['descriptors']);
         }
 
         return $components;
     }
 
     /**
-     * The shape component names, grouped by the status each pins to a `const` — the input
-     * to the per-status `ErrorDocument` narrowing. A status the catalogue never claims is
-     * absent from the map, so the narrowing is derivable from the catalogue alone.
+     * The names of the shapes every operation can raise, grouped by the status each pins to
+     * a `const` — the input to the per-status `ErrorDocument` narrowing. A status the
+     * catalogue never claims is absent from the map, so the narrowing is derivable from the
+     * catalogue alone. Scoped shapes are left out: only the operations they are scoped to
+     * offer them.
      *
      * @return array<int, list<string>>
      */
     public function componentsByStatus(ServerMetadataInterface $server): array
     {
         $byStatus = [];
-        foreach ($this->shapes($server) as $name => $shape) {
-            $byStatus[$shape['status']][] = $name;
+        foreach ($this->build($server)['shapes'] as $name => $shape) {
+            if ($shape['scope'] === null) {
+                $byStatus[$shape['status']][] = $name;
+            }
         }
 
         return $byStatus;
     }
 
     /**
-     * The descriptors this server can raise, grouped by status, in catalogue order. The
-     * first at each status is what that shared error response's example shows.
+     * The descriptors every operation of this server can raise, grouped by status, in
+     * catalogue order: what each shared error response offers an example of.
      *
      * @return array<int, non-empty-list<ErrorDescriptor>>
      */
     public function descriptorsByStatus(ServerMetadataInterface $server): array
     {
         $byStatus = [];
-        foreach ($this->raisable($server) as $descriptor) {
-            $byStatus[$descriptor->status][] = $descriptor;
+        foreach ($this->build($server)['shapes'] as $shape) {
+            if ($shape['scope'] !== null) {
+                continue;
+            }
+            foreach ($shape['descriptors'] as $descriptor) {
+                $byStatus[$descriptor->status][] = $descriptor;
+            }
         }
 
         return $byStatus;
@@ -122,6 +177,16 @@ final class ErrorCatalogProjector
      */
     public static function catalog(ServerMetadataInterface $server): ErrorCatalog
     {
+        return new ErrorCatalog(...self::sources($server));
+    }
+
+    /**
+     * Core's error source, then whatever the server's metadata contributes.
+     *
+     * @return list<\haddowg\JsonApi\Exception\ErrorCatalogSourceInterface>
+     */
+    private static function sources(ServerMetadataInterface $server): array
+    {
         $sources = [new CoreErrorSource()];
 
         if ($server instanceof ContributesErrorCodes) {
@@ -130,7 +195,7 @@ final class ErrorCatalogProjector
             }
         }
 
-        return new ErrorCatalog(...$sources);
+        return $sources;
     }
 
     /**
@@ -170,16 +235,16 @@ final class ErrorCatalogProjector
 
     /**
      * The shape component name for codes at `$status` sharing `$source` and, when
-     * `$metaCode` is given, the `meta` declaration that code introduced.
+     * `$firstCode` is given, the `meta` declaration or scope that code introduced.
      */
-    public static function shapeName(int $status, ?ErrorSourceShape $source, ?string $metaCode): string
+    public static function shapeName(int $status, ?ErrorSourceShape $source, ?string $firstCode): string
     {
         $name = 'Error' . $status;
         if ($source !== null) {
             $name .= \ucfirst($source->value);
         }
-        if ($metaCode !== null) {
-            $name .= ComponentNaming::base(\strtolower($metaCode));
+        if ($firstCode !== null) {
+            $name .= ComponentNaming::base(\strtolower($firstCode));
         }
 
         return $name;
@@ -203,34 +268,118 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The codes this server can raise, grouped into shapes by status, `source` member and
-     * projected `meta`, keyed by shape name in catalogue order of each shape's first code.
+     * The codes this server can raise, grouped into shapes by status, `source` member,
+     * projected `meta` and scope, keyed by shape name in catalogue order of each shape's
+     * first code; and each scoped operation's shapes by status.
      *
-     * @return array<string, array{status: int, source: ?ErrorSourceShape, meta: ?Schema, descriptors: non-empty-list<ErrorDescriptor>}>
+     * @return array{server: ServerMetadataInterface, shapes: array<string, array{status: int, source: ?ErrorSourceShape, meta: ?Schema, scope: ?string, descriptors: non-empty-list<ErrorDescriptor>}>, scoped: array<string, array<int, list<string>>>}
      */
-    private function shapes(ServerMetadataInterface $server): array
+    private function build(ServerMetadataInterface $server): array
     {
+        if ($this->memo !== null && $this->memo['server'] === $server) {
+            return $this->memo;
+        }
+
+        $scopes = self::scopes($server);
+        $descriptors = [];
+        $unscoped = [];
+        foreach ($this->raisable($server) as $descriptor) {
+            $descriptors[] = [$descriptor, null];
+            $unscoped[$descriptor->code] = true;
+        }
+        foreach ($scopes as $class => $operations) {
+            $descriptor = $class::describe();
+            if (isset($unscoped[$descriptor->code]) || ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server))) {
+                continue;
+            }
+            $descriptors[] = [$descriptor, $operations];
+        }
+
         $shapes = [];
         $names = [];
         $members = [];
-        foreach ($this->raisable($server) as $descriptor) {
+        $scopeOf = [];
+        foreach ($descriptors as [$descriptor, $operations]) {
             $meta = $this->metaSchema($descriptor);
+            $scope = $operations === null ? null : \implode("\n", $operations);
             $key = $descriptor->status . "\0" . ($descriptor->source->value ?? '') . "\0"
-                . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR));
+                . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR)) . "\0" . ($scope ?? '');
             if (!isset($names[$key])) {
-                $name = self::shapeName($descriptor->status, $descriptor->source, $meta === null ? null : $descriptor->code);
+                $name = self::shapeName($descriptor->status, $descriptor->source, $meta === null && $scope === null ? null : $descriptor->code);
                 $names[$key] = $name;
-                $shapes[$name] = ['status' => $descriptor->status, 'source' => $descriptor->source, 'meta' => $meta];
+                $shapes[$name] = ['status' => $descriptor->status, 'source' => $descriptor->source, 'meta' => $meta, 'scope' => $scope];
+                $scopeOf[$name] = $operations ?? [];
             }
             $members[$names[$key]][] = $descriptor;
         }
 
         $out = [];
+        $scoped = [];
         foreach ($shapes as $name => $shape) {
             $out[$name] = $shape + ['descriptors' => $members[$name]];
+            foreach ($scopeOf[$name] as $operation) {
+                $scoped[$operation][$shape['status']][] = $name;
+            }
         }
 
-        return $out;
+        return $this->memo = ['server' => $server, 'shapes' => $out, 'scoped' => $scoped];
+    }
+
+    /**
+     * Each class a type declares through {@see DeclaresOperationErrors}, mapped to the
+     * operations it is declared for (`<type>\0<operation name>`), sorted. A class a type
+     * declares for `*` is declared for each of its operations. The catalogue checks the
+     * classes like a contributed source's: two classes claiming one code fail it.
+     *
+     * @return array<class-string<DescribedErrorInterface>, list<string>>
+     *
+     * @throws \InvalidArgumentException when a type names an operation it does not expose
+     */
+    private static function scopes(ServerMetadataInterface $server): array
+    {
+        $scopes = [];
+        foreach ($server->types() as $type) {
+            if (!$type instanceof DeclaresOperationErrors) {
+                continue;
+            }
+            $declared = $type->operationErrors();
+            if ($declared === []) {
+                continue;
+            }
+
+            $known = [];
+            foreach (OperationEnumerator::forType($type) as $enumerated) {
+                $known[$enumerated->key->name()] = true;
+            }
+            foreach ($declared as $operation => $classes) {
+                $operation = (string) $operation;
+                if ($operation !== '*' && !isset($known[$operation])) {
+                    throw new \InvalidArgumentException(\sprintf(
+                        'The type "%s" declares errors for the operation "%s", which it does not expose. Name one of: *, %s.',
+                        $type->type(),
+                        $operation,
+                        \implode(', ', \array_keys($known)),
+                    ));
+                }
+                foreach ($operation === '*' ? \array_keys($known) : [$operation] as $name) {
+                    foreach ($classes as $class) {
+                        $scopes[$class][$type->type() . "\0" . $name] = true;
+                    }
+                }
+            }
+        }
+
+        if ($scopes !== []) {
+            // Fails when a scoped class claims a code another class already claims.
+            (new ErrorCatalog(...[...self::sources($server), new ClassListErrorSource(...\array_keys($scopes))]))->descriptors();
+        }
+
+        return \array_map(static function (array $operations): array {
+            $names = \array_map(\strval(...), \array_keys($operations));
+            \sort($names, \SORT_STRING);
+
+            return $names;
+        }, $scopes);
     }
 
     /**
@@ -258,11 +407,12 @@ final class ErrorCatalogProjector
      * would then violate. A code's example `detail` and `source` live in its entry of each
      * error response's `examples`, not on the schema.
      *
-     * `meta` is required only when its declaration has a required member.
+     * `meta` is required only when its declaration has a required member. A shape declaring
+     * `meta` or scoped to some operations is titled after its first code, as it is named.
      *
      * @param non-empty-list<ErrorDescriptor> $descriptors
      */
-    private function shapeSchema(int $status, ?ErrorSourceShape $source, ?Schema $meta, array $descriptors): Schema
+    private function shapeSchema(int $status, ?ErrorSourceShape $source, ?Schema $meta, bool $scoped, array $descriptors): Schema
     {
         $codes = [];
         foreach ($descriptors as $descriptor) {
@@ -291,7 +441,7 @@ final class ErrorCatalogProjector
             }
         }
 
-        $title = $meta !== null
+        $title = $meta !== null || $scoped
             ? $descriptors[0]->title
             : match ($source) {
                 null => 'A ' . $status . ' error',

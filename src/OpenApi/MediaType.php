@@ -17,7 +17,7 @@ final readonly class MediaType implements \JsonSerializable
     public const JSON_API = 'application/vnd.api+json';
 
     /**
-     * @param array<string, array{summary: string, value: mixed}> $examples named Example Objects, emitted as `examples`
+     * @param array<string, array{summary: string, value: mixed}|Reference> $examples named Example Objects, or references to them, emitted as `examples`
      */
     public function __construct(
         public Schema|Reference|null $schema = null,
@@ -45,10 +45,10 @@ final readonly class MediaType implements \JsonSerializable
     }
 
     /**
-     * Returns a copy carrying named Example Objects, each a `summary` and a `value`, in
-     * place of a single `example`.
+     * Returns a copy carrying named Example Objects, each a `summary` and a `value` or a
+     * reference to a component, in place of a single `example`.
      *
-     * @param array<string, array{summary: string, value: mixed}> $examples
+     * @param array<string, array{summary: string, value: mixed}|Reference> $examples
      */
     public function withExamples(array $examples): self
     {
@@ -73,7 +73,10 @@ final readonly class MediaType implements \JsonSerializable
             $out['example'] = $this->example;
         }
         if ($this->examples !== []) {
-            $out['examples'] = $this->examples;
+            $out['examples'] = \array_map(
+                static fn(array|Reference $example): array => $example instanceof Reference ? $example->toArray() : $example,
+                $this->examples,
+            );
         }
 
         return $out;
@@ -91,7 +94,9 @@ final readonly class MediaType implements \JsonSerializable
         if ($this->examples !== []) {
             $examples = new \stdClass();
             foreach ($this->examples as $name => $example) {
-                $examples->{$name} = (object) ['summary' => $example['summary'], 'value' => Serialization::convert($example['value'])];
+                $examples->{$name} = $example instanceof Reference
+                    ? $example->toJson()
+                    : (object) ['summary' => $example['summary'], 'value' => Serialization::convert($example['value'])];
             }
             $object->examples = $examples;
         }

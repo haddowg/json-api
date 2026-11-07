@@ -432,6 +432,39 @@ the client-id codes need a type that permits one; and the whole request-document
 request body somewhere — a CRUD write, a mutable relationship endpoint, or the atomic
 batch.
 
+### Scoping a code to the operations that raise it
+
+Most codes can arrive on any operation, but an application's own codes are often endpoint
+specific: a lock on an update, a payment check on one action. A type whose metadata
+implements `DeclaresOperationErrors` names the codes only some of its operations raise,
+keyed by operation name like its examples and scopes, with `*` for every operation of the
+type:
+
+```php
+public function operationErrors(): array
+{
+    return [
+        'update' => [ArticleLocked::class],
+        'delete' => [ArticleLocked::class],
+        'action.publish.post' => [PaymentRequired::class],
+    ];
+}
+```
+
+A scoped code is catalogued like any other, in a shape of its own scope named after its first
+code (`Error409ArticleLocked`), and only the operations it is declared for offer it. Each of
+them points its response for the code's status at one narrowed to the codes every operation
+raises plus the scoped ones, `ConflictWithArticleLocked` carrying
+`ErrorDocument409WithArticleLocked`, and gains that status if it did not advertise it
+already. Operations raising the same scoped codes at a status share one such response, and
+the rest keep the shared one. A name that is not an operation of the type fails the
+projection, and a code the server already catalogues for every operation, core's or one a
+server contributes, ignores the scope.
+
+Each code's example is one `components.examples` entry, keyed by the code, which every
+response offering the code references, so a narrowed response adds a reference per code
+rather than a copy.
+
 ### The shared error responses
 
 An operation does not describe its error bodies. It `$ref`s one of the shared responses
@@ -719,8 +752,8 @@ The examples show what the server sends and accepts:
 - A custom action's response is built from the type its `ActionResource` names, and its
   request body from its input type when the input is a resource document. A `RawResult`
   keeps its own `example`.
-- An error response carries one named example per code its status catalogues, keyed by the
-  code and summarised by its title. Each is a document holding that code's one error, with
+- An error response carries one named example per code it offers, keyed by the code and
+  referencing the code's entry in `components.examples`, summarised by its title. Each is a document holding that code's one error, with
   its `status`, `code`, `title`, `exampleDetail`, `source` and declared `meta`. A viewer shows
   the first entry by default, so the map leads with the code a reader most likely meets on
   the operations sharing the response: `QUERY_PARAM_MALFORMED` (else
