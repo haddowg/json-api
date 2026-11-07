@@ -33,4 +33,13 @@ final class ResponsesTest extends TestCase
         self::assertSame($expected, \array_map(\strval(...), \array_keys($responses->toArray())));
         self::assertSame($expected, \array_map(\strval(...), \array_keys(\get_object_vars($responses->toJson()))));
     }
+
+    #[Test]
+    public function aNumericStatusIsLookedUpByItsString(): void
+    {
+        $responses = (new Responses())->with('429', Reference::to('responses', 'TooManyRequests'));
+
+        self::assertTrue(\array_key_exists('429', $responses->responses));
+        self::assertInstanceOf(Reference::class, $responses->responses['429'] ?? null);
+    }
 }

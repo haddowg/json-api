@@ -18,7 +18,9 @@ namespace haddowg\JsonApi\OpenApi;
 final readonly class Responses implements \JsonSerializable
 {
     /**
-     * @param array<string, Response|Reference> $responses status code (or `default`) → {@see Response}
+     * PHP stores a numeric status key such as `'404'` as an int, so the keys are typed to match.
+     *
+     * @param array<int|string, Response|Reference> $responses status code (or `default`) → {@see Response}
      */
     public function __construct(
         public array $responses = [],
@@ -36,7 +38,7 @@ final readonly class Responses implements \JsonSerializable
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<int|string, mixed>
      */
     public function toArray(): array
     {
@@ -66,7 +68,7 @@ final readonly class Responses implements \JsonSerializable
     /**
      * The entries in status order.
      *
-     * @return array<string, Response|Reference>
+     * @return array<int|string, Response|Reference>
      */
     private function ordered(): array
     {
