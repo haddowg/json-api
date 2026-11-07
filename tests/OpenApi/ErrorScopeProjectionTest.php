@@ -17,6 +17,7 @@ use haddowg\JsonApi\Tests\Exception\Fixture\ArticleLocked;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\RivalResourceNotFound;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContributingServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -120,6 +121,36 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
+    public function anAtomicKindScopeCoversTheAtomicOperationsEndpoint(): void
+    {
+        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::kinds(...OperationKind::cases()), PaymentRequired::class));
+
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/operations', 'post', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/PaymentRequiredWithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '402', '$ref'));
+        // Every operation offers the narrowed response, so none is left on the shared one.
+        self::assertArrayNotHasKey('PaymentRequired', $this->arr($document, 'components', 'responses'));
+    }
+
+    #[Test]
+    public function theAtomicEndpointKeepsItsOwnWordingWhenNarrowed(): void
+    {
+        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::kinds(OperationKind::Atomic), ArticleLocked::class));
+
+        $response = $this->arr($document, 'paths', '/operations', 'post', 'responses', '409');
+        self::assertSame('#/components/responses/ConflictWithArticleLocked', $response['$ref'] ?? null);
+        self::assertStringContainsString('an operation conflicts', \is_string($response['description'] ?? null) ? $response['description'] : '');
+        self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', '$ref'));
+    }
+
+    #[Test]
+    public function aTypedScopeLeavesTheAtomicEndpointAlone(): void
+    {
+        $document = $this->projectWithAtomic(new ScopedErrorSource(ErrorScope::kinds(OperationKind::Create), PaymentRequired::class));
+
+        self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/operations', 'post', 'responses'));
+    }
+
+    #[Test]
     public function aScopeNamingATypeTheServerDoesNotRegisterIsOfferedNowhere(): void
     {
         $document = $this->project(new ScopedErrorSource(ErrorScope::on('invoices', 'update'), PaymentRequired::class));
@@ -173,10 +204,26 @@ final class ErrorScopeProjectionTest extends TestCase
      */
     private function project(ErrorCatalogSourceInterface ...$sources): array
     {
+        return $this->projectServer(null, ...$sources);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function projectWithAtomic(ErrorCatalogSourceInterface ...$sources): array
+    {
+        return $this->projectServer(new FakeAtomicOperationsMetadata(), ...$sources);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function projectServer(?FakeAtomicOperationsMetadata $atomic, ErrorCatalogSourceInterface ...$sources): array
+    {
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [
             FakeTypeMetadata::resource(type: 'articles', fields: [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build()]),
             FakeTypeMetadata::resource(type: 'tags', fields: [Id::make()->example('1')->build(), Str::make('name')->example('news')->build()]),
-        ]);
+        ], atomicOperations: $atomic);
 
         return (new OpenApiProjector())->project(new ContributingServerMetadata($server, ...$sources))->toArray();
     }
