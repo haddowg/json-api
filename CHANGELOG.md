@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/haddowg/json-api/compare/v1.27.0...v2.0.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* a write body carrying an undeclared attribute, or an undeclared key inside an object attribute, is now rejected with a 400 ATTRIBUTE_MEMBER_UNRECOGNIZED. A OneOf that relied on the implicit `type` discriminator must call ->discriminator('type'), and OneOf::discriminatorName() now returns ?string.
+
+### Features
+
+* close declared objects and allow undiscriminated OneOf unions ([#293](https://github.com/haddowg/json-api/issues/293)) ([9df95e9](https://github.com/haddowg/json-api/commit/9df95e9a2c9c66cce61a14451578e0ccc29df134))
+
 ## [1.27.0](https://github.com/haddowg/json-api/compare/v1.26.0...v1.27.0) (2026-11-06)
 
 
