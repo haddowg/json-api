@@ -27,7 +27,9 @@ if [ ! -s "${patch}" ]; then
   exit 0
 fi
 
-hash="$(sha256sum "${patch}" | cut -c1-16)"
+# The diff's file headers carry paths and timestamps that differ on every run; hash the
+# changes alone, so an unchanged output keeps its acknowledgement.
+hash="$(grep -v -E '^(diff |--- |\+\+\+ )' "${patch}" | sha256sum | cut -c1-16)"
 previous="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}/comments" --paginate \
   --jq ".[] | select(.body | contains(\"${marker}\")) | .body" 2> /dev/null \
   | grep -o 'generated-output-hash: [0-9a-f]*' | head -n 1 | cut -d' ' -f2)"
