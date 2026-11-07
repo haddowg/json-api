@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/haddowg/json-api/compare/v2.0.0...v2.1.0) (2026-11-07)
+
+
+### Features
+
+* group error codes into shapes and scope them to the operations that raise them ([#295](https://github.com/haddowg/json-api/issues/295)) ([6f64908](https://github.com/haddowg/json-api/commit/6f6490872cf6a1252fbd70ada5b97759548e7e8a))
+
 ## [2.0.0](https://github.com/haddowg/json-api/compare/v1.27.0...v2.0.0) (2026-11-07)
 
 
