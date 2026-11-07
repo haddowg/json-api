@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Writes an npm user config that reads and publishes the @haddowg scope on GitHub Packages
+# with NODE_AUTH_TOKEN, and prints its path for NPM_CONFIG_USERCONFIG.
+#
+# Usage: export NPM_CONFIG_USERCONFIG="$(.github/scripts/npm-auth)"
+set -euo pipefail
+
+config="${RUNNER_TEMP:-/tmp}/github-packages.npmrc"
+# npm expands ${NODE_AUTH_TOKEN} itself, so the token never lands in the file.
+printf '%s\n' '@haddowg:registry=https://npm.pkg.github.com' '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "${config}"
+echo "${config}"

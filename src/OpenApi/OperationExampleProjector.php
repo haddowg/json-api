@@ -62,43 +62,59 @@ final class OperationExampleProjector
     }
 
     /**
-     * The shared error responses with an example holding one error: the status's
-     * representative code ({@see REPRESENTATIVE_CODES}) when the catalogue has it, else
-     * the first code catalogued for the status. A document listing every code a status
-     * can carry reads as noise wherever the example is quoted. A status no catalogued
-     * code claims gets none.
+     * The error responses with one named example per code each offers, keyed by code and
+     * led by the status's representative code ({@see REPRESENTATIVE_CODES}) when the
+     * response offers it; and the examples themselves, one per code, which every response
+     * offering the code references. A code whose example needs a value nothing declares is
+     * left out and recorded as a {@see MissingExample} against its status's shared
+     * response. A response offering no code gets none.
      *
-     * @param array<string, Response>                                               $components   response component name → response
-     * @param array<int, non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor>> $descriptors status → descriptors, in catalogue order
+     * @param array<string, Response>                                                                     $components response component name → response
+     * @param array<string, array{status: int, descriptors: list<\haddowg\JsonApi\Exception\ErrorDescriptor>}> $offered    response component name → its status and the codes it offers, in catalogue order
      *
-     * @return array<string, Response>
+     * @return array{array<string, Response>, array<string, array{summary: string, value: mixed}>}
      */
-    public function errorResponses(array $components, array $descriptors): array
+    public function errorResponses(array $components, array $offered): array
     {
-        foreach ($descriptors as $status => $byStatus) {
-            $name = ErrorResponseProjector::name((string) $status);
+        $examples = [];
+        $failed = [];
+        foreach ($offered as $name => ['status' => $status, 'descriptors' => $descriptors]) {
             $response = $components[$name] ?? null;
-            if ($response === null) {
+            if ($response === null || $descriptors === []) {
                 continue;
             }
 
-            [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument(self::representative($status, $byStatus)));
-            foreach ($misses as [$code, $field]) {
-                $this->recordMiss($name, $code, $field);
+            $references = [];
+            foreach (self::representativeFirst($status, $descriptors) as $descriptor) {
+                $code = $descriptor->code;
+                if (!isset($examples[$code]) && !isset($failed[$code])) {
+                    [$example, $misses] = $this->builder->attempt(fn(): array => $this->builder->errorDocument($descriptor));
+                    foreach ($misses as [$missed, $field]) {
+                        $this->recordMiss(ErrorResponseProjector::name((string) $status), $missed, $field);
+                    }
+                    if ($example === null) {
+                        $failed[$code] = true;
+                    } else {
+                        $examples[$code] = ['summary' => $descriptor->title, 'value' => $example];
+                    }
+                }
+                if (isset($examples[$code])) {
+                    $references[$code] = Reference::to('examples', $code);
+                }
             }
-            if ($example !== null) {
-                $components[$name] = $this->withResponseExample($response, $example);
+            if ($references !== []) {
+                $components[$name] = $this->withResponseExamples($response, $references);
             }
         }
 
-        return $components;
+        return [$components, $examples];
     }
 
     /**
-     * The core code each shared error response's example prefers, in order, when the
-     * catalogue has it: the error a reader most likely meets at that status on any of the
-     * operations sharing the response. Catalogue order sorts by class name, which would
-     * show an atomic-batch error for every `400` and a missing relationship for every `404`.
+     * The core code each shared error response's examples lead with, in order of
+     * preference, when the catalogue has it: the error a reader most likely meets at that
+     * status on any of the operations sharing the response. Catalogue order sorts by class name, which would
+     * lead every `400` with an atomic-batch error and every `404` with a missing relationship.
      */
     private const REPRESENTATIVE_CODES = [
         400 => ['QUERY_PARAM_MALFORMED', 'REQUEST_BODY_INVALID_JSON_API'],
@@ -109,19 +125,26 @@ final class OperationExampleProjector
     ];
 
     /**
-     * @param non-empty-list<\haddowg\JsonApi\Exception\ErrorDescriptor> $descriptors
+     * The descriptors at a status, the one its example map leads with first and the rest in
+     * catalogue order. A viewer shows the first entry by default.
+     *
+     * @param list<\haddowg\JsonApi\Exception\ErrorDescriptor> $descriptors
+     *
+     * @return list<\haddowg\JsonApi\Exception\ErrorDescriptor>
      */
-    private static function representative(int $status, array $descriptors): \haddowg\JsonApi\Exception\ErrorDescriptor
+    private static function representativeFirst(int $status, array $descriptors): array
     {
         foreach (self::REPRESENTATIVE_CODES[$status] ?? [] as $code) {
-            foreach ($descriptors as $descriptor) {
+            foreach ($descriptors as $index => $descriptor) {
                 if ($descriptor->code === $code) {
-                    return $descriptor;
+                    unset($descriptors[$index]);
+
+                    return [$descriptor, ...\array_values($descriptors)];
                 }
             }
         }
 
-        return $descriptors[0];
+        return $descriptors;
     }
 
     /**
@@ -424,6 +447,20 @@ final class OperationExampleProjector
         $this->emitted = true;
 
         return $response->withMediaType(MediaType::JSON_API, $media->withExample($example));
+    }
+
+    /**
+     * @param array<string, Reference> $examples
+     */
+    private function withResponseExamples(Response $response, array $examples): Response
+    {
+        $media = $response->content[MediaType::JSON_API] ?? null;
+        if ($media === null) {
+            return $response;
+        }
+        $this->emitted = true;
+
+        return $response->withMediaType(MediaType::JSON_API, $media->withExamples($examples));
     }
 
     private function recordMiss(string $operation, string $type, string $field): void

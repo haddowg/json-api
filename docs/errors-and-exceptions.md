@@ -337,8 +337,8 @@ on, and three optional members written for whoever reads the generated document:
 its errors through `ErrorDescriptor::toError()`, so the description and the rendered error
 cannot disagree.
 
-That is what lets the [OpenAPI projection](openapi.md#the-error-code-catalogue) publish a
-named schema component per code without ever constructing an exception. Describing your
+That is what lets the [OpenAPI projection](openapi.md#the-error-code-catalogue) catalogue
+every code without ever constructing an exception. Describing your
 own exception is opt-in and costs nothing if you skip it.
 
 ### Telling API consumers what a code means
@@ -377,19 +377,58 @@ final class PasswordExpired extends AbstractJsonApiException implements Describe
 }
 ```
 
-The projection writes the description onto the code's `PasswordExpiredError` component and
-the example onto its `detail` property. Neither reaches an error object, so keep the
-guidance out of the default `detail`: a [message resolver](#localizing-and-overriding-error-copy)
-may replace that per locale, and a generated client never sees it. Both arguments are
-optional, and a descriptor without them projects as it always has.
+The projection writes the description onto the code's branch of its shape (`Error401`
+here) and the example detail into the code's entry of the `401` response's examples.
+Neither reaches an error object, so keep the guidance out of the default `detail`: a
+[message resolver](#localizing-and-overriding-error-copy) may replace that per locale, and a
+generated client never sees it. Both arguments are optional.
 
 A descriptor that declares a `source` should also give `exampleSource`, one value of that
-member: `/data/attributes/title` for a pointer, `include` for a parameter. Each shared error
-response in the document carries an [example](openapi.md#operation-examples) holding one
-error, and when that error is your code (the first catalogued at a status core has no
-preferred code for) the example needs a value for the `source` the code always fills. Without one, the response gets no example and the projector
-reports the gap. Every code core ships declares one, and an `exampleDetail` too, so each error example
-shows the `detail` a client reads.
+member: `/data/attributes/title` for a pointer, `include` for a parameter, `Accept` for a
+header. Each shared error response in the document carries an
+[example](openapi.md#operation-examples) per code, and your code's needs a value for the
+`source` it always fills. Without one, your code gets no example and the projector reports
+the gap. Every code core ships declares one, and an `exampleDetail` too, so each error
+example shows the `detail` a client reads.
+
+### Declaring what an error puts in `meta`
+
+An error that puts data in `meta` declares those members on its descriptor, with the same
+field builders a resource's attributes use. The projection publishes them as a closed `meta`
+object on the code's shape, so a generated client can type `meta` instead of handing back an
+untyped map:
+
+```php
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\Str;
+
+new ErrorDescriptor(
+    code: 'INSUFFICIENT_SCOPE',
+    status: 403,
+    title: 'Insufficient scope',
+    meta: [
+        ArrayList::make('requiredScopes')->of('string')->required()
+            ->describedAs('Every scope the request needs.')
+            ->example(['articles:read', 'articles:write']),
+        ArrayList::make('missingScopes')->of('string')->required()
+            ->describedAs('The required scopes the access token does not grant.')
+            ->example(['articles:write']),
+        Str::make('include')->describedAs('The `include` path whose hop needs the missing scopes.'),
+    ],
+);
+```
+
+- A member declared `required()` is in every error object of the code, so the shape
+  requires `meta`. A code whose members are all optional leaves `meta` optional.
+- The declaration is closed: the shape admits no member it does not name, so declare every
+  member `getErrors()` can put in `meta`.
+- Each member's `example()` feeds the code's example. A required member without one drops
+  the code's example and the projector reports the gap; an optional one is simply left out.
+- Codes at one status that fill the same `source` and declare the same `meta` share a
+  shape. A code with its own `meta` gets a shape of its own, named after it.
+
+Core declares `meta` for `INSUFFICIENT_SCOPE` and for the two invalid-JSON body errors,
+whose optional `original` holds the body that failed to parse.
 
 ### Contributing your codes to the catalogue
 
@@ -438,6 +477,16 @@ their own discovery.
 contributed descriptor leaves `feature` at `null` and is published on every server that
 registers it.
 
+
+### Scoping a code to the operations that raise it
+
+A code is offered by every operation's error response for its status unless its descriptor
+says otherwise. When only some operations raise it, give the descriptor a `scope`:
+`ErrorScope::on('articles', 'update', 'delete')` for operations of one type,
+`ErrorScope::kinds(OperationKind::Delete)` for every delete. The
+[projection](openapi.md#scoping-a-code-to-the-operations-that-raise-it) then offers the code
+only there. To scope an error you do not own, catalogue it through a `ScopedErrorSource`,
+whose scope replaces the descriptor's.
 ## Writing your own exception
 
 Domain-specific failures fit the same model. Extend `AbstractJsonApiException`,
@@ -573,8 +622,8 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 
 | Exception | Status | Error code | Source | Thrown when |
 |---|---|---|---|---|
-| `MediaTypeUnsupported` | 415 | `MEDIA_TYPE_UNSUPPORTED` | parameter | The request `Content-Type` media type is not supported. |
-| `MediaTypeUnacceptable` | 406 | `MEDIA_TYPE_UNACCEPTABLE` | parameter | No `Accept` media type can be satisfied. |
+| `MediaTypeUnsupported` | 415 | `MEDIA_TYPE_UNSUPPORTED` | header | The request `Content-Type` media type is not supported. |
+| `MediaTypeUnacceptable` | 406 | `MEDIA_TYPE_UNACCEPTABLE` | header | No `Accept` media type can be satisfied. |
 
 The `415` / `406` asymmetry is intentional — see
 [content negotiation](content-negotiation.md) for why an unsupported

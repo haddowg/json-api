@@ -166,22 +166,24 @@ final class ExceptionErrorDetailTest extends TestCase
 
     #[Test]
     #[Group('spec:content-negotiation')]
-    public function mediaTypeUnacceptablePointsAtTheAcceptParameter(): void
+    public function mediaTypeUnacceptablePointsAtTheAcceptHeader(): void
     {
         $error = (new MediaTypeUnacceptable('text/html'))->getErrors()[0];
 
         self::assertNotNull($error->source);
-        self::assertSame('accept', $error->source->parameter);
+        self::assertSame('Accept', $error->source->header);
+        self::assertSame('', $error->source->parameter);
     }
 
     #[Test]
     #[Group('spec:content-negotiation')]
-    public function mediaTypeUnsupportedPointsAtTheContentTypeParameter(): void
+    public function mediaTypeUnsupportedPointsAtTheContentTypeHeader(): void
     {
         $error = (new MediaTypeUnsupported('text/html'))->getErrors()[0];
 
         self::assertNotNull($error->source);
-        self::assertSame('content-type', $error->source->parameter);
+        self::assertSame('Content-Type', $error->source->header);
+        self::assertSame('', $error->source->parameter);
     }
 
     #[Test]
@@ -220,21 +222,6 @@ final class ExceptionErrorDetailTest extends TestCase
         self::assertSame('property1', $errors[0]->source->pointer);
         self::assertSame('Cde', $errors[1]->detail);
         self::assertNull($errors[1]->source);
-    }
-
-    #[Test]
-    public function requestBodyInvalidJsonApiAttachesOriginalBodyToFirstErrorWhenRequested(): void
-    {
-        $exception = new RequestBodyInvalidJsonApi(
-            [['message' => 'abc'], ['message' => 'def']],
-            originalBody: ['a' => 'b'],
-            includeOriginalBody: true,
-        );
-
-        $errors = $exception->getErrors();
-
-        self::assertSame(['original' => ['a' => 'b']], $errors[0]->meta);
-        self::assertSame([], $errors[1]->meta);
     }
 
     #[Test]

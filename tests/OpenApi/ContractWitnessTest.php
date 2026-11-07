@@ -6,58 +6,50 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\ContractWitness;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContractWitnessServer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pins the projector's emitted structure to a committed artifact — `Fixture/contract-witness.json`,
- * the document {@see ContractWitnessServer} projects to.
+ * The witness documents {@see ContractWitness} exports for the contract guard and for
+ * `@haddowg/json-api-witness`.
  *
- * It exists so the {@see GeneratorContract::CONTRACT} bump cannot be silently forgotten. The
- * guard is a chain: a projector change moves this document, so the witness must be
- * regenerated; CI then compares the regenerated witness against the one on the base branch
- * and fails the pull request unless the contract moved too (see `bin/contract-guard.php`).
- * Neither half is sufficient alone — this test cannot tell a deliberate re-record from a
- * forgetful one, and the CI guard has nothing to compare unless the witness tracks the
- * projector.
- *
- * Regenerate after an intended change:
- *
- * ```
- * UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest
- * ```
- *
- * then read the diff and decide whether it warrants a contract bump.
+ * Nothing is committed: CI exports the witness on each pull request, compares its structure
+ * against the last release's published package (`bin/contract-guard.php`), and posts the
+ * diff against the base branch for review. These tests pin what the export carries.
  */
 #[CoversClass(GeneratorContract::class)]
 #[CoversClass(OpenApiProjector::class)]
 final class ContractWitnessTest extends TestCase
 {
-    private const WITNESS = __DIR__ . '/Fixture/contract-witness.json';
+    #[Test]
+    public function theExportWritesBothDocuments(): void
+    {
+        $directory = \sys_get_temp_dir() . '/contract-witness-' . \bin2hex(\random_bytes(6));
+        ContractWitness::export($directory);
 
-    private const BASELINE_WITNESS = __DIR__ . '/Fixture/contract-witness-baseline.json';
+        try {
+            foreach ([ContractWitness::WITNESS => GeneratorContract::CONTRACT, ContractWitness::BASELINE => GeneratorContract::BASELINE] as $file => $contract) {
+                $document = \json_decode((string) \file_get_contents($directory . '/' . $file), true, flags: \JSON_THROW_ON_ERROR);
+                self::assertIsArray($document);
+                self::assertIsArray($document['info'] ?? null);
+                self::assertSame(['contract' => $contract], $document['info']['x-generator'] ?? null, $file);
+            }
+        } finally {
+            foreach ([ContractWitness::WITNESS, ContractWitness::BASELINE] as $file) {
+                @\unlink($directory . '/' . $file);
+            }
+            @\rmdir($directory);
+        }
+    }
 
     #[Test]
-    public function theProjectedDocumentMatchesTheCommittedWitness(): void
+    public function theProjectionIsStable(): void
     {
-        $projected = $this->project();
-
-        if (\getenv('UPDATE_CONTRACT_WITNESS') !== false) {
-            \file_put_contents(self::WITNESS, $projected);
-        }
-
-        $committed = \file_get_contents(self::WITNESS);
-        self::assertIsString($committed, 'The contract witness fixture is missing.');
-
-        self::assertSame(
-            $committed,
-            $projected,
-            'The projected OpenAPI document no longer matches tests/OpenApi/Fixture/contract-witness.json. '
-            . 'Regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest, '
-            . 'read the diff, and bump GeneratorContract::CONTRACT if the structure moved.',
-        );
+        self::assertSame(ContractWitness::project(), ContractWitness::project());
+        self::assertSame(ContractWitness::project(scoped: false), ContractWitness::project(scoped: false));
     }
 
     /**
@@ -71,29 +63,6 @@ final class ContractWitnessTest extends TestCase
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::CONTRACT], $document['info']['x-generator']);
-    }
-
-    /**
-     * The same server without its raw action responses, accepted bodies, examples, declared links, action declarations, scopes, single-target polymorphic relations, actions answering with a URL, sort families, structured lists and deprecations: the
-     * shape every document shares, stamped with {@see GeneratorContract::BASELINE}. The CI guard holds the baseline to
-     * this file, so a change that moves every document cannot hide behind a scoped bump.
-     */
-    #[Test]
-    public function theBaselineDocumentMatchesTheCommittedBaselineWitness(): void
-    {
-        $projected = $this->project(scoped: false);
-
-        if (\getenv('UPDATE_CONTRACT_WITNESS') !== false) {
-            \file_put_contents(self::BASELINE_WITNESS, $projected);
-        }
-
-        self::assertSame(
-            \file_get_contents(self::BASELINE_WITNESS),
-            $projected,
-            'The projected baseline document no longer matches tests/OpenApi/Fixture/contract-witness-baseline.json. '
-            . 'Regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest, '
-            . 'read the diff, and bump GeneratorContract::BASELINE (and CONTRACT) if the structure moved.',
-        );
     }
 
     #[Test]
@@ -123,13 +92,5 @@ final class ContractWitnessTest extends TestCase
         // A scoped tier never stamps below the baseline, which may since have overtaken it.
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::EXAMPLES)], GeneratorContract::toArray(examples: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RAW_CONTENT)], GeneratorContract::toArray(rawContent: true));
-    }
-
-    /**
-     * @throws \JsonException
-     */
-    private function project(bool $scoped = true): string
-    {
-        return (new OpenApiProjector())->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped))->toJsonString(pretty: true) . "\n";
     }
 }

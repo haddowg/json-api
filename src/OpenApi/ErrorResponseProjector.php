@@ -75,7 +75,8 @@ final class ErrorResponseProjector
     }
 
     /**
-     * The error statuses the projected paths reference, ascending. Read off the built
+     * The error statuses whose shared response the projected paths reference, ascending.
+     * An operation pointed at a response narrowed to its scoped codes does not count. Read off the built
      * document rather than re-derived from metadata, so the component set cannot drift
      * from the per-operation status lists that produced it.
      *
@@ -87,7 +88,7 @@ final class ErrorResponseProjector
         foreach ($paths->items as $item) {
             foreach ($item->operations as $operation) {
                 foreach ($operation->responses->responses as $status => $response) {
-                    if ($response instanceof Reference) {
+                    if ($response instanceof Reference && $response->ref === Reference::to('responses', self::name((string) $status))->ref) {
                         $seen[$status] = true;
                     }
                 }
@@ -132,13 +133,25 @@ final class ErrorResponseProjector
     private const NAMES = [
         '400' => 'BadRequest',
         '401' => 'Unauthorized',
+        '402' => 'PaymentRequired',
         '403' => 'Forbidden',
         '404' => 'NotFound',
+        '405' => 'MethodNotAllowed',
         '406' => 'NotAcceptable',
+        '408' => 'RequestTimeout',
         '409' => 'Conflict',
+        '410' => 'Gone',
+        '412' => 'PreconditionFailed',
+        '413' => 'ContentTooLarge',
         '415' => 'UnsupportedMediaType',
         '422' => 'UnprocessableEntity',
+        '423' => 'Locked',
+        '428' => 'PreconditionRequired',
+        '429' => 'TooManyRequests',
         '500' => 'InternalServerError',
+        '502' => 'BadGateway',
+        '503' => 'ServiceUnavailable',
+        '504' => 'GatewayTimeout',
     ];
 
     /**
@@ -148,12 +161,24 @@ final class ErrorResponseProjector
     private const DESCRIPTIONS = [
         '400' => 'Bad Request — the request was malformed (e.g. an invalid query parameter).',
         '401' => 'Unauthorized — authentication is required and was missing or invalid.',
+        '402' => 'Payment Required — the request needs a payment or plan the account lacks.',
         '403' => 'Forbidden — the request is not authorised.',
         '404' => 'Not Found — the resource does not exist.',
+        '405' => 'Method Not Allowed — the endpoint does not accept this HTTP method.',
         '406' => 'Not Acceptable — the `Accept` header could not be satisfied.',
+        '408' => 'Request Timeout — the server gave up waiting for the request.',
         '409' => 'Conflict — the request conflicts with the resource state (e.g. a type or id mismatch).',
+        '410' => 'Gone — the resource existed and has been removed for good.',
+        '412' => 'Precondition Failed — a conditional request header did not match.',
+        '413' => 'Content Too Large — the request body is larger than the server accepts.',
         '415' => 'Unsupported Media Type — the `Content-Type` header is not `application/vnd.api+json`.',
         '422' => 'Unprocessable Entity — the document failed validation.',
+        '423' => 'Locked — the resource is locked against this change.',
+        '428' => 'Precondition Required — the request must be conditional.',
+        '429' => 'Too Many Requests — the caller has sent too many requests; retry later.',
         '500' => 'Internal Server Error.',
+        '502' => 'Bad Gateway — an upstream server returned an invalid response.',
+        '503' => 'Service Unavailable — the server cannot handle the request right now; retry later.',
+        '504' => 'Gateway Timeout — an upstream server did not answer in time.',
     ];
 }

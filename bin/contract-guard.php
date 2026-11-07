@@ -14,17 +14,20 @@ declare(strict_types=1);
  * base instead bumps once per pull request, which is how a single unreleased cycle once
  * reached contract 5 for a document no consumer had seen more than once.
  *
- * Structure comes from the committed witness (tests/OpenApi/Fixture/contract-witness.json),
- * which tracks the projector because ContractWitnessTest fails otherwise — so "the witness
- * moved" and "the emitted document moved" are the same statement. The contract number
- * comes from the constant itself, read at the tag and in the working tree.
+ * Structure comes from the witness bin/export-contract-witness.php writes from the working
+ * tree, compared against the one the last release published as `@haddowg/json-api-witness`.
+ * The released witness is read from `--released <dir>` when CI has unpacked that package
+ * there, and otherwise from the tag itself, where releases from before the package committed
+ * it. The contract number comes from the constant itself, read at the tag and in the
+ * working tree.
  *
  * Prose is not structure, and neither are example values. `description` and `summary`
  * string values and every `example` value are stripped before the comparison, so rewording
  * a generated sentence or improving a sample costs no bump: a generator is never too old
  * for a changed one. Whether a media type carries an example at all is structure, though,
  * because a generator reads an operation's request and response examples: a media type's
- * `example` is kept as `true`, so one appearing or disappearing still counts. Everything else counts: a member added, renamed or removed,
+ * `example` is kept as `true`, and its named `examples` as their names, so one appearing or
+ * disappearing still counts. Everything else counts: a member added, renamed or removed,
  * a rewired $ref, a changed const/enum/required set, a new status code, a new vendor
  * extension. Inside a map keyed by names rather than keywords (a schema's `properties`, a
  * discriminator `mapping`, `paths`, the `components` sections) a name is never mistaken
@@ -32,7 +35,7 @@ declare(strict_types=1);
  *
  * A bump can be scoped: GeneratorContract::BASELINE is the contract a document using none
  * of the scoped structures carries, and a second witness,
- * tests/OpenApi/Fixture/contract-witness-baseline.json, projects the server without them.
+ * contract-witness-baseline.json, projects the server without them.
  * When that baseline structure moves, BASELINE must move up to CONTRACT; when it does not,
  * BASELINE stays at the tag's value. A tag from before the baseline witness had every
  * document at its CONTRACT, so its main witness stands in as the released baseline.
@@ -44,7 +47,10 @@ declare(strict_types=1);
  *   structure unchanged, contract at the tag's value    → pass
  *   structure unchanged, contract moved anyway          → fail, the bump announces nothing
  *
- * Usage:  php bin/contract-guard.php [<head-witness.json>]
+ * Usage:  php bin/contract-guard.php [--head <dir>] [--released <dir>]
+ *
+ * Each directory holds contract-witness.json and, optionally, contract-witness-baseline.json.
+ * `--head` defaults to build/contract-witness.
  *
  * Exit 0 = pass, 1 = fail, 2 = the guard could not run.
  *
@@ -54,8 +60,13 @@ declare(strict_types=1);
  * "unknown".
  */
 
-const WITNESS_PATH = 'tests/OpenApi/Fixture/contract-witness.json';
-const BASELINE_WITNESS_PATH = 'tests/OpenApi/Fixture/contract-witness-baseline.json';
+const WITNESS = 'contract-witness.json';
+const BASELINE_WITNESS = 'contract-witness-baseline.json';
+
+/**
+ * Where a release from before `@haddowg/json-api-witness` committed its witness.
+ */
+const TAG_WITNESS_DIRECTORY = 'tests/OpenApi/Fixture';
 const CONTRACT_SOURCE = 'src/OpenApi/GeneratorContract.php';
 
 /**
@@ -65,7 +76,25 @@ const CONTRACT_SOURCE = 'src/OpenApi/GeneratorContract.php';
 const ABSENT_CONTRACT = 1;
 
 $repoRoot = \dirname(__DIR__);
-$witnessPath = $argv[1] ?? $repoRoot . '/' . WITNESS_PATH;
+$options = \getopt('', ['head:', 'released:']);
+$headDirectory = \is_string($options['head'] ?? null) ? $options['head'] : $repoRoot . '/build/contract-witness';
+$releasedDirectory = \is_string($options['released'] ?? null) ? $options['released'] : null;
+$witnessPath = $headDirectory . '/' . WITNESS;
+
+/**
+ * A released witness document: from the unpacked package when it carries the file,
+ * otherwise from the tag.
+ */
+function releasedWitness(string $repoRoot, ?string $releasedDirectory, string $tag, string $file): ?string
+{
+    if ($releasedDirectory !== null && \is_file($releasedDirectory . '/' . $file)) {
+        $contents = \file_get_contents($releasedDirectory . '/' . $file);
+
+        return \is_string($contents) ? $contents : null;
+    }
+
+    return git($repoRoot, 'show', $tag . ':' . TAG_WITNESS_DIRECTORY . '/' . $file);
+}
 
 function fail(string $message): never
 {
@@ -188,6 +217,13 @@ function structure(mixed $value, bool $named = false, bool $mediaTypes = false):
         if ($key === 'x-generator') {
             continue;
         }
+        // Named Example Objects, such as `components.examples`: which exist is structure,
+        // what they say is not.
+        if (!$named && $key === 'examples' && \is_array($item) && !\array_is_list($item)) {
+            $out[$key] = \array_fill_keys(\array_keys($item), true);
+
+            continue;
+        }
         $out[$key] = structure($item, !$named && \in_array($key, NAMED_MAPS, true), !$named && $key === 'content');
     }
 
@@ -196,7 +232,7 @@ function structure(mixed $value, bool $named = false, bool $mediaTypes = false):
 
 /**
  * A media type's structure: its example's value is not structure, but whether it has one
- * is, so the example is kept as `true`.
+ * is, so the example is kept as `true` and each named example by its name alone.
  */
 function mediaTypeStructure(mixed $media): mixed
 {
@@ -208,6 +244,9 @@ function mediaTypeStructure(mixed $media): mixed
     if (\is_array($out) && \array_key_exists('example', $media)) {
         $out['example'] = true;
     }
+    if (\is_array($out) && \is_array($media['examples'] ?? null)) {
+        $out['examples'] = \array_fill_keys(\array_keys($media['examples']), true);
+    }
 
     return $out;
 }
@@ -217,14 +256,14 @@ if ($tag === null) {
     pass('no release tag yet — the first release will set the baseline this guard compares against.');
 }
 
-$releasedWitness = git($repoRoot, 'show', $tag . ':' . WITNESS_PATH);
+$releasedWitness = releasedWitness($repoRoot, $releasedDirectory, $tag, WITNESS);
 if ($releasedWitness === null || \trim($releasedWitness) === '') {
     pass("{$tag} predates the contract witness, so there is no released structure to compare against.");
 }
 
 $headWitness = \is_file($witnessPath) ? \file_get_contents($witnessPath) : false;
 if (!\is_string($headWitness) || \trim($headWitness) === '') {
-    fail("the witness is missing or empty at {$witnessPath}; regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test.");
+    fail("the witness is missing or empty at {$witnessPath}; export it with php bin/export-contract-witness.php.");
 }
 
 $headSource = \file_get_contents($repoRoot . '/' . CONTRACT_SOURCE);
@@ -248,13 +287,13 @@ $releasedContract ??= ABSENT_CONTRACT;
 // structures, so it holds BASELINE to the shape every document shares: when that moves,
 // BASELINE moves to CONTRACT with it. A tag from before the baseline existed had every
 // document at its CONTRACT, so its main witness is the released baseline.
-$headBaselinePath = $repoRoot . '/' . BASELINE_WITNESS_PATH;
+$headBaselinePath = $headDirectory . '/' . BASELINE_WITNESS;
 if (\is_file($headBaselinePath)) {
     $headBaselineWitness = \file_get_contents($headBaselinePath);
     if (!\is_string($headBaselineWitness) || \trim($headBaselineWitness) === '') {
-        fail('the baseline witness at ' . BASELINE_WITNESS_PATH . ' is empty; regenerate it with UPDATE_CONTRACT_WITNESS=1 composer test.');
+        fail("the baseline witness at {$headBaselinePath} is empty; export it with php bin/export-contract-witness.php.");
     }
-    $releasedBaselineWitness = git($repoRoot, 'show', $tag . ':' . BASELINE_WITNESS_PATH);
+    $releasedBaselineWitness = releasedWitness($repoRoot, $releasedDirectory, $tag, BASELINE_WITNESS);
     if ($releasedBaselineWitness === null || \trim($releasedBaselineWitness) === '') {
         $releasedBaselineWitness = $releasedWitness;
     }
@@ -272,7 +311,7 @@ if (\is_file($headBaselinePath)) {
             "the structure every projected document shares has changed since {$tag}, so the bump cannot be scoped.\n"
             . "  A document using no scoped structure still carries GeneratorContract::BASELINE ({$headBaseline}), and a\n"
             . "  generator reading it would miss the change. Raise BASELINE to CONTRACT, bumping CONTRACT first if\n"
-            . "  it is still at the value {$tag} shipped, and regenerate both witnesses.",
+            . "  it is still at the value {$tag} shipped, and export the witness again.",
         );
     }
     if (!$baselineMoved && $headBaseline !== $releasedBaseline) {
@@ -324,8 +363,8 @@ fail(
     . "  A code generator keys on that integer to decide whether it is too old to read this server's\n"
     . "  document. Leaving it where the last release left it means a generator built against contract\n"
     . "  {$headContract} quietly skips whatever this cycle added, and emits a client missing it.\n"
-    . '  Bump GeneratorContract::CONTRACT to ' . ($releasedContract + 1) . " and regenerate the witness\n"
-    . "  (UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest).\n"
+    . '  Bump GeneratorContract::CONTRACT to ' . ($releasedContract + 1) . " and export the witness again\n"
+    . "  (php bin/export-contract-witness.php).\n"
     . '  Only the first pull request of a release cycle does this; once the contract is ahead of '
     . "{$releasedContract},\n  later ones leave it alone.",
 );

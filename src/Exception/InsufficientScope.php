@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
@@ -45,6 +47,16 @@ final class InsufficientScope extends AbstractJsonApiException implements Descri
             feature: ErrorFeature::OperationScopes,
             exampleDetail: 'The access token does not grant every scope this request needs.',
             description: 'The access token is valid but does not grant every scope the request needs. `meta.missingScopes` names the ones it lacks; request a token that grants them, or drop the `include` path named in `meta.include`.',
+            meta: [
+                ArrayList::make('requiredScopes')->of('string')->required()
+                    ->describedAs('Every scope the request needs.')
+                    ->example(['articles:read', 'articles:write']),
+                ArrayList::make('missingScopes')->of('string')->required()
+                    ->describedAs('The required scopes the access token does not grant.')
+                    ->example(['articles:write']),
+                Str::make('include')
+                    ->describedAs('The `include` path whose hop needs the missing scopes, when an include is what needs them.'),
+            ],
         );
     }
 

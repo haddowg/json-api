@@ -74,7 +74,7 @@ final class DocumentValidator
         $violations = $this->validate($this->schemaProvider->requestSchemaId(), $additionalSchemas, $document);
 
         if ($violations !== []) {
-            throw new RequestBodyInvalidJsonApi($violations, $document);
+            throw new RequestBodyInvalidJsonApi($violations);
         }
     }
 
@@ -90,7 +90,7 @@ final class DocumentValidator
         $violations = $this->validate($this->schemaProvider->responseSchemaId(), $additionalSchemas, $document);
 
         if ($violations !== []) {
-            throw new ResponseBodyInvalidJsonApi($violations, $document);
+            throw new ResponseBodyInvalidJsonApi($violations);
         }
     }
 

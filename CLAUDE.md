@@ -124,10 +124,10 @@ deviations and component-specific gotchas.
   directly; `Deserializer` / engine `SerializerInterface` → inline
   `\json_decode`/`\json_encode` with `\JSON_THROW_ON_ERROR` passed **inline** (lets
   PHPStan narrow to `string`, never a `(string)` cast).
-- **Preserve yin's spec surface verbatim** — status codes, `code`, `title`,
-  `detail`, `source`/`meta`, **including yin's existing typos**, are spec-compliance
-  fidelity. yin's error `detail` often differs from the thrown message, so spell out
-  the literal `detail:` string rather than reusing the message.
+- **yin is inspiration, not a contract** — there is no compatibility with or upgrade
+  path from yin, so its error surface (`code`, `title`, `detail`, `source`/`meta`) and
+  any other design choice is kept only where it is still the best reading of the spec.
+  Improve on it freely.
 - **`@internal` machinery is never consumer surface** — `Transformer\*`,
   `Schema\Document\*`, `Response\Internal\*`, and every `…\Internal\…` helper.
 
@@ -357,16 +357,21 @@ are the one scoped structure, `RAW_CONTENT`). A change that moves every document
 `BASELINE` to `CONTRACT`; `contract-witness-baseline.json`, the witness server without its
 raw results, is how the guard tells the two apart.
 
-Two checks enforce the bump. Read what they tell you rather than silencing them:
+The witness is **published, not committed**: `bin/export-contract-witness.php` writes it
+(to `build/contract-witness` by default), each release publishes it as
+`@haddowg/json-api-witness` on GitHub Packages, and each pull request from this repository
+publishes `0.0.0-pr.<n>.<sha>` under dist-tag `pr-<n>`, deleted when it closes
+(`.github/workflows/witness.yml`). Never commit a witness again. Two checks enforce the
+bump. Read what they tell you rather than silencing them:
 
-1. `ContractWitnessTest` compares the projector's output against
-   `tests/OpenApi/Fixture/contract-witness.json`. Regenerate with
-   `UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest` and **read the
-   diff** — it is the change you are deciding about. Widen `ContractWitnessServer` whenever
-   the projector grows a branch the fixture does not reach.
-2. The `generator-contract` CI job runs `bin/contract-guard.php`, which compares the witness
-   and the `CONTRACT` constant against **the last release tag**, not the PR base. Its output
-   names the verdict that fired and what to do about it.
+1. The `Generated output` job diffs the pull request's witness against its base's and
+   fails until the `generated-output` label acknowledges it. **Read that diff**: it is the
+   change you are deciding about. Locally, export both sides and `diff` them. Widen
+   `ContractWitnessServer` whenever the projector grows a branch the witness does not reach.
+2. The `generator-contract` CI job runs `bin/contract-guard.php`, which compares the
+   exported witness and the `CONTRACT` constant against **the last release's** published
+   witness (or, for a release from before the package, the one committed at its tag), not
+   the PR base. Its output names the verdict that fired and what to do about it.
 
 The constant, the witness and the changelog are the only record of a bump. Describe what a
 change does in `docs/` as current behaviour, and never write which contract or release
@@ -386,6 +391,17 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   `ErrorCatalogProjectionTest::anErrorCarryingAnUndocumentedCodeStillValidates` guards it,
   so do not "tighten" it. `Error::$context` is not projected in any spelling
   ([ADR 0053](docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
+- The catalogue groups the codes at one status sharing a `source` member and a declared
+  `meta` into one shape, each code a `const` branch of an `anyOf` `code` carrying its own
+  `title` and `description`, even when the shape holds one code. Never go back to one
+  component per code, and keep per-code examples in the responses' `examples`, not on the
+  schema ([ADR 0090](docs/adr/0090-error-codes-are-grouped-into-shapes-per-status.md),
+  [ADR 0091](docs/adr/0091-an-error-descriptor-declares-its-meta.md)). A code whose descriptor
+  declares an `ErrorScope` (or a `ScopedErrorSource` gives it one) joins a shape of its own
+  scope, and only the operations it covers offer it, through a response shared by every
+  operation raising the same scoped codes at a status; scope lives with the error, never on
+  the type. Each code's example is one `components.examples` entry the responses reference
+  ([ADR 0093](docs/adr/0093-a-code-is-offered-only-by-the-operations-declared-to-raise-it.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
   claims that status and the generic `ErrorDocument` when it does not. The

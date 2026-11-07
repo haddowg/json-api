@@ -84,12 +84,15 @@ final class OpenApiProjector
         // components, and which per-status `ErrorDocument` narrowings, the document
         // carries. Path projection reads only the metadata, so the move is free.
         $paths = $this->paths($server);
+        // An operation raising codes scoped to it points at a response narrowed
+        // to them, so the shared response for that status may go unreferenced.
+        [$paths, $errorSets] = $this->scopeErrorResponses($server, $paths);
         $errorStatuses = ErrorResponseProjector::referencedStatuses($paths);
 
         $links = new LinkSchemaProjector($server, $paths);
 
         $schemas = [];
-        $this->addSharedComponents($schemas, $server, $errorStatuses, $links);
+        $this->addSharedComponents($schemas, $server, $errorStatuses, $errorSets, $links);
 
         // The shared meta-document component is referenced by an action that declares a
         // MetaResult response and by a delete that declares a `200` meta-only success
@@ -162,13 +165,32 @@ final class OpenApiProjector
         }
 
         $responses = ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server));
+        $codesByResponse = [];
+        foreach ($this->errorCatalogProjector->descriptorsByStatus($server) as $status => $descriptors) {
+            $codesByResponse[ErrorResponseProjector::name((string) $status)] = ['status' => $status, 'descriptors' => $descriptors];
+        }
+        $byShape = $this->errorCatalogProjector->descriptorsByShape($server);
+        foreach ($errorSets as $name => $set) {
+            $responses[$name] = Response::ofSchema(
+                ErrorResponseProjector::description((string) $set['status']),
+                Schema::ref(ComponentNaming::schemaRef($set['document'])),
+            );
+            $descriptors = [];
+            foreach ($set['shapes'] as $shape) {
+                foreach ($byShape[$shape] ?? [] as $descriptor) {
+                    $descriptors[] = $descriptor;
+                }
+            }
+            $codesByResponse[$name] = ['status' => $set['status'], 'descriptors' => $descriptors];
+        }
 
         // Examples go on last: they read the finished paths and the error catalogue, and
         // change nothing a schema or a path is built from.
+        $exampleComponents = [];
         $examples = self::generatesExamples($server) ? new OperationExampleProjector($server, $links) : null;
         if ($examples !== null) {
             $paths = $examples->paths($paths);
-            $responses = $examples->errorResponses($responses, $this->errorCatalogProjector->descriptorsByStatus($server));
+            [$responses, $exampleComponents] = $examples->errorResponses($responses, $codesByResponse);
         }
 
         $components = new Components(
@@ -176,6 +198,7 @@ final class OpenApiProjector
             responses: $responses,
             parameters: $parameters,
             securitySchemes: OperationScopes::of($server)?->securitySchemes() ?? $server->securitySchemes(),
+            examples: $exampleComponents,
         );
 
         $scopes = OperationScopes::of($server);
@@ -212,6 +235,54 @@ final class OpenApiProjector
      * already produced by an earlier type cannot collide (uriTypes are unique), so a
      * simple `with()` accumulation is correct.
      */
+    /**
+     * Points each operation that raises codes scoped to it
+     * ({@see \haddowg\JsonApi\Exception\ErrorScope}) at an error
+     * response offering them beside the codes every operation raises, adding the status
+     * when the operation did not advertise it. Operations raising the same scoped codes at a
+     * status share one such response, named for the status and those codes.
+     *
+     * @return array{Paths, array<string, array{status: int, shapes: list<string>, document: string}>} the paths, and each narrowed response's status, shapes and error document component
+     */
+    private function scopeErrorResponses(ServerMetadataInterface $server, Paths $paths): array
+    {
+        $catalog = $this->errorCatalogProjector;
+        $shared = $catalog->componentsByStatus($server);
+        $items = $paths->items;
+        $sets = [];
+
+        foreach ($server->types() as $type) {
+            foreach (OperationEnumerator::forType($type) as $enumerated) {
+                $scoped = $catalog->scopedShapes($server, $type->type(), $enumerated->key->name());
+                $item = $items[$enumerated->path] ?? null;
+                $operation = $item?->operations[$enumerated->method] ?? null;
+                if ($scoped === [] || $item === null || $operation === null) {
+                    continue;
+                }
+
+                $responses = $operation->responses->responses;
+                foreach ($scoped as $status => $shapes) {
+                    $suffix = 'With' . \implode('', \array_map(static fn(string $shape): string => ErrorCatalogProjector::shapeSuffix($shape, $status), $shapes));
+                    $name = ErrorResponseProjector::name((string) $status) . $suffix;
+                    $sets[$name] = ['status' => $status, 'shapes' => [...$shared[$status] ?? [], ...$shapes], 'document' => 'ErrorDocument' . $status . $suffix];
+
+                    $existing = $responses[(string) $status] ?? null;
+                    $responses[(string) $status] = new Reference(
+                        Reference::to('responses', $name)->ref,
+                        description: $existing instanceof Reference ? $existing->description : null,
+                    );
+                }
+                $narrowed = new Responses();
+                foreach ($responses as $status => $response) {
+                    $narrowed = $narrowed->with((string) $status, $response);
+                }
+                $items[$enumerated->path] = $item->withOperation($enumerated->method, $operation->withResponses($narrowed));
+            }
+        }
+
+        return [new Paths($items), $sets];
+    }
+
     private function paths(ServerMetadataInterface $server): Paths
     {
         $paths = new Paths();
@@ -470,10 +541,11 @@ final class OpenApiProjector
      * `$errorStatuses` are the statuses the projected paths advertise; each one the
      * catalogue claims also gets an `ErrorDocument<status>` narrowing.
      *
-     * @param array<string, Schema> $schemas
-     * @param list<string>          $errorStatuses
+     * @param array<string, Schema>                                                            $schemas
+     * @param list<string>                                                                     $errorStatuses
+     * @param array<string, array{status: int, shapes: list<string>, document: string}>        $errorSets     the narrowed error responses scoped codes need
      */
-    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server, array $errorStatuses, LinkSchemaProjector $links): void
+    private function addSharedComponents(array &$schemas, ServerMetadataInterface $server, array $errorStatuses, array $errorSets, LinkSchemaProjector $links): void
     {
         $schemas['JsonApi'] = $this->jsonApiObjectSchema(
             $server->jsonApiVersion(),
@@ -508,6 +580,13 @@ final class OpenApiProjector
             }
             $schemas['ErrorDocument' . $status] = $this->errorDocumentSchema(
                 $catalog->errorsItemSchema($codes, (int) $status),
+            );
+        }
+
+        // One narrowing per set of scoped codes some operation raises at a status.
+        foreach ($errorSets as $set) {
+            $schemas[$set['document']] = $this->errorDocumentSchema(
+                $catalog->errorsItemSchema($set['shapes'], $set['status']),
             );
         }
 

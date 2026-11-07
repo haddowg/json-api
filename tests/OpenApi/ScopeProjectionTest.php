@@ -173,10 +173,10 @@ final class ScopeProjectionTest extends TestCase
         self::assertSame(GeneratorContract::toArray(), self::dig($plain, 'info', 'x-generator'));
         $scopedSchemas = self::dig($scoped, 'components', 'schemas');
         self::assertIsArray($scopedSchemas);
-        self::assertArrayHasKey('InsufficientScopeError', $scopedSchemas);
+        self::assertArrayHasKey('Error403InsufficientScope', $scopedSchemas);
         $plainSchemas = self::dig($plain, 'components', 'schemas');
         self::assertIsArray($plainSchemas);
-        self::assertArrayNotHasKey('InsufficientScopeError', $plainSchemas);
+        self::assertArrayNotHasKey('Error403InsufficientScope', $plainSchemas);
     }
 
     /**

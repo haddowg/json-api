@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Deletes the GitHub Packages npm versions a pull request published (0.0.0-pr.<number>.*).
+# With "--closed" instead of a number, deletes every pull request prerelease whose pull
+# request is closed, which is the weekly sweep for anything a close event missed.
+#
+# Usage: delete-prereleases <package> <pull-request | --closed>
+# Needs GH_TOKEN, GITHUB_REPOSITORY and GITHUB_REPOSITORY_OWNER.
+set -euo pipefail
+
+package="$1"
+target="$2"
+versions="users/${GITHUB_REPOSITORY_OWNER}/packages/npm/${package}/versions"
+
+if ! listing="$(gh api "${versions}" --paginate --jq '.[] | "\(.id) \(.name)"' 2> /dev/null)"; then
+  echo "No ${package} package to clean up."
+  exit 0
+fi
+
+while read -r id name; do
+  [ -n "${id}" ] || continue
+  if [[ ! "${name}" =~ ^0\.0\.0-pr\.([0-9]+)\. ]]; then
+    continue
+  fi
+  pr="${BASH_REMATCH[1]}"
+  if [ "${target}" = "--closed" ]; then
+    state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" --jq .state 2> /dev/null || echo closed)"
+    [ "${state}" = "closed" ] || continue
+  elif [ "${pr}" != "${target}" ]; then
+    continue
+  fi
+  echo "Deleting ${package}@${name}"
+  gh api -X DELETE "${versions}/${id}" > /dev/null || echo "Could not delete ${name}; the sweep will retry."
+done <<< "${listing}"
