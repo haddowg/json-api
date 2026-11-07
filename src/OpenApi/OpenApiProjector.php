@@ -84,7 +84,7 @@ final class OpenApiProjector
         // components, and which per-status `ErrorDocument` narrowings, the document
         // carries. Path projection reads only the metadata, so the move is free.
         $paths = $this->paths($server);
-        // An operation raising codes its type scopes to it points at a response narrowed
+        // An operation raising codes scoped to it points at a response narrowed
         // to them, so the shared response for that status may go unreferenced.
         [$paths, $errorSets] = $this->scopeErrorResponses($server, $paths);
         $errorStatuses = ErrorResponseProjector::referencedStatuses($paths);
@@ -236,8 +236,8 @@ final class OpenApiProjector
      * simple `with()` accumulation is correct.
      */
     /**
-     * Points each operation that raises codes its type scopes to it
-     * ({@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationErrors}) at an error
+     * Points each operation that raises codes scoped to it
+     * ({@see \haddowg\JsonApi\Exception\ErrorScope}) at an error
      * response offering them beside the codes every operation raises, adding the status
      * when the operation did not advertise it. Operations raising the same scoped codes at a
      * status share one such response, named for the status and those codes.

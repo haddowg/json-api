@@ -435,20 +435,29 @@ batch.
 ### Scoping a code to the operations that raise it
 
 Most codes can arrive on any operation, but an application's own codes are often endpoint
-specific: a lock on an update, a payment check on one action. A type whose metadata
-implements `DeclaresOperationErrors` names the codes only some of its operations raise,
-keyed by operation name like its examples and scopes, with `*` for every operation of the
-type:
+specific: a lock on an update, a payment check on one action. An error names the operations
+it can arrive on with a `scope` on its descriptor:
 
 ```php
-public function operationErrors(): array
-{
-    return [
-        'update' => [ArticleLocked::class],
-        'delete' => [ArticleLocked::class],
-        'action.publish.post' => [PaymentRequired::class],
-    ];
-}
+use haddowg\JsonApi\Exception\ErrorScope;
+
+new ErrorDescriptor(
+    code: 'ARTICLE_LOCKED',
+    status: 409,
+    title: 'Article locked',
+    scope: ErrorScope::on('articles', 'update', 'delete'),
+);
+```
+
+`ErrorScope::on()` names operations of one type in the grammar operation examples and
+scopes are keyed by (`update`, `fetchRelated.author`, `action.publish.post`), or every
+operation of the type when it names none. `ErrorScope::kinds()` covers operations of a kind
+on every type, for an error that is not one type's, and `and()` combines scopes. For an
+error you do not own, catalogue it through a `ScopedErrorSource`, whose scope replaces the
+descriptor's:
+
+```php
+new ScopedErrorSource(ErrorScope::on('articles', 'action.purchase.post'), PaymentRequired::class)
 ```
 
 A scoped code is catalogued like any other, in a shape of its own scope named after its first
@@ -457,9 +466,8 @@ them points its response for the code's status at one narrowed to the codes ever
 raises plus the scoped ones, `ConflictWithArticleLocked` carrying
 `ErrorDocument409WithArticleLocked`, and gains that status if it did not advertise it
 already. Operations raising the same scoped codes at a status share one such response, and
-the rest keep the shared one. A name that is not an operation of the type fails the
-projection, and a code the server already catalogues for every operation, core's or one a
-server contributes, ignores the scope.
+the rest keep the shared one. A name that is not an operation name fails when the scope is
+built, and a scope naming a type the server does not register covers nothing on it.
 
 Each code's example is one `components.examples` entry, keyed by the code, which every
 response offering the code references, so a narrowed response adds a reference per code

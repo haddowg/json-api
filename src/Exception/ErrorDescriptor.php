@@ -36,6 +36,10 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * object; the projection publishes the description on the code's branch and the examples in
  * the code's entry of each error response that can carry it.
  *
+ * `$scope` names the operations the error can arrive on when that is not every operation, so
+ * the projection offers the code only there; a {@see ScopedErrorSource} can override it for
+ * an error you do not own.
+ *
  * `$meta` declares the members the exception puts in the error object's `meta`, with the
  * same field builders a resource's attributes use. The declaration is closed: a member it
  * does not name never appears. A member declared `required()` is in every error object of
@@ -62,6 +66,7 @@ final readonly class ErrorDescriptor
      * @param string|null                     $exampleDetail an example `detail` member, for a code whose detail names the request's own context
      * @param string|null                     $exampleSource an example value of the `source` member `$source` names, such as `/data/attributes/title` or `include`
      * @param list<FieldInterface|FieldBuilderInterface> $meta the members the exception puts in `meta`
+     * @param ErrorScope|null                 $scope         the operations the error can arrive on, when not all of them
      */
     public function __construct(
         public string $code,
@@ -74,10 +79,31 @@ final readonly class ErrorDescriptor
         public ?string $exampleDetail = null,
         public ?string $exampleSource = null,
         array $meta = [],
+        public ?ErrorScope $scope = null,
     ) {
         $this->meta = \array_map(
             static fn(FieldInterface|FieldBuilderInterface $member): FieldInterface => $member instanceof FieldBuilderInterface ? $member->build() : $member,
             $meta,
+        );
+    }
+
+    /**
+     * The same descriptor scoped to `$scope`.
+     */
+    public function withScope(?ErrorScope $scope): self
+    {
+        return new self(
+            $this->code,
+            $this->status,
+            $this->title,
+            $this->context,
+            $this->source,
+            $this->feature,
+            $this->description,
+            $this->exampleDetail,
+            $this->exampleSource,
+            $this->meta,
+            $scope,
         );
     }
 

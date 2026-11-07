@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
-use haddowg\JsonApi\Exception\ClassListErrorSource;
 use haddowg\JsonApi\Exception\CoreErrorSource;
-use haddowg\JsonApi\Exception\DescribedErrorInterface;
 use haddowg\JsonApi\Exception\ErrorCatalog;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
+use haddowg\JsonApi\Exception\ErrorScope;
 use haddowg\JsonApi\Exception\ErrorSourceShape;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationErrors;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
@@ -37,10 +35,11 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * A shape is named after its status, its `source` member and, when it declares `meta` or is
  * scoped, its first code: `Error403`, `Error422Pointer`, `Error403InsufficientScope`.
  *
- * **Scoped codes.** A type implementing {@see DeclaresOperationErrors} declares codes only
- * some of its operations raise. Such a code is catalogued like any other, but in a shape of
- * its own scope, so where it can arrive is part of what groups it with other codes, and only the
- * operations it is declared for offer it ({@see scopedShapes()}).
+ * **Scoped codes.** A descriptor declaring an {@see ErrorScope}, or given one by a
+ * {@see \haddowg\JsonApi\Exception\ScopedErrorSource}, names the operations its code can
+ * arrive on. Such a code is catalogued like any other, but in a shape of its own scope, so
+ * where it can arrive is part of what groups it with other codes, and only the operations its
+ * scope covers offer it ({@see scopedShapes()}).
  *
  * **The `anyOf` is a catalogue, not a constraint.** Its first branch is the open generic
  * `Error`, which every error object satisfies — including one carrying an application's
@@ -83,8 +82,8 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The scoped shapes `$operation` of `$type` offers, by status, in catalogue order: the
-     * codes the type declares for that operation, or for all of its operations.
+     * The scoped shapes `$operation` of `$type` offers, by status, in catalogue order: those
+     * of the codes whose scope covers it.
      *
      * @return array<int, list<string>>
      */
@@ -280,19 +279,9 @@ final class ErrorCatalogProjector
             return $this->memo;
         }
 
-        $scopes = self::scopes($server);
         $descriptors = [];
-        $unscoped = [];
         foreach ($this->raisable($server) as $descriptor) {
-            $descriptors[] = [$descriptor, null];
-            $unscoped[$descriptor->code] = true;
-        }
-        foreach ($scopes as $class => $operations) {
-            $descriptor = $class::describe();
-            if (isset($unscoped[$descriptor->code]) || ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server))) {
-                continue;
-            }
-            $descriptors[] = [$descriptor, $operations];
+            $descriptors[] = [$descriptor, $descriptor->scope === null ? null : self::operationsCovered($server, $descriptor->scope)];
         }
 
         $shapes = [];
@@ -326,60 +315,24 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * Each class a type declares through {@see DeclaresOperationErrors}, mapped to the
-     * operations it is declared for (`<type>\0<operation name>`), sorted. A class a type
-     * declares for `*` is declared for each of its operations. The catalogue checks the
-     * classes like a contributed source's: two classes claiming one code fail it.
+     * The operations of the server's types `$scope` covers, as `<type>\0<operation name>`,
+     * sorted. A scope naming a type the server does not register covers nothing there.
      *
-     * @return array<class-string<DescribedErrorInterface>, list<string>>
-     *
-     * @throws \InvalidArgumentException when a type names an operation it does not expose
+     * @return list<string>
      */
-    private static function scopes(ServerMetadataInterface $server): array
+    private static function operationsCovered(ServerMetadataInterface $server, ErrorScope $scope): array
     {
-        $scopes = [];
+        $covered = [];
         foreach ($server->types() as $type) {
-            if (!$type instanceof DeclaresOperationErrors) {
-                continue;
-            }
-            $declared = $type->operationErrors();
-            if ($declared === []) {
-                continue;
-            }
-
-            $known = [];
             foreach (OperationEnumerator::forType($type) as $enumerated) {
-                $known[$enumerated->key->name()] = true;
-            }
-            foreach ($declared as $operation => $classes) {
-                $operation = (string) $operation;
-                if ($operation !== '*' && !isset($known[$operation])) {
-                    throw new \InvalidArgumentException(\sprintf(
-                        'The type "%s" declares errors for the operation "%s", which it does not expose. Name one of: *, %s.',
-                        $type->type(),
-                        $operation,
-                        \implode(', ', \array_keys($known)),
-                    ));
-                }
-                foreach ($operation === '*' ? \array_keys($known) : [$operation] as $name) {
-                    foreach ($classes as $class) {
-                        $scopes[$class][$type->type() . "\0" . $name] = true;
-                    }
+                if ($scope->covers($type->type(), $enumerated->key)) {
+                    $covered[] = $type->type() . "\0" . $enumerated->key->name();
                 }
             }
         }
+        \sort($covered, \SORT_STRING);
 
-        if ($scopes !== []) {
-            // Fails when a scoped class claims a code another class already claims.
-            (new ErrorCatalog(...[...self::sources($server), new ClassListErrorSource(...\array_keys($scopes))]))->descriptors();
-        }
-
-        return \array_map(static function (array $operations): array {
-            $names = \array_map(\strval(...), \array_keys($operations));
-            \sort($names, \SORT_STRING);
-
-            return $names;
-        }, $scopes);
+        return $covered;
     }
 
     /**

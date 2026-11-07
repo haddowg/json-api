@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\Exception\ClassListErrorSource;
+use haddowg\JsonApi\Exception\ErrorScope;
+use haddowg\JsonApi\Exception\ScopedErrorSource;
 use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\Header;
@@ -78,6 +80,7 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 use haddowg\JsonApi\Scope\OperationScopeResolverInterface;
 use haddowg\JsonApi\Scope\ScopeTableBuilder;
 use haddowg\JsonApi\Tests\Exception\Fixture\ArticleLocked;
+use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleImportRow;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
@@ -178,7 +181,14 @@ final class ContractWitnessServer
         );
 
         $witness = new LinkDeclaringServerMetadata(
-            new ContributingServerMetadata($server, new ClassListErrorSource(SubscriptionExpired::class)),
+            new ContributingServerMetadata(
+                $server,
+                // ArticleLocked scopes itself to an article update and delete, so those two offer it
+                // and a delete, which advertises no 409 otherwise, gains one. PaymentRequired is
+                // scoped here, as for an error the application does not own.
+                new ClassListErrorSource(SubscriptionExpired::class, ArticleLocked::class),
+                new ScopedErrorSource(ErrorScope::on('tags', 'create'), PaymentRequired::class),
+            ),
             documentUrl: '/docs/openapi.json',
         );
 
@@ -482,9 +492,6 @@ final class ContractWitnessServer
                 OperationType::Delete->value => [new NoContent(), new MetaResult()],
             ],
             deprecatedOperations: $deprecations ? ['fetchRelated.author'] : [],
-            // Raised by an update and a delete alone, so those two offer it and a delete,
-            // which advertises no 409 otherwise, gains one.
-            operationErrors: ['update' => [ArticleLocked::class], 'delete' => [ArticleLocked::class]],
         );
     }
 

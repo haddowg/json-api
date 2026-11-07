@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\Exception\ClassListErrorSource;
+use haddowg\JsonApi\Exception\ErrorCatalogSourceInterface;
+use haddowg\JsonApi\Exception\ErrorScope;
+use haddowg\JsonApi\Exception\ScopedErrorSource;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
-use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -21,20 +24,25 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A code a type declares for some of its operations is offered by those operations alone:
- * each points its error response for the code's status at one narrowed to the codes every
- * operation raises plus the scoped ones, and the rest keep the shared response.
+ * A code whose scope names some operations is offered by those operations alone: each points
+ * its error response for the code's status at one narrowed to the codes every operation
+ * raises plus the scoped ones, and the rest keep the shared response. The scope is the
+ * descriptor's own, or one a {@see ScopedErrorSource} gives it.
  */
 #[CoversClass(ErrorCatalogProjector::class)]
 #[CoversClass(OpenApiProjector::class)]
+#[CoversClass(ErrorScope::class)]
+#[CoversClass(ScopedErrorSource::class)]
 final class ErrorScopeProjectionTest extends TestCase
 {
     #[Test]
-    public function aScopedCodeIsOfferedOnlyByTheOperationsItIsDeclaredFor(): void
+    public function aDescriptorsScopeOffersItsCodeOnlyOnTheOperationsItNames(): void
     {
-        $document = $this->project(['update' => [ArticleLocked::class]]);
+        // ArticleLocked scopes itself to the article update and delete.
+        $document = $this->project(new ClassListErrorSource(ArticleLocked::class));
 
         self::assertSame('#/components/responses/ConflictWithArticleLocked', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', '$ref'));
+        self::assertSame('#/components/responses/ConflictWithArticleLocked', $this->at($document, 'paths', '/articles/{id}', 'delete', 'responses', '409', '$ref'));
         self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles', 'post', 'responses', '409', '$ref'));
 
         $schemas = $this->arr($document, 'components', 'schemas');
@@ -47,16 +55,12 @@ final class ErrorScopeProjectionTest extends TestCase
             'the narrowed document offers the shared codes, then the scoped ones, behind the generic branch',
         );
         self::assertSame('Article locked', $this->at($schemas, 'Error409ArticleLocked', 'title'));
-        self::assertSame(
-            '#/components/schemas/ErrorDocument409WithArticleLocked',
-            $this->at($document, 'components', 'responses', 'ConflictWithArticleLocked', 'content', 'application/vnd.api+json', 'schema', '$ref'),
-        );
     }
 
     #[Test]
     public function anOperationGainsTheStatusOfAScopedCodeInOrder(): void
     {
-        $document = $this->project(['delete' => [ArticleLocked::class]]);
+        $document = $this->project(new ClassListErrorSource(ArticleLocked::class));
 
         $responses = $this->arr($document, 'paths', '/articles/{id}', 'delete', 'responses');
         self::assertSame('#/components/responses/ConflictWithArticleLocked', $this->at($responses, '409', '$ref'));
@@ -67,12 +71,13 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aStatusOnlyScopedCodesUseLeavesNoSharedResponseBehind(): void
+    public function aScopedSourceScopesAnErrorItDoesNotOwn(): void
     {
-        // Nothing else answers 402, so the only 402 response is the narrowed one.
-        $document = $this->project(['update' => [PaymentRequired::class]]);
+        $document = $this->project(new ScopedErrorSource(ErrorScope::on('articles', 'update'), PaymentRequired::class));
 
         self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '402', '$ref'));
+        self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'delete', 'responses'));
+        // Nothing else answers 402, so no shared 402 response is left behind.
         self::assertArrayNotHasKey('Status402', $this->arr($document, 'components', 'responses'));
         self::assertSame(
             [['$ref' => '#/components/schemas/Error'], ['$ref' => '#/components/schemas/Error402PaymentRequired']],
@@ -81,9 +86,21 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theWildcardScopesACodeToEveryOperationOfTheType(): void
+    public function aScopedSourceOverridesTheDescriptorsScopeWhicheverSourceComesFirst(): void
     {
-        $document = $this->project(['*' => [PaymentRequired::class]]);
+        $document = $this->project(
+            new ClassListErrorSource(ArticleLocked::class),
+            new ScopedErrorSource(ErrorScope::on('articles', 'create'), ArticleLocked::class),
+        );
+
+        self::assertSame('#/components/responses/ConflictWithArticleLocked', $this->at($document, 'paths', '/articles', 'post', 'responses', '409', '$ref'));
+        self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', '$ref'));
+    }
+
+    #[Test]
+    public function aTypeWithNoOperationNamedScopesEveryOperationOfIt(): void
+    {
+        $document = $this->project(new ScopedErrorSource(ErrorScope::on('articles'), PaymentRequired::class));
 
         foreach (['/articles' => ['get', 'post'], '/articles/{id}' => ['get', 'patch', 'delete']] as $path => $methods) {
             foreach ($methods as $method) {
@@ -93,9 +110,28 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aKindScopeCoversThatOperationOnEveryType(): void
+    {
+        $document = $this->project(new ScopedErrorSource(ErrorScope::kinds(OperationKind::Delete), PaymentRequired::class));
+
+        self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/articles/{id}', 'delete', 'responses', '402', '$ref'));
+        self::assertSame('#/components/responses/Status402WithPaymentRequired', $this->at($document, 'paths', '/tags/{id}', 'delete', 'responses', '402', '$ref'));
+        self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'patch', 'responses'));
+    }
+
+    #[Test]
+    public function aScopeNamingATypeTheServerDoesNotRegisterIsOfferedNowhere(): void
+    {
+        $document = $this->project(new ScopedErrorSource(ErrorScope::on('invoices', 'update'), PaymentRequired::class));
+
+        self::assertArrayHasKey('Error402PaymentRequired', $this->arr($document, 'components', 'schemas'));
+        self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'patch', 'responses'));
+    }
+
+    #[Test]
     public function eachCodesExampleIsBuiltOnceAndReferencedWhereItIsOffered(): void
     {
-        $document = $this->project(['update' => [ArticleLocked::class], 'delete' => [ArticleLocked::class]]);
+        $document = $this->project(new ClassListErrorSource(ArticleLocked::class));
 
         self::assertSame('Article locked', $this->at($document, 'components', 'examples', 'ARTICLE_LOCKED', 'summary'));
         self::assertSame(
@@ -106,23 +142,22 @@ final class ErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aCodeTheServerCataloguesForEveryOperationIgnoresAScope(): void
+    public function aScopeNamingSomethingThatIsNotAnOperationIsRefused(): void
     {
-        $server = new ContributingServerMetadata($this->server(['update' => [PaymentRequired::class]]), new ClassListErrorSource(PaymentRequired::class));
-        $document = (new OpenApiProjector())->project($server)->toArray();
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('names the operation "publish" of the type "articles"');
 
-        self::assertArrayHasKey('Error402', $this->arr($document, 'components', 'schemas'));
-        self::assertArrayNotHasKey('Error402PaymentRequired', $this->arr($document, 'components', 'schemas'));
-        self::assertArrayNotHasKey('402', $this->arr($document, 'paths', '/articles/{id}', 'patch', 'responses'));
+        ErrorScope::on('articles', 'publish');
     }
 
     #[Test]
-    public function anOperationTheTypeDoesNotExposeIsRefused(): void
+    public function scopesCombine(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The type "articles" declares errors for the operation "publish"');
+        $scope = ErrorScope::on('articles', 'update')->and(ErrorScope::on('articles', 'delete'))->and(ErrorScope::kinds(OperationKind::Create));
 
-        $this->project(['publish' => [ArticleLocked::class]]);
+        self::assertSame(['articles' => ['update', 'delete']], $scope->operations);
+        self::assertSame([OperationKind::Create], $scope->kinds);
+        self::assertSame(['articles' => []], ErrorScope::on('articles', 'update')->and(ErrorScope::on('articles'))->operations);
     }
 
     #[Test]
@@ -130,31 +165,20 @@ final class ErrorScopeProjectionTest extends TestCase
     {
         $this->expectException(\LogicException::class);
 
-        $this->project(['update' => [RivalResourceNotFound::class]]);
+        $this->project(new ScopedErrorSource(ErrorScope::on('articles', 'update'), RivalResourceNotFound::class));
     }
 
     /**
-     * @param array<string, list<class-string<\haddowg\JsonApi\Exception\DescribedErrorInterface>>> $operationErrors
-     *
      * @return array<array-key, mixed>
      */
-    private function project(array $operationErrors): array
+    private function project(ErrorCatalogSourceInterface ...$sources): array
     {
-        return (new OpenApiProjector())->project($this->server($operationErrors))->toArray();
-    }
-
-    /**
-     * @param array<string, list<class-string<\haddowg\JsonApi\Exception\DescribedErrorInterface>>> $operationErrors
-     */
-    private function server(array $operationErrors): ServerMetadataInterface
-    {
-        return new FakeServerMetadata(title: 'API', version: '1.0.0', types: [
-            FakeTypeMetadata::resource(
-                type: 'articles',
-                fields: [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build()],
-                operationErrors: $operationErrors,
-            ),
+        $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [
+            FakeTypeMetadata::resource(type: 'articles', fields: [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build()]),
+            FakeTypeMetadata::resource(type: 'tags', fields: [Id::make()->example('1')->build(), Str::make('name')->example('news')->build()]),
         ]);
+
+        return (new OpenApiProjector())->project(new ContributingServerMetadata($server, ...$sources))->toArray();
     }
 
     /**

@@ -54,16 +54,44 @@ final class ErrorCatalog
     }
 
     /**
-     * The descriptors themselves, in the same order.
+     * The descriptors themselves, in the same order, each scoped as a
+     * {@see ScopedErrorSource} names it when one does.
      *
      * @return list<ErrorDescriptor>
      */
     public function descriptors(): array
     {
+        $scopes = $this->scopes();
+
         return \array_map(
-            static fn(string $exception): ErrorDescriptor => $exception::describe(),
+            static function (string $exception) use ($scopes): ErrorDescriptor {
+                $descriptor = $exception::describe();
+
+                return isset($scopes[$exception]) ? $descriptor->withScope($scopes[$exception]) : $descriptor;
+            },
             $this->exceptions(),
         );
+    }
+
+    /**
+     * The scope each {@see ScopedErrorSource} gives a class, in place of its descriptor's.
+     * A class two such sources name takes the scope both cover.
+     *
+     * @return array<class-string<DescribedErrorInterface>, ErrorScope>
+     */
+    private function scopes(): array
+    {
+        $scopes = [];
+        foreach ($this->sources as $source) {
+            if (!$source instanceof ScopedErrorSource) {
+                continue;
+            }
+            foreach ($source->describedErrors() as $class) {
+                $scopes[$class] = isset($scopes[$class]) ? $scopes[$class]->and($source->scope) : $source->scope;
+            }
+        }
+
+        return $scopes;
     }
 
     /**

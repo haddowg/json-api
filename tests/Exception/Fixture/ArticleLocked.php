@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\Exception\Fixture;
 use haddowg\JsonApi\Exception\AbstractJsonApiException;
 use haddowg\JsonApi\Exception\DescribedErrorInterface;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
+use haddowg\JsonApi\Exception\ErrorScope;
 
 /**
  * An application's own described error that only some operations raise: an article being
@@ -27,6 +28,7 @@ final class ArticleLocked extends AbstractJsonApiException implements DescribedE
             title: 'Article locked',
             description: 'Another editor holds the article. Wait for them to finish, then retry.',
             exampleDetail: 'The article is locked by another editor.',
+            scope: ErrorScope::on('articles', 'update', 'delete'),
         );
     }
 

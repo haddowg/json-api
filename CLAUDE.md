@@ -396,10 +396,11 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   `title` and `description`, even when the shape holds one code. Never go back to one
   component per code, and keep per-code examples in the responses' `examples`, not on the
   schema ([ADR 0090](docs/adr/0090-error-codes-are-grouped-into-shapes-per-status.md),
-  [ADR 0091](docs/adr/0091-an-error-descriptor-declares-its-meta.md)). A code a type scopes
-  through `DeclaresOperationErrors` joins a shape of its own scope, and only its operations
-  offer it, through a response shared by every operation raising the same scoped codes at a
-  status; each code's example is one `components.examples` entry the responses reference
+  [ADR 0091](docs/adr/0091-an-error-descriptor-declares-its-meta.md)). A code whose descriptor
+  declares an `ErrorScope` (or a `ScopedErrorSource` gives it one) joins a shape of its own
+  scope, and only the operations it covers offer it, through a response shared by every
+  operation raising the same scoped codes at a status; scope lives with the error, never on
+  the type. Each code's example is one `components.examples` entry the responses reference
   ([ADR 0093](docs/adr/0093-a-code-is-offered-only-by-the-operations-declared-to-raise-it.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
