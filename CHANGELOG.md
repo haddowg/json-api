@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/haddowg/json-api/compare/v2.1.0...v2.1.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* narrow the atomic endpoint's error responses for scopes that cover it ([#298](https://github.com/haddowg/json-api/issues/298)) ([c5554fa](https://github.com/haddowg/json-api/commit/c5554fab654bf08251cb375d0ea1ac568e7e7a18))
+
 ## [2.1.0](https://github.com/haddowg/json-api/compare/v2.0.0...v2.1.0) (2026-11-07)
 
 
