@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/haddowg/json-api/compare/v2.1.1...v2.2.0) (2026-11-07)
+
+
+### Features
+
+* offer a scoped write's error codes on the atomic endpoint ([#300](https://github.com/haddowg/json-api/issues/300)) ([4a367b0](https://github.com/haddowg/json-api/commit/4a367b0307eb36ad00562c514dfb84ccdac026a1))
+
+
+### Bug Fixes
+
+* type response status keys as int or string ([#301](https://github.com/haddowg/json-api/issues/301)) ([4ae22a5](https://github.com/haddowg/json-api/commit/4ae22a5b88745d86fe6518c7156e56072211e4d5))
+
 ## [2.1.1](https://github.com/haddowg/json-api/compare/v2.1.0...v2.1.1) (2026-11-07)
 
 
