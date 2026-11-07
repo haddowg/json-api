@@ -1,0 +1,171 @@
+name: Contract witness
+
+# The contract witness is published as @haddowg/json-api-witness on GitHub Packages rather
+# than committed. Each pull request from this repository publishes a prerelease the code
+# generators can pin while they test against it, deleted when the pull request closes, and
+# every pull request reports how it changes the witness against its base.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
+  schedule:
+    - cron: '41 3 * * 1'
+  workflow_dispatch:
+
+# No workflow-level permissions; each job requests only what it needs.
+permissions: {}
+
+concurrency:
+  group: witness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  PACKAGE: json-api-witness
+
+jobs:
+  prerelease:
+    name: Publish the pull request's witness
+    if: >-
+      github.event_name == 'pull_request'
+      && contains(fromJSON('["opened", "synchronize", "reopened"]'), github.event.action)
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+      - name: Export the witness
+        run: php bin/export-contract-witness.php packages/json-api-witness
+
+      - name: Publish the prerelease
+        id: publish
+        working-directory: packages/json-api-witness
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          export NPM_CONFIG_USERCONFIG="$("$GITHUB_WORKSPACE/.github/scripts/npm-auth")"
+          version="0.0.0-pr.${PR}.${SHA:0:7}"
+          npm version --no-git-tag-version "$version"
+          npm publish --tag "pr-${PR}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Say which version to pin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: |
+          body="$RUNNER_TEMP/prerelease.md"
+          {
+            echo '<!-- witness-prerelease -->'
+            echo "This pull request's contract witness is published as \`@haddowg/json-api-witness@${VERSION}\` (dist-tag \`pr-${PR}\`)."
+            echo 'Pin that exact version in a code generator to test against it; it is deleted when this pull request closes.'
+          } > "$body"
+          .github/scripts/upsert-comment "$PR" '<!-- witness-prerelease -->' "$body"
+
+  cleanup:
+    name: Delete the pull request's prereleases
+    if: >-
+      github.event_name == 'pull_request' && github.event.action == 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Delete the prereleases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/delete-prereleases "$PACKAGE" "${{ github.event.pull_request.number }}"
+
+  sweep:
+    name: Delete prereleases of closed pull requests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Delete the leftovers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/delete-prereleases "$PACKAGE" --closed
+
+  generated-output:
+    name: Generated output
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+      - name: Export the head's witness
+        run: php bin/export-contract-witness.php "$RUNNER_TEMP/generated/head"
+
+      # A base from before the export script committed its witness instead.
+      - name: Export the base's witness
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git worktree add -q "$RUNNER_TEMP/base-src" "$BASE"
+          cd "$RUNNER_TEMP/base-src"
+          mkdir -p "$RUNNER_TEMP/generated/base"
+          if [ -f bin/export-contract-witness.php ]; then
+            composer install --no-interaction --no-progress --quiet
+            php bin/export-contract-witness.php "$RUNNER_TEMP/generated/base"
+          else
+            cp tests/OpenApi/Fixture/contract-witness*.json "$RUNNER_TEMP/generated/base/"
+          fi
+
+      - name: Report the difference
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/generated-output-report "$RUNNER_TEMP/generated/base" "$RUNNER_TEMP/generated/head"

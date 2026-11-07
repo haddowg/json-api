@@ -79,9 +79,10 @@ jobs:
     name: Generator contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -94,14 +95,37 @@ jobs:
         with:
           php-version: '8.4'
           coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+      - name: Export the witness
+        run: php bin/export-contract-witness.php
+
+      # The last release's witness is the package it published. A release from before the
+      # package committed its witness, and the guard reads that from the tag instead.
+      - name: Fetch the last release's witness
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p build/released
+          tag="$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          [ -n "$tag" ] || exit 0
+          export NPM_CONFIG_USERCONFIG="$(.github/scripts/npm-auth)"
+          if npm pack "@haddowg/json-api-witness@${tag#v}" --pack-destination "$RUNNER_TEMP" > /dev/null 2>&1; then
+            tar -xzf "$RUNNER_TEMP"/haddowg-json-api-witness-*.tgz -C build/released --strip-components=1
+          else
+            echo "No published witness for $tag; the guard reads the one committed at the tag."
+          fi
 
       # A structural change to the projected document must move
       # OpenApi\GeneratorContract::CONTRACT, or every generated client silently skips
       # whatever it added. The contract is release-scoped, so the comparison point is the
-      # last release tag rather than this pull request's base: the first change of a cycle
+      # last release rather than this pull request's base: the first change of a cycle
       # moves it and later ones leave it alone. fetch-depth 0 above brings the tags.
       - name: Check the contract against the last release
-        run: php bin/contract-guard.php
+        run: php bin/contract-guard.php --released=build/released
 
   coding-standards:
     name: Coding standards

@@ -357,16 +357,21 @@ are the one scoped structure, `RAW_CONTENT`). A change that moves every document
 `BASELINE` to `CONTRACT`; `contract-witness-baseline.json`, the witness server without its
 raw results, is how the guard tells the two apart.
 
-Two checks enforce the bump. Read what they tell you rather than silencing them:
+The witness is **published, not committed**: `bin/export-contract-witness.php` writes it
+(to `build/contract-witness` by default), each release publishes it as
+`@haddowg/json-api-witness` on GitHub Packages, and each pull request from this repository
+publishes `0.0.0-pr.<n>.<sha>` under dist-tag `pr-<n>`, deleted when it closes
+(`.github/workflows/witness.yml`). Never commit a witness again. Two checks enforce the
+bump. Read what they tell you rather than silencing them:
 
-1. `ContractWitnessTest` compares the projector's output against
-   `tests/OpenApi/Fixture/contract-witness.json`. Regenerate with
-   `UPDATE_CONTRACT_WITNESS=1 composer test -- --filter ContractWitnessTest` and **read the
-   diff** — it is the change you are deciding about. Widen `ContractWitnessServer` whenever
-   the projector grows a branch the fixture does not reach.
-2. The `generator-contract` CI job runs `bin/contract-guard.php`, which compares the witness
-   and the `CONTRACT` constant against **the last release tag**, not the PR base. Its output
-   names the verdict that fired and what to do about it.
+1. The `Generated output` job diffs the pull request's witness against its base's and
+   fails until the `generated-output` label acknowledges it. **Read that diff**: it is the
+   change you are deciding about. Locally, export both sides and `diff` them. Widen
+   `ContractWitnessServer` whenever the projector grows a branch the witness does not reach.
+2. The `generator-contract` CI job runs `bin/contract-guard.php`, which compares the
+   exported witness and the `CONTRACT` constant against **the last release's** published
+   witness (or, for a release from before the package, the one committed at its tag), not
+   the PR base. Its output names the verdict that fired and what to do about it.
 
 The constant, the witness and the changelog are the only record of a bump. Describe what a
 change does in `docs/` as current behaviour, and never write which contract or release

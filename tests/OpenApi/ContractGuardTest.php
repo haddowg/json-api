@@ -95,6 +95,42 @@ final class ContractGuardTest extends TestCase
     }
 
     #[Test]
+    public function aNamedExamplesValueIsNotStructureButItsNameIs(): void
+    {
+        $this->writeWitness(self::link(), examples: ['A' => ['summary' => 'A', 'value' => ['n' => 1]]]);
+        $this->git('add', '.');
+        $this->git('commit', '-q', '-m', 'release 1.0.1');
+        $this->git('tag', 'v1.0.1');
+
+        $this->writeWitness(self::link(), examples: ['A' => ['summary' => 'Reworded', 'value' => ['n' => 2]]]);
+        [$status, $output] = $this->guard();
+        self::assertSame(0, $status, $output);
+
+        $this->writeWitness(self::link(), examples: ['A' => ['summary' => 'A', 'value' => ['n' => 1]], 'B' => ['summary' => 'B', 'value' => []]]);
+        [$status, $output] = $this->guard();
+        self::assertSame(1, $status, $output);
+    }
+
+    #[Test]
+    public function theReleasedPackageIsComparedInsteadOfTheTag(): void
+    {
+        // The tag committed a witness, but the published package is what the release shipped.
+        $released = $this->repo . '/released';
+        self::assertTrue(\mkdir($released));
+        $link = self::link();
+        $link['required'] = [];
+        $witness = ['openapi' => '3.1.0', 'info' => ['title' => 'Witness', 'version' => '1', 'x-generator' => ['contract' => 3]], 'components' => ['schemas' => ['Link' => $link]]];
+        \file_put_contents($released . '/contract-witness.json', \json_encode($witness, \JSON_THROW_ON_ERROR));
+
+        [$status, $output] = $this->guard();
+        self::assertSame(0, $status, $output);
+
+        [$status, $output] = $this->guard($released);
+        self::assertSame(1, $status, $output);
+        self::assertStringContainsString('Bump GeneratorContract::CONTRACT to 4', $output);
+    }
+
+    #[Test]
     public function aStructuralChangeStillFails(): void
     {
         $link = self::link();
@@ -234,15 +270,19 @@ final class ContractGuardTest extends TestCase
 
     /**
      * @param array<string, mixed> $link
-     * @param mixed                $response the example on a response's media type; `false` for no response
+     * @param mixed                     $response the example on a response's media type; `false` for no response
+     * @param array<string, mixed>|null $examples the named examples on a response's media type
      */
-    private function writeWitness(array $link, string $path = self::WITNESS, mixed $response = false): void
+    private function writeWitness(array $link, string $path = self::WITNESS, mixed $response = false, ?array $examples = null): void
     {
         $components = ['schemas' => ['Link' => $link]];
-        if ($response !== false) {
+        if ($response !== false || $examples !== null) {
             $media = ['schema' => ['$ref' => '#/components/schemas/Link']];
-            if ($response !== null) {
+            if ($response !== null && $response !== false) {
                 $media['example'] = $response;
+            }
+            if ($examples !== null) {
+                $media['examples'] = $examples;
             }
             $components['responses'] = ['Ok' => ['description' => 'OK', 'content' => ['application/vnd.api+json' => $media]]];
         }
@@ -274,11 +314,16 @@ final class ContractGuardTest extends TestCase
     /**
      * @return array{int, string}
      */
-    private function guard(): array
+    private function guard(?string $released = null): array
     {
         $output = [];
         $status = 0;
-        \exec(self::isolated() . \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($this->repo . '/bin/contract-guard.php') . ' 2>&1', $output, $status);
+        $command = self::isolated() . \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($this->repo . '/bin/contract-guard.php')
+            . ' --head=' . \escapeshellarg($this->repo . '/tests/OpenApi/Fixture');
+        if ($released !== null) {
+            $command .= ' --released=' . \escapeshellarg($released);
+        }
+        \exec($command . ' 2>&1', $output, $status);
 
         return [$status, \implode("\n", $output)];
     }
