@@ -14,6 +14,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedBodies;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionFilters;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionSafety;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
@@ -25,7 +26,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
  * (a `200` document), otherwise {@see NoContent} (a `204`). Pass an explicit `responds`
  * list to advertise any other response set.
  */
-final class FakeActionMetadata implements DeclaresActionDeprecation, DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample, DeclaresActionSafety, DeclaresActionExtensions
+final class FakeActionMetadata implements DeclaresActionDeprecation, DeclaresActionLink, DeclaresAcceptedBodies, DeclaresActionExample, DeclaresActionSafety, DeclaresActionExtensions, DeclaresActionFilters
 {
     /**
      * @param list<string>                  $methods
@@ -33,6 +34,7 @@ final class FakeActionMetadata implements DeclaresActionDeprecation, DeclaresAct
      * @param list<string>                  $tags
      * @param list<AcceptedBody>            $accepts
      * @param array<string, mixed>          $extensions
+     * @param bool|list<string>             $filters
      */
     public function __construct(
         private readonly string $path,
@@ -54,7 +56,13 @@ final class FakeActionMetadata implements DeclaresActionDeprecation, DeclaresAct
         private readonly ?bool $idempotent = null,
         private readonly array $extensions = [],
         private readonly bool $deprecated = false,
+        private readonly bool|array $filters = false,
     ) {}
+
+    public function filters(): bool|array
+    {
+        return $this->filters;
+    }
 
     public function isDeprecated(): bool
     {

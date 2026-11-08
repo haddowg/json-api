@@ -140,14 +140,17 @@ final class ContractWitnessServer
      * @param bool $deprecations whether the tags type, an articles operation, action,
      *                           attribute, relation, filter, sort and sort family are
      *                           declared deprecated, which the baseline witness leaves out too
+     * @param bool $actionFilters whether collection actions on the articles take every
+     *                            filter or a named subset, which the baseline witness
+     *                            leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -245,7 +248,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -465,6 +468,12 @@ final class ContractWitnessServer
                     ], tags: ['Articles'], linkName: 'download', readOnly: true),
                     new FakeActionMetadata('archive', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new SeeOther()], tags: ['Articles']),
                     new FakeActionMetadata('revision', ['GET'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('articles'), new SeeOther(mediaType: 'application/octet-stream')], tags: ['Articles'], example: false),
+                ] : []),
+                ...($actionFilters ? [
+                    // Collection actions taking the articles' filters: every one, and a subset
+                    // covering a deepObject range, a delimited list and a declared example.
+                    new FakeActionMetadata('count', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: false, filters: true),
+                    new FakeActionMetadata('bulk-archive', ['POST'], ActionScope::Collection, ActionInputMode::None, tags: ['Articles'], filters: ['status', 'rating', 'labels']),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],
