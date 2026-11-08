@@ -7,10 +7,15 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
+use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
+use haddowg\JsonApi\OpenApi\OAuthFlow;
+use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
+use haddowg\JsonApi\OpenApi\SecurityRequirement;
+use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -18,9 +23,13 @@ use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
+use haddowg\JsonApi\Scope\ScopeTableBuilder;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopedActionMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeDeclaringServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopedTypeMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -164,6 +173,28 @@ final class ActionFiltersProjectionTest extends TestCase
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($empty, 'info', 'x-generator'));
     }
 
+    #[Test]
+    public function aFilteredActionNeedsTheCollectionReadScopesBesideItsOwn(): void
+    {
+        $articles = new ScopedTypeMetadata($this->articles(
+            new ScopedActionMetadata(new FakeActionMetadata('archive', ['POST'], ActionScope::Collection, filters: ['status']), ['archive', 'list']),
+            new ScopedActionMetadata(new FakeActionMetadata('export', ['POST'], ActionScope::Collection), ['export']),
+        ), ['fetchCollection' => ['list', 'read']]);
+        $plain = new FakeServerMetadata(
+            title: 'Blog API',
+            version: '1.0.0',
+            types: [$articles],
+            securitySchemes: ['oauth2' => SecurityScheme::oauth2(new OAuthFlows(clientCredentials: new OAuthFlow([], tokenUrl: 'https://auth.example.com/token')))],
+            defaultSecurity: [SecurityRequirement::scheme('oauth2')],
+        );
+        $server = new ScopeDeclaringServerMetadata($plain, (new ScopeTableBuilder($plain))->build(), 'oauth2');
+        $document = (new OpenApiProjector())->project($server)->toArray();
+
+        self::assertSame([['oauth2' => ['list', 'read']]], $this->at($document, 'paths', '/articles', 'get', 'security'));
+        self::assertSame([['oauth2' => ['archive', 'list', 'read']]], $this->at($document, 'paths', '/articles/-actions/archive', 'post', 'security'));
+        self::assertSame([['oauth2' => ['export']]], $this->at($document, 'paths', '/articles/-actions/export', 'post', 'security'));
+    }
+
     /**
      * @return list<\haddowg\JsonApi\Resource\Field\FieldInterface>
      */
@@ -172,7 +203,7 @@ final class ActionFiltersProjectionTest extends TestCase
         return [Id::make()->build(), Str::make('title')->build(), Integer::make('wordCount')->build()];
     }
 
-    private function articles(FakeActionMetadata ...$actions): FakeTypeMetadata
+    private function articles(ActionMetadataInterface ...$actions): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',

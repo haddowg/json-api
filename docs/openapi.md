@@ -1179,6 +1179,10 @@ type declares. `ActionDeclarations::validate()` rejects either mistake with a
 metadata. An adapter parses, validates and applies exactly that list, the way it does for
 the collection fetch, and rejects any other `filter[<key>]` with the same `400`.
 
+Such an action also needs the type's `fetchCollection` scopes beside its own. The
+[scope table](scopes.md) adds them, so the operation's `security`, the enforcer and the
+operation catalogue all list the same union.
+
 A document with at least one action taking a filter declares the `ACTION_FILTERS` contract
 tier in its [`x-generator`](#the-generator-contract-x-generator) stamp. Action metadata that
 does not implement the interface, or returns `false`, projects as before.

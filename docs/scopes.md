@@ -61,6 +61,10 @@ The table follows these rules:
 - A related read, `fetchRelated.<rel>` or `fetchRelationship.<rel>`, needs its own scopes
   plus the read scopes of every type the relation reaches: `fetchCollection` for a
   to-many, `fetchOne` for a to-one, and every member type of a polymorphic relation.
+- A collection action that [takes its type's filters](openapi.md#filters-on-a-collection-action)
+  needs its own scopes plus the type's `fetchCollection` scopes, since the filters read the
+  collection. The action's scopes come first and a scope in both is listed once. An action
+  taking no filter needs only its own.
 - Every type gets `fetchOne` and `fetchCollection` entries even when it exposes neither,
   because an `?include` hop reaching it is checked against them.
 - A create or update carrying `data.relationships` needs only its own scopes.
