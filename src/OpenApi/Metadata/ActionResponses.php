@@ -11,8 +11,8 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
  *
  * The set must be non-empty and hold only {@see ActionResponse} carriers. Each status
  * carries at most one JSON:API response, which bounds it to at most one `200` (an
- * {@see ActionResource} or a {@see MetaResult}) and at most one `202` ({@see Accepted},
- * the sole job-bearing response). {@see RawResult}s sit beside those, any number per
+ * {@see ActionResource} or a {@see MetaResult}), at most one `201` ({@see ActionCreated})
+ * and at most one `202` ({@see Accepted}, the sole job-bearing response). {@see RawResult}s sit beside those, any number per
  * status, as long as no two at one status share a media type.
  */
 final class ActionResponses
@@ -61,6 +61,28 @@ final class ActionResponses
             $seen[$status] = true;
         }
 
+    }
+
+    /**
+     * The status an action's {@see \haddowg\JsonApi\Response\DataResponse} renders with
+     * when its handler sets none: `201` when the action declares an {@see ActionCreated}
+     * and no {@see ActionResource}, so the created document is the only resource document
+     * it can answer with; `null` otherwise, leaving the response's own default (`200`).
+     * An action declaring both answers `200` unless its handler calls `withStatus(201)`.
+     *
+     * @param list<OperationResponseInterface> $responds
+     */
+    public static function dataStatus(array $responds): ?int
+    {
+        $created = false;
+        foreach ($responds as $response) {
+            if ($response instanceof ActionResource) {
+                return null;
+            }
+            $created = $created || $response instanceof ActionCreated;
+        }
+
+        return $created ? 201 : null;
     }
 
     /**

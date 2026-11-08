@@ -13,6 +13,7 @@ use haddowg\JsonApi\OpenApi\Header;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
@@ -143,14 +144,17 @@ final class ContractWitnessServer
      * @param bool $actionFilters whether collection actions on the articles take every
      *                            filter or a named subset, which the baseline witness
      *                            leaves out too
+     * @param bool $actionCreated whether an articles action answers `201 Created` with a
+     *                            resource document, which the baseline witness leaves
+     *                            out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -248,7 +252,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -474,6 +478,12 @@ final class ContractWitnessServer
                     // covering a deepObject range, a delimited list and a declared example.
                     new FakeActionMetadata('count', ['GET'], ActionScope::Collection, ActionInputMode::None, responds: [new MetaResult()], tags: ['Articles'], example: false, filters: true),
                     new FakeActionMetadata('bulk-archive', ['POST'], ActionScope::Collection, ActionInputMode::None, tags: ['Articles'], filters: ['status', 'rating', 'labels']),
+                ] : []),
+                ...($actionCreated ? [
+                    // Actions answering 201 with the article they created: one only, and one
+                    // beside a 200 document for the existing article.
+                    new FakeActionMetadata('duplicate', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionCreated('articles')], tags: ['Articles']),
+                    new FakeActionMetadata('restore', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [new ActionResource('articles'), new ActionCreated('articles')], tags: ['Articles'], example: false),
                 ] : []),
             ],
             includablePaths: ['author', 'tags', 'author.company'],

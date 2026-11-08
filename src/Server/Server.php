@@ -872,6 +872,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
      * whose declared {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther} names a media
      * type is marked as the action's URL, so it renders as the location document or the
      * `303` by the request's `Accept`. Any other stays the plain `303`.
+     *
+     * A {@see DataResponse} returned by a custom action declaring an
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\ActionCreated} and no `200` resource
+     * document renders `201` unless the handler set its own status.
      */
     public function dispatch(
         \haddowg\JsonApi\Operation\JsonApiOperationInterface $operation,
@@ -891,6 +895,12 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             : null;
         if ($location?->mediaType !== null && $response instanceof \haddowg\JsonApi\Response\SeeOtherResponse) {
             $response = $response->fromAction($location->mediaType);
+        }
+        $dataStatus = $operation instanceof \haddowg\JsonApi\Operation\CustomActionOperation
+            ? \haddowg\JsonApi\OpenApi\Metadata\ActionResponses::dataStatus($operation->responds())
+            : null;
+        if ($dataStatus !== null && $response instanceof DataResponse) {
+            $response = $response->withDefaultStatus($dataStatus);
         }
 
         return \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($response, $operation, $this);
