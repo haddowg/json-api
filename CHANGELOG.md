@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/haddowg/json-api/compare/v2.3.0...v2.4.0) (2026-11-08)
+
+
+### Features
+
+* let a custom action declare that it answers 201 Created ([#305](https://github.com/haddowg/json-api/issues/305)) ([21d457b](https://github.com/haddowg/json-api/commit/21d457b88952df615fc900b1ef2b66f27e4c4b49))
+
 ## [2.3.0](https://github.com/haddowg/json-api/compare/v2.2.0...v2.3.0) (2026-11-08)
 
 
