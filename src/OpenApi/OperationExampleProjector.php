@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
@@ -280,10 +281,10 @@ final class OperationExampleProjector
         $reference = $enumerated->reference();
         $responses = [];
         foreach ($action->responds() as $response) {
-            if ($response instanceof ActionResource) {
+            if ($response instanceof ActionResource || $response instanceof ActionCreated) {
                 $body = $builder->type($response->bodyType());
                 if ($body !== null) {
-                    $responses[200] = fn(): array => $builder->resourceDocument(
+                    $responses[$response->status()] = fn(): array => $builder->resourceDocument(
                         $body,
                         $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
                         $reference,

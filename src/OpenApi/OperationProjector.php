@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
@@ -1101,7 +1102,8 @@ final class OperationProjector
 
     /**
      * The concrete success {@see Response} for one declared action response:
-     * {@see ActionResource} → `200` with that type's document; {@see MetaResult} → `200`
+     * {@see ActionResource} → `200` with that type's document; {@see ActionCreated} →
+     * `201` with it and an optional `Location`; {@see MetaResult} → `200`
      * meta-only document; {@see NoContent} → `204`; {@see Accepted} → the async `202`;
      * {@see SeeOther} → the plain `303`, or with a media type the `303` to the URL the
      * action produced, beside which {@see actionOperation()} adds the `200` location
@@ -1110,6 +1112,14 @@ final class OperationProjector
     private function actionSuccessResponse(ActionResponse $response, ServerMetadataInterface $server): Response
     {
         return match (true) {
+            $response instanceof ActionCreated => new Response(
+                'The resource the action created.',
+                headers: ['Location' => new Header(
+                    'The URL of the created resource.',
+                    schema: Schema::ofType('string')->withFormat('uri-reference'),
+                )],
+                content: [MediaType::JSON_API => MediaType::ofSchema($this->documentSchemaOf($response->bodyType(), $server))],
+            ),
             $response instanceof ActionResource => Response::ofSchema(
                 'The action result.',
                 $this->documentSchemaOf($response->bodyType(), $server),
@@ -1191,7 +1201,7 @@ final class OperationProjector
 
     /**
      * The `?include` / `fields[<type>]` parameters for a custom action: the pair for the
-     * type named by its {@see ActionResource} response, since that response is rendered
+     * type named by its {@see ActionResource} or {@see ActionCreated} response, since that response is rendered
      * as a resource document through the same serializer a read of that type uses. An
      * action answering `204`/`202`/`303`, or a meta-only `200`, has no resource document
      * to shape and takes neither parameter. The parameters are rooted at the **body**
@@ -1203,7 +1213,7 @@ final class OperationProjector
     private function actionDocumentShapeParameters(ActionMetadataInterface $action, ServerMetadataInterface $server): array
     {
         foreach ($action->responds() as $response) {
-            if (!$response instanceof ActionResource) {
+            if (!$response instanceof ActionResource && !$response instanceof ActionCreated) {
                 continue;
             }
 

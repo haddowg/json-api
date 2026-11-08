@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\OpenApi\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
+use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
@@ -41,6 +42,40 @@ final class ActionResponsesTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         ActionResponses::validate([new ActionResource('exports'), new MetaResult()]);
+    }
+
+    #[Test]
+    public function aCreatedDocumentSitsBesideA200Document(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        ActionResponses::validate([new ActionResource('orders'), new ActionCreated('orders'), new RawResult('text/csv', status: 201)]);
+    }
+
+    #[Test]
+    public function itRejectsTwoCreatedDocuments(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        ActionResponses::validate([new ActionCreated('orders'), new ActionCreated('invoices')]);
+    }
+
+    #[Test]
+    public function aCreatedDocumentNeedsAType(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new ActionCreated('');
+    }
+
+    #[Test]
+    public function theDataStatusIs201OnlyWhenTheCreatedDocumentIsTheOnlyResourceDocument(): void
+    {
+        self::assertSame(201, ActionResponses::dataStatus([new ActionCreated('orders')]));
+        self::assertSame(201, ActionResponses::dataStatus([new MetaResult(), new ActionCreated('orders'), new Accepted('jobs')]));
+        self::assertNull(ActionResponses::dataStatus([new ActionCreated('orders'), new ActionResource('orders')]));
+        self::assertNull(ActionResponses::dataStatus([new ActionResource('orders')]));
+        self::assertNull(ActionResponses::dataStatus([]));
     }
 
     #[Test]

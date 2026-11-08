@@ -761,7 +761,7 @@ The examples show what the server sends and accepts:
   `links.<name>.meta.<member>`.
 - A relationship endpoint carries the linkage document, and a relationship mutation the
   linkage it writes.
-- A custom action's response is built from the type its `ActionResource` names, and its
+- A custom action's response is built from the type its `ActionResource` or `ActionCreated` names, and its
   request body from its input type when the input is a resource document. A `RawResult`
   keeps its own `example`.
 - An error response carries one named example per code it offers, keyed by the code and
@@ -993,6 +993,7 @@ them (a set). They are typed per operation so an illegal combination is unrepres
 | `new SeeOther(?string $description, ?string $mediaType)` | `303` | `Location` only, no body; on an action with a `mediaType` also a `200` [location document](#actions-that-answer-with-a-url) | fetch-one, actions |
 | `new MetaResult()` | `200` | a meta-only document | delete, actions |
 | `new ActionResource(string $type)` | `200` | the named type's document | actions |
+| `new ActionCreated(string $type)` | `201` | the named type's document + optional `Location` | actions |
 | `new RawResult(string $mediaType, …)` | `200` by default | a body that is not JSON:API, beside the JSON:API one | actions |
 
 Each implements a per-operation **marker interface** — `CreateResponse`, `UpdateResponse`,
@@ -1051,6 +1052,22 @@ error renders as a JSON:API document whatever was negotiated. A handler answers 
 with a [`RawResponse`](responses.md#raw-responses).
 
 A document whose actions declare no `RawResult` is byte-for-byte unchanged.
+
+### Actions that create a resource
+
+An action that creates the resource it answers with, such as
+`POST /orders/{id}/-actions/duplicate`, declares **`new ActionCreated('orders')`**. The
+projection documents a `201` whose body is the named type's document, with an optional
+`Location` header, and offers the type's `include` and `fields[<type>]` parameters, as an
+`ActionResource` does. It can sit beside a `200` `ActionResource` for an action that
+sometimes creates and sometimes returns an existing resource.
+
+The handler returns a `DataResponse` as usual. `Server::dispatch()` renders it as `201`
+when the action declares an `ActionCreated` and no `ActionResource`
+(`ActionResponses::dataStatus()`), so the declared status and the sent one cannot drift.
+When the action declares both, the response stays `200` unless the handler calls
+`withStatus(201)`, and a status the handler set always wins. Setting the `Location` header
+is the handler's choice, with `withHeader('Location', …)`.
 
 ### Actions that answer with a URL
 
@@ -1198,7 +1215,7 @@ recommendation in the generated document:
   job URL to poll) and a `Retry-After` hint. Register the job type so the body references
   its `JobsDocument` component; for a type the server doesn't describe, the projector
   inlines an open document whose `data.type` is the job type instead of naming a
-  component it never defines. An `ActionResource` body type works the same way.
+  component it never defines. An `ActionResource` or `ActionCreated` body type works the same way.
 - The client polls the job resource; **completion** is a `303 See Other` to the produced
   resource. Model it either as a **fetch-one** on the job type declaring
   `[new Ok(), new SeeOther()]` (the spec-canonical shape: `200` with the job's status while

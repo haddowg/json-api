@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
+use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
@@ -373,6 +374,7 @@ final class OpenApiProjector
             structuredListElements: self::hasStructuredList($server),
             deprecation: self::declaresDeprecation($server),
             actionFilters: $actions['actionFilters'],
+            actionCreated: $actions['actionCreated'],
         ));
     }
 
@@ -683,20 +685,24 @@ final class OpenApiProjector
      * server's actions use: an action answering to several methods
      * ({@see GeneratorContract::ACTION_METHOD_IDS}), declared safety
      * ({@see GeneratorContract::ACTION_SAFETY}), an action's own vendor extensions
-     * ({@see GeneratorContract::ACTION_EXTENSIONS}) and a collection action taking its
-     * type's filters ({@see GeneratorContract::ACTION_FILTERS}).
+     * ({@see GeneratorContract::ACTION_EXTENSIONS}), a collection action taking its
+     * type's filters ({@see GeneratorContract::ACTION_FILTERS}) and an action answering
+     * `201 Created` ({@see GeneratorContract::ACTION_CREATED}).
      *
-     * @return array{actionMethodIds: bool, actionSafety: bool, actionExtensions: bool, actionFilters: bool}
+     * @return array{actionMethodIds: bool, actionSafety: bool, actionExtensions: bool, actionFilters: bool, actionCreated: bool}
      */
     private function actionStructures(ServerMetadataInterface $server): array
     {
-        $uses = ['actionMethodIds' => false, 'actionSafety' => false, 'actionExtensions' => false, 'actionFilters' => false];
+        $uses = ['actionMethodIds' => false, 'actionSafety' => false, 'actionExtensions' => false, 'actionFilters' => false, 'actionCreated' => false];
         foreach ($server->types() as $type) {
             foreach ($type->actions() as $action) {
                 $uses['actionMethodIds'] = $uses['actionMethodIds'] || \count(\array_unique(\array_map(\strtolower(...), $action->methods()))) > 1;
                 $uses['actionSafety'] = $uses['actionSafety'] || ActionDeclarations::safety($action) !== [];
                 $uses['actionExtensions'] = $uses['actionExtensions'] || ($action instanceof DeclaresActionExtensions && $action->extensions() !== []);
                 $uses['actionFilters'] = $uses['actionFilters'] || ActionDeclarations::filters($type, $action) !== [];
+                foreach ($action->responds() as $response) {
+                    $uses['actionCreated'] = $uses['actionCreated'] || $response instanceof ActionCreated;
+                }
             }
         }
 

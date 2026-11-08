@@ -1,0 +1,3 @@
+# An action declares a created resource with its own response object, and dispatch sends the 201
+
+An action creating the resource it returns declares `ActionCreated`, a sibling of `ActionResource`, rather than a `status` argument on `ActionResource`, so each response object names one status as every other carrier does and integrations and code generators match on the class. `Server::dispatch()` renders the action's `DataResponse` as `201` when `ActionCreated` is its only resource document, so the declared status cannot drift from the sent one; with a `200` `ActionResource` declared too the handler chooses, and a handler's own status always wins.

@@ -261,6 +261,21 @@ abstract class AbstractResponse
     }
 
     /**
+     * Sets the HTTP status unless {@see withStatus()} already set one, so a status a
+     * handler chose always wins over a default the server applies.
+     *
+     * @internal called by {@see \haddowg\JsonApi\Server\Server::dispatch()}
+     */
+    public function withDefaultStatus(int $status): static
+    {
+        if ($this->status !== null) {
+            return $this;
+        }
+
+        return $this->withStatus($status);
+    }
+
+    /**
      * Renders the response value object into a PSR-7 response: builds the body
      * array via {@see render()}, JSON-encodes it with the resolved flags and the
      * fixed `application/vnd.api+json` content type, then applies any configured
