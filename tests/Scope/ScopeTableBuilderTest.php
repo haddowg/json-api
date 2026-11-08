@@ -12,6 +12,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Scope\OperationScopeResolverInterface;
 use haddowg\JsonApi\Scope\ScopeTable;
 use haddowg\JsonApi\Scope\ScopeTableBuilder;
@@ -282,6 +283,34 @@ final class ScopeTableBuilderTest extends TestCase
     }
 
     #[Test]
+    public function aFilteredCollectionActionAlsoNeedsTheCollectionReadScopes(): void
+    {
+        $type = new ScopedTypeMetadata($this->type('articles', operations: [OperationType::FetchCollection], actions: [
+            new ScopedActionMetadata(new FakeActionMetadata('archive', ['POST'], ActionScope::Collection, filters: ['status']), ['archive', 'list']),
+            new FakeActionMetadata('count', ['GET'], ActionScope::Collection, filters: true),
+            new ScopedActionMetadata(new FakeActionMetadata('export', ['GET'], ActionScope::Collection), ['export']),
+        ], filters: [Where::make('status')->build()]), ['fetchCollection' => ['list', 'read']]);
+
+        $builder = new ScopeTableBuilder($this->server([$type]), self::byKind());
+        $table = $builder->build();
+
+        self::assertSame(['archive', 'list', 'read'], $table->for('articles', 'action.archive.post'));
+        self::assertSame(['articles:action', 'list', 'read'], $table->for('articles', 'action.count.get'));
+        self::assertSame(['export'], $table->for('articles', 'action.export.get'));
+        self::assertSame(['archive', 'list', 'read'], $builder->resolve('articles', OperationKey::action('archive', ActionScope::Collection, 'POST')));
+    }
+
+    #[Test]
+    public function anActionTakingNoFilterKeepsItsOwnScopes(): void
+    {
+        $type = $this->type('articles', actions: [
+            new FakeActionMetadata('count', ['GET'], ActionScope::Collection, filters: true),
+        ]);
+
+        self::assertSame(['articles:action'], (new ScopeTableBuilder($this->server([$type]), self::byKind()))->build()->for('articles', 'action.count.get'));
+    }
+
+    #[Test]
     public function theAtomicEndpointIsResolvedWithNoTypeUnlessOverridden(): void
     {
         $resolved = (new ScopeTableBuilder($this->server([], new FakeAtomicOperationsMetadata()), new RecordingScopeResolver()))->build();
@@ -377,12 +406,14 @@ final class ScopeTableBuilderTest extends TestCase
      * @param list<\haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface>     $relations
      * @param list<\haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface>       $actions
      * @param list<OperationType>                                                   $publicOperations
+     * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface>               $filters
      */
-    private function type(string $type, ?array $operations = null, array $relations = [], array $actions = [], array $publicOperations = []): FakeTypeMetadata
+    private function type(string $type, ?array $operations = null, array $relations = [], array $actions = [], array $publicOperations = [], array $filters = []): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: $type,
             fields: [Id::make()->build()],
+            filters: $filters,
             relations: $relations,
             operations: $operations,
             actions: $actions,

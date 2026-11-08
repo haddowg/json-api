@@ -1,0 +1,3 @@
+# A collection action takes its type's filters, never filters of its own
+
+A collection-scope action that narrows rows should accept the `filter[<key>]` a client already sends to the collection fetch, so it opts in to the mount type's declared filters, all of them or a named subset, and both the projector and adapters resolve that list through `ActionDeclarations::filters()`. Letting an action declare its own filters would give one key two meanings on one type and a second vocabulary for adapters to execute, and a resource-scope action has no set of rows to narrow, so it may not take filters at all.

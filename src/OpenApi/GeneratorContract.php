@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are fifteen scoped
+ * is warned only by the documents that contain it. There are sixteen scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -61,8 +61,9 @@ namespace haddowg\JsonApi\OpenApi;
  * ({@see ACTION_LOCATION}), the `type`-discriminated unions of a polymorphic relation
  * or a typed `included` ({@see DISCRIMINATED_UNIONS}), a `sort` parameter accepting
  * a family of keys by prefix ({@see SORT_FAMILIES}), a list attribute whose items are
- * objects or a discriminated union ({@see STRUCTURED_LIST_ELEMENTS}) and a deprecation
- * marker ({@see DEPRECATION}). A change that moves every
+ * objects or a discriminated union ({@see STRUCTURED_LIST_ELEMENTS}), a deprecation
+ * marker ({@see DEPRECATION}) and a collection action's filter parameters
+ * ({@see ACTION_FILTERS}). A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
  *
@@ -76,7 +77,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 24;
+    public const CONTRACT = 25;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -209,6 +210,14 @@ final class GeneratorContract
     public const DEPRECATION = 22;
 
     /**
+     * The contract that introduced action filters: the `filter[<key>]` query parameters
+     * of a collection-scope action that takes its mount type's filters, shaped as that
+     * type's collection fetch shapes them. A document carries it only when such an action
+     * takes at least one filter.
+     */
+    public const ACTION_FILTERS = 25;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -228,6 +237,7 @@ final class GeneratorContract
         bool $sortFamilies = false,
         bool $structuredListElements = false,
         bool $deprecation = false,
+        bool $actionFilters = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -245,6 +255,7 @@ final class GeneratorContract
             $sortFamilies ? self::SORT_FAMILIES : self::BASELINE,
             $structuredListElements ? self::STRUCTURED_LIST_ELEMENTS : self::BASELINE,
             $deprecation ? self::DEPRECATION : self::BASELINE,
+            $actionFilters ? self::ACTION_FILTERS : self::BASELINE,
         )];
     }
 }

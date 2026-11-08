@@ -6,13 +6,14 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionFilters;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionSafety;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionScopes;
 
 /**
  * Action metadata that declares its scopes, wrapped round {@see FakeActionMetadata}.
  */
-final readonly class ScopedActionMetadata implements DeclaresActionScopes, DeclaresActionSafety
+final readonly class ScopedActionMetadata implements DeclaresActionScopes, DeclaresActionSafety, DeclaresActionFilters
 {
     /**
      * @param list<string>|null $scopes
@@ -25,6 +26,11 @@ final readonly class ScopedActionMetadata implements DeclaresActionScopes, Decla
     public function scopes(): ?array
     {
         return $this->scopes;
+    }
+
+    public function filters(): bool|array
+    {
+        return $this->inner->filters();
     }
 
     public function readOnly(): ?bool

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Scope;
 
+use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionScopes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAtomicScopes;
@@ -22,7 +23,9 @@ use haddowg\JsonApi\OpenApi\OperationEnumerator;
  * An operation's own scopes come from the override its metadata declares, else from the
  * resolver, else none. A related read, `fetchRelated.<rel>` or `fetchRelationship.<rel>`,
  * also needs the read scopes of every type the relation reaches: `fetchCollection` for a
- * to-many, `fetchOne` for a to-one. Every type gets a `fetchOne` and a `fetchCollection`
+ * to-many, `fetchOne` for a to-one. A collection action taking its type's filters
+ * ({@see ActionDeclarations::filters()}) also needs the type's own `fetchCollection`
+ * scopes, since its filters read the collection. Every type gets a `fetchOne` and a `fetchCollection`
  * entry even when it exposes neither, because an `?include` hop reaching it is checked
  * against them.
  *
@@ -170,13 +173,22 @@ final class ScopeTableBuilder
 
     /**
      * The operation's own scopes, plus for a related read the read scopes of each type it
-     * reaches.
+     * reaches, and for a filtered collection action its type's `fetchCollection` scopes.
      *
      * @return list<string>
      */
     private function effective(TypeMetadataInterface $type, OperationKey $key): array
     {
         $scopes = $this->own($type, $key);
+
+        if ($key->kind === OperationKind::Action) {
+            $action = $this->actionOf($type, $key);
+            if ($action === null || ActionDeclarations::filters($type, $action) === []) {
+                return $scopes;
+            }
+
+            return \array_values(\array_unique([...$scopes, ...$this->own($type, OperationKey::crud(OperationKind::FetchCollection))]));
+        }
 
         if ($key->kind !== OperationKind::FetchRelated && $key->kind !== OperationKind::FetchRelationship) {
             return $scopes;

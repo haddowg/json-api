@@ -897,7 +897,9 @@ final class OperationProjector
      * permissive binary body under a generic media type with relaxed content-type
      * negotiation), its declared responses ({@see ActionMetadataInterface::responds()})
      * → one success response each, its tags, and the configured security requirement
-     * when {@see isSecured()}.
+     * when {@see isSecured()}. A collection-scope action taking its type's filters
+     * ({@see ActionDeclarations::filters()}) carries their `filter[<key>]` parameters as
+     * the type's collection fetch documents them.
      *
      * @param list<string> $scopes the scopes this method of the action needs
      */
@@ -945,7 +947,10 @@ final class OperationProjector
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on ' . ($action->scope() === ActionScope::Resource
                 ? TypeNoun::of($type)->withArticle()
                 : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
-            parameters: $this->actionDocumentShapeParameters($action, $server),
+            parameters: $this->concatParameters(
+                $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields()),
+                $this->actionDocumentShapeParameters($action, $server),
+            ),
             requestBody: $this->actionRequestBody($action, $server),
             security: $security,
             extensions: self::actionExtensions($action),

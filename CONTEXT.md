@@ -57,6 +57,11 @@ _Avoid_: deserializer, denormalizer, mapper
 Metadata describing a `filter[<key>]` a type accepts.
 _Avoid_: scope, criteria
 
+**Action filters**:
+The **Filters** a collection-scope custom action takes from its mount type, all of them or a
+named subset, applied the way a collection fetch applies them.
+_Avoid_: action query, action criteria
+
 **Filter group**:
 A composite **Filter** (`WhereAll` / `WhereAny`) that combines child filters with AND / OR under
 one `filter[<key>]` and passes its request value to every child.

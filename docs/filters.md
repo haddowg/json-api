@@ -864,6 +864,18 @@ foreach ($requested as $key => $value) {
 }
 ```
 
+## Filters on a collection action
+
+A collection-scope custom action can take the filters its type declares, all of them or a
+named subset, so `POST /articles/-actions/archive?filter[status]=draft` narrows the rows the
+action works on with the same `filter[status]` a collection fetch accepts. The action's
+metadata opts in through `DeclaresActionFilters`, and `ActionDeclarations::filters()`
+returns the filters it takes. The adapter treats them as it treats a collection fetch's: it
+validates each value against the filter's constraints, applies each requested filter through
+the same handler, and answers an undeclared key or an invalid value with `400`. See
+[OpenAPI generation](openapi.md#filters-on-a-collection-action) for how the parameters are
+documented.
+
 ## Next / See also
 
 - [Adapters](adapters.md) — the handler side: applying filters against your data

@@ -953,6 +953,10 @@ Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `read
 the action's own vendor extensions. Action metadata that implements neither projects as
 before.
 
+`DeclaresActionFilters` extends `ActionMetadataInterface` with `filters(): bool|array`,
+the [filters a collection action takes](#filters-on-a-collection-action) from its type:
+`true` for all of them, a list of filter keys, or `false` for none.
+
 Three more carry [deprecation](#deprecation). `DeclaresDeprecation` extends
 `TypeMetadataInterface` with `isDeprecated(): bool`, `sunset(): ?\DateTimeInterface` and
 `deprecatedOperations(): list<string>`; fill it from the declaration behind the type's
@@ -1145,6 +1149,43 @@ does not accept gets.
 
 An action that returns no accepted bodies, or whose metadata does not implement the
 interface, projects as before.
+
+### Filters on a collection action
+
+A collection-scope action, such as `POST /articles/-actions/archive`, often works on the
+same rows a collection fetch would list. Its metadata can implement `DeclaresActionFilters`
+to take the mount type's declared filters, so a client narrows the rows with the
+`filter[<key>]` parameters it already uses on `GET /articles`. `filters()` returns `true`
+for every filter the type declares, a list of filter keys for some of them, or `false` for
+none:
+
+```php
+public function filters(): bool|array
+{
+    return ['status', 'publishedAt'];
+}
+```
+
+The action's operation lists one `filter[<key>]` parameter per filter it takes, in the order
+the type declares them, built the same way the collection fetch builds them. A `Range` keeps
+its `deepObject` style, a set filter its delimited array, and a declared example, description
+or deprecation comes along unchanged. The operation already lists the `400` an invalid
+filter value gets.
+
+Only a collection-scope action may take filters, and every key in the list must be one the
+type declares. `ActionDeclarations::validate()` rejects either mistake with a
+`\LogicException` naming the action and the type, and the projector runs the same check.
+`ActionDeclarations::filters()` resolves the filters an action takes from its type's
+metadata. An adapter parses, validates and applies exactly that list, the way it does for
+the collection fetch, and rejects any other `filter[<key>]` with the same `400`.
+
+Such an action also needs the type's `fetchCollection` scopes beside its own. The
+[scope table](scopes.md) adds them, so the operation's `security`, the enforcer and the
+operation catalogue all list the same union.
+
+A document with at least one action taking a filter declares the `ACTION_FILTERS` contract
+tier in its [`x-generator`](#the-generator-contract-x-generator) stamp. Action metadata that
+does not implement the interface, or returns `false`, projects as before.
 
 ### The asynchronous-write lifecycle
 

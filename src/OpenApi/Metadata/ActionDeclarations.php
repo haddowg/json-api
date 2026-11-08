@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
 use haddowg\JsonApi\OpenApi\VendorExtensions;
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
 
 /**
  * Validation for a type's custom-action declarations, and the operation ids and safety
@@ -23,7 +24,9 @@ use haddowg\JsonApi\OpenApi\VendorExtensions;
  * - an action path may not read as one of the operation-id words in {@see RESERVED_NAMES};
  * - no two of the type's action ids may flatten to the same name;
  * - an action may not be declared both read-only and destructive;
- * - the action's own vendor extension names must be valid.
+ * - the action's own vendor extension names must be valid;
+ * - only a collection-scope action may take its type's filters, and each filter key it
+ *   lists must be one the type declares.
  */
 final class ActionDeclarations
 {
@@ -47,11 +50,16 @@ final class ActionDeclarations
     /**
      * Checks one type's action declarations.
      *
+     * The filter keys are checked only when `$filterKeys` is given, so an integration
+     * that registers actions before it has built the type's filters can still check the
+     * rest; {@see validateType()} always passes them.
+     *
      * @param iterable<ActionMetadataInterface> $actions
+     * @param list<string>|null                 $filterKeys the keys of the filters the type declares
      *
      * @throws \LogicException naming the type and the action at fault
      */
-    public static function validate(string $type, iterable $actions): void
+    public static function validate(string $type, iterable $actions, ?array $filterKeys = null): void
     {
         $reserved = [];
         foreach (self::RESERVED_NAMES as $name) {
@@ -111,6 +119,10 @@ final class ActionDeclarations
             if ($action instanceof DeclaresActionExtensions) {
                 VendorExtensions::normalise($action->extensions());
             }
+
+            if ($action instanceof DeclaresActionFilters) {
+                self::validateFilters($type, $action, $filterKeys);
+            }
         }
     }
 
@@ -121,7 +133,32 @@ final class ActionDeclarations
      */
     public static function validateType(TypeMetadataInterface $type): void
     {
-        self::validate($type->type(), $type->actions());
+        self::validate($type->type(), $type->actions(), self::filterKeys($type->filters()));
+    }
+
+    /**
+     * The filters the action takes from its mount type, in the order the type declares
+     * them: none unless it is a collection-scope action implementing
+     * {@see DeclaresActionFilters}, every filter the type
+     * declares for `true`, and the named ones for a list. The projector documents these
+     * and an adapter applies these, so the two never disagree.
+     *
+     * @return list<FilterInterface>
+     */
+    public static function filters(TypeMetadataInterface $type, ActionMetadataInterface $action): array
+    {
+        $declared = $action instanceof DeclaresActionFilters && $action->scope() === ActionScope::Collection ? $action->filters() : false;
+        if ($declared === false || $declared === []) {
+            return [];
+        }
+        if ($declared === true) {
+            return $type->filters();
+        }
+
+        return \array_values(\array_filter(
+            $type->filters(),
+            static fn(FilterInterface $filter): bool => \in_array($filter->key(), $declared, true),
+        ));
     }
 
     /**
@@ -144,6 +181,53 @@ final class ActionDeclarations
     public static function safety(ActionMetadataInterface $action): array
     {
         return OperationSafety::of($action)?->toArray() ?? [];
+    }
+
+    /**
+     * @param list<string>|null $filterKeys
+     *
+     * @throws \LogicException
+     */
+    private static function validateFilters(string $type, DeclaresActionFilters $action, ?array $filterKeys): void
+    {
+        $declared = $action->filters();
+        if ($declared === false || $declared === []) {
+            return;
+        }
+
+        if ($action->scope() !== ActionScope::Collection) {
+            throw new \LogicException(\sprintf(
+                'The "%s" action on type "%s" takes the type\'s filters, but it is mounted on a single resource. Only a collection-scope action may take filters.',
+                $action->path(),
+                $type,
+            ));
+        }
+
+        if ($declared === true || $filterKeys === null) {
+            return;
+        }
+
+        foreach ($declared as $key) {
+            if (!\in_array($key, $filterKeys, true)) {
+                throw new \LogicException(\sprintf(
+                    'The "%s" action on type "%s" takes the filter "%s", which the type does not declare. Declare it on the type or drop it from the action; the type declares %s.',
+                    $action->path(),
+                    $type,
+                    $key,
+                    $filterKeys === [] ? 'no filters' : '"' . \implode('", "', $filterKeys) . '"',
+                ));
+            }
+        }
+    }
+
+    /**
+     * @param list<FilterInterface> $filters
+     *
+     * @return list<string>
+     */
+    private static function filterKeys(array $filters): array
+    {
+        return \array_map(static fn(FilterInterface $filter): string => $filter->key(), $filters);
     }
 
     /**

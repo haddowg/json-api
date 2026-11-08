@@ -372,6 +372,7 @@ final class OpenApiProjector
             sortFamilies: $sortFamilies,
             structuredListElements: self::hasStructuredList($server),
             deprecation: self::declaresDeprecation($server),
+            actionFilters: $actions['actionFilters'],
         ));
     }
 
@@ -681,19 +682,21 @@ final class OpenApiProjector
      * Which of the action structures the document's generator contract reflects the
      * server's actions use: an action answering to several methods
      * ({@see GeneratorContract::ACTION_METHOD_IDS}), declared safety
-     * ({@see GeneratorContract::ACTION_SAFETY}) and an action's own vendor extensions
-     * ({@see GeneratorContract::ACTION_EXTENSIONS}).
+     * ({@see GeneratorContract::ACTION_SAFETY}), an action's own vendor extensions
+     * ({@see GeneratorContract::ACTION_EXTENSIONS}) and a collection action taking its
+     * type's filters ({@see GeneratorContract::ACTION_FILTERS}).
      *
-     * @return array{actionMethodIds: bool, actionSafety: bool, actionExtensions: bool}
+     * @return array{actionMethodIds: bool, actionSafety: bool, actionExtensions: bool, actionFilters: bool}
      */
     private function actionStructures(ServerMetadataInterface $server): array
     {
-        $uses = ['actionMethodIds' => false, 'actionSafety' => false, 'actionExtensions' => false];
+        $uses = ['actionMethodIds' => false, 'actionSafety' => false, 'actionExtensions' => false, 'actionFilters' => false];
         foreach ($server->types() as $type) {
             foreach ($type->actions() as $action) {
                 $uses['actionMethodIds'] = $uses['actionMethodIds'] || \count(\array_unique(\array_map(\strtolower(...), $action->methods()))) > 1;
                 $uses['actionSafety'] = $uses['actionSafety'] || ActionDeclarations::safety($action) !== [];
                 $uses['actionExtensions'] = $uses['actionExtensions'] || ($action instanceof DeclaresActionExtensions && $action->extensions() !== []);
+                $uses['actionFilters'] = $uses['actionFilters'] || ActionDeclarations::filters($type, $action) !== [];
             }
         }
 
