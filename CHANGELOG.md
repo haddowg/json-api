@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/haddowg/json-api/compare/v2.2.0...v2.3.0) (2026-11-08)
+
+
+### Features
+
+* let collection actions take their type's filters ([#303](https://github.com/haddowg/json-api/issues/303)) ([d8ca89d](https://github.com/haddowg/json-api/commit/d8ca89de0f93f1b936b86256c2748da36336dbc8))
+
 ## [2.2.0](https://github.com/haddowg/json-api/compare/v2.1.1...v2.2.0) (2026-11-07)
 
 
