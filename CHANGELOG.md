@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.7.0](https://github.com/haddowg/json-api/compare/v2.6.0...v2.7.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **validation:** reject write values whose JSON type does not match the field
+
+### Bug Fixes
+
+* **validation:** reject write values whose JSON type does not match the field ([2cb0778](https://github.com/haddowg/json-api/commit/2cb0778459f9f8bd2623744934f88b20f8f98493))
+
 ## [2.6.0](https://github.com/haddowg/json-api/compare/v2.5.0...v2.6.0) (2026-11-09)
 
 
