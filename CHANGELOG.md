@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.1](https://github.com/haddowg/json-api/compare/v2.4.0...v2.4.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **openapi:** describe an action's document input as a create request ([#310](https://github.com/haddowg/json-api/issues/310)) ([4f493c9](https://github.com/haddowg/json-api/commit/4f493c974956d0c08e1d5b3af549a32ad0da2922))
+* **openapi:** leave read-only nested children out of write schemas ([#308](https://github.com/haddowg/json-api/issues/308)) ([feff5dd](https://github.com/haddowg/json-api/commit/feff5ddf9abbff9e00a2f4f3dcc78acfef04c23a))
+* **openapi:** leave read-only relations out of create requests ([#307](https://github.com/haddowg/json-api/issues/307)) ([3f24fe5](https://github.com/haddowg/json-api/commit/3f24fe5cb4a533c8b96789df521b4c0ab0d8901c))
+* **openapi:** project to-many item bounds onto write linkage ([#309](https://github.com/haddowg/json-api/issues/309)) ([086c207](https://github.com/haddowg/json-api/commit/086c2070fe43747406d3304db1743d2926b1a0b6))
+
 ## [2.4.0](https://github.com/haddowg/json-api/compare/v2.3.0...v2.4.0) (2026-11-08)
 
 
