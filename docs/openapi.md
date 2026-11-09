@@ -158,7 +158,10 @@ sketch:
   polymorphic relation's identifier is a `oneOf` of its members with a `type`
   discriminator, even when it has only one, see
   [polymorphic relations](#polymorphic-relations-with-one-type)). A write request lists
-  only the relations settable in that write, and marks a write-only relation's property
+  only the relations settable in that write: a create leaves out a relation that is
+  `readOnly()` or `readOnlyOnCreate()`, and an update one whose replacement is refused. A
+  relation read-only only by a `when:` predicate stays listed, as such an attribute
+  does. The request example follows the same rule. A write request marks a write-only relation's property
   `writeOnly: true`, so a generator can keep it on its input types and off its read types.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on

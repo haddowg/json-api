@@ -1527,10 +1527,11 @@ final class OpenApiProjector
      * `$ref`-ing the per-relation relationship-object component the read side uses, or a
      * pivot-backed relation's `<Type><Rel>WriteRelationship`, whose `meta.pivot` takes the
      * request pivot shape. A write-only relation's property is marked `writeOnly`. A
-     * **create** may set any declared relation's initial linkage, so it lists them all; an **update** replaces an existing
-     * association, so it lists only the relations whose replacement is permitted
-     * ({@see RelationMetadataInterface::allowsReplace()} — an unconditionally locked
-     * relation is omitted). Returns `null` when the write exposes no settable relation,
+     * **create** sets a relation's initial linkage, so it lists every relation not
+     * read-only on create ({@see RelationFacts::isReadOnlyOnCreate()}); an **update**
+     * replaces an existing association, so it lists only the relations whose replacement
+     * is permitted ({@see RelationMetadataInterface::allowsReplace()}). Either way a
+     * relation read-only only by a request predicate stays, as such an attribute does. Returns `null` when the write exposes no settable relation,
      * so the caller emits no `relationships` property at all.
      */
     private function writeRelationshipsProperty(TypeMetadataInterface $type, bool $creating, bool $atomic = false): ?Schema
@@ -1538,7 +1539,7 @@ final class OpenApiProjector
         $base = $this->componentBase($type->type());
         $properties = [];
         foreach ($type->relations() as $relation) {
-            if (!$creating && !$relation->allowsReplace()) {
+            if ($creating ? RelationFacts::isReadOnlyOnCreate($type, $relation) : !$relation->allowsReplace()) {
                 continue;
             }
             $relBase = $base . $this->componentBase($relation->name());
