@@ -354,9 +354,7 @@ final class OperationProjector
     {
         $base = ComponentNaming::base($type->type());
 
-        $requestSchema = $type->hasFields()
-            ? Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'))
-            : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
+        $requestSchema = Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'));
 
         $declared = $type->responsesFor(OperationType::Update);
 

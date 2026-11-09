@@ -990,7 +990,8 @@ A **standalone serializer** with no declared field inventory is tolerated
 resource-object schema and no attribute components, exactly mirroring the runtime's
 "serializer but no fields" case. Where it can be created, or an action takes it as its
 request document, its `<Type>CreateRequest` is still a request document: `data` with the
-`type` const, the `id` its client-id policy allows and an open `attributes` object.
+`type` const, the `id` its client-id policy allows and an open `attributes` object. Where it
+can be updated, its `<Type>UpdateRequest` is the same document with a required `id`.
 
 ## Response declarations
 

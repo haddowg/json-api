@@ -98,6 +98,18 @@ final class ActionDocumentInputProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aFieldlessTypeTakesAnOpenUpdateRequestDocument(): void
+    {
+        $document = $this->document();
+        $data = $this->arrAt($document, 'components', 'schemas', 'PingsUpdateRequest', 'properties', 'data');
+
+        self::assertSame(['type' => 'object'], $this->arrAt($data, 'properties', 'attributes'));
+        self::assertSame(['type' => 'string'], $this->arrAt($data, 'properties', 'id'));
+        self::assertSame(['type', 'id'], $data['required'] ?? null);
+        self::assertSame(['$ref' => '#/components/schemas/PingsUpdateRequest'], $this->arrAt($document, 'paths', '/pings/{id}', 'patch', 'requestBody', 'content', 'application/vnd.api+json', 'schema'));
+    }
+
+    #[Test]
     public function theActionsExampleIsACreateDocumentWithNoLinks(): void
     {
         $example = $this->arrAt($this->document(), 'paths', '/carts/{id}/-actions/checkout', 'post', 'requestBody', 'content', 'application/vnd.api+json', 'example');
@@ -139,7 +151,7 @@ final class ActionDocumentInputProjectionTest extends TestCase
                 FakeTypeMetadata::resource('coupons', $code, allowsClientId: true, operations: [OperationType::FetchOne]),
                 FakeTypeMetadata::resource('vouchers', $code, allowsClientId: true, requiresClientId: true, operations: []),
                 FakeTypeMetadata::standalone('notes'),
-                new FakeTypeMetadata(type: 'pings', uriType: 'pings', hasFields: false, operations: [OperationType::Create]),
+                new FakeTypeMetadata(type: 'pings', uriType: 'pings', hasFields: false, operations: [OperationType::Create, OperationType::Update]),
             ],
             servers: [new Server('https://api.example.com')],
             generatesExamples: true,

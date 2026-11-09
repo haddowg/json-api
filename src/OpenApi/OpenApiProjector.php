@@ -887,12 +887,12 @@ final class OpenApiProjector
         // Write request document schemas (create requires/allows id per the policy;
         // update never carries a writable id beyond the path identifier). Both `$ref`
         // the shared attributes components above, and are emitted only when the type
-        // exposes the corresponding write operation. A fieldless type's create request
-        // takes an open attributes object.
+        // exposes the corresponding write operation. A fieldless type's write requests
+        // take an open attributes object.
         if ($allowsCreate) {
             $schemas[$name . 'CreateRequest'] = $this->createRequestSchema($type);
         }
-        if ($type->hasFields() && $allowsUpdate) {
+        if ($allowsUpdate) {
             $schemas[$name . 'UpdateRequest'] = $this->updateRequestSchema($type);
         }
 
@@ -1663,7 +1663,9 @@ final class OpenApiProjector
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('id', Schema::ofType('string'))
-            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'UpdateAttributes'));
+            ->withProperty('attributes', $type->hasFields()
+                ? Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'UpdateAttributes')
+                : Schema::ofType('object'));
 
         $relationships = $this->writeRelationshipsProperty($type, creating: false);
         if ($relationships !== null) {
