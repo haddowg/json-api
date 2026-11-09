@@ -13,6 +13,25 @@ All the snippets below are lifted from the music-catalog example app — the
 [`UserResource`](../examples/music-catalog/src/Resource/UserResource.php) between
 them exercise every type here.
 
+## Every value must have its field's JSON type
+
+A written value must already have the JSON type its field's write schema documents: a
+string for `Str` and its facades, the date fields and a string enum, an integer for
+`Integer`, a number for `Decimal`, a boolean for `Boolean`, a list for `ArrayList` and an
+object for `Obj`, `OneOf`, `Map` and `ArrayHash`. A list's elements take the type `of()`
+gives them. The casts never convert between types, so `"1"` for an `Integer`, `"yes"`
+or `1` for a `Boolean` and `42` for a `Str` each get a `422` at the value's pointer.
+`null` passes only where the field is `nullable()`. A whole float such as `3.0` counts
+as an integer, and an integer counts as a number.
+
+The adapters check this before they hydrate. `ValueTypes::mismatchesIn()` walks a write
+body's attributes, with every child, open member, list element and `OneOf` variant
+below them, and returns each value of the wrong type with its pointer. An adapter
+reports each one as the only error at that pointer, ahead of the field's other rules,
+so `42` sent for a `Str` with a `maxLength()` gets one error about its type. A list sent
+for an object is the exception, as [below](#a-json-array-is-not-an-object). Filters are
+not affected, since a query string is always text.
+
 ## `Str`
 
 A generic string attribute, and the base class for the format subtypes below.
@@ -623,7 +642,8 @@ pointer names the field, so a list at the top level points at
 points at `/data/attributes/address/tags`. A `null` for a nullable field, and a
 field left out of the body, are unaffected. A pivot field of one of these types
 refuses a list the same way, through `castWireValue()`. A `fillUsing()` or
-`deserializeUsing()` hook replaces the cast, so it skips the check.
+`deserializeUsing()` hook replaces the cast, so the adapters' type check refuses the
+list instead, with a `VALIDATION_FAILED` at the same pointer.
 
 An empty array is the exception. The request body is decoded into associative
 arrays, so `[]` and `{}` both arrive as an empty PHP array and the field can't

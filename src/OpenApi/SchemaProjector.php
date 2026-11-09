@@ -28,7 +28,6 @@ use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\DateTime;
-use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
@@ -37,6 +36,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\ValueTypes;
 
 /**
  * Projects core JSON:API type metadata (fields + their declared constraints) into
@@ -638,23 +638,14 @@ final class SchemaProjector
     }
 
     /**
-     * The base type/format schema for a field, derived structurally from its PHP
-     * class. The `format` keyword of a date/time field is the exception: it comes
+     * The base type/format schema for a field, its type the one {@see ValueTypes}
+     * names, which the adapters also hold a written value to. The `format` keyword of a date/time field is the exception: it comes
      * from the field's configured serialization format rather than its class, since
      * that format is what decides whether an RFC 3339 keyword is true.
      */
     private function typeSchema(FieldInterface $field): Schema
     {
-        $type = match (true) {
-            $field instanceof Integer => 'integer',
-            $field instanceof Decimal => 'number',
-            $field instanceof Boolean => 'boolean',
-            $field instanceof ArrayList => 'array',
-            $field instanceof ArrayHash, $field instanceof Map => 'object',
-            default => 'string',
-        };
-
-        $schema = Schema::ofType($type);
+        $schema = Schema::ofType(ValueTypes::of($field) ?? ValueTypes::STRING);
 
         $format = $field instanceof DateTime ? $field->schemaFormat() : null;
         if ($format !== null) {
