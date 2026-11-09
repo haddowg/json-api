@@ -11,6 +11,8 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Constraint\MaxItems;
+use haddowg\JsonApi\Resource\Constraint\MinItems;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 
 /**
@@ -99,6 +101,53 @@ final class RelationFacts
         $types = $relation->relatedTypes();
 
         return \count($types) === 1 && !self::isPolymorphic($relation) ? $types[0] : null;
+    }
+
+    /**
+     * The `minItems()` / `maxItems()` a to-many relation's field declares for a create or
+     * update, read from the relation field of the same name among the type's fields. Only
+     * a write setting the whole membership takes them: an addition or a removal carries a
+     * delta.
+     *
+     * @return array{min: int|null, max: int|null}
+     */
+    public static function itemBounds(TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $creating): array
+    {
+        $bounds = ['min' => null, 'max' => null];
+        if (!$relation->isToMany()) {
+            return $bounds;
+        }
+
+        foreach ($type->fields() as $field) {
+            if (!$field instanceof RelationInterface || $field->name() !== $relation->name()) {
+                continue;
+            }
+            foreach ($field->constraints() as $constraint) {
+                if (!$constraint->context()->appliesTo($creating)) {
+                    continue;
+                }
+                if ($constraint instanceof MinItems) {
+                    $bounds['min'] = \max($bounds['min'] ?? 0, $constraint->value);
+                } elseif ($constraint instanceof MaxItems) {
+                    $bounds['max'] = $bounds['max'] === null ? $constraint->value : \min($bounds['max'], $constraint->value);
+                }
+            }
+        }
+
+        return $bounds;
+    }
+
+    /**
+     * `$linkage` carrying the relation's {@see itemBounds()} for the write.
+     */
+    public static function withItemBounds(Schema $linkage, TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $creating): Schema
+    {
+        ['min' => $min, 'max' => $max] = self::itemBounds($type, $relation, $creating);
+        if ($min !== null) {
+            $linkage = $linkage->withMinItems($min);
+        }
+
+        return $max === null ? $linkage : $linkage->withMaxItems($max);
     }
 
     /**

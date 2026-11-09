@@ -13,6 +13,8 @@ use haddowg\JsonApi\Resource\Constraint\Before;
 use haddowg\JsonApi\Resource\Constraint\Between;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\In;
+use haddowg\JsonApi\Resource\Constraint\MaxItems;
+use haddowg\JsonApi\Resource\Constraint\MinItems;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\ProvidesJsonSchema;
 use haddowg\JsonApi\Resource\Constraint\Required;
@@ -85,7 +87,7 @@ final class SchemaCompiler
             }
 
             if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface) {
-                $relationshipProperties[$field->name()] = $this->relationshipSchema($field);
+                $relationshipProperties[$field->name()] = $this->relationshipSchema($field, $creating);
                 if ($this->isRequired($field, $creating)) {
                     $relationshipRequired[] = $field->name();
                 }
@@ -161,20 +163,27 @@ final class SchemaCompiler
     /**
      * @return array<string, mixed>
      */
-    private function relationshipSchema(\haddowg\JsonApi\Resource\Field\RelationInterface $relation): array
+    private function relationshipSchema(\haddowg\JsonApi\Resource\Field\RelationInterface $relation, bool $creating): array
     {
-        // A JSON:API relationship object: { "data": <linkage> }. Constrain only
-        // the linkage type(s); cardinality (object vs array) is governed by the
-        // base schema, which already validates relationship shape.
+        // A JSON:API relationship object: { "data": <linkage> }. Constrain the
+        // linkage type(s) and a to-many's item bounds; cardinality (object vs array)
+        // is governed by the base schema, which already validates relationship shape.
         $identifier = ['type' => 'object'];
         $types = $relation->relatedTypes();
         if ($types !== []) {
             $identifier['properties'] = ['type' => ['enum' => \array_values($types)]];
         }
 
-        $dataSchema = $relation->isToMany()
-            ? ['type' => 'array', 'items' => $identifier]
-            : $identifier;
+        if (!$relation->isToMany()) {
+            return ['type' => 'object', 'properties' => ['data' => $identifier]];
+        }
+
+        $dataSchema = ['type' => 'array', 'items' => $identifier];
+        foreach ($relation->constraints() as $constraint) {
+            if (($constraint instanceof MinItems || $constraint instanceof MaxItems) && $constraint->context()->appliesTo($creating)) {
+                $dataSchema = $this->applyConstraint($dataSchema, $constraint, $creating);
+            }
+        }
 
         return ['type' => 'object', 'properties' => ['data' => $dataSchema]];
     }

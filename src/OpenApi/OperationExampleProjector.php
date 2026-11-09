@@ -260,7 +260,7 @@ final class OperationExampleProjector
                 'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: true)],
             ],
             default => [
-                'request' => fn(): array => $builder->relationshipRequest($type, $relation),
+                'request' => fn(): array => $builder->relationshipRequest($type, $relation, replacing: $enumerated->key->kind === OperationKind::UpdateRelationship),
                 'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: false)],
             ],
         };

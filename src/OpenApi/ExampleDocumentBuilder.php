@@ -209,15 +209,18 @@ final class ExampleDocumentBuilder
     }
 
     /**
-     * A relationship mutation's request document: the linkage to write.
+     * A relationship mutation's request document: the linkage to write. A full
+     * replacement (`$replacing`) whose one-member linkage falls outside the relation's
+     * item bounds has no example.
      *
      * @return array<string, mixed>
      */
-    public function relationshipRequest(TypeMetadataInterface $owner, RelationMetadataInterface $relation): array
+    public function relationshipRequest(TypeMetadataInterface $owner, RelationMetadataInterface $relation, bool $replacing = false): array
     {
         $linkage = $this->linkage($owner, $relation, RepresentationContext::Update);
-        if ($linkage === false) {
-            // The related type is not registered here, so only the relation can name an id.
+        if ($linkage === false || ($replacing && !self::withinItemBounds($owner, $relation, $linkage, creating: false))) {
+            // The related type is not registered here, so only the relation can name an id,
+            // or the example's one member is not a membership the write accepts.
             $this->miss($owner->type(), $relation->name());
             $linkage = null;
         }
@@ -249,9 +252,10 @@ final class ExampleDocumentBuilder
                 continue;
             }
             $linkage = $this->linkage($type, $relation, $context);
-            // A relation whose target the server does not register has no id to show, and
-            // a write may leave any relationship out.
-            if ($linkage !== false) {
+            // A relation whose target the server does not register has no id to show, one
+            // whose item bounds the example's one member falls outside has no membership to
+            // show, and a write may leave any relationship out.
+            if ($linkage !== false && self::withinItemBounds($type, $relation, $linkage, $creating)) {
                 $relationships[$relation->name()] = ['data' => $linkage];
             }
         }
@@ -260,6 +264,23 @@ final class ExampleDocumentBuilder
         }
 
         return ['data' => $resource];
+    }
+
+    /**
+     * Whether an example linkage holds as many members as the relation's item bounds
+     * allow for the write.
+     *
+     * @param array<string, mixed>|list<array<string, mixed>>|null $linkage
+     */
+    private static function withinItemBounds(TypeMetadataInterface $type, RelationMetadataInterface $relation, ?array $linkage, bool $creating): bool
+    {
+        if (!$relation->isToMany() || $linkage === null) {
+            return true;
+        }
+        ['min' => $min, 'max' => $max] = RelationFacts::itemBounds($type, $relation, $creating);
+        $count = \count($linkage);
+
+        return ($min === null || $count >= $min) && ($max === null || $count <= $max);
     }
 
     /**

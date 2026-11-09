@@ -169,6 +169,13 @@ sketch:
   relation read-only only by a `when:` predicate stays listed, as such an attribute
   does. The request example follows the same rule. A write request marks a write-only relation's property
   `writeOnly: true`, so a generator can keep it on its input types and off its read types.
+  A to-many relation's `minItems()` / `maxItems()` bound the linkage array of every write
+  that sets the whole membership: the create and update requests, the atomic `add` and
+  `update` resource objects, and the `PATCH` that replaces the relationship. Each takes the
+  bounds declared for its context, beside the shared relationship object in an `allOf`,
+  since that object is the read shape too. The `POST` and `DELETE` that add and remove
+  members carry a delta, so they take none. A request example whose one member falls
+  outside the bounds is left out.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to
