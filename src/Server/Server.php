@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface
 {
     private ResourceRegistry $resources;
 
@@ -161,6 +161,11 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
 
     private bool $rejectsReadOnlyAttributes = false;
+
+    /**
+     * @var list<string>
+     */
+    private array $relatedOnlyTypes = [];
 
     private bool $linkObjects = true;
 
@@ -639,6 +644,27 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     public function rejectsReadOnlyAttributes(): bool
     {
         return $this->rejectsReadOnlyAttributes;
+    }
+
+    /**
+     * Marks types as related-only: they serve no endpoint of their own, so their
+     * resources render no by-convention `self` link and their relationship objects no
+     * `self`, `related` or page links. They still render as related and included
+     * resources. Replaces any earlier set.
+     */
+    public function withRelatedOnlyTypes(string ...$types): self
+    {
+        $self = clone $this;
+        $self->relatedOnlyTypes = \array_values(\array_unique($types));
+        $self->resources = clone $this->resources;
+        $self->resources->setRelatedOnlyTypes($self->relatedOnlyTypes);
+
+        return $self;
+    }
+
+    public function isRelatedOnly(string $type): bool
+    {
+        return \in_array($type, $this->relatedOnlyTypes, true);
     }
 
     public function withProfile(ProfileInterface $profile): self

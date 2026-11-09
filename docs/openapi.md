@@ -967,6 +967,17 @@ doesn't implement it projects no declared links. `DeclaresActionLinks` extends
 `allActionLinks()`. Metadata that doesn't implement it projects only the action links
 `DeclaresActionLink` names.
 
+`DeclaresRelatedOnly` extends `TypeMetadataInterface` with `isRelatedOnly(): bool`. Return
+`true` for a type the server marks [related-only](server.md#related-only-types). Its
+resource objects then `$ref` a `<Type>ResourceLinks` of their own that lists the type's
+declared links and no `self`, and its examples show no `self`. The metadata of such a type
+must expose no operations, no actions and no relationship or related endpoint, and the
+projector refuses it with a `\LogicException` otherwise. It still gets the create
+components when an action takes it as its request document. A document with a related-only
+type declares the `RELATED_ONLY` contract tier in its
+[`x-generator`](#the-generator-contract-x-generator) stamp. Metadata that doesn't implement
+it projects every type with a `self`.
+
 Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `readOnly()`,
 `destructive()` and `idempotent()`, each `?bool`, which project as
 [`x-safety`](#action-safety-x-safety). `DeclaresActionExtensions` adds `extensions(): array`,

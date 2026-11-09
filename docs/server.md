@@ -499,6 +499,28 @@ code in a generated document, have the server's OpenAPI metadata implement
 `OpenApi\Metadata\DeclaresReadOnlyAttributeRejection`; without it the document stays as
 it was.
 
+## Related-only types
+
+Some types serve no endpoint of their own. They're reached only as another type's related
+or included resources, or as the request document of a custom action. Mark them with
+`withRelatedOnlyTypes()`:
+
+```php
+$server = $server->withRelatedOnlyTypes('labels', 'credits');
+```
+
+Their resources render no by-convention `self` link, and their relationship objects render
+no `self`, `related` or page links, since none of those endpoints exist. A relationship
+object left with no links carries its linkage `data` instead. Everything else renders as
+before, and a `self` returned from `getLinks()` still wins. The server doesn't route, so
+leaving the type's own endpoints out of your routing is the adapter's job.
+
+The transformer reads the set off the resource's resolver through
+`Resource\DeclaresRelatedOnlyTypesInterface`, which the server and its registry implement.
+A resolver that decorates the server's should implement it and delegate. For the generated
+document, have the type's OpenAPI metadata implement `OpenApi\Metadata\DeclaresRelatedOnly`
+(see [OpenAPI](openapi.md)).
+
 ## Wiring faults are exceptions, not error documents
 
 A misconfigured server is a programming error, so the registry throws a

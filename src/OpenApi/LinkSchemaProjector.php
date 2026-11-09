@@ -9,6 +9,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLink;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkObjects;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelatedOnly;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -58,6 +59,12 @@ final readonly class LinkSchemaProjector
 
     private ?TypeMetadataInterface $exampleType;
 
+    /**
+     * The first type whose resources carry a `self` link, which the `LinkObject` example
+     * shows, or `null` when every type is related-only.
+     */
+    private ?TypeMetadataInterface $selfLinkType;
+
     private bool $relations;
 
     private bool $relationshipEndpoints;
@@ -67,6 +74,14 @@ final readonly class LinkSchemaProjector
     public function __construct(ServerMetadataInterface $server, Paths $paths)
     {
         $this->exampleType = $server->types()[0] ?? null;
+        $selfLinkType = null;
+        foreach ($server->types() as $type) {
+            if (!self::isRelatedOnly($type)) {
+                $selfLinkType = $type;
+                break;
+            }
+        }
+        $this->selfLinkType = $selfLinkType;
 
         $this->objects = !$server instanceof DeclaresLinkObjects || $server->rendersLinkObjects();
 
@@ -130,23 +145,34 @@ final readonly class LinkSchemaProjector
 
     /**
      * The links component a type's resource objects `$ref`: its own `<Type>ResourceLinks`
-     * when it has named links, else the shared `ResourceLinks`.
+     * when it has named links or is related-only, else the shared `ResourceLinks`.
      */
     public static function resourceLinksComponent(TypeMetadataInterface $type, string $base): string
     {
-        return self::hasNamedLinks($type) ? $base . self::RESOURCE_LINKS : self::RESOURCE_LINKS;
+        return self::hasNamedLinks($type) || self::isRelatedOnly($type) ? $base . self::RESOURCE_LINKS : self::RESOURCE_LINKS;
     }
 
     /**
-     * A type's own links component, emitted only when it has named links: an `allOf` of
-     * the shared `ResourceLinks` and an object holding one property per declared link and
-     * action link.
+     * Whether the type is related-only ({@see DeclaresRelatedOnly}), so its resource
+     * objects carry no `self` link.
+     */
+    public static function isRelatedOnly(TypeMetadataInterface $type): bool
+    {
+        return $type instanceof DeclaresRelatedOnly && $type->isRelatedOnly();
+    }
+
+    /**
+     * A type's own links component, emitted only when it has named links or is
+     * related-only: an `allOf` of the shared `ResourceLinks` and an object holding one
+     * property per declared link and action link. A related-only type's has no `self`,
+     * so it lists its declared links on an open object of its own instead.
      *
      * @return array<string, Schema>
      */
     public function typeComponents(TypeMetadataInterface $type, string $base, SchemaProjector $fields = new SchemaProjector(), ?EnumComponentCollector $collector = null): array
     {
-        if (!self::hasNamedLinks($type)) {
+        $relatedOnly = self::isRelatedOnly($type);
+        if (!$relatedOnly && !self::hasNamedLinks($type)) {
             return [];
         }
 
@@ -169,8 +195,16 @@ final readonly class LinkSchemaProjector
             $named = $named->withProperty($name, $this->member($description ?? \sprintf('The `%s` action on this resource.', $action->path())));
         }
 
+        $description = \sprintf('The `links` of a resource object of type `%s`.', $type->type());
+        if ($relatedOnly) {
+            return [$base . self::RESOURCE_LINKS => $named
+                ->withDescription($description . ' The type serves no endpoint of its own, so it carries no `self` link.')
+                ->withAdditionalProperties(Schema::ref(ComponentNaming::schemaRef('LinkObject'))),
+            ];
+        }
+
         return [$base . self::RESOURCE_LINKS => Schema::create()
-            ->withDescription(\sprintf('The `links` of a resource object of type `%s`.', $type->type()))
+            ->withDescription($description)
             ->withAllOf([Schema::ref(ComponentNaming::schemaRef(self::RESOURCE_LINKS)), $named]),
         ];
     }
@@ -650,7 +684,7 @@ final readonly class LinkSchemaProjector
             ->withRequired(['href']);
 
         // The first type's resource URL, as a resource object's `self` renders it.
-        $type = $this->exampleType;
+        $type = $this->selfLinkType;
         $root = $this->serverUrl . '/';
         $example = $type === null
             ? ($this->objects ? ['href' => $root] : $root)

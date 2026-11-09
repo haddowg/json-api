@@ -10,6 +10,7 @@ use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\RelationshipLinks;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
+use haddowg\JsonApi\Transformer\RelatedOnlyType;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 
@@ -441,7 +442,8 @@ abstract class AbstractRelationship
      * The owning resource's type comes from the parent serializer (falling back
      * to the transformation's resolved type) and its id from that serializer's
      * `getId()`. A missing parent serializer or an empty id (e.g. a not-yet-
-     * persisted resource) omits the links rather than emitting a malformed URL.
+     * persisted resource) omits the links rather than emitting a malformed URL, and a
+     * related-only parent type omits them because it serves neither endpoint.
      *
      * @internal
      */
@@ -453,7 +455,7 @@ abstract class AbstractRelationship
         }
 
         $parent = $transformation->resource;
-        if ($parent === null) {
+        if ($parent === null || RelatedOnlyType::of($parent, $transformation->resourceType)) {
             return null;
         }
 
