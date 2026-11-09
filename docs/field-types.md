@@ -566,7 +566,9 @@ than carried over. An empty list stores `[]` and a `null` clears the list.
 Hooks belong on the list or on the element's children, not on the element itself.
 `extractUsing()` or `computedUsing()` on the list supplies the elements, and each one
 still renders through the children, as a computed `Obj` does. `serializeUsing()` and
-`fillUsing()` on the list own the whole value and skip the elements. An element
+`fillUsing()` on the list own the whole value: the hook reads or stores it instead of
+the elements' children. A write is still validated against the element, with its open
+members and counts, and the write schema still describes it. An element
 carrying its own hook, `each()` and `sorted()` all throw a `LogicException` when the
 list is built: put per-element rules on the children, and keep the order the client
 sends. A list nested inside an element works the same way, one level down.

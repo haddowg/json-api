@@ -18,8 +18,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The attributes object and every object a field declares are closed, unless a hook
- * produces the object in the direction projected.
+ * The attributes object and every object a field declares are closed, unless a read hook
+ * renders the object on a read.
  */
 #[CoversClass(SchemaProjector::class)]
 #[CoversClass(Obj::class)]
@@ -74,27 +74,28 @@ final class ClosedObjectProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aWriteHookOpensTheObjectOnlyOnWrite(): void
+    public function aWriteHookKeepsTheObjectClosed(): void
     {
         $field = OneOf::make('block')->discriminator('kind')->variant('circle', Str::make('radius'))
             ->fillUsing(static fn(mixed $model): mixed => $model)
             ->build();
 
-        self::assertFalse(self::at($this->schema($field, RepresentationContext::Read), 'oneOf', 0, 'additionalProperties'));
-        self::assertArrayNotHasKey('additionalProperties', self::obj($this->schema($field, RepresentationContext::Create), 'oneOf', 0));
-        self::assertArrayNotHasKey('additionalProperties', self::obj($this->schema($field, RepresentationContext::Update), 'oneOf', 0));
+        foreach (RepresentationContext::cases() as $context) {
+            self::assertFalse(self::at($this->schema($field, $context), 'oneOf', 0, 'additionalProperties'), $context->name);
+        }
     }
 
     #[Test]
-    public function aListHookOpensItsElementsInItsOwnDirection(): void
+    public function aListReadHookOpensItsElementsOnlyOnRead(): void
     {
         $read = ArrayList::make('steps')->of(Obj::make('step')->fields(Str::make('op')))->serializeUsing(static fn(): array => [])->build();
         $write = ArrayList::make('steps')->of(Obj::make('step')->fields(Str::make('op')))->deserializeUsing(static fn(mixed $value): mixed => $value)->build();
 
         self::assertArrayNotHasKey('additionalProperties', self::obj($this->schema($read, RepresentationContext::Read), 'items'));
         self::assertFalse(self::at($this->schema($read, RepresentationContext::Create), 'items', 'additionalProperties'));
-        self::assertFalse(self::at($this->schema($write, RepresentationContext::Read), 'items', 'additionalProperties'));
-        self::assertArrayNotHasKey('additionalProperties', self::obj($this->schema($write, RepresentationContext::Create), 'items'));
+        foreach (RepresentationContext::cases() as $context) {
+            self::assertFalse(self::at($this->schema($write, $context), 'items', 'additionalProperties'), $context->name);
+        }
     }
 
     /**

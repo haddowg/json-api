@@ -74,12 +74,22 @@ final class UndeclaredAttributeMemberTest extends TestCase
     }
 
     #[Test]
-    public function aHookedValueAndAnUnknownVariantAreNotLookedInside(): void
+    public function anUnknownVariantIsNotLookedInside(): void
     {
         $model = self::model();
-        $this->hydrate('PATCH', ['raw' => ['anything' => true], 'block' => ['kind' => 'hexagon', 'sides' => 6]], $model);
+        $this->hydrate('PATCH', ['block' => ['kind' => 'hexagon', 'sides' => 6]], $model);
 
-        self::assertSame(['anything' => true], $model->raw);
+        self::assertSame(['kind' => 'hexagon', 'sides' => 6], $model->block);
+    }
+
+    #[Test]
+    public function aWriteHookedValueIsStillLookedInside(): void
+    {
+        $this->expectRefused(['raw' => ['a' => 'x', 'anything' => true]], ['/data/attributes/raw/anything']);
+
+        $model = self::model();
+        $this->hydrate('PATCH', ['raw' => ['a' => 'x']], $model);
+        self::assertSame(['a' => 'x'], $model->raw);
     }
 
     #[Test]

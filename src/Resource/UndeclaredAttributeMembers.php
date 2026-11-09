@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource;
 
-use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
@@ -21,10 +20,11 @@ use haddowg\JsonApi\Resource\Field\OneOf;
  * value is walked as that field's.
  *
  * Only declared structure is walked. A field whose `fillUsing()` or `deserializeUsing()`
- * hook takes the value owns its shape and is not looked inside, and a `OneOf` value
- * naming no variant is left to the validator that reports the unknown variant. A
- * declared member that is read-only for the caller is not undeclared: whether it is
- * ignored or refused is {@see RejectsReadOnlyAttributesInterface}'s concern.
+ * hook takes the value is walked like any other, since the hook decides how the value is
+ * stored, not which members it may carry. A `OneOf` value naming no variant is left to
+ * the validator that reports the unknown variant. A declared member that is read-only
+ * for the caller is not undeclared: whether it is ignored or refused is
+ * {@see RejectsReadOnlyAttributesInterface}'s concern.
  */
 final class UndeclaredAttributeMembers
 {
@@ -77,7 +77,7 @@ final class UndeclaredAttributeMembers
      */
     private static function descend(FieldInterface $field, mixed $value, string $path, array &$pointers): void
     {
-        if (!\is_array($value) || ($field instanceof AbstractFieldValue && $field->hydratesThroughHook())) {
+        if (!\is_array($value)) {
             return;
         }
 
