@@ -33,6 +33,11 @@ _Avoid_: association, and bare "relationship", which also names the relationship
 Validation metadata attached to a **Field** or **Filter**; core never executes it.
 _Avoid_: rule, assertion
 
+**Value type**:
+The JSON type a written value of a **Field** must have, the one its write schema documents.
+A value without it is refused, never cast.
+_Avoid_: cast type, coercion
+
 **Declared link**:
 A named member of a resource object's `links`, declared on the **Resource** beside its fields so
 the OpenAPI projection can describe it.
