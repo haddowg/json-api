@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface
 {
     /**
      * @var array<string, Entry>
@@ -129,6 +129,14 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private bool $rejectsReadOnlyAttributes = false;
 
     /**
+     * The related-only types, keyed by type. Threaded down from the {@see Server} like
+     * the relation authorizer.
+     *
+     * @var array<string, true>
+     */
+    private array $relatedOnlyTypes = [];
+
+    /**
      * Sets (or clears) the lazy instantiation factory. Resolved instances are
      * cached, so changing the resolver after a type has been looked up does not
      * re-resolve that type.
@@ -168,6 +176,19 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function rejectsReadOnlyAttributes(): bool
     {
         return $this->rejectsReadOnlyAttributes;
+    }
+
+    /**
+     * @param list<string> $types
+     */
+    public function setRelatedOnlyTypes(array $types): void
+    {
+        $this->relatedOnlyTypes = \array_fill_keys($types, true);
+    }
+
+    public function isRelatedOnly(string $type): bool
+    {
+        return isset($this->relatedOnlyTypes[$type]);
     }
 
     /**

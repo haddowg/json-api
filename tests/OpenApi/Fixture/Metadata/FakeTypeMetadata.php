@@ -9,6 +9,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelatedOnly;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
@@ -29,7 +30,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -78,7 +79,13 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecati
         private readonly bool $deprecated = false,
         private readonly ?\DateTimeInterface $sunset = null,
         private readonly array $deprecatedOperations = [],
+        private readonly bool $relatedOnly = false,
     ) {}
+
+    public function isRelatedOnly(): bool
+    {
+        return $this->relatedOnly;
+    }
 
     public function isDeprecated(): bool
     {
@@ -132,6 +139,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecati
      * @param array<string, non-empty-list<\haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface>> $responses per-operation success-response overrides, keyed by {@see OperationType::value}
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      * @param list<string>                    $deprecatedOperations operation names declared deprecated
+     * @param bool                            $relatedOnly       whether the type serves no endpoint of its own
      */
     public static function resource(
         string $type,
@@ -162,6 +170,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecati
         bool $deprecated = false,
         ?\DateTimeInterface $sunset = null,
         array $deprecatedOperations = [],
+        bool $relatedOnly = false,
     ): self {
         return new self(
             type: $type,
@@ -198,6 +207,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDeprecati
             deprecated: $deprecated,
             sunset: $sunset,
             deprecatedOperations: $deprecatedOperations,
+            relatedOnly: $relatedOnly,
         );
     }
 

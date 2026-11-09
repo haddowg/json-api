@@ -81,6 +81,7 @@ final class OpenApiProjector
         // Refuse before building anything: a related endpoint pointed at a type this
         // server does not register has no honest projection (see the method).
         $this->guardRelatedTypesAreRegistered($server);
+        $this->guardRelatedOnlyTypesServeNothing($server);
 
         // The paths are projected FIRST because the error responses are now shared
         // components: which statuses the operations reference decides which response
@@ -376,6 +377,7 @@ final class OpenApiProjector
             deprecation: self::declaresDeprecation($server),
             actionFilters: $actions['actionFilters'],
             actionCreated: $actions['actionCreated'],
+            relatedOnly: self::hasRelatedOnlyType($server),
         ));
     }
 
@@ -982,6 +984,49 @@ final class OpenApiProjector
                 }
             }
         }
+    }
+
+    /**
+     * Refuses a related-only type whose metadata exposes an operation, an action or a
+     * relationship or related endpoint, since such a type serves no endpoint of its own.
+     */
+    private function guardRelatedOnlyTypesServeNothing(ServerMetadataInterface $server): void
+    {
+        foreach ($server->types() as $type) {
+            if (!LinkSchemaProjector::isRelatedOnly($type)) {
+                continue;
+            }
+
+            $serves = $type->operations() !== [] ? 'operations' : ($type->actions() !== [] ? 'actions' : null);
+            foreach ($type->relations() as $relation) {
+                if ($serves === null && ($relation->exposesRelationshipEndpoint() || self::exposesRelatedRead($relation))) {
+                    $serves = \sprintf('an endpoint for its "%s" relation', $relation->name());
+                }
+            }
+
+            if ($serves !== null) {
+                throw new \LogicException(\sprintf(
+                    'Type "%s" is related-only, so it serves no endpoint of its own, but its metadata exposes %s.',
+                    $type->type(),
+                    $serves,
+                ));
+            }
+        }
+    }
+
+    /**
+     * Whether a type of the server is related-only, which the document's generator
+     * contract reflects ({@see GeneratorContract::RELATED_ONLY}).
+     */
+    private static function hasRelatedOnlyType(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            if (LinkSchemaProjector::isRelatedOnly($type)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -331,11 +331,12 @@ final class ExampleDocumentBuilder
     public function resource(TypeMetadataInterface $type): array
     {
         $id = $this->id($type);
-        $resource = [
-            'type' => $type->type(),
-            'id' => $id,
-            'links' => $this->resourceLinks($type, $id),
-        ];
+        $resource = ['type' => $type->type(), 'id' => $id];
+        // A related-only type with no declared links renders no `links` member at all.
+        $links = $this->resourceLinks($type, $id);
+        if ($links !== []) {
+            $resource['links'] = $links;
+        }
 
         $attributes = $this->attributes($type, RepresentationContext::Read);
         if ($attributes !== []) {
@@ -407,7 +408,9 @@ final class ExampleDocumentBuilder
     private function resourceLinks(TypeMetadataInterface $type, string $id): array
     {
         $uriType = $type->uriType();
-        $links = ['self' => $this->links->renderedLink($this->path(PathTemplate::resource($uriType), $id), OperationReference::fetchOne($uriType))];
+        $links = LinkSchemaProjector::isRelatedOnly($type)
+            ? []
+            : ['self' => $this->links->renderedLink($this->path(PathTemplate::resource($uriType), $id), OperationReference::fetchOne($uriType))];
 
         foreach (LinkSchemaProjector::declaredLinksOf($type) as $link) {
             $links[$link->name] = $this->declaredLink($type, $link);

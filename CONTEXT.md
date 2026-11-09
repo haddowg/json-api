@@ -43,6 +43,12 @@ A **Resource**'s declaration that one of its type's custom actions renders as a 
 `links`, with an optional condition and description; the href comes from the action.
 _Avoid_: conditional link
 
+**Related-only type**:
+A type that serves no endpoint of its own, reached only as another type's related or
+included resources or as a custom action's request document. Its resources and relationship
+objects render no links to its own endpoints.
+_Avoid_: embedded type, nested type, endpointless type
+
 **Serializer**:
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer

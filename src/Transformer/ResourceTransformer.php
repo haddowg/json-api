@@ -149,7 +149,7 @@ final class ResourceTransformer
 
         // The spec RECOMMENDS a resource carry a by-convention `self` link
         // (`{baseUri}/{uriType}/{id}`). It is emitted for every serializer unless
-        // it opts out via SelfLinkAwareInterface, the id is empty (a not-yet-
+        // it opts out via SelfLinkAwareInterface, its type is related-only, the id is empty (a not-yet-
         // persisted resource has no self), or getLinks() already supplied a self
         // (a hand-written self wins). Built here, the only layer that knows the
         // resolved type + id and the configured base URI.
@@ -201,7 +201,7 @@ final class ResourceTransformer
 
     /**
      * Builds the by-convention resource `self` URL (`{baseUri}/{uriType}/{id}`),
-     * or `null` when the resource opted out or has no id. The path segment is the
+     * or `null` when the resource opted out, its type is related-only, or it has no id. The path segment is the
      * serializer's URI type (so a resource whose JSON:API type differs from its
      * URL segment links correctly); a serializer that is not URI-type-aware falls
      * back to its JSON:API type, mirroring {@see AbstractRelationship::conventionLinks()}.
@@ -214,6 +214,10 @@ final class ResourceTransformer
         }
 
         if ($resource instanceof SelfLinkAwareInterface && $resource->emitsSelfLink() === false) {
+            return null;
+        }
+
+        if (RelatedOnlyType::of($resource, $transformation->resourceType)) {
             return null;
         }
 

@@ -389,8 +389,9 @@ spec-recommended (SHOULD) and on by default:
   `type`), so a resource whose type is `book` but lives at `/books` links
   correctly. It is omitted for a resource with an empty id (a not-yet-persisted
   resource has no self), and a `getLinks()` `self` you set by hand wins over it.
-  An `AbstractResource` opts out by overriding `emitsSelfLink()` to return
-  `false`:
+  A [related-only type](server.md#related-only-types) renders none, and neither do its
+  relationship objects. An `AbstractResource` opts out by overriding `emitsSelfLink()` to
+  return `false`:
 
   ```php
   // No by-convention resource self link for this type.

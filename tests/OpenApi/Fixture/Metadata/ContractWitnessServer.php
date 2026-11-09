@@ -147,8 +147,11 @@ final class ContractWitnessServer
      * @param bool $actionCreated whether an articles action answers `201 Created` with a
      *                            resource document, which the baseline witness leaves
      *                            out too
+     * @param bool $relatedOnly whether the related-only credits type, and the videos action
+     *                          taking and answering with one, are served, which the baseline
+     *                          witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -159,8 +162,9 @@ final class ContractWitnessServer
                 self::tags($deprecations),
                 self::images($declaredLinks),
                 // Names one video in prose through the opt-in singular-name seam.
-                new SingularNameTypeMetadata(self::videos(), 'video clip'),
+                new SingularNameTypeMetadata(self::videos($relatedOnly), 'video clip'),
                 FakeTypeMetadata::standalone('healthcheck', tags: ['Ops']),
+                ...($relatedOnly ? [self::credits()] : []),
             ],
             description: 'Every projector branch the witness can reach, in one document.',
             contact: new Contact('API Team', 'https://example.com/support', 'api@example.com'),
@@ -617,7 +621,7 @@ final class ContractWitnessServer
      * Unpaginated: a collection with no `page[…]` parameters at all. Its update answers
      * `204`, the other write that returns no resource document to shape.
      */
-    private static function videos(): FakeTypeMetadata
+    private static function videos(bool $relatedOnly): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'videos',
@@ -629,6 +633,32 @@ final class ContractWitnessServer
             tags: ['Media'],
             unpaginated: true,
             responses: [OperationType::Update->value => [new NoContent()]],
+            actions: $relatedOnly ? [
+                new FakeActionMetadata('credit', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'credits', outputType: 'credits', tags: ['Media']),
+            ] : [],
+        );
+    }
+
+    /**
+     * Related-only: no operations, no actions and no endpoint for its relation, so its
+     * resources carry no `self` and its `<Type>ResourceLinks` lists only its declared link.
+     * The videos `credit` action takes one as its request document and answers with one.
+     */
+    private static function credits(): FakeTypeMetadata
+    {
+        return FakeTypeMetadata::resource(
+            type: 'credits',
+            fields: [Id::make()->example('cre-1')->build(), Str::make('role')->required()->example('Director')->build()],
+            relations: [new FakeRelationMetadata('person', ['people'], false, relatedEndpoint: false, relationshipEndpoint: false)],
+            tags: ['Media'],
+            operations: [],
+            declaredLinks: [
+                DeclaredLink::make('profile')
+                    ->hrefUsing(static fn(mixed $model, JsonApiRequestInterface $request): ?string => null)
+                    ->example('https://example.com/credits/cre-1')
+                    ->build(),
+            ],
+            relatedOnly: true,
         );
     }
 }
