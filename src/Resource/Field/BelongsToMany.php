@@ -22,6 +22,12 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * the join row itself — the Symfony bundle's Doctrine adapter owns that storage,
  * reading the field definitions back to validate the linkage `meta` and persist
  * the association entity.
+ *
+ * A pivot field may also be **computed** ({@see isComputedPivotField()}): declared with
+ * `computed()`, `computedUsing()` or `extractUsing()`, its value comes from its hook, which
+ * a host calls with a {@see PivotEdge} of the parent and the related member rather than a
+ * join row. A computed field is never written, and a relation whose pivot fields are all
+ * computed needs no stored pivot at all ({@see storedPivotFields()}).
  */
 final readonly class BelongsToMany extends HasMany
 {
@@ -61,11 +67,76 @@ final readonly class BelongsToMany extends HasMany
     }
 
     /**
+     * Whether a pivot field is **computed**: it has no backing column (`computed()`,
+     * `computedUsing()`) or an `extractUsing()` hook supplies its value. A host renders it
+     * by calling the field's serializer with a {@see PivotEdge}, never reads it off a join
+     * row, and never writes it.
+     */
+    public static function isComputedPivotField(FieldInterface $field): bool
+    {
+        return $field->column() === null
+            || ($field instanceof AbstractFieldValue && $field->extractsThroughHook());
+    }
+
+    /**
+     * The pivot fields a join row stores: every declared field that is not
+     * {@see isComputedPivotField() computed}. When this is empty the relation needs no
+     * association entity or pivot model behind it. Declaration order is preserved.
+     *
+     * @return list<FieldInterface>
+     */
+    public function storedPivotFields(): array
+    {
+        return \array_values(\array_filter(
+            $this->pivotFields,
+            static fn(FieldInterface $field): bool => !self::isComputedPivotField($field),
+        ));
+    }
+
+    /**
+     * The {@see isComputedPivotField() computed} pivot fields. Declaration order is
+     * preserved.
+     *
+     * @return list<FieldInterface>
+     */
+    public function computedPivotFields(): array
+    {
+        return \array_values(\array_filter(
+            $this->pivotFields,
+            self::isComputedPivotField(...),
+        ));
+    }
+
+    /**
+     * The values of the computed pivot fields for one link, keyed by field name: each
+     * field's own serialization of a {@see PivotEdge} of `$parent` and `$related`, so its
+     * hook receives both ends and its cast applies as it does to an attribute.
+     * `$outputTimezone` is the server's default output zone, which a date field adopts
+     * unless it set its own. Every computed field is evaluated; a host still renders only
+     * what {@see readablePivotFieldsFor()} returns.
+     *
+     * @return array<string, mixed>
+     */
+    public function computedPivotValues(mixed $parent, mixed $related, JsonApiRequestInterface $request, ?string $outputTimezone = null): array
+    {
+        $edge = new PivotEdge($parent, $related);
+        $values = [];
+        foreach ($this->computedPivotFields() as $field) {
+            if ($outputTimezone !== null && $field instanceof AcceptsDefaultOutputTimezoneInterface) {
+                $field = $field->withDefaultOutputTimezone($outputTimezone);
+            }
+            $values[$field->name()] = $field->serialize($edge, $request, $field->name());
+        }
+
+        return $values;
+    }
+
+    /**
      * The pivot fields **writable** in the given operation context — those not
      * read-only there ({@see FieldInterface::isReadOnly()} resolved by create vs
-     * update). These are the fields a host may set from the linkage `meta`; a
-     * read-only field is never written from `meta` (it takes its server-owned
-     * value). Declaration order is preserved.
+     * update) and not {@see isComputedPivotField() computed}. These are the fields a host
+     * may set from the linkage `meta`; any other field is never written from `meta` (it
+     * takes its server-owned or computed value). Declaration order is preserved.
      *
      * @param bool $creating true for a create (POST) request, false for update (PATCH)
      * @return list<FieldInterface>
@@ -74,7 +145,7 @@ final readonly class BelongsToMany extends HasMany
     {
         return \array_values(\array_filter(
             $this->pivotFields,
-            static fn(FieldInterface $field): bool => $field->isReadOnly($creating) === false,
+            static fn(FieldInterface $field): bool => $field->isReadOnly($creating) === false && !self::isComputedPivotField($field),
         ));
     }
 

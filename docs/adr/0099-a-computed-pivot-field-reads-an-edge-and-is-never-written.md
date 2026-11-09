@@ -1,0 +1,3 @@
+# A computed pivot field reads an edge of parent and member, and is never written
+
+A pivot field declared `computed()`, `computedUsing()` or `extractUsing()` is computed: its hook receives a `PivotEdge` of the parent and the related member instead of a join row, because the join row is a Doctrine entity on one adapter and an Eloquent pivot model on another, and a relation whose fields are all computed has no row to pass at all. A computed field is left out of `writablePivotFields()` and the request pivot shape even when not declared read-only, since there is nowhere to write it, and a relation with no stored pivot field needs no association entity, so an adapter can serve it over a plain join table.

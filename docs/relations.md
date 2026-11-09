@@ -255,6 +255,37 @@ place, create a missing one, and on a full replace remove rows whose member is n
 longer present). A read-only pivot field supplied in `meta` is never written. See
 the bundle's relationships / Doctrine docs for the persistence details.
 
+### Computed pivot fields
+
+A pivot field can be computed rather than stored: declare it with `computed()`,
+`computedUsing()` or `extractUsing()`, as you would a derived attribute. Its hook does not
+receive a join row. It receives a
+[`PivotEdge`](../src/Resource/Field/PivotEdge.php) holding the `parent` whose relation is
+rendered and the `related` member the linkage identifier points at, so the value is worked
+out per link:
+
+```php
+BelongsToMany::make('members', 'users')
+    ->fields(
+        Str::make('role')->computedUsing(
+            static fn(PivotEdge $edge): string => $edge->parent->roleOf($edge->related),
+        ),
+    ),
+```
+
+A computed field renders under `meta.pivot` like any other, through the field's own cast,
+and `hidden(when:)` still receives the related member. It is never written:
+`writablePivotFields()` leaves it out even when it is not declared `readOnly()`, a write
+that sends it ignores it as it ignores a read-only field, and the projected
+`<Type><Rel>WritePivot` does not list it. It has no column, so it is not a `sort=` or
+`filter[…]` key either.
+
+`isComputedPivotField()` tells the two kinds apart, `storedPivotFields()` and
+`computedPivotFields()` split the declaration, and `computedPivotValues($parent, $related,
+$request)` evaluates the computed ones for a link. When `storedPivotFields()` is empty the
+relation needs no association entity or pivot model at all, and a host serves it over a
+plain join table.
+
 > **The Doctrine fact.** A plain `#[ORM\ManyToMany]` join table holds only the
 > two foreign keys — Doctrine cannot map a `position` / `addedAt` column on it. To
 > *have* pivot columns the join must be modelled as an **association entity**

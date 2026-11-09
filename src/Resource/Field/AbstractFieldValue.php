@@ -174,6 +174,17 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
     }
 
     /**
+     * Whether an `extractUsing()` / `computedUsing()` hook supplies the value instead of
+     * the backing column.
+     *
+     * @internal
+     */
+    public function extractsThroughHook(): bool
+    {
+        return $this->state->extractUsing !== null;
+    }
+
+    /**
      * Whether a `serializeUsing()` hook produces the rendered value outright. An
      * `extractUsing()` / `computedUsing()` hook only supplies the value a composite's
      * children then render, so it does not count.
