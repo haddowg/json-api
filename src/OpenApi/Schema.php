@@ -344,6 +344,17 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Sets `patternProperties`: each member whose name matches a key's ECMA-262 regular
+     * expression must match that key's schema.
+     *
+     * @param array<string, self> $patterns
+     */
+    public function withPatternProperties(array $patterns): self
+    {
+        return $patterns === [] ? $this : $this->with('patternProperties', $patterns);
+    }
+
+    /**
      * Sets the object `required` list.
      *
      * @param list<string> $names
@@ -490,7 +501,7 @@ final class Schema implements \JsonSerializable
             'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
             'minLength', 'maxLength', 'pattern',
             'minItems', 'maxItems', 'uniqueItems', 'items',
-            'minProperties', 'maxProperties', 'properties', 'required', 'additionalProperties',
+            'minProperties', 'maxProperties', 'properties', 'patternProperties', 'required', 'additionalProperties',
             'allOf', 'anyOf', 'oneOf', 'not',
             'example',
         ];

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Filter;
 
-use haddowg\JsonApi\OpenApi\ParameterStyle;
 use haddowg\JsonApi\OpenApi\QueryParameterShape;
 use haddowg\JsonApi\OpenApi\Schema;
 
@@ -28,21 +27,6 @@ trait DescribesDelimitedList
 {
     public function describeQueryParameter(Schema $valueSchema): QueryParameterShape
     {
-        $style = match ($this->delimiter) {
-            null, '', ',' => ParameterStyle::Form,
-            '|' => ParameterStyle::PipeDelimited,
-            ' ' => ParameterStyle::SpaceDelimited,
-            default => null,
-        };
-
-        if ($style === null) {
-            return new QueryParameterShape(Schema::ofType('string'));
-        }
-
-        return new QueryParameterShape(
-            Schema::ofType('array')->withItems($valueSchema),
-            $style,
-            false,
-        );
+        return QueryParameterShape::delimitedList($this->delimiter, $valueSchema);
     }
 }

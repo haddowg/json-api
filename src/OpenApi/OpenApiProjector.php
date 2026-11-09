@@ -208,7 +208,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths)),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths)),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -349,8 +349,10 @@ final class OpenApiProjector
      * document carries ({@see GeneratorContract}). The stamp is projector-owned, not
      * metadata-driven: it describes the structure this library emits, so a server has
      * nothing to say about it.
+     *
+     * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -378,6 +380,8 @@ final class OpenApiProjector
             actionFilters: $actions['actionFilters'],
             actionCreated: $actions['actionCreated'],
             relatedOnly: self::hasRelatedOnlyType($server),
+            filterFamilies: $filters['filterFamilies'],
+            listFilters: $filters['listFilters'],
         ));
     }
 
@@ -506,6 +510,32 @@ final class OpenApiProjector
         }
 
         return false;
+    }
+
+    /**
+     * Which of the scoped filter structures some operation's parameters use: a `filter`
+     * parameter accepting families ({@see GeneratorContract::FILTER_FAMILIES}) and a
+     * `filter[<key>][]` list parameter ({@see GeneratorContract::LIST_FILTERS}).
+     *
+     * @return array{filterFamilies: bool, listFilters: bool}
+     */
+    private static function filterStructures(Paths $paths): array
+    {
+        $uses = ['filterFamilies' => false, 'listFilters' => false];
+        foreach ($paths->items as $pathItem) {
+            foreach ($pathItem->operations as $operation) {
+                foreach ($operation->parameters as $parameter) {
+                    if (!$parameter instanceof Parameter) {
+                        continue;
+                    }
+                    $uses['listFilters'] = $uses['listFilters'] || $parameter->extension(OperationProjector::FILTER_LIST_EXTENSION) !== null;
+                    $uses['filterFamilies'] = $uses['filterFamilies']
+                        || ($parameter->schema instanceof Schema && $parameter->schema->extension(OperationProjector::FILTER_FAMILIES_EXTENSION) !== null);
+                }
+            }
+        }
+
+        return $uses;
     }
 
     /**

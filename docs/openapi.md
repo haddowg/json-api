@@ -14,7 +14,7 @@ fixtures and no framework.
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
 schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
-extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`, `x-sort-families`). For *serving* the document,
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`, `x-sort-families`, `x-filter-list`, `x-filter-families`). For *serving* the document,
 the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
@@ -1530,6 +1530,67 @@ declare none carries no `x-sort-families` and keeps the lower contract stamp.
 A [deprecated](sorts.md#deprecating-a-sort) family's entry adds `"deprecated": true` beside
 its `prefix` and `suffixPattern`. The flag sits in the family's own entry so a prefix is
 never mistaken for an exact key.
+
+### List filters: `x-filter-list`
+
+A filter declared with [`acceptsList()`](filters.md#declaring-a-list-acceptslist) takes
+its list as `filter[<key>][]=a&filter[<key>][]=b`. OAS has no way to say that a
+parameter's name gains a `[]` suffix per member, so the array form is its own parameter,
+named `filter[<key>][]`, an `array` of the value schema with `style: form` and
+`explode: true`, which is exactly the repeated pair a client sends. It carries
+`x-filter-list`, naming the filter's key and whether the delimited form is accepted too:
+
+```json
+{
+  "name": "filter[columns][]",
+  "in": "query",
+  "schema": { "type": "array", "items": { "type": "string" } },
+  "style": "form",
+  "explode": true,
+  "x-filter-list": { "key": "columns", "delimited": false }
+}
+```
+
+A delimited list keeps its `filter[<key>]` parameter beside this one, shaped as before:
+an array with the OAS style its delimiter spells and `explode: false`. An array-only list
+has no `filter[<key>]` parameter, since a single string is refused. A generator should
+read the two parameters as one filter keyed by the `x-filter-list` key and send the array
+form, which works whether or not the list is delimited. A set filter without
+`acceptsList()` documents only its delimited parameter.
+
+### Filter families: `x-filter-families`
+
+A [filter family](filters.md#filter-families-keys-matched-by-prefix) accepts keys that
+can't be listed, so it can't have a `filter[<key>]` parameter of its own. The families an
+endpoint accepts share one `filter` parameter in `deepObject` style, whose object schema
+holds one `patternProperties` entry per family: the escaped prefix, a dot and the family's
+suffix pattern, matched to a string, or to a list of strings for a family that takes a
+list. The object is left open, because the exact filters travel in their own parameters.
+The schema lists each family under `x-filter-families` with its `prefix`, `suffixPattern`,
+whether it takes a `list` and, for a list, whether it is `delimited`:
+
+```json
+"schema": {
+  "type": "object",
+  "patternProperties": {
+    "^value\\.(?:.+)$": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    }
+  },
+  "x-filter-families": [
+    { "prefix": "value", "suffixPattern": ".+", "list": true, "delimited": true }
+  ]
+}
+```
+
+OAS does not define how `deepObject` carries an array, so `x-filter-families` is what a
+generator should read: a list family takes `filter[<prefix>.<suffix>][]` once per member,
+and a delimited one a single comma-separated string as well. A deprecated family's entry
+adds `"deprecated": true`. An endpoint with no family has no `filter` parameter, and a
+document using neither families nor list filters keeps the lower contract stamp.
 
 ### Deprecated sorts: `x-deprecated-sorts`
 

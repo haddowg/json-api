@@ -242,9 +242,13 @@ foreach ($requested as $entry) {
 $sorted = $this->sorts->apply($directives, $rows);   // one call, full ordered list
 ```
 
-The keyed lookup only finds exact keys. Swap it for
-`SortMatcher::match($resource->allSorts(), $key, $request)` and the same loop
-also answers [sort families](sorts.md#sort-families-keys-matched-by-prefix).
+The keyed lookups only find exact keys. Swap them for
+`FilterMatcher::match($resource->allFilters(), $key, $request)` and
+`SortMatcher::match($resource->allSorts(), $key, $request)` and the same loops also
+answer [filter families](filters.md#filter-families-keys-matched-by-prefix) and
+[sort families](sorts.md#sort-families-keys-matched-by-prefix).
+`FilterMatcher::directives()` goes further: it rejects an unknown key and reads a
+[list filter's](filters.md#declaring-a-list-acceptslist) value as its list of members.
 
 This loop skips a `filter[…]` key or `sort` field that matches no declared metadata,
 so an undeclared parameter cannot narrow or reorder the collection. Core never
@@ -403,10 +407,13 @@ and supplies the keyset comparison for it; the toolkit section lists what that
 comparison must do.
 
 Match requested sort keys with
-[`SortMatcher`](sorts.md#reading-the-requested-sorts) rather than a loop of your own.
-It is the one place that knows exact keys win over
-[sort families](sorts.md#sort-families-keys-matched-by-prefix), so every adapter
-accepts and rejects the same keys.
+[`SortMatcher`](sorts.md#reading-the-requested-sorts), and filter keys with
+[`FilterMatcher`](filters.md#matching-requested-filters-filtermatcher), rather than a
+loop of your own. They are the one place that knows exact keys win over
+[sort families](sorts.md#sort-families-keys-matched-by-prefix) and
+[filter families](filters.md#filter-families-keys-matched-by-prefix), so every adapter
+accepts and rejects the same keys. Validate a list filter's value member by member, the
+members `FilterMatcher::directives()` reads.
 
 ## Next / see also
 

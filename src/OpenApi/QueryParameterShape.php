@@ -26,4 +26,27 @@ final readonly class QueryParameterShape
         public ?ParameterStyle $style = null,
         public ?bool $explode = null,
     ) {}
+
+    /**
+     * A list sent as one string split on `$delimiter` (a comma when `null` or empty): an
+     * array of `$items` whose OAS style spells the separator. Comma, pipe and space are
+     * the three separators OAS can spell; any other documents as a plain string, because
+     * an array paired with the wrong separator would tell a client to send a request the
+     * server splits into the wrong values.
+     */
+    public static function delimitedList(?string $delimiter, Schema $items): self
+    {
+        $style = match ($delimiter) {
+            null, '', ',' => ParameterStyle::Form,
+            '|' => ParameterStyle::PipeDelimited,
+            ' ' => ParameterStyle::SpaceDelimited,
+            default => null,
+        };
+
+        if ($style === null) {
+            return new self(Schema::ofType('string'));
+        }
+
+        return new self(Schema::ofType('array')->withItems($items), $style, false);
+    }
 }
