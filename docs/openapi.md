@@ -151,6 +151,15 @@ sketch:
   `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
   write, since the hook, not the declared children, owns its shape. A standalone
   serializer with no field inventory keeps an open attributes object.
+- **Open objects.** An `Obj` declaring
+  [`additionalProperties()`](field-types.md#open-members) projects that field's schema as
+  its `additionalProperties`, built exactly as the field would project as a child, beside
+  its declared `properties`, with its `minProperties()` / `maxProperties()` as
+  `minProperties` / `maxProperties`. The members follow a child's representation rules:
+  a read-only member field closes the object on a write, a write-only one on a read.
+  `SchemaCompiler` keeps read-only members as accepted ones, as it keeps a read-only
+  child. A document holding an open object declares the `OPEN_OBJECTS` contract tier in
+  its [`x-generator`](#the-generator-contract-x-generator) stamp.
 - **Read-only children.** A nested object's child that is read-only for a write is left
   out of that write's shape, as a read-only attribute is, in a `Map`, an `Obj`, each
   `OneOf` branch and a structured list's element. A child read-only only by a `when:`

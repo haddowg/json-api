@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Resource;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
@@ -15,7 +16,9 @@ use haddowg\JsonApi\Resource\Field\OneOf;
  * Finds the members of a write body's `data.attributes` that the resource does not
  * declare: an attribute no field names, and a key inside an `Obj`, `Map`, `OneOf`
  * variant or structured list element that none of its children name. A declared shape
- * is closed, so each one is an error, not data.
+ * is closed, so each one is an error, not data. An `Obj` declaring
+ * `additionalProperties()` is the exception: it declares every such key, and each one's
+ * value is walked as that field's.
  *
  * Only declared structure is walked. A field whose `fillUsing()` or `deserializeUsing()`
  * hook takes the value owns its shape and is not looked inside, and a `OneOf` value
@@ -46,16 +49,20 @@ final class UndeclaredAttributeMembers
      * @param array<array-key, mixed>       $value
      * @param list<string>                  $pointers
      * @param list<string>                  $alsoAllowed members declared by the parent itself, as a `OneOf`'s discriminator
+     * @param array<string, mixed>          $additional  the members an open object takes through `$memberField`
      */
-    private static function walk(array $declared, array $value, string $path, array &$pointers, array $alsoAllowed): void
+    private static function walk(array $declared, array $value, string $path, array &$pointers, array $alsoAllowed, array $additional = [], ?FieldInterface $memberField = null): void
     {
         foreach ($value as $key => $member) {
             $key = (string) $key;
-            $pointer = $path . '/' . \str_replace(['~', '/'], ['~0', '~1'], $key);
+            $pointer = $path . '/' . JsonObject::pointerSegment($key);
             if (\in_array($key, $alsoAllowed, true)) {
                 continue;
             }
             $field = $declared[$key] ?? null;
+            if ($field === null && $memberField !== null && \array_key_exists($key, $additional)) {
+                $field = $memberField;
+            }
             if ($field === null) {
                 $pointers[] = $pointer;
 
@@ -91,7 +98,17 @@ final class UndeclaredAttributeMembers
             return;
         }
 
-        if ($field instanceof Obj || $field instanceof Map) {
+        if ($field instanceof Obj) {
+            // An open object declares every member its member field takes, unless that
+            // field is hidden.
+            $memberField = $field->additionalProperties();
+            $memberField = $memberField === null || $memberField->isHidden() ? null : $memberField;
+            self::walk(self::byName($field->children()), $value, $path, $pointers, [], $memberField === null ? [] : $field->additionalMembersOf($value), $memberField);
+
+            return;
+        }
+
+        if ($field instanceof Map) {
             self::walk(self::byName($field->children()), $value, $path, $pointers, []);
 
             return;

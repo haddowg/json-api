@@ -325,13 +325,15 @@ children across separate flat columns and the nested object is only a wire view,
 `Obj` keeps the whole object as one value and its children address keys **inside**
 it. Use it when a structured attribute's natural storage is a single JSON document.
 
-Like `Map` and each `OneOf` branch, the object is **closed**: its schema admits only the
-declared children, so a key the client sends that no child declares is rejected rather
-than dropped.
+Like `Map` and each `OneOf` branch, the object is **closed** by default: its schema admits
+only the declared children, so a key the client sends that no child declares is rejected
+rather than dropped. [`additionalProperties()`](#open-members) opens it.
 
 | Method | Effect |
 |---|---|
 | `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |
+| `additionalProperties(FieldInterface $value)` | Opens the object: every member no child declares is read, written and validated through `$value`. See [open members](#open-members). |
+| `minProperties(int)` / `maxProperties(int)` | `MinProperties` / `MaxProperties`, counting every member the object carries, declared and additional. |
 | `children()` | The declared children (for adapters and projection). |
 
 ```php
@@ -346,7 +348,8 @@ The child fields carry the typing and the constraints, exactly as `Map` children
 do — a child violation surfaces as a nested `/data/attributes/address/<child>`
 source pointer, and a read-only child is skipped on hydration per the operation
 context. Top-level constraints on the `Obj` itself are limited to presence
-(`required()` / `nullable()`).
+(`required()` / `nullable()`) and the member count (`minProperties()` /
+`maxProperties()`).
 
 Write semantics on the single value:
 
@@ -377,8 +380,58 @@ children's properties, and nothing checks a `serializeUsing()` return value agai
 them, so a hook that returns another shape puts a value on the wire the document
 doesn't describe. See [presence on read](openapi.md).
 
+### Open members
+
+`additionalProperties()` takes a field that describes every member the object does not
+declare. Its name is never used, so name it `'*'`. Each undeclared member's value is
+validated by that field's constraints, cast by it on the way in and out, and stored under
+its own key in the same associative array as the declared children. An inline spreadsheet
+import, where each row is keyed by the user's own column headers, is a list of them:
+
+```php
+ArrayList::make('rows')
+    ->of(Obj::make('row')
+        ->additionalProperties(Str::make('*')->maxLength(200))
+        ->maxProperties(50))
+    ->maxItems(1000);
+```
+
+```json
+"rows": [{ "Key": "RFP-123", "Vendor": "Acme Media", "CPL": "42" }]
+```
+
+Declared children can sit beside the open members. A key a child declares, by its name
+or its `storedAs()` key, always goes to that child, so `Obj::make('row')->fields(
+Str::make('Key')->required())->additionalProperties(Str::make('*'))` requires `Key` and
+takes any other header as a string. `minProperties()` and `maxProperties()` count every
+member the client sends, declared and additional.
+
+The member field follows a child's rules. A `nullable()` one admits `null` members, a
+`DateTime` one stores each member as a string, as a nested date child does, and a
+`readOnly()` one renders the members but ignores them on a write. A `writeOnly()` or
+`hidden()` one keeps them off the wire. It must be a plain attribute: a relation, an
+`on()` path, a `computedUsing()` field or one with its own hook throws a `LogicException`
+when the object is built, since there is no domain object behind one member to hook into.
+Put a hook on the object instead.
+
+An open object works wherever an `Obj` does: as an attribute, as a child of another `Obj`
+or a `Map`, as a structured list element, inside a `OneOf` variant, and as the member
+field of another open object. A `OneOf` variant itself stays closed, since an open branch
+would match values meant for the other branches. A partial `PATCH` merges per member as it
+merges per child, so a member the request leaves out keeps its stored value.
+
+An adapter validates each member and the counts at the member's pointer, its key escaped
+as a JSON Pointer token, so a `Unit/Price` header in the fourth row reports at
+`/data/attributes/rows/3/Unit~1Price`. `ObjectValues::in()` finds every open or bounded
+object in a write body for it, at any depth.
+
+In the OpenAPI document the object projects `additionalProperties` as the member field's
+own schema, and `minProperties` / `maxProperties`, as [the OpenAPI guide](openapi.md)
+describes.
+
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
-declared keys, one value. `ArrayHash` (below) = dynamic keys, one value.
+declared keys, one value, optionally open to typed undeclared ones. `ArrayHash` (below) =
+dynamic keys, one value.
 
 ## `OneOf`
 

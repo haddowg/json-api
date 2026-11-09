@@ -383,6 +383,7 @@ final class OpenApiProjector
             filterFamilies: $filters['filterFamilies'],
             listFilters: $filters['listFilters'],
             identifierMeta: self::declaresIdentifierMeta($server),
+            openObjects: self::hasOpenObject($server),
         ));
     }
 
@@ -503,6 +504,51 @@ final class OpenApiProjector
         };
         foreach ($members as $member) {
             if (self::declaresStructuredList($member)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether some attribute or pivot field is, or nests, an {@see Obj} open to members it
+     * does not declare.
+     */
+    private static function hasOpenObject(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            $fields = $type->fields();
+            foreach ($type->relations() as $relation) {
+                $fields = [...$fields, ...$relation->pivotFields()];
+            }
+            foreach ($fields as $field) {
+                if (self::declaresOpenObject($field)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function declaresOpenObject(FieldInterface $field): bool
+    {
+        if ($field->isHidden()) {
+            return false;
+        }
+        if ($field instanceof Obj && $field->additionalProperties()?->isHidden() === false) {
+            return true;
+        }
+
+        $members = match (true) {
+            $field instanceof Obj, $field instanceof Map => $field->children(),
+            $field instanceof OneOf => \array_values($field->variants()),
+            $field instanceof ArrayList => $field->element() === null ? [] : [$field->element()],
+            default => [],
+        };
+        foreach ($members as $member) {
+            if (self::declaresOpenObject($member)) {
                 return true;
             }
         }

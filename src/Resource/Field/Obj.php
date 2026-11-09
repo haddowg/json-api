@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\OpenApi\EnumComponentCollector;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
@@ -25,10 +26,14 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * validation, and `/data/attributes/<obj>/<child>` violation pointers — and the
  * variant shape of the discriminated union built on top of it.
  *
- * Top-level constraints are limited to presence (`required()` / `nullable()`);
- * structural constraints belong on the child fields. A partial `PATCH` merges
- * per-child (an un-supplied child keeps its stored value); an explicit `null` clears
- * the whole object.
+ * Top-level constraints are limited to presence (`required()` / `nullable()`) and the
+ * member count (`minProperties()` / `maxProperties()`); structural constraints belong
+ * on the child fields. A partial `PATCH` merges per-child (an un-supplied child keeps
+ * its stored value); an explicit `null` clears the whole object.
+ *
+ * The object is closed unless it declares {@see additionalProperties()}: an open object
+ * also takes members it does not declare, each value read and written through that one
+ * field, and kept beside the declared children in the same associative array.
  */
 final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
@@ -38,6 +43,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     public function __construct(
         FieldState $state,
         private array $children = [],
+        private ?FieldInterface $additionalProperties = null,
     ) {
         parent::__construct($state);
     }
@@ -56,6 +62,44 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     }
 
     /**
+     * The field every member the object does not declare reads and writes through, or
+     * `null` for a closed object. Its own name is never used.
+     */
+    public function additionalProperties(): ?FieldInterface
+    {
+        return $this->additionalProperties;
+    }
+
+    /**
+     * The members of an object value that no declared child takes, by its name or its
+     * stored key. An open object reads and writes them through
+     * {@see additionalProperties()}; a closed one has none to read or write.
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    public function additionalMembersOf(array $value): array
+    {
+        $taken = [];
+        foreach ($this->children as $child) {
+            $taken[$child->name()] = true;
+            if ($child->column() !== null) {
+                $taken[$child->column()] = true;
+            }
+        }
+
+        $members = [];
+        foreach ($value as $key => $member) {
+            if (!isset($taken[(string) $key])) {
+                $members[(string) $key] = $member;
+            }
+        }
+
+        return $members;
+    }
+
+    /**
      * Passes the server's default output zone on to the children, so a `DateTime`
      * nested here renders in it too.
      */
@@ -67,8 +111,11 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
                 : $child,
             $this->children,
         );
+        $additional = $this->additionalProperties instanceof AcceptsDefaultOutputTimezoneInterface
+            ? $this->additionalProperties->withDefaultOutputTimezone($timezone)
+            : $this->additionalProperties;
 
-        return $children === $this->children ? $this : new self($this->state, $children);
+        return $children === $this->children && $additional === $this->additionalProperties ? $this : new self($this->state, $children, $additional);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -105,6 +152,13 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             }
         }
 
+        $field = $this->additionalProperties;
+        if ($field !== null && $this->rendersChild($field, $value, $request) && (\is_array($value) || \is_object($value))) {
+            foreach ($this->additionalMembersOf(\is_array($value) ? $value : \get_object_vars($value)) as $key => $member) {
+                $nested[$key] = self::serializeMember($field, $member, $request);
+            }
+        }
+
         return JsonObject::of($nested);
     }
 
@@ -135,11 +189,20 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             $children[$child->column() ?? $child->name()] = $child;
         }
 
+        $field = $this->additionalProperties;
+        $additional = $field === null ? null : $this->additionalMembersOf($members);
+        $rendersAdditional = $field !== null && $this->rendersChild($field, $value, $request);
+
         $nested = [];
         foreach ($members as $key => $member) {
             $child = $children[$key] ?? null;
             if ($child === null) {
-                $nested[$key] = $member;
+                // An open object renders an undeclared key through its member field.
+                if ($additional === null) {
+                    $nested[$key] = $member;
+                } elseif ($field !== null && $rendersAdditional && \array_key_exists((string) $key, $additional)) {
+                    $nested[$key] = self::serializeMember($field, $member, $request);
+                }
 
                 continue;
             }
@@ -168,6 +231,15 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         return !$child->isWriteOnlyFor($request) && !$child->isHiddenFor($request, $value);
     }
 
+    /**
+     * Renders one undeclared member's value through the member field, which reads it
+     * from a one-member object under its own key.
+     */
+    private static function serializeMember(FieldInterface $field, mixed $member, JsonApiRequestInterface $request): mixed
+    {
+        return $field->serialize([$field->column() ?? $field->name() => $member], $request, $field->name());
+    }
+
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->state->fillUsing !== null) {
@@ -193,7 +265,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         $nested = Accessor::get($model, $column);
         $nested = \is_array($nested) ? $nested : [];
 
-        $nested = JsonObject::hydrateChildren($this->name(), fn(): mixed => self::hydrateChildrenOnto($this->children, $nested, $value, $data, $request, $creating));
+        $nested = JsonObject::hydrateChildren($this->name(), fn(): mixed => $this->hydrateMembersOnto($nested, $value, $data, $request, $creating));
 
         return Accessor::set($model, $column, $nested);
     }
@@ -209,7 +281,45 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
      */
     public function hydrateElement(array $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        return self::hydrateChildrenOnto($this->children, [], $value, $data, $request, $creating);
+        return $this->hydrateMembersOnto([], $value, $data, $request, $creating);
+    }
+
+    /**
+     * Hydrates each writable child the request value carries onto `$nested`, then, for
+     * an open object, each undeclared member through {@see additionalProperties()},
+     * unless that field is read-only for the write.
+     *
+     * @internal
+     *
+     * @param array<array-key, mixed> $value
+     * @param array<string, mixed>    $data
+     */
+    public function hydrateMembersOnto(mixed $nested, array $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $nested = self::hydrateChildrenOnto($this->children, $nested, $value, $data, $request, $creating);
+
+        $field = $this->additionalProperties;
+        if ($field === null || $field->isHidden() || $field->isReadOnlyFor($creating, $request)) {
+            return $nested;
+        }
+
+        // The member field writes under its own key, so each value hydrates onto a
+        // one-member object and moves to the member's key from there.
+        $slot = $field->column() ?? $field->name();
+        foreach ($this->additionalMembersOf($value) as $key => $member) {
+            try {
+                $scratch = $field instanceof DateTime
+                    ? $field->hydrateNested([], $member, $data, $request, $creating)
+                    : $field->hydrate([], $member, $data, $request, $creating);
+            } catch (AttributeValueInvalid $e) {
+                $below = \str_starts_with($e->attribute, $field->name()) ? \substr($e->attribute, \strlen($field->name())) : '';
+
+                throw new AttributeValueInvalid(JsonObject::pointerSegment($key) . $below, $e->reason);
+            }
+            $nested = Accessor::set($nested, $key, Accessor::get($scratch, $slot));
+        }
+
+        return $nested;
     }
 
     /**
@@ -248,6 +358,6 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
 
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        return $projector->projectNestedObject($this, $this->children, $creating, $collector);
+        return $projector->projectNestedObject($this, $this->children, $creating, $collector, additionalProperties: $this->additionalProperties);
     }
 }

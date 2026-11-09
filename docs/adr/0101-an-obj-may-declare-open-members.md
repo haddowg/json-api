@@ -1,0 +1,3 @@
+# An Obj may declare open members through one value field
+
+An `Obj` stays closed by default, as [ADR 0088](0088-declared-objects-are-closed.md) decided, but may opt into undeclared members with `additionalProperties()`, a deliberate exception for data keyed by something only the client knows, such as spreadsheet column headers. The members take one ordinary field rather than a raw schema, so they are validated, cast and projected by the machinery a declared child already uses, and a declared child always keeps its own key. A `OneOf` variant cannot open, because an open branch would also match values meant for the others and the `oneOf` would stop being exclusive.
