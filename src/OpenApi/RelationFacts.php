@@ -8,6 +8,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -179,5 +180,24 @@ final class RelationFacts
     public static function hasIdentifierMeta(RelationMetadataInterface $relation): bool
     {
         return self::identifierMetaFields($relation) !== [];
+    }
+
+    /**
+     * The `sort` tokens of the relation's declared default order, a leading `-` marking a
+     * descending key, or `[]` when it declares none
+     * ({@see DeclaresRelationDefaultSort}).
+     *
+     * @return list<string>
+     */
+    public static function defaultSort(RelationMetadataInterface $relation): array
+    {
+        if (!$relation instanceof DeclaresRelationDefaultSort) {
+            return [];
+        }
+
+        return \array_map(
+            static fn(\haddowg\JsonApi\Resource\Sort\SortDirective $directive): string => ($directive->descending ? '-' : '') . $directive->sort->key(),
+            $relation->defaultSort(),
+        );
     }
 }

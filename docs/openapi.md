@@ -247,6 +247,10 @@ sketch:
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys (and the patterns of its [sort families](#sort-families-x-sort-families)), and `include` — the last only when the type actually exposes an
   includable path, so `?include` is never advertised where the runtime would reject it.
+  A to-many relation that declares a [default read order](relations.md#default-read-order)
+  gives the `sort` parameter of its relationship and related endpoints that order as the
+  schema's `default`, such as `["position", "-title"]`. Metadata reports it through
+  `DeclaresRelationDefaultSort`.
 - **`?include` / `fields[…]` on writes.** These two shape the *rendered document*, not the
   query that selects it, so they belong to every operation that answers with a resource
   document — a `POST` create and a `PATCH` update as much as a `GET`, with the identical

@@ -35,6 +35,37 @@ final class SortMatcher
     }
 
     /**
+     * Whether `$key` names a sort in `$sorts`: an exact key, or a key whose suffix a
+     * family's pattern accepts. Unlike {@see match()} it never asks a family to resolve
+     * the key, so it needs no request and suits checking a declaration at build or
+     * warm-up. A family's resolver can still refuse the key at request time.
+     *
+     * @param list<SortInterface> $sorts
+     */
+    public static function recognises(array $sorts, string $key): bool
+    {
+        foreach ($sorts as $sort) {
+            if (!$sort instanceof SortFamilyInterface) {
+                if ($sort->key() === $key) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            $prefix = $sort->key() . '.';
+            if (\str_starts_with($key, $prefix)) {
+                $suffix = \substr($key, \strlen($prefix));
+                if ($suffix !== '' && \preg_match(self::suffixRegex($sort->suffixPattern()), $suffix) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The {@see SortDirective}s for the request's `sort` fields (a leading `-` marks
      * descending), most significant first.
      *

@@ -695,7 +695,7 @@ final class OperationProjector
             $responseRef = $this->relatedCollectionResponseRef($relBase);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->pageSchema(), $server),
@@ -775,7 +775,7 @@ final class OperationProjector
         } elseif (RelationFacts::monomorphicType($relation) !== null) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server))],
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
             );
@@ -1546,9 +1546,13 @@ final class OperationProjector
      * `deprecated: true` on a deprecated family's entry. The exact keys declared
      * deprecated are listed, without the `-`, under `x-deprecated-sorts`.
      *
+     * A relation's declared default order becomes the array schema's `default`, the
+     * tokens a request without `sort` behaves as if it had sent.
+     *
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface> $sorts
+     * @param list<string>                                     $default the default order's tokens, `-` marking descending
      */
-    private function sortParameter(array $sorts): ?Parameter
+    private function sortParameter(array $sorts, array $default = []): ?Parameter
     {
         if ($sorts === []) {
             return null;
@@ -1595,6 +1599,9 @@ final class OperationProjector
         }
 
         $schema = $schema->withItems($items);
+        if ($default !== []) {
+            $schema = $schema->withDefault($default);
+        }
 
         return Parameter::query(
             'sort',

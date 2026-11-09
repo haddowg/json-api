@@ -31,6 +31,7 @@ final readonly class RelationState
      * @param list<FieldInterface>                                                                                      $identifierMetaFields the declared members the identifier meta resolver produces
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface> $relationFilters extra filters scoped to the related-collection endpoint
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface>                                                        $relationSorts        extra sorts scoped to the related-collection endpoint
+     * @param list<\haddowg\JsonApi\Resource\Sort\SortDirective>                                                       $defaultSort          the members' read order when a request names no sort
      */
     public function __construct(
         public array $relatedTypes = [],
@@ -58,5 +59,6 @@ final readonly class RelationState
         public array $relationSorts = [],
         public ?string $exampleId = null,
         public array $identifierMetaFields = [],
+        public array $defaultSort = [],
     ) {}
 }

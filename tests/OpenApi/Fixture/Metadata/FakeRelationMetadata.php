@@ -9,18 +9,20 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 
 /**
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort
 {
     /**
      * @param list<string>          $relatedTypes
@@ -29,6 +31,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
      * @param list<string>          $relatedIncludablePaths
      * @param list<FieldInterface>  $pivotFields
      * @param list<FieldInterface>  $identifierMetaFields
+     * @param list<SortDirective>   $defaultSort
      */
     public function __construct(
         private readonly string $name,
@@ -55,7 +58,13 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
         private readonly bool $identifiesMembers = false,
         private readonly bool $deprecated = false,
         private readonly array $identifierMetaFields = [],
+        private readonly array $defaultSort = [],
     ) {}
+
+    public function defaultSort(): array
+    {
+        return $this->defaultSort;
+    }
 
     public function identifierMetaFields(): array
     {

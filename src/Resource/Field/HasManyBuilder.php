@@ -20,6 +20,11 @@ class HasManyBuilder extends AbstractRelationBuilder
 {
     use DeclaresMonomorphicType;
 
+    protected function buildsToMany(): bool
+    {
+        return true;
+    }
+
     public function build(): HasMany
     {
         return new HasMany($this->fieldState(), $this->relationState());

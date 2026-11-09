@@ -101,6 +101,11 @@ A **Sort** that answers every key starting with its prefix and a dot (`value.cap
 resolving the suffix to a concrete **Sort** per request. Never matches the bare prefix.
 _Avoid_: wildcard sort, dynamic sort
 
+**Default read order**:
+The **Sort** order a to-many **Relation** reads its members in when a request names none. Its
+own `defaultSort()` when declared, else the related type's.
+_Avoid_: relation default sort, natural order
+
 **Keyset sort**:
 A custom **Sort** that can order a cursor page because it reports the value a row carries for the
 cursor token.
