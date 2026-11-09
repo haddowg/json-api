@@ -536,6 +536,35 @@ related resource's own meta, including a `belongsToMany` pivot's `meta.pivot` â€
 the resolver winning on a top-level key collision. Returning `[]` emits no `meta`. It
 is linkage-only: the related resource object expanded into `included` is untouched.
 
+### Declaring the members
+
+The resolver is free-form, so on its own the [OpenAPI document](openapi.md) can only
+describe the identifier's `meta` as an open object. Pass `fields:` to say what it returns,
+with the field DSL attributes use:
+
+```php
+HasMany::make('members', 'users')
+    ->identifierMeta(
+        fn(object $team, object $member, $request): array => [
+            'role' => $team->roleOf($member),
+            'primary' => $team->isPrimary($member),
+        ],
+        fields: [
+            Str::make('role')->guaranteed(),
+            Boolean::make('primary'),
+        ],
+    ),
+```
+
+The fields describe the shape; the resolver still produces the values, already in their
+wire form. The projection types each response linkage identifier's `meta` from them,
+under the read rules a pivot follows: every member not hidden or write-only is listed as
+present, and `null` is admitted unless the field is `guaranteed()`. On a `belongsToMany`
+relation the declared members sit beside `pivot` in the same `meta`, so a member named
+`pivot` is refused when the relation is declared. They are read-only, so no request
+carries them. `MorphTo` and `MorphToMany` accept them too, unless declared with
+`identifiedBy()`, which cannot take `identifierMeta()` at all.
+
 This is distinct from the relationship object's own `meta` (the `meta` sibling of
 `data`/`links`, e.g. a countable relation's `meta.total`) â€” that describes the
 relationship as a whole, whereas `identifierMeta()` describes each identifier within

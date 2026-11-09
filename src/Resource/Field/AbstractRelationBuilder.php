@@ -120,6 +120,15 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      */
     protected ?\Closure $identifierMetaResolver = null;
 
+    /**
+     * The members {@see $identifierMetaResolver} produces, declared with the field DSL so
+     * the OpenAPI projection can type them, keyed by field name. Empty when the relation
+     * declares none.
+     *
+     * @var array<string, FieldInterface>
+     */
+    protected array $identifierMetaFields = [];
+
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
@@ -458,13 +467,34 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * `meta` member. It does not affect the related resource object rendered into
      * `included` — only the identifier in the linkage.
      *
+     * `$fields` optionally describes the members the resolver returns, with the same field
+     * DSL attributes use (`Str::make('role')`, `Boolean::make('primary')`), so the OpenAPI
+     * projection types the identifier's `meta` instead of leaving it open. They describe
+     * the shape only: the resolver still produces the values, already in wire form. A
+     * member named `pivot` is refused, since that key carries a `belongsToMany` relation's
+     * pivot fields.
+     *
      * @param \Closure(mixed $parent, mixed $related, JsonApiRequestInterface $request): array<string, mixed> $resolver
+     * @param list<FieldInterface|FieldBuilderInterface>                                                       $fields
      *
      * @return static
      */
-    public function identifierMeta(\Closure $resolver): static
+    public function identifierMeta(\Closure $resolver, array $fields = []): static
     {
+        $declared = [];
+        foreach ($fields as $field) {
+            $built = $field instanceof FieldBuilderInterface ? $field->build() : $field;
+            if ($built->name() === 'pivot') {
+                throw new \LogicException(\sprintf(
+                    'Relation "%s" cannot declare an identifier meta member named "pivot": that key carries a belongsToMany relation\'s pivot fields.',
+                    $this->name,
+                ));
+            }
+            $declared[$built->name()] = $built;
+        }
+
         $this->identifierMetaResolver = $resolver;
+        $this->identifierMetaFields = $declared;
 
         return $this;
     }
@@ -562,6 +592,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             securityMutate: $this->securityMutate,
             isCountable: $this->isCountable,
             identifierMetaResolver: $this->identifierMetaResolver,
+            identifierMetaFields: \array_values($this->identifierMetaFields),
             relationPaginator: $this->relationPaginator,
             paginationDisabled: $this->paginationDisabled,
             relationFilters: $this->relationFilters,

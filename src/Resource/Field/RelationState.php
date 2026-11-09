@@ -28,6 +28,7 @@ final readonly class RelationState
      * @param \Closure(mixed, \haddowg\JsonApi\Request\JsonApiRequestInterface): bool|null                              $cannotAddWhen        model + request predicate prohibiting addition
      * @param \Closure(mixed, \haddowg\JsonApi\Request\JsonApiRequestInterface): bool|null                              $cannotBeIncludedWhen model + request predicate prohibiting inclusion
      * @param (\Closure(mixed, mixed, \haddowg\JsonApi\Request\JsonApiRequestInterface): array<string, mixed>)|null     $identifierMetaResolver parent-aware per-identifier meta resolver
+     * @param list<FieldInterface>                                                                                      $identifierMetaFields the declared members the identifier meta resolver produces
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface> $relationFilters extra filters scoped to the related-collection endpoint
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface>                                                        $relationSorts        extra sorts scoped to the related-collection endpoint
      */
@@ -56,5 +57,6 @@ final readonly class RelationState
         public array $relationFilters = [],
         public array $relationSorts = [],
         public ?string $exampleId = null,
+        public array $identifierMetaFields = [],
     ) {}
 }

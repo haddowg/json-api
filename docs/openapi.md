@@ -196,6 +196,13 @@ sketch:
   `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
   bodies through `<Type><Rel>RelationshipRequest`.
+- **Declared identifier meta.** A relation whose `identifierMeta()` declares its members
+  (`fields:`) gets a `<Type><Rel>IdentifierMeta` component, projected under the read rules
+  `<Type><Rel>Pivot` follows, and each response linkage identifier's `meta` references it.
+  With a pivot too, `meta` is the `allOf` of `<Type><Rel>IdentifierMeta` and the
+  `pivot` object, so the declared members and `pivot` sit side by side. A polymorphic
+  relation narrows its whole identifier union the same way. Requests never carry these
+  members: they are read-only. A relation that declares none keeps an open `meta`.
 - **Links, per context.** Each place a link renders has one shared component listing the
   members the server can put there: `ResourceLinks`, `DocumentLinks`, `CollectionLinks`,
   `RelationshipLinks`, `RelationshipDocumentLinks` and `RelatedDocumentLinks`. A type whose
@@ -930,6 +937,11 @@ A fourth sits beside it: `DeclaresRelationUriFieldName` adds `uriFieldName(): st
 segment the relation's related and relationship endpoints are served under. Return the
 core relation's `uriFieldName()`, which is the name unless `withUriFieldName()` set one.
 Metadata that doesn't implement it keys every relation's paths by its name.
+
+Another sits beside `RelationMetadataInterface`: `DeclaresIdentifierMeta` adds
+`identifierMetaFields(): list<FieldInterface>`, the members a relation's identifier meta
+resolver produces. Return the core relation's `identifierMetaFields()`. Metadata that
+doesn't implement it leaves each linkage identifier's `meta` open except for a pivot.
 
 Another sits beside `RelationMetadataInterface`: `DeclaresPolymorphicRelation` adds
 `isPolymorphic(): bool`. Return `true` when the core relation is a

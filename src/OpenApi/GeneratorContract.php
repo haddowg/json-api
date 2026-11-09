@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty scoped
+ * is warned only by the documents that contain it. There are twenty-one scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -65,8 +65,9 @@ namespace haddowg\JsonApi\OpenApi;
  * marker ({@see DEPRECATION}), a collection action's filter parameters
  * ({@see ACTION_FILTERS}), an action answering `201 Created` ({@see ACTION_CREATED}),
  * a related-only type ({@see RELATED_ONLY}), a `filter` parameter accepting a family of
- * keys by prefix ({@see FILTER_FAMILIES}) and a filter taking its list as
- * `filter[<key>][]` ({@see LIST_FILTERS}).
+ * keys by prefix ({@see FILTER_FAMILIES}), a filter taking its list as
+ * `filter[<key>][]` ({@see LIST_FILTERS}) and the declared members of a linkage
+ * identifier's `meta` ({@see IDENTIFIER_META}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -81,7 +82,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 27;
+    public const CONTRACT = 28;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -253,6 +254,14 @@ final class GeneratorContract
     public const LIST_FILTERS = 27;
 
     /**
+     * The contract that introduced declared identifier meta: a relation's
+     * `<Type><Rel>IdentifierMeta` component, typing the members its `identifierMeta()`
+     * resolver adds to each response linkage identifier's `meta`, beside any `pivot`. A
+     * document carries it only when a relation declares such members.
+     */
+    public const IDENTIFIER_META = 28;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -277,6 +286,7 @@ final class GeneratorContract
         bool $relatedOnly = false,
         bool $filterFamilies = false,
         bool $listFilters = false,
+        bool $identifierMeta = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -299,6 +309,7 @@ final class GeneratorContract
             $relatedOnly ? self::RELATED_ONLY : self::BASELINE,
             $filterFamilies ? self::FILTER_FAMILIES : self::BASELINE,
             $listFilters ? self::LIST_FILTERS : self::BASELINE,
+            $identifierMeta ? self::IDENTIFIER_META : self::BASELINE,
         )];
     }
 }

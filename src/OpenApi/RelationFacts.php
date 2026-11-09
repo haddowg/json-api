@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
@@ -13,6 +14,7 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 
 /**
@@ -157,5 +159,25 @@ final class RelationFacts
     public static function hasPivot(RelationMetadataInterface $relation): bool
     {
         return $relation->pivotFields() !== [] && self::monomorphicType($relation) !== null;
+    }
+
+    /**
+     * The members the relation declares its identifier meta resolver adds to each linkage
+     * identifier's `meta` ({@see DeclaresIdentifierMeta}), empty when it declares none.
+     *
+     * @return list<FieldInterface>
+     */
+    public static function identifierMetaFields(RelationMetadataInterface $relation): array
+    {
+        return $relation instanceof DeclaresIdentifierMeta ? $relation->identifierMetaFields() : [];
+    }
+
+    /**
+     * Whether the relation's response linkage carries a typed identifier `meta` of its own
+     * declared members.
+     */
+    public static function hasIdentifierMeta(RelationMetadataInterface $relation): bool
+    {
+        return self::identifierMetaFields($relation) !== [];
     }
 }
