@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.5.0](https://github.com/haddowg/json-api/compare/v2.4.1...v2.5.0) (2026-11-09)
+
+
+### Features
+
+* add list filters and filter families ([#313](https://github.com/haddowg/json-api/issues/313)) ([5d859c6](https://github.com/haddowg/json-api/commit/5d859c6cf0b16e1cdf2db0ea565620e877a0b8e8))
+* let a server mark types as related-only ([#312](https://github.com/haddowg/json-api/issues/312)) ([c0349f6](https://github.com/haddowg/json-api/commit/c0349f6fe4e4055473b7998c0afc928191e7efbc))
+* let an Obj declare open members ([#316](https://github.com/haddowg/json-api/issues/316)) ([ce39576](https://github.com/haddowg/json-api/commit/ce39576f91fb7a78a5db13f8a13386dc796df904))
+* **openapi:** type the identifier meta a relation declares ([#314](https://github.com/haddowg/json-api/issues/314)) ([127c9f4](https://github.com/haddowg/json-api/commit/127c9f4252b580a8c348392ff75ddd6981d9e6c8))
+* **resource:** compute pivot fields from the parent and related member ([#315](https://github.com/haddowg/json-api/issues/315)) ([d5a8686](https://github.com/haddowg/json-api/commit/d5a8686e393c40f7e78c949ec09406f06642a5eb))
+
 ## [2.4.1](https://github.com/haddowg/json-api/compare/v2.4.0...v2.4.1) (2026-11-09)
 
 
