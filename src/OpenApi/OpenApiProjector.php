@@ -382,13 +382,31 @@ final class OpenApiProjector
             relatedOnly: self::hasRelatedOnlyType($server),
             filterFamilies: $filters['filterFamilies'],
             listFilters: $filters['listFilters'],
+            identifierMeta: self::declaresIdentifierMeta($server),
         ));
     }
 
     /**
+     * Whether some relation declares the members its identifier meta resolver adds
+     * ({@see GeneratorContract::IDENTIFIER_META}).
+     */
+    private static function declaresIdentifierMeta(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (RelationFacts::hasIdentifierMeta($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether something the document describes is declared deprecated: a type or one of
-     * its named operations, an action, a relation, a projected attribute or pivot field at
-     * any depth, a filter or a sort. A sunset alone adds prose only, so it does not count.
+     * its named operations, an action, a relation, a projected attribute, pivot field or
+     * identifier meta member at any depth, a filter or a sort. A sunset alone adds prose only, so it does not count.
      */
     private static function declaresDeprecation(ServerMetadataInterface $server): bool
     {
@@ -408,7 +426,7 @@ final class OpenApiProjector
                 if (RelationFacts::isDeprecated($relation)) {
                     return true;
                 }
-                $fields = [...$fields, ...$relation->pivotFields()];
+                $fields = [...$fields, ...$relation->pivotFields(), ...RelationFacts::identifierMetaFields($relation)];
                 $filters = [...$filters, ...$relation->filters()];
                 $sorts = [...$sorts, ...$relation->sorts()];
             }
@@ -452,15 +470,15 @@ final class OpenApiProjector
     }
 
     /**
-     * Whether some attribute or pivot field, at any depth, is a list of structured
-     * elements.
+     * Whether some attribute, pivot field or identifier meta member, at any depth, is a
+     * list of structured elements.
      */
     private static function hasStructuredList(ServerMetadataInterface $server): bool
     {
         foreach ($server->types() as $type) {
             $fields = $type->fields();
             foreach ($type->relations() as $relation) {
-                $fields = [...$fields, ...$relation->pivotFields()];
+                $fields = [...$fields, ...$relation->pivotFields(), ...RelationFacts::identifierMetaFields($relation)];
             }
             foreach ($fields as $field) {
                 if (self::declaresStructuredList($field)) {
@@ -957,6 +975,12 @@ final class OpenApiProjector
                 if ($relation->exposesRelationshipEndpoint()) {
                     $schemas[$relBase . 'RelationshipRequest'] = $this->relationshipRequestSchema($relation, $relBase);
                 }
+            }
+
+            // The members a relation declares its identifier meta resolver adds, typed
+            // under each response linkage identifier's `meta` beside any `pivot`.
+            if (RelationFacts::hasIdentifierMeta($relation)) {
+                $schemas[$relBase . 'IdentifierMeta'] = $this->schemaProjector->projectReadObject(RelationFacts::identifierMetaFields($relation), $collector);
             }
 
             // The to-one related endpoint renders `data: <Resource> | null` (an empty
@@ -1674,7 +1698,7 @@ final class OpenApiProjector
                 ->withRequired(['type']);
         } elseif ($single !== null) {
             $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'AtomicIdentifier');
-            $narrowing = $this->pivotMetaNarrowing($relation, $relBase, writing: true);
+            $narrowing = $this->linkageMetaNarrowing($relation, $relBase, writing: true);
             if ($narrowing !== null) {
                 $identifier = Schema::create()->withAllOf([$identifier, $narrowing]);
             }
@@ -1775,10 +1799,10 @@ final class OpenApiProjector
      * identifiers.
      *
      * `links` `$ref`s the shared `RelationshipLinks`: the by-convention `self`/`related`
-     * links and the pagination links of a paginated to-many. `meta` `$ref`s the shared `Meta` component; it may
-     * carry a `belongsToMany` relation's `pivot` object and any `identifierMeta()`
-     * contribution, both consumer-declared, so the shared permissive `Meta` is the
-     * honest projection.
+     * links and the pagination links of a paginated to-many. `meta` `$ref`s the shared
+     * `Meta` component. Each linkage identifier's own `meta` is typed by
+     * {@see linkageMetaNarrowing()}: a `belongsToMany` relation's `pivot` object and the
+     * members an `identifierMeta()` resolver declares.
      */
     private function relationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
     {
@@ -1937,27 +1961,25 @@ final class OpenApiProjector
     private function linkageIdentifierSchema(RelationMetadataInterface $relation, string $relBase, bool $writing): Schema
     {
         $types = $relation->relatedTypes();
+        $single = RelationFacts::monomorphicType($relation);
         if ($types === []) {
-            return Schema::ofType('object')
+            $identifier = Schema::ofType('object')
                 ->withProperty('type', Schema::ofType('string'))
                 ->withProperty('id', Schema::ofType('string'))
                 ->withRequired(['type', 'id']);
-        }
-
-        $single = RelationFacts::monomorphicType($relation);
-        if ($single !== null) {
+        } elseif ($single !== null) {
             $identifier = Schema::ref('#/components/schemas/' . $this->componentBase($single) . 'ResourceIdentifier');
-
-            // A pivot-backed (belongsToMany) relation carries typed pivot data in each
-            // linkage identifier's `meta.pivot`. Compose it onto the base identifier via
-            // `allOf` — the `$ref` carries `type`/`id`, the narrowing adds the typed
-            // `meta` (a `$ref` cannot carry sibling property keywords here).
-            $narrowing = $this->pivotMetaNarrowing($relation, $relBase, $writing);
-
-            return $narrowing === null ? $identifier : Schema::create()->withAllOf([$identifier, $narrowing]);
+        } else {
+            $identifier = $this->discriminatedUnion($types, 'ResourceIdentifier');
         }
 
-        return $this->discriminatedUnion($types, 'ResourceIdentifier');
+        // Typed identifier `meta` (pivot data, declared identifier meta members) composes
+        // onto the base identifier via `allOf`: the `$ref` or union carries `type`/`id`,
+        // the narrowing adds the typed `meta` (a `$ref` cannot carry sibling property
+        // keywords here).
+        $narrowing = $this->linkageMetaNarrowing($relation, $relBase, $writing);
+
+        return $narrowing === null ? $identifier : Schema::create()->withAllOf([$identifier, $narrowing]);
     }
 
     /**
@@ -1981,21 +2003,31 @@ final class OpenApiProjector
     }
 
     /**
-     * The `meta.pivot` narrowing for a pivot-backed (`belongsToMany`) relation's
-     * linkage identifier: an object whose `meta.pivot` `$ref`s the relation's response
-     * (`<Type><Rel>Pivot`) or request (`<Type><Rel>WritePivot`) pivot component. Returns
-     * `null` for any relation without pivot fields.
+     * The typed `meta` narrowing for a relation's linkage identifier, or `null` when its
+     * `meta` carries nothing declared. A pivot-backed (`belongsToMany`) relation's
+     * `meta.pivot` `$ref`s its response (`<Type><Rel>Pivot`) or request
+     * (`<Type><Rel>WritePivot`) pivot component. On a response, the members an
+     * `identifierMeta()` resolver declares `$ref` the relation's `<Type><Rel>IdentifierMeta`
+     * component; with a pivot too, `meta` is the `allOf` of both, so the declared members
+     * and `pivot` are siblings. A request never carries them, as they are read-only.
      */
-    private function pivotMetaNarrowing(RelationMetadataInterface $relation, string $relBase, bool $writing): ?Schema
+    private function linkageMetaNarrowing(RelationMetadataInterface $relation, string $relBase, bool $writing): ?Schema
     {
-        if (!RelationFacts::hasPivot($relation)) {
-            return null;
-        }
+        $pivot = RelationFacts::hasPivot($relation)
+            ? Schema::ofType('object')->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . ($writing ? 'WritePivot' : 'Pivot')))
+            : null;
+        $declared = !$writing && RelationFacts::hasIdentifierMeta($relation)
+            ? Schema::ref('#/components/schemas/' . $relBase . 'IdentifierMeta')
+            : null;
 
-        return Schema::ofType('object')->withProperty(
-            'meta',
-            Schema::ofType('object')->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . ($writing ? 'WritePivot' : 'Pivot'))),
-        );
+        $meta = match (true) {
+            $pivot !== null && $declared !== null => Schema::create()->withAllOf([$declared, $pivot]),
+            $pivot !== null => $pivot,
+            $declared !== null => $declared,
+            default => null,
+        };
+
+        return $meta === null ? null : Schema::ofType('object')->withProperty('meta', $meta);
     }
 
     /**

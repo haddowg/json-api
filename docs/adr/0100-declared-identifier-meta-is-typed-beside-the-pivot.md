@@ -1,0 +1,3 @@
+# Declared identifier meta is typed beside the pivot, and the resolver still produces it
+
+`identifierMeta()` takes an optional `fields:` list describing what its resolver returns, and the projection types each response linkage identifier's `meta` from a `<Type><Rel>IdentifierMeta` component under the read rules `meta.pivot` follows, joined to any pivot by an `allOf` so both sit in one `meta`. The resolver stays the only source of the values, because it is parent-aware and often reads data no column holds, so the fields describe the shape and never become a second rendering path. A member named `pivot` is refused because the runtime merge would let the resolver overwrite the pivot.

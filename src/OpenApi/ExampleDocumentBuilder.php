@@ -499,7 +499,7 @@ final class ExampleDocumentBuilder
     /**
      * A relation's linkage `data`: one identifier of its (first) related type, in a list
      * for a to-many, carrying the pivot fields a pivot-backed relation renders or accepts
-     * in `meta.pivot`. The id is the related type's `Id` example, else the id example the
+     * in `meta.pivot` and, on a read, the identifier meta members it declares. The id is the related type's `Id` example, else the id example the
      * relation declares ({@see DeclaresRelationExampleId}). `false` when the related type
      * is not registered here and the relation declares none, so there is no id to show.
      *
@@ -523,6 +523,14 @@ final class ExampleDocumentBuilder
         }
 
         $identifier = ['type' => $relatedType, 'id' => $id ?? $declared ?? ''];
+        $meta = [];
+        if ($context === RepresentationContext::Read) {
+            foreach (RelationFacts::identifierMetaFields($relation) as $field) {
+                if ($this->appears($field, RepresentationContext::Read)) {
+                    $meta[$field->name()] = $this->value($field, $context, $owner->type(), $relation->name() . '.meta.' . $field->name());
+                }
+            }
+        }
         if (RelationFacts::hasPivot($relation)) {
             $pivot = [];
             foreach ($relation->pivotFields() as $field) {
@@ -534,7 +542,10 @@ final class ExampleDocumentBuilder
                 }
                 $pivot[$field->name()] = $this->value($field, $context, $owner->type(), $relation->name() . '.pivot.' . $field->name());
             }
-            $identifier['meta'] = ['pivot' => $pivot === [] ? new \stdClass() : $pivot];
+            $meta['pivot'] = $pivot === [] ? new \stdClass() : $pivot;
+        }
+        if ($meta !== []) {
+            $identifier['meta'] = $meta;
         }
 
         return $relation->isToMany() ? [$identifier] : $identifier;

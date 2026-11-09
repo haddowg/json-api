@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -19,7 +20,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta
 {
     /**
      * @param list<string>          $relatedTypes
@@ -27,6 +28,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
      * @param list<SortInterface>   $sorts
      * @param list<string>          $relatedIncludablePaths
      * @param list<FieldInterface>  $pivotFields
+     * @param list<FieldInterface>  $identifierMetaFields
      */
     public function __construct(
         private readonly string $name,
@@ -52,7 +54,13 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
         private readonly bool $polymorphic = false,
         private readonly bool $identifiesMembers = false,
         private readonly bool $deprecated = false,
+        private readonly array $identifierMetaFields = [],
     ) {}
+
+    public function identifierMetaFields(): array
+    {
+        return $this->identifierMetaFields;
+    }
 
     public function isDeprecated(): bool
     {

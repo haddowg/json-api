@@ -210,6 +210,17 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     }
 
     /**
+     * The members this relation's {@see AbstractRelationBuilder::identifierMeta()} resolver
+     * declares it produces, in declaration order. Empty when it declares none.
+     *
+     * @return list<FieldInterface>
+     */
+    public function identifierMetaFields(): array
+    {
+        return $this->relationState->identifierMetaFields;
+    }
+
+    /**
      * The URI segment for this relationship.
      */
     public function exampleId(): ?string

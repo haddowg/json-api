@@ -156,14 +156,16 @@ final class ContractWitnessServer
      *                             baseline witness leaves out too
      * @param bool $listFilters whether articles filters take a list as `filter[<key>][]`,
      *                          which the baseline witness leaves out too
+     * @param bool $identifierMeta whether articles relations declare their identifier meta
+     *                             members, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -262,7 +264,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -354,7 +356,12 @@ final class ContractWitnessServer
                 ...($deprecations ? [Str::make('subtitle')->deprecated()->build()] : []),
             ],
             relations: [
-                new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.'),
+                // Declared identifier meta: typed under each response linkage identifier's
+                // `meta`, on a to-one, beside a pivot and over a polymorphic union.
+                new FakeRelationMetadata('author', ['people'], false, 'Who wrote it.', identifierMetaFields: $identifierMeta ? [
+                    Str::make('role')->example('lead')->guaranteed()->build(),
+                    Boolean::make('primary')->example(true)->build(),
+                ] : []),
                 new FakeRelationMetadata(
                     'tags',
                     ['tags'],
@@ -375,6 +382,7 @@ final class ContractWitnessServer
                         Str::make('taggedBy')->readOnly()->build(),
                         Str::make('reason')->writeOnly()->build(),
                     ],
+                    identifierMetaFields: $identifierMeta ? [Str::make('addedVia')->example('editor')->build()] : [],
                 ),
                 // Served under a URI segment other than its name: its paths and links use
                 // the segment, its member and operation ids the name.
@@ -385,7 +393,7 @@ final class ContractWitnessServer
                 new FakeRelationMetadata('locked', ['people'], true, allowsReplace: false, allowsAdd: false, allowsRemove: false),
                 // Polymorphic to-many with its related endpoint exposed — the one shape
                 // that needs a per-relation related collection.
-                new FakeRelationMetadata('attachments', ['images', 'videos'], true),
+                new FakeRelationMetadata('attachments', ['images', 'videos'], true, identifierMetaFields: $identifierMeta ? [Integer::make('order')->example(1)->build()] : []),
                 // Write-only, as metadata that opts into DeclaresWriteOnlyRelation reports
                 // it: settable on a write, absent from every read, mutated with a `204`.
                 // The fixture states the facts a write-only core relation reports too
