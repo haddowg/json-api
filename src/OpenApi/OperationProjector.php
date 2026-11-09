@@ -32,6 +32,10 @@ use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
+use haddowg\JsonApi\Resource\Filter\AcceptsList;
+use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
+use haddowg\JsonApi\Resource\Filter\FilterMatcher;
+use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -69,6 +73,17 @@ final class OperationProjector
      * The `sort` parameter schema's list of the sort families it accepts.
      */
     public const string SORT_FAMILIES_EXTENSION = 'x-sort-families';
+
+    /**
+     * The `filter` parameter schema's list of the filter families it accepts.
+     */
+    public const string FILTER_FAMILIES_EXTENSION = 'x-filter-families';
+
+    /**
+     * The extension on a `filter[<key>][]` parameter naming the list filter it carries
+     * and whether that filter also takes the delimited `filter[<key>]` form.
+     */
+    public const string FILTER_LIST_EXTENSION = 'x-filter-list';
 
     /**
      * The `sort` parameter schema's list of the exact sort keys declared deprecated.
@@ -1299,6 +1314,16 @@ final class OperationProjector
      * A declared `->example(...)` ({@see \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter})
      * becomes the parameter's own `example`, emitted as declared.
      *
+     * A filter that {@see AcceptsList accepts a list} adds a `filter[<key>][]` parameter
+     * for the array form, an `array` of the value schema with `style: form, explode:
+     * true`, marked with {@see FILTER_LIST_EXTENSION}. It keeps its `filter[<key>]`
+     * parameter only while the list is delimited, since that is the parameter the
+     * delimited string travels in.
+     *
+     * Filter families ({@see FilterFamilyInterface}) have no fixed keys, so together they
+     * are one `filter` parameter in `deepObject` style whose object schema matches each
+     * family's keys with a `patternProperties` entry, see {@see filterFamiliesParameter()}.
+     *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface>   $fields  the inventory of the type the filters run against
      *
@@ -1307,7 +1332,14 @@ final class OperationProjector
     private function filterParameters(array $filters, array $fields): array
     {
         $parameters = [];
+        $families = [];
         foreach ($filters as $filter) {
+            if ($filter instanceof FilterFamilyInterface) {
+                $families[] = $filter;
+
+                continue;
+            }
+
             $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints());
             // Only a value the constraints said NOTHING about falls back. One that
             // declared a keyword — even a `format` with no `type` beside it — keeps
@@ -1317,27 +1349,111 @@ final class OperationProjector
                 $valueSchema = $valueSchema->withType($this->derivedFilterValueType($filter, $fields) ?? 'string');
             }
 
-            $shape = $filter instanceof \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter
-                ? $filter->describeQueryParameter($valueSchema)
-                : new QueryParameterShape($valueSchema);
+            $list = $filter instanceof AcceptsList ? $filter->listValue() : null;
 
-            $parameter = Parameter::query(
-                'filter[' . $filter->key() . ']',
-                $shape->schema,
-                $this->filterDescription($filter),
-                style: $shape->style,
-                explode: $shape->explode,
-            );
-            if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
-                $parameter = $parameter->withExample($filter->getExample());
+            if ($list === null || $list->isDelimited()) {
+                $shape = match (true) {
+                    $filter instanceof \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter => $filter->describeQueryParameter($valueSchema),
+                    $list !== null => QueryParameterShape::delimitedList($list->delimiter, $valueSchema),
+                    default => new QueryParameterShape($valueSchema),
+                };
+
+                $parameter = Parameter::query(
+                    'filter[' . $filter->key() . ']',
+                    $shape->schema,
+                    $this->filterDescription($filter),
+                    style: $shape->style,
+                    explode: $shape->explode,
+                );
+                if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
+                    $parameter = $parameter->withExample($filter->getExample());
+                }
+                $parameters[] = $this->deprecatedFilterParameter($parameter, $filter);
             }
-            if ($filter instanceof Deprecatable && $filter->isDeprecated()) {
-                $parameter = $parameter->withDeprecated(true);
+
+            if ($list !== null) {
+                $parameters[] = $this->listFilterParameter($filter, $list, $valueSchema);
             }
-            $parameters[] = $parameter;
+        }
+
+        if ($families !== []) {
+            $parameters[] = $this->filterFamiliesParameter($families);
         }
 
         return $parameters;
+    }
+
+    /**
+     * The `filter[<key>][]` parameter of a list filter: the array form, one
+     * `filter[<key>][]=<member>` pair per member. Its example is the declared one when
+     * that is a list.
+     */
+    private function listFilterParameter(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, ListValue $list, Schema $valueSchema): Parameter
+    {
+        $parameter = Parameter::query(
+            'filter[' . $filter->key() . '][]',
+            Schema::ofType('array')->withItems($valueSchema),
+            $this->filterDescription($filter),
+            style: ParameterStyle::Form,
+            explode: true,
+        )->withExtension(self::FILTER_LIST_EXTENSION, ['key' => $filter->key(), 'delimited' => $list->isDelimited()]);
+
+        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample() && \is_array($filter->getExample())) {
+            $parameter = $parameter->withExample(\array_values($filter->getExample()));
+        }
+
+        return $this->deprecatedFilterParameter($parameter, $filter);
+    }
+
+    private function deprecatedFilterParameter(Parameter $parameter, \haddowg\JsonApi\Resource\Filter\FilterInterface $filter): Parameter
+    {
+        return $filter instanceof Deprecatable && $filter->isDeprecated() ? $parameter->withDeprecated(true) : $parameter;
+    }
+
+    /**
+     * The one `filter` parameter carrying every family's keys: an object in `deepObject`
+     * style, so `filter[value.cap]=a` is its `value.cap` member, with one
+     * `patternProperties` entry per family matching `<prefix>.<suffix>`. A family's
+     * members are strings, or a list of strings when it accepts a list. The schema lists
+     * each family under {@see FILTER_FAMILIES_EXTENSION} with its prefix, suffix pattern,
+     * whether it takes a list and, for a list, whether the delimited string form is
+     * accepted, plus `deprecated: true` on a deprecated family's entry.
+     *
+     * @param non-empty-list<FilterFamilyInterface> $families
+     */
+    private function filterFamiliesParameter(array $families): Parameter
+    {
+        $patterns = [];
+        $declared = [];
+        foreach ($families as $family) {
+            $list = $family instanceof AcceptsList ? $family->listValue() : null;
+            $string = Schema::ofType('string');
+            $patterns['^' . self::escapeEcmaPattern($family->key()) . '\\.(?:' . $family->suffixPattern() . ')$'] = match (true) {
+                $list === null => $string,
+                $list->isDelimited() => Schema::create()->withAnyOf([$string, Schema::ofType('array')->withItems($string)]),
+                default => Schema::ofType('array')->withItems($string),
+            };
+
+            $entry = ['prefix' => $family->key(), 'suffixPattern' => $family->suffixPattern(), 'list' => $list !== null];
+            if ($list !== null) {
+                $entry['delimited'] = $list->isDelimited();
+            }
+            if ($family instanceof Deprecatable && $family->isDeprecated()) {
+                $entry['deprecated'] = true;
+            }
+            $declared[] = $entry;
+        }
+
+        return Parameter::query(
+            'filter',
+            Schema::ofType('object')
+                ->withPatternProperties($patterns)
+                ->withExtension(self::FILTER_FAMILIES_EXTENSION, $declared),
+            'Filter the collection by keys a filter family answers: `filter[<prefix>.<suffix>]`, the suffix naming the value to filter on. '
+            . 'A family that takes a list accepts `filter[<prefix>.<suffix>][]` once per member, and a comma-separated string unless its `x-filter-families` entry says `delimited: false`.',
+            style: ParameterStyle::DeepObject,
+            explode: true,
+        );
     }
 
     /**
@@ -1662,15 +1778,7 @@ final class OperationProjector
      */
     private function relatedFilterVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
     {
-        $byKey = [];
-        foreach ($this->relatedTypeMetadata($relation, $server)?->filters() ?? [] as $filter) {
-            $byKey[$filter->key()] = $filter;
-        }
-        foreach ($relation->filters() as $filter) {
-            $byKey[$filter->key()] = $filter;
-        }
-
-        return \array_values($byKey);
+        return FilterMatcher::merge($this->relatedTypeMetadata($relation, $server)?->filters() ?? [], $relation->filters());
     }
 
     /**

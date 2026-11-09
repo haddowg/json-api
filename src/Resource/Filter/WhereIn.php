@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * already an array, or a comma-delimited string). Authors declare one with
  * {@see make()}, which returns a mutable {@see WhereInBuilder}.
  */
-final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
@@ -30,6 +30,7 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, 
         public bool $hasExample = false,
         public mixed $example = null,
         public bool $deprecated = false,
+        public ?ListValue $list = null,
     ) {}
 
     public static function make(string $key, ?string $column = null): WhereInBuilder
@@ -40,6 +41,11 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, 
     public function key(): string
     {
         return $this->key;
+    }
+
+    public function listValue(): ?ListValue
+    {
+        return $this->list;
     }
 
     public function targetColumn(): string

@@ -74,10 +74,10 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereAll => $this->whereAll($filter, $value),
             $filter instanceof WhereAny => $this->whereAny($filter, $value),
             $filter instanceof Where => $this->where($filter, $value),
-            $filter instanceof WhereIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), false),
-            $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
-            $filter instanceof WhereIdIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), false),
-            $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->toList($value, $filter->delimiter), true),
+            $filter instanceof WhereIn => $this->whereIn($filter->column, $this->members($filter, $value), false),
+            $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true),
+            $filter instanceof WhereIdIn => $this->whereIn($filter->column, $this->members($filter, $value), false),
+            $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true),
             $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
             $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
             $filter instanceof WhereThrough => $this->whereThrough($filter, $value),
@@ -405,6 +405,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
 
             return $negate ? !$contained : $contained;
         };
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function members(WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter, mixed $value): array
+    {
+        return $filter->list?->members($value) ?? $this->toList($value, $filter->delimiter);
     }
 
     /**

@@ -78,6 +78,16 @@ A **Filter** value pinned by the author, so the request value is ignored and the
 trigger.
 _Avoid_: default (a default is a value the client can override)
 
+**Filter family**:
+A **Filter** that answers every key starting with its prefix and a dot (`value.cap`), resolving the
+suffix to a concrete **Filter** per request by the same rule as a **Sort family**.
+_Avoid_: wildcard filter, dynamic filter
+
+**List filter**:
+A **Filter** declared with `acceptsList()`, whose value is a list sent as `filter[<key>][]` once per
+member, or as one delimited string unless declared `delimited: false`.
+_Avoid_: array filter, multi-value filter
+
 **Sort**:
 Metadata describing a sort key a type accepts.
 

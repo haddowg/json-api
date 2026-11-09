@@ -17,7 +17,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * concrete {@see SortInterface} for one requested key, and that sort is what a
  * {@see SortDirective} carries.
  */
-interface SortFamilyInterface extends SortInterface
+interface SortFamilyInterface extends SortInterface, \haddowg\JsonApi\Resource\KeyFamilyInterface
 {
     /**
      * Any non-empty suffix without a comma, the separator of the `sort` list.

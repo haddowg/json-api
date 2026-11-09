@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are eighteen scoped
+ * is warned only by the documents that contain it. There are twenty scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -63,8 +63,10 @@ namespace haddowg\JsonApi\OpenApi;
  * a family of keys by prefix ({@see SORT_FAMILIES}), a list attribute whose items are
  * objects or a discriminated union ({@see STRUCTURED_LIST_ELEMENTS}), a deprecation
  * marker ({@see DEPRECATION}), a collection action's filter parameters
- * ({@see ACTION_FILTERS}), an action answering `201 Created` ({@see ACTION_CREATED}) and
- * a related-only type ({@see RELATED_ONLY}).
+ * ({@see ACTION_FILTERS}), an action answering `201 Created` ({@see ACTION_CREATED}),
+ * a related-only type ({@see RELATED_ONLY}), a `filter` parameter accepting a family of
+ * keys by prefix ({@see FILTER_FAMILIES}) and a filter taking its list as
+ * `filter[<key>][]` ({@see LIST_FILTERS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -235,6 +237,22 @@ final class GeneratorContract
     public const RELATED_ONLY = 27;
 
     /**
+     * The contract that introduced filter families: one `filter` parameter in `deepObject`
+     * style whose object schema matches each family's `<prefix>.<suffix>` keys with
+     * `patternProperties`, listing the families under `x-filter-families`. A document
+     * carries it only when some endpoint accepts a filter family.
+     */
+    public const FILTER_FAMILIES = 27;
+
+    /**
+     * The contract that introduced list filters: a `filter[<key>][]` parameter carrying
+     * the `x-filter-list` extension for a filter that takes its value as an array, beside
+     * the `filter[<key>]` parameter only while the filter also takes a delimited string.
+     * A document carries it only when some filter declares a list.
+     */
+    public const LIST_FILTERS = 27;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -257,6 +275,8 @@ final class GeneratorContract
         bool $actionFilters = false,
         bool $actionCreated = false,
         bool $relatedOnly = false,
+        bool $filterFamilies = false,
+        bool $listFilters = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -277,6 +297,8 @@ final class GeneratorContract
             $actionFilters ? self::ACTION_FILTERS : self::BASELINE,
             $actionCreated ? self::ACTION_CREATED : self::BASELINE,
             $relatedOnly ? self::RELATED_ONLY : self::BASELINE,
+            $filterFamilies ? self::FILTER_FAMILIES : self::BASELINE,
+            $listFilters ? self::LIST_FILTERS : self::BASELINE,
         )];
     }
 }

@@ -326,8 +326,9 @@ reference `InMemory\Array{Filter,Sort}Handler` for its own tests and as worked
 examples — **not** a production query layer. Two opt-in seams feed the OpenAPI
 projection and nothing else: `DescribesQueryParameter` (the parameter envelope) and
 `TargetsColumn` (the one column a filter compares). A filter that compares no single
-column implements neither. Sort keys are matched only through the public `SortMatcher` (exact keys, then
-sort families), which adapters call too; never add another key-matching loop.
+column implements neither. Sort and filter keys are matched only through the public `SortMatcher` and `FilterMatcher`
+(exact keys, then families), which share `Resource\Internal\KeyFamilyMatcher` and which adapters
+call too; never add another key-matching loop.
 
 ### Server & resource registry
 `src/Server` → [server](docs/server.md). `Server` is an **immutable value** (`make()`

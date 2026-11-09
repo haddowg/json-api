@@ -646,11 +646,108 @@ adapter renders all three as the same `EXISTS` shape. The
 ## List and set values
 
 A set filter (`WhereIn`, `WhereNotIn`, the id variants) treats its incoming
-value as a **list** — either an already-array value
+value as a **list**: either an already-array value
 (`filter[genres][]=a&filter[genres][]=b`) or a delimited string
 (`filter[genres]=a,b`, split on the configured `delimiter()`). The split happens
 in the handler: the reference `ArrayFilterHandler` consults `$filter->delimiter`
 (defaulting to `,`) and treats an array value as already-split.
+
+### Declaring a list: `acceptsList()`
+
+`acceptsList()` declares the value a list in a way adapters, validators and the
+OpenAPI document all read:
+
+```php
+WhereIn::make('genres')->acceptsList();                   // filter[genres][]=a&filter[genres][]=b, or filter[genres]=a,b
+WhereIn::make('columns')->acceptsList(delimited: false);  // filter[columns][]=a,b only: the comma stays in the value
+```
+
+A declared list is read through [`ListValue::values()`](../src/Resource/Filter/ListValue.php),
+which [`FilterMatcher::directives()`](#matching-requested-filters-filtermatcher) calls for
+you:
+
+- The array form is always accepted. Its members must be single values, and a member
+  keyed by name (`filter[genres][x]=a`) is a `400` `FilterValueInvalid`.
+- A delimited list also accepts one string, split on the filter's `delimiter()` and
+  trimmed.
+- With `delimited: false` a single string is a `400` `FilterValueInvalid` rather than
+  split, so `filter[columns][]=last,first` asks for the one column named `last,first`.
+
+Adapters validate each member against the filter's value constraints on its own. The
+OpenAPI document adds a `filter[<key>][]` parameter for the array form, see
+[OpenAPI generation](openapi.md#list-filters-x-filter-list). Without `acceptsList()`
+a set filter keeps reading both forms leniently and documents only the delimited one,
+exactly as before.
+
+A custom filter declares a list by implementing
+[`AcceptsList`](../src/Resource/Filter/AcceptsList.php), whose `listValue()` returns
+`ListValue::delimited()`, `ListValue::arrayOnly()` or `null`.
+
+## Filter families: keys matched by prefix
+
+Some filter keys are data rather than vocabulary, the filter twin of a
+[sort family](sorts.md#sort-families-keys-matched-by-prefix): a campaign's placeholder
+values, custom fields, EAV attributes, members of a JSON column. A
+[`FilterFamily`](../src/Resource/Filter/FilterFamily.php) answers every key that starts
+with a prefix and a dot, and resolves the rest of the key to a concrete filter:
+
+```php
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Filter\FilterFamily;
+use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+
+public function filters(): array
+{
+    return [
+        FilterFamily::make('value', fn(string $suffix, JsonApiRequestInterface $request): ?FilterInterface
+            => $this->placeholders->exists($suffix)
+                ? WhereIn::make('value.' . $suffix, 'placeholders.' . $suffix)->acceptsList()->build()
+                : null)
+            ->acceptsList(),
+    ];
+}
+```
+
+`?filter[value.cap]=a,b` calls the resolver with `cap`. The rules match sort families:
+
+- The suffix is everything after `<prefix>.`, dots included. The bare prefix never
+  matches, so `?filter[value]=x` is unrecognized unless an exact filter is keyed
+  `value`, and the two can sit side by side.
+- Returning `null` rejects the key with the usual `400` `FilterParamUnrecognized`.
+- The filter you return must be keyed by the full requested key and accept the list
+  the family declares: none, a delimited one or an array-only one. Anything else is a
+  `\LogicException` naming the family, since the OpenAPI document describes the
+  family's value and the data layer reads the resolved filter's.
+- An exact key always wins over a family. When two families' prefixes both fit, the
+  longer prefix decides, and its `null` is final.
+
+By default any non-empty suffix is accepted. `withSuffixPattern()` narrows it to a
+regular-expression fragment the whole suffix must match, checked before the resolver
+runs and projected into the [OpenAPI document](openapi.md#filter-families-x-filter-families).
+`deprecated()` marks the family deprecated there.
+
+A family is never handed to a filter handler. Matching replaces it with the filter its
+resolver returns, so families work wherever a filter key does: the primary `filter`, a
+relation's filters, the [Relationship Queries](profiles/relationship-queries.md)
+profile's `relatedQuery[<path>][filter]`, and a
+[collection action's filters](#filters-on-a-collection-action). A family has no default
+value. To write your own, implement
+[`FilterFamilyInterface`](../src/Resource/Filter/FilterFamilyInterface.php).
+
+### Matching requested filters: `FilterMatcher`
+
+[`FilterMatcher`](../src/Resource/Filter/FilterMatcher.php) is the one place a requested
+key meets the declared vocabulary, shared with
+[`SortMatcher`](sorts.md#reading-the-requested-sorts):
+
+- `match($filters, $key, $request)` returns the filter a key selects, resolving a
+  family, or `null`.
+- `directives($requested, $filters, $request)` returns one `FilterDirective` per
+  requested key, in request order, carrying the matched filter and its value, read as a
+  list when the filter accepts one. An unknown key is a `400` `FilterParamUnrecognized`.
+- `merge(...$vocabularies)` merges vocabularies, a later filter replacing an earlier
+  one with the same key while a family and an exact filter of the same key both stay.
 
 ## Filter groups: `WhereAll` / `WhereAny`
 
