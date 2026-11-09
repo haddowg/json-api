@@ -14,6 +14,7 @@ use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -523,6 +524,9 @@ final class ExampleDocumentBuilder
             $pivot = [];
             foreach ($relation->pivotFields() as $field) {
                 if (!$this->appears($field, $context === RepresentationContext::Read ? RepresentationContext::Read : null)) {
+                    continue;
+                }
+                if ($context !== RepresentationContext::Read && BelongsToMany::isComputedPivotField($field)) {
                     continue;
                 }
                 $pivot[$field->name()] = $this->value($field, $context, $owner->type(), $relation->name() . '.pivot.' . $field->name());

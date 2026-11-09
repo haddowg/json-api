@@ -26,6 +26,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -915,7 +916,11 @@ final class OpenApiProjector
             // and a request shape, and the writes $ref the request ones.
             if (RelationFacts::hasPivot($relation)) {
                 $schemas[$relBase . 'Pivot'] = $this->schemaProjector->projectReadPivotObject($relation->pivotFields(), $collector);
-                $schemas[$relBase . 'WritePivot'] = $this->schemaProjector->projectPivotObject($relation->pivotFields(), $collector);
+                // A computed pivot field is never written, so the request shape leaves it out.
+                $schemas[$relBase . 'WritePivot'] = $this->schemaProjector->projectPivotObject(
+                    \array_filter($relation->pivotFields(), static fn(FieldInterface $field): bool => !BelongsToMany::isComputedPivotField($field)),
+                    $collector,
+                );
                 $schemas[$relBase . 'WriteRelationship'] = $this->writeRelationshipObjectSchema($relation, $relBase);
                 if ($relation->exposesRelationshipEndpoint()) {
                     $schemas[$relBase . 'RelationshipRequest'] = $this->relationshipRequestSchema($relation, $relBase);
