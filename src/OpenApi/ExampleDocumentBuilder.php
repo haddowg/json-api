@@ -245,7 +245,7 @@ final class ExampleDocumentBuilder
 
         $relationships = [];
         foreach ($type->relations() as $relation) {
-            if (!$creating && !$relation->allowsReplace()) {
+            if ($creating ? RelationFacts::isReadOnlyOnCreate($type, $relation) : !$relation->allowsReplace()) {
                 continue;
             }
             $linkage = $this->linkage($type, $relation, $context);

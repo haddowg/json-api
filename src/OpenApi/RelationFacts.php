@@ -10,6 +10,8 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 
 /**
  * Reads the optional facts a relation's metadata may declare through the opt-in
@@ -33,6 +35,23 @@ final class RelationFacts
     public static function isWriteOnly(RelationMetadataInterface $relation): bool
     {
         return $relation instanceof DeclaresWriteOnlyRelation && $relation->isWriteOnly();
+    }
+
+    /**
+     * Whether a create may not set the relation: its relation field among the type's
+     * fields is unconditionally read-only on create. A relation read-only only by a
+     * request predicate stays settable, so the document describes the superset, as it
+     * does for an attribute.
+     */
+    public static function isReadOnlyOnCreate(TypeMetadataInterface $type, RelationMetadataInterface $relation): bool
+    {
+        foreach ($type->fields() as $field) {
+            if ($field instanceof RelationInterface && $field->name() === $relation->name()) {
+                return $field->isReadOnly(true);
+            }
+        }
+
+        return false;
     }
 
     /**
