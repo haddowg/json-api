@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresFixedMembership;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
@@ -12,6 +13,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
@@ -214,5 +216,30 @@ final class RelationFacts
             static fn(\haddowg\JsonApi\Resource\Sort\SortDirective $directive): string => ($directive->descending ? '-' : '') . $directive->sort->key(),
             $relation->defaultSort(),
         );
+    }
+
+    /**
+     * Whether the relation declares `cannotChangeMembership()`
+     * ({@see DeclaresFixedMembership}).
+     */
+    public static function fixesMembership(RelationMetadataInterface $relation): bool
+    {
+        return $relation instanceof DeclaresFixedMembership && $relation->fixesMembership();
+    }
+
+    /**
+     * Whether some relation of some type on `$server` declares `cannotChangeMembership()`.
+     */
+    public static function anyFixesMembership(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (self::fixesMembership($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

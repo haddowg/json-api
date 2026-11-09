@@ -185,6 +185,12 @@ BelongsToMany::make('playlists', 'playlists')
 | `cannotReplace()` | `allowsReplace()` | `Replace` | `FullReplacementProhibited` | `FULL_REPLACEMENT_PROHIBITED` |
 | `cannotAdd()` | `allowsAdd()` | `Add` | `AdditionProhibited` | `ADDITION_PROHIBITED` |
 | `cannotRemove()` | `allowsRemove()` | `Remove` | `RemovalProhibited` | `REMOVAL_PROHIBITED` |
+| `cannotChangeMembership()` | `allowsMembershipChange()` | `Replace` that changes the members | `MembershipChangeProhibited` | `MEMBERSHIP_CHANGE_PROHIBITED` |
+
+The OpenAPI error catalogue offers `MEMBERSHIP_CHANGE_PROHIBITED`, and the document carries the
+`FIXED_MEMBERSHIP` contract tier, only when some relation declares `cannotChangeMembership()`.
+Relation metadata reports it through the opt-in `DeclaresFixedMembership` interface, from the
+relation's `fixesMembership()`.
 
 A relation marked `readOnly()` or `readOnlyOnUpdate()` fails all three gates, since a
 relationship mutation is an update of the parent. A `readOnly($when)` predicate fails
@@ -223,8 +229,45 @@ the single-named-relationship path the relationship endpoints drive — so if yo
 through it rather than owning the object-graph write yourself, those `403`s come for
 free. Note the scope: a relationship **embedded in a whole-resource write**
 (`hydrateRelationships()`) silently skips a read-only relation and applies **no**
-replace/add/remove gate, so re-gating an embedded full replacement is the framework adapter's job — the
+replace/add/remove gate, only the [fixed membership](#fixed-membership) check, so re-gating an embedded full replacement is the framework adapter's job — the
 Symfony bundle enforces `cannotReplace()` on an embedded `PATCH`. See [hydrators](hydrators.md).
+
+### Fixed membership
+
+`cannotChangeMembership()` keeps a to-many's members as they are while still letting
+a client reorder them. A replacement must list exactly the current members. Order
+and repeats don't matter, a member is its `type` and `id`, and one sent with only a
+`lid` is new. Anything else is `MembershipChangeProhibited`, a `403` at
+`/data/relationships/<name>`:
+
+```php
+HasMany::make('tracks', 'tracks')->cannotChangeMembership(),
+```
+
+The rule covers a `PATCH` to the relationship endpoint and the relation's linkage in
+a whole-resource `PATCH`. A create sets the members freely. A fixed relation can't
+grow or shrink either, so `allowsAdd()` and `allowsRemove()` report `false` and a
+`POST` or `DELETE` to its relationship endpoint gets `AdditionProhibited` or
+`RemovalProhibited`. The OpenAPI document drops those two verbs, the way it does for
+`cannotAdd()` and `cannotRemove()`, and keeps `PATCH`. A closure,
+`cannotChangeMembership(fn (mixed $model, JsonApiRequestInterface $request): bool => ...)`,
+fixes the members only for the requests it returns `true` for, and leaves every verb
+in the document. Declaring it on a to-one fails the relation's build with a
+`\LogicException`.
+
+Core can't see a data layer's members, so the check needs the current set. Every
+core relation implements `GuardsMembershipInterface`.
+`allowsMembershipChangeFor($request, $model)` says whether this request may change
+the members, and `assertMembershipUnchanged($request, $model, $current, $incoming)`
+throws the `403` when it may not and the set differs. `$current` lists identifiers
+or `[type, id]` pairs with wire ids. `Membership::differs()` is the comparison on its
+own. `AbstractResource` applies the check on both paths through its overridable
+`currentMembers()`. That method reads the relation's value off the model, taking an
+identifier or a pair as it is, a scalar as an id of the single related type and an
+object through its serializer, and it reads an identified `MorphToMany`'s stored
+pairs. A data layer that writes the association itself, outside
+`hydrateRelationship()` and `hydrateRelationships()`, calls
+`assertMembershipUnchanged()` with the members it holds before it writes.
 
 ## Cardinality enforcement
 

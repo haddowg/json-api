@@ -10,6 +10,7 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
+use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -446,6 +447,20 @@ final class ErrorCatalogProjectionTest extends TestCase
     }
 
     #[Test]
+    public function theMembershipCodeAppearsOnlyWhenARelationFixesItsMembers(): void
+    {
+        $this->assertGatedBy(
+            ErrorFeature::FixedMembership,
+            $this->fullServer(),
+            $this->fullServer(fixedMembership: false),
+        );
+
+        $info = (new OpenApiProjector())->project($this->fullServer())->toArray()['info'] ?? null;
+        self::assertIsArray($info);
+        self::assertSame(['contract' => GeneratorContract::FIXED_MEMBERSHIP], $info['x-generator'] ?? null);
+    }
+
+    #[Test]
     public function theMethodNotAllowedCodeAppearsOnlyWhenTheServerRendersIt(): void
     {
         $this->assertGatedBy(
@@ -571,11 +586,12 @@ final class ErrorCatalogProjectionTest extends TestCase
         ?array $profiles = null,
         bool $rejectsReadOnlyAttributes = true,
         bool $rendersMethodNotAllowed = true,
+        bool $fixedMembership = true,
     ): ServerMetadataInterface {
         $type = FakeTypeMetadata::resource(
             type: 'books',
             fields: [Id::make()->build(), Str::make('title')->build()],
-            relations: [new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true)],
+            relations: [new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true, fixesMembership: $fixedMembership)],
             allowsClientId: $clientIds,
             pageSchema: $page ?? (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
             countable: true,

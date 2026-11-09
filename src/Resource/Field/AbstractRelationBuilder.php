@@ -110,6 +110,15 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 
     protected ?string $exampleId = null;
 
+    protected bool $allowsMembershipChange = true;
+
+    /**
+     * Model + request predicate prohibiting a change of members.
+     *
+     * @var \Closure(mixed, JsonApiRequestInterface): bool|null
+     */
+    protected ?\Closure $cannotChangeMembershipWhen = null;
+
     /**
      * The per-relation resolver that contributes `meta` to each linkage identifier
      * object this relation renders, set by {@see identifierMeta()}. Parent-aware:
@@ -365,6 +374,34 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
         }
 
         $this->cannotAddWhen = $when;
+
+        return $this;
+    }
+
+    /**
+     * Fixes this (to-many) relationship's members: a replacement may reorder them but
+     * must list exactly the current members, ignoring order, or it is rejected with
+     * {@see \haddowg\JsonApi\Exception\MembershipChangeProhibited} (403). The rule
+     * covers a `PATCH` to the relationship endpoint and the relation's linkage in a
+     * whole-resource `PATCH`. It also closes the add and remove gates, so a `POST` or
+     * `DELETE` to the relationship endpoint gets the {@see cannotAdd()} and
+     * {@see cannotRemove()} 403s. Pass a closure to gate the prohibition on the domain
+     * model and the request (see {@see cannotReplace()}).
+     *
+     * A to-one has no member set, so declaring it there fails {@see build()}.
+     *
+     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @return static
+     */
+    public function cannotChangeMembership(?\Closure $when = null): static
+    {
+        if ($when === null) {
+            $this->allowsMembershipChange = false;
+
+            return $this;
+        }
+
+        $this->cannotChangeMembershipWhen = $when;
 
         return $this;
     }
@@ -628,7 +665,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 
     /**
      * Whether this builder builds a to-many relation, which alone may declare a
-     * {@see defaultSort()}.
+     * {@see defaultSort()} or {@see cannotChangeMembership()}.
      */
     protected function buildsToMany(): bool
     {
@@ -646,6 +683,13 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
         if ($this->defaultSort !== [] && !$this->buildsToMany()) {
             throw new \LogicException(\sprintf(
                 'Relation "%s" declares defaultSort(), but it is a to-one: only a to-many relation has members to order.',
+                $this->name,
+            ));
+        }
+
+        if ((!$this->allowsMembershipChange || $this->cannotChangeMembershipWhen !== null) && !$this->buildsToMany()) {
+            throw new \LogicException(\sprintf(
+                'Relation "%s" is a to-one, so it has no members to fix; cannotChangeMembership() is for to-many relations only.',
                 $this->name,
             ));
         }
@@ -678,6 +722,8 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             exampleId: $this->exampleId,
             defaultSort: $this->defaultSort,
             positionField: $this->positionField,
+            allowsMembershipChange: $this->allowsMembershipChange,
+            cannotChangeMembershipWhen: $this->cannotChangeMembershipWhen,
         );
     }
 }
