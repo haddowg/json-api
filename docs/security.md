@@ -102,9 +102,10 @@ client's keys. This is a structural guard against mass-assignment.
   JsonApiErrors::of($response)->assertHasError('400', '/data/attributes/secretFlag', 'ATTRIBUTE_MEMBER_UNRECOGNIZED');
   ```
 
-  A value a `fillUsing()` or `deserializeUsing()` hook takes is not looked inside;
-  the hook owns its shape. An undeclared *relationship* is still never read and
-  never written, but it is ignored rather than refused.
+  A value a `fillUsing()` or `deserializeUsing()` hook takes is checked the same way,
+  since the hook decides how the value is stored, not which members it may carry. An
+  undeclared *relationship* is still never read and never written, but it is ignored
+  rather than refused.
 
   (from [`WritesTest`](../examples/music-catalog/tests/WritesTest.php))
 

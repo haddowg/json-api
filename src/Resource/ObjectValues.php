@@ -7,7 +7,6 @@ namespace haddowg\JsonApi\Resource;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxProperties;
 use haddowg\JsonApi\Resource\Constraint\MinProperties;
-use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -24,10 +23,11 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  * of another open object's member. Validating them is the adapter's job; this walk is
  * where they are, so every adapter reaches the same values with the same pointers.
  *
- * It follows what hydration writes. A field hidden, or read-only for the caller, is not
- * walked, and neither is the inside of a field whose `fillUsing()` or `deserializeUsing()`
- * hook takes the value, though such an object's own member count still is. A value of the
- * wrong structure is skipped, since hydration reports it.
+ * It follows what a write may carry. A field hidden, or read-only for the caller, is not
+ * walked. A field whose `fillUsing()` or `deserializeUsing()` hook takes the value is
+ * walked like any other, since the hook decides how the value is stored, not what is
+ * valid. A value of the wrong structure is skipped, since hydration or the adapter's own
+ * rules report it.
  */
 final class ObjectValues
 {
@@ -58,11 +58,9 @@ final class ObjectValues
         if ($field->isHidden() || $field->isReadOnlyFor($creating, $request) || !\is_array($value)) {
             return;
         }
-        $hooked = $field instanceof AbstractFieldValue && $field->hydratesThroughHook();
-
         if ($field instanceof ArrayList) {
             $element = $field->element();
-            if ($hooked || $element === null || !\array_is_list($value)) {
+            if ($element === null || !\array_is_list($value)) {
                 return;
             }
             foreach ($value as $index => $item) {
@@ -77,14 +75,11 @@ final class ObjectValues
         }
 
         if ($field instanceof Obj) {
-            self::object($field, $value, $pointer, $hooked, $creating, $request, $found);
+            self::object($field, $value, $pointer, $creating, $request, $found);
 
             return;
         }
 
-        if ($hooked) {
-            return;
-        }
         if ($field instanceof Map) {
             self::children($field->children(), $value, $pointer, $creating, $request, $found);
         }
@@ -100,19 +95,15 @@ final class ObjectValues
      * @param array<array-key, mixed> $value
      * @param list<ObjectValue>       $found
      */
-    private static function object(Obj $object, array $value, string $pointer, bool $hooked, bool $creating, JsonApiRequestInterface $request, array &$found): void
+    private static function object(Obj $object, array $value, string $pointer, bool $creating, JsonApiRequestInterface $request, array &$found): void
     {
         $memberField = $object->additionalProperties();
-        $writesMembers = !$hooked && $memberField !== null && !$memberField->isHidden() && !$memberField->isReadOnlyFor($creating, $request);
+        $writesMembers = $memberField !== null && !$memberField->isHidden() && !$memberField->isReadOnlyFor($creating, $request);
         $additional = $writesMembers ? $object->additionalMembersOf($value) : [];
 
         if ($memberField !== null || self::countsMembers($object)) {
             $found[] = new ObjectValue($pointer, $object, $value, $additional, $writesMembers ? $memberField : null);
         }
-        if ($hooked) {
-            return;
-        }
-
         self::children($object->children(), $value, $pointer, $creating, $request, $found);
         if ($writesMembers) {
             foreach ($additional as $key => $member) {

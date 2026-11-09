@@ -133,7 +133,7 @@ final class SchemaProjector
      */
     private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $shapedByHook = $this->reading ? $list->rendersThroughHook() : $list->hydratesThroughHook();
+        $shapedByHook = $this->reading && $list->rendersThroughHook();
         $previous = $this->wholeValue;
         $this->wholeValue = true;
 
@@ -187,13 +187,14 @@ final class SchemaProjector
      * hidden child is never projected. Presence says nothing about `null`; the child's
      * own schema does.
      *
-     * The object is **closed** (`additionalProperties: false`) unless a hook produces it in
-     * the direction being projected: `serializeUsing()` / `extractUsing()` on a read,
-     * `fillUsing()` / `deserializeUsing()` on a write. A hook owns the shape it reads or
-     * writes, so the declared children do not bound it.
+     * The object is **closed** (`additionalProperties: false`) unless a
+     * `serializeUsing()` / `extractUsing()` hook produces it on a read, since the server
+     * never validates its own output against the declared children. A `fillUsing()` /
+     * `deserializeUsing()` hook changes how a write is stored, not what it accepts, so a
+     * write keeps the declared shape.
      *
-     * `$shapedByHook` marks the object as author-shaped when a hook outside the parent
-     * shapes it, as an {@see ArrayList}'s hook shapes each of its elements.
+     * `$shapedByHook` marks the object as author-shaped on a read when a hook outside the
+     * parent renders it, as an {@see ArrayList}'s hook renders each of its elements.
      *
      * `$additionalProperties` opens the object, as {@see Obj::additionalProperties()}
      * does: `additionalProperties` is that field's own schema, built as the field would
@@ -206,7 +207,7 @@ final class SchemaProjector
     public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false, ?FieldInterface $additionalProperties = null): Schema
     {
         $reading = $this->reading && !$creating;
-        $authorShaped = $shapedByHook || ($parent instanceof AbstractFieldValue && ($reading ? $parent->rendersThroughHook() : $parent->hydratesThroughHook()));
+        $authorShaped = $reading && ($shapedByHook || ($parent instanceof AbstractFieldValue && $parent->rendersThroughHook()));
         $properties = [];
         $required = [];
         foreach ($children as $child) {
@@ -232,7 +233,7 @@ final class SchemaProjector
             ->withRequired($required);
 
         // A declared shape is closed: a member it does not declare is a mistake, not data.
-        // A hook producing the value in this direction owns its shape, so it stays open.
+        // A read hook renders its own shape, so a read stays open there.
         if ($authorShaped) {
             return $schema;
         }

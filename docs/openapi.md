@@ -147,9 +147,11 @@ sketch:
 - **Closed objects.** Every attributes component and every nested object a field declares
   (`Map`, `Obj`, each `OneOf` branch, a structured list's element) carries
   `additionalProperties: false`, so a member the type does not declare is rejected rather
-  than silently dropped. A nested object a hook produces stays open in that direction:
-  `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
-  write, since the hook, not the declared children, owns its shape. A standalone
+  than silently dropped. A nested object a `serializeUsing()`/`extractUsing()` hook
+  renders stays open on a read, since the hook, not the declared children, owns the shape
+  it renders. A `fillUsing()`/`deserializeUsing()` hook only changes how a write is
+  stored, so the write schema keeps the declared shape, open members and counts, and the
+  server validates the value against it. A standalone
   serializer with no field inventory keeps an open attributes object.
 - **Open objects.** An `Obj` declaring
   [`additionalProperties()`](field-types.md#open-members) projects that field's schema as
