@@ -58,9 +58,10 @@ final class ReferencesResolveTest extends TestCase
         self::assertIsArray($accepted);
         self::assertSame('album-jobs', $this->at($accepted, 'properties', 'data', 'properties', 'type', 'const'));
 
-        // albums allows no create, so its action input falls back to the resource object.
+        // albums allows no create, but an action takes it as a create-context document, so
+        // the input is still its create request.
         self::assertSame(
-            ['$ref' => '#/components/schemas/AlbumsResource'],
+            ['$ref' => '#/components/schemas/AlbumsCreateRequest'],
             $this->at($paths, '/albums/{id}/-actions/retitle', 'post', 'requestBody', 'content', 'application/vnd.api+json', 'schema'),
         );
     }

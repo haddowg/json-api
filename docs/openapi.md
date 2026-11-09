@@ -140,7 +140,10 @@ sketch:
   field is `readOnly: true`; a create-required one appears in the create shape's
   `required` but not the update shape's (an absent update member means "no change").
   The create/update components are emitted **only** when the type's operation allow-list
-  exposes that write, so a read-only type dangles no write components.
+  exposes that write, so a read-only type dangles no write components. A type a custom
+  action takes as its JSON:API request document is the exception: the action reads it in
+  a create context, so the type gets `<Type>CreateAttributes` and `<Type>CreateRequest`
+  whether or not it exposes create.
 - **Closed objects.** Every attributes component and every nested object a field declares
   (`Map`, `Obj`, each `OneOf` branch, a structured list's element) carries
   `additionalProperties: false`, so a member the type does not declare is rejected rather
@@ -778,7 +781,8 @@ The examples show what the server sends and accepts:
 - A relationship endpoint carries the linkage document, and a relationship mutation the
   linkage it writes.
 - A custom action's response is built from the type its `ActionResource` or `ActionCreated` names, and its
-  request body from its input type when the input is a resource document. A `RawResult`
+  request body from its input type's create request document when the input is a
+  resource document. A `RawResult`
   keeps its own `example`.
 - An error response carries one named example per code it offers, keyed by the code and
   referencing the code's entry in `components.examples`, summarised by its title. Each is a document holding that code's one error, with
@@ -983,8 +987,10 @@ Three more carry [deprecation](#deprecation). `DeclaresDeprecation` extends
 
 A **standalone serializer** with no declared field inventory is tolerated
 (`hasFields()` is `false`, `fields()` is empty): it projects to a permissive
-resource-object schema and no attribute / write-request components, exactly mirroring the
-runtime's "serializer but no fields" case.
+resource-object schema and no attribute components, exactly mirroring the runtime's
+"serializer but no fields" case. Where it can be created, or an action takes it as its
+request document, its `<Type>CreateRequest` is still a request document: `data` with the
+`type` const, the `id` its client-id policy allows and an open `attributes` object.
 
 ## Response declarations
 
@@ -1150,7 +1156,11 @@ media type. `SeeOther` on a fetch-one is unchanged: always the bare `303`.
 ### Accepted request bodies
 
 An action's input mode projects one request body: none, its JSON:API document, or an
-open `application/octet-stream` body for raw input. An action that takes several media
+open `application/octet-stream` body for raw input. The document is its input type's
+`<Type>CreateRequest`, since the action parses, validates and hydrates the body as a
+create: `data` with the `type` const, an `id` only as the type's client-id policy allows,
+the create attributes and the relationships a create may set. The request example is
+that create document, with no links. An action that takes several media
 types, or a raw body with a known shape, also implements `DeclaresAcceptedBodies` on its
 metadata, and each `AcceptedBody` becomes one `requestBody.content` entry:
 

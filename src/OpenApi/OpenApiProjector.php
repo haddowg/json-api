@@ -860,8 +860,11 @@ final class OpenApiProjector
         // The create/update attributes are emitted only when the type's operation
         // allow-list exposes the corresponding write (a read-only type emits no write
         // components, so nothing dangles), matching the path projection which emits a
-        // Create/Update path only for an allowed operation.
-        $allowsCreate = $this->allowsOperation($type, OperationType::Create);
+        // Create/Update path only for an allowed operation. A type an action takes as its
+        // request document is written in a create context too, so it gets the create
+        // components whether or not it exposes create itself.
+        $allowsCreate = $this->allowsOperation($type, OperationType::Create)
+            || isset(ActionDocumentInput::inputTypes($server)[$type->type()]);
         $allowsUpdate = $this->allowsOperation($type, OperationType::Update);
         if ($type->hasFields()) {
             $schemas[$name . 'Attributes'] = $this->schemaProjector->projectAttributes($fields, RepresentationContext::Read, $collector);
@@ -884,8 +887,9 @@ final class OpenApiProjector
         // Write request document schemas (create requires/allows id per the policy;
         // update never carries a writable id beyond the path identifier). Both `$ref`
         // the shared attributes components above, and are emitted only when the type
-        // exposes the corresponding write operation.
-        if ($type->hasFields() && $allowsCreate) {
+        // exposes the corresponding write operation. A fieldless type's create request
+        // takes an open attributes object.
+        if ($allowsCreate) {
             $schemas[$name . 'CreateRequest'] = $this->createRequestSchema($type);
         }
         if ($type->hasFields() && $allowsUpdate) {
@@ -1625,7 +1629,9 @@ final class OpenApiProjector
     {
         $resource = Schema::ofType('object')
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
-            ->withProperty('attributes', Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'CreateAttributes'));
+            ->withProperty('attributes', $type->hasFields()
+                ? Schema::ref('#/components/schemas/' . $this->componentBase($type->type()) . 'CreateAttributes')
+                : Schema::ofType('object'));
 
         $required = ['type'];
         if ($type->requiresClientId()) {

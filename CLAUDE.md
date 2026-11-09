@@ -440,6 +440,10 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   without one at build, and is written whole on every write; adapters select through
   `OneOf::variantOf()`, never by reading a discriminator key themselves
   ([ADR 0089](docs/adr/0089-an-undiscriminated-oneof-is-selected-by-a-required-signature-and-written-whole.md)).
+- A custom action's document input is its type's `<Type>CreateRequest`, emitted with
+  `<Type>CreateAttributes` for every type an action takes that way, whether or not the type
+  exposes create. Never fall back to the bare `<Type>Resource`
+  ([ADR 0096](docs/adr/0096-an-action-document-input-gets-its-types-create-request.md)).
 - A polymorphic relation's linkage and related resource, and a compound document's
   `included`, are a `oneOf` discriminated by `type`. `included` reaches what the `include`
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one

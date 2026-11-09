@@ -322,11 +322,7 @@ final class OperationProjector
     {
         $base = ComponentNaming::base($type->type());
 
-        // A standalone serializer-only type (no field inventory) carries no
-        // create-request component; fall back to the permissive write envelope ref.
-        $requestSchema = $type->hasFields()
-            ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
-            : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
+        $requestSchema = Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'));
 
         $declared = $type->responsesFor(OperationType::Create);
 
@@ -994,7 +990,7 @@ final class OperationProjector
 
     /**
      * The action's request body for its input mode: `None` → no body;
-     * `Document` → the input type's create-request schema under the JSON:API media
+     * `Document` → the input type's `<Type>CreateRequest` under the JSON:API media
      * type; `Raw` → a permissive string/binary body under `application/octet-stream`
      * (the author owns the negotiation, so the schema is left open).
      */
@@ -1017,10 +1013,9 @@ final class OperationProjector
     }
 
     /**
-     * The `Document`-mode request body: the input type's create-request schema (or the
-     * permissive resource ref for a type with no field inventory) under the JSON:API
-     * media type. An action declaring `Document` input with no `inputType` degrades to
-     * a permissive JSON:API document body.
+     * The `Document`-mode request body: the input type's create-request schema under the
+     * JSON:API media type. An action declaring `Document` input with no `inputType`
+     * degrades to a permissive JSON:API document body.
      */
     private function actionDocumentRequestBody(ActionMetadataInterface $action, ServerMetadataInterface $server): RequestBody
     {
@@ -1028,9 +1023,11 @@ final class OperationProjector
     }
 
     /**
-     * The schema of the action's JSON:API request document: the input type's create
-     * request, its resource object for a type that cannot be created, or an open object
-     * when the action names no registered input type.
+     * The schema of the action's JSON:API request document: the input type's
+     * `<Type>CreateRequest`, emitted for every type an action takes as its document
+     * whether or not the type exposes create, since the action parses, validates and
+     * hydrates it in a create context. An open object when the action names no
+     * registered input type.
      */
     private function actionDocumentSchema(ActionMetadataInterface $action, ServerMetadataInterface $server): Schema
     {
@@ -1040,13 +1037,7 @@ final class OperationProjector
             return Schema::ofType('object');
         }
 
-        $base = ComponentNaming::base($input->type());
-
-        // `<Type>CreateRequest` exists only for a type with fields that allows create;
-        // any other registered type falls back to its resource object, as create does.
-        return $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
-            ? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))
-            : Schema::ref(ComponentNaming::schemaRef($base . 'Resource'));
+        return Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($input->type()) . 'CreateRequest'));
     }
 
     /**
