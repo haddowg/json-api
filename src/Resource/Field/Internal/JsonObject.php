@@ -43,6 +43,14 @@ final class JsonObject
     }
 
     /**
+     * A member key as one JSON Pointer reference token, `~` and `/` escaped (RFC 6901).
+     */
+    public static function pointerSegment(string|int $key): string
+    {
+        return \str_replace(['~', '/'], ['~0', '~1'], (string) $key);
+    }
+
+    /**
      * Runs a composite field's child hydration, moving a child's
      * {@see AttributeValueInvalid} under the parent so its pointer reads
      * `/data/attributes/<parent>/<child>`.

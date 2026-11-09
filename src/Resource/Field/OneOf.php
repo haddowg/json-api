@@ -48,7 +48,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
     /**
      * @param array<string, Obj> $variants
      *
-     * @throws \LogicException when the union is undiscriminated and a variant has no signature
+     * @throws \LogicException when the union is undiscriminated and a variant has no signature, or a variant is open
      */
     public function __construct(
         FieldState $state,
@@ -56,6 +56,13 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         private array $variants = [],
     ) {
         parent::__construct($state);
+        foreach ($variants as $name => $variant) {
+            // An open branch would also match values meant for another branch, so the
+            // `oneOf` would stop being exclusive.
+            if ($variant->additionalProperties() !== null) {
+                throw new \LogicException(\sprintf('OneOf "%s" variant "%s" cannot take additionalProperties(); a variant is closed. Open an Obj child of the variant instead.', $state->name, $name));
+            }
+        }
         $this->signatures = $discriminator === null ? self::signaturesOf($state->name, $variants) : [];
     }
 

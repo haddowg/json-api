@@ -158,14 +158,16 @@ final class ContractWitnessServer
      *                          which the baseline witness leaves out too
      * @param bool $identifierMeta whether articles relations declare their identifier meta
      *                             members, which the baseline witness leaves out too
+     * @param bool $openObjects whether the articles carry objects open to members they do
+     *                          not declare, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -264,7 +266,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -354,6 +356,18 @@ final class ContractWitnessServer
                         )))->maxItems(50)->build(),
                 ] : []),
                 ...($deprecations ? [Str::make('subtitle')->deprecated()->build()] : []),
+                // Objects open to members they do not declare: string values alone, a list
+                // of rows mixing a declared child with bounded nullable members, and
+                // read-only members that leave the object closed on a write.
+                ...($openObjects ? [
+                    Obj::make('labels')->additionalProperties(Str::make('*')->maxLength(40))->maxProperties(20)->build(),
+                    ArrayList::make('rows')->of(Obj::make('row')
+                        ->fields(Str::make('Key')->required())
+                        ->additionalProperties(Str::make('*')->nullable()->maxLength(200))
+                        ->minProperties(1)
+                        ->maxProperties(50))->maxItems(1000)->build(),
+                    Obj::make('metrics')->additionalProperties(Integer::make('*')->readOnly()->min(0))->build(),
+                ] : []),
             ],
             relations: [
                 // Declared identifier meta: typed under each response linkage identifier's

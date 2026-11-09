@@ -13,6 +13,8 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\In;
+use haddowg\JsonApi\Resource\Constraint\MaxProperties;
+use haddowg\JsonApi\Resource\Constraint\MinProperties;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\ProvidesJsonSchema;
@@ -138,12 +140,32 @@ final class SchemaProjector
         try {
             $schema = $element instanceof OneOf
                 ? $element->projectVariants($this, $creating, $collector, $shapedByHook)
-                : $this->projectNestedObject($element, $element->children(), $creating, $collector, $shapedByHook);
+                : $this->applyMemberCounts(
+                    $this->projectNestedObject($element, $element->children(), $creating, $collector, $shapedByHook, $element->additionalProperties()),
+                    $element,
+                    $creating,
+                );
         } finally {
             $this->wholeValue = $previous;
         }
 
         return $this->applyExample($this->applyDescription($schema, $element, []), $element);
+    }
+
+    /**
+     * Applies an object's own `minProperties()` / `maxProperties()` to its schema, for an
+     * object whose field post-processing does not run, as a list element's does not.
+     */
+    private function applyMemberCounts(Schema $schema, Obj $object, bool $creating): Schema
+    {
+        $applies = $this->narrowingScope($object, $creating);
+        foreach ($object->constraints() as $constraint) {
+            if (($constraint instanceof MinProperties || $constraint instanceof MaxProperties) && $applies($constraint->context())) {
+                $schema = $constraint->contribute($schema);
+            }
+        }
+
+        return $schema;
     }
 
     /**
@@ -173,9 +195,15 @@ final class SchemaProjector
      * `$shapedByHook` marks the object as author-shaped when a hook outside the parent
      * shapes it, as an {@see ArrayList}'s hook shapes each of its elements.
      *
+     * `$additionalProperties` opens the object, as {@see Obj::additionalProperties()}
+     * does: `additionalProperties` is that field's own schema, built as the field would
+     * project as a child. The members follow a child's representation rules, so the
+     * object stays closed on a read when the field is write-only, and on a write when it
+     * is read-only for that write unless {@see admittingReadOnly()} keeps it.
+     *
      * @param iterable<FieldInterface> $children
      */
-    public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false): Schema
+    public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false, ?FieldInterface $additionalProperties = null): Schema
     {
         $reading = $this->reading && !$creating;
         $authorShaped = $shapedByHook || ($parent instanceof AbstractFieldValue && ($reading ? $parent->rendersThroughHook() : $parent->hydratesThroughHook()));
@@ -205,7 +233,26 @@ final class SchemaProjector
 
         // A declared shape is closed: a member it does not declare is a mistake, not data.
         // A hook producing the value in this direction owns its shape, so it stays open.
-        return $authorShaped ? $schema : $schema->withAdditionalProperties(false);
+        if ($authorShaped) {
+            return $schema;
+        }
+
+        return $schema->withAdditionalProperties(
+            $additionalProperties !== null && $this->projectsMembersOf($additionalProperties, $reading, $creating)
+                ? $this->projectField($additionalProperties, $creating, $collector)
+                : false,
+        );
+    }
+
+    /**
+     * Whether an open object's undeclared members appear in the representation being
+     * projected, by the rules a declared child follows.
+     */
+    private function projectsMembersOf(FieldInterface $field, bool $reading, bool $creating): bool
+    {
+        return !$field->isHidden()
+            && !($reading && $field->isWriteOnly())
+            && ($reading || !$field->isReadOnly($creating) || $this->admitsReadOnly);
     }
 
     /**

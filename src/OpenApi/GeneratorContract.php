@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-one scoped
+ * is warned only by the documents that contain it. There are twenty-two scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -66,8 +66,9 @@ namespace haddowg\JsonApi\OpenApi;
  * ({@see ACTION_FILTERS}), an action answering `201 Created` ({@see ACTION_CREATED}),
  * a related-only type ({@see RELATED_ONLY}), a `filter` parameter accepting a family of
  * keys by prefix ({@see FILTER_FAMILIES}), a filter taking its list as
- * `filter[<key>][]` ({@see LIST_FILTERS}) and the declared members of a linkage
- * identifier's `meta` ({@see IDENTIFIER_META}).
+ * `filter[<key>][]` ({@see LIST_FILTERS}), the declared members of a linkage
+ * identifier's `meta` ({@see IDENTIFIER_META}) and an object open to members it does
+ * not declare ({@see OPEN_OBJECTS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -82,7 +83,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 28;
+    public const CONTRACT = 29;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -262,6 +263,14 @@ final class GeneratorContract
     public const IDENTIFIER_META = 28;
 
     /**
+     * The contract that introduced open objects: an object schema built from declared
+     * child fields whose `additionalProperties` is a schema describing every member it
+     * does not declare, rather than `false`, optionally bounded by `minProperties` and
+     * `maxProperties`. A document carries it only when some field declares one.
+     */
+    public const OPEN_OBJECTS = 29;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -287,6 +296,7 @@ final class GeneratorContract
         bool $filterFamilies = false,
         bool $listFilters = false,
         bool $identifierMeta = false,
+        bool $openObjects = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -310,6 +320,7 @@ final class GeneratorContract
             $filterFamilies ? self::FILTER_FAMILIES : self::BASELINE,
             $listFilters ? self::LIST_FILTERS : self::BASELINE,
             $identifierMeta ? self::IDENTIFIER_META : self::BASELINE,
+            $openObjects ? self::OPEN_OBJECTS : self::BASELINE,
         )];
     }
 }
