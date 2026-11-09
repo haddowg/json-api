@@ -1543,9 +1543,17 @@ final class OpenApiProjector
                 continue;
             }
             $relBase = $base . $this->componentBase($relation->name());
-            $property = $atomic
-                ? $this->atomicRelationshipObjectSchema($relation, $relBase)
-                : Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
+            if ($atomic) {
+                $property = $this->atomicRelationshipObjectSchema($relation, $relBase, $type, $creating);
+            } else {
+                $property = Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
+                // The relationship object is shared with the read side, so a write's item
+                // bounds narrow it here rather than on the component.
+                $bounds = RelationFacts::withItemBounds(Schema::create(), $type, $relation, $creating);
+                if ($bounds->toArray() !== []) {
+                    $property = Schema::create()->withAllOf([$property, Schema::create()->withProperty('data', $bounds)]);
+                }
+            }
             // A write-only relation is never rendered back, which the response schemas
             // show only by its absence; say it here, where the relation is.
             if (RelationFacts::isWriteOnly($relation)) {
@@ -1568,9 +1576,9 @@ final class OpenApiProjector
      * The relationship object an atomic `add` or `update` carries: linkage of
      * `<Type>AtomicIdentifier`s, so a member may be named by the `lid` of a resource an
      * earlier operation in the batch created, typed with the request pivot where the
-     * relation has one.
+     * relation has one, and a to-many's linkage bounded by its item bounds for the write.
      */
-    private function atomicRelationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    private function atomicRelationshipObjectSchema(RelationMetadataInterface $relation, string $relBase, TypeMetadataInterface $type, bool $creating): Schema
     {
         $types = $relation->relatedTypes();
         $single = RelationFacts::monomorphicType($relation);
@@ -1591,7 +1599,9 @@ final class OpenApiProjector
         }
 
         $schema = Schema::ofType('object')
-            ->withProperty('data', $relation->isToMany() ? Schema::ofType('array')->withItems($identifier) : $this->nullable($identifier))
+            ->withProperty('data', $relation->isToMany()
+                ? RelationFacts::withItemBounds(Schema::ofType('array')->withItems($identifier), $type, $relation, $creating)
+                : $this->nullable($identifier))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withRequired(['data']);
 

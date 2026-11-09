@@ -109,6 +109,10 @@ produce a `422` when a write supplies too few or too many members:
 HasMany::make('tracks', 'tracks')->minItems(1)->maxItems(50),
 ```
 
+The [OpenAPI](openapi.md) document and the request validator's compiled schema carry the
+same bounds on the linkage of a create, an update and a relationship replacement. An
+addition or a removal sends only the members that change, so neither bounds it.
+
 On a to-many mutation the default apply maintains a **deduplicated id set** under
 the `Mode` of the request (the `Mode` enum, see
 [relationship-mutation](relationship-mutation.md)): `Mode::Replace` sets the whole

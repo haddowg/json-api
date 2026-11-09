@@ -859,13 +859,30 @@ final class OperationProjector
             summary: $summary,
             description: $this->relationDescription($relation, $defaultDescription),
             operationId: $operationId,
-            // A pivot-backed relation's request linkage types `meta.pivot` with the request
-            // pivot shape, so it takes its own request document.
-            requestBody: RequestBody::ofSchema(RelationFacts::hasPivot($relation)
-                ? Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . ComponentNaming::base($relation->name()) . 'RelationshipRequest'))
-                : $documentRef),
+            requestBody: RequestBody::ofSchema($this->relationshipRequestBody($type, $relation, $kind, $documentRef)),
             security: $security,
         );
+    }
+
+    /**
+     * A relationship mutation's request body. A pivot-backed relation's request linkage
+     * types `meta.pivot` with the request pivot shape, so it takes its own request
+     * document. A full replacement sets the whole membership, so its linkage carries the
+     * relation's item bounds for an update; an addition or a removal carries a delta and
+     * takes none.
+     */
+    private function relationshipRequestBody(TypeMetadataInterface $type, RelationMetadataInterface $relation, OperationKind $kind, Schema $documentRef): Schema
+    {
+        $body = RelationFacts::hasPivot($relation)
+            ? Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . ComponentNaming::base($relation->name()) . 'RelationshipRequest'))
+            : $documentRef;
+        if ($kind !== OperationKind::UpdateRelationship) {
+            return $body;
+        }
+
+        $bounds = RelationFacts::withItemBounds(Schema::create(), $type, $relation, creating: false);
+
+        return $bounds->toArray() === [] ? $body : Schema::create()->withAllOf([$body, Schema::create()->withProperty('data', $bounds)]);
     }
 
     /**
