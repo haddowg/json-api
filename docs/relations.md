@@ -257,12 +257,13 @@ the bundle's relationships / Doctrine docs for the persistence details.
 
 ### Computed pivot fields
 
-A pivot field can be computed rather than stored: declare it with `computed()`,
-`computedUsing()` or `extractUsing()`, as you would a derived attribute. Its hook does not
+A pivot field can be computed rather than stored: declare it with `computed()` or
+`computedUsing()`, as you would a derived attribute. It has no column. Its hook does not
 receive a join row. It receives a
 [`PivotEdge`](../src/Resource/Field/PivotEdge.php) holding the `parent` whose relation is
-rendered and the `related` member the linkage identifier points at, so the value is worked
-out per link:
+rendered, the `related` member the linkage identifier points at, and `pivot`, the link's
+stored pivot values keyed by field name (empty when the link has no join row), so the
+value is worked out per link:
 
 ```php
 BelongsToMany::make('members', 'users')
@@ -280,11 +281,19 @@ that sends it ignores it as it ignores a read-only field, and the projected
 `<Type><Rel>WritePivot` does not list it. It has no column, so it is not a `sort=` or
 `filter[…]` key either.
 
-`isComputedPivotField()` tells the two kinds apart, `storedPivotFields()` and
-`computedPivotFields()` split the declaration, and `computedPivotValues($parent, $related,
-$request)` evaluates the computed ones for a link. When `storedPivotFields()` is empty the
-relation needs no association entity or pivot model at all, and a host serves it over a
-plain join table.
+A stored field with an `extractUsing()` hook is not computed. As on an attribute, the hook
+changes only how it is read: the field keeps its column, stays writable from `meta`, and
+sorts and filters on its column. Its hook receives the same `PivotEdge`, never the join
+row, and reads the stored value from `$edge->pivot`. A `serializeUsing()` hook on a pivot
+field is not consulted.
+
+`isComputedPivotField()` tells a computed field from a stored one, `storedPivotFields()`
+and `computedPivotFields()` split the declaration, and `readsPivotFieldThroughHook()` names
+the fields whose value comes from a hook. `hookedPivotValues($parent, $related, $stored,
+$request)` evaluates those for a link, given the stored values the host read, and the host
+renders them over the stored values. When `storedPivotFields()` is empty the relation
+needs no association entity or pivot model at all, and a host serves it over a plain join
+table.
 
 > **The Doctrine fact.** A plain `#[ORM\ManyToMany]` join table holds only the
 > two foreign keys — Doctrine cannot map a `position` / `addedAt` column on it. To

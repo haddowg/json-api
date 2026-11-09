@@ -174,8 +174,8 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
     }
 
     /**
-     * Whether an `extractUsing()` / `computedUsing()` hook supplies the value instead of
-     * the backing column.
+     * Whether an `extractUsing()` / `computedUsing()` hook supplies the read value instead
+     * of the backing column.
      *
      * @internal
      */

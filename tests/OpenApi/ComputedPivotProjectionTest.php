@@ -45,10 +45,11 @@ final class ComputedPivotProjectionTest extends TestCase
 
         $schemas = $this->arrAt($document, 'components', 'schemas');
         self::assertSame(['position', 'label', 'origin'], \array_keys($this->arrAt($schemas, 'PlaylistsTracksPivot', 'properties')));
-        self::assertSame(['position'], \array_keys($this->arrAt($schemas, 'PlaylistsTracksWritePivot', 'properties')));
+        // A stored field read through an extract hook is still written to its column.
+        self::assertSame(['position', 'label'], \array_keys($this->arrAt($schemas, 'PlaylistsTracksWritePivot', 'properties')));
 
         self::assertSame(
-            [['type' => 'tracks', 'id' => 'tr-1', 'meta' => ['pivot' => ['position' => 1]]]],
+            [['type' => 'tracks', 'id' => 'tr-1', 'meta' => ['pivot' => ['position' => 1, 'label' => 'x']]]],
             $this->arrAt($document, 'paths', '/playlists/{id}/relationships/tracks', 'patch', 'requestBody', 'content', 'application/vnd.api+json', 'example', 'data'),
         );
     }

@@ -21,13 +21,18 @@ use PHPUnit\Framework\TestCase;
 final class ComputedPivotFieldTest extends TestCase
 {
     #[Test]
-    public function aFieldWithoutAColumnOrWithAnExtractHookIsComputed(): void
+    public function onlyAFieldWithoutAColumnIsComputed(): void
     {
         self::assertTrue(BelongsToMany::isComputedPivotField(Str::make('a')->computed()->build()));
         self::assertTrue(BelongsToMany::isComputedPivotField(Str::make('b')->computedUsing(static fn(): string => 'b')->build()));
-        self::assertTrue(BelongsToMany::isComputedPivotField(Str::make('c')->extractUsing(static fn(): string => 'c')->build()));
+        self::assertFalse(BelongsToMany::isComputedPivotField(Str::make('c')->extractUsing(static fn(): string => 'c')->build()));
         self::assertFalse(BelongsToMany::isComputedPivotField(Str::make('d')->build()));
         self::assertFalse(BelongsToMany::isComputedPivotField(Str::make('e')->storedAs('e_column')->readOnly()->build()));
+
+        // A stored field with an extract hook is read through it all the same.
+        self::assertTrue(BelongsToMany::readsPivotFieldThroughHook(Str::make('c')->extractUsing(static fn(): string => 'c')->build()));
+        self::assertTrue(BelongsToMany::readsPivotFieldThroughHook(Str::make('b')->computedUsing(static fn(): string => 'b')->build()));
+        self::assertFalse(BelongsToMany::readsPivotFieldThroughHook(Str::make('d')->build()));
     }
 
     #[Test]
@@ -39,8 +44,8 @@ final class ComputedPivotFieldTest extends TestCase
             Str::make('note')->extractUsing(static fn(): string => 'y'),
         )->build();
 
-        self::assertSame(['position'], self::names($relation->storedPivotFields()));
-        self::assertSame(['label', 'note'], self::names($relation->computedPivotFields()));
+        self::assertSame(['position', 'note'], self::names($relation->storedPivotFields()));
+        self::assertSame(['label'], self::names($relation->computedPivotFields()));
 
         $allComputed = BelongsToMany::make('tags', 'tags')->fields(Str::make('label')->computedUsing(static fn(): string => 'x'))->build();
         self::assertSame([], $allComputed->storedPivotFields());
@@ -55,8 +60,9 @@ final class ComputedPivotFieldTest extends TestCase
             Str::make('label')->computed(),
         )->build();
 
-        self::assertSame(['position'], self::names($relation->writablePivotFields(true)));
-        self::assertSame(['position'], self::names($relation->writablePivotFields(false)));
+        // A stored field with an extract hook stays writable to its column.
+        self::assertSame(['position', 'note'], self::names($relation->writablePivotFields(true)));
+        self::assertSame(['position', 'note'], self::names($relation->writablePivotFields(false)));
         // They still render.
         self::assertSame(['position', 'note', 'label'], self::names($relation->readablePivotFields()));
     }
@@ -81,11 +87,12 @@ final class ComputedPivotFieldTest extends TestCase
             DateTime::make('since')->computedUsing(static fn(): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01T12:00:00+00:00')),
         )->build();
 
-        $values = $relation->computedPivotValues(['id' => 'team-1'], ['id' => 'user-7'], new StubJsonApiRequest(), 'Europe/Paris');
+        $values = $relation->hookedPivotValues(['id' => 'team-1'], ['id' => 'user-7'], ['position' => 3], new StubJsonApiRequest(), 'Europe/Paris');
 
+        // Only the hooked fields: the host renders the stored position itself.
         self::assertSame(['role' => 'team-1:user-7', 'since' => '2026-01-01T13:00:00+01:00'], $values);
         self::assertIsArray($seen);
-        self::assertEquals(new PivotEdge(['id' => 'team-1'], ['id' => 'user-7']), $seen[0]);
+        self::assertEquals(new PivotEdge(['id' => 'team-1'], ['id' => 'user-7'], ['position' => 3]), $seen[0]);
         self::assertSame('role', $seen[1]);
     }
 
@@ -97,5 +104,24 @@ final class ComputedPivotFieldTest extends TestCase
     private static function names(array $fields): array
     {
         return \array_map(static fn(FieldInterface $field): string => $field->name(), $fields);
+    }
+
+    #[Test]
+    public function aStoredFieldWithAnExtractHookReadsTheStoredValuesOffTheEdge(): void
+    {
+        $relation = BelongsToMany::make('tags', 'tags')->fields(
+            Integer::make('position'),
+            Str::make('note')->extractUsing(static function (mixed $edge): ?string {
+                $note = $edge instanceof PivotEdge ? ($edge->pivot['note'] ?? null) : null;
+
+                return \is_string($note) ? \strtoupper($note) : null;
+            }),
+        )->build();
+
+        self::assertSame(
+            ['note' => 'HELLO'],
+            $relation->hookedPivotValues(['id' => '1'], ['id' => '2'], ['position' => 1, 'note' => 'hello'], new StubJsonApiRequest()),
+        );
+        self::assertSame(['note' => null], $relation->hookedPivotValues(['id' => '1'], ['id' => '2'], [], new StubJsonApiRequest()));
     }
 }

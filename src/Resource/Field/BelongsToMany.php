@@ -24,10 +24,11 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * the association entity.
  *
  * A pivot field may also be **computed** ({@see isComputedPivotField()}): declared with
- * `computed()`, `computedUsing()` or `extractUsing()`, its value comes from its hook, which
- * a host calls with a {@see PivotEdge} of the parent and the related member rather than a
- * join row. A computed field is never written, and a relation whose pivot fields are all
- * computed needs no stored pivot at all ({@see storedPivotFields()}).
+ * `computed()` or `computedUsing()`, it has no column and its value comes from its hook. A
+ * computed field is never written, and a relation whose pivot fields are all computed
+ * needs no stored pivot at all ({@see storedPivotFields()}). A stored field with an
+ * `extractUsing()` hook stays stored and writable and is read through the hook. Either way
+ * the hook receives a {@see PivotEdge} rather than a join row ({@see hookedPivotValues()}).
  */
 final readonly class BelongsToMany extends HasMany
 {
@@ -68,13 +69,22 @@ final readonly class BelongsToMany extends HasMany
 
     /**
      * Whether a pivot field is **computed**: it has no backing column (`computed()`,
-     * `computedUsing()`) or an `extractUsing()` hook supplies its value. A host renders it
-     * by calling the field's serializer with a {@see PivotEdge}, never reads it off a join
-     * row, and never writes it.
+     * `computedUsing()`). A host renders it through {@see hookedPivotValues()}, never reads
+     * it off a join row, and never writes it. An `extractUsing()` hook on a field with a
+     * column changes only how it is read, as on an attribute.
      */
     public static function isComputedPivotField(FieldInterface $field): bool
     {
-        return $field->column() === null
+        return $field->column() === null;
+    }
+
+    /**
+     * Whether a pivot field's rendered value comes from its hook rather than the stored
+     * column: a computed field, or a stored one with an `extractUsing()` hook.
+     */
+    public static function readsPivotFieldThroughHook(FieldInterface $field): bool
+    {
+        return self::isComputedPivotField($field)
             || ($field instanceof AbstractFieldValue && $field->extractsThroughHook());
     }
 
@@ -108,20 +118,28 @@ final readonly class BelongsToMany extends HasMany
     }
 
     /**
-     * The values of the computed pivot fields for one link, keyed by field name: each
-     * field's own serialization of a {@see PivotEdge} of `$parent` and `$related`, so its
-     * hook receives both ends and its cast applies as it does to an attribute.
-     * `$outputTimezone` is the server's default output zone, which a date field adopts
-     * unless it set its own. Every computed field is evaluated; a host still renders only
-     * what {@see readablePivotFieldsFor()} returns.
+     * The values of the pivot fields read through a hook for one link
+     * ({@see readsPivotFieldThroughHook()}), keyed by field name: each field's own
+     * serialization of a {@see PivotEdge} of `$parent`, `$related` and the link's `$stored`
+     * values, so its hook sees both ends and the stored row and its cast applies as it does
+     * to an attribute. `$stored` holds the stored fields' values as the host read them,
+     * keyed by field name, and is empty when the link has no join row. `$outputTimezone` is
+     * the server's default output zone, which a date field adopts unless it set its own.
+     * A host renders these over the stored values; it still renders only what
+     * {@see readablePivotFieldsFor()} returns.
+     *
+     * @param array<string, mixed> $stored
      *
      * @return array<string, mixed>
      */
-    public function computedPivotValues(mixed $parent, mixed $related, JsonApiRequestInterface $request, ?string $outputTimezone = null): array
+    public function hookedPivotValues(mixed $parent, mixed $related, array $stored, JsonApiRequestInterface $request, ?string $outputTimezone = null): array
     {
-        $edge = new PivotEdge($parent, $related);
+        $edge = new PivotEdge($parent, $related, $stored);
         $values = [];
-        foreach ($this->computedPivotFields() as $field) {
+        foreach ($this->pivotFields as $field) {
+            if (!self::readsPivotFieldThroughHook($field)) {
+                continue;
+            }
             if ($outputTimezone !== null && $field instanceof AcceptsDefaultOutputTimezoneInterface) {
                 $field = $field->withDefaultOutputTimezone($outputTimezone);
             }
