@@ -148,6 +148,12 @@ sketch:
   `serializeUsing()`/`extractUsing()` on a read, `fillUsing()`/`deserializeUsing()` on a
   write, since the hook, not the declared children, owns its shape. A standalone
   serializer with no field inventory keeps an open attributes object.
+- **Read-only children.** A nested object's child that is read-only for a write is left
+  out of that write's shape, as a read-only attribute is, in a `Map`, an `Obj`, each
+  `OneOf` branch and a structured list's element. A child read-only only by a `when:`
+  predicate stays. The request validator `SchemaCompiler` builds from the same projection
+  but keeps such a child as an optional member, because hydration ignores it rather than
+  rejecting it, so a client echoing a fetched value back still validates.
 - **Id policy.** A create request `$ref`s the create attributes and shapes `id`
   according to the type's client-id policy: **forbidden** (a `false` schema) when the
   server assigns it, **permitted** when a client id is allowed, **required** when it is

@@ -128,9 +128,11 @@ final class SchemaCompiler
     {
         // A structured field (an Obj, a OneOf, a list of either, or an application's own
         // ProvidesFieldSchema composite) compiles exactly as the OpenAPI projection
-        // describes it, so the two can never disagree about its shape.
+        // describes it, so the two can never disagree about its shape. A child read-only
+        // for the write stays optional here, since hydration ignores it rather than
+        // rejecting it.
         if ($field instanceof ProvidesFieldSchema || ($field instanceof ArrayList && $field->element() !== null)) {
-            return $this->projector->projectField($field, $creating)->toArray();
+            return $this->projector->admittingReadOnly(fn(): array => $this->projector->projectField($field, $creating)->toArray());
         }
 
         $schema = $this->typeSchema($field);
