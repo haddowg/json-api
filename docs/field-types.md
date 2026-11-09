@@ -304,7 +304,8 @@ points at `/data/attributes/releaseInfo/catalogueNumber`, not at the map).
 A read-only child is skipped on hydration per the operation context, exactly as a
 top-level field is — a `readOnly()` child can't be written through the nested
 object on create or update, and `readOnlyOnCreate()`/`readOnlyOnUpdate()` each gate
-only their own context.
+only their own context. The [OpenAPI](openapi.md) write shapes leave such a child out
+of the nested object for the same contexts.
 
 The other visibility rules apply to a child the same way too. A `hidden()` child is
 neither rendered nor written, a `writeOnly()` child is written but never rendered, and

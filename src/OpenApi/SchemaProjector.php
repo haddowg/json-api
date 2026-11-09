@@ -78,6 +78,13 @@ final class SchemaProjector
      */
     private bool $wholeValue = false;
 
+    /**
+     * Set while a write is projected for request validation, which ignores a declared
+     * child read-only for the write rather than rejecting it, so it stays as an optional
+     * member there.
+     */
+    private bool $admitsReadOnly = false;
+
     public function __construct(
         private readonly EnumDescriptionMode $enumDescriptionMode = EnumDescriptionMode::Both,
     ) {}
@@ -153,7 +160,9 @@ final class SchemaProjector
      *   parent whose `serializeUsing()` / `extractUsing()` hook produces its own shape. A
      *   write-only child is left out of the read `properties` too.
      *
-     * A hidden child is never projected. Presence says nothing about `null`; the child's
+     * A child read-only for the write being projected is left out of it, as a read-only
+     * attribute is, unless {@see admittingReadOnly()} keeps it as an optional member. A
+     * hidden child is never projected. Presence says nothing about `null`; the child's
      * own schema does.
      *
      * The object is **closed** (`additionalProperties: false`) unless a hook produces it in
@@ -173,12 +182,14 @@ final class SchemaProjector
         $properties = [];
         $required = [];
         foreach ($children as $child) {
-            if ($child->isHidden() || ($reading && $child->isWriteOnly())) {
+            $readOnly = !$reading && $child->isReadOnly($creating);
+            if ($child->isHidden() || ($reading && $child->isWriteOnly()) || ($readOnly && !$this->admitsReadOnly)) {
                 continue;
             }
             $properties[$child->name()] = $this->projectField($child, $creating, $collector);
 
             $isRequired = match (true) {
+                $readOnly => false,
                 $creating => $this->isRequired($child, true),
                 $reading => !$authorShaped && !$child->hasConditionalReadVisibility(),
                 default => $this->writesWholeValue() && $this->isRequired($child, false),
@@ -227,6 +238,29 @@ final class SchemaProjector
             return $projection();
         } finally {
             $this->wholeValue = $previous;
+        }
+    }
+
+    /**
+     * Runs `$projection` keeping each nested child read-only for the write as an optional
+     * member, for a request validator that ignores such a child rather than rejecting it,
+     * so a client echoing a fetched value back still validates.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    public function admittingReadOnly(\Closure $projection): mixed
+    {
+        $previous = $this->admitsReadOnly;
+        $this->admitsReadOnly = true;
+
+        try {
+            return $projection();
+        } finally {
+            $this->admitsReadOnly = $previous;
         }
     }
 
