@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
-use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
-use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
@@ -310,26 +308,20 @@ final class OperationExampleProjector
 
     /**
      * The builder of an action's request document, when its input is a resource document:
-     * the input type's create request, or its resource object when that type cannot be
-     * created.
+     * the input type's create request, with no links, whether or not that type exposes
+     * create.
      *
      * @return (\Closure(): array<string, mixed>)|null
      */
     private function actionRequest(ActionMetadataInterface $action): ?\Closure
     {
-        $document = $action->inputMode() === ActionInputMode::Document;
-        foreach (AcceptedBody::of($action) as $accepted) {
-            $document = $document || $accepted->document;
-        }
         $inputType = $action->inputType();
         $input = $inputType === null ? null : $this->builder->type($inputType);
-        if (!$document || $input === null) {
+        if (!ActionDocumentInput::takesDocument($action) || $input === null) {
             return null;
         }
 
-        return $input->hasFields() && \in_array(OperationType::Create, $input->operations(), true)
-            ? fn(): array => $this->builder->writeDocument($input, creating: true)
-            : fn(): array => ['data' => $this->builder->resource($input)];
+        return fn(): array => $this->builder->writeDocument($input, creating: true);
     }
 
     /**
