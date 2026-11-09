@@ -384,7 +384,25 @@ final class OpenApiProjector
             listFilters: $filters['listFilters'],
             identifierMeta: self::declaresIdentifierMeta($server),
             openObjects: self::hasOpenObject($server),
+            identifiedPivots: self::queriesLinkRows($server),
         ));
+    }
+
+    /**
+     * Whether some polymorphic to-many identified by stored pairs filters, sorts or
+     * renders pivot values from its link rows ({@see GeneratorContract::IDENTIFIED_PIVOTS}).
+     */
+    private static function queriesLinkRows(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (RelationFacts::queriesLinkRows($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

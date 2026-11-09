@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Sort\RelationSorts;
+use haddowg\JsonApi\Resource\Sort\SortMatcher;
 
 /**
  * The mutable **relation builder** for a polymorphic {@see MorphToMany} to-many
  * relationship: the collection's members may each be one of several declared types,
- * passed as the mandatory list to {@see make()}. {@see build()} freezes it into a
- * readonly {@see MorphToMany} value object.
+ * passed as the mandatory list to {@see make()}. Declared with {@see identifiedBy()},
+ * it may also declare pivot fields on the link rows ({@see fields()}).
+ * {@see build()} freezes it into a readonly {@see MorphToMany} value object.
  */
 final class MorphToManyBuilder extends AbstractRelationBuilder
 {
+    use DeclaresPivotFields;
     use DeclaresPolymorphicTypes;
 
     /**
@@ -40,10 +44,23 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
      * the members, otherwise the relation's usual read. A type the relation does not
      * declare is a `\LogicException`.
      *
-     * It changes reads only; `fillUsing()` and the default write are unchanged. It
-     * cannot be combined with {@see identifierMeta()}, whose resolver needs the member.
+     * It changes reads only; `fillUsing()` and the default write are unchanged. An
+     * {@see identifierMeta()} resolver receives each member as an
+     * {@see \haddowg\JsonApi\Schema\Relationship\IdentifiedMember}, since the linkage
+     * renders without loading it: its pair, its row and, when the host supplied it, its
+     * target.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): iterable<array{0: string, 1: string|int}> $identifiers
+     * When the relation declares pivot fields ({@see fields()}), return a
+     * `[$type, $id, $row]` triple per member instead, `$row` being the link row the pivot
+     * fields are read from:
+     *
+     *     ->identifiedBy(static fn(User $user): array => array_map(
+     *         static fn(UserCompany $row): array => [$row->companyType, $row->companyId, $row],
+     *         $user->companies,
+     *     ))
+     *     ->fields(Integer::make('position'), DateTime::make('linkedAt')->readOnly())
+     *
+     * @param \Closure(mixed, JsonApiRequestInterface): iterable<array{0: string, 1: string|int, 2?: mixed}> $identifiers
      *
      * @return static
      */
@@ -61,20 +78,45 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
 
     public function build(): MorphToMany
     {
-        if ($this->defaultSort !== []) {
+        if ($this->pivotFields !== [] && $this->identifiedBy === null) {
             throw new \LogicException(\sprintf(
-                'MorphToMany relation "%s" declares defaultSort(), but a polymorphic relation takes no sort.',
+                'MorphToMany relation "%s" declares pivot fields, so it must be declared with identifiedBy(): its link rows map each member to its type and id.',
                 $this->name,
             ));
         }
 
-        if ($this->identifiedBy !== null && $this->identifierMetaResolver !== null) {
+        $this->guardDefaultSort();
+
+        return new MorphToMany($this->fieldState(), $this->relationState(), $this->identifiedBy, $this->pivotFields, $this->pivotThrough);
+    }
+
+    /**
+     * A polymorphic relation sorts only over the link rows of an identified relation, by
+     * the sorts its pivot fields derive, all of which this builder can see.
+     */
+    private function guardDefaultSort(): void
+    {
+        if ($this->defaultSort === []) {
+            return;
+        }
+
+        if ($this->identifiedBy === null) {
             throw new \LogicException(\sprintf(
-                'MorphToMany relation "%s" cannot combine identifiedBy() with identifierMeta(): its linkage renders without the members the identifier meta resolver receives.',
+                'MorphToMany relation "%s" declares defaultSort(), but a polymorphic relation not declared with identifiedBy() takes no sort.',
                 $this->name,
             ));
         }
 
-        return new MorphToMany($this->fieldState(), $this->relationState(), $this->identifiedBy);
+        $sorts = RelationSorts::pivotSortsOf(\array_values($this->pivotFields));
+        foreach ($this->defaultSort as $directive) {
+            if (!SortMatcher::recognises($sorts, $directive->sort->key())) {
+                throw new \LogicException(\sprintf(
+                    'MorphToMany relation "%s" declares a defaultSort() on "%s", which is not one of its pivot fields. It sorts only by its stored pivot fields%s.',
+                    $this->name,
+                    $directive->sort->key(),
+                    $sorts === [] ? ', and declares none' : ': ' . \implode(', ', \array_map(static fn(\haddowg\JsonApi\Resource\Sort\SortInterface $sort): string => $sort->key(), $sorts)),
+                ));
+            }
+        }
     }
 }

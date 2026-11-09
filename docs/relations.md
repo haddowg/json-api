@@ -420,7 +420,8 @@ declared type throws a `\LogicException`.
 
 A polymorphic to-many carries no shared filter/sort vocabulary across its mixed
 member types, so `filter` and `sort` on its related collection return `400`,
-though `page` still slices it. The reference Doctrine adapter does not support a
+though `page` still slices it. An identified one with
+[pivot fields](#pivot-fields-on-the-link-rows) filters and sorts its link rows instead. The reference Doctrine adapter does not support a
 polymorphic to-many related endpoint (its members span entity classes) — supply a
 custom provider there; see [related-endpoints](related-endpoints.md).
 
@@ -463,18 +464,73 @@ pages and totals stay exact. A dangling pair of a type nothing hides costs no qu
 still shows in the linkage, and a related page that reaches it can come back one member
 short.
 
-As with `MorphTo`, an identified `MorphToMany` is never lazy, can't be combined with
-`identifierMeta()`, and changes reads only, so `fillUsing()` still owns writes. Its
-relationship endpoint pages the pairs the way its related endpoint does, so the OpenAPI
-document gives `GET …/relationships/{name}` the same `page` and `withCount` parameters,
-while `filter` and `sort` stay out. Metadata reports the relation through
-`DeclaresIdentifiedMembers`.
+As with `MorphTo`, an identified `MorphToMany` is never lazy and changes reads only, so
+`fillUsing()` still owns writes. Its relationship endpoint pages the pairs the way its
+related endpoint does, so the OpenAPI document gives `GET …/relationships/{name}` the
+same `page` and `withCount` parameters. Metadata reports the relation through
+`DeclaresIdentifiedMembers`. An `identifierMeta()` resolver receives each member as its
+`IdentifiedMember`, since the linkage renders without loading it: the pair, the link row
+and the target when the host supplied one.
 
 A data layer loads the members of a page of parents one query per type.
 `MorphToMany::storedIdentifiers($parents, $request)` returns their ids grouped by type,
 deduplicated, in declared order, and `storedIdentifierList($parent, $request)` returns
 one parent's pairs in order. Both relations implement `StoresIdentifiersInterface`,
 whose `storesIdentifiers()` says whether a relation was declared this way.
+
+### Pivot fields on the link rows
+
+An identified `MorphToMany` can declare pivot fields on the rows it reads its pairs from,
+with the same `fields()` and `through()` a [`BelongsToMany`](#belongstomany--a-pivot-backed-to-many)
+has: stored and computed fields and every field modifier. Return each member as a
+`[$type, $id, $row]` triple, `$row` the link row its stored fields are read from:
+
+```php
+MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
+    ->identifiedBy(static fn(User $user): array => array_map(
+        static fn(UserCompany $row): array => [$row->companyType, $row->companyId, $row],
+        $user->companies->toArray(),
+    ))
+    ->fields(
+        Integer::make('position'),
+        DateTime::make('linkedAt')->readOnly(),
+    )
+    ->withFilters(Where::make('minPosition', 'pivot.position', '>=')->integer()),
+```
+
+The wire shape is a `BelongsToMany`'s. Each identifier renders its readable fields as
+`meta.pivot`, each stored field read off the row with its column and cast by the field,
+`null` when the row holds nothing, and a write carries the writable ones in the same
+`meta.pivot`. `identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
+Declaring pivot fields without `identifiedBy()` fails the build, because only the link
+rows map a member to its type and id, and a member of a relation with stored pivot fields
+that arrives without its row throws a `\LogicException`.
+
+Its relationship and related endpoints accept `sort` and `filter` over the pivot fields
+only, since the members span types and share nothing else:
+
+| Parameter | Accepts |
+| --- | --- |
+| `sort` | the key of any stored pivot field, the same automatic sorts a `BelongsToMany` has |
+| `filter[<key>]` | a `withFilters()` filter whose column starts with `pivot.`, comparing that column of the row |
+
+Both run over the link rows, ties keeping the closure's order. A `MorphToMany` without
+`identifiedBy()` still answers `400` to either. A [default read order](#default-read-order)
+may name a stored pivot field, and orders the linkage when the request names no sort.
+
+A data layer reads the rows through a `LinkRowQueryInterface`.
+`LinkRowQuery::resolve($relation, $sort, $filter, $request, $window, $countable)` turns a
+request's values for the relation into sort and filter directives, falling back to the
+relation's default sort, and rejects a key outside the pivot vocabulary with the usual
+`400`. `LinkRowQuery::sorts()` and `LinkRowQuery::filters()` return that vocabulary, and
+`LinkRowQuery::rowColumn()` strips the `pivot.` prefix to name the row's column. The
+query returns `IdentifiedMember` values carrying their rows, which the host supplies as the
+relation's linkage, and core renders each `meta.pivot` from its row.
+`MorphToMany::pivotValues($member, $parent, $request)` returns the same values for a
+member's resource object on the related endpoint. `InMemoryLinkRows` is the reference
+query over the rows the closure returns, and both relations implement
+`PivotRelationInterface`, so a host reads, validates and writes either relation's pivot
+through one interface.
 
 ## Backing and advisory metadata
 
@@ -918,7 +974,8 @@ Each key must name a sort the relation accepts: one of the related type's sorts,
 | Declaration | Fails |
 | --- | --- |
 | `defaultSort()` on a to-one | at build, with a `\LogicException` |
-| `defaultSort()` on a polymorphic relation, which takes no sort | at build |
+| `defaultSort()` on a polymorphic relation not declared with `identifiedBy()`, which takes no sort | at build |
+| a key that is no stored pivot field of an identified `MorphToMany` | at build |
 | a key none of the relation's sorts answers | at warm-up, from `RelationOrderValidator` |
 
 `RelationOrderValidator` needs the related type's sorts, so a host runs it once per

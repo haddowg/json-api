@@ -155,11 +155,26 @@ final class RelationFacts
 
     /**
      * Whether the relation's linkage carries a typed `meta.pivot`, and so has separate
-     * response and request shapes: a monomorphic relation declaring pivot fields.
+     * response and request shapes: a monomorphic relation declaring pivot fields, or a
+     * polymorphic to-many whose members are identified by the link rows those fields
+     * live on.
      */
     public static function hasPivot(RelationMetadataInterface $relation): bool
     {
-        return $relation->pivotFields() !== [] && self::monomorphicType($relation) !== null;
+        return $relation->pivotFields() !== [] && (self::monomorphicType($relation) !== null || self::identifiesMembers($relation));
+    }
+
+    /**
+     * Whether the relation is a polymorphic to-many identified by stored pairs whose link
+     * rows it filters, sorts or renders pivot values from, so its relationship endpoint
+     * takes `filter` and `sort` parameters over them and its identifiers carry a typed
+     * `meta.pivot`.
+     */
+    public static function queriesLinkRows(RelationMetadataInterface $relation): bool
+    {
+        return self::identifiesMembers($relation)
+            && self::monomorphicType($relation) === null
+            && ($relation->pivotFields() !== [] || $relation->filters() !== [] || $relation->sorts() !== []);
     }
 
     /**

@@ -337,18 +337,6 @@ final class MorphToManyIdentifiedByTest extends TestCase
         self::assertTrue(MorphToMany::make('companies', ['agencies'])->build()->emitsDataOnlyWhenLoaded());
     }
 
-    #[Test]
-    public function identifierMetaCannotBeCombinedWithIdentifiedBy(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('identifierMeta()');
-
-        MorphToMany::make('companies', ['agencies'])
-            ->identifiedBy(static fn(): array => [])
-            ->identifierMeta(static fn(): array => [])
-            ->build();
-    }
-
     private static function relation(): MorphToMany
     {
         $relation = (new IdentifiedUserResource())->relationNamedIncludingHidden('companies');

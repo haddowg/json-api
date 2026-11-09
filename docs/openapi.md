@@ -348,9 +348,15 @@ plain `$ref`:
 
 A `MorphToMany` declared with [`identifiedBy()`](relations.md#identifying-the-members-without-loading-them)
 is the one exception: its relationship endpoint pages its stored pairs, so it takes the
-same `page` and `withCount` parameters as its related endpoint, and still no `filter` or
-`sort`. Metadata says so through `DeclaresIdentifiedMembers`; metadata that doesn't
-implement it projects the endpoint with no parameters.
+same `page` and `withCount` parameters as its related endpoint. With
+[pivot fields](relations.md#pivot-fields-on-the-link-rows) on its link rows, both its
+endpoints also take the `filter[<key>]` and `sort` parameters of the relation's own
+filters and sorts, which metadata reports as the pivot ones, and its linkage identifiers
+type `meta.pivot` with the `<Type><Rel>Pivot` and `<Type><Rel>WritePivot` components a
+`BelongsToMany` gets, joined to the member union by an `allOf`. A document holding such a
+relation declares the `IDENTIFIED_PIVOTS` contract tier. Metadata says the relation
+is identified through `DeclaresIdentifiedMembers`; metadata that doesn't implement it
+projects the endpoint with no parameters.
 
 So a generated client already types the relation as polymorphic, and adding a second type
 later adds a member rather than changing every input that carries the relation. The
