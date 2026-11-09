@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.6.0](https://github.com/haddowg/json-api/compare/v2.5.0...v2.6.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **schema:** validate write-hooked values against their declared shape
+
+### Bug Fixes
+
+* **schema:** validate write-hooked values against their declared shape ([c9a86a3](https://github.com/haddowg/json-api/commit/c9a86a3301d3a666a3e35acb25a8f909f31e2297))
+
 ## [2.5.0](https://github.com/haddowg/json-api/compare/v2.4.1...v2.5.0) (2026-11-09)
 
 
