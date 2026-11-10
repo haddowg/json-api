@@ -988,7 +988,8 @@ projected there, because the relation didn't declare it.
 ### Applying it in a data layer
 
 A data layer reads the order to apply from `RelationSorts::defaultFor($relation,
-$resolver)`: the relation's own default, else the related type's, else `[]`. Apply it
+$resolver)`: the relation's own default, else its [position](#positioned-members) order,
+else the related type's, else `[]`. Apply it
 on every read path that returns the relation's members with no requested sort, so the
 order is the same however a client reaches them: the two endpoints, document linkage,
 `?include` batching and a [Relationship Queries](profiles.md#the-bundled-relationship-queries-profile)
@@ -996,6 +997,71 @@ window. `RelationSorts::vocabulary($relation, $resolver)` returns the sorts the
 relation accepts, and `RelationSorts::pivotSorts($relation)` the ones its pivot fields
 derive. Metadata for the OpenAPI projection reports the relation's own default through
 the opt-in `DeclaresRelationDefaultSort` interface.
+
+## Positioned members
+
+A to-many relation can keep its members in an order the client sets, with
+`positionedBy()`. It names a stored `Integer` field that holds each member's position:
+a pivot field on a `BelongsToMany` or an identified `MorphToMany`, and a field of the
+related type on a `HasMany`.
+
+```php
+BelongsToMany::make('tracks', 'tracks')
+    ->fields(Integer::make('position'), Str::make('note'))
+    ->positionedBy('position'),
+
+HasMany::make('tracks', 'tracks')
+    ->positionedBy('trackNumber'), // TrackResource declares Integer::make('trackNumber')->readOnly()
+```
+
+Each kind of write sets positions its own way:
+
+| Write | Positions |
+| --- | --- |
+| replace, by `PATCH` or a whole-resource linkage | each member at its index in the linkage, from `0` |
+| add, by `POST` | new members after the current highest position, in linkage order; members already present keep theirs |
+| remove, by `DELETE` | the removed members go and the gaps stay, nothing is renumbered |
+
+Clients never set a position. A pivot position becomes read-only, so `meta.pivot` can't
+write it and `writablePivotFields()` leaves it out. A related type's position field
+must be declared `readOnly()` there, so an attribute can't write it. The relation reads
+in position order, ascending, unless it declares a [default read order](#default-read-order)
+of its own. The OpenAPI document adds nothing: a position the author exposes shows as any
+read-only pivot field or attribute does.
+
+The field is checked as early as it can be:
+
+| Declaration | Fails |
+| --- | --- |
+| a pivot position that isn't a declared, stored `Integer` pivot field | at build, with a `\LogicException` |
+| a related type's position that is missing, computed, not an `Integer` or writable | at warm-up, from `RelationOrderValidator` |
+
+### Writing positions in a data layer
+
+Core declares the field and never writes it, so a persister writes the positions on every
+membership change. `positionField()` names the field, from `PositionedRelationInterface`,
+which every core relation implements. A relation that is a `PivotRelationInterface`
+stores it on the link row, any other on the related row.
+
+A position column is normally unique per owner, and moving members in place collides
+with a row that hasn't moved yet. Write in two passes: move every row whose position
+changes past every position in use, then to its final position. `Positions` computes it,
+keyed by whatever string identifies a member to the persister:
+
+| Helper | Returns |
+| --- | --- |
+| `Positions::forReplace($linkage)` | each member's index in the linkage |
+| `Positions::forAdd($current, $incoming)` | the positions of the members an add appends |
+| `Positions::plan($current, $target)` | a `PositionPlan`: the members to delete, then the temporary positions, then the final ones |
+
+Apply a `PositionPlan` in property order, each pass complete before the next: delete
+`removed`, write `temporary`, then write `final`, inserting the members not yet stored at
+their final position. A remove passes the current positions less the removed members as
+the target, so nothing moves.
+
+`RelationSorts::defaultFor()` and `RelationSorts::ownDefault()` return the position order
+when the relation declares no default. Its sort is a `SortByField` on the position column,
+which a data layer applies even when the field isn't one of the relation's sorts.
 
 ## Custom relation hooks
 

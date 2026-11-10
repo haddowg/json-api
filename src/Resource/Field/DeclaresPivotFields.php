@@ -59,4 +59,42 @@ trait DeclaresPivotFields
 
         return $this;
     }
+
+    /**
+     * The declared pivot fields, with the field the relation is positioned by made
+     * read-only to every write: the server assigns positions, so a client's
+     * `meta.pivot` never sets one.
+     *
+     * @return array<string, FieldInterface>
+     *
+     * @throws \LogicException when the position field is not a declared, stored
+     *                         `Integer` pivot field
+     */
+    protected function positionedPivotFields(): array
+    {
+        if ($this->positionField === null) {
+            return $this->pivotFields;
+        }
+
+        $field = $this->pivotFields[$this->positionField] ?? null;
+        $problem = match (true) {
+            $field === null => 'it declares no such pivot field',
+            !$field instanceof Integer => 'it is not an Integer field',
+            $field->column() === null => 'it is computed, not stored',
+            default => null,
+        };
+        if ($problem !== null || !$field instanceof Integer) {
+            throw new \LogicException(\sprintf(
+                'Relation "%s" is positioned by "%s", but %s. A position is a stored Integer pivot field.',
+                $this->name,
+                $this->positionField,
+                $problem,
+            ));
+        }
+
+        $fields = $this->pivotFields;
+        $fields[$this->positionField] = $field->asPosition();
+
+        return $fields;
+    }
 }

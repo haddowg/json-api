@@ -6,6 +6,9 @@ namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\DefaultSortedRelationInterface;
+use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
+use haddowg\JsonApi\Resource\Field\PositionedRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Resource\Sort\RelationSorts;
@@ -21,6 +24,10 @@ use haddowg\JsonApi\Resource\Sort\SortMatcher;
  * name a sort its vocabulary ({@see RelationSorts::vocabulary()}) accepts, and that
  * vocabulary includes the related type's sorts, which only a resolver can reach. A
  * relation builder rejects what it can see alone when it builds; this checks the rest.
+ *
+ * A `HasMany` positioned with `positionedBy()` stores each position on the related type,
+ * so its field must be a stored `Integer` there, declared read-only, since clients never
+ * set a position. A pivot relation's position field is checked when it builds.
  * A host invokes it once per registered resource, beside the
  * {@see EagerLoadValidator}.
  */
@@ -33,7 +40,9 @@ final class RelationOrderValidator
      * serializer that is not an {@see AbstractResource} declares no relations here and
      * is a no-op.
      *
-     * @throws \LogicException when a default sort key names no sort the relation accepts
+     * @throws \LogicException when a default sort key names no sort the relation accepts,
+     *                         or a related type's position field is missing, computed,
+     *                         not an `Integer` or writable
      */
     public function validate(string $type, SerializerInterface $serializer): void
     {
@@ -44,6 +53,7 @@ final class RelationOrderValidator
         foreach ($serializer->allFields() as $field) {
             if ($field instanceof RelationInterface) {
                 $this->validateDefaultSort($type, $field);
+                $this->validatePosition($type, $field);
             }
         }
     }
@@ -72,6 +82,39 @@ final class RelationOrderValidator
                 $type,
                 $key,
                 $accepted === [] ? 'It accepts no sorts.' : 'It accepts: ' . \implode(', ', $accepted) . '.',
+            ));
+        }
+    }
+
+    private function validatePosition(string $type, RelationInterface $relation): void
+    {
+        $position = $relation instanceof PositionedRelationInterface ? $relation->positionField() : null;
+        if ($position === null || $relation instanceof PivotRelationInterface) {
+            return;
+        }
+
+        $related = $relation->relatedTypes()[0] ?? null;
+        if ($related === null || !$this->resolver->hasSerializerFor($related) || !$this->resolver->serializerFor($related) instanceof AbstractResource) {
+            return;
+        }
+
+        $field = RelationSorts::relatedField($relation, $this->resolver, $position);
+        $problem = match (true) {
+            $field === null => 'it declares no such field',
+            !$field instanceof Integer => 'it is not an Integer field',
+            $field->column() === null => 'it is computed, not stored',
+            !$field->isReadOnly(true) || !$field->isReadOnly(false) => 'it is writable; declare it ->readOnly(), since the server assigns positions',
+            default => null,
+        };
+
+        if ($problem !== null) {
+            throw new \LogicException(\sprintf(
+                'Relation "%s" on resource type "%s" is positioned by "%s" on type "%s", but %s. A position is a stored, read-only Integer field of the related type.',
+                $relation->name(),
+                $type,
+                $position,
+                $related,
+                $problem,
             ));
         }
     }

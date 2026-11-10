@@ -163,6 +163,12 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     protected array $defaultSort = [];
 
     /**
+     * The stored integer field holding each member's position, set by a to-many
+     * builder's `positionedBy()`.
+     */
+    protected ?string $positionField = null;
+
+    /**
      * Freezes the accumulated authoring state into the concrete readonly relation
      * value object the engine consumes. Pure and idempotent.
      */
@@ -584,6 +590,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      *     HasMany::make('tracks', 'tracks')
      *         ->defaultSort(new SortDirective(SortByField::make('position'), descending: false));
      *
+     * A relation positioned with `positionedBy()` reads in position order unless it
+     * declares a default of its own.
+     *
      * Each directive's key must name a sort the relation accepts: one of the related
      * type's sorts, a {@see withSorts()} sort or a pivot field. A key a polymorphic
      * relation or a declared vocabulary can't answer fails the build; one that needs
@@ -596,6 +605,23 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     public function defaultSort(\haddowg\JsonApi\Resource\Sort\SortDirective ...$directives): static
     {
         $this->defaultSort = \array_values($directives);
+
+        return $this;
+    }
+
+    /**
+     * Records the field holding each member's position; the public `positionedBy()` on
+     * a to-many builder says which field that is.
+     *
+     * @return static
+     */
+    protected function positionMembersBy(string $field): static
+    {
+        if ($field === '') {
+            throw new \InvalidArgumentException(\sprintf('Relation "%s" must name the field its members are positioned by.', $this->name));
+        }
+
+        $this->positionField = $field;
 
         return $this;
     }
@@ -651,6 +677,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             relationSorts: $this->relationSorts,
             exampleId: $this->exampleId,
             defaultSort: $this->defaultSort,
+            positionField: $this->positionField,
         );
     }
 }

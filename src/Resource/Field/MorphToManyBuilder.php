@@ -76,6 +76,18 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
         return true;
     }
 
+    /**
+     * Positions the members by the stored `Integer` pivot field `$field` of the link
+     * rows, as {@see BelongsToManyBuilder::positionedBy()} does. A field that isn't a
+     * declared, stored `Integer` pivot field fails the build.
+     *
+     * @return static
+     */
+    public function positionedBy(string $field): static
+    {
+        return $this->positionMembersBy($field);
+    }
+
     public function build(): MorphToMany
     {
         if ($this->pivotFields !== [] && $this->identifiedBy === null) {
@@ -87,7 +99,7 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
 
         $this->guardDefaultSort();
 
-        return new MorphToMany($this->fieldState(), $this->relationState(), $this->identifiedBy, $this->pivotFields, $this->pivotThrough);
+        return new MorphToMany($this->fieldState(), $this->relationState(), $this->identifiedBy, $this->positionedPivotFields(), $this->pivotThrough);
     }
 
     /**

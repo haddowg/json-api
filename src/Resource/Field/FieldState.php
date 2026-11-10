@@ -59,4 +59,37 @@ final readonly class FieldState
         public bool $guaranteed = false,
         public bool $deprecated = false,
     ) {}
+
+    /**
+     * This state read-only on create and on update for every request.
+     */
+    public function readOnly(): self
+    {
+        return new self(
+            name: $this->name,
+            column: $this->column,
+            relatedVia: $this->relatedVia,
+            readOnlyOnCreate: true,
+            readOnlyOnUpdate: true,
+            writeOnly: $this->writeOnly,
+            hidden: $this->hidden,
+            readOnlyOnCreateWhen: null,
+            readOnlyOnUpdateWhen: null,
+            writeOnlyWhen: $this->writeOnlyWhen,
+            hiddenWhen: $this->hiddenWhen,
+            sparseField: $this->sparseField,
+            sparseByDefault: $this->sparseByDefault,
+            sortable: $this->sortable,
+            constraints: $this->constraints,
+            description: $this->description,
+            hasExample: $this->hasExample,
+            example: $this->example,
+            serializeUsing: $this->serializeUsing,
+            extractUsing: $this->extractUsing,
+            deserializeUsing: $this->deserializeUsing,
+            fillUsing: $this->fillUsing,
+            guaranteed: $this->guaranteed,
+            deprecated: $this->deprecated,
+        );
+    }
 }

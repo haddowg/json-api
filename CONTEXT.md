@@ -106,9 +106,14 @@ The stored row an identified polymorphic to-many reads one member's type and id 
 fields render as the member's `meta.pivot`, and its endpoints filter and sort over them.
 _Avoid_: join row (for a polymorphic relation), morph pivot
 
+**Position**:
+The stored integer a positioned to-many **Relation** keeps per member, set by the server from the
+member's place in the linkage and never by a client.
+_Avoid_: rank, sort order
+
 **Default read order**:
 The **Sort** order a to-many **Relation** reads its members in when a request names none. Its
-own `defaultSort()` when declared, else the related type's.
+own `defaultSort()` when declared, else its **Position** order, else the related type's.
 _Avoid_: relation default sort, natural order
 
 **Keyset sort**:

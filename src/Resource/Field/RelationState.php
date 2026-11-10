@@ -32,6 +32,7 @@ final readonly class RelationState
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface> $relationFilters extra filters scoped to the related-collection endpoint
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface>                                                        $relationSorts        extra sorts scoped to the related-collection endpoint
      * @param list<\haddowg\JsonApi\Resource\Sort\SortDirective>                                                       $defaultSort          the members' read order when a request names no sort
+     * @param string|null                                                                                               $positionField        the stored integer field holding each member's position
      */
     public function __construct(
         public array $relatedTypes = [],
@@ -60,5 +61,6 @@ final readonly class RelationState
         public ?string $exampleId = null,
         public array $identifierMetaFields = [],
         public array $defaultSort = [],
+        public ?string $positionField = null,
     ) {}
 }
