@@ -47,13 +47,15 @@ final class DataResponse extends AbstractResponse
     }
 
     /**
-     * A collection response whose `data` is a list of resource objects.
+     * A collection response whose `data` is a list of resource objects. An iterator,
+     * such as a generator, is read into a list here, so the response can be read by
+     * {@see primaryResources()} and still render every row.
      *
      * @param iterable<mixed> $objects
      */
     public static function fromCollection(iterable $objects, SerializerInterface $resource): self
     {
-        return new self($objects, $resource, true);
+        return new self($objects instanceof \Iterator ? \iterator_to_array($objects, false) : $objects, $resource, true);
     }
 
     /**
@@ -69,6 +71,33 @@ final class DataResponse extends AbstractResponse
     public static function fromPage(\haddowg\JsonApi\Pagination\PageInterface $page, SerializerInterface $resource): self
     {
         return new self($page, $resource, true, $page);
+    }
+
+    /**
+     * The resources the document renders as primary `data`: the one resource, every
+     * member of the collection or page, or none for a `null` resource. A data layer
+     * that loads relations before rendering reads them here, so a response built
+     * outside its own read path, by a custom handler or a hook, is loaded the same way.
+     *
+     * @return list<mixed>
+     */
+    public function primaryResources(): array
+    {
+        if (!$this->isCollection) {
+            return $this->data === null ? [] : [$this->data];
+        }
+
+        \assert(\is_iterable($this->data));
+
+        return \is_array($this->data) ? \array_values($this->data) : \iterator_to_array($this->data, false);
+    }
+
+    /**
+     * The serializer the primary resources render through.
+     */
+    public function serializer(): SerializerInterface
+    {
+        return $this->resource;
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument

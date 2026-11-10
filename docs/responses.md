@@ -98,6 +98,19 @@ if ($result instanceof PageInterface) {
 return DataResponse::fromCollection($result, $serializer);
 ```
 
+### Reading what a response renders
+
+A data layer that loads relations before a document renders, to batch includes or to
+scope linkage, needs to know which resources a response holds even when a custom
+handler or a hook built it. `primaryResources()` lists them: the one resource, every
+member of the collection or page, or none for a `null` resource. `serializer()` returns
+the serializer they render through, so `$response->serializer()->getType($resource)`
+names each one's type.
+
+`fromCollection()` reads an iterator, such as a generator, into a list when the response
+is built, so reading `primaryResources()` leaves the render with every row. Arrays and
+`IteratorAggregate` collections, pages included, are kept as given.
+
 ### Overriding the status with `withStatus()`
 
 `DataResponse` renders **`200`** by default. The library never infers `201 Created`

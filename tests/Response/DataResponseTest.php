@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
@@ -270,6 +271,40 @@ final class DataResponseTest extends TestCase
             ->toPsrResponse(new StubServer(), $plainRequest);
 
         self::assertSame(200, $psr->getStatusCode());
+    }
+
+    #[Test]
+    public function primaryResourcesListsWhatTheDocumentRenders(): void
+    {
+        $serializer = new StubResource('user', '1');
+        $one = new \stdClass();
+        $two = new \stdClass();
+
+        self::assertSame([$one], DataResponse::fromResource($one, $serializer)->primaryResources());
+        self::assertSame([], DataResponse::fromResource(null, $serializer)->primaryResources());
+        self::assertSame([$one, $two], DataResponse::fromCollection(['a' => $one, 'b' => $two], $serializer)->primaryResources());
+        self::assertSame([$one, $two], DataResponse::fromCollection(new \ArrayObject([$one, $two]), $serializer)->primaryResources());
+        self::assertSame([$one], DataResponse::fromPage(new PageBasedPage([$one], totalItems: 1, page: 1, size: 10), $serializer)->primaryResources());
+        self::assertSame($serializer, DataResponse::fromResource($one, $serializer)->serializer());
+    }
+
+    #[Test]
+    public function aGeneratorCollectionIsReadOnceAndStillRendersEveryRow(): void
+    {
+        $serializer = new StubResource('user', '1');
+        $rows = static function (): \Generator {
+            yield new \stdClass();
+            yield new \stdClass();
+        };
+
+        $response = DataResponse::fromCollection($rows(), $serializer);
+
+        self::assertCount(2, $response->primaryResources());
+        self::assertCount(2, $response->primaryResources());
+        self::assertSame(
+            $this->decode(DataResponse::fromCollection([new \stdClass(), new \stdClass()], $serializer)->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents()),
+            $this->decode($response->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents()),
+        );
     }
 
     /**
