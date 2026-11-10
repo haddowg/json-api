@@ -27,7 +27,7 @@ use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
  * rows are already loaded can use it as is, and it is the witness a data layer's own
  * query is checked against. It is not a production query layer over large link tables.
  */
-final readonly class InMemoryLinkRows implements LinkRowQueryInterface
+final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowKeysInterface
 {
     /**
      * @param FilterHandlerInterface<mixed> $filters
@@ -41,6 +41,29 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface
     public function queryLinkRows(mixed $parent, MorphToMany $relation, LinkRowQuery $query, JsonApiRequestInterface $request): CollectionResult
     {
         return $this->apply($relation->identifiedMembers($parent, $request), $query);
+    }
+
+    /**
+     * The keys of the members {@see MorphToMany::identifiedMembers()} returns, grouped by
+     * the requested types.
+     */
+    public function linkRowKeys(mixed $parent, MorphToMany $relation, array $types, JsonApiRequestInterface $request): array
+    {
+        $seen = [];
+        foreach ($relation->identifiedMembers($parent, $request) as $member) {
+            if (\in_array($member->type, $types, true)) {
+                $seen[$member->type][(string) $member->id] ??= $member->id;
+            }
+        }
+
+        $keys = [];
+        foreach ($types as $type) {
+            if (isset($seen[$type])) {
+                $keys[$type] = \array_values($seen[$type]);
+            }
+        }
+
+        return $keys;
     }
 
     /**
@@ -94,18 +117,21 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface
      * parent at its `storedAs()` field or name, and returns the parent. Each pass runs as
      * the plan orders them: the deletes, the temporary positions, the updates, then the
      * inserts, each new row made by `$newRow`, or as a `through()` instance built with no
-     * arguments, and set field by field. The rows are written back as a list.
+     * arguments, and set field by field. `$storeRows` stores the rows back on the parent
+     * and returns it, so a host can keep its own collection type; without it they are
+     * written to the relation's field as a plain list.
      *
      * It checks what a unique owner and position key would: a pass that leaves two of the
      * parent's rows at one position is a `\LogicException`, so the plan is witnessed as
      * well as applied.
      *
-     * @param (\Closure(): mixed)|null $newRow
+     * @param (\Closure(): mixed)|null                    $newRow
+     * @param (\Closure(mixed, list<mixed>): mixed)|null $storeRows receives the parent and the rows, returns the parent
      *
      * @throws \LogicException when the relation was not declared with identifiedByRows(), the
      *                         parent's rows are not iterable, or a pass collides
      */
-    public function write(MorphToMany $relation, mixed $parent, LinkRowWritePlan $plan, ?\Closure $newRow = null): mixed
+    public function write(MorphToMany $relation, mixed $parent, LinkRowWritePlan $plan, ?\Closure $newRow = null, ?\Closure $storeRows = null): mixed
     {
         $fields = $relation->linkRowFields()
             ?? throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedByRows(), so it has no link-row writes to apply.', $relation->name()));
@@ -167,7 +193,9 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface
         }
         $this->assertUniquePositions($relation, $rows, $position);
 
-        return Accessor::set($parent, $member, $rows);
+        $rows = \array_values($rows);
+
+        return $storeRows !== null ? $storeRows($parent, $rows) : Accessor::set($parent, $member, $rows);
     }
 
     /**

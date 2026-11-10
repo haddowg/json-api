@@ -26,6 +26,9 @@ use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
  * host's {@see \haddowg\JsonApi\Serializer\RelationshipLinkageInterface} supplies the
  * page as the relation's linkage.
  *
+ * Narrow the query first with {@see LinkRowQuery::narrowed()}, over the data layer's
+ * {@see LinkRowKeysInterface}, when a member type's rows may be hidden by a scope.
+ *
  * A relation declared with `identifiedBy()` has no declared fields, and is served by
  * {@see InMemoryLinkRows}, the reference every implementation must agree with.
  */

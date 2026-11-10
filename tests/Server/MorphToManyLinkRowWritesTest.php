@@ -145,6 +145,25 @@ final class MorphToManyLinkRowWritesTest extends TestCase
     }
 
     #[Test]
+    public function theCallerStoresTheRowsBackItsOwnWay(): void
+    {
+        $relation = self::positioned();
+        $owner = self::owner();
+        $plan = self::plan($relation, $owner, Mode::Add, [['publishers', 9]]);
+
+        $stored = (new InMemoryLinkRows())->write($relation, $owner, $plan, storeRows: static function (mixed $parent, array $rows): mixed {
+            self::assertInstanceOf(\stdClass::class, $parent);
+            $parent->links = new \ArrayObject($rows);
+
+            return $parent;
+        });
+
+        self::assertSame($owner, $stored);
+        self::assertInstanceOf(\ArrayObject::class, $owner->links);
+        self::assertCount(4, $owner->links);
+    }
+
+    #[Test]
     public function theWitnessRejectsAPassThatCollides(): void
     {
         $relation = self::positioned();

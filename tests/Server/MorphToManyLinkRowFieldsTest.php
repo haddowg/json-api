@@ -126,6 +126,47 @@ final class MorphToManyLinkRowFieldsTest extends TestCase
     }
 
     #[Test]
+    public function theKeysAreTheParentsDistinctStorageKeysPerRequestedType(): void
+    {
+        $owner = self::owner();
+        self::assertIsArray($owner->links);
+        $owner->links[] = (object) ['kind' => 'agency', 'key' => 7, 'position' => 9];
+
+        self::assertSame(['agencies' => [7, '2']], (new InMemoryLinkRows())->linkRowKeys($owner, self::relation(), ['agencies'], self::request()));
+        self::assertSame(['advertisers' => [3], 'agencies' => [7, '2']], (new InMemoryLinkRows())->linkRowKeys($owner, self::relation(), ['advertisers', 'agencies'], self::request()));
+    }
+
+    #[Test]
+    public function narrowedAsksTheAdmissionOfEachGuardedTypesKeys(): void
+    {
+        $relation = MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
+            ->storedAs('links')
+            ->through(\stdClass::class)
+            ->identifiedByRows(owner: 'owner', type: 'kind', id: 'key', typeMap: ['agency' => 'agencies', 'advertiser' => 'advertisers', 'publisher' => 'publishers'])
+            ->fields(Integer::make('position'))
+            ->build();
+        $asked = [];
+        $query = LinkRowQuery::resolve($relation)->narrowed(
+            self::owner(),
+            $relation,
+            new InMemoryLinkRows(),
+            ['agencies', 'publishers'],
+            static function (string $type, array $ids) use (&$asked): array {
+                $asked[$type] = $ids;
+
+                return [2];
+            },
+            self::request(),
+        );
+
+        self::assertSame(['agencies' => [7, '2']], $asked);
+        self::assertSame(['agencies' => [2], 'publishers' => []], $query->admitted);
+        self::assertSame(['advertiser'], $query->typeValues());
+        self::assertSame([['advertisers', 3], ['agencies', '2']], self::pairs((new InMemoryLinkRows())->queryLinkRows(self::owner(), $relation, $query, self::request())->items));
+        self::assertSame(LinkRowQuery::resolve($relation)->admitted, LinkRowQuery::resolve($relation)->narrowed(self::owner(), $relation, new InMemoryLinkRows(), [], static fn(): array => [], self::request())->admitted);
+    }
+
+    #[Test]
     public function narrowingAppliesBeforeThePageAndTheCount(): void
     {
         $relation = self::relation();

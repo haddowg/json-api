@@ -618,10 +618,28 @@ Then `$query->member($row)` turns each row into the `IdentifiedMember` it links 
 carrying the row. The type and id rules apply before the filters, the sorts and the page,
 so totals and pages stay exact.
 
-A host narrows a type whose rows a scope may hide with
-`$query->withAdmitted($type, $ids)`, after reading which of the parent's storage keys the
-type's provider admits. Only those rows of the type count, and an empty `$ids` drops the
-type. A closure relation narrows the same way through `admits()`.
+A host narrows the types whose rows a scope may hide through one helper, so every data
+layer narrows alike. It supplies two things, a key read and an admission check, and runs
+the steps in this order:
+
+1. Resolve the query with `LinkRowQuery::resolve()`.
+2. Call `$query->narrowed($parent, $relation, $keys, $guarded, $admit, $request)`, with
+   `$guarded` the declared types a scope may hide rows of.
+3. The helper reads the parent's stored keys of those types through `$keys`, a
+   `LinkRowKeysInterface`, in one key-only read.
+4. It calls `$admit($type, $ids)` once per guarded type the parent links, which returns
+   the storage keys the type's provider serves. A guarded type the parent links nothing
+   of is narrowed to none without asking.
+5. It narrows each type to its admitted keys with `withAdmitted()`, and returns the query.
+6. Run the narrowed query through the data layer's `LinkRowQueryInterface`.
+
+A data layer implements `LinkRowKeysInterface::linkRowKeys($parent, $relation, $types,
+$request)` beside its link-row query. It returns the parent's distinct storage keys per
+requested JSON:API type, read from the owner, type and id fields alone, selecting rows
+whose type field holds one of `LinkRowFields::storedValues($type)`. `InMemoryLinkRows`
+implements it as the witness. Only the narrowed rows of a type count, and a type narrowed
+to no keys drops out. `withAdmitted($type, $ids)` narrows one type by hand, and a closure
+relation narrows the same way through `admits()`.
 
 `InMemoryLinkRows` applies the same rules over `identifiedMembers()`, and is the witness
 a data layer's query is checked against. It serves every closure relation, since nothing
@@ -642,7 +660,9 @@ $plan = LinkRowWritePlan::for($relation, $parent, $mode, $linkage, $current, $hi
 `$linkage` lists the request's members in order as `[$type, $id, $pivot]`, `$id` the
 storage key and `$pivot` the identifier's `meta.pivot`. `$current` is every member the
 parent links now as `IdentifiedMember` values carrying their rows, including those a scope
-hides from the client, which `$hidden` names as `[$type, $id]` pairs. Apply the plan's
+hides from the client, which `$hidden` names as `[$type, $id]` pairs. Pass the hidden
+members, always: core alone keeps them through a replace and orders them after the
+visible ones, in their current order, so an adapter never positions them itself. Apply the plan's
 passes in order, each complete before the next:
 
 | Pass | Holds | Write |
@@ -666,9 +686,12 @@ create-context ones for a new row and the update-context ones for an existing ro
 cast by its field and keyed by its row field. A persister converts a value to its storage
 form, such as a date-time's zone, as it does for any pivot.
 
-`InMemoryLinkRows::write($relation, $parent, $plan)` applies a plan to rows held on the
-parent, and fails when a pass would put two rows at one position, so the witness covers
-writes as well as reads.
+`InMemoryLinkRows::write($relation, $parent, $plan, $newRow, $storeRows)` applies a plan to
+rows held on the parent, and fails when a pass would put two rows at one position, so the
+witness covers writes as well as reads. `$newRow` makes a new row, a `through()` instance
+by default. `$storeRows` receives the parent and the rows as a list and returns the
+parent, so a host keeps its own collection type, such as a Doctrine `Collection`; by
+default the list is written to the relation's field.
 
 ## Backing and advisory metadata
 

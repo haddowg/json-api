@@ -83,6 +83,34 @@ final readonly class LinkRowQuery
     }
 
     /**
+     * The same query with each of `$guarded` narrowed to the members its provider admits,
+     * the one way hosts narrow, so every data layer does it alike. It reads `$parent`'s
+     * keys of the guarded types through `$keys`, asks `$admit` which of each type's keys
+     * its provider serves, and narrows the type to those ({@see withAdmitted()}). A guarded
+     * type the parent links no member of is narrowed to none without asking. Run it before
+     * the query reaches the data layer, so the narrowing applies ahead of the filters and
+     * the page.
+     *
+     * @param list<string>                                                    $guarded the declared types a scope may hide rows of
+     * @param \Closure(string, non-empty-list<string|int>): iterable<string|int> $admit   receives a type and the parent's keys of it, returns the keys it admits
+     */
+    public function narrowed(mixed $parent, MorphToMany $relation, LinkRowKeysInterface $keys, array $guarded, \Closure $admit, JsonApiRequestInterface $request): self
+    {
+        if ($guarded === []) {
+            return $this;
+        }
+
+        $stored = $keys->linkRowKeys($parent, $relation, $guarded, $request);
+        $query = $this;
+        foreach ($guarded as $type) {
+            $ids = $stored[$type] ?? [];
+            $query = $query->withAdmitted($type, $ids === [] ? [] : $admit($type, $ids));
+        }
+
+        return $query;
+    }
+
+    /**
      * Whether `$member` survives the narrowing: its type is not narrowed, or its id is one
      * the type admits.
      */
