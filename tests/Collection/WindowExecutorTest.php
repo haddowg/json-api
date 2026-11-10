@@ -205,6 +205,66 @@ final class WindowExecutorTest extends TestCase
         self::assertSame('tok-next', $result->cursorAfter);
     }
 
+    #[Test]
+    public function runCursorCountsTheCollectionWhenGivenACountAndHandsTheTotalToTheMinter(): void
+    {
+        $a = $this->item('a');
+        $b = $this->item('b');
+        $c = $this->item('c');
+        $counted = 0;
+
+        $result = (new WindowExecutor())->runCursor(
+            window: new CursorWindow(2),
+            probe: static fn(CursorWindow $w): array => [$a, $b, $c],
+            cursors: static function (array $rows, bool $hasMore, ?int $total): CursorCollectionResult {
+                self::assertSame(7, $total);
+
+                return new CursorCollectionResult($rows, cursorAfter: 'tok-next', hasMore: $hasMore, total: $total);
+            },
+            count: static function () use (&$counted): int {
+                ++$counted;
+
+                return 7;
+            },
+        );
+
+        self::assertSame(1, $counted, 'the count runs once');
+        self::assertSame([$a, $b], $result->items);
+        self::assertSame(7, $result->total);
+        self::assertTrue($result->windowed);
+        self::assertTrue($result->hasMore);
+    }
+
+    #[Test]
+    public function runCursorHandsANullTotalToTheMinterWithoutACount(): void
+    {
+        $result = (new WindowExecutor())->runCursor(
+            window: new CursorWindow(2),
+            probe: static fn(CursorWindow $w): array => [],
+            cursors: static function (array $rows, bool $hasMore, ?int $total): CursorCollectionResult {
+                self::assertNull($total);
+
+                return new CursorCollectionResult($rows, hasMore: $hasMore);
+            },
+        );
+
+        self::assertNull($result->total);
+    }
+
+    #[Test]
+    public function runCursorRejectsACursorsClosureThatDropsTheCountedTotal(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must carry the counted total (3)');
+
+        (new WindowExecutor())->runCursor(
+            window: new CursorWindow(2),
+            probe: static fn(CursorWindow $w): array => [],
+            cursors: static fn(array $rows, bool $hasMore): CursorCollectionResult => new CursorCollectionResult($rows, hasMore: $hasMore),
+            count: static fn(): int => 3,
+        );
+    }
+
     /**
      * A distinguishable stub item carrying a label, so `assertSame` over identity
      * proves the executor returned the exact objects the closures produced.

@@ -60,6 +60,22 @@ final class KeysetCursorRoundTripTest extends TestCase
     }
 
     #[Test]
+    public function theMinterCarriesACountedTotalAndLeavesAnUncountedPageWithoutOne(): void
+    {
+        $minter = new CursorTokenMinter(new CursorCodec());
+        $columns = (new KeysetResolver())->resolve([], [], [], 'id');
+        $rows = \array_slice($this->songs(), 0, 2);
+        $read = static fn(object $row, string $column): string|int|float|bool|null => CursorTokenMinter::coerce(Accessor::get($row, $column));
+
+        $counted = $minter->mint(new CursorWindow(2), $columns, $rows, true, $read, total: 3);
+        self::assertSame(3, $counted->total);
+        self::assertTrue($counted->windowed);
+        self::assertTrue($counted->hasMore);
+
+        self::assertNull($minter->mint(new CursorWindow(2), $columns, $rows, true, $read)->total);
+    }
+
+    #[Test]
     public function itPagesBackwardViaThePreviousToken(): void
     {
         $songs = $this->songs();

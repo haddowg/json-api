@@ -8,9 +8,12 @@ namespace haddowg\JsonApi\Collection;
  * A {@see CollectionResult} for a keyset (cursor) page: the windowed items plus
  * the boundary cursor tokens the executing provider minted for them.
  *
- * Count-free like a count-free offset page ({@see $total} null, {@see $windowed}
- * true) — a cursor strategy never derives a total — but additionally carries the
- * already-encoded {@see $cursorBefore} / {@see $cursorAfter} tokens (the `prev` /
+ * Windowed like a count-free offset page ({@see $windowed} true, {@see $total}
+ * null) unless the request asked for the collection's size with `?withCount=_self_`:
+ * then {@see $total} is the count of the filtered collection, ignoring the cursor
+ * bounds and the window. It only feeds the top-level `meta.total`; a cursor page
+ * never renders `meta.page.total` or a `last` link. The result additionally carries
+ * the already-encoded {@see $cursorBefore} / {@see $cursorAfter} tokens (the `prev` /
  * `next` boundaries: the first / last row of the page) and {@see $hasPrevious}.
  * {@see CollectionResult::$hasMore} continues to mean "a further page follows
  * forward" (drives `next`); {@see $hasPrevious} is its backward twin (drives
@@ -34,6 +37,7 @@ class CursorCollectionResult extends CollectionResult
      * @param ?string           $cursorAfter  the encoded `next` boundary (the last row's cursor), or null when there is no following page
      * @param bool              $hasPrevious  whether a previous page exists (drives the `prev` link)
      * @param bool              $hasMore      whether a following page exists (drives the `next` link)
+     * @param ?int              $total        the size of the filtered collection when the request asked for it, otherwise null
      */
     public function __construct(
         iterable $items,
@@ -41,7 +45,8 @@ class CursorCollectionResult extends CollectionResult
         public readonly ?string $cursorAfter = null,
         public readonly bool $hasPrevious = false,
         bool $hasMore = false,
+        ?int $total = null,
     ) {
-        parent::__construct($items, total: null, windowed: true, hasMore: $hasMore);
+        parent::__construct($items, total: $total, windowed: true, hasMore: $hasMore);
     }
 }

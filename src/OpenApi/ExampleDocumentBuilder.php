@@ -711,7 +711,7 @@ final class ExampleDocumentBuilder
 
         $data = $document['data'] ?? null;
         $first = \is_array($data) && \is_array($data[0] ?? null) ? $data[0]['id'] ?? null : null;
-        $page = $this->page($pageSchema, $always || $requested, \is_string($first) ? $first : null);
+        $page = $this->page($pageSchema, $always || $requested, \is_string($first) ? $first : null, $requested);
         if ($page === null) {
             $links['self'] = $this->links->renderedLink($path, $operation);
 
@@ -746,12 +746,13 @@ final class ExampleDocumentBuilder
      * the request's `page` members, the page's links (in the order the page lists them)
      * and its `meta.page`. A counted page (`$counted`) also renders `last` and the total.
      * A cursor page names the first and last rows it holds by id, here `$firstId` for
-     * both, since the example shows one. `null` for a strategy the schema does not name, whose page the projector cannot
-     * show.
+     * both, since the example shows one. It is counted only when a client asks
+     * (`$requested`), and its total stays out of `meta.page`. `null` for a strategy the
+     * schema does not name, whose page the projector cannot show.
      *
      * @return array{request: array<string, mixed>, links: array<string, array<string, int|string>>, meta: array<string, mixed>, total: int|null, profile: string|null}|null
      */
-    private function page(Schema $pageSchema, bool $counted, ?string $firstId): ?array
+    private function page(Schema $pageSchema, bool $counted, ?string $firstId, bool $requested): ?array
     {
         $paginator = $pageSchema->extension('paginator');
         if (\is_array($paginator) && ($paginator['strategy'] ?? null) === 'multi') {
@@ -823,7 +824,7 @@ final class ExampleDocumentBuilder
                     'request' => ['page' => $request],
                     'links' => $queries,
                     'meta' => $meta,
-                    'total' => null,
+                    'total' => $requested ? 5 * (\is_int($size) ? $size : 15) : null,
                     'profile' => CursorPaginationProfile::URI,
                 ];
             default:
