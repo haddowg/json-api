@@ -175,7 +175,8 @@ interface FieldInterface
      * field's declared type would store — the value {@see hydrate()} writes onto
      * the backing column for a plain field. Applies the type's value cast alone:
      * the request/document-aware hydrate hooks (`deserializeUsing`/`fillUsing`)
-     * are not consulted, so the result is request-independent. For an adapter
+     * are not consulted, so the result is request-independent. A field declared
+     * with `enum()` returns the enum's case. For an adapter
      * hydrating a value outside the resource hydration path (e.g. pivot meta
      * onto a join row) where only the field's declared type is in play.
      */

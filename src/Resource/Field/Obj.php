@@ -228,6 +228,17 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     }
 
     /**
+     * An object nested in another hydrates as it does at the top, since its children are
+     * nested either way.
+     *
+     * @internal
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return $this->hydrate($nested, $value, $data, $request, $creating);
+    }
+
+    /**
      * Builds one element of a structured {@see ArrayList} from its request value,
      * starting from nothing rather than a stored element.
      *
@@ -265,7 +276,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         $slot = $field->column() ?? $field->name();
         foreach ($this->additionalMembersOf($value) as $key => $member) {
             try {
-                $scratch = $field instanceof DateTime || $field instanceof Union
+                $scratch = $field instanceof AbstractFieldValue
                     ? $field->hydrateNested([], $member, $data, $request, $creating)
                     : $field->hydrate([], $member, $data, $request, $creating);
             } catch (AttributeValueInvalid $e) {
@@ -282,7 +293,8 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     /**
      * Hydrates each writable child the request value carries onto `$nested`. A date
      * child, or a union's date member, stores a string here, as
-     * {@see DateTime::hydrateNested()} explains.
+     * {@see DateTime::hydrateNested()} explains, and a child declared with `enum()` its
+     * backing value rather than the case.
      *
      * @internal
      *
@@ -298,7 +310,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             }
 
             if (\array_key_exists($child->name(), $value)) {
-                $nested = $child instanceof DateTime || $child instanceof Union
+                $nested = $child instanceof AbstractFieldValue
                     ? $child->hydrateNested($nested, $value[$child->name()], $data, $request, $creating)
                     : $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
             }

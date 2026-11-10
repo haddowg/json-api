@@ -373,10 +373,51 @@ Every field can constrain its value to (or away from) a fixed set:
 |---|---|
 | `in(array $values)` | `In` — value must be one of `$values`. |
 | `notIn(array $values)` | `NotIn` — value must not be one of `$values`. |
+| `enum(string $enum)` | `In` over the backing values of a backed enum's cases, keeping the enum's class. |
 
 ```php
 Str::make('status')->in(['draft', 'published', 'archived']),
+Str::make('state')->enum(RunState::class),
 ```
+
+### Backed enums
+
+A field declared with `enum(RunState::class)`, or with `in()` over cases of one backed
+enum, converts between the wire's backing value and the enum's case:
+
+- A write hydrates the value as `RunState::from($value)` after validation, so a setter
+  `setState(RunState $state)` or a property typed `RunState` takes it as it is, as does a
+  Doctrine column mapped with `enumType` or an Eloquent attribute with an enum cast. A
+  `fillUsing()` hook receives the case too. `null` stays `null` on a `nullable()` field.
+- A read renders a case as its backing value. A plain string or int renders as it is, so a
+  model that stores the scalar keeps reading.
+- A list of scalars carrying the enum in `each()`, as
+  `ArrayList::make('states')->each(new In(['running', 'done'], enumClass: RunState::class))`,
+  hydrates each element as its case. A `Union` member declared with `enum()` hydrates the
+  case, and a `Map` child writes the case onto its own column.
+- A value nested in a JSON column keeps the backing value: a child of an `Obj`, a `OneOf`
+  variant or a structured `ArrayList` element, and each element of a list of unions, as a
+  [nested date stays a string](field-types.md#nested-dates-are-stored-as-strings). A
+  `Union` stored in a JSON column stores the backing value through `toStoredForm()` and
+  reads the case back through `fromStoredForm()`.
+
+Filters are not affected: a filter on an enum field still compares the backing value, which
+Doctrine and Eloquent both bind against an enum column.
+
+`enum()` takes a backed enum only, and refuses a pure enum when you declare it, since its
+cases have no value a request could carry. A value outside the enum is refused by
+validation before anything converts it. If a value reaches hydration unvalidated, it is
+refused with a `422` `ATTRIBUTE_VALUE_INVALID` at its pointer.
+
+To keep the string, as for a property or setter typed `string` or an Eloquent attribute
+without an enum cast, add a `deserializeUsing()` hook, which replaces the conversion:
+
+```php
+Str::make('state')->enum(RunState::class)
+    ->deserializeUsing(static fn (mixed $value): mixed => $value),
+```
+
+Inside a `fillUsing()` hook, read `$value->value` from the case instead.
 
 ## Context scoping
 
@@ -462,7 +503,7 @@ customise writing — reach for them before dropping to a whole-resource custom
 |---|---|---|
 | `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
 | `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. |
-| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration. |
+| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. |
 | `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
 
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins

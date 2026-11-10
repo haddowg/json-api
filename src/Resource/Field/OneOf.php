@@ -374,6 +374,17 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
+     * A `OneOf` nested in an object hydrates as it does at the top, since its variants'
+     * children are nested either way.
+     *
+     * @internal
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return $this->hydrate($nested, $value, $data, $request, $creating);
+    }
+
+    /**
      * Builds one element of a structured {@see ArrayList} from its request value through
      * the variant its discriminator names, starting from nothing rather than a stored
      * element. A value naming no variant is kept as sent, as {@see hydrate()} keeps it.

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
+use haddowg\JsonApi\Resource\Constraint\In;
 
 /**
  * The readonly base for a built {@see FieldInterface} value object. It holds the
@@ -213,12 +216,12 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
         }
 
         if ($this->state->extractUsing !== null) {
-            return $this->serializeComputedValue(($this->state->extractUsing)($model, $request, $name));
+            return $this->serializeComputedValue($this->backingValue(($this->state->extractUsing)($model, $request, $name)));
         }
 
         $raw = Accessor::get($model, $this->state->column ?? $name);
 
-        return $this->serializeValue($raw);
+        return $this->serializeValue($this->backingValue($raw));
     }
 
     /**
@@ -245,13 +248,36 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
     {
         $raw = Accessor::get($model, $this->state->column ?? $this->state->name);
 
-        return $this->serializeValue($raw);
+        return $this->serializeValue($this->backingValue($raw));
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
+        return $this->hydrateValue($model, $value, $data, false);
+    }
+
+    /**
+     * Hydrates the value into a nested value: a key of an {@see Obj}, a {@see OneOf}
+     * variant or a structured {@see ArrayList} element, which a data layer keeps in a
+     * JSON column. A value declared with `enum()` stays its backing scalar here rather
+     * than becoming the case, as a nested {@see DateTime} stays a string.
+     *
+     * @internal
+     *
+     * @param array<string, mixed> $data
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return $this->hydrateValue($nested, $value, $data, true);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested): mixed
+    {
         if ($this->state->fillUsing !== null) {
-            $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
+            $result = ($this->state->fillUsing)($model, $nested ? $value : $this->toEnumCase($value), $data, $this->state->name);
 
             return $result ?? $model;
         }
@@ -261,16 +287,105 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
             return $model;
         }
 
-        $value = $this->state->deserializeUsing !== null
-            ? ($this->state->deserializeUsing)($value, $data)
-            : $this->deserializeValue($value);
+        $value = match (true) {
+            $this->state->deserializeUsing !== null => ($this->state->deserializeUsing)($value, $data),
+            $nested => $this->deserializeValue($value),
+            default => $this->toEnumCase($this->deserializeValue($value)),
+        };
 
         return Accessor::set($model, $column, $value);
     }
 
     public function castWireValue(mixed $value): mixed
     {
+        return $this->toEnumCase($this->deserializeValue($value));
+    }
+
+    /**
+     * The type's value cast alone, leaving a value declared with `enum()` as its backing
+     * scalar: the form a value nested in a JSON column keeps.
+     *
+     * @internal
+     */
+    public function castNestedWireValue(mixed $value): mixed
+    {
         return $this->deserializeValue($value);
+    }
+
+    /**
+     * Converts a written backing value to the case of the backed enum the field declares
+     * with `enum()`, or `in()` over that enum's cases. A field declaring none, `null`, a
+     * case already, or a value of the wrong scalar type comes back unchanged, the last for
+     * the adapter's validator to refuse.
+     *
+     * @throws AttributeValueInvalid when the value is not one of the enum's backing values
+     */
+    protected function toEnumCase(mixed $value): mixed
+    {
+        $enum = $this->declaredEnum();
+
+        return $enum === null ? $value : $this->caseOf($enum, $value, $this->state->name);
+    }
+
+    /**
+     * @param class-string<\BackedEnum> $enum
+     *
+     * @throws AttributeValueInvalid
+     */
+    protected function caseOf(string $enum, mixed $value, string $pointer): mixed
+    {
+        // A Decimal field reads a whole number as a float, which an int-backed enum takes
+        // as its int.
+        $intBacked = (string) (new \ReflectionEnum($enum))->getBackingType() === 'int';
+        $backing = match (true) {
+            $intBacked && \is_int($value), !$intBacked && \is_string($value) => $value,
+            $intBacked && \is_float($value) && \floor($value) === $value => (int) $value,
+            default => null,
+        };
+        if ($backing === null) {
+            return $value;
+        }
+
+        return $enum::tryFrom($backing)
+            ?? throw new AttributeValueInvalid($pointer, \sprintf('%s is not a value of %s', \json_encode($backing, \JSON_THROW_ON_ERROR), $enum));
+    }
+
+    /**
+     * The backed enum a direct {@see In} among `$constraints` was sourced from, or `null`.
+     *
+     * @param list<ConstraintInterface> $constraints
+     *
+     * @return class-string<\BackedEnum>|null
+     */
+    protected static function enumClassIn(array $constraints): ?string
+    {
+        foreach ($constraints as $constraint) {
+            if ($constraint instanceof In && $constraint->enumClass !== null) {
+                return $constraint->enumClass;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The backed enum this field declares with `enum()`, or `in()` over that enum's
+     * cases, or `null`.
+     *
+     * @return class-string<\BackedEnum>|null
+     */
+    protected function declaredEnum(): ?string
+    {
+        return self::enumClassIn($this->state->constraints);
+    }
+
+    /**
+     * A case of the declared enum reads as its backing value, so a property typed with
+     * the enum renders as one holding the scalar does.
+     */
+    protected function backingValue(mixed $raw): mixed
+    {
+        return $raw instanceof \BackedEnum && $this->declaredEnum() !== null ? $raw->value : $raw;
     }
 
     /**
