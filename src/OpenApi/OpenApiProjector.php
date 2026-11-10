@@ -33,6 +33,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
@@ -386,6 +387,7 @@ final class OpenApiProjector
             openObjects: self::hasOpenObject($server),
             identifiedPivots: self::queriesLinkRows($server),
             fixedMembership: RelationFacts::anyFixesMembership($server),
+            unions: self::hasUnion($server),
         ));
     }
 
@@ -523,6 +525,52 @@ final class OpenApiProjector
         };
         foreach ($members as $member) {
             if (self::declaresStructuredList($member)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether some attribute, pivot field or identifier meta member is, or nests, a
+     * {@see Union} ({@see GeneratorContract::UNIONS}).
+     */
+    private static function hasUnion(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            $fields = $type->fields();
+            foreach ($type->relations() as $relation) {
+                $fields = [...$fields, ...$relation->pivotFields(), ...RelationFacts::identifierMetaFields($relation)];
+            }
+            foreach ($fields as $field) {
+                if (!$field instanceof RelationInterface && self::declaresUnion($field)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function declaresUnion(FieldInterface $field): bool
+    {
+        if ($field->isHidden()) {
+            return false;
+        }
+        if ($field instanceof Union || ($field instanceof ArrayList && $field->elementUnion() !== null)) {
+            return true;
+        }
+
+        $members = match (true) {
+            $field instanceof Obj => [...$field->children(), ...($field->additionalProperties() === null ? [] : [$field->additionalProperties()])],
+            $field instanceof Map => $field->children(),
+            $field instanceof OneOf => \array_values($field->variants()),
+            $field instanceof ArrayList => $field->element() === null ? [] : [$field->element()],
+            default => [],
+        };
+        foreach ($members as $member) {
+            if (self::declaresUnion($member)) {
                 return true;
             }
         }

@@ -26,7 +26,7 @@ final class ContractWitness
     public static function project(bool $scoped = true): string
     {
         return (new OpenApiProjector())
-            ->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped))
+            ->project(ContractWitnessServer::build($scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped, $scoped))
             ->toJsonString(pretty: true) . "\n";
     }
 

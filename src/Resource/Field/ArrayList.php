@@ -14,9 +14,10 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * a mutable {@see ArrayListBuilder}; the resource **builds** it into this value
  * object before use.
  *
- * Its elements are scalars of {@see elementType()}, or structured: each one an
+ * Its elements are scalars of {@see elementType()}, structured: each one an
  * {@see Obj} or {@see OneOf} shape ({@see element()}) whose children read and write
- * keys inside that element. A write replaces the whole list, building every element
+ * keys inside that element, or each one of several primitive types, a {@see Union}
+ * ({@see elementUnion()}). A write replaces the whole list, building every element
  * fresh from the request.
  */
 final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefaultOutputTimezoneInterface
@@ -26,18 +27,23 @@ final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefa
         private string $elementType = 'string',
         private bool $sorted = false,
         private Obj|OneOf|null $element = null,
+        private ?Union $elementUnion = null,
     ) {
         parent::__construct($state);
     }
 
-    public static function make(string $name): ArrayListBuilder
+    /**
+     * `$name` may be left out for a {@see Union} member, whose name is never used.
+     */
+    public static function make(string $name = ''): ArrayListBuilder
     {
         return new ArrayListBuilder($name);
     }
 
     /**
      * The declared JSON type of each element (default `string`), read by the OpenAPI
-     * projection to type the `items` schema. A structured list reports `object`.
+     * projection to type the `items` schema. A structured list reports `object`, and a
+     * list of unions its {@see Union::valueType()}, as `string|number`.
      */
     public function elementType(): string
     {
@@ -54,11 +60,23 @@ final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefa
         return $this->element;
     }
 
+    /**
+     * The union each element is one member of, or `null` when the elements are scalars of
+     * {@see elementType()} or structured. Its own name never appears on the wire;
+     * validate each element against the member its JSON type selects, at
+     * `<list>/<index>`.
+     */
+    public function elementUnion(): ?Union
+    {
+        return $this->elementUnion;
+    }
+
     public function withDefaultOutputTimezone(string $timezone): static
     {
         $element = $this->element?->withDefaultOutputTimezone($timezone);
+        $union = $this->elementUnion?->withDefaultOutputTimezone($timezone);
 
-        return $element === $this->element ? $this : new self($this->state, $this->elementType, $this->sorted, $element);
+        return $element === $this->element && $union === $this->elementUnion ? $this : new self($this->state, $this->elementType, $this->sorted, $element, $union);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -101,6 +119,12 @@ final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefa
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
+        if ($this->elementUnion !== null && !$this->hydratesThroughHook()) {
+            $column = $this->state->column;
+
+            return $column === null || !\is_array($value) ? parent::hydrate($model, $value, $data, $request, $creating) : Accessor::set($model, $column, $this->castElementsAt($value, $request, $creating));
+        }
+
         if ($this->element === null || $this->state->fillUsing !== null || $this->state->deserializeUsing !== null) {
             return parent::hydrate($model, $value, $data, $request, $creating);
         }
@@ -133,10 +157,63 @@ final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefa
         return Accessor::set($model, $column, $list);
     }
 
+    /**
+     * Casts each element of a list of unions through the member its JSON type selects, a
+     * date member's value stored as a string. A failing cast throws with its pointer below
+     * the list, as `2` or `2/0`. The elements of any other list are returned as sent.
+     *
+     * @internal
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @throws AttributeValueInvalid
+     */
+    public function castUnionElements(array $value, ?JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $union = $this->elementUnion;
+        if ($union === null) {
+            return $this->castWireValue($value);
+        }
+
+        $list = [];
+        foreach (\array_values($value) as $index => $item) {
+            try {
+                $list[] = $union->cast($item, true, $request, $creating);
+            } catch (AttributeValueInvalid $e) {
+                throw new AttributeValueInvalid($e->attribute === '' ? (string) $index : $index . '/' . $e->attribute, $e->reason);
+            }
+        }
+
+        return $list;
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     *
+     * @throws AttributeValueInvalid
+     */
+    private function castElementsAt(array $value, ?JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        try {
+            return $this->castUnionElements($value, $request, $creating);
+        } catch (AttributeValueInvalid $e) {
+            throw new AttributeValueInvalid($this->name() . '/' . $e->attribute, $e->reason);
+        }
+    }
+
+    protected function deserializeValue(mixed $value): mixed
+    {
+        return $this->elementUnion !== null && \is_array($value) ? $this->castElementsAt($value, null, true) : $value;
+    }
+
     protected function serializeValue(mixed $raw): mixed
     {
         if (!\is_array($raw)) {
             return $raw;
+        }
+
+        if ($this->elementUnion !== null) {
+            return \array_map($this->elementUnion->render(...), \array_values($raw));
         }
 
         $list = \array_values($raw);

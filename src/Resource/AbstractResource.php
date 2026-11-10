@@ -1381,6 +1381,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 $this->fields(),
             ));
             foreach ($fields as $field) {
+                if ($field->name() === '') {
+                    throw new \LogicException(\sprintf('Resource "%s" declares a %s field with no name; only a Union member is declared unnamed.', static::class, (new \ReflectionClass($field))->getShortName()));
+                }
                 $isRelation = $field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface;
                 if ($isRelation && $field->name() === \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN) {
                     throw new \LogicException(\sprintf(

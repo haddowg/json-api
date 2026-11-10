@@ -21,19 +21,21 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\Union;
 
 /**
  * The JSON type each written value must have, and the values in a write body that do not
  * have it. A field's type is the one its write schema documents: `integer` for an
  * {@see Integer}, `number` for a {@see Decimal}, `boolean` for a {@see Boolean}, `array`
  * for an {@see ArrayList}, `object` for an {@see Obj}, {@see OneOf}, {@see Map} or
- * {@see ArrayHash}, and `string` for everything else, dates and enums included.
+ * {@see ArrayHash}, its members' types joined by `|` for a {@see Union}, as
+ * `string|number|array`, and `string` for everything else, dates and enums included.
  *
  * A field's cast does not check the type, so an adapter validates every write against
  * {@see mismatchesIn()} before hydrating it and reports each mismatch as the only
  * violation at its pointer. The walk reaches every depth: an attribute, a child of an
- * `Obj`, `Map` or `OneOf` variant, an undeclared member of an open object, and each
- * element of a list. `null` matches only a field declared nullable in the write's context.
+ * `Obj`, `Map` or `OneOf` variant, an undeclared member of an open object, each
+ * element of a list, and inside the member a {@see Union}'s value selects. `null` matches only a field declared nullable in the write's context.
  * Like {@see ObjectValues} it follows what a write may carry, so a field hidden, or
  * read-only for the caller, is skipped, and a field whose `fillUsing()` or
  * `deserializeUsing()` hook takes the value is checked like any other. A list sent for an
@@ -62,6 +64,7 @@ final class ValueTypes
             $field instanceof Boolean => self::BOOLEAN,
             $field instanceof ArrayList => self::ARRAY,
             $field instanceof ArrayHash, $field instanceof Map, $field instanceof Obj, $field instanceof OneOf => self::OBJECT,
+            $field instanceof Union => $field->valueType(),
             $field instanceof ProvidesFieldSchema => null,
             default => self::STRING,
         };
@@ -70,10 +73,21 @@ final class ValueTypes
     /**
      * Whether a decoded JSON value has the JSON type. An integer is any whole number PHP
      * can hold as an `int`, so `1.0` is one. A body decoded to arrays turns both `{}` and
-     * `[]` into `[]`, so an empty array is both an object and an array.
+     * `[]` into `[]`, so an empty array is both an object and an array. Types joined by
+     * `|`, as a {@see Union} names them, match a value any one of them matches.
      */
     public static function matches(string $type, mixed $value): bool
     {
+        if (\str_contains($type, '|')) {
+            foreach (\explode('|', $type) as $one) {
+                if (self::matches($one, $value)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         return match ($type) {
             self::STRING => \is_string($value),
             self::BOOLEAN => \is_bool($value),
@@ -164,6 +178,7 @@ final class ValueTypes
             $field instanceof Obj => self::object($field, $value, $pointer, $creating, $request, $found, $hooked),
             $field instanceof Map => self::children($field->children(), $value, $pointer, $creating, $request, $found, $hooked),
             $field instanceof OneOf => self::children($field->variantOf($value)?->children() ?? [], $value, $pointer, $creating, $request, $found, $hooked),
+            $field instanceof Union => self::member($field, $value, $pointer, $creating, $request, $found, $hooked),
             default => null,
         };
     }
@@ -174,7 +189,7 @@ final class ValueTypes
      */
     private static function elements(ArrayList $field, array $list, string $pointer, bool $creating, ?JsonApiRequestInterface $request, array &$found, bool $hooked): void
     {
-        $element = $field->element();
+        $element = $field->element() ?? $field->elementUnion();
         foreach ($list as $index => $item) {
             $itemPointer = $pointer . '/' . $index;
             if ($element !== null) {
@@ -185,6 +200,20 @@ final class ValueTypes
             if (!self::matches($field->elementType(), $item)) {
                 $found[] = new ValueTypeMismatch($itemPointer, $field, $field->elementType(), $item);
             }
+        }
+    }
+
+    /**
+     * Checks a union's value against the member its JSON type selects, at the same pointer.
+     *
+     * @param array<array-key, mixed> $value
+     * @param list<ValueTypeMismatch> $found
+     */
+    private static function member(Union $union, array $value, string $pointer, bool $creating, ?JsonApiRequestInterface $request, array &$found, bool $hooked): void
+    {
+        $member = $union->memberFor($value);
+        if ($member !== null) {
+            self::field($member, $value, $pointer, $creating, $request, $found, hooked: $hooked);
         }
     }
 

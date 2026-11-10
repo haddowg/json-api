@@ -38,6 +38,12 @@ The JSON type a written value of a **Field** must have, the one its write schema
 A value without it is refused, never cast.
 _Avoid_: cast type, coercion
 
+**Union**:
+A **Field** whose value is one of several JSON primitive types, or a list of them, each type
+taken by one unnamed member field. The value's JSON type picks the member on a write and its
+PHP type on a read.
+_Avoid_: variant (that is a `OneOf` shape), mixed field, any-type field
+
 **Declared link**:
 A named member of a resource object's `links`, declared on the **Resource** beside its fields so
 the OpenAPI projection can describe it.

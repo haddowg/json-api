@@ -8,6 +8,8 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\Constraint\Nullable;
+use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 
 /**
@@ -27,6 +29,8 @@ final class ArrayListBuilder extends AbstractFieldBuilder
 
     private Obj|ObjBuilder|OneOf|OneOfBuilder|null $element = null;
 
+    private Union|UnionBuilder|null $union = null;
+
     private bool $sorted = false;
 
     public function build(): ArrayList
@@ -36,7 +40,12 @@ final class ArrayListBuilder extends AbstractFieldBuilder
             $this->assertStructurable($element);
         }
 
-        return new ArrayList($this->fieldState(), $this->elementType, $this->sorted, $element);
+        $union = $this->union instanceof UnionBuilder ? $this->union->build() : $this->union;
+        if ($union !== null) {
+            $this->assertUnionElement($union);
+        }
+
+        return new ArrayList($this->fieldState(), $union?->valueType() ?? $this->elementType, $this->sorted, $element, $union);
     }
 
     /**
@@ -50,12 +59,25 @@ final class ArrayListBuilder extends AbstractFieldBuilder
      * as an attribute of its own. Its name is never used. A structured list takes no
      * `each()` and no `sorted()`; constrain the children instead.
      *
+     * A {@see Union}, usually an unnamed {@see Union::of()}, makes each element one of its
+     * members, picked by the element's JSON type. It takes no `each()`, no `sorted()` and no
+     * `nullable()`; constrain the members instead.
+     *
      * @return static
      */
-    public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder $element): static
+    public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder|Union|UnionBuilder $element): static
     {
+        if ($element instanceof Union || $element instanceof UnionBuilder) {
+            $this->element = null;
+            $this->union = $element;
+            $this->elementType = 'string';
+
+            return $this;
+        }
+
         if (!\is_string($element)) {
             $this->element = $element;
+            $this->union = null;
             $this->elementType = 'object';
 
             return $this;
@@ -72,6 +94,7 @@ final class ArrayListBuilder extends AbstractFieldBuilder
         }
 
         $this->element = null;
+        $this->union = null;
         $this->elementType = $element;
 
         return $this;
@@ -121,6 +144,20 @@ final class ArrayListBuilder extends AbstractFieldBuilder
         $this->sorted = true;
 
         return $this;
+    }
+
+    private function assertUnionElement(Union $union): void
+    {
+        $problem = match (true) {
+            $this->sorted => 'cannot be sorted(), since values of different types have no shared order',
+            \array_filter($this->fieldState()->constraints, static fn(ConstraintInterface $constraint): bool => $constraint instanceof Each) !== [] => 'cannot take each() item constraints; constrain the union\'s members instead',
+            $union->rendersThroughHook() || $union->hydratesThroughHook() => 'cannot use an element with its own serialize, extract, deserialize or fill hook; put the hook on the list',
+            \array_filter($union->constraints(), static fn(ConstraintInterface $constraint): bool => $constraint instanceof Nullable || $constraint instanceof Required) !== [] => 'cannot take a required() or nullable() element, since a list never holds null in place of an element',
+            default => null,
+        };
+        if ($problem !== null) {
+            throw new \LogicException(\sprintf('ArrayList "%s" has Union elements, so it %s.', $this->name(), $problem));
+        }
     }
 
     private function assertStructurable(Obj|OneOf $element): void
