@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Collection\LinkRows;
 
+use haddowg\JsonApi\Pagination\PaginatorInterface;
 use haddowg\JsonApi\Pagination\WindowInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\LinkRowFields;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Filter\FilterDirective;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
@@ -15,6 +17,7 @@ use haddowg\JsonApi\Resource\Sort\RelationSorts;
 use haddowg\JsonApi\Resource\Sort\SortDirective;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
+use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
 
 /**
  * What to read of an identified {@see MorphToMany}'s link rows: the filters that select
@@ -26,6 +29,15 @@ use haddowg\JsonApi\Resource\Sort\SortMatcher;
  * its stored pivot fields derive ({@see sorts()}) and the filters it declares with
  * `withFilters()` on a `pivot.`-prefixed column ({@see filters()}). A sort's column and
  * a filter's column with the prefix stripped name a column of the link row.
+ *
+ * Which rows count, and in what order, is fixed here so every data layer agrees. A
+ * relation declared with `identifiedByRows()` carries its {@see LinkRowFields}, and a row
+ * of the parent counts when its stored type names a declared type ({@see typeValues()})
+ * and it has an id. A type the host narrows with {@see withAdmitted()}, such as one a
+ * scope hides rows of, counts only the rows whose id it admits ({@see admittedIds()}).
+ * Both apply before the filters, the sorts and the page. After the sorts, ties break by
+ * {@see tiebreak()}, ascending. {@see member()} turns a row the query returns into its
+ * member. {@see InMemoryLinkRows} applies the same rules.
  */
 final readonly class LinkRowQuery
 {
@@ -35,17 +47,188 @@ final readonly class LinkRowQuery
     public const string PIVOT_PREFIX = 'pivot.';
 
     /**
-     * @param list<SortDirective>   $sorts     the order, most significant first; `[]` keeps the identifiedBy() order
+     * @param list<SortDirective>   $sorts     the order, most significant first; `[]` orders by the tiebreak alone, or keeps the closure's order
      * @param list<FilterDirective> $filters   the filters every returned row must pass
      * @param WindowInterface|null  $window    the page to return, or `null` for every row
      * @param bool                  $countable whether a page also counts the rows the filters select
+     * @param LinkRowFields|null    $fields    the relation's declared link-row fields, `null` for one declared with `identifiedBy()`
+     * @param array<string, list<string|int>> $admitted the storage keys each narrowed JSON:API type admits; a type not listed admits every row
      */
     public function __construct(
         public array $sorts = [],
         public array $filters = [],
         public ?WindowInterface $window = null,
         public bool $countable = false,
+        public ?LinkRowFields $fields = null,
+        public array $admitted = [],
     ) {}
+
+    /**
+     * The same query with the rows of `$type` narrowed to the storage keys `$ids`, every
+     * other row of that type left out before the filters and the page. Hosts narrow a
+     * type whose rows a scope may hide, after reading which of the parent's ids it
+     * admits. An empty `$ids` leaves out every row of the type.
+     *
+     * @param iterable<string|int> $ids
+     */
+    public function withAdmitted(string $type, iterable $ids): self
+    {
+        $admitted = $this->admitted;
+        $admitted[$type] = [];
+        foreach ($ids as $id) {
+            $admitted[$type][] = $id;
+        }
+
+        return new self($this->sorts, $this->filters, $this->window, $this->countable, $this->fields, $admitted);
+    }
+
+    /**
+     * This query narrowed for each of `$parents`, in their order: each of `$guarded`
+     * narrowed to the members its provider admits. It is the one way hosts narrow, so
+     * every data layer does it alike, a single parent being a list of one. It reads every
+     * parent's keys of the guarded types through `$keys` in one call, asks `$admit` once
+     * per guarded type with the union of that type's keys across the parents, and narrows
+     * each parent's query to the admitted keys it holds ({@see withAdmitted()}). A guarded
+     * type no parent links is narrowed to none without asking. Run it before the queries
+     * reach the data layer, so the narrowing applies ahead of the filters and the page.
+     *
+     * @param list<mixed>                                                      $parents
+     * @param list<string>                                                     $guarded the declared types a scope may hide rows of
+     * @param \Closure(string, non-empty-list<string|int>): iterable<string|int> $admit   receives a type and the parents' keys of it, returns the keys it admits
+     *
+     * @return list<self>
+     */
+    public function narrowed(array $parents, MorphToMany $relation, LinkRowKeysInterface $keys, array $guarded, \Closure $admit, JsonApiRequestInterface $request): array
+    {
+        if ($guarded === [] || $parents === []) {
+            return \array_fill(0, \count($parents), $this);
+        }
+
+        $stored = $keys->linkRowKeys(\array_values($parents), $relation, $guarded, $request);
+
+        $admitted = [];
+        foreach ($guarded as $type) {
+            $union = [];
+            foreach ($stored as $byType) {
+                foreach ($byType[$type] ?? [] as $id) {
+                    $union[(string) $id] ??= $id;
+                }
+            }
+            $admitted[$type] = [];
+            if ($union !== []) {
+                foreach ($admit($type, \array_values($union)) as $id) {
+                    $admitted[$type][(string) $id] = true;
+                }
+            }
+        }
+
+        $queries = [];
+        foreach (\array_keys(\array_values($parents)) as $index) {
+            $query = $this;
+            foreach ($guarded as $type) {
+                $query = $query->withAdmitted($type, \array_values(\array_filter(
+                    $stored[$index][$type] ?? [],
+                    static fn(string|int $id): bool => isset($admitted[$type][(string) $id]),
+                )));
+            }
+            $queries[] = $query;
+        }
+
+        return $queries;
+    }
+
+    /**
+     * Whether `$member` survives the narrowing: its type is not narrowed, or its id is one
+     * the type admits.
+     */
+    public function admits(IdentifiedMember $member): bool
+    {
+        if (!isset($this->admitted[$member->type])) {
+            return true;
+        }
+
+        $id = (string) $member->id;
+        foreach ($this->admitted[$member->type] as $admitted) {
+            if ((string) $admitted === $id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The member a row the query returned links to, or `null` when the row doesn't count:
+     * its stored type names no declared type, it has no id, or its type is narrowed and
+     * the id isn't admitted.
+     *
+     * @throws \LogicException when the relation was not declared with identifiedByRows()
+     */
+    public function member(mixed $row): ?IdentifiedMember
+    {
+        $member = $this->declared()->member($row);
+
+        return $member !== null && $this->admits($member) ? $member : null;
+    }
+
+    /**
+     * The stored type values whose rows count whatever their id: those of every declared
+     * type the query doesn't narrow. A data layer selects a row when its type field holds
+     * one of these, or matches {@see admittedIds()}.
+     *
+     * @return list<string>
+     *
+     * @throws \LogicException when the relation was not declared with identifiedByRows()
+     */
+    public function typeValues(): array
+    {
+        $fields = $this->declared();
+        $values = [];
+        foreach ($fields->types as $type) {
+            if (!isset($this->admitted[$type])) {
+                \array_push($values, ...$fields->storedValues($type));
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * The storage keys counted for each stored type value of a narrowed type, keyed by
+     * that value. A data layer selects a row when its type field holds the key and its id
+     * field one of the ids. A narrowed type that admits no id is absent.
+     *
+     * @return array<string, non-empty-list<string|int>>
+     *
+     * @throws \LogicException when the relation was not declared with identifiedByRows()
+     */
+    public function admittedIds(): array
+    {
+        $fields = $this->declared();
+        $ids = [];
+        foreach ($this->admitted as $type => $admitted) {
+            if ($admitted === []) {
+                continue;
+            }
+            foreach ($fields->storedValues($type) as $value) {
+                $ids[$value] = $admitted;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The row fields that order rows the sorts leave tied, each ascending, applied after
+     * every sort: the stored type, then the id. `[]` for a relation declared with
+     * `identifiedBy()`, whose ties keep the closure's order.
+     *
+     * @return list<string>
+     */
+    public function tiebreak(): array
+    {
+        return $this->fields?->tiebreak() ?? [];
+    }
 
     /**
      * The query a request makes of `$relation`'s link rows. `$sort` and `$filter` are the
@@ -60,7 +243,7 @@ final readonly class LinkRowQuery
      * @throws \haddowg\JsonApi\Exception\SortingUnsupported    when a sort is requested and the relation declares no pivot field to sort by
      * @throws \haddowg\JsonApi\Exception\SortParamUnrecognized when a requested sort key is not one of its pivot sorts
      * @throws \haddowg\JsonApi\Exception\FilterParamUnrecognized when a requested filter key is not one of its pivot filters
-     * @throws \LogicException                                  when the relation is not declared with identifiedBy()
+     * @throws \LogicException                                  when the relation is declared with neither identifiedBy() nor identifiedByRows()
      */
     public static function resolve(
         MorphToMany $relation,
@@ -71,7 +254,7 @@ final readonly class LinkRowQuery
         bool $countable = false,
     ): self {
         if (!$relation->storesIdentifiers()) {
-            throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedBy(), so it has no link rows to query.', $relation->name()));
+            throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedBy() or identifiedByRows(), so it has no link rows to query.', $relation->name()));
         }
 
         $sorts = SortMatcher::directives($sort, self::sorts($relation), $request);
@@ -81,6 +264,37 @@ final readonly class LinkRowQuery
             FilterMatcher::directives($filter, self::filters($relation), $request),
             $window,
             $countable,
+            $relation->linkRowFields(),
+        );
+    }
+
+    /**
+     * Why `$relation`'s link rows are served in memory, for a host to report at warm-up,
+     * or `null` when they aren't or nothing would be. A relation declared with
+     * `identifiedBy()` gives no data layer its rows' fields, so every request reads all
+     * of a parent's rows through the closure and filters, sorts and pages them in memory;
+     * that is worth saying once it declares pivot fields, filters, sorts, a default
+     * order or a count, or a paginator applies: its own, else `$fallback`, the server's.
+     */
+    public static function inMemoryNotice(MorphToMany $relation, ?PaginatorInterface $fallback = null): ?string
+    {
+        if (!$relation->storesIdentifiers() || $relation->linkRowFields() !== null) {
+            return null;
+        }
+
+        $queried = $relation->pivotFields() !== []
+            || $relation->allFilters() !== []
+            || $relation->sorts() !== []
+            || RelationSorts::ownDefault($relation) !== []
+            || $relation->pagination($fallback) !== null
+            || $relation->isCountable();
+        if (!$queried) {
+            return null;
+        }
+
+        return \sprintf(
+            'MorphToMany relation "%s" reads its link rows through an identifiedBy() closure, so its linkage and its relationship and related endpoints load every row of a parent and filter, sort and page them in memory. Declare identifiedByRows() with the rows\' owner, type and id fields to let the data layer query them.',
+            $relation->name(),
         );
     }
 
@@ -111,6 +325,11 @@ final readonly class LinkRowQuery
             $relation->allFilters(),
             static fn(FilterInterface $filter): bool => $filter instanceof TargetsColumn && \str_starts_with($filter->targetColumn(), self::PIVOT_PREFIX),
         ));
+    }
+
+    private function declared(): LinkRowFields
+    {
+        return $this->fields ?? throw new \LogicException('This link-row query has no declared row fields: its relation was declared with identifiedBy(), whose rows only the closure can read.');
     }
 
     /**

@@ -427,9 +427,53 @@ custom provider there; see [related-endpoints](related-endpoints.md).
 
 ### Identifying the members without loading them
 
-When the parent stores its members as type and id pairs, such as join rows naming a
-company type and a company id, declare `identifiedBy()` and the linkage renders
-straight from the pairs:
+When the parent stores its members as link rows, each naming a company type and a
+company id, declare the rows with `through()` and `identifiedByRows()` and the linkage
+renders straight from them:
+
+```php
+MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
+    ->storedAs('userCompanies')
+    ->through(UserCompany::class)
+    ->identifiedByRows(owner: 'user', type: 'companyType', id: 'companyId'),
+```
+
+`through()` names the class backing the rows. `owner` is the row field pointing at the
+parent, `type` the field holding the member's stored type and `id` the field holding its
+storage key. Each is a field of the row as its model sees it, a Doctrine property or an
+Eloquent attribute or relation, never a database column, so a data layer can query the
+rows itself. Core reads them in memory as the relation's value on the parent, which
+`storedAs()` or `extractUsing()` points at the parent's collection of rows.
+
+The stored type is the JSON:API type unless you pass `typeMap`, from stored value to
+JSON:API type, as an Eloquent morph map stores `agency` for `agencies`:
+
+```php
+->identifiedByRows(owner: 'user', type: 'company_type', id: 'company_id', typeMap: [
+    'agency' => 'agencies',
+    'advertiser' => 'advertisers',
+    'publisher' => 'publishers',
+]),
+```
+
+Core never infers the map. A declared map holds exactly one stored value for each declared
+type, so a new row has one value to write, and it is complete: a row whose stored type it doesn't
+list is not a member. Without a map, a row whose type isn't a declared type is not a
+member, and neither is a row with no id. A repeated pair renders once, and each `id` goes
+through its type's id encoder.
+
+The build fails with a `\LogicException` when:
+
+| Declaration | Problem |
+| --- | --- |
+| `identifiedByRows()` | a field is empty or a dotted path, or one field fills two roles |
+| `identifiedByRows()` without `through()` | a data layer has no row class to query |
+| a `typeMap` value | names a type the relation doesn't declare |
+| a `typeMap` | maps no stored value, or more than one, to a declared type |
+| both `identifiedBy()` and `identifiedByRows()` | declare one |
+| `fillUsing()` with `identifiedByRows()` | the data layer writes the rows, see [writing link rows](#writing-link-rows-in-a-data-layer) |
+
+For storage these fields can't describe, declare `identifiedBy()` with a closure instead:
 
 ```php
 MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
@@ -443,7 +487,9 @@ pairs, with `$type` one of the declared JSON:API types and `$id` the storage key
 linkage keeps the list's order, a repeated pair renders once, and each `id` goes
 through its type's id encoder. A type the relation doesn't declare throws a
 `\LogicException`, which renders as a 500; its message names the class that declared
-the closure, the relation and the type.
+the closure, the relation and the type. Only core can run the closure, so a closure
+relation is served in memory: every request reads all of a parent's pairs, and its
+endpoints filter, sort and page them in memory.
 
 A member is read only when the relationship is included, and always renders with the
 serializer of its pair's type, so one class can back several declared types. A member
@@ -456,7 +502,9 @@ names a pair, `IdentifiedMember::of($pair, $target)`, and may carry the target i
 loaded for `included`. The supplied members replace the stored pairs, so a member the
 host leaves out, hidden by a scope or gone from its table, is missing from the linkage
 too. A supplied member without a target is matched against the relation's usual value
-on the parent when it is included. Without a seam the stored pairs render as they are.
+on the parent when it is included, unless the relation is declared with
+`identifiedByRows()`, whose value on the parent is its rows. Without a seam the stored
+pairs render as they are.
 
 The pairs must point at rows that exist. A host loads or checks only the types whose
 rows a scope can hide, so a pair of such a type that no longer matches a row drops out and
@@ -464,8 +512,11 @@ pages and totals stay exact. A dangling pair of a type nothing hides costs no qu
 still shows in the linkage, and a related page that reaches it can come back one member
 short.
 
-As with `MorphTo`, an identified `MorphToMany` is never lazy and changes reads only, so
-`fillUsing()` still owns writes. Its relationship endpoint pages the pairs the way its
+As with `MorphTo`, an identified `MorphToMany` is never lazy. Declared with
+`identifiedBy()` it changes reads only, so `fillUsing()` still owns writes. Declared with
+`identifiedByRows()`, the data layer writes the link rows itself from a plan core computes,
+as [writing link rows](#writing-link-rows-in-a-data-layer) describes, and the default
+write leaves the parent's rows alone. Its relationship endpoint pages the pairs the way its
 related endpoint does, so the OpenAPI document gives `GET …/relationships/{name}` the
 same `page` and `withCount` parameters. Metadata reports the relation through
 `DeclaresIdentifiedMembers`. An `identifierMeta()` resolver receives each member as its
@@ -476,21 +527,21 @@ A data layer loads the members of a page of parents one query per type.
 `MorphToMany::storedIdentifiers($parents, $request)` returns their ids grouped by type,
 deduplicated, in declared order, and `storedIdentifierList($parent, $request)` returns
 one parent's pairs in order. Both relations implement `StoresIdentifiersInterface`,
-whose `storesIdentifiers()` says whether a relation was declared this way.
+whose `storesIdentifiers()` says whether a relation was declared this way, and
+`MorphToMany::linkRowFields()` returns the `LinkRowFields` an `identifiedByRows()`
+relation declares.
 
 ### Pivot fields on the link rows
 
 An identified `MorphToMany` can declare pivot fields on the rows it reads its pairs from,
 with the same `fields()` and `through()` a [`BelongsToMany`](#belongstomany--a-pivot-backed-to-many)
-has: stored and computed fields and every field modifier. Return each member as a
-`[$type, $id, $row]` triple, `$row` the link row its stored fields are read from:
+has: stored and computed fields and every field modifier.
 
 ```php
 MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
-    ->identifiedBy(static fn(User $user): array => array_map(
-        static fn(UserCompany $row): array => [$row->companyType, $row->companyId, $row],
-        $user->companies->toArray(),
-    ))
+    ->storedAs('userCompanies')
+    ->through(UserCompany::class)
+    ->identifiedByRows(owner: 'user', type: 'companyType', id: 'companyId')
     ->fields(
         Integer::make('position'),
         DateTime::make('linkedAt')->readOnly(),
@@ -498,12 +549,27 @@ MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
     ->withFilters(Where::make('minPosition', 'pivot.position', '>=')->integer()),
 ```
 
+A data layer queries these rows directly, so on a relation declared with
+`identifiedByRows()` every stored pivot field and every `pivot.` filter must name a field
+of the row itself, not a dotted path, and a position can't be the owner, type or id
+field. The build fails otherwise.
+
+With `identifiedBy()`, return each member as a `[$type, $id, $row]` triple, `$row` the
+link row its stored fields are read from:
+
+```php
+    ->identifiedBy(static fn(User $user): array => array_map(
+        static fn(UserCompany $row): array => [$row->companyType, $row->companyId, $row],
+        $user->companies->toArray(),
+    ))
+```
+
 The wire shape is a `BelongsToMany`'s. Each identifier renders its readable fields as
 `meta.pivot`, each stored field read off the row with its column and cast by the field,
 `null` when the row holds nothing, and a write carries the writable ones in the same
 `meta.pivot`. `identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
-Declaring pivot fields without `identifiedBy()` fails the build, because only the link
-rows map a member to its type and id, and a member of a relation with stored pivot fields
+Declaring pivot fields without `identifiedByRows()` or `identifiedBy()` fails the build,
+because only the link rows map a member to its type and id, and a member of a relation with stored pivot fields
 that arrives without its row throws a `\LogicException`.
 
 Its relationship and related endpoints accept `sort` and `filter` over the pivot fields
@@ -514,8 +580,9 @@ only, since the members span types and share nothing else:
 | `sort` | the key of any stored pivot field, the same automatic sorts a `BelongsToMany` has |
 | `filter[<key>]` | a `withFilters()` filter whose column starts with `pivot.`, comparing that column of the row |
 
-Both run over the link rows, ties keeping the closure's order. A `MorphToMany` without
-`identifiedBy()` still answers `400` to either. A [default read order](#default-read-order)
+Both run over the link rows. Ties break by the stored type and then the id on a relation
+declared with `identifiedByRows()`, and keep the closure's order on one declared with
+`identifiedBy()`. A `MorphToMany` declared with neither still answers `400` to either. A [default read order](#default-read-order)
 may name a stored pivot field, and orders the linkage when the request names no sort.
 
 A data layer reads the rows through a `LinkRowQueryInterface`.
@@ -527,10 +594,107 @@ relation's default sort, and rejects a key outside the pivot vocabulary with the
 query returns `IdentifiedMember` values carrying their rows, which the host supplies as the
 relation's linkage, and core renders each `meta.pivot` from its row.
 `MorphToMany::pivotValues($member, $parent, $request)` returns the same values for a
-member's resource object on the related endpoint. `InMemoryLinkRows` is the reference
-query over the rows the closure returns, and both relations implement
+member's resource object on the related endpoint. Both relations implement
 `PivotRelationInterface`, so a host reads, validates and writes either relation's pivot
 through one interface.
+
+### Querying link rows in a data layer
+
+Core sets the rules for which rows count and in what order, so every data layer returns
+the same page. `LinkRowQuery::resolve()` carries the relation's `LinkRowFields` as
+`$query->fields`, `null` for a closure relation. A data layer serving a relation declared
+with `identifiedByRows()` reads everything it needs off the query:
+
+| Step | From the query |
+| --- | --- |
+| select rows of the class | `$query->fields->through` |
+| that belong to the parent | `$query->fields->owner` equals the parent |
+| whose type counts | `$query->fields->type` holds one of `typeValues()`, or holds a key of `admittedIds()` while `$query->fields->id` holds one of its ids |
+| filtered and sorted | `$query->filters` and `$query->sorts`, each on `LinkRowQuery::rowColumn()` of its column |
+| ties broken | `tiebreak()`, each field ascending, after every sort |
+| paged | `$query->window`, counting when `$query->countable` |
+
+Then `$query->member($row)` turns each row into the `IdentifiedMember` it links to,
+carrying the row. The type and id rules apply before the filters, the sorts and the page,
+so totals and pages stay exact.
+
+A host narrows the types whose rows a scope may hide through one helper, so every data
+layer narrows alike. It works on a batch of parents, a single parent being a list of one,
+and the host supplies two things, a key read and an admission check. The steps run in this
+order:
+
+1. Resolve the query with `LinkRowQuery::resolve()`.
+2. Call `$query->narrowed($parents, $relation, $keys, $guarded, $admit, $request)`, with
+   `$guarded` the declared types a scope may hide rows of.
+3. The helper reads every parent's stored keys of those types through `$keys`, a
+   `LinkRowKeysInterface`, in one key-only read for the batch.
+4. It calls `$admit($type, $ids)` once per guarded type, with the union of that type's
+   keys across the parents, which returns the storage keys the type's provider serves. A
+   guarded type no parent links is narrowed to none without asking.
+5. It narrows each parent's query to the admitted keys that parent holds, with
+   `withAdmitted()`, and returns one query per parent in input order.
+6. Run each parent's query through the data layer's `LinkRowQueryInterface`.
+
+A data layer implements `LinkRowKeysInterface::linkRowKeys($parents, $relation, $types,
+$request)` beside its link-row query. It returns each parent's distinct storage keys per
+requested JSON:API type, keyed by the parent's position in `$parents`, read from the owner,
+type and id fields alone, selecting rows whose owner is one of the parents and whose type
+field holds one of `LinkRowFields::storedValues($type)`. `InMemoryLinkRows` implements it
+as the witness. Only the narrowed rows of a type count, and a type narrowed to no keys
+drops out. `withAdmitted($type, $ids)` narrows one type by hand, and a closure
+relation narrows the same way through `admits()`.
+
+`InMemoryLinkRows` applies the same rules over `identifiedMembers()`, and is the witness
+a data layer's query is checked against. It serves every closure relation, since nothing
+else can read a closure's rows. `LinkRowQuery::inMemoryNotice($relation, $serverPaginator)`
+returns a message saying so for a closure relation that declares pivot fields, filters,
+sorts, a default order or a count, or is paged, for a host to report at warm-up.
+
+### Writing link rows in a data layer
+
+A relation declared with `identifiedByRows()` has no `fillUsing()`: declaring one fails the
+build, so there is one way its rows get written. A persister asks core for the writes a
+relationship write makes and applies them:
+
+```php
+$plan = LinkRowWritePlan::for($relation, $parent, $mode, $linkage, $current, $hidden);
+```
+
+`$linkage` lists the request's members in order as `[$type, $id, $pivot]`, `$id` the
+storage key and `$pivot` the identifier's `meta.pivot`. `$current` is every member the
+parent links now as `IdentifiedMember` values carrying their rows, including those a scope
+hides from the client, which `$hidden` names as `[$type, $id]` pairs. Pass the hidden
+members, always: core alone keeps them through a replace and orders them after the
+visible ones, in their current order, so an adapter never positions them itself. Apply the plan's
+passes in order, each complete before the next:
+
+| Pass | Holds | Write |
+| --- | --- | --- |
+| `deletes` | `IdentifiedMember` values carrying their rows | delete each row |
+| `temporary` | `LinkRowWrite` values for rows that move | set each row's position past every one in use |
+| `updates` | `LinkRowWrite` values for existing rows | set the final position and the written pivot fields |
+| `inserts` | `LinkRowWrite` values for new rows | create a row of the `through()` class with the values |
+
+A `LinkRowWrite` carries the member and its `values`, keyed by row field. An insert's
+values hold the owner field set to the parent, the type field set to the member's stored
+value, `LinkRowFields::storedValueFor($type)`, the id field, and any position and pivot
+fields. Set the owner through the row's association on Doctrine, or `associate()` on
+Eloquent.
+
+A replace deletes every current member the linkage leaves out, except a hidden one, and
+inserts the members it adds. An add inserts the members not yet linked. A remove deletes
+the linkage's members, never a hidden one. A member the linkage names again keeps its row
+and takes the pivot fields it sends. Pivot values come from the writable pivot fields, the
+create-context ones for a new row and the update-context ones for an existing row, each
+cast by its field and keyed by its row field. A persister converts a value to its storage
+form, such as a date-time's zone, as it does for any pivot.
+
+`InMemoryLinkRows::write($relation, $parent, $plan, $newRow, $storeRows)` applies a plan to
+rows held on the parent, and fails when a pass would put two rows at one position, so the
+witness covers writes as well as reads. `$newRow` makes a new row, a `through()` instance
+by default. `$storeRows` receives the parent and the rows as a list and returns the
+parent, so a host keeps its own collection type, such as a Doctrine `Collection`; by
+default the list is written to the relation's field.
 
 ## Backing and advisory metadata
 
@@ -975,7 +1139,7 @@ Each key must name a sort the relation accepts: one of the related type's sorts,
 | Declaration | Fails |
 | --- | --- |
 | `defaultSort()` on a to-one | at build, with a `\LogicException` |
-| `defaultSort()` on a polymorphic relation not declared with `identifiedBy()`, which takes no sort | at build |
+| `defaultSort()` on a polymorphic relation declared with neither `identifiedByRows()` nor `identifiedBy()`, which takes no sort | at build |
 | a key that is no stored pivot field of an identified `MorphToMany` | at build |
 | a key none of the relation's sorts answers | at warm-up, from `RelationOrderValidator` |
 
@@ -1035,12 +1199,18 @@ The field is checked as early as it can be:
 | Declaration | Fails |
 | --- | --- |
 | a pivot position that isn't a declared, stored `Integer` pivot field | at build, with a `\LogicException` |
+| a position on the owner, type or id field of an `identifiedByRows()` relation | at build |
 | a related type's position that is missing, computed, not an `Integer` or writable | at warm-up, from `RelationOrderValidator` |
 
 ### Writing positions in a data layer
 
 Core declares the field and never writes it, so a persister writes the positions on every
-membership change. `positionField()` names the field, from `PositionedRelationInterface`,
+membership change. For an identified `MorphToMany` declared with `identifiedByRows()`, the
+[link-row write plan](#writing-link-rows-in-a-data-layer) already carries every position:
+new rows are inserted at their final position and hidden members follow the linkage on a
+replace, so the position column needs no default and can be `NOT NULL`. A relation whose
+`fillUsing()` creates the rows still needs a nullable position the persister fills
+afterwards. `positionField()` names the field, from `PositionedRelationInterface`,
 which every core relation implements. A relation that is a `PivotRelationInterface`
 stores it on the link row, any other on the related row.
 
