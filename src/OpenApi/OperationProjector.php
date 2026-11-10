@@ -91,6 +91,15 @@ final class OperationProjector
      */
     public const string DEPRECATED_SORTS_EXTENSION = 'x-deprecated-sorts';
 
+    /**
+     * The `format` values JSON Schema 2020-12 and OpenAPI 3.1 define for strings.
+     */
+    private const array STRING_FORMATS = [
+        'date-time', 'date', 'time', 'duration', 'email', 'idn-email', 'hostname', 'idn-hostname',
+        'ipv4', 'ipv6', 'uri', 'uri-reference', 'iri', 'iri-reference', 'uuid', 'uri-template',
+        'json-pointer', 'relative-json-pointer', 'regex', 'byte', 'binary', 'password',
+    ];
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
     ) {}
@@ -1350,12 +1359,14 @@ final class OperationProjector
             }
 
             $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints());
-            // Only a value the constraints said NOTHING about falls back. One that
-            // declared a keyword — even a `format` with no `type` beside it — keeps
-            // exactly what it declared, so the fallback can never manufacture a
-            // contradiction out of an author's own (possibly deliberate) narrowing.
+            // Only a value the constraints said NOTHING about falls back to the column's
+            // type. One that declared a keyword keeps what it declared, so the fallback
+            // never contradicts an author's own narrowing; an untyped one that only a
+            // string can satisfy, such as `format: uuid`, documents as the string it is.
             if ($valueSchema->toArray() === []) {
                 $valueSchema = $valueSchema->withType($this->derivedFilterValueType($filter, $fields) ?? 'string');
+            } elseif (self::onlyAStringSatisfies($valueSchema)) {
+                $valueSchema = $valueSchema->withType('string');
             }
 
             $list = $filter instanceof AcceptsList ? $filter->listValue() : null;
@@ -1390,6 +1401,26 @@ final class OperationProjector
         }
 
         return $parameters;
+    }
+
+    /**
+     * Whether an untyped value schema declares a keyword that applies only to a string:
+     * a standard string `format`, a `pattern` or a length bound. A format the JSON Schema
+     * and OpenAPI vocabularies do not name as a string's is left alone.
+     */
+    private static function onlyAStringSatisfies(Schema $schema): bool
+    {
+        $keywords = $schema->keywords();
+        if (\array_key_exists('type', $keywords)) {
+            return false;
+        }
+
+        $format = $keywords['format'] ?? null;
+
+        return (\is_string($format) && \in_array($format, self::STRING_FORMATS, true))
+            || \array_key_exists('pattern', $keywords)
+            || \array_key_exists('minLength', $keywords)
+            || \array_key_exists('maxLength', $keywords);
     }
 
     /**

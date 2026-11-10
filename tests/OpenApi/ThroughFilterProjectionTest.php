@@ -54,8 +54,8 @@ final class ThroughFilterProjectionTest extends TestCase
     {
         $parameters = $this->parameters(WhereThroughIn::make('template', 'templates')->build());
 
-        self::assertSame(['type' => 'array', 'items' => ['format' => 'uuid']], $parameters['filter[template]']['schema']);
-        self::assertSame(['type' => 'array', 'items' => ['format' => 'uuid']], $parameters['filter[template][]']['schema']);
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']], $parameters['filter[template]']['schema']);
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']], $parameters['filter[template][]']['schema']);
     }
 
     #[Test]
@@ -72,7 +72,7 @@ final class ThroughFilterProjectionTest extends TestCase
     {
         $parameters = $this->parameters(WhereThroughIn::make('advertiser', 'campaign.advertiser')->pattern('^[a-z]+$')->build());
 
-        self::assertSame(['type' => 'array', 'items' => ['pattern' => '^[a-z]+$']], $parameters['filter[advertiser][]']['schema']);
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^[a-z]+$']], $parameters['filter[advertiser][]']['schema']);
     }
 
     #[Test]

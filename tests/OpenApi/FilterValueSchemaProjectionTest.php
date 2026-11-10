@@ -7,6 +7,11 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
+use haddowg\JsonApi\Resource\Constraint\EmailFormat;
+use haddowg\JsonApi\Resource\Constraint\IpFormat;
+use haddowg\JsonApi\Resource\Constraint\MinLength;
+use haddowg\JsonApi\Resource\Constraint\UlidFormat;
+use haddowg\JsonApi\Resource\Constraint\UrlFormat;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
@@ -36,6 +41,7 @@ use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\CustomFormat;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -81,15 +87,49 @@ final class FilterValueSchemaProjectionTest extends TestCase
             ['schema' => ['type' => 'string']],
         ];
 
-        // A filter that declared anything keeps exactly what it declared — including a
-        // `format` with no `type` beside it, and including a type its column contradicts.
+        // A filter that declared anything keeps what it declared, including a type its
+        // column contradicts. A declared string format or string keyword types the value
+        // a string, since only a string can satisfy it.
         yield 'a declared type wins over the column type' => [
             Where::make('title')->integer()->build(),
             ['schema' => ['type' => 'integer']],
         ];
-        yield 'a constraint that types nothing still suppresses the fallback' => [
+        yield 'a uuid format types the value a string, whatever the column' => [
             Where::make('views')->uuid()->build(),
-            ['schema' => ['format' => 'uuid']],
+            ['schema' => ['type' => 'string', 'format' => 'uuid']],
+        ];
+        yield 'a uuid set types its items a string' => [WhereIn::make('views')->uuid()->build(), [
+            'schema' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']],
+            'style' => 'form',
+            'explode' => false,
+        ]];
+        yield 'an email format types the value a string' => [
+            Where::make('views')->constrain(new EmailFormat())->build(),
+            ['schema' => ['type' => 'string', 'format' => 'email']],
+        ];
+        yield 'a url format types the value a string' => [
+            Where::make('views')->constrain(new UrlFormat())->build(),
+            ['schema' => ['type' => 'string', 'format' => 'uri']],
+        ];
+        yield 'an ip format types the value a string' => [
+            Where::make('views')->constrain(new IpFormat(4))->build(),
+            ['schema' => ['type' => 'string', 'format' => 'ipv4']],
+        ];
+        yield 'a ulid format types the value a string' => [
+            Where::make('views')->constrain(new UlidFormat())->build(),
+            ['schema' => ['type' => 'string', 'pattern' => Id::ULID_FORMAT_PATTERN]],
+        ];
+        yield 'a pattern types the value a string' => [
+            Where::make('views')->pattern('^[a-z]+$')->build(),
+            ['schema' => ['type' => 'string', 'pattern' => '^[a-z]+$']],
+        ];
+        yield 'a length bound types the value a string' => [
+            Where::make('views')->constrain(new MinLength(3))->build(),
+            ['schema' => ['type' => 'string', 'minLength' => 3]],
+        ];
+        yield 'a format no string spec names is left untyped' => [
+            Where::make('views')->constrain(new CustomFormat('int64'))->build(),
+            ['schema' => ['format' => 'int64']],
         ];
 
         // Nothing resolves the column, so the value is the `string` every query parameter
