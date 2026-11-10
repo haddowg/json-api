@@ -4,4 +4,4 @@ A `Union` takes at most one member per JSON type, an `Integer` and a `Decimal` c
 
 ## Consequences
 
-`ArrayList::element()` keeps returning only an `Obj` or `OneOf`, and a list of unions reports its union through `elementUnion()`, so an adapter that predates unions never receives a shape it cannot handle. A stored value no member takes is rendered unchanged, as a `OneOf` value selecting no variant is, rather than failing the response.
+`ArrayList::element()` keeps returning only an `Obj` or `OneOf`, and a list of unions reports its union through `elementUnion()`, so an adapter that predates unions never receives a shape it cannot handle. A stored value no member takes is rendered unchanged, as a `OneOf` value selecting no variant is, rather than failing the response. Core makes every value-dependent choice for the data layers: `UnionValues` walks a write body and gives the pointer and selected member wherever a union's member applies, with whether a required union refuses that value as empty, and `ValueTypes::requiredRefusesEmpty()` answers the presence rule for every field, so the adapters agree without each re-deriving the rules.

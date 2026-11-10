@@ -71,6 +71,23 @@ final class ValueTypes
     }
 
     /**
+     * Whether a required value of the field must also be non-empty as a whole, refusing
+     * `''`, `[]` and `{}`: a string, a list or an object. A boolean or number only has to be
+     * present, so `false` and `0` pass. A {@see OneOf} answers through its variant's
+     * children, and a {@see Union} through the member its value selects, which
+     * {@see UnionValues} reports with {@see UnionValue::$nonEmpty}, so both answer `false`
+     * here. The OpenAPI projection documents the same rule.
+     */
+    public static function requiredRefusesEmpty(FieldInterface $field): bool
+    {
+        if ($field instanceof OneOf || $field instanceof Union) {
+            return false;
+        }
+
+        return \in_array(self::of($field), [self::STRING, self::ARRAY, self::OBJECT], true);
+    }
+
+    /**
      * Whether a decoded JSON value has the JSON type. An integer is any whole number PHP
      * can hold as an `int`, so `1.0` is one. A body decoded to arrays turns both `{}` and
      * `[]` into `[]`, so an empty array is both an object and an array. Types joined by

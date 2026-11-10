@@ -699,6 +699,29 @@ of the list a string or a number. Each element is cast by its own member and che
 element union can't be `nullable()`, and the list takes no `sorted()` and no `each()`, since
 mixed types share no order and the members carry the per-element rules.
 
+### In a data layer
+
+Hydration needs nothing from an adapter: the union casts through its member itself. Rule
+validation is the adapter's job, and core makes the value-dependent choice for it.
+`UnionValues::in()` takes the resource's fields and the body's attributes and returns a
+`UnionValue` for each place a member applies, at any depth: a union attribute, a union
+inside an `Obj`, `Map` or `OneOf` variant, an open object's member field, each element of
+a list of unions, and each element of a union's list member. Each one carries the
+`pointer`, the `union`, the selected `member` and the `value`, so an adapter translates
+that member's constraints and validates the value at that pointer, as it does for any
+field. `UnionValues::of()` walks one value from a pointer you give it, for a pivot field
+in a linkage member's `meta`. A `null`, and a value no member takes, isn't returned, since
+presence and the type check report those.
+
+A required union refuses an empty string or list but accepts `false` and `0`. Each
+`UnionValue` says so in `nonEmpty`, set when the union is required in the write's context
+and the selected member is its string or list member, and `isRefusedAsEmpty()` answers for
+its value. So an adapter adds its own non-empty rule to the member's constraints when
+`nonEmpty` is set. For the presence rule on the union itself, ask
+`ValueTypes::requiredRefusesEmpty()` of every field: it is `true` for strings, lists and
+objects and `false` for numbers, booleans, a `OneOf` and a `Union`, so a required union
+only has to be present and not `null` there.
+
 ### The generated schema
 
 A union projects one schema whose `type` lists its members' types, `null` included when it
