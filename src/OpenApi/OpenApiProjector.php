@@ -385,6 +385,7 @@ final class OpenApiProjector
             identifierMeta: self::declaresIdentifierMeta($server),
             openObjects: self::hasOpenObject($server),
             identifiedPivots: self::queriesLinkRows($server),
+            fixedMembership: RelationFacts::anyFixesMembership($server),
         ));
     }
 

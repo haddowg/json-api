@@ -444,6 +444,7 @@ final class ErrorCatalogProjector
                 $server,
                 static fn(Schema $page): bool => self::carriesCursorProfile($page),
             ),
+            ErrorFeature::FixedMembership => RelationFacts::anyFixesMembership($server),
             ErrorFeature::PaginationMenu => $this->anyPageSchema(
                 $server,
                 static fn(Schema $page): bool => \is_array($page->get('oneOf')),

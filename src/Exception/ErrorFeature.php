@@ -38,6 +38,12 @@ enum ErrorFeature: string
     case PaginationMenu = 'pagination-menu';
 
     /**
+     * At least one relation declares `cannotChangeMembership()`, so a replacement that
+     * changes its members can be refused.
+     */
+    case FixedMembership = 'fixed-membership';
+
+    /**
      * The Countable profile is registered, so `?withCount` is honoured and can name an
      * uncountable relationship.
      */

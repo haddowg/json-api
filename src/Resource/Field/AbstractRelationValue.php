@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Exception\MembershipChangeProhibited;
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship as InputToMany;
 use haddowg\JsonApi\Hydrator\Relationship\ToOneRelationship as InputToOne;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
@@ -34,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * and {@see isToMany()}; the fluent authoring surface lives on the mirror
  * {@see AbstractRelationBuilder}.
  */
-abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface, PositionedRelationInterface
+abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface, PositionedRelationInterface, GuardsMembershipInterface
 {
     public function __construct(
         FieldState $state,
@@ -111,12 +112,13 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function allowsRemove(): bool
     {
-        return $this->relationState->allowsRemove && !$this->isReadOnly(false);
+        return $this->relationState->allowsRemove && $this->relationState->allowsMembershipChange && !$this->isReadOnly(false);
     }
 
     public function allowsRemoveFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllowsMutation($this->relationState->allowsRemove, $this->relationState->cannotRemoveWhen, $request, $model);
+        return $this->resolveAllowsMutation($this->relationState->allowsRemove, $this->relationState->cannotRemoveWhen, $request, $model)
+            && $this->allowsMembershipChangeFor($request, $model);
     }
 
     public function exposesRelatedEndpoint(): bool
@@ -131,12 +133,35 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
     public function allowsAdd(): bool
     {
-        return $this->relationState->allowsAdd && !$this->isReadOnly(false);
+        return $this->relationState->allowsAdd && $this->relationState->allowsMembershipChange && !$this->isReadOnly(false);
     }
 
     public function allowsAddFor(JsonApiRequestInterface $request, mixed $model): bool
     {
-        return $this->resolveAllowsMutation($this->relationState->allowsAdd, $this->relationState->cannotAddWhen, $request, $model);
+        return $this->resolveAllowsMutation($this->relationState->allowsAdd, $this->relationState->cannotAddWhen, $request, $model)
+            && $this->allowsMembershipChangeFor($request, $model);
+    }
+
+    public function allowsMembershipChange(): bool
+    {
+        return $this->relationState->allowsMembershipChange && !$this->isReadOnly(false);
+    }
+
+    public function fixesMembership(): bool
+    {
+        return !$this->relationState->allowsMembershipChange || $this->relationState->cannotChangeMembershipWhen !== null;
+    }
+
+    public function allowsMembershipChangeFor(JsonApiRequestInterface $request, mixed $model): bool
+    {
+        return $this->resolveAllowsMutation($this->relationState->allowsMembershipChange, $this->relationState->cannotChangeMembershipWhen, $request, $model);
+    }
+
+    public function assertMembershipUnchanged(JsonApiRequestInterface $request, mixed $model, iterable $current, InputToMany $incoming): void
+    {
+        if (!$this->allowsMembershipChangeFor($request, $model) && Membership::differs($current, $incoming)) {
+            throw new MembershipChangeProhibited($this->state->name);
+        }
     }
 
     public function isIncludable(): bool

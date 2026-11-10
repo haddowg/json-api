@@ -140,7 +140,7 @@ status→class grouping below is the compliance view.
 | Status | Exceptions |
 |---|---|
 | `400` | `DataMemberMissing`, `FilterParamUnrecognized`, `InclusionUnrecognized`, `InclusionUnsupported`, `QueryParamMalformed`, `QueryParamUnrecognized`, `RelationshipTypeInappropriate`, `RequestBodyInvalidJson`, `RequestBodyInvalidJsonApi`, `RequiredTopLevelMembersMissing`, `ResourceIdInvalid`, `ResourceIdMissing`, `ResourceIdentifierIdInvalid`, `ResourceIdentifierIdMissing`, `ResourceIdentifierLidInvalid`, `ResourceIdentifierTypeInvalid`, `ResourceIdentifierTypeMissing`, `ResourceTypeMissing`, `SortParamUnrecognized`, `SortingUnsupported`, `TopLevelMemberNotAllowed`, `TopLevelMembersIncompatible` |
-| `403` | `AdditionProhibited`, `ClientGeneratedIdNotSupported`, `ClientGeneratedIdRequired`, `FullReplacementProhibited`, `RemovalProhibited` |
+| `403` | `AdditionProhibited`, `ClientGeneratedIdNotSupported`, `ClientGeneratedIdRequired`, `FullReplacementProhibited`, `MembershipChangeProhibited`, `RemovalProhibited` |
 | `404` | `RelationshipNotExists`, `ResourceNotFound` |
 | `406` | `MediaTypeUnacceptable` |
 | `409` | `ClientGeneratedIdAlreadyExists`, `ResourceTypeUnacceptable` |

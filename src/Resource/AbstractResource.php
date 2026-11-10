@@ -713,6 +713,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws FullReplacementProhibited when a replace targets a relation that {@see RelationInterface::allowsReplace()} === false (403)
      * @throws AdditionProhibited when an add targets a relation that {@see RelationInterface::allowsAdd()} === false (403)
      * @throws RemovalProhibited when a removal (or a to-one clear) targets a relation that {@see RelationInterface::allowsRemove()} === false (403)
+     * @throws \haddowg\JsonApi\Exception\MembershipChangeProhibited when a to-many replace changes the members of a relation declared with `cannotChangeMembership()` (403)
      */
     public function hydrateRelationship(
         string $relationship,
@@ -786,6 +787,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws FullReplacementProhibited
      * @throws AdditionProhibited
      * @throws RemovalProhibited
+     * @throws \haddowg\JsonApi\Exception\MembershipChangeProhibited
      */
     protected function mutateToMany(
         RelationInterface $relation,
@@ -807,8 +809,76 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         }
 
         $linkage = $request->getRelationshipDataToMany($relationship);
+        if ($mode === Mode::Replace) {
+            $this->guardMembership($relation, $request, $domainObject, $linkage);
+        }
 
         return $relation->applyToMany($domainObject, $linkage, $mode);
+    }
+
+    /**
+     * Rejects a to-many replacement that would change the members of a relation
+     * declared with `cannotChangeMembership()`, reading the current members through
+     * {@see currentMembers()} only when the request may not change them.
+     *
+     * @throws \haddowg\JsonApi\Exception\MembershipChangeProhibited
+     */
+    protected function guardMembership(
+        RelationInterface $relation,
+        JsonApiRequestInterface $request,
+        mixed $domainObject,
+        \haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship $linkage,
+    ): void {
+        if (!$relation instanceof \haddowg\JsonApi\Resource\Field\GuardsMembershipInterface || $relation->allowsMembershipChangeFor($request, $domainObject)) {
+            return;
+        }
+
+        $relation->assertMembershipUnchanged($request, $domainObject, $this->currentMembers($relation, $domainObject, $request), $linkage);
+    }
+
+    /**
+     * The members `$relation` holds on `$domainObject` now, as `[type, id]` pairs with
+     * the wire id, for the membership check. The baseline reads the relation's value:
+     * a resource identifier or a pair as it is, a scalar as an id of the single
+     * related type, and an object through its serializer. An identified `MorphToMany`
+     * reads its stored pairs. A data layer that holds the members elsewhere overrides
+     * it.
+     *
+     * @return list<array{0: string, 1: string|int}>
+     */
+    protected function currentMembers(RelationInterface $relation, mixed $domainObject, JsonApiRequestInterface $request): array
+    {
+        $resolver = $this->serializerResolver;
+        $types = $relation->relatedTypes();
+
+        if ($relation instanceof \haddowg\JsonApi\Resource\Field\MorphToMany && $relation->storesIdentifiers()) {
+            return \array_map(
+                static fn(array $pair): array => $resolver !== null && $resolver->hasSerializerFor($pair[0])
+                    ? [$pair[0], \haddowg\JsonApi\Resource\Field\Internal\StoredPair::wireId($resolver->serializerFor($pair[0]), $pair[1])]
+                    : $pair,
+                $relation->storedIdentifierList($domainObject, $request),
+            );
+        }
+
+        $value = $relation->readValue($domainObject, $request);
+        $members = [];
+        foreach (\is_iterable($value) ? $value : [] as $member) {
+            if ($member instanceof \haddowg\JsonApi\Schema\ResourceIdentifier) {
+                $members[] = [$member->type, $member->id ?? ''];
+            } elseif (\is_string($member) || \is_int($member)) {
+                $members[] = [$types[0] ?? '', $member];
+            } elseif (\is_object($member)) {
+                $serializer = $resolver !== null ? $relation->resolveSerializer($member, $resolver) : null;
+                $id = \haddowg\JsonApi\Resource\Field\Accessor::get($member, 'id');
+                if ($serializer !== null) {
+                    $members[] = [$serializer->getType($member), $serializer->getId($member)];
+                } elseif (\is_string($id) || \is_int($id)) {
+                    $members[] = [$types[0] ?? '', $id];
+                }
+            }
+        }
+
+        return $members;
     }
 
     /**
@@ -1263,7 +1333,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
             if ($relation->isToMany()) {
                 if ($request->hasToManyRelationship($relation->name())) {
-                    $domainObject = $relation->hydrateRelationship($domainObject, $request->getToManyRelationship($relation->name()));
+                    $linkage = $request->getToManyRelationship($relation->name());
+                    if (!$creating) {
+                        $this->guardMembership($relation, $request, $domainObject, $linkage);
+                    }
+                    $domainObject = $relation->hydrateRelationship($domainObject, $linkage);
                 }
 
                 continue;

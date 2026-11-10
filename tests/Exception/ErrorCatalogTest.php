@@ -225,6 +225,7 @@ final class ErrorCatalogTest extends TestCase
         yield 'LOCAL_ID_CONFLICT' => [new LocalIdConflict('articles', 'new-article')];
         yield 'LOCAL_ID_NOT_FOUND' => [new LocalIdNotFound('articles', 'new-article')];
         yield 'LOCAL_ID_NOT_SUPPORTED' => [new LocalIdNotSupported('/data/lid')];
+        yield 'MEMBERSHIP_CHANGE_PROHIBITED' => [new \haddowg\JsonApi\Exception\MembershipChangeProhibited('tags')];
         yield 'NO_RESOURCE_REGISTERED' => [new NoResourceRegistered('articles')];
         yield 'QUERY_PARAM_MALFORMED' => [new QueryParamMalformed('include', ['author'])];
         yield 'QUERY_PARAM_UNRECOGNIZED' => [new QueryParamUnrecognized('colour')];

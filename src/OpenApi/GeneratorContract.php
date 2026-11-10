@@ -68,8 +68,9 @@ namespace haddowg\JsonApi\OpenApi;
  * keys by prefix ({@see FILTER_FAMILIES}), a filter taking its list as
  * `filter[<key>][]` ({@see LIST_FILTERS}), the declared members of a linkage
  * identifier's `meta` ({@see IDENTIFIER_META}), an object open to members it does
- * not declare ({@see OPEN_OBJECTS}) and the queried link rows of a polymorphic to-many
- * identified by stored pairs ({@see IDENTIFIED_PIVOTS}).
+ * not declare ({@see OPEN_OBJECTS}), the queried link rows of a polymorphic to-many
+ * identified by stored pairs ({@see IDENTIFIED_PIVOTS}) and the error code of a relation
+ * whose members are fixed ({@see FIXED_MEMBERSHIP}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -281,6 +282,14 @@ final class GeneratorContract
     public const IDENTIFIED_PIVOTS = 30;
 
     /**
+     * The contract that introduced fixed membership: the `MEMBERSHIP_CHANGE_PROHIBITED`
+     * code in the error catalogue's `403` shape, refusing a replacement that changes the
+     * members of a relation declaring `cannotChangeMembership()`. A document carries it
+     * only when such a relation exists.
+     */
+    public const FIXED_MEMBERSHIP = 30;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -308,6 +317,7 @@ final class GeneratorContract
         bool $identifierMeta = false,
         bool $openObjects = false,
         bool $identifiedPivots = false,
+        bool $fixedMembership = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -333,6 +343,7 @@ final class GeneratorContract
             $identifierMeta ? self::IDENTIFIER_META : self::BASELINE,
             $openObjects ? self::OPEN_OBJECTS : self::BASELINE,
             $identifiedPivots ? self::IDENTIFIED_PIVOTS : self::BASELINE,
+            $fixedMembership ? self::FIXED_MEMBERSHIP : self::BASELINE,
         )];
     }
 }

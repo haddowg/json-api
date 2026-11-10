@@ -713,6 +713,7 @@ replace / add / remove trio):
 | `cannotReplace()` | a `PATCH` to the relationship endpoint (and a to-one `data: null`, which is a removal) | `FullReplacementProhibited` (403) |
 | `cannotRemove()` | a `DELETE` from a to-many endpoint, or clearing a to-one (`data: null`) | `RemovalProhibited` (403) |
 | `cannotAdd()` | a `POST` to a to-many relationship endpoint | `AdditionProhibited` (403) |
+| `cannotChangeMembership()` | a to-many replacement listing a different set of members, and every `POST` and `DELETE` | `MembershipChangeProhibited` (403), and the `cannotAdd()`/`cannotRemove()` errors |
 
 ```php
 // src/Resource/TrackResource.php
