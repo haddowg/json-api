@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.0](https://github.com/haddowg/json-api/compare/v2.8.0...v2.9.0) (2026-11-10)
+
+
+### Features
+
+* add a Union field for values of several primitive types ([#328](https://github.com/haddowg/json-api/issues/328)) ([a8d80b7](https://github.com/haddowg/json-api/commit/a8d80b7b263e612ced9b7d435f3a9fe5e2f64c0b))
+* give data layers a JSON-safe stored form for union values ([758afec](https://github.com/haddowg/json-api/commit/758afec8b3d2f3674346dceac98bb3de2e1eff99))
+
 ## [2.8.0](https://github.com/haddowg/json-api/compare/v2.7.0...v2.8.0) (2026-11-10)
 
 
