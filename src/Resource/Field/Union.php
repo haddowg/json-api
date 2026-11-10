@@ -30,7 +30,7 @@ use haddowg\JsonApi\Resource\ValueTypes;
  * apply at the union's own pointer. A stored value's PHP type picks the member that
  * renders it. A stored value no member takes renders unchanged.
  */
-final readonly class Union extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
+final readonly class Union extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * The keywords that constrain only values of one JSON type, so a single schema can
@@ -425,5 +425,10 @@ final readonly class Union extends AbstractFieldValue implements ProvidesFieldSc
             $member->relatedVia() !== null || $member->column() === null => 'needs no source of its own; the union reads and writes the value',
             default => null,
         };
+    }
+
+    public function componentName(): ?string
+    {
+        return $this->state->component;
     }
 }

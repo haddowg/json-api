@@ -20,7 +20,7 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * (related-model column spread) is out of scope for core — see the Symfony
  * bundle.
  */
-final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOutputTimezoneInterface
+final readonly class Map extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -130,5 +130,10 @@ final readonly class Map extends AbstractFieldValue implements AcceptsDefaultOut
         JsonObject::assertNotList($value, $this->name());
 
         return $value;
+    }
+
+    public function componentName(): ?string
+    {
+        return $this->state->component;
     }
 }

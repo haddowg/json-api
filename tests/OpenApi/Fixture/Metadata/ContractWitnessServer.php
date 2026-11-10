@@ -51,12 +51,14 @@ use haddowg\JsonApi\Resource\Field\IntegerBuilder;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\ObjBuilder;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\StrBuilder;
 use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Union;
+use haddowg\JsonApi\Resource\Field\UnionBuilder;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Filter\Boolean as BooleanFilter;
 use haddowg\JsonApi\Resource\Filter\Contains;
@@ -169,14 +171,16 @@ final class ContractWitnessServer
      *                              which the baseline witness leaves out too
      * @param bool $unions whether the articles carry values of several primitive types,
      *                     which the baseline witness leaves out too
+     * @param bool $namedComponents whether articles fields share shapes declared as named
+     *                              components, which the baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions, $namedComponents),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -275,7 +279,20 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions): FakeTypeMetadata
+    private static function placeholderValue(string $name): UnionBuilder
+    {
+        return Union::make($name)->of(Str::make()->maxLength(200), Decimal::make(), Boolean::make())->component('PlaceholderValue');
+    }
+
+    private static function reviewer(string $name): ObjBuilder
+    {
+        return Obj::make($name)->fields(
+            Str::make('name')->required(),
+            DateTime::make('reviewedAt')->readOnly(),
+        )->component('Reviewer');
+    }
+
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions, bool $namedComponents): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -388,6 +405,15 @@ final class ContractWitnessServer
                         ArrayList::make()->of(Union::of(Str::make(), Decimal::make(), Boolean::make())),
                     )->nullable()->build(),
                     Union::make('threshold')->of(Str::make()->in(['auto', 'off']), Integer::make()->min(0))->build(),
+                ] : []),
+                // Shapes declared once and shared as named components: a union both fields
+                // reference, and an object whose read-only member makes its write shapes
+                // differ, so it projects a read, a create and an update component.
+                ...($namedComponents ? [
+                    self::placeholderValue('defaultValue')->required()->describedAs('The value a placeholder takes when nothing is bound.')->build(),
+                    self::placeholderValue('fallbackValue')->nullable()->build(),
+                    self::reviewer('reviewedBy')->describedAs('Who reviewed the article.')->build(),
+                    self::reviewer('approvedBy')->nullable()->deprecated()->build(),
                 ] : []),
             ],
             relations: [

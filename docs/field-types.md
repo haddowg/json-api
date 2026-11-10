@@ -786,6 +786,82 @@ member's, in member order. The body-validation schema from `SchemaCompiler` is t
 schema, and a document holding a union declares the `UNIONS` contract tier in its
 [`x-generator`](openapi.md#the-generator-contract-x-generator) stamp.
 
+## Sharing a shape: `component()`
+
+`Obj`, `OneOf`, `Union`, `Map` and `ArrayList` take `component()`, which names the value's
+shape. In an OpenAPI document the shape then projects once, as
+`#/components/schemas/<Name>`, and every field declaring it is a `$ref` to that component.
+A code generator gets one type for the shape instead of a copy at every field, named after
+the component rather than the field's path. A helper is the natural place for it:
+
+```php
+function placeholderValue(string $name): UnionBuilder
+{
+    return Union::make($name)
+        ->of(Str::make()->maxLength(200), Decimal::make(), Boolean::make())
+        ->component('PlaceholderValue');
+}
+
+placeholderValue('defaultValue')->required()->describedAs('Used when nothing is bound.');
+placeholderValue('fallbackValue')->nullable();
+```
+
+A list element takes it too, an unnamed `Union::of()` or an `Obj`:
+
+```php
+ArrayList::make('values')->of(Union::of(Str::make(), Decimal::make())->component('Scalar'));
+ArrayList::make('changes')->of(Obj::make('change')->fields(...)->component('Change'));
+```
+
+The component holds the shape: the children or members, their own rules, and the
+constraints declared on the named field itself, such as an `Obj`'s `maxProperties()` or a
+list's `maxItems()`. What belongs to one field stays on its `$ref`:
+
+- its `describedAs()`, `example()` and `deprecated()`, as siblings of the `$ref`. An
+  example wraps the `$ref` in a single-entry `allOf`, as every
+  [`$ref` with an example](openapi.md#a-ref-with-an-example-is-wrapped-in-allof) is;
+- the non-empty half of its `required()`, such as `minLength: 1` beside the `$ref` of a
+  required union with a string member, while its presence goes in the parent's `required`
+  as usual;
+- its `null`. A field that admits `null` projects as
+  `{"anyOf": [{"$ref": "#/components/schemas/<Name>"}, {"type": "null"}]}`, the form a
+  nullable hoisted enum takes, and the component never admits `null` itself. So one field
+  can be nullable and another not while both share the component.
+
+A shape can differ between a response, a create and an update: a read-only or write-only
+member, a member required only on create, a constraint scoped to one context, or an
+object an update merges into, which requires none of its members. The response shape
+takes the bare name, and a write whose shape differs from it takes `<Name>Create` or
+`<Name>Update`, as a type's attributes do. A write identical to the response shape shares
+the bare name. Only the shapes a document's operations reference are emitted, so a
+read-only type gets no write components. A union usually projects the same in all three,
+so it is one component.
+
+In a response shape, a constraint shows only when it applies to both writes, whichever
+writes the sharing fields allow, so the shape holds for every field using it. Standalone
+projections, such as `SchemaCompiler`'s body-validation schema and an adapter's exported
+JSON-Schema documents, have no components to reference and keep the shape inline,
+exactly as an unnamed field projects.
+
+Projecting a document fails, with a `LogicException` naming the fields, when:
+
+- two fields name one component but project different shapes. Fields declaring the same
+  shape, as a helper does, are fine and project it once. A presence, `null` or
+  description difference is not a shape difference, and neither is an `extractUsing()`
+  or `computedUsing()` hook, since its value renders through the declared shape. A
+  `serializeUsing()` hook does differ: its value goes out as it is, so the response shape
+  of that use is open and requires nothing;
+- an object or union is used both where a write builds it whole, as a list element or
+  inside an undiscriminated `OneOf`, and where an update merges into it. Those are two
+  update shapes, so give them two names;
+- the name, or a `Create` / `Update` name derived from it, is one the document generates
+  itself, such as `<Type>Resource`, `<Type>Attributes`, `Meta`, an error component or a
+  hoisted enum, or one another named shape derives.
+
+A name is a component key, so `component()` throws at once on anything but letters,
+digits, `.`, `-` and `_`. A document holding a named shape declares the `NAMED_COMPONENTS`
+contract tier in its [`x-generator`](openapi.md#the-generator-contract-x-generator) stamp.
+
 ## `ArrayHash`
 
 A JSON object attribute exposed as a PHP associative array (JSON `type: object`)

@@ -44,6 +44,13 @@ taken by one unnamed member field. The value's JSON type picks the member on a w
 PHP type on a read.
 _Avoid_: variant (that is a `OneOf` shape), mixed field, any-type field
 
+**Named shape**:
+A composite **Field**'s value shape given a component name with `component()`, which the
+OpenAPI projection emits once and every **Field** declaring it references, keeping its own
+description, example, deprecation, presence and `null`. The shape's write forms take
+`<Name>Create` and `<Name>Update` where they differ from the read form.
+_Avoid_: shared schema, schema alias, reusable type
+
 **Declared link**:
 A named member of a resource object's `links`, declared on the **Resource** beside its fields so
 the OpenAPI projection can describe it.

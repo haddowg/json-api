@@ -32,6 +32,7 @@ use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\NamedSchemaInterface;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
@@ -106,19 +107,35 @@ final class SchemaProjector
      * component (`#/components/schemas/<Enum>`) and replaced inline by a `$ref`.
      * Omit it (the default) for standalone projection, where the enum is
      * emitted inline unchanged.
+     *
+     * The collector hoists a shape declared with `component()` the same way: its
+     * component holds the value's shape for each representation, and the field projects
+     * as a `$ref` to it (see {@see projectNamedUse()}). Without a collector it is inline.
      */
     public function projectField(FieldInterface $field, bool $creating = false, ?EnumComponentCollector $collector = null): Schema
     {
-        // A field that describes its own schema (a composite type — Obj, the
-        // discriminated union) supplies the base node; the projector still layers the
-        // common post-processing (constraints, nullable, description, example) below.
-        if ($field instanceof ProvidesFieldSchema) {
-            $schema = $field->projectFieldSchema($this, $creating, $collector);
-
-            return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+        $name = $field instanceof NamedSchemaInterface ? $field->componentName() : null;
+        if ($name !== null && $collector !== null) {
+            return $this->projectNamedUse($field, $name, $creating, $collector);
         }
 
-        $schema = match (true) {
+        return $this->applyFieldPostProcessing($this->baseSchema($field, $creating, $collector), $field, $creating, $collector);
+    }
+
+    /**
+     * The field's schema before its constraints and the rest of the field-level
+     * post-processing are layered on.
+     */
+    private function baseSchema(FieldInterface $field, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        // A field that describes its own schema (a composite type — Obj, the
+        // discriminated union) supplies the base node; the projector still layers the
+        // common post-processing (constraints, nullable, description, example) on it.
+        if ($field instanceof ProvidesFieldSchema) {
+            return $field->projectFieldSchema($this, $creating, $collector);
+        }
+
+        return match (true) {
             $field instanceof Map => $this->projectNestedObject($field, $field->children(), $creating, $collector),
             $field instanceof ArrayList && $field->element() !== null => Schema::ofType('array')
                 ->withItems($this->projectListElement($field, $field->element(), $creating, $collector)),
@@ -126,8 +143,79 @@ final class SchemaProjector
                 ->withItems($this->projectElementUnion($field->elementUnion(), $creating, $collector)),
             default => $this->typeSchema($field),
         };
+    }
 
-        return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+    /**
+     * Projects a use of a named shape: a `$ref` to the shape's component for the
+     * representation being projected, carrying what belongs to the use rather than the
+     * shape. The component holds the value's shape and its constraints. The use keeps
+     * its description, example and deprecation, the non-empty keywords of its
+     * `required()`, and its `null`, which unions the reference with `{"type": "null"}`.
+     */
+    private function projectNamedUse(FieldInterface $field, string $name, bool $creating, EnumComponentCollector $collector): Schema
+    {
+        [$schema, $body] = $this->namedReference(
+            $name,
+            $field->name(),
+            fn(bool $creating): Schema => $this->shapeBody($field, $this->baseSchema($field, $creating, $collector), $creating, $collector),
+            $creating,
+            $collector,
+        );
+
+        $schema = $this->applyNonEmptyOf($schema, $body, $field, $this->narrowingScope($field, $creating));
+        $schema = $this->applyNullability($schema, $field, $creating);
+        $schema = $this->applyDescription($schema, $field, []);
+        if ($field instanceof Deprecatable && $field->isDeprecated()) {
+            $schema = $schema->withDeprecated();
+        }
+
+        return $this->applyExample($schema, $field);
+    }
+
+    /**
+     * A named shape's component body: the base schema with the field's own constraints,
+     * any note a constraint degrades to as its description. A read keeps a keyword only
+     * when it applies on both writes, so the body holds for every field sharing it,
+     * whichever writes can set that field.
+     */
+    private function shapeBody(FieldInterface $field, Schema $schema, bool $creating, EnumComponentCollector $collector): Schema
+    {
+        $applies = $creating || !$this->reading
+            ? static fn(Context $context): bool => $context->appliesTo($creating)
+            : static fn(Context $context): bool => $context->onCreate && $context->onUpdate;
+        $itemType = $field instanceof ArrayList ? $field->elementType() : 'string';
+        $notes = [];
+        foreach ($field->constraints() as $constraint) {
+            if ($applies($constraint->context())) {
+                $schema = $this->applyConstraint($schema, $constraint, $applies, $notes, $collector, $itemType);
+            }
+        }
+
+        return $this->withNotes($schema, $notes);
+    }
+
+    /**
+     * Projects a named shape's read, create and update bodies with `$shape` and returns
+     * the `$ref` to the one for the representation being projected, with that body.
+     *
+     * @param \Closure(bool): Schema $shape the body for a create (`true`) or another representation
+     *
+     * @return array{Schema, Schema}
+     */
+    private function namedReference(string $name, string $field, \Closure $shape, bool $creating, EnumComponentCollector $collector): array
+    {
+        $bodies = [
+            'read' => $this->inRepresentation(true, static fn(): Schema => $shape(false)),
+            'create' => $this->inRepresentation(false, static fn(): Schema => $shape(true)),
+            'update' => $this->inRepresentation(false, static fn(): Schema => $shape(false)),
+        ];
+        [$context, $key] = match (true) {
+            $creating => [RepresentationContext::Create, 'create'],
+            $this->reading => [RepresentationContext::Read, 'read'],
+            default => [RepresentationContext::Update, 'update'],
+        };
+
+        return [$collector->referenceShape($name, $field, $bodies, $context), $bodies[$key]];
     }
 
     /**
@@ -160,6 +248,19 @@ final class SchemaProjector
      */
     private function projectElementUnion(Union $union, bool $creating, ?EnumComponentCollector $collector): Schema
     {
+        $name = $union->componentName();
+        if ($name !== null && $collector !== null) {
+            [$schema] = $this->namedReference(
+                $name,
+                $union->name(),
+                fn(bool $creating): Schema => $this->shapeBody($union, $union->projectFieldSchema($this, $creating, $collector), $creating, $collector),
+                $creating,
+                $collector,
+            );
+
+            return $this->applyExample($this->applyDescription($schema, $union, []), $union);
+        }
+
         $schema = $union->projectFieldSchema($this, $creating, $collector);
         $applies = $this->narrowingScope($union, $creating);
         $notes = [];
@@ -178,23 +279,37 @@ final class SchemaProjector
      */
     private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $shapedByHook = $this->reading && $list->rendersThroughSerializeHook();
-        $previous = $this->wholeValue;
-        $this->wholeValue = true;
+        $name = $element->componentName();
+        if ($name !== null && $collector !== null) {
+            [$schema] = $this->namedReference(
+                $name,
+                $element->name(),
+                fn(bool $creating): Schema => $this->shapeBody($element, $this->projectElementShape($list, $element, $creating, $collector), $creating, $collector),
+                $creating,
+                $collector,
+            );
 
-        try {
-            $schema = $element instanceof OneOf
-                ? $element->projectVariants($this, $creating, $collector, $shapedByHook)
-                : $this->applyMemberCounts(
-                    $this->projectNestedObject($element, $element->children(), $creating, $collector, $shapedByHook, $element->additionalProperties()),
-                    $element,
-                    $creating,
-                );
-        } finally {
-            $this->wholeValue = $previous;
+            return $this->applyExample($this->applyDescription($schema, $element, []), $element);
+        }
+
+        $schema = $this->projectElementShape($list, $element, $creating, $collector);
+        if ($element instanceof Obj) {
+            $schema = $this->applyMemberCounts($schema, $element, $creating);
         }
 
         return $this->applyExample($this->applyDescription($schema, $element, []), $element);
+    }
+
+    /**
+     * A structured list's element before its own constraints, built whole on a write.
+     */
+    private function projectElementShape(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        $shapedByHook = $this->reading && $list->rendersThroughSerializeHook();
+
+        return $this->wholeValue(fn(): Schema => $element instanceof OneOf
+            ? $element->projectVariants($this, $creating, $collector, $shapedByHook)
+            : $this->projectNestedObject($element, $element->children(), $creating, $collector, $shapedByHook, $element->additionalProperties()));
     }
 
     /**
@@ -332,6 +447,16 @@ final class SchemaProjector
         } finally {
             $this->wholeValue = $previous;
         }
+    }
+
+    /**
+     * Whether the value being projected is one every write builds whole, whichever
+     * representation is being projected, so a value that sets it once for a write does
+     * not set it again.
+     */
+    public function buildsWholeValue(): bool
+    {
+        return $this->wholeValue;
     }
 
     /**
@@ -1217,8 +1342,23 @@ final class SchemaProjector
      */
     private function reading(\Closure $projection): mixed
     {
+        return $this->inRepresentation(true, $projection);
+    }
+
+    /**
+     * Runs `$projection` as part of a read (`$reading`) or a write projection, restoring
+     * the previous mode afterwards.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    private function inRepresentation(bool $reading, \Closure $projection): mixed
+    {
         $previous = $this->reading;
-        $this->reading = true;
+        $this->reading = $reading;
 
         try {
             return $projection();
@@ -1344,6 +1484,48 @@ final class SchemaProjector
         $types = $schema->get('type');
         foreach (\is_array($types) ? $types : [] as $type) {
             $schema = $this->nonEmptyOf($schema, $type);
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Projects the non-empty half of an unconditional {@see Required} onto a use of a
+     * named shape: beside the `$ref`, the keyword for each type of `$body` that has an
+     * empty value, as {@see applyRequiredNonEmpty()} would narrow the inline schema.
+     *
+     * @param \Closure(Context): bool $applies
+     */
+    private function applyNonEmptyOf(Schema $schema, Schema $body, FieldInterface $field, \Closure $applies): Schema
+    {
+        $required = false;
+        foreach ($field->constraints() as $constraint) {
+            if ($constraint instanceof Required && $applies($constraint->context())) {
+                $required = true;
+
+                break;
+            }
+        }
+        if (!$required) {
+            return $schema;
+        }
+
+        $types = [$body->get('type')];
+        if ($field instanceof Union) {
+            $types = \is_array($types[0]) ? $types[0] : [];
+            $branches = $body->get('oneOf');
+            foreach (\is_array($branches) ? $branches : [] as $branch) {
+                if ($branch instanceof Schema) {
+                    $types[] = $branch->get('type');
+                }
+            }
+        }
+
+        foreach (\array_unique($types, \SORT_REGULAR) as $type) {
+            $narrowed = $this->nonEmptyOf($body, $type);
+            if ($narrowed !== $body) {
+                $schema = $this->nonEmptyOf($schema, $type);
+            }
         }
 
         return $schema;

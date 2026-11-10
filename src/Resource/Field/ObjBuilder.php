@@ -14,6 +14,8 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  */
 final class ObjBuilder extends AbstractFieldBuilder
 {
+    use NamesSchemaComponent;
+
     /**
      * @var list<FieldInterface>
      */

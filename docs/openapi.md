@@ -170,6 +170,19 @@ sketch:
   keyword not scoped to its type. A nullable union adds `null` to the `type` list, or a
   `null` branch to the `oneOf`. A document holding a union declares the `UNIONS` contract
   tier in its [`x-generator`](#the-generator-contract-x-generator) stamp.
+- **Named shapes.** An `Obj`, `OneOf`, `Union`, `Map` or `ArrayList` declared with
+  [`component()`](field-types.md#sharing-a-shape-component) projects its shape once as
+  `#/components/schemas/<Name>`, and each field using it is a `$ref` there. The response
+  shape takes the bare name. A create or update shape that differs from it, through a
+  read-only or write-only member, a member required only on create, a context-scoped
+  constraint or an update that merges, is `<Name>Create` or `<Name>Update`, the convention
+  `<Type>Attributes` follows; one that doesn't shares the bare name. Each use keeps its
+  description, deprecation, example and the non-empty keyword of its `required()` beside
+  the `$ref`, and a use that admits `null` is the `anyOf` of the `$ref` and
+  `{"type": "null"}`, so the component itself never admits `null`. Two fields claiming one
+  name with different shapes, or a name the document already generates, fail the
+  projection. A document holding a named shape declares the `NAMED_COMPONENTS` contract
+  tier in its [`x-generator`](#the-generator-contract-x-generator) stamp.
 - **Read-only children.** A nested object's child that is read-only for a write is left
   out of that write's shape, as a read-only attribute is, in a `Map`, an `Obj`, each
   `OneOf` branch and a structured list's element. A child read-only only by a `when:`
@@ -760,7 +773,8 @@ other keywords beside it: `{"description": …, "allOf": [{"$ref": …}], "examp
 3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
 example sampler among them, ignore them and would show a sample of the bare component
 instead. Today that covers an attribute, or a declared link's `meta` member, whose enum is
-a named component when the field declares an example. A `$ref` with no such sibling is
+a named component when the field declares an example, and a field using a
+[named shape](field-types.md#sharing-a-shape-component) that declares one. A `$ref` with no such sibling is
 written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
 as that `$ref`.
 

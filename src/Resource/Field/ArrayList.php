@@ -20,7 +20,7 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * ({@see elementUnion()}). A write replaces the whole list, building every element
  * fresh from the request.
  */
-final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefaultOutputTimezoneInterface
+final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface
 {
     public function __construct(
         FieldState $state,
@@ -222,5 +222,10 @@ final readonly class ArrayList extends AbstractFieldValue implements AcceptsDefa
         }
 
         return $list;
+    }
+
+    public function componentName(): ?string
+    {
+        return $this->state->component;
     }
 }

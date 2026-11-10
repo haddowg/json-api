@@ -158,6 +158,22 @@ final class OpenApiProjector
             }
             $schemas[$name] = $schema;
         }
+
+        // A named shape's names are the author's, so one a generated or hoisted enum
+        // component also takes is refused rather than renamed.
+        foreach ($collector->shapeNames() as $name => $field) {
+            if (isset($schemas[$name])) {
+                throw new \LogicException(\sprintf(
+                    'Field "%s" names the schema component "%s", which the document already generates. Choose another name.',
+                    $field,
+                    $name,
+                ));
+            }
+        }
+        $namedShapes = $collector->shapeComponents() !== [];
+        foreach ($collector->shapeComponents() as $name => $schema) {
+            $schemas[$name] = $schema;
+        }
         \ksort($schemas);
 
         // The Relationship Queries profile (when registered and some type has a relation
@@ -209,7 +225,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths)),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -353,7 +369,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -388,6 +404,7 @@ final class OpenApiProjector
             identifiedPivots: self::queriesLinkRows($server),
             fixedMembership: RelationFacts::anyFixesMembership($server),
             unions: self::hasUnion($server),
+            namedComponents: $namedComponents,
         ));
     }
 

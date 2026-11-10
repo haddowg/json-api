@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-four scoped
+ * is warned only by the documents that contain it. There are twenty-five scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -70,8 +70,9 @@ namespace haddowg\JsonApi\OpenApi;
  * identifier's `meta` ({@see IDENTIFIER_META}), an object open to members it does
  * not declare ({@see OPEN_OBJECTS}), the queried link rows of a polymorphic to-many
  * identified by stored pairs ({@see IDENTIFIED_PIVOTS}), the error code of a relation
- * whose members are fixed ({@see FIXED_MEMBERSHIP}) and a value of several primitive
- * types ({@see UNIONS}).
+ * whose members are fixed ({@see FIXED_MEMBERSHIP}), a value of several primitive
+ * types ({@see UNIONS}) and a field's shape declared as a named component
+ * ({@see NAMED_COMPONENTS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -86,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 31;
+    public const CONTRACT = 32;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -299,6 +300,15 @@ final class GeneratorContract
     public const UNIONS = 31;
 
     /**
+     * The contract that introduced named shape components: a field's value shape declared
+     * with `component()` projects once as `#/components/schemas/<Name>`, with
+     * `<Name>Create` and `<Name>Update` where a write's shape differs, and each use is a
+     * `$ref` to it carrying the use's own description, example, deprecation, non-empty
+     * keywords and `null`. A document carries it only when it emits such a component.
+     */
+    public const NAMED_COMPONENTS = 32;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -328,6 +338,7 @@ final class GeneratorContract
         bool $identifiedPivots = false,
         bool $fixedMembership = false,
         bool $unions = false,
+        bool $namedComponents = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -355,6 +366,7 @@ final class GeneratorContract
             $identifiedPivots ? self::IDENTIFIED_PIVOTS : self::BASELINE,
             $fixedMembership ? self::FIXED_MEMBERSHIP : self::BASELINE,
             $unions ? self::UNIONS : self::BASELINE,
+            $namedComponents ? self::NAMED_COMPONENTS : self::BASELINE,
         )];
     }
 }

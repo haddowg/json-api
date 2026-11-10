@@ -32,6 +32,7 @@ final readonly class FieldState
      * @param \Closure(mixed, mixed, array<string, mixed>, string): mixed|null           $fillUsing            fill hook
      * @param bool                                                                       $guaranteed           the author asserts every rendered value is non-null
      * @param bool                                                                       $deprecated           documented as deprecated in the OpenAPI document
+     * @param string|null                                                                $component            the named schema component the value's shape projects as
      */
     public function __construct(
         public string $name,
@@ -58,6 +59,7 @@ final readonly class FieldState
         public ?\Closure $fillUsing = null,
         public bool $guaranteed = false,
         public bool $deprecated = false,
+        public ?string $component = null,
     ) {}
 
     /**
@@ -90,6 +92,7 @@ final readonly class FieldState
             fillUsing: $this->fillUsing,
             guaranteed: $this->guaranteed,
             deprecated: $this->deprecated,
+            component: $this->component,
         );
     }
 }
