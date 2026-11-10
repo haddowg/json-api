@@ -89,7 +89,7 @@ final class RelatedOnlyProjectionTest extends TestCase
     #[Test]
     public function aDocumentWithARelatedOnlyTypeCarriesItsContract(): void
     {
-        self::assertSame(['contract' => GeneratorContract::RELATED_ONLY], self::at($this->project(), 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RELATED_ONLY)], self::at($this->project(), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($this->project(relatedOnly: false), 'info', 'x-generator'));
     }
 

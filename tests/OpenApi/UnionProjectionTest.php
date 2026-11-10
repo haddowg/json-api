@@ -209,9 +209,9 @@ final class UnionProjectionTest extends TestCase
         $hidden = $this->project([Id::make()->build(), Union::make('v')->of(Str::make())->hidden()->build()]);
 
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($plain, 'info', 'x-generator'));
-        self::assertSame(['contract' => GeneratorContract::UNIONS], self::at($direct, 'info', 'x-generator'));
-        self::assertSame(['contract' => GeneratorContract::UNIONS], self::at($listed, 'info', 'x-generator'));
-        self::assertSame(['contract' => \max(GeneratorContract::UNIONS, GeneratorContract::OPEN_OBJECTS)], self::at($nested, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::UNIONS)], self::at($direct, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::UNIONS)], self::at($listed, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::UNIONS, GeneratorContract::OPEN_OBJECTS)], self::at($nested, 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], self::at($hidden, 'info', 'x-generator'));
     }
 

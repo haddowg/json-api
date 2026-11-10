@@ -399,10 +399,15 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   schema ([ADR 0090](docs/adr/0090-error-codes-are-grouped-into-shapes-per-status.md),
   [ADR 0091](docs/adr/0091-an-error-descriptor-declares-its-meta.md)). A code whose descriptor
   declares an `ErrorScope` (or a `ScopedErrorSource` gives it one) joins a shape of its own
-  scope, and only the operations it covers offer it, through a response shared by every
-  operation raising the same scoped codes at a status; scope lives with the error, never on
+  scope, and only the operations it covers offer it; scope lives with the error, never on
   the type. Each code's example is one `components.examples` entry the responses reference
   ([ADR 0093](docs/adr/0093-a-code-is-offered-only-by-the-operations-declared-to-raise-it.md)).
+- Such an operation answers that status with an inline response and an error document of its
+  own, named for the type, operation and status (`ArticlesUpdate409`) by
+  `ErrorResponseProjector::operationDocument()`, never for the codes it offers. It references
+  the shared shapes, carries no description, and a clashing name throws. Never go back to
+  code-joined names or a per-operation response component
+  ([ADR 0114](docs/adr/0114-an-operations-scoped-error-document-is-named-for-the-operation.md)).
 - An operation's error responses are `$ref`s into `components.responses`, one component per
   advertised status, each carrying the `ErrorDocument<status>` narrowing when the catalogue
   claims that status and the generic `ErrorDocument` when it does not. The

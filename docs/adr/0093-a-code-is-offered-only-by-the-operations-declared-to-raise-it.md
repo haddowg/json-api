@@ -1,5 +1,7 @@
 # A code is offered only by the operations declared to raise it
 
+Status: its shared response named for the status and the scoped codes is superseded by [ADR 0114](0114-an-operations-scoped-error-document-is-named-for-the-operation.md), which gives each operation its own document named for the operation.
+
 An application's own error codes are often specific to an endpoint, but every operation's error response for a status offered every code at it, so a client saw a payment code on a read it can never get. An error now declares the operations it can arrive on with an `ErrorScope` on its descriptor, by type and operation name or by operation kind, and a `ScopedErrorSource` scopes an error the application does not own. The projection narrows those operations' responses: scope joins status, `source` and `meta` in grouping codes into shapes, operations raising the same scoped codes at a status share one response named for the status and those codes, and an operation gains a status a scoped code needs. Each code's example becomes one `components.examples` entry that every offering response references, since a narrowed response copying its codes' examples would grow the document with every scope.
 
 ## Considered options

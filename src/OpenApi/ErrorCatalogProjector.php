@@ -214,12 +214,7 @@ final class ErrorCatalogProjector
      */
     public function errorsItemSchema(array $components, ?int $status = null): Schema
     {
-        $branches = [Schema::ref(ComponentNaming::schemaRef('Error'))];
-        foreach ($components as $component) {
-            $branches[] = Schema::ref(ComponentNaming::schemaRef($component));
-        }
-
-        return Schema::create()
+        return $this->operationErrorsItemSchema($components)
             ->withDescription(
                 $status === null
                     ? 'A JSON:API error object. The named shapes catalogue the codes this server '
@@ -230,8 +225,23 @@ final class ErrorCatalogProjector
                         . 'the list open, so an error carrying an undocumented `code` — or one whose own '
                         . '`status` differs, which happens when a document of mixed statuses takes the '
                         . 'status class they round down to — is still a valid error object.',
-            )
-            ->withAnyOf($branches);
+            );
+    }
+
+    /**
+     * The schema for one entry of an operation's own error document: the same branches as
+     * {@see errorsItemSchema()}, without the description the shared documents carry.
+     *
+     * @param list<string> $components the variant component names, in emit order
+     */
+    public function operationErrorsItemSchema(array $components): Schema
+    {
+        $branches = [Schema::ref(ComponentNaming::schemaRef('Error'))];
+        foreach ($components as $component) {
+            $branches[] = Schema::ref(ComponentNaming::schemaRef($component));
+        }
+
+        return Schema::create()->withAnyOf($branches);
     }
 
     /**

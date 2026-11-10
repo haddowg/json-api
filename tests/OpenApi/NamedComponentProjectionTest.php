@@ -60,7 +60,7 @@ final class NamedComponentProjectionTest extends TestCase
             ['anyOf' => [['$ref' => '#/components/schemas/PlaceholderValue'], ['type' => 'null']]],
             $this->property($document, 'ArticlesAttributes', 'first'),
         );
-        self::assertSame(['contract' => GeneratorContract::NAMED_COMPONENTS], self::at($document, 'info', 'x-generator'));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::NAMED_COMPONENTS)], self::at($document, 'info', 'x-generator'));
     }
 
     #[Test]

@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 32;
+    public const CONTRACT = 33;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -99,9 +99,11 @@ final class GeneratorContract
      * document through its typed `included`, so every document now carries 19 and the
      * scoped tiers below name only the contract that first introduced each structure.
      * Contract 23 did again, closing every attributes component and declared nested
-     * object with `additionalProperties: false`.
+     * object with `additionalProperties: false`. Contract 33 did too, giving each
+     * operation that raises scoped error codes an inline error response and an error
+     * document of its own, named for the operation rather than for the codes.
      */
-    public const BASELINE = 24;
+    public const BASELINE = 33;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API
