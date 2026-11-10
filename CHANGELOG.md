@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/haddowg/json-api/compare/v2.9.0...v2.10.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* render an extracted value through its field's declared shape
+
+### Features
+
+* project a field's shape once as a named schema component ([#332](https://github.com/haddowg/json-api/issues/332)) ([057af5f](https://github.com/haddowg/json-api/commit/057af5f4d3db4908d384b935fdba6819c14576b4))
+* render an extracted value through its field's declared shape ([86d93c9](https://github.com/haddowg/json-api/commit/86d93c9ff64c933abfb9a0efae5e889c6cecadf6))
+
 ## [2.9.0](https://github.com/haddowg/json-api/compare/v2.8.0...v2.9.0) (2026-11-10)
 
 
