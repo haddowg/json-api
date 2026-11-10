@@ -167,6 +167,12 @@ column all land on. Declare a constraint to say something narrower, as
 Nothing ever overwrites a narrower answer. A derived type beats the floor and a declared
 constraint beats both.
 
+One relationship path is the exception, because it is resolved rather than guessed: a
+`WhereThrough` or `WhereThroughIn` whose path [ends on a relationship](#paths-that-end-on-a-relationship)
+compares the related resource's id, so with no declared constraints it takes the related
+id's declared format, `integer` for a `numeric()` id and `format: uuid` for a `uuid()` one.
+That default is a constraint like any other, so it validates as well as documents.
+
 The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`, `WhereDoesntHave`)
 and a [`fixed()`](#fixed-values) filter document as a plain `string` whatever they
 target: the server decides the match and discards the value, and their description says
@@ -192,6 +198,7 @@ its target column (or relationship) to the filter key when you omit it.
 | `WhereHas` | `make(string $key, ?string $relationship = null)` | a relationship | has a related record (presence-only) |
 | `WhereDoesntHave` | `make(string $key, ?string $relationship = null)` | a relationship | negation of `WhereHas` (presence-only) |
 | `WhereThrough` | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
+| `WhereThroughIn` | `make(string $key, ?string $path = null)` | a relationship path | the value reached through a dotted path is any of a list; always a list, `acceptsList(delimited: false)`, `constrain(...)` and the shortcuts (see [Matching a list through a path](#matching-a-list-through-a-path-wherethroughin)) |
 
 `Where` carries the comparison operator as its third `make()` argument — `=`
 (the default), `like`, `starts`, `ends`, `>`, `>=`, `<`, `<=`, `!=` (with `<>` as
@@ -314,7 +321,7 @@ the filters that carry the helper expose it:
 | `asBoolean()` | `Where` | a shortcut for `deserializeUsing()` coercing via `FILTER_VALIDATE_BOOLEAN` |
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
-| `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
+| `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereThrough`, `WhereThroughIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 | `deprecated()` | every built-in filter | marks the `filter[<key>]` parameter `deprecated: true` in the [OpenAPI document](openapi.md#deprecation); the filter still applies as before |
 
 ```php
@@ -642,6 +649,91 @@ walk — `WhereHas` is "the path reaches at least one present value", and a Doct
 adapter renders all three as the same `EXISTS` shape. The
 [`FiltersTest`](../examples/music-catalog/tests/FiltersTest.php) witnesses the
 `artist.name` traversal narrowing albums to each artist's catalogue.
+
+## Matching a list through a path: `WhereThroughIn`
+
+`WhereThroughIn` is `WhereThrough` with `WhereIn` at the leaf: the row matches when the
+value reached through the path is any of the requested values. It takes the same key and
+path rules, so `WhereThroughIn::make('templates')` answers `filter[templates]` and
+`WhereThroughIn::make('advertiser', 'campaign.advertiser')` answers `filter[advertiser]`:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
+
+public function filters(): array
+{
+    return [
+        WhereThroughIn::make('advertiser', 'campaign.advertiser'),
+        WhereThroughIn::make('template', 'templates')->describedAs('Leads using any of these templates.'),
+        WhereThroughIn::make('campaignName', 'campaign.name')->acceptsList(delimited: false),
+    ];
+}
+```
+
+```
+GET /leads?filter[advertiser]=4,7
+GET /leads?filter[advertiser][]=4&filter[advertiser][]=7
+```
+
+Its value is always a [list](#declaring-a-list-acceptslist), read exactly as a `WhereIn`
+declared with `acceptsList()` reads one, so there is no `acceptsList()` call to make. Both
+forms work and both are documented, a keyed member is a `400`, and
+`acceptsList(delimited: false)` keeps a comma inside a value. Every member is validated
+against the declared constraints on its own, with the same `400` `FILTER_VALUE_INVALID` a
+`WhereIn` gives. An empty list matches nothing.
+
+A data layer runs it as one correlated `EXISTS` whose leaf is an `IN` over the list, never
+one `EXISTS` per value. It carries `describedAs()`, `example()` and `deprecated()` like the
+other filters, but no `delimiter()`, `default()` or `singular()`.
+
+## Paths that end on a relationship
+
+A `WhereThrough` or `WhereThroughIn` path may end on a relationship instead of a field:
+`campaign.advertiser` ends on the campaign's `advertiser`, and `templates` on the type's own
+`templates`. The filter then compares the related resource's **id**:
+
+```php
+WhereThroughIn::make('advertiser', 'campaign.advertiser'); // filter[advertiser]=4,7
+WhereThrough::make('template', 'templates');               // filter[template]=9f3c…
+```
+
+The client sends wire ids, the ones it reads in `data.id`. Each is decoded through the
+related type's [id encoder](ids.md#encoding-when-the-wire-id-differs-from-the-storage-key) before the comparison, so a type whose ids are
+encoded filters by the same id it serves. An id the encoder cannot decode is a `400`
+`FILTER_VALUE_INVALID` at the parameter, never a failed query. With no declared
+constraints the values take the related id's format, so a `numeric()` id validates and
+documents as an integer and a `uuid()` id as a UUID. Declare constraints to say something
+else.
+
+The leaf must be monomorphic. A path ending on a `MorphTo` or `MorphToMany` has no single
+id to compare and throws a `\LogicException` when the path is resolved. A `WhereThrough`
+on a relationship compares only by equality (`=`, `!=` and their aliases) and takes no
+`deserializeUsing()`, since the encoder decides what the id means; either one throws the
+same way.
+
+Telling a relationship from a field needs the relation graph, which a filter declaration
+does not have, so the data layer resolves each path against the type the filter runs
+against with a [`ThroughPathResolver`](../src/Resource/Filter/ThroughPathResolver.php).
+Each segment matches a declared relation by its storage name, its `column()`, which is the
+name the data layer traverses. When every segment matches, the path ends on a
+relationship. When one does not, the path ends on a field and behaves exactly as it always
+has. The OpenAPI projection resolves the same way, and adapters resolve after matching the
+requested keys and may resolve the declared filters at warm-up to fail fast:
+
+```php
+use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+
+$paths = ThroughPathResolver::forResolver($server);
+$filter = $paths->resolve($directive->filter, $resource->allFields());
+```
+
+The resolved filter tells the data layer everything it needs.
+`$filter->resolvedPath()` returns a
+[`ThroughPath`](../src/Resource/Filter/ThroughPath.php) with the `segments`,
+`endsOnRelation()`, the `relatedType` and the related id field.
+`WhereThroughIn::storageValues()` and `WhereThrough::storageValue()` return the decoded
+storage keys to compare, and `constraints()` returns what each member validates against,
+the related id's format included. A group's children are resolved with it.
 
 ## List and set values
 

@@ -21,14 +21,24 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see WhereThroughBuilder::operator()} setter (default `=`), with the same
  * vocabulary as {@see Where}.
  *
+ * The path may also end on a monomorphic relationship (`campaign.advertiser`, or a
+ * bare `advertiser`), once a {@see ThroughPathResolver} has resolved it: the filter
+ * then compares the related resource's id, a wire id that {@see storageValue()} decodes
+ * through the related type's encoder. Only the equality operators compare an id.
+ *
  * Like {@see WhereHas} this is data-layer-specific: core ships the metadata and a
  * reference in-memory traversal; database adapters interpret the path as a
  * correlated EXISTS subquery (never a fetch-join, so it neither hydrates the
  * relation nor multiplies rows).
  */
-final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter
+final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\TraversesPath
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
+
+    /**
+     * The operators that can compare a related resource's id.
+     */
+    private const array ID_OPERATORS = ['=', '==', '===', '!=', '<>'];
 
     /**
      * @param \Closure(mixed): mixed|null                                   $deserialize optional value transformer applied before comparison
@@ -44,6 +54,7 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecata
         public bool $hasExample = false,
         public mixed $example = null,
         public bool $deprecated = false,
+        public ?ThroughPath $resolved = null,
     ) {}
 
     /**
@@ -59,5 +70,59 @@ final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecata
     public function key(): string
     {
         return $this->key;
+    }
+
+    /**
+     * The declared value constraints, or, for a path resolved to a relationship leaf
+     * that declares none, the related id's format ({@see ThroughPath::idConstraints()}).
+     *
+     * @return list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface>
+     */
+    public function constraints(): array
+    {
+        return $this->constraints === [] && $this->resolved !== null ? $this->resolved->idConstraints() : $this->constraints;
+    }
+
+    public function throughPath(): string
+    {
+        return $this->path;
+    }
+
+    public function resolvedPath(): ?ThroughPath
+    {
+        return $this->resolved;
+    }
+
+    /**
+     * @throws \LogicException when the path ends on a relationship and the filter declares a value transformer or a non-equality operator
+     */
+    public function withResolvedPath(ThroughPath $path): static
+    {
+        if ($path->endsOnRelation()) {
+            if ($this->deserialize !== null) {
+                throw new \LogicException(\sprintf('WhereThrough filter "%s" ends its path "%s" on a relationship, whose id is decoded through the related type\'s encoder; drop deserializeUsing().', $this->key, $this->path));
+            }
+            if (!\in_array($this->operator, self::ID_OPERATORS, true)) {
+                throw new \LogicException(\sprintf('WhereThrough filter "%s" ends its path "%s" on a relationship, so it compares an id and cannot use the "%s" operator.', $this->key, $this->path, $this->operator));
+            }
+        }
+
+        return new self($this->key, $this->path, $this->operator, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $path);
+    }
+
+    /**
+     * The value a data layer compares at the leaf: for a relationship leaf the related
+     * storage key the wire id decodes to, otherwise the value through the declared
+     * transformer, or unchanged.
+     *
+     * @throws \haddowg\JsonApi\Exception\FilterValueInvalid when a relationship leaf's id cannot be decoded
+     */
+    public function storageValue(mixed $value): mixed
+    {
+        if ($this->resolved !== null && $this->resolved->endsOnRelation()) {
+            return $this->resolved->storageValue($this->key, $value);
+        }
+
+        return $this->deserialize !== null ? ($this->deserialize)($value) : $value;
     }
 }

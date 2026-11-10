@@ -1614,6 +1614,9 @@ has no `filter[<key>]` parameter, since a single string is refused. A generator 
 read the two parameters as one filter keyed by the `x-filter-list` key and send the array
 form, which works whether or not the list is delimited. A set filter without
 `acceptsList()` documents only its delimited parameter.
+[`WhereThroughIn`](filters.md#matching-a-list-through-a-path-wherethroughin) always takes a
+list, so it documents both parameters the same way with no `acceptsList()` call. When its
+path ends on a relationship, the items take the related id's type or format.
 
 ### Filter families: `x-filter-families`
 

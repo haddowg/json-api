@@ -415,6 +415,9 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   field. Never widen the column fallback to guess through a relationship path or a pivot
   prefix, and never let the `string` floor overwrite a derived or declared type
   ([ADR 0055](docs/adr/0055-a-filter-value-defaults-to-the-type-of-the-field-it-targets.md)).
+  A path that `ThroughPathResolver` resolves to a relationship leaf is not that fallback: it
+  takes the related id's format as constraints
+  ([ADR 0113](docs/adr/0113-a-traversal-path-is-resolved-against-the-relation-graph-by-the-data-layer.md)).
 - A link's `describedby` fragment and the projector's `paths` keys both come from
   `PathTemplate`; never spell a path template inline on either side. A relation's segment
   in both is its URI field name, never its member name
