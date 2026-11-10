@@ -433,9 +433,11 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   ([ADR 0052](docs/adr/0052-a-temporal-format-keyword-is-emitted-only-when-the-field-really-writes-rfc-3339.md)).
 - The attributes object and every object a field declares are closed
   (`additionalProperties: false`), and hydration refuses an undeclared member with
-  `ATTRIBUTE_MEMBER_UNRECOGNIZED` through `UndeclaredAttributeMembers`. Only a hook producing
-  the value in the projected direction opens it; a declared read-only member stays ignored
-  ([ADR 0088](docs/adr/0088-declared-objects-are-closed.md)).
+  `ATTRIBUTE_MEMBER_UNRECOGNIZED` through `UndeclaredAttributeMembers`. Only a
+  `serializeUsing()` hook opens one, on a read; an `extractUsing()` value renders through the
+  declared shape; a declared read-only member stays ignored
+  ([ADR 0088](docs/adr/0088-declared-objects-are-closed.md),
+  [ADR 0110](docs/adr/0110-an-extract-hook-supplies-a-value-and-the-declared-shape-renders-it.md)).
 - A `OneOf` has no default discriminator. An undiscriminated one selects its variant by a
   required, always-rendered signature member only that variant declares, rejects a variant
   without one at build, and is written whole on every write; adapters select through

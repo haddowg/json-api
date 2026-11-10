@@ -5,3 +5,5 @@ A `fillUsing()` or `deserializeUsing()` hook on a list or nested object used to 
 ## Consequences
 
 An application whose write hook took members its field does not declare now gets them refused. Data with keys only the client knows declares them through `additionalProperties()` or uses an `ArrayHash`.
+
+[ADR 0110](0110-an-extract-hook-supplies-a-value-and-the-declared-shape-renders-it.md) narrows the read side to `serializeUsing()`: an `extractUsing()` value now renders through the declared shape.

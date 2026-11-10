@@ -178,7 +178,7 @@ final class SchemaProjector
      */
     private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
     {
-        $shapedByHook = $this->reading && $list->rendersThroughHook();
+        $shapedByHook = $this->reading && $list->rendersThroughSerializeHook();
         $previous = $this->wholeValue;
         $this->wholeValue = true;
 
@@ -224,8 +224,8 @@ final class SchemaProjector
      *   the update context requires.
      * - **Read** lists every child the parent always renders: all of them except a
      *   write-only one, a `hidden(when:)` / `writeOnly(when:)` one, and every child of a
-     *   parent whose `serializeUsing()` / `extractUsing()` hook produces its own shape. A
-     *   write-only child is left out of the read `properties` too.
+     *   parent whose `serializeUsing()` hook produces its own shape. A write-only child is
+     *   left out of the read `properties` too.
      *
      * A child read-only for the write being projected is left out of it, as a read-only
      * attribute is, unless {@see admittingReadOnly()} keeps it as an optional member. A
@@ -233,13 +233,13 @@ final class SchemaProjector
      * own schema does.
      *
      * The object is **closed** (`additionalProperties: false`) unless a
-     * `serializeUsing()` / `extractUsing()` hook produces it on a read, since the server
-     * never validates its own output against the declared children. A `fillUsing()` /
-     * `deserializeUsing()` hook changes how a write is stored, not what it accepts, so a
-     * write keeps the declared shape.
+     * `serializeUsing()` hook produces it on a read, since that hook's return value goes
+     * out as it is. An `extractUsing()` / `computedUsing()` hook only supplies the value
+     * the declared children then render, and a `fillUsing()` / `deserializeUsing()` hook
+     * changes how a write is stored, not what it accepts, so both keep the declared shape.
      *
-     * `$shapedByHook` marks the object as author-shaped on a read when a hook outside the
-     * parent renders it, as an {@see ArrayList}'s hook renders each of its elements.
+     * `$shapedByHook` marks the object as author-shaped on a read when a `serializeUsing()`
+     * hook outside the parent renders it, as an {@see ArrayList}'s renders each element.
      *
      * `$additionalProperties` opens the object, as {@see Obj::additionalProperties()}
      * does: `additionalProperties` is that field's own schema, built as the field would
@@ -252,7 +252,7 @@ final class SchemaProjector
     public function projectNestedObject(FieldInterface $parent, iterable $children, bool $creating, ?EnumComponentCollector $collector = null, bool $shapedByHook = false, ?FieldInterface $additionalProperties = null): Schema
     {
         $reading = $this->reading && !$creating;
-        $authorShaped = $reading && ($shapedByHook || ($parent instanceof AbstractFieldValue && $parent->rendersThroughHook()));
+        $authorShaped = $reading && ($shapedByHook || ($parent instanceof AbstractFieldValue && $parent->rendersThroughSerializeHook()));
         $properties = [];
         $required = [];
         foreach ($children as $child) {
@@ -278,7 +278,7 @@ final class SchemaProjector
             ->withRequired($required);
 
         // A declared shape is closed: a member it does not declare is a mistake, not data.
-        // A read hook renders its own shape, so a read stays open there.
+        // A serializeUsing() hook renders its own shape, so a read stays open there.
         if ($authorShaped) {
             return $schema;
         }

@@ -116,14 +116,17 @@ final class ComputedObjTest extends TestCase
     }
 
     #[Test]
-    public function anUndeclaredKeyPassesThroughAndAnAbsentChildStaysAbsent(): void
+    public function anUndeclaredKeyIsDroppedAndAnAbsentChildRendersNull(): void
     {
         $field = Obj::make('stats')
             ->fields(DateTime::make('lastSeen'), Integer::make('visits'))
             ->computedUsing(static fn(mixed $model): array => ['source' => 'import', 'lastSeen' => new \DateTimeImmutable(self::AT)])
             ->build();
 
-        self::assertSame(['source' => 'import', 'lastSeen' => self::AT], $this->render($field));
+        $rendered = $this->render($field);
+
+        self::assertSame(['lastSeen' => self::AT, 'visits' => null], $rendered);
+        $this->assertMatchesReadSchema($field, $rendered);
     }
 
     #[Test]
@@ -143,7 +146,7 @@ final class ComputedObjTest extends TestCase
         $empty = Obj::make('stats')->fields(Str::make('name'))->computedUsing(static fn(mixed $model): array => [])->build();
         $null = Obj::make('stats')->fields(Str::make('name'))->computedUsing(static fn(mixed $model): ?array => null)->build();
 
-        self::assertEquals(new \stdClass(), $this->render($empty));
+        self::assertSame(['name' => null], $this->render($empty));
         self::assertNull($this->render($null));
     }
 

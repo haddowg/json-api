@@ -186,9 +186,9 @@ final class StructuredArrayListTest extends TestCase
             ->extractUsing(static fn(mixed $model): array => [['retrievedAt' => $at, 'extra' => 1]])
             ->build();
 
-        // A computed element leaves an absent child absent and passes an undeclared key
-        // through, as a computed Obj does.
-        self::assertSame([['retrievedAt' => self::AT, 'extra' => 1]], $field->serialize([], $this->request(), 'sources'));
+        // A computed element renders as a stored one does: an absent child renders null
+        // and an undeclared key is dropped.
+        self::assertSame([['retrievedAt' => self::AT, 'href' => null]], $field->serialize([], $this->request(), 'sources'));
     }
 
     #[Test]

@@ -127,11 +127,11 @@ final class StructuredListProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aHookedListRequiresNoElementMembersOnRead(): void
+    public function aSerializeHookedListRequiresNoElementMembersOnRead(): void
     {
         $field = ArrayList::make('steps')
             ->of(OneOf::make('step')->discriminator('operation')->variant('trim', Str::make('mode')))
-            ->extractUsing(static fn(mixed $model): array => [])
+            ->serializeUsing(static fn(mixed $model): array => [])
             ->build();
 
         $items = $this->attribute($field, RepresentationContext::Read)['items'] ?? null;

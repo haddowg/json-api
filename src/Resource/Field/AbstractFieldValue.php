@@ -163,8 +163,8 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
     }
 
     /**
-     * Whether a `serializeUsing()` or `extractUsing()` hook produces the rendered value,
-     * so its shape is the author's rather than the one the field declares.
+     * Whether a `serializeUsing()` or `extractUsing()` hook supplies the read value. Only
+     * a `serializeUsing()` one owns its shape ({@see rendersThroughSerializeHook()}).
      *
      * @internal
      */

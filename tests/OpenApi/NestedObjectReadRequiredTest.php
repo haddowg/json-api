@@ -136,10 +136,24 @@ final class NestedObjectReadRequiredTest extends TestCase
 
         foreach ([
             Obj::make('a')->serializeUsing($hook)->fields(...$children)->build(),
-            Obj::make('b')->extractUsing($hook)->fields(...$children)->build(),
             Map::make('c')->serializeUsing($hook)->fields(...$children)->build(),
         ] as $field) {
             self::assertArrayNotHasKey('required', $this->schema($field), $field->name());
+        }
+    }
+
+    #[Test]
+    public function aParentWithAnExtractHookClaimsEveryRenderedChild(): void
+    {
+        $children = [Str::make('street')->build(), Str::make('secret')->writeOnly()->build()];
+        $hook = static fn(mixed $model): array => [];
+
+        foreach ([
+            Obj::make('a')->extractUsing($hook)->fields(...$children)->build(),
+            Obj::make('b')->computedUsing($hook)->fields(...$children)->build(),
+            Map::make('c')->extractUsing($hook)->fields(...$children)->build(),
+        ] as $field) {
+            self::assertSame(['street'], self::at($this->schema($field), 'required'), $field->name());
         }
     }
 

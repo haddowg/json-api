@@ -268,31 +268,14 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             return $value;
         }
 
-        $name = $this->variantNameOf($value);
-        if ($name === null) {
-            // A value selecting no variant has none to render through — emit the stored
-            // value as-is rather than silently dropping it.
-            return JsonObject::of($value);
-        }
-        $variant = $this->variants[$name];
-
-        $nested = $this->discriminator === null ? [] : [$this->discriminator => $name];
-        foreach ($variant->children() as $child) {
-            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
-                continue;
-            }
-
-            $nested[$child->name()] = $child->serialize($value, $request, $child->name());
-        }
-
-        return $nested;
+        return $this->renderVariant($value, $request);
     }
 
     /**
-     * Renders a computed value through the variant its discriminator names, as {@see Obj}
-     * renders a computed object: each declared child serializes its own key and an
-     * undeclared key, the discriminator among them, passes through. A value naming no
-     * variant is emitted as it is, like a stored one.
+     * Renders a value an `extractUsing()` / `computedUsing()` hook produced exactly as
+     * {@see serializeStored()} renders a stored one, an object value included: the
+     * selected variant's children render their own keys beside the discriminator, and
+     * every other key is dropped. A value naming no variant is emitted as it is.
      *
      * @internal
      */
@@ -305,12 +288,31 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             return $value;
         }
 
-        $variant = $this->variantOf($value);
-        if ($variant === null) {
+        return $this->renderVariant($value, $request);
+    }
+
+    /**
+     * @param array<array-key, mixed>|object $value
+     */
+    private function renderVariant(array|object $value, JsonApiRequestInterface $request): mixed
+    {
+        $name = $this->variantNameOf($value);
+        if ($name === null) {
+            // A value selecting no variant has none to render through, so emit it as-is
+            // rather than silently dropping it.
             return \is_array($value) ? JsonObject::of($value) : $value;
         }
 
-        return $variant->serializeComputed($value, $request);
+        $nested = $this->discriminator === null ? [] : [$this->discriminator => $name];
+        foreach ($this->variants[$name]->children() as $child) {
+            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
+                continue;
+            }
+
+            $nested[$child->name()] = $child->serialize($value, $request, $child->name());
+        }
+
+        return $nested;
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
@@ -404,8 +406,8 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
     }
 
     /**
-     * The union's `oneOf`, with `$shapedByHook` standing in for a hook on the union
-     * itself when an enclosing {@see ArrayList}'s hook renders it.
+     * The union's `oneOf`, with `$shapedByHook` standing in for a `serializeUsing()` hook
+     * on the union itself when an enclosing {@see ArrayList}'s one renders it.
      *
      * @internal
      */
@@ -417,11 +419,11 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
             return $projector->wholeValue(fn(): Schema => $this->projectVariants($projector, $creating, $collector, $shapedByHook));
         }
 
-        $shapedByHook = $shapedByHook || ($projector->isReading() && $this->rendersThroughHook());
+        $shapedByHook = $shapedByHook || ($projector->isReading() && $this->rendersThroughSerializeHook());
         $branches = [];
         foreach ($this->variants as $variantName => $shape) {
-            // The union is the parent, so its own serializeUsing()/extractUsing() hook
-            // keeps the variants' children out of the read `required`.
+            // The union is the parent, so its own serializeUsing() hook keeps the
+            // variants' children out of the read `required`.
             $schema = $projector->projectNestedObject($this, $shape->children(), $creating, $collector, $shapedByHook);
             if ($this->discriminator === null) {
                 // No member names the variant, so the branch's title does, giving a code
