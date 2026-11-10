@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.8.0](https://github.com/haddowg/json-api/compare/v2.7.0...v2.8.0) (2026-11-10)
+
+
+### Features
+
+* give an identified MorphToMany pivot fields on its link rows ([#324](https://github.com/haddowg/json-api/issues/324)) ([277c21b](https://github.com/haddowg/json-api/commit/277c21b416c3dcba73bd57d93ff579ac7bf90d88))
+* let a to-many relation declare its default read order ([#322](https://github.com/haddowg/json-api/issues/322)) ([5588f93](https://github.com/haddowg/json-api/commit/5588f93923e06f33576ba1f7ccf1635b47e3338c))
+* let a to-many relation fix its members with cannotChangeMembership ([#323](https://github.com/haddowg/json-api/issues/323)) ([9fa9c00](https://github.com/haddowg/json-api/commit/9fa9c002d4d9ba5e3673de732633fd8ae9ca3d05))
+* let a to-many relation keep its members in position order ([#325](https://github.com/haddowg/json-api/issues/325)) ([4745149](https://github.com/haddowg/json-api/commit/4745149df092646fe113902b6109daf26c4b473e))
+* let an identified MorphToMany declare its link-row fields ([#327](https://github.com/haddowg/json-api/issues/327)) ([6f09696](https://github.com/haddowg/json-api/commit/6f09696eceba48273ca2df1785442ba49cc5ccd8))
+
 ## [2.7.0](https://github.com/haddowg/json-api/compare/v2.6.0...v2.7.0) (2026-11-09)
 
 
