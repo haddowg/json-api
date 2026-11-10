@@ -10,6 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Internal\StoredPair;
 use haddowg\JsonApi\Resource\ProvidesOutputTimezoneInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Resource\Sort\RelationSorts;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
 use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
@@ -270,8 +271,9 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             $members = $this->suppliedMembers($model, $linkage);
         } else {
             $members = $this->identifiedMembers($model, $request);
-            if ($this->defaultSort() !== []) {
-                $members = (new InMemoryLinkRows())->apply($members, new LinkRowQuery($this->defaultSort()))->items;
+            $order = RelationSorts::ownDefault($this);
+            if ($order !== []) {
+                $members = (new InMemoryLinkRows())->apply($members, new LinkRowQuery($order))->items;
             }
         }
 

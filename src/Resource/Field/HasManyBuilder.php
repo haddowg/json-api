@@ -25,6 +25,22 @@ class HasManyBuilder extends AbstractRelationBuilder
         return true;
     }
 
+    /**
+     * Positions the members by `$field`, a stored `Integer` field on the related type.
+     * A replace writes each member's position from its index in the linkage, an add
+     * appends new members after the highest position, and a remove leaves gaps. The
+     * relation reads in position order, ascending, unless it declares a
+     * {@see defaultSort()}. The field must be declared read-only on the related type,
+     * since clients never set a position; {@see \haddowg\JsonApi\Serializer\RelationOrderValidator}
+     * checks it, and that it exists, is stored and is an `Integer`, at warm-up.
+     *
+     * @return static
+     */
+    public function positionedBy(string $field): static
+    {
+        return $this->positionMembersBy($field);
+    }
+
     public function build(): HasMany
     {
         return new HasMany($this->fieldState(), $this->relationState());

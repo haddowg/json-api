@@ -34,7 +34,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * and {@see isToMany()}; the fluent authoring surface lives on the mirror
  * {@see AbstractRelationBuilder}.
  */
-abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface
+abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface, PositionedRelationInterface
 {
     public function __construct(
         FieldState $state,
@@ -212,6 +212,11 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     public function defaultSort(): array
     {
         return $this->relationState->defaultSort;
+    }
+
+    public function positionField(): ?string
+    {
+        return $this->relationState->positionField;
     }
 
     /**

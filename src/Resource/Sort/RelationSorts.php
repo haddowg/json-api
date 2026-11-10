@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\Field\DefaultSortedRelationInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
+use haddowg\JsonApi\Resource\Field\PositionedRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\StoresIdentifiersInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
@@ -80,9 +81,9 @@ final class RelationSorts
 
     /**
      * The order to read the relation's members in when the request names no sort: the
-     * relation's own {@see DefaultSortedRelationInterface::defaultSort()}, else the
-     * related type's {@see AbstractResource::defaultSort()}, else `[]`, storage order.
-     * A polymorphic relation has no related type to fall back to.
+     * relation's own order ({@see ownDefault()}), else the related type's
+     * {@see AbstractResource::defaultSort()}, else `[]`, storage order. A polymorphic
+     * relation has no related type to fall back to.
      *
      * @return list<SortDirective>
      */
@@ -92,20 +93,64 @@ final class RelationSorts
             return [];
         }
 
-        if ($relation instanceof DefaultSortedRelationInterface && $relation->defaultSort() !== []) {
-            return $relation->defaultSort();
-        }
-
-        if (self::isPolymorphic($relation)) {
-            return [];
+        $own = self::ownDefault($relation, $resolver);
+        if ($own !== [] || self::isPolymorphic($relation)) {
+            return $own;
         }
 
         return self::relatedResource($relation, $resolver)?->defaultSort() ?? [];
     }
 
+    /**
+     * The order the relation itself reads its members in when the request names no
+     * sort: its declared {@see DefaultSortedRelationInterface::defaultSort()}, else
+     * ascending by its position field when it is positioned, else `[]`. The position
+     * directive's sort is a {@see SortByField} keyed by the field name and columned by
+     * its stored column, which a data layer applies even when the field isn't otherwise
+     * sortable. A related type's field is found through `$resolver`; without one its
+     * column is taken to be its name.
+     *
+     * @return list<SortDirective>
+     */
+    public static function ownDefault(RelationInterface $relation, ?SerializerResolverInterface $resolver = null): array
+    {
+        if ($relation instanceof DefaultSortedRelationInterface && $relation->defaultSort() !== []) {
+            return $relation->defaultSort();
+        }
+
+        $position = $relation instanceof PositionedRelationInterface ? $relation->positionField() : null;
+        if ($position === null) {
+            return [];
+        }
+
+        $field = match (true) {
+            $relation instanceof PivotRelationInterface => $relation->pivotField($position),
+            $resolver !== null => self::relatedField($relation, $resolver, $position),
+            default => null,
+        };
+
+        return [new SortDirective(SortByField::make($position, $field?->column() ?? $position), false)];
+    }
+
     private static function isPolymorphic(RelationInterface $relation): bool
     {
         return $relation instanceof PolymorphicRelationInterface || \count($relation->relatedTypes()) !== 1;
+    }
+
+    /**
+     * The field named `$name` on the relation's related type, the field a
+     * {@see \haddowg\JsonApi\Resource\Field\HasMany} positioned by `$name` stores each position in, or `null` when the
+     * related type is unregistered or declares none.
+     */
+    public static function relatedField(RelationInterface $relation, SerializerResolverInterface $resolver, string $name): ?FieldInterface
+    {
+        foreach (self::relatedResource($relation, $resolver)?->allFields() ?? [] as $field) {
+            if ($field->name() === $name && !$field instanceof RelationInterface) {
+                return $field;
+            }
+        }
+
+        return null;
     }
 
     private static function relatedResource(RelationInterface $relation, SerializerResolverInterface $resolver): ?AbstractResource

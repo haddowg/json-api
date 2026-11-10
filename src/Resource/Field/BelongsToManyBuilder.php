@@ -15,8 +15,23 @@ final class BelongsToManyBuilder extends HasManyBuilder
 {
     use DeclaresPivotFields;
 
+    /**
+     * Positions the members by the stored `Integer` pivot field `$field`. A replace
+     * writes each member's position from its index in the linkage, an add appends new
+     * members after the highest position, and a remove leaves gaps. The field becomes
+     * read-only to clients and the relation's default read order, ascending, unless it
+     * declares a {@see defaultSort()}. A field that isn't a declared, stored `Integer`
+     * pivot field fails the build.
+     *
+     * @return static
+     */
+    public function positionedBy(string $field): static
+    {
+        return $this->positionMembersBy($field);
+    }
+
     public function build(): BelongsToMany
     {
-        return new BelongsToMany($this->fieldState(), $this->relationState(), $this->pivotFields, $this->pivotThrough);
+        return new BelongsToMany($this->fieldState(), $this->relationState(), $this->positionedPivotFields(), $this->pivotThrough);
     }
 }

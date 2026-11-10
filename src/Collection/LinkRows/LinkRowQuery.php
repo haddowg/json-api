@@ -52,7 +52,7 @@ final readonly class LinkRowQuery
      * request's values for the relation: an endpoint's `sort` and `filter`, a Relationship
      * Queries `relatedQuery[<path>]` entry, or nothing when the relation renders as
      * linkage in another resource's document. Without a requested sort the relation's
-     * own default applies.
+     * own default applies: its declared default, else its position order.
      *
      * @param list<string>         $sort   the requested sort fields, a leading `-` marking descending
      * @param array<string, mixed> $filter the requested filter values, keyed by filter key
@@ -77,7 +77,7 @@ final readonly class LinkRowQuery
         $sorts = SortMatcher::directives($sort, self::sorts($relation), $request);
 
         return new self(
-            $sorts === [] ? $relation->defaultSort() : $sorts,
+            $sorts === [] ? RelationSorts::ownDefault($relation) : $sorts,
             FilterMatcher::directives($filter, self::filters($relation), $request),
             $window,
             $countable,

@@ -296,6 +296,11 @@ There are two places the mutation can actually happen, and you pick one per type
    write. Either way the typed exceptions propagate to the error handler, so you
    never catch them yourself.
 
+A relation positioned with [`positionedBy()`](relations.md#positioned-members) also needs
+its positions written on every membership change, in two passes when the position
+column is unique per owner. Whichever place the write lands, compute them with
+`Positions`.
+
 ## Next
 
 - [Related endpoints](related-endpoints.md) — reading the related resources and

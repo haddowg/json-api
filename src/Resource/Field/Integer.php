@@ -26,4 +26,15 @@ final readonly class Integer extends AbstractFieldValue
     {
         return \is_numeric($value) ? (int) $value : $value;
     }
+
+    /**
+     * This field read-only to every write, as a relation positioning its members by it
+     * makes it.
+     *
+     * @internal
+     */
+    public function asPosition(): self
+    {
+        return new self($this->state->readOnly());
+    }
 }
