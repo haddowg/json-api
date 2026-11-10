@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Collection\LinkRows\InMemoryLinkRows;
+use haddowg\JsonApi\Collection\LinkRows\LinkRowQuery;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Internal\StoredPair;
+use haddowg\JsonApi\Resource\ProvidesOutputTimezoneInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
@@ -27,16 +30,27 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * members' `[type, id]` pairs off the parent instead, so its linkage never loads a
  * member. {@see storedIdentifiers()} gives a host the pairs of many parents grouped by
  * type, to load each type's members in one query.
+ *
+ * An identified relation can declare **pivot fields** on the rows it reads its pairs
+ * from, exactly as a {@see BelongsToMany} declares them on its join table. Each member's
+ * readable fields render as `meta.pivot` on its identifier, its relationship and related
+ * endpoints sort by them and filter by the relation's `pivot.`-prefixed filters, all over
+ * the link rows ({@see LinkRowQuery}).
  */
-final readonly class MorphToMany extends AbstractRelationValue implements PolymorphicRelationInterface, StoresIdentifiersInterface
+final readonly class MorphToMany extends AbstractRelationValue implements PolymorphicRelationInterface, StoresIdentifiersInterface, PivotRelationInterface
 {
+    use ReadsPivotFields;
+
     /**
      * @param (\Closure(mixed, JsonApiRequestInterface): mixed)|null $identifiedBy validated per call, since nothing checks a closure's return type
+     * @param array<string, FieldInterface>                          $pivotFields  the declared pivot fields, keyed by field name (declaration order preserved)
      */
     public function __construct(
         FieldState $state,
         RelationState $relationState,
         private ?\Closure $identifiedBy = null,
+        private array $pivotFields = [],
+        private ?string $pivotThrough = null,
     ) {
         parent::__construct($state, $relationState);
     }
@@ -72,31 +86,91 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
      */
     public function storedIdentifierList(mixed $model, JsonApiRequestInterface $request): array
     {
+        return \array_map(
+            static fn(IdentifiedMember $member): array => [$member->type, $member->id],
+            $this->identifiedMembers($model, $request),
+        );
+    }
+
+    /**
+     * The members the parent stores, in order, each carrying the link row its pair was
+     * read from when the `identifiedBy()` closure returned one. A pair repeated in the
+     * list is kept once, at its first position. These are the rows the relation's pivot
+     * fields read and a {@see LinkRowQuery} filters, sorts and pages.
+     *
+     * @return list<IdentifiedMember>
+     *
+     * @throws \LogicException when the relation stores no identifiers, or the list or
+     *                         a member is malformed, names a type the relation does
+     *                         not declare, or lacks the row its stored pivot fields
+     *                         are read from
+     */
+    public function identifiedMembers(mixed $model, JsonApiRequestInterface $request): array
+    {
         if ($this->identifiedBy === null) {
             throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedBy(), so it stores no identifiers.', $this->state->name));
         }
 
-        $pairs = ($this->identifiedBy)($model, $request);
-        if (!\is_iterable($pairs)) {
-            throw $this->malformed($model, $pairs);
+        $returned = ($this->identifiedBy)($model, $request);
+        if (!\is_iterable($returned)) {
+            throw $this->malformed($model, $returned);
         }
 
-        $list = [];
+        $members = [];
         $seen = [];
-        foreach ($pairs as $pair) {
-            if (!StoredPair::isPair($pair)) {
-                throw $this->malformed($model, $pair);
+        foreach ($returned as $member) {
+            if (!StoredPair::isMember($member)) {
+                throw $this->malformed($model, $member);
             }
 
-            $this->assertDeclared($model, $pair[0]);
-            $key = $pair[0] . "\0" . $pair[1];
+            $this->assertDeclared($model, $member[0]);
+            $identified = IdentifiedMember::of([$member[0], $member[1]], row: $member[2] ?? null);
+            $this->assertRow($identified, $model);
+            $key = $member[0] . "\0" . $member[1];
             if (!isset($seen[$key])) {
                 $seen[$key] = true;
-                $list[] = $pair;
+                $members[] = $identified;
             }
         }
 
-        return $list;
+        return $members;
+    }
+
+    /**
+     * The `meta.pivot` one member renders: each pivot field readable for this request,
+     * keyed by name, its stored value read off the member's row and cast by the field,
+     * or produced by its hook. A stored field the row doesn't hold renders `null`. The
+     * same values a host renders on the member's resource object on the related
+     * endpoint. `$outputTimezone` is the server's default output zone, which a date
+     * field adopts unless it set its own.
+     *
+     * @return array<string, mixed>
+     */
+    public function pivotValues(IdentifiedMember $member, mixed $parent, JsonApiRequestInterface $request, ?string $outputTimezone = null): array
+    {
+        $stored = [];
+        foreach ($this->storedPivotFields() as $field) {
+            $stored[$field->name()] = $member->row === null ? null : Accessor::get($member->row, $field->column() ?? $field->name());
+        }
+
+        $hooked = $this->hookedPivotValues($parent, $member->target, $stored, $request, $outputTimezone);
+
+        $values = [];
+        foreach ($this->readablePivotFieldsFor($request, $member->target) as $field) {
+            $name = $field->name();
+            if (\array_key_exists($name, $hooked)) {
+                $values[$name] = $hooked[$name];
+
+                continue;
+            }
+
+            if ($outputTimezone !== null && $field instanceof AcceptsDefaultOutputTimezoneInterface) {
+                $field = $field->withDefaultOutputTimezone($outputTimezone);
+            }
+            $values[$name] = $field->serializeWithoutRequest([$field->column() ?? $name => $stored[$name] ?? null]);
+        }
+
+        return $values;
     }
 
     public function storedIdentifiers(iterable $models, JsonApiRequestInterface $request): array
@@ -178,11 +252,13 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
 
     /**
      * The members to render as the linkage: the host-supplied ones, or else the pairs
-     * the parent stores. A member whose type has no registered serializer is left out.
-     * A member with no supplied target is matched, only if the relationship is
-     * included, against the relation's usual value on the parent.
+     * the parent stores, ordered by the relation's default sort over their rows. A
+     * member whose type has no registered serializer is left out. A member with no
+     * supplied target is matched, only if the relationship is included, against the
+     * relation's usual value on the parent. Each carries its `meta.pivot` and its
+     * identifier meta.
      *
-     * @return list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed}>
+     * @return list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed, meta: array<string, mixed>}>
      */
     private function storedMembers(
         mixed $model,
@@ -190,9 +266,14 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         SerializerResolverInterface $resolver,
         ?RelationshipLinkage $linkage,
     ): array {
-        $members = $linkage !== null
-            ? $this->suppliedMembers($model, $linkage)
-            : \array_map(static fn(array $pair): IdentifiedMember => IdentifiedMember::of($pair), $this->storedIdentifierList($model, $request));
+        if ($linkage !== null) {
+            $members = $this->suppliedMembers($model, $linkage);
+        } else {
+            $members = $this->identifiedMembers($model, $request);
+            if ($this->defaultSort() !== []) {
+                $members = (new InMemoryLinkRows())->apply($members, new LinkRowQuery($this->defaultSort()))->items;
+            }
+        }
 
         $onParent = null;
         $readParent = function () use (&$onParent, $model, $request): array {
@@ -209,6 +290,9 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             return $onParent;
         };
 
+        $outputTimezone = $resolver instanceof ProvidesOutputTimezoneInterface ? $resolver->outputTimezone() : null;
+        $identifierMeta = $this->relationState->identifierMetaResolver;
+
         $stored = [];
         foreach ($members as $member) {
             if (!$resolver->hasSerializerFor($member->type)) {
@@ -218,6 +302,10 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             $serializer = $resolver->serializerFor($member->type);
             $id = StoredPair::wireId($serializer, $member->id);
             $target = $member->target;
+            $meta = $this->pivotFields === [] ? [] : ['pivot' => $this->pivotValues($member, $model, $request, $outputTimezone)];
+            if ($identifierMeta !== null) {
+                $meta = [...$meta, ...$identifierMeta($model, $member, $request)];
+            }
             $stored[] = [
                 'type' => $member->type,
                 'id' => $id,
@@ -233,6 +321,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
 
                         return null;
                     },
+                'meta' => $meta,
             ];
         }
 
@@ -256,6 +345,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             }
 
             $this->assertDeclared($model, $member->type);
+            $this->assertRow($member, $model);
             $members[] = $member;
         }
 
@@ -275,10 +365,29 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         }
     }
 
+    /**
+     * A member of a relation whose pivot fields are stored must carry the row they are
+     * read from.
+     */
+    private function assertRow(IdentifiedMember $member, mixed $model): void
+    {
+        if ($member->row !== null || $this->storedPivotFields() === []) {
+            return;
+        }
+
+        throw new \LogicException(\sprintf(
+            'MorphToMany relation "%s" on %s declares stored pivot fields, so each member must carry the link row they are read from; the "%s" member "%s" has none. Return [type, id, row] from identifiedBy(), or pass the row to IdentifiedMember.',
+            $this->state->name,
+            StoredPair::declaringClass($this->identifiedBy, $model),
+            $member->type,
+            (string) $member->id,
+        ));
+    }
+
     private function malformed(mixed $model, mixed $value): \LogicException
     {
         return new \LogicException(\sprintf(
-            'The identifiedBy() closure of MorphToMany relation "%s" on %s returned %s; it must return a list of [type, id] pairs.',
+            'The identifiedBy() closure of MorphToMany relation "%s" on %s returned %s; it must return a list of [type, id] pairs or [type, id, row] triples.',
             $this->state->name,
             StoredPair::declaringClass($this->identifiedBy, $model),
             \get_debug_type($value),

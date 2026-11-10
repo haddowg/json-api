@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-two scoped
+ * is warned only by the documents that contain it. There are twenty-three scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -67,8 +67,9 @@ namespace haddowg\JsonApi\OpenApi;
  * a related-only type ({@see RELATED_ONLY}), a `filter` parameter accepting a family of
  * keys by prefix ({@see FILTER_FAMILIES}), a filter taking its list as
  * `filter[<key>][]` ({@see LIST_FILTERS}), the declared members of a linkage
- * identifier's `meta` ({@see IDENTIFIER_META}) and an object open to members it does
- * not declare ({@see OPEN_OBJECTS}).
+ * identifier's `meta` ({@see IDENTIFIER_META}), an object open to members it does
+ * not declare ({@see OPEN_OBJECTS}) and the queried link rows of a polymorphic to-many
+ * identified by stored pairs ({@see IDENTIFIED_PIVOTS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -83,7 +84,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 29;
+    public const CONTRACT = 30;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -271,6 +272,15 @@ final class GeneratorContract
     public const OPEN_OBJECTS = 29;
 
     /**
+     * The contract that let a polymorphic to-many identified by stored pairs query its
+     * link rows: its relationship endpoint takes the `filter[<key>]` and `sort` parameters
+     * its related endpoint takes, and its linkage identifiers carry a typed `meta.pivot`
+     * with the request and response shapes a monomorphic pivot relation has. A document
+     * carries it only when such a relation declares pivot fields, filters or sorts.
+     */
+    public const IDENTIFIED_PIVOTS = 30;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -297,6 +307,7 @@ final class GeneratorContract
         bool $listFilters = false,
         bool $identifierMeta = false,
         bool $openObjects = false,
+        bool $identifiedPivots = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -321,6 +332,7 @@ final class GeneratorContract
             $listFilters ? self::LIST_FILTERS : self::BASELINE,
             $identifierMeta ? self::IDENTIFIER_META : self::BASELINE,
             $openObjects ? self::OPEN_OBJECTS : self::BASELINE,
+            $identifiedPivots ? self::IDENTIFIED_PIVOTS : self::BASELINE,
         )];
     }
 }

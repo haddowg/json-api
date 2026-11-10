@@ -95,7 +95,7 @@ final class RelationDefaultSortTest extends TestCase
     public function aPolymorphicToManyDeclaringADefaultFailsTheBuild(): void
     {
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('a polymorphic relation takes no sort');
+        $this->expectExceptionMessage('a polymorphic relation not declared with identifiedBy() takes no sort');
 
         MorphToMany::make('items', ['albums', 'tracks'])->defaultSort(new SortDirective(SortByField::make('title'), false))->build();
     }

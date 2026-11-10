@@ -108,9 +108,10 @@ abstract class AbstractRelationship
     /**
      * The members a to-many renders as its linkage without reading their targets, in
      * order, or `null` when the linkage is read off the related objects. Each carries
-     * its type's serializer and a reader for the target `included` renders.
+     * its type's serializer, a reader for the target `included` renders, and the `meta`
+     * its identifier carries, empty for none.
      *
-     * @var list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed}>|null
+     * @var list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed, meta?: array<string, mixed>}>|null
      */
     protected ?array $storedMembers = null;
 

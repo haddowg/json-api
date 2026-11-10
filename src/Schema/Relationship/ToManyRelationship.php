@@ -26,7 +26,7 @@ final class ToManyRelationship extends AbstractRelationship
      * @internal Set by {@see \haddowg\JsonApi\Resource\Field\MorphToMany} for a
      *           relation declared with `identifiedBy()`.
      *
-     * @param list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed}> $members
+     * @param list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed, meta?: array<string, mixed>}> $members
      *
      * @return $this
      */
@@ -59,7 +59,11 @@ final class ToManyRelationship extends AbstractRelationship
             $result = [];
             foreach ($this->storedMembers as $member) {
                 $this->includeStoredTarget($transformation, $resourceTransformer, $data, $member['type'], $member['resource'], $member['target'], $defaultRelationships);
-                $result[] = ['type' => $member['type'], 'id' => $member['id']];
+                $identifier = ['type' => $member['type'], 'id' => $member['id']];
+                if (($member['meta'] ?? []) !== []) {
+                    $identifier['meta'] = $member['meta'];
+                }
+                $result[] = $identifier;
             }
 
             return $result;

@@ -30,6 +30,20 @@ final class StoredPair
     }
 
     /**
+     * Whether `$member` is a `[type, id]` pair, or a `[type, id, row]` triple carrying
+     * the link row the pair was read from.
+     *
+     * @phpstan-assert-if-true array{0: string, 1: string|int, 2?: mixed} $member
+     */
+    public static function isMember(mixed $member): bool
+    {
+        return \is_array($member)
+            && \array_is_list($member)
+            && (\count($member) === 2 || \count($member) === 3)
+            && self::isPair([$member[0], $member[1]]);
+    }
+
+    /**
      * The stored key as the target's serializer would render its id: through the id
      * field's encoder when the target type declares one.
      */

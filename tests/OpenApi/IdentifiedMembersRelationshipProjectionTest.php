@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\OpenApi;
 
+use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\OpenApi\RelationFacts;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
@@ -23,7 +25,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * A `MorphToMany` declared with `identifiedBy()` pages its stored pairs on its relationship
  * endpoint like its related endpoint, so that operation takes the same `page` and
- * `withCount` parameters. Every other polymorphic relationship endpoint takes none.
+ * `withCount` parameters. With pivot fields on its link rows both endpoints filter and sort
+ * by them and its identifiers type `meta.pivot`. Every other polymorphic relationship
+ * endpoint takes none.
  */
 #[CoversClass(OpenApiProjector::class)]
 #[CoversClass(OperationProjector::class)]
@@ -43,6 +47,62 @@ final class IdentifiedMembersRelationshipProjectionTest extends TestCase
         self::assertSame(\array_key_exists('withCount', $related), \array_key_exists('withCount', $relationship));
         self::assertArrayNotHasKey('filter[name]', $relationship);
         self::assertArrayNotHasKey('sort', $relationship);
+    }
+
+    #[Test]
+    public function linkRowPivotsFilterAndSortBothEndpointsAndTypeTheIdentifiers(): void
+    {
+        $document = $this->document(self::pivoted());
+        $paths = $this->arrAt($document, 'paths');
+
+        foreach (['/articles/{id}/companies', '/articles/{id}/relationships/companies'] as $path) {
+            $parameters = $this->parameters($paths, $path);
+            self::assertArrayHasKey('filter[minRank]', $parameters, $path);
+            self::assertSame(['rank', '-rank'], $this->arrAt($parameters, 'sort', 'schema', 'items', 'enum'), $path);
+            self::assertArrayNotHasKey('filter[name]', $parameters, $path);
+        }
+
+        $items = $this->arrAt($document, 'components', 'schemas', 'ArticlesCompaniesRelationship', 'properties', 'data', 'items');
+        self::assertSame(
+            ['type' => 'object', 'properties' => ['meta' => ['type' => 'object', 'properties' => ['pivot' => ['$ref' => '#/components/schemas/ArticlesCompaniesPivot']]]]],
+            $this->arrAt($items, 'allOf', '1'),
+        );
+        self::assertArrayHasKey('oneOf', $this->arrAt($items, 'allOf', '0'));
+        self::assertSame(['rank'], \array_keys($this->arrAt($document, 'components', 'schemas', 'ArticlesCompaniesWritePivot', 'properties')));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::IDENTIFIED_PIVOTS)], $this->arrAt($document, 'info', 'x-generator'));
+    }
+
+    #[Test]
+    public function anIdentifiedRelationWithoutLinkRowQueriesKeepsTheBaselineContract(): void
+    {
+        $document = $this->document(FakeRelationMetadata::identifiedMorphToMany('companies', ['people', 'robots'], countable: true, pageSchema: PagePaginator::make()->describePageSchema()));
+
+        self::assertSame(['contract' => GeneratorContract::BASELINE], $this->arrAt($document, 'info', 'x-generator'));
+        self::assertArrayNotHasKey('ArticlesCompaniesPivot', $this->arrAt($document, 'components', 'schemas'));
+    }
+
+    #[Test]
+    public function aPlainPolymorphicToManyWithPivotFieldsTypesNoPivot(): void
+    {
+        $document = $this->document(new FakeRelationMetadata('companies', ['people', 'robots'], true, pivotFields: [Integer::make('rank')->build()], polymorphic: true));
+
+        self::assertArrayNotHasKey('ArticlesCompaniesPivot', $this->arrAt($document, 'components', 'schemas'));
+    }
+
+    private static function pivoted(): FakeRelationMetadata
+    {
+        return new FakeRelationMetadata(
+            'companies',
+            ['people', 'robots'],
+            true,
+            countable: true,
+            pageSchema: PagePaginator::make()->describePageSchema(),
+            filters: [Where::make('minRank', 'pivot.rank', '>=')->integer()->build()],
+            sorts: [SortByField::make('rank')],
+            pivotFields: [Integer::make('rank')->required()->build(), Str::make('since')->readOnly()->build()],
+            polymorphic: true,
+            identifiesMembers: true,
+        );
     }
 
     #[Test]

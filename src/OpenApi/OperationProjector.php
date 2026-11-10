@@ -767,7 +767,8 @@ final class OperationProjector
         // span types, no single related provider or shared vocabulary) takes no query
         // parameters: the host rejects a requested `filter`/`sort`/`page` there with a `400`.
         // A to-many whose members are stored pairs pages them like its related endpoint, so
-        // it takes `page` (+`withCount` when countable) and still no `filter`/`sort`.
+        // it takes `page` (+`withCount` when countable), and filters and sorts their link
+        // rows by the relation's own pivot vocabulary, the one its related endpoint takes.
         if (!$relation->isToMany()) {
             $getParameters = RelationFacts::monomorphicType($relation) !== null
                 ? $this->relatedFilterParameters($relation, $server)
@@ -781,6 +782,8 @@ final class OperationProjector
             );
         } elseif (RelationFacts::identifiesMembers($relation)) {
             $getParameters = $this->concatParameters(
+                $this->relatedFilterParameters($relation, $server),
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
             );

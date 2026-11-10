@@ -150,9 +150,10 @@ interface RelationMetadataInterface
 
     /**
      * The relation's declared **pivot** fields — the per-edge attributes a
-     * `belongsToMany` relation renders under each linkage identifier's `meta.pivot`
-     * (and accepts on a relationship mutation). Empty for any relation without pivot
-     * data (a to-one, a plain to-many, a polymorphic relation). The projector types
+     * `belongsToMany` relation, or a `morphToMany` declared with `identifiedBy()`,
+     * renders under each linkage identifier's `meta.pivot` (and accepts on a relationship
+     * mutation). Empty for any relation without pivot data (a to-one, a plain to-many, a
+     * polymorphic relation not identified by stored pairs). The projector types
      * the linkage identifier's `meta.pivot` from these, projecting each field with the
      * same {@see \haddowg\JsonApi\OpenApi\SchemaProjector} the attributes use.
      *

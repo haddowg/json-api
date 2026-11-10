@@ -101,6 +101,11 @@ A **Sort** that answers every key starting with its prefix and a dot (`value.cap
 resolving the suffix to a concrete **Sort** per request. Never matches the bare prefix.
 _Avoid_: wildcard sort, dynamic sort
 
+**Link row**:
+The stored row an identified polymorphic to-many reads one member's type and id from. Its pivot
+fields render as the member's `meta.pivot`, and its endpoints filter and sort over them.
+_Avoid_: join row (for a polymorphic relation), morph pivot
+
 **Default read order**:
 The **Sort** order a to-many **Relation** reads its members in when a request names none. Its
 own `defaultSort()` when declared, else the related type's.

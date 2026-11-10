@@ -160,14 +160,18 @@ final class ContractWitnessServer
      *                             members, which the baseline witness leaves out too
      * @param bool $openObjects whether the articles carry objects open to members they do
      *                          not declare, which the baseline witness leaves out too
+     * @param bool $identifiedPivots whether the articles' polymorphic to-many identified by
+     *                               stored pairs declares pivot fields and filters and
+     *                               sorts its link rows, which the baseline witness
+     *                               leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -266,7 +270,7 @@ final class ContractWitnessServer
      * vocabulary, custom actions in each scope and input mode, and a non-default success
      * response on three of the five operations.
      */
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -417,8 +421,26 @@ final class ContractWitnessServer
                 // Opted in but readable: projects exactly as a relation that never opted in.
                 new WriteOnlyRelationMetadata(new FakeRelationMetadata('editor', ['people'], false), writeOnly: false),
                 // A polymorphic to-many identified by stored pairs: its relationship endpoint
-                // takes the page parameters its related endpoint does.
-                FakeRelationMetadata::identifiedMorphToMany('sponsors', ['people', 'images'], countable: true, pageSchema: PagePaginator::make()->describePageSchema()),
+                // takes the page parameters its related endpoint does, and with pivot fields
+                // on its link rows it filters and sorts them there too and types each
+                // identifier's `meta.pivot`.
+                $identifiedPivots
+                    ? new FakeRelationMetadata(
+                        'sponsors',
+                        ['people', 'images'],
+                        true,
+                        countable: true,
+                        pageSchema: PagePaginator::make()->describePageSchema(),
+                        filters: [Where::make('minRank', 'pivot.rank', '>=')->integer()->example(2)->build()],
+                        sorts: [SortByField::make('rank'), SortByField::make('since')],
+                        pivotFields: [
+                            Integer::make('rank')->required()->example(1)->build(),
+                            DateTime::make('since')->readOnly()->example('2026-01-01T00:00:00+00:00')->build(),
+                        ],
+                        polymorphic: true,
+                        identifiesMembers: true,
+                    )
+                    : FakeRelationMetadata::identifiedMorphToMany('sponsors', ['people', 'images'], countable: true, pageSchema: PagePaginator::make()->describePageSchema()),
                 // Polymorphic over one type, to-one and to-many: projected as the union they
                 // would be with several members.
                 ...($singleTargetPolymorphism ? [

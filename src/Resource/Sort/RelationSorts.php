@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Sort;
 
 use haddowg\JsonApi\Resource\AbstractResource;
-use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\DefaultSortedRelationInterface;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\StoresIdentifiersInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 
 /**
@@ -20,21 +22,33 @@ use haddowg\JsonApi\Resource\SerializerResolverInterface;
 final class RelationSorts
 {
     /**
-     * The sorts the relation derives from its pivot fields: one
-     * {@see SortByField} per field, keyed by the field name and columned by its
-     * stored column. Empty for a relation without pivot fields.
+     * The sorts the relation derives from its pivot fields: one {@see SortByField} per
+     * stored field, keyed by the field name and columned by its stored column. A
+     * computed field has no column to sort by. Empty for a relation without pivot
+     * fields.
      *
      * @return list<SortInterface>
      */
     public static function pivotSorts(RelationInterface $relation): array
     {
-        if (!$relation instanceof BelongsToMany) {
-            return [];
-        }
+        return $relation instanceof PivotRelationInterface ? self::pivotSortsOf($relation->storedPivotFields()) : [];
+    }
 
+    /**
+     * The sorts `$pivotFields` derive, as {@see pivotSorts()} describes.
+     *
+     * @param list<FieldInterface> $pivotFields
+     *
+     * @return list<SortInterface>
+     */
+    public static function pivotSortsOf(array $pivotFields): array
+    {
         $sorts = [];
-        foreach ($relation->pivotFields() as $field) {
-            $sorts[] = SortByField::make($field->name(), $field->column() ?? $field->name());
+        foreach ($pivotFields as $field) {
+            $column = $field->column();
+            if ($column !== null) {
+                $sorts[] = SortByField::make($field->name(), $column);
+            }
         }
 
         return $sorts;
@@ -43,15 +57,20 @@ final class RelationSorts
     /**
      * The relation's sort vocabulary: the related type's sorts merged with the
      * relation's {@see RelationInterface::sorts()} and its pivot sorts, a later key
-     * replacing an earlier one. Empty for a to-one and for a polymorphic relation,
-     * whose members share no related type.
+     * replacing an earlier one. A polymorphic relation whose members are identified by
+     * stored pairs sorts its link rows by its pivot sorts alone. Empty for a to-one and
+     * for any other polymorphic relation, whose members share no related type.
      *
      * @return list<SortInterface>
      */
     public static function vocabulary(RelationInterface $relation, SerializerResolverInterface $resolver): array
     {
-        if (!$relation->isToMany() || self::isPolymorphic($relation)) {
+        if (!$relation->isToMany()) {
             return [];
+        }
+
+        if (self::isPolymorphic($relation)) {
+            return $relation instanceof StoresIdentifiersInterface && $relation->storesIdentifiers() ? self::pivotSorts($relation) : [];
         }
 
         $related = self::relatedResource($relation, $resolver);
