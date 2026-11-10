@@ -65,9 +65,11 @@ final readonly class ErrorScope
     {
         $operations = $this->operations;
         foreach ($other->operations as $type => $names) {
-            $operations[$type] = isset($operations[$type]) && $operations[$type] !== [] && $names !== []
-                ? \array_values(\array_unique([...$operations[$type], ...$names]))
-                : [];
+            $operations[$type] = match (true) {
+                !isset($operations[$type]) => $names,
+                $operations[$type] === [] || $names === [] => [],
+                default => \array_values(\array_unique([...$operations[$type], ...$names])),
+            };
         }
 
         return new self($operations, \array_values(\array_unique([...$this->kinds, ...$other->kinds], \SORT_REGULAR)));

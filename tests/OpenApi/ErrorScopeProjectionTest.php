@@ -206,6 +206,11 @@ final class ErrorScopeProjectionTest extends TestCase
         self::assertSame(['articles' => ['update', 'delete']], $scope->operations);
         self::assertSame([OperationKind::Create], $scope->kinds);
         self::assertSame(['articles' => []], ErrorScope::on('articles', 'update')->and(ErrorScope::on('articles'))->operations);
+        self::assertSame(
+            ['tags' => ['create'], 'articles' => ['update']],
+            ErrorScope::on('tags', 'create')->and(ErrorScope::on('articles', 'update'))->operations,
+            'a type only the other scope names keeps the operations it names',
+        );
     }
 
     #[Test]
