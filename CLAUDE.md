@@ -452,6 +452,11 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one
   its own walk
   ([ADR 0080](docs/adr/0080-resource-unions-are-discriminated-by-type-and-included-is-typed.md)).
+- A named shape's component holds the shape and its own constraints, never a use's `null`,
+  description, example, deprecation or non-empty keyword, and splits into `<Name>Create` /
+  `<Name>Update` only where a write differs from the read. A clashing or reused-but-different
+  name throws; never rename it
+  ([ADR 0111](docs/adr/0111-a-named-shape-is-one-component-per-differing-representation-and-each-use-keeps-its-own-null.md)).
 
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**

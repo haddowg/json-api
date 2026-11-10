@@ -11,6 +11,8 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class MapBuilder extends AbstractFieldBuilder
 {
+    use NamesSchemaComponent;
+
     /**
      * @var list<FieldInterface>
      */

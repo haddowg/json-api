@@ -113,6 +113,12 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     protected bool $deprecated = false;
 
     /**
+     * The named schema component the value's shape projects as, set by
+     * {@see NamesSchemaComponent::component()} on the builders that offer it.
+     */
+    protected ?string $component = null;
+
+    /**
      * The context applied to constraints appended while inside an
      * `onCreate()` / `onUpdate()` builder; `null` means {@see Context::always()}.
      */
@@ -697,6 +703,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
             fillUsing: $this->fillUsing,
             guaranteed: $this->guaranteed,
             deprecated: $this->deprecated,
+            component: $this->component,
         );
     }
 

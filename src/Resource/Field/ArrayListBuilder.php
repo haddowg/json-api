@@ -20,6 +20,8 @@ use haddowg\JsonApi\Resource\Constraint\UniqueItems;
  */
 final class ArrayListBuilder extends AbstractFieldBuilder
 {
+    use NamesSchemaComponent;
+
     /**
      * The JSON type of each element, surfaced as the OpenAPI `items` type. Defaults
      * to `string` so a list attribute never projects as an untyped `unknown[]`; set

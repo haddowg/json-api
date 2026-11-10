@@ -12,6 +12,8 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class OneOfBuilder extends AbstractFieldBuilder
 {
+    use NamesSchemaComponent;
+
     private ?string $discriminator = null;
 
     /**

@@ -35,7 +35,7 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * also takes members it does not declare, each value read and written through that one
  * field, and kept beside the declared children in the same associative array.
  */
-final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
+final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -317,5 +317,10 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
     {
         return $projector->projectNestedObject($this, $this->children, $creating, $collector, additionalProperties: $this->additionalProperties);
+    }
+
+    public function componentName(): ?string
+    {
+        return $this->state->component;
     }
 }

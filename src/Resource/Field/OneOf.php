@@ -35,7 +35,7 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * shapes" whose members you only want documented and validated (not hydrated per
  * variant) is a schema-bearing constraint on a pass-through field instead.
  */
-final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
+final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
 {
     /**
      * Each undiscriminated variant's signature: the members it alone declares that every
@@ -413,7 +413,7 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
      */
     public function projectVariants(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector, bool $shapedByHook = false): Schema
     {
-        if ($this->discriminator === null && !$projector->isReading() && !$projector->writesWholeValue()) {
+        if ($this->discriminator === null && !$projector->buildsWholeValue()) {
             // Every write builds an undiscriminated union whole, so an update branch
             // requires its signature, which keeps the branches exclusive.
             return $projector->wholeValue(fn(): Schema => $this->projectVariants($projector, $creating, $collector, $shapedByHook));
@@ -456,5 +456,10 @@ final readonly class OneOf extends AbstractFieldValue implements ProvidesFieldSc
         $union = Schema::create()->withOneOf($branches);
 
         return $this->discriminator === null ? $union : $union->withDiscriminator($this->discriminator);
+    }
+
+    public function componentName(): ?string
+    {
+        return $this->state->component;
     }
 }
