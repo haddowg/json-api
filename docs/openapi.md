@@ -1587,7 +1587,9 @@ oasdiff breaking --flatten-allof old.json new.json
 When a field constrains its value to a PHP **backed enum** (via `In` with an enum
 class-string, e.g. the `enum()` field builder), the projected `enum` schema is hoisted
 into a **reusable named component** (`#/components/schemas/<Enum>`) and `$ref`'d — so the
-same enum shared by several fields is one component, not a repeated inline list. That
+same enum shared by several fields is one component, not a repeated inline list. A
+filter declared with [`enum()`](filters.md#backed-enums) references the same component
+from its `filter[<key>]` value, or from each item of a list filter's value. That
 component carries:
 
 - **`x-enum-varnames`** — the enum **case names**, aligned to the `enum` values, so a code

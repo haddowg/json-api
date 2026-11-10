@@ -96,7 +96,8 @@ final class OpenApiProjector
         // components: which statuses the operations reference decides which response
         // components, and which per-status `ErrorDocument` narrowings, the document
         // carries. Path projection reads only the metadata, so the move is free.
-        $paths = $this->paths($server);
+        $filterEnums = new EnumComponentCollector();
+        $paths = $this->paths($server, $filterEnums);
         // An operation raising codes scoped to it answers with an error document of its
         // own, so the shared response for that status may go unreferenced.
         [$paths, $errorSets] = $this->scopeErrorResponses($server, $paths);
@@ -132,6 +133,7 @@ final class OpenApiProjector
         foreach ($server->types() as $type) {
             $this->addTypeComponents($schemas, $type, $collector, $links, $server);
         }
+        $paths = self::adoptFilterEnums($paths, $filterEnums, $collector);
 
         // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
         // linkage-only related type need not be registered here — an identifier is
@@ -385,11 +387,11 @@ final class OpenApiProjector
      * already produced by an earlier type cannot collide (uriTypes are unique), so a
      * simple `with()` accumulation is correct.
      */
-    private function paths(ServerMetadataInterface $server): Paths
+    private function paths(ServerMetadataInterface $server, ?EnumComponentCollector $filterEnums = null): Paths
     {
         $paths = new Paths();
         foreach ($server->types() as $type) {
-            foreach ($this->operationProjector->projectType($type, $server) as $path => $item) {
+            foreach ($this->operationProjector->projectType($type, $server, $filterEnums) as $path => $item) {
                 $paths = $paths->with($path, $item);
             }
         }
@@ -402,6 +404,64 @@ final class OpenApiProjector
         }
 
         return $paths;
+    }
+
+    /**
+     * Registers the backed enums the filter parameters declared in the document's
+     * collector, so a filter and a field declaring one enum reference one component. The
+     * paths were projected before the document's component names were known, so a filter
+     * parameter's `$ref` is renamed where the document gave its enum another name.
+     */
+    private static function adoptFilterEnums(Paths $paths, EnumComponentCollector $filterEnums, EnumComponentCollector $collector): Paths
+    {
+        $components = $filterEnums->components();
+        $renamed = [];
+        foreach ($filterEnums->enumNames() as $class => $name) {
+            $final = $collector->register($class, $components[$name]);
+            if ($final !== $name) {
+                $renamed[ComponentNaming::schemaRef($name)] = ComponentNaming::schemaRef($final);
+            }
+        }
+        if ($renamed === []) {
+            return $paths;
+        }
+
+        $items = [];
+        foreach ($paths->items as $path => $item) {
+            $operations = [];
+            foreach ($item->operations as $method => $operation) {
+                $parameters = [];
+                foreach ($operation->parameters as $parameter) {
+                    $schema = $parameter instanceof Parameter ? $parameter->schema : null;
+                    $parameters[] = $schema instanceof Schema
+                        ? $parameter->withSchema(Schema::fromArray(self::renameRefs($schema->toArray(), $renamed)))
+                        : $parameter;
+                }
+                $operations[$method] = $operation->withParameters($parameters);
+            }
+            $items[$path] = $item->withOperations($operations);
+        }
+
+        return new Paths($items);
+    }
+
+    /**
+     * @param array<array-key, mixed> $node
+     * @param array<string, string>   $renamed
+     *
+     * @return array<array-key, mixed>
+     */
+    private static function renameRefs(array $node, array $renamed): array
+    {
+        foreach ($node as $key => $value) {
+            if ($key === '$ref' && \is_string($value) && isset($renamed[$value])) {
+                $node[$key] = $renamed[$value];
+            } elseif (\is_array($value)) {
+                $node[$key] = self::renameRefs($value, $renamed);
+            }
+        }
+
+        return $node;
     }
 
     /**
