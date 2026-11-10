@@ -40,6 +40,13 @@ final class StubSerializerResolver implements \haddowg\JsonApi\Resource\Serializ
         }
     }
 
+    public function withSerializer(string $type, SerializerInterface $serializer): self
+    {
+        $this->serializers[$type] = $serializer;
+
+        return $this;
+    }
+
     public function withRelationshipLoadState(?\haddowg\JsonApi\Serializer\RelationshipLoadStateInterface $relationshipLoadState): self
     {
         $this->relationshipLoadState = $relationshipLoadState;

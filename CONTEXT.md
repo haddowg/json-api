@@ -106,6 +106,12 @@ A **Filter** declared with `acceptsList()`, whose value is a list sent as `filte
 member, or as one delimited string unless declared `delimited: false`.
 _Avoid_: array filter, multi-value filter
 
+**Relationship leaf**:
+The last segment of a traversal **Filter**'s dotted path when it names a monomorphic
+**Relation** rather than a field, so the filter compares the related resource's id, decoded
+from the wire id through the related type's encoder.
+_Avoid_: relation filter, id path
+
 **Sort**:
 Metadata describing a sort key a type accepts.
 

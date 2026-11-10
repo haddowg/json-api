@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\Range;
+use haddowg\JsonApi\Resource\Filter\ThroughPath;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereAll;
@@ -22,6 +23,7 @@ use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
+use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
 
 /**
  * Reference {@see FilterHandlerInterface} operating on a
@@ -81,6 +83,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
             $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
             $filter instanceof WhereThrough => $this->whereThrough($filter, $value),
+            $filter instanceof WhereThroughIn => $this->whereThroughIn($filter, $value),
             $filter instanceof Range => $this->range($filter, $value),
             $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
             $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
@@ -168,17 +171,48 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * Traversal filter ({@see WhereThrough}): walk the dotted path, flat-mapping
      * across each relationship hop (a to-many hop fans out to every member), and
      * match if **any** reachable leaf value satisfies the operator — the in-memory
-     * witness for a correlated EXISTS-ANY semi-join.
+     * witness for a correlated EXISTS-ANY semi-join. A path resolved to a
+     * relationship leaf compares each related row's storage key with the decoded id.
      *
      * @return \Closure(mixed): bool
      */
     private function whereThrough(WhereThrough $filter, mixed $value): \Closure
     {
-        $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
-        $segments = \explode('.', $filter->path);
-        $leaf = fn(mixed $actual): bool => $this->compare($actual, $filter->operator, $expected);
+        $expected = $filter->storageValue($value);
+        $read = $this->leafReader($filter->resolved);
+        $leaf = fn(mixed $actual): bool => $this->compare($read($actual), $filter->operator, $expected);
 
-        return fn(mixed $row): bool => $this->existsThrough($row, $segments, $leaf);
+        return fn(mixed $row): bool => $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
+    }
+
+    /**
+     * Traversal set filter ({@see WhereThroughIn}): {@see whereThrough()}'s walk with a
+     * leaf that matches any of the list's values, so an empty list matches nothing.
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function whereThroughIn(WhereThroughIn $filter, mixed $value): \Closure
+    {
+        $values = $filter->storageValues($value);
+        $read = $this->leafReader($filter->resolved);
+        $leaf = static fn(mixed $actual): bool => \in_array($read($actual), $values, false);
+
+        return fn(mixed $row): bool => $values !== [] && $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
+    }
+
+    /**
+     * What a leaf compares of the value the walk reached: a related row's storage key
+     * when the path ends on a relationship, the value itself when it ends on a field.
+     *
+     * @return \Closure(mixed): mixed
+     */
+    private function leafReader(?ThroughPath $path): \Closure
+    {
+        $column = $path?->relatedIdColumn();
+
+        return $column === null
+            ? static fn(mixed $actual): mixed => $actual
+            : static fn(mixed $related): mixed => Accessor::get($related, $column);
     }
 
     /**

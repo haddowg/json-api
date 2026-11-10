@@ -36,6 +36,7 @@ use haddowg\JsonApi\Resource\Filter\AcceptsList;
 use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\FilterMatcher;
 use haddowg\JsonApi\Resource\Filter\ListValue;
+use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -268,7 +269,7 @@ final class OperationProjector
     private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $parameters = $this->concatParameters(
-            $this->filterParameters($type->filters(), $type->fields()),
+            $this->filterParameters($type->filters(), $type->fields(), $server),
             [$this->sortParameter($type->sorts())],
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
@@ -978,7 +979,7 @@ final class OperationProjector
                 ? TypeNoun::of($type)->withArticle()
                 : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
             parameters: $this->concatParameters(
-                $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields()),
+                $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields(), $server),
                 $this->actionDocumentShapeParameters($action, $server),
             ),
             requestBody: $this->actionRequestBody($action, $server),
@@ -1327,16 +1328,21 @@ final class OperationProjector
      * are one `filter` parameter in `deepObject` style whose object schema matches each
      * family's keys with a `patternProperties` entry, see {@see filterFamiliesParameter()}.
      *
+     * A path-traversing filter is first resolved against the relation graph
+     * ({@see ThroughPathResolver}), so one whose path ends on a relationship takes its
+     * value schema from the related id's format when it declares no constraints.
+     *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface>   $fields  the inventory of the type the filters run against
      *
      * @return list<Parameter>
      */
-    private function filterParameters(array $filters, array $fields): array
+    private function filterParameters(array $filters, array $fields, ServerMetadataInterface $server): array
     {
         $parameters = [];
         $families = [];
-        foreach ($filters as $filter) {
+        $paths = new ThroughPathResolver(fn(string $type): ?array => $this->typeNamed($type, $server)?->fields());
+        foreach ($paths->resolveAll($filters, $fields) as $filter) {
             if ($filter instanceof FilterFamilyInterface) {
                 $families[] = $filter;
 
@@ -1774,6 +1780,7 @@ final class OperationProjector
         return $this->filterParameters(
             $this->relatedFilterVocabulary($relation, $server),
             $this->relatedTypeMetadata($relation, $server)?->fields() ?? [],
+            $server,
         );
     }
 
