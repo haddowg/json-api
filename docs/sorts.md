@@ -141,6 +141,10 @@ if ($requested === []) {
 }
 ```
 
+A to-many relation can declare its own default read order with `defaultSort()` on the
+relation builder, which replaces the related type's default for that relation. See
+[relations](relations.md#default-read-order).
+
 ## The `SortInterface` contract
 
 Every sort implements

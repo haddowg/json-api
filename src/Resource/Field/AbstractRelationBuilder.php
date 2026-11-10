@@ -156,6 +156,13 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     protected array $relationSorts = [];
 
     /**
+     * The members' read order when a request names no sort, set by {@see defaultSort()}.
+     *
+     * @var list<\haddowg\JsonApi\Resource\Sort\SortDirective>
+     */
+    protected array $defaultSort = [];
+
+    /**
      * Freezes the accumulated authoring state into the concrete readonly relation
      * value object the engine consumes. Pure and idempotent.
      */
@@ -565,6 +572,44 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * Declares the order this (to-many) relation's members are read in when the
+     * request names no `sort`: in its document linkage, on its relationship endpoint
+     * (`GET /{type}/{id}/relationships/{rel}`) and on its related endpoint
+     * (`GET /{type}/{id}/{rel}`). The syntax and semantics are those of
+     * {@see \haddowg\JsonApi\Resource\AbstractResource::defaultSort()}: each
+     * {@see \haddowg\JsonApi\Resource\Sort\SortDirective} pairs a sort with its
+     * direction, most significant first, and a requested `sort` replaces the whole
+     * default. For this relation it replaces the related type's own default.
+     *
+     *     HasMany::make('tracks', 'tracks')
+     *         ->defaultSort(new SortDirective(SortByField::make('position'), descending: false));
+     *
+     * Each directive's key must name a sort the relation accepts: one of the related
+     * type's sorts, a {@see withSorts()} sort or a pivot field. A key a polymorphic
+     * relation or a declared vocabulary can't answer fails the build; one that needs
+     * the related type is checked by {@see \haddowg\JsonApi\Serializer\RelationOrderValidator}
+     * when the host warms its resources. Declaring a default on a to-one fails the
+     * build. Replaces any earlier default.
+     *
+     * @return static
+     */
+    public function defaultSort(\haddowg\JsonApi\Resource\Sort\SortDirective ...$directives): static
+    {
+        $this->defaultSort = \array_values($directives);
+
+        return $this;
+    }
+
+    /**
+     * Whether this builder builds a to-many relation, which alone may declare a
+     * {@see defaultSort()}.
+     */
+    protected function buildsToMany(): bool
+    {
+        return false;
+    }
+
+    /**
      * Snapshots the accumulated relation-shaping state into the immutable
      * {@see RelationState} a value object carries. Concrete {@see build()}
      * implementations pass this — alongside the inherited {@see FieldState} from
@@ -572,6 +617,13 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      */
     protected function relationState(): RelationState
     {
+        if ($this->defaultSort !== [] && !$this->buildsToMany()) {
+            throw new \LogicException(\sprintf(
+                'Relation "%s" declares defaultSort(), but it is a to-one: only a to-many relation has members to order.',
+                $this->name,
+            ));
+        }
+
         return new RelationState(
             relatedTypes: $this->relatedTypes,
             inverseType: $this->inverseType,
@@ -598,6 +650,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             relationFilters: $this->relationFilters,
             relationSorts: $this->relationSorts,
             exampleId: $this->exampleId,
+            defaultSort: $this->defaultSort,
         );
     }
 }

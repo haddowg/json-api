@@ -54,8 +54,20 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
         return $this;
     }
 
+    protected function buildsToMany(): bool
+    {
+        return true;
+    }
+
     public function build(): MorphToMany
     {
+        if ($this->defaultSort !== []) {
+            throw new \LogicException(\sprintf(
+                'MorphToMany relation "%s" declares defaultSort(), but a polymorphic relation takes no sort.',
+                $this->name,
+            ));
+        }
+
         if ($this->identifiedBy !== null && $this->identifierMetaResolver !== null) {
             throw new \LogicException(\sprintf(
                 'MorphToMany relation "%s" cannot combine identifiedBy() with identifierMeta(): its linkage renders without the members the identifier meta resolver receives.',

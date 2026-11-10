@@ -890,6 +890,56 @@ request — `relatedQuery[<path>][filter][<key>]=…` / `[sort]=…` (shorthand 
 against the same filter/sort keys declared here. See [profiles](profiles.md#the-bundled-relationship-queries-profile)
 and the [profile specification](profiles/relationship-queries.md).
 
+## Default read order
+
+A to-many relation can declare the order its members are read in when the request
+names no `sort`, with `defaultSort()`. It takes the same `SortDirective` list as
+[`AbstractResource::defaultSort()`](sorts.md#defaultsort-the-order-with-no-sort), most
+significant first:
+
+```php
+use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
+
+BelongsToMany::make('tracks', 'tracks')
+    ->fields(Integer::make('position'))
+    ->defaultSort(new SortDirective(SortByField::make('position'), descending: false)),
+```
+
+The order applies wherever the relation's members are read without a requested sort:
+the relationship's linkage in a resource document, `GET /{type}/{id}/relationships/{rel}`
+and `GET /{type}/{id}/{rel}`. A requested `sort` replaces it entirely, as it does a
+resource's default. For this relation it also replaces the related type's own
+`defaultSort()`, which still applies to a relation that declares none.
+
+Each key must name a sort the relation accepts: one of the related type's sorts, a
+`withSorts()` sort or one of its pivot fields. The checks run as early as they can:
+
+| Declaration | Fails |
+| --- | --- |
+| `defaultSort()` on a to-one | at build, with a `\LogicException` |
+| `defaultSort()` on a polymorphic relation, which takes no sort | at build |
+| a key none of the relation's sorts answers | at warm-up, from `RelationOrderValidator` |
+
+`RelationOrderValidator` needs the related type's sorts, so a host runs it once per
+registered resource while it warms its container, beside `EagerLoadValidator`.
+
+The OpenAPI document writes the declared order as the `default` of the `sort`
+parameter on the relationship and related endpoints. The related type's default isn't
+projected there, because the relation didn't declare it.
+
+### Applying it in a data layer
+
+A data layer reads the order to apply from `RelationSorts::defaultFor($relation,
+$resolver)`: the relation's own default, else the related type's, else `[]`. Apply it
+on every read path that returns the relation's members with no requested sort, so the
+order is the same however a client reaches them: the two endpoints, document linkage,
+`?include` batching and a [Relationship Queries](profiles.md#the-bundled-relationship-queries-profile)
+window. `RelationSorts::vocabulary($relation, $resolver)` returns the sorts the
+relation accepts, and `RelationSorts::pivotSorts($relation)` the ones its pivot fields
+derive. Metadata for the OpenAPI projection reports the relation's own default through
+the opt-in `DeclaresRelationDefaultSort` interface.
+
 ## Custom relation hooks
 
 When the default reader does not fit — the related value is derived, not a plain
