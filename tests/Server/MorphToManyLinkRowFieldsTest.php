@@ -126,18 +126,22 @@ final class MorphToManyLinkRowFieldsTest extends TestCase
     }
 
     #[Test]
-    public function theKeysAreTheParentsDistinctStorageKeysPerRequestedType(): void
+    public function theKeysAreEachParentsDistinctStorageKeysPerRequestedType(): void
     {
         $owner = self::owner();
         self::assertIsArray($owner->links);
         $owner->links[] = (object) ['kind' => 'agency', 'key' => 7, 'position' => 9];
+        $other = (object) ['links' => [(object) ['kind' => 'advertiser', 'key' => 8, 'position' => 0]]];
 
-        self::assertSame(['agencies' => [7, '2']], (new InMemoryLinkRows())->linkRowKeys($owner, self::relation(), ['agencies'], self::request()));
-        self::assertSame(['advertisers' => [3], 'agencies' => [7, '2']], (new InMemoryLinkRows())->linkRowKeys($owner, self::relation(), ['advertisers', 'agencies'], self::request()));
+        self::assertSame([['agencies' => [7, '2']]], (new InMemoryLinkRows())->linkRowKeys([$owner], self::relation(), ['agencies'], self::request()));
+        self::assertSame(
+            [['advertisers' => [3], 'agencies' => [7, '2']], ['advertisers' => [8]], []],
+            (new InMemoryLinkRows())->linkRowKeys([$owner, $other, (object) ['links' => []]], self::relation(), ['advertisers', 'agencies'], self::request()),
+        );
     }
 
     #[Test]
-    public function narrowedAsksTheAdmissionOfEachGuardedTypesKeys(): void
+    public function narrowedAsksEachGuardedTypeOnceAcrossTheParents(): void
     {
         $relation = MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
             ->storedAs('links')
@@ -145,25 +149,38 @@ final class MorphToManyLinkRowFieldsTest extends TestCase
             ->identifiedByRows(owner: 'owner', type: 'kind', id: 'key', typeMap: ['agency' => 'agencies', 'advertiser' => 'advertisers', 'publisher' => 'publishers'])
             ->fields(Integer::make('position'))
             ->build();
+        $owner = self::owner();
+        $other = (object) ['links' => [(object) ['kind' => 'agency', 'key' => 5, 'position' => 0], (object) ['kind' => 'agency', 'key' => 7, 'position' => 1]]];
         $asked = [];
-        $query = LinkRowQuery::resolve($relation)->narrowed(
-            self::owner(),
+
+        $queries = LinkRowQuery::resolve($relation)->narrowed(
+            [$owner, $other],
             $relation,
             new InMemoryLinkRows(),
             ['agencies', 'publishers'],
             static function (string $type, array $ids) use (&$asked): array {
-                $asked[$type] = $ids;
+                $asked[] = [$type, $ids];
 
-                return [2];
+                return [2, 5];
             },
             self::request(),
         );
 
-        self::assertSame(['agencies' => [7, '2']], $asked);
-        self::assertSame(['agencies' => [2], 'publishers' => []], $query->admitted);
-        self::assertSame(['advertiser'], $query->typeValues());
-        self::assertSame([['advertisers', 3], ['agencies', '2']], self::pairs((new InMemoryLinkRows())->queryLinkRows(self::owner(), $relation, $query, self::request())->items));
-        self::assertSame(LinkRowQuery::resolve($relation)->admitted, LinkRowQuery::resolve($relation)->narrowed(self::owner(), $relation, new InMemoryLinkRows(), [], static fn(): array => [], self::request())->admitted);
+        self::assertSame([['agencies', [7, '2', 5]]], $asked);
+        self::assertCount(2, $queries);
+        self::assertSame(['agencies' => ['2'], 'publishers' => []], $queries[0]->admitted);
+        self::assertSame(['agencies' => [5], 'publishers' => []], $queries[1]->admitted);
+        self::assertSame(['advertiser'], $queries[0]->typeValues());
+        self::assertSame([['advertisers', 3], ['agencies', '2']], self::pairs((new InMemoryLinkRows())->queryLinkRows($owner, $relation, $queries[0], self::request())->items));
+        self::assertSame([['agencies', 5]], self::pairs((new InMemoryLinkRows())->queryLinkRows($other, $relation, $queries[1], self::request())->items));
+    }
+
+    #[Test]
+    public function withNothingGuardedEachParentKeepsTheQuery(): void
+    {
+        $query = LinkRowQuery::resolve(self::relation());
+
+        self::assertSame([$query, $query], $query->narrowed([self::owner(), self::owner()], self::relation(), new InMemoryLinkRows(), [], static fn(): array => [], self::request()));
     }
 
     #[Test]

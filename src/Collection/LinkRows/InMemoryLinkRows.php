@@ -44,22 +44,25 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowK
     }
 
     /**
-     * The keys of the members {@see MorphToMany::identifiedMembers()} returns, grouped by
-     * the requested types.
+     * The keys of the members {@see MorphToMany::identifiedMembers()} returns for each
+     * parent, grouped by the requested types.
      */
-    public function linkRowKeys(mixed $parent, MorphToMany $relation, array $types, JsonApiRequestInterface $request): array
+    public function linkRowKeys(array $parents, MorphToMany $relation, array $types, JsonApiRequestInterface $request): array
     {
-        $seen = [];
-        foreach ($relation->identifiedMembers($parent, $request) as $member) {
-            if (\in_array($member->type, $types, true)) {
-                $seen[$member->type][(string) $member->id] ??= $member->id;
-            }
-        }
-
         $keys = [];
-        foreach ($types as $type) {
-            if (isset($seen[$type])) {
-                $keys[$type] = \array_values($seen[$type]);
+        foreach ($parents as $index => $parent) {
+            $seen = [];
+            foreach ($relation->identifiedMembers($parent, $request) as $member) {
+                if (\in_array($member->type, $types, true)) {
+                    $seen[$member->type][(string) $member->id] ??= $member->id;
+                }
+            }
+
+            $keys[$index] = [];
+            foreach ($types as $type) {
+                if (isset($seen[$type])) {
+                    $keys[$index][$type] = \array_values($seen[$type]);
+                }
             }
         }
 

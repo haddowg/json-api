@@ -83,31 +83,58 @@ final readonly class LinkRowQuery
     }
 
     /**
-     * The same query with each of `$guarded` narrowed to the members its provider admits,
-     * the one way hosts narrow, so every data layer does it alike. It reads `$parent`'s
-     * keys of the guarded types through `$keys`, asks `$admit` which of each type's keys
-     * its provider serves, and narrows the type to those ({@see withAdmitted()}). A guarded
-     * type the parent links no member of is narrowed to none without asking. Run it before
-     * the query reaches the data layer, so the narrowing applies ahead of the filters and
-     * the page.
+     * This query narrowed for each of `$parents`, in their order: each of `$guarded`
+     * narrowed to the members its provider admits. It is the one way hosts narrow, so
+     * every data layer does it alike, a single parent being a list of one. It reads every
+     * parent's keys of the guarded types through `$keys` in one call, asks `$admit` once
+     * per guarded type with the union of that type's keys across the parents, and narrows
+     * each parent's query to the admitted keys it holds ({@see withAdmitted()}). A guarded
+     * type no parent links is narrowed to none without asking. Run it before the queries
+     * reach the data layer, so the narrowing applies ahead of the filters and the page.
      *
-     * @param list<string>                                                    $guarded the declared types a scope may hide rows of
-     * @param \Closure(string, non-empty-list<string|int>): iterable<string|int> $admit   receives a type and the parent's keys of it, returns the keys it admits
+     * @param list<mixed>                                                      $parents
+     * @param list<string>                                                     $guarded the declared types a scope may hide rows of
+     * @param \Closure(string, non-empty-list<string|int>): iterable<string|int> $admit   receives a type and the parents' keys of it, returns the keys it admits
+     *
+     * @return list<self>
      */
-    public function narrowed(mixed $parent, MorphToMany $relation, LinkRowKeysInterface $keys, array $guarded, \Closure $admit, JsonApiRequestInterface $request): self
+    public function narrowed(array $parents, MorphToMany $relation, LinkRowKeysInterface $keys, array $guarded, \Closure $admit, JsonApiRequestInterface $request): array
     {
-        if ($guarded === []) {
-            return $this;
+        if ($guarded === [] || $parents === []) {
+            return \array_fill(0, \count($parents), $this);
         }
 
-        $stored = $keys->linkRowKeys($parent, $relation, $guarded, $request);
-        $query = $this;
+        $stored = $keys->linkRowKeys(\array_values($parents), $relation, $guarded, $request);
+
+        $admitted = [];
         foreach ($guarded as $type) {
-            $ids = $stored[$type] ?? [];
-            $query = $query->withAdmitted($type, $ids === [] ? [] : $admit($type, $ids));
+            $union = [];
+            foreach ($stored as $byType) {
+                foreach ($byType[$type] ?? [] as $id) {
+                    $union[(string) $id] ??= $id;
+                }
+            }
+            $admitted[$type] = [];
+            if ($union !== []) {
+                foreach ($admit($type, \array_values($union)) as $id) {
+                    $admitted[$type][(string) $id] = true;
+                }
+            }
         }
 
-        return $query;
+        $queries = [];
+        foreach (\array_keys(\array_values($parents)) as $index) {
+            $query = $this;
+            foreach ($guarded as $type) {
+                $query = $query->withAdmitted($type, \array_values(\array_filter(
+                    $stored[$index][$type] ?? [],
+                    static fn(string|int $id): bool => isset($admitted[$type][(string) $id]),
+                )));
+            }
+            $queries[] = $query;
+        }
+
+        return $queries;
     }
 
     /**

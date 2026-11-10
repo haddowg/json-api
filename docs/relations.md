@@ -619,26 +619,29 @@ carrying the row. The type and id rules apply before the filters, the sorts and 
 so totals and pages stay exact.
 
 A host narrows the types whose rows a scope may hide through one helper, so every data
-layer narrows alike. It supplies two things, a key read and an admission check, and runs
-the steps in this order:
+layer narrows alike. It works on a batch of parents, a single parent being a list of one,
+and the host supplies two things, a key read and an admission check. The steps run in this
+order:
 
 1. Resolve the query with `LinkRowQuery::resolve()`.
-2. Call `$query->narrowed($parent, $relation, $keys, $guarded, $admit, $request)`, with
+2. Call `$query->narrowed($parents, $relation, $keys, $guarded, $admit, $request)`, with
    `$guarded` the declared types a scope may hide rows of.
-3. The helper reads the parent's stored keys of those types through `$keys`, a
-   `LinkRowKeysInterface`, in one key-only read.
-4. It calls `$admit($type, $ids)` once per guarded type the parent links, which returns
-   the storage keys the type's provider serves. A guarded type the parent links nothing
-   of is narrowed to none without asking.
-5. It narrows each type to its admitted keys with `withAdmitted()`, and returns the query.
-6. Run the narrowed query through the data layer's `LinkRowQueryInterface`.
+3. The helper reads every parent's stored keys of those types through `$keys`, a
+   `LinkRowKeysInterface`, in one key-only read for the batch.
+4. It calls `$admit($type, $ids)` once per guarded type, with the union of that type's
+   keys across the parents, which returns the storage keys the type's provider serves. A
+   guarded type no parent links is narrowed to none without asking.
+5. It narrows each parent's query to the admitted keys that parent holds, with
+   `withAdmitted()`, and returns one query per parent in input order.
+6. Run each parent's query through the data layer's `LinkRowQueryInterface`.
 
-A data layer implements `LinkRowKeysInterface::linkRowKeys($parent, $relation, $types,
-$request)` beside its link-row query. It returns the parent's distinct storage keys per
-requested JSON:API type, read from the owner, type and id fields alone, selecting rows
-whose type field holds one of `LinkRowFields::storedValues($type)`. `InMemoryLinkRows`
-implements it as the witness. Only the narrowed rows of a type count, and a type narrowed
-to no keys drops out. `withAdmitted($type, $ids)` narrows one type by hand, and a closure
+A data layer implements `LinkRowKeysInterface::linkRowKeys($parents, $relation, $types,
+$request)` beside its link-row query. It returns each parent's distinct storage keys per
+requested JSON:API type, keyed by the parent's position in `$parents`, read from the owner,
+type and id fields alone, selecting rows whose owner is one of the parents and whose type
+field holds one of `LinkRowFields::storedValues($type)`. `InMemoryLinkRows` implements it
+as the witness. Only the narrowed rows of a type count, and a type narrowed to no keys
+drops out. `withAdmitted($type, $ids)` narrows one type by hand, and a closure
 relation narrows the same way through `admits()`.
 
 `InMemoryLinkRows` applies the same rules over `identifiedMembers()`, and is the witness
