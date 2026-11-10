@@ -266,6 +266,21 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         return $relationship;
     }
 
+    /**
+     * A relation declared with `identifiedByRows()` holds its link rows on the parent,
+     * which the data layer writes from a {@see \haddowg\JsonApi\Collection\LinkRows\LinkRowWritePlan},
+     * so the default write leaves the parent as it is rather than writing ids over them.
+     */
+    public function applyToMany(mixed $model, object $relationship, Mode $mode): mixed
+    {
+        return $this->linkRowFields === null ? parent::applyToMany($model, $relationship, $mode) : $model;
+    }
+
+    protected function applyRelationship(mixed $model, object $relationship): mixed
+    {
+        return $this->linkRowFields === null ? parent::applyRelationship($model, $relationship) : $model;
+    }
+
     protected function shouldDeferLinkage(mixed $model, SerializerResolverInterface $resolver): bool
     {
         return !$this->storesIdentifiers() && parent::shouldDeferLinkage($model, $resolver);

@@ -56,6 +56,11 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
      * names no declared type. Rows are ordered by the request's sort, else the relation's
      * default order, with ties broken by the stored type then the id.
      *
+     * The data layer writes the rows too, from the
+     * {@see \haddowg\JsonApi\Collection\LinkRows\LinkRowWritePlan} core computes, so the
+     * relation takes no `fillUsing()`, and a declared map must hold one stored value per
+     * declared type.
+     *
      * This replaces {@see identifiedBy()}, which stays for storage these fields can't
      * describe and whose rows only core's in-memory query can filter, sort and page.
      *
@@ -207,6 +212,27 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
                     \implode(', ', $this->relatedTypes),
                 ));
             }
+        }
+
+        if ($typeMap !== []) {
+            foreach ($this->relatedTypes as $declared) {
+                $stored = \array_keys($typeMap, $declared, true);
+                if (\count($stored) !== 1) {
+                    throw new \LogicException(\sprintf(
+                        'MorphToMany relation "%s" maps %s to the type "%s". A typeMap maps one stored value to each declared type, so a new link row has one value to write.',
+                        $this->name,
+                        $stored === [] ? 'no stored value' : 'the stored values "' . \implode('", "', \array_map(\strval(...), $stored)) . '"',
+                        $declared,
+                    ));
+                }
+            }
+        }
+
+        if ($this->fillUsing !== null) {
+            throw new \LogicException(\sprintf(
+                'MorphToMany relation "%s" declares both identifiedByRows() and fillUsing(). The data layer writes the link rows of a relation declared with identifiedByRows(), from a plan core computes; declare identifiedBy() instead to write them with fillUsing().',
+                $this->name,
+            ));
         }
 
         return new LinkRowFields($this->pivotThrough, $owner, $type, $id, $this->relatedTypes, $typeMap);

@@ -112,6 +112,12 @@ stored type and id, with an optional map from stored type to JSON:API type. It l
 query the rows itself, under the counting, narrowing and tiebreak rules core sets.
 _Avoid_: morph columns, link-row columns
 
+**Link-row write plan**:
+The deletes, temporary positions, updates and inserts one relationship write makes on the
+**Link rows** of a relation that declares **Link-row fields**, in the order a data layer
+applies them.
+_Avoid_: sync plan
+
 **Position**:
 The stored integer a positioned to-many **Relation** keeps per member, set by the server from the
 member's place in the linkage and never by a client.

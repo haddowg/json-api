@@ -456,7 +456,8 @@ JSON:API type, as an Eloquent morph map stores `agency` for `agencies`:
 ]),
 ```
 
-Core never infers the map. A declared map is complete: a row whose stored type it doesn't
+Core never infers the map. A declared map holds exactly one stored value for each declared
+type, so a new row has one value to write, and it is complete: a row whose stored type it doesn't
 list is not a member. Without a map, a row whose type isn't a declared type is not a
 member, and neither is a row with no id. A repeated pair renders once, and each `id` goes
 through its type's id encoder.
@@ -468,7 +469,9 @@ The build fails with a `\LogicException` when:
 | `identifiedByRows()` | a field is empty or a dotted path, or one field fills two roles |
 | `identifiedByRows()` without `through()` | a data layer has no row class to query |
 | a `typeMap` value | names a type the relation doesn't declare |
+| a `typeMap` | maps no stored value, or more than one, to a declared type |
 | both `identifiedBy()` and `identifiedByRows()` | declare one |
+| `fillUsing()` with `identifiedByRows()` | the data layer writes the rows, see [writing link rows](#writing-link-rows-in-a-data-layer) |
 
 For storage these fields can't describe, declare `identifiedBy()` with a closure instead:
 
@@ -509,8 +512,11 @@ pages and totals stay exact. A dangling pair of a type nothing hides costs no qu
 still shows in the linkage, and a related page that reaches it can come back one member
 short.
 
-As with `MorphTo`, an identified `MorphToMany` is never lazy and changes reads only, so
-`fillUsing()` still owns writes. Its relationship endpoint pages the pairs the way its
+As with `MorphTo`, an identified `MorphToMany` is never lazy. Declared with
+`identifiedBy()` it changes reads only, so `fillUsing()` still owns writes. Declared with
+`identifiedByRows()`, the data layer writes the link rows itself from a plan core computes,
+as [writing link rows](#writing-link-rows-in-a-data-layer) describes, and the default
+write leaves the parent's rows alone. Its relationship endpoint pages the pairs the way its
 related endpoint does, so the OpenAPI document gives `GET …/relationships/{name}` the
 same `page` and `withCount` parameters. Metadata reports the relation through
 `DeclaresIdentifiedMembers`. An `identifierMeta()` resolver receives each member as its
@@ -622,6 +628,47 @@ a data layer's query is checked against. It serves every closure relation, since
 else can read a closure's rows. `LinkRowQuery::inMemoryNotice($relation, $serverPaginator)`
 returns a message saying so for a closure relation that declares pivot fields, filters,
 sorts, a default order or a count, or is paged, for a host to report at warm-up.
+
+### Writing link rows in a data layer
+
+A relation declared with `identifiedByRows()` has no `fillUsing()`: declaring one fails the
+build, so there is one way its rows get written. A persister asks core for the writes a
+relationship write makes and applies them:
+
+```php
+$plan = LinkRowWritePlan::for($relation, $parent, $mode, $linkage, $current, $hidden);
+```
+
+`$linkage` lists the request's members in order as `[$type, $id, $pivot]`, `$id` the
+storage key and `$pivot` the identifier's `meta.pivot`. `$current` is every member the
+parent links now as `IdentifiedMember` values carrying their rows, including those a scope
+hides from the client, which `$hidden` names as `[$type, $id]` pairs. Apply the plan's
+passes in order, each complete before the next:
+
+| Pass | Holds | Write |
+| --- | --- | --- |
+| `deletes` | `IdentifiedMember` values carrying their rows | delete each row |
+| `temporary` | `LinkRowWrite` values for rows that move | set each row's position past every one in use |
+| `updates` | `LinkRowWrite` values for existing rows | set the final position and the written pivot fields |
+| `inserts` | `LinkRowWrite` values for new rows | create a row of the `through()` class with the values |
+
+A `LinkRowWrite` carries the member and its `values`, keyed by row field. An insert's
+values hold the owner field set to the parent, the type field set to the member's stored
+value, `LinkRowFields::storedValueFor($type)`, the id field, and any position and pivot
+fields. Set the owner through the row's association on Doctrine, or `associate()` on
+Eloquent.
+
+A replace deletes every current member the linkage leaves out, except a hidden one, and
+inserts the members it adds. An add inserts the members not yet linked. A remove deletes
+the linkage's members, never a hidden one. A member the linkage names again keeps its row
+and takes the pivot fields it sends. Pivot values come from the writable pivot fields, the
+create-context ones for a new row and the update-context ones for an existing row, each
+cast by its field and keyed by its row field. A persister converts a value to its storage
+form, such as a date-time's zone, as it does for any pivot.
+
+`InMemoryLinkRows::write($relation, $parent, $plan)` applies a plan to rows held on the
+parent, and fails when a pass would put two rows at one position, so the witness covers
+writes as well as reads.
 
 ## Backing and advisory metadata
 
@@ -1132,7 +1179,12 @@ The field is checked as early as it can be:
 ### Writing positions in a data layer
 
 Core declares the field and never writes it, so a persister writes the positions on every
-membership change. `positionField()` names the field, from `PositionedRelationInterface`,
+membership change. For an identified `MorphToMany` declared with `identifiedByRows()`, the
+[link-row write plan](#writing-link-rows-in-a-data-layer) already carries every position:
+new rows are inserted at their final position and hidden members follow the linkage on a
+replace, so the position column needs no default and can be `NOT NULL`. A relation whose
+`fillUsing()` creates the rows still needs a nullable position the persister fills
+afterwards. `positionField()` names the field, from `PositionedRelationInterface`,
 which every core relation implements. A relation that is a `PivotRelationInterface`
 stores it on the link row, any other on the related row.
 

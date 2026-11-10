@@ -90,6 +90,109 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface
     }
 
     /**
+     * Applies `$plan` to `$parent`'s link rows held in memory, the relation's value on the
+     * parent at its `storedAs()` field or name, and returns the parent. Each pass runs as
+     * the plan orders them: the deletes, the temporary positions, the updates, then the
+     * inserts, each new row made by `$newRow`, or as a `through()` instance built with no
+     * arguments, and set field by field. The rows are written back as a list.
+     *
+     * It checks what a unique owner and position key would: a pass that leaves two of the
+     * parent's rows at one position is a `\LogicException`, so the plan is witnessed as
+     * well as applied.
+     *
+     * @param (\Closure(): mixed)|null $newRow
+     *
+     * @throws \LogicException when the relation was not declared with identifiedByRows(), the
+     *                         parent's rows are not iterable, or a pass collides
+     */
+    public function write(MorphToMany $relation, mixed $parent, LinkRowWritePlan $plan, ?\Closure $newRow = null): mixed
+    {
+        $fields = $relation->linkRowFields()
+            ?? throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedByRows(), so it has no link-row writes to apply.', $relation->name()));
+        $member = $relation->column() ?? $relation->name();
+        $held = Accessor::get($parent, $member) ?? [];
+        if (!\is_iterable($held)) {
+            throw new \LogicException(\sprintf('MorphToMany relation "%s" holds its link rows at "%s", which is %s; it must be iterable.', $relation->name(), $member, \get_debug_type($held)));
+        }
+
+        $rows = [];
+        foreach ($held as $row) {
+            $rows[] = $row;
+        }
+        $position = LinkRowWritePlan::positionColumn($relation);
+        $indexOf = static function (array $rows, IdentifiedMember $target) use ($fields): ?int {
+            foreach ($rows as $index => $row) {
+                $linked = $fields->member($row);
+                if ($linked !== null && $linked->type === $target->type && (string) $linked->id === (string) $target->id) {
+                    return $index;
+                }
+            }
+
+            return null;
+        };
+        $set = static function (array $rows, LinkRowWrite $write) use ($indexOf): array {
+            $index = $indexOf($rows, $write->member);
+            if ($index !== null) {
+                foreach ($write->values as $field => $value) {
+                    $rows[$index] = Accessor::set($rows[$index], $field, $value);
+                }
+            }
+
+            return $rows;
+        };
+
+        foreach ($plan->deletes as $deleted) {
+            $index = $indexOf($rows, $deleted);
+            if ($index !== null) {
+                unset($rows[$index]);
+                $rows = \array_values($rows);
+            }
+        }
+
+        foreach ([$plan->temporary, $plan->updates] as $pass) {
+            foreach ($pass as $write) {
+                $rows = $set($rows, $write);
+            }
+            $this->assertUniquePositions($relation, $rows, $position);
+        }
+
+        $class = $fields->through;
+        $newRow ??= static fn(): mixed => new $class();
+        foreach ($plan->inserts as $insert) {
+            $row = $newRow();
+            foreach ($insert->values as $field => $value) {
+                $row = Accessor::set($row, $field, $value);
+            }
+            $rows[] = $row;
+        }
+        $this->assertUniquePositions($relation, $rows, $position);
+
+        return Accessor::set($parent, $member, $rows);
+    }
+
+    /**
+     * @param array<mixed> $rows
+     */
+    private function assertUniquePositions(MorphToMany $relation, array $rows, ?string $position): void
+    {
+        if ($position === null) {
+            return;
+        }
+
+        $seen = [];
+        foreach ($rows as $row) {
+            $at = Accessor::get($row, $position);
+            if (!\is_int($at)) {
+                continue;
+            }
+            if (isset($seen[$at])) {
+                throw new \LogicException(\sprintf('Writing the link rows of MorphToMany relation "%s" put two rows at position %d, which a unique owner and position key would reject.', $relation->name(), $at));
+            }
+            $seen[$at] = true;
+        }
+    }
+
+    /**
      * Two values of one row field in the order a database orders its column: integers by
      * value, anything else by its string bytes.
      */

@@ -73,6 +73,19 @@ final readonly class LinkRowFields
     }
 
     /**
+     * The stored value a new row writes for the JSON:API `$type`: its one `$typeMap` key,
+     * or the type itself when no map is declared. The build guarantees a declared map
+     * holds exactly one key per declared type.
+     *
+     * @throws \LogicException when `$type` is not a declared type
+     */
+    public function storedValueFor(string $type): string
+    {
+        return $this->storedValues($type)[0]
+            ?? throw new \LogicException(\sprintf('The link rows have no stored value for type "%s", which the relation does not declare. Declared types: %s.', $type, \implode(', ', $this->types)));
+    }
+
+    /**
      * The member `$row` links to, carrying the row, or `null` when the row is not a
      * member: its stored type maps to no declared type, or its id is missing or empty.
      */
