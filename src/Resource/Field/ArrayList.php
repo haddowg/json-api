@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
 
 /**
@@ -158,6 +159,20 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     }
 
     /**
+     * A list of scalars nested in an {@see Obj} keeps its elements' backing values; a
+     * structured list or a list of unions builds its elements as {@see hydrate()} does,
+     * since those are nested already.
+     *
+     * @internal
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return $this->element === null && $this->elementUnion === null
+            ? parent::hydrateNested($nested, $value, $data, $request, $creating)
+            : $this->hydrate($nested, $value, $data, $request, $creating);
+    }
+
+    /**
      * Casts each element of a list of unions through the member its JSON type selects, a
      * date member's value stored as a string. A failing cast throws with its pointer below
      * the list, as `2` or `2/0`. The elements of any other list are returned as sent.
@@ -168,11 +183,11 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
      *
      * @throws AttributeValueInvalid
      */
-    public function castUnionElements(array $value, ?JsonApiRequestInterface $request, bool $creating): mixed
+    public function castUnionElements(array $value, ?JsonApiRequestInterface $request, bool $creating, bool $nested = false): mixed
     {
         $union = $this->elementUnion;
         if ($union === null) {
-            return $this->castWireValue($value);
+            return $nested ? $this->castNestedWireValue($value) : $this->castWireValue($value);
         }
 
         $list = [];
@@ -204,6 +219,53 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     protected function deserializeValue(mixed $value): mixed
     {
         return $this->elementUnion !== null && \is_array($value) ? $this->castElementsAt($value, null, true) : $value;
+    }
+
+    /**
+     * The backed enum an `In` in this list's `each()` was sourced from, for a list of
+     * scalars, or `null`.
+     */
+    protected function declaredEnum(): ?string
+    {
+        if ($this->element !== null || $this->elementUnion !== null) {
+            return null;
+        }
+
+        foreach ($this->state->constraints as $constraint) {
+            if ($constraint instanceof Each && ($enum = self::enumClassIn($constraint->constraints)) !== null) {
+                return $enum;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Each element of a list of scalars declaring a backed enum in its `each()` becomes
+     * that enum's case.
+     *
+     * @throws AttributeValueInvalid
+     */
+    protected function toEnumCase(mixed $value): mixed
+    {
+        $enum = $this->declaredEnum();
+        if ($enum === null || !\is_array($value)) {
+            return $value;
+        }
+
+        $list = [];
+        foreach ($value as $index => $item) {
+            $list[$index] = $this->caseOf($enum, $item, $this->name() . '/' . $index);
+        }
+
+        return $list;
+    }
+
+    protected function backingValue(mixed $raw): mixed
+    {
+        return \is_array($raw) && $this->declaredEnum() !== null
+            ? \array_map(static fn(mixed $item): mixed => $item instanceof \BackedEnum ? $item->value : $item, $raw)
+            : $raw;
     }
 
     protected function serializeValue(mixed $raw): mixed

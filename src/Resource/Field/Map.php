@@ -96,6 +96,25 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
+        return $this->hydrateChildren($model, $value, $data, $request, $creating, false);
+    }
+
+    /**
+     * A map nested in an object writes its children into the nested value, so each keeps
+     * a nested child's form.
+     *
+     * @internal
+     */
+    public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        return $this->hydrateChildren($nested, $value, $data, $request, $creating, true);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function hydrateChildren(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating, bool $nested): mixed
+    {
         if ($this->state->fillUsing !== null) {
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
@@ -107,7 +126,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
             return $model;
         }
 
-        return JsonObject::hydrateChildren($this->name(), function () use ($model, $value, $data, $request, $creating): mixed {
+        return JsonObject::hydrateChildren($this->name(), function () use ($model, $value, $data, $request, $creating, $nested): mixed {
             foreach ($this->children as $child) {
                 // Gate read-only children the same way the resource gates top-level
                 // fields, so a child the author marked readOnly() can't be written
@@ -117,7 +136,9 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
                 }
 
                 if (\array_key_exists($child->name(), $value)) {
-                    $model = $child->hydrate($model, $value[$child->name()], $data, $request, $creating);
+                    $model = $nested && $child instanceof AbstractFieldValue
+                        ? $child->hydrateNested($model, $value[$child->name()], $data, $request, $creating)
+                        : $child->hydrate($model, $value[$child->name()], $data, $request, $creating);
                 }
             }
 

@@ -13,7 +13,8 @@ namespace haddowg\JsonApi\Resource\Constraint;
  * JSON Schema compiler, the framework validator bridge, in-memory filters) is
  * unchanged. The enum **class-string** is retained separately in {@see $enumClass}
  * so the OpenAPI projector can emit richer enum metadata (var-names, per-value
- * descriptions, a reusable named component).
+ * descriptions, a reusable named component), and so the field hydrates a written value
+ * as the enum's case.
  *
  * @template T
  */

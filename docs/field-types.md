@@ -169,7 +169,9 @@ other reader of the column understands.
 
 So code that reads a nested date off the model gets a string, not a
 `\DateTimeImmutable`. A child's own `fillUsing()` or `deserializeUsing()`, or a
-`fillUsing()` on the parent, still decides what is stored.
+`fillUsing()` on the parent, still decides what is stored. A nested child declared with
+`enum()` follows the same rule and stores the backing value, where a top-level one
+hydrates the [enum's case](fields.md#backed-enums).
 
 On a read a stored `DateTime` string moves into the field's `outputTimezone()` or the
 server's [default output zone](server.md#output-timezone), and renders as the object
@@ -719,11 +721,12 @@ presence and the type check report those.
 A data layer storing a union in a JSON column must store `toStoredForm($value)` rather
 than the hydrated value. A top-level date member hydrates to a `\DateTimeImmutable`, which
 a JSON column can't hold. The stored form is the member's wire form: a `Date` member's
-date string, a `DateTime` or `Time` member's formatted string, each list element's own
-form, and a string, number or boolean as its member renders it. A read renders the stored
+date string, a `DateTime` or `Time` member's formatted string, an `enum()` member's backing
+value, each list element's own form, and a string, number or boolean as its member renders
+it. A read renders the stored
 form exactly as it renders the hydrated value, so nothing needs converting on the way out.
-Where your model wants the hydrated value back, such as a `\DateTimeImmutable` on an
-entity property, `fromStoredForm($stored)` casts it as a write would. A union pivot field
+Where your model wants the hydrated value back, such as a `\DateTimeImmutable` or an enum
+case on an entity property, `fromStoredForm($stored)` casts it as a write would. A union pivot field
 works the same way: cast the pivot value with `castWireValue()`, then store
 `toStoredForm()` of the result. Storage that keeps PHP values as they are, such as an
 in-memory store, can hold the hydrated value.

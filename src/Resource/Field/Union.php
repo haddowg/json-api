@@ -182,7 +182,8 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     /**
      * The JSON-safe form a data layer stores a hydrated value in, such as a JSON column:
      * the member's wire form, so a `Date` member stores its date string, a `DateTime` or
-     * `Time` member its formatted string, and a list each element's own. A plain string,
+     * `Time` member its formatted string, a member declared with `enum()` its case's backing
+     * value, and a list each element's own. A plain string,
      * number or boolean comes back as its member renders it, and a value no member takes
      * unchanged. It reads back through {@see fromStoredForm()}, and a read renders it
      * as it renders the hydrated value. Storage that holds PHP values as they are, such as
@@ -195,7 +196,8 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
 
     /**
      * The hydrated value for a value {@see toStoredForm()} produced, cast as a write would
-     * cast it, so a date member's string is a `\DateTimeImmutable` again. A value no member
+     * cast it, so a date member's string is a `\DateTimeImmutable` again and an `enum()`
+     * member's backing value its case. A value no member
      * takes, or one the member cannot cast, comes back unchanged, since a read never fails
      * over what is stored.
      */
@@ -248,7 +250,8 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     /**
      * Casts a written value through the member its JSON type selects. A value no member
      * takes is returned as sent, for the adapter's validator to refuse, since hydration does
-     * not validate. `$nested` stores a date member's value as a string. A failing cast
+     * not validate. `$nested` stores a date member's value as a string and keeps a member
+     * declared with `enum()` as its backing value rather than the case. A failing cast
      * throws with its pointer below the value, `''` for the value itself.
      *
      * @internal
@@ -263,7 +266,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         }
 
         if ($member instanceof ArrayList && \is_array($value)) {
-            return $member->castUnionElements($value, $request, $creating);
+            return $member->castUnionElements($value, $request, $creating, $nested);
         }
 
         try {
@@ -271,7 +274,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
                 return Accessor::get($member->hydrateNested([], $value, [], $request, $creating), self::slot($member));
             }
 
-            return $member->castWireValue($value);
+            return $nested ? $member->castNestedWireValue($value) : $member->castWireValue($value);
         } catch (AttributeValueInvalid $e) {
             $below = \str_starts_with($e->attribute, $member->name()) ? \substr($e->attribute, \strlen($member->name())) : '';
 

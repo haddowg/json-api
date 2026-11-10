@@ -479,7 +479,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * Restricts the value to an enumerated set. Members may be plain scalars or
      * **backed-enum cases**; cases are normalized to their backing scalar value.
      * When every member is a case of one backed enum, that enum's class-string is
-     * retained on the {@see In} for richer OpenAPI enum metadata.
+     * retained on the {@see In} for richer OpenAPI enum metadata, and a write hydrates
+     * the value as the case, as {@see enum()} does.
      *
      * @param list<mixed> $values
      * @return static
@@ -492,13 +493,27 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * Restricts the value to the backing scalars of a backed enum's cases.
+     * Restricts the value to the backing scalars of a backed enum's cases. A write
+     * hydrates the backing value as the case, so the setter or property takes the enum;
+     * a value nested in an {@see Obj}, a {@see OneOf} or a structured {@see ArrayList}
+     * stays the backing value, since a JSON column holds it. A read renders a case as its
+     * backing value. A `deserializeUsing()` hook replaces the conversion.
      *
      * @param class-string<\BackedEnum> $enum
      * @return static
+     *
+     * @throws \InvalidArgumentException when `$enum` is not a backed enum, since a pure enum has no wire value
      */
     public function enum(string $enum): static
     {
+        if (!\is_subclass_of($enum, \BackedEnum::class)) {
+            throw new \InvalidArgumentException(\sprintf(
+                'Field "%s" cannot take enum(%s): enum() takes a backed enum, whose cases have the string or int values a request carries.',
+                $this->name(),
+                $enum,
+            ));
+        }
+
         $values = \array_map(static fn(\BackedEnum $case): int|string => $case->value, $enum::cases());
 
         return $this->addConstraint(new In(\array_values($values), $this->currentContext(), $enum));

@@ -44,6 +44,12 @@ taken by one unnamed member field. The value's JSON type picks the member on a w
 PHP type on a read.
 _Avoid_: variant (that is a `OneOf` shape), mixed field, any-type field
 
+**Enum field**:
+A **Field** declared with `enum()`, or `in()` over one backed enum's cases. A write hydrates
+its value as the enum's case, unless the value is nested in a JSON column, where it keeps the
+backing value, and a read renders a case as its backing value.
+_Avoid_: enum cast, enum type
+
 **Named shape**:
 A composite **Field**'s value shape given a component name with `component()`, which the
 OpenAPI projection emits once and every **Field** declaring it references, keeping its own
