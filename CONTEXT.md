@@ -234,6 +234,11 @@ placeholder shape, `source` member and **Error feature**.
 **Error feature**:
 The server capability an error kind depends on (atomic operations, cursor pagination, writes, …).
 
+**Operation error document**:
+The error document one operation answers a status with when it raises codes scoped to it, named
+for its type, operation and status (`ArticlesUpdate409`) rather than for the codes it offers.
+_Avoid_: narrowed response, scoped response
+
 **Message template**:
 An error's `title` or `detail` as a translatable string with `{placeholder}` slots, filled per
 occurrence from the error's context.

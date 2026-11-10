@@ -61,7 +61,9 @@ The projection is a small pipeline of **pure** classes in
 
 - **`ErrorResponseProjector`** — projects the `components.responses` entry every operation's
   error `$ref`s resolve to, one per advertised status, each pointing at the narrowest error
-  document the catalogue supports. See [The shared error responses](#the-shared-error-responses).
+  document the catalogue supports, and names the error document an operation raising scoped
+  codes answers with instead. See [The shared error responses](#the-shared-error-responses)
+  and [Scoping a code](#scoping-a-code-to-the-operations-that-raise-it).
 
 - **`OpenApiProjector`** — the top-level entry point. It consumes a
   `ServerMetadataInterface` and returns one `OpenApi` document: the skeleton
@@ -533,21 +535,81 @@ new ScopedErrorSource(ErrorScope::on('articles', 'action.purchase.post'), Paymen
 
 A scoped code is catalogued like any other, in a shape of its own scope named after its first
 code (`Error409ArticleLocked`), and only the operations it is declared for offer it. Each of
-them points its response for the code's status at one narrowed to the codes every operation
-raises plus the scoped ones, `ConflictWithArticleLocked` carrying
-`ErrorDocument409WithArticleLocked`, and gains that status if it did not advertise it
-already. Operations raising the same scoped codes at a status share one such response, and
-the rest keep the shared one. A name that is not an operation name fails when the scope is
-built, and a scope naming a type the server does not register covers nothing on it.
+them answers the code's status with an error document of its own, offering the codes every
+operation raises at that status plus its scoped ones, and gains that status if it did not
+advertise it already. The rest keep the shared response. A name that is not an operation
+name fails when the scope is built, and a scope naming a type the server does not register
+covers nothing on it.
+
+```yaml
+paths:
+  /articles/{id}:
+    patch:
+      responses:
+        '409':
+          description: Conflict — the request conflicts with the resource state (e.g. a type or id mismatch).
+          content:
+            application/vnd.api+json:
+              schema: { $ref: '#/components/schemas/ArticlesUpdate409' }
+              examples:
+                RESOURCE_TYPE_UNACCEPTABLE: { $ref: '#/components/examples/RESOURCE_TYPE_UNACCEPTABLE' }
+                ARTICLE_LOCKED: { $ref: '#/components/examples/ARTICLE_LOCKED' }
+
+components:
+  schemas:
+    ArticlesUpdate409:
+      type: object
+      properties:
+        errors:
+          type: array
+          minItems: 1
+          items:
+            anyOf:
+              - { $ref: '#/components/schemas/Error' }
+              - { $ref: '#/components/schemas/Error409Pointer' }
+              - { $ref: '#/components/schemas/Error409ArticleLocked' }
+        links: { $ref: '#/components/schemas/Links' }
+        meta: { $ref: '#/components/schemas/Meta' }
+        jsonapi: { $ref: '#/components/schemas/JsonApi' }
+      required: [errors]
+```
+
+The document is named for the operation and the status, never for the codes it offers, so a
+scoped code joining or leaving an operation changes what its document offers and leaves its
+name, and the type a generated client imports for it, alone. The name is the type's
+PascalCase base followed by the operation:
+
+| Operation | Error document at `409` |
+|---|---|
+| `update` of `campaign-template-bindings` | `CampaignTemplateBindingsUpdate409` |
+| `fetchCollection`, `fetchOne`, `create`, `delete` of `articles` | `ArticlesFetchCollection409`, `ArticlesFetchOne409`, `ArticlesCreate409`, `ArticlesDelete409` |
+| `fetchRelated.author`, `updateRelationship.author` of `articles` | `ArticlesAuthorFetchRelated409`, `ArticlesAuthorUpdateRelationship409` |
+| `fetchRelationship.tags`, `addRelationship.tags`, `removeRelationship.tags` of `articles` | `ArticlesTagsFetchRelationship409`, `ArticlesTagsAddRelationship409`, `ArticlesTagsRemoveRelationship409` |
+| the `publish` action of `articles` | `ArticlesPublishAction409` |
+| the `POST` of an `export` action answering `GET` and `POST` | `ArticlesExportActionPost409` |
+| the Atomic Operations endpoint | `AtomicOperations409` |
+
+An action takes its method in the name only when it answers to several, as its `operationId`
+does. A relation is named by its member name, as in its `operationId`. Two operations whose
+names come out the same, or a name another component already holds, fail the projection
+with an exception naming both, as any other clashing generated name does. Rename the type,
+relation or action.
+
+An operation's own document references the shared shapes, `Error` and the `Links`, `Meta`
+and `JsonApi` members, and copies none of them. It carries no description: the explanation
+of why the list stays open lives once, on the shared `ErrorDocument<status>`, and applies to
+it unchanged. Its response sits inline in the operation, so there is one set of
+per-operation names, the documents, and no response component beside each.
 
 Each code's example is one `components.examples` entry, keyed by the code, which every
-response offering the code references, so a narrowed response adds a reference per code
-rather than a copy.
+response offering the code references, so an operation's own response adds a reference per
+code rather than a copy.
 
 ### The shared error responses
 
-An operation does not describe its error bodies. It `$ref`s one of the shared responses
-under `components.responses`, named for the HTTP status:
+An operation does not describe its error bodies. Unless it raises a scoped code at that
+status, it `$ref`s one of the shared responses under `components.responses`, named for the
+HTTP status:
 
 ```yaml
 paths:

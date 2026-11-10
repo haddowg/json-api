@@ -457,7 +457,7 @@ final class ErrorCatalogProjectionTest extends TestCase
 
         $info = (new OpenApiProjector())->project($this->fullServer())->toArray()['info'] ?? null;
         self::assertIsArray($info);
-        self::assertSame(['contract' => GeneratorContract::FIXED_MEMBERSHIP], $info['x-generator'] ?? null);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FIXED_MEMBERSHIP)], $info['x-generator'] ?? null);
     }
 
     #[Test]

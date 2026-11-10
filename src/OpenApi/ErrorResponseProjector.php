@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
+
 /**
  * Projects the standard error responses every operation advertises into the shared
  * `components.responses` set, and points each one at the narrowest error document the
@@ -28,6 +31,9 @@ namespace haddowg\JsonApi\OpenApi;
  * variants keep the open generic `Error` branch first, exactly as the generic document
  * does: narrowing sharpens the vocabulary a status publishes, it does not close it
  * ([ADR 0053](../../docs/adr/0053-the-projected-error-code-catalogue-is-open.md)).
+ *
+ * An operation raising codes scoped to it does not use the shared response at that status:
+ * it answers inline with an error document of its own, named by {@see operationDocument()}.
  *
  * @internal
  */
@@ -109,6 +115,28 @@ final class ErrorResponseProjector
     public static function documentComponent(string $status, array $byStatus): string
     {
         return isset($byStatus[(int) $status]) ? 'ErrorDocument' . $status : 'ErrorDocument';
+    }
+
+    /**
+     * The error document component of one operation at one status, for an operation that
+     * raises codes scoped to it: the operation's type and operation in PascalCase, then the
+     * status. A CRUD operation is `<Type><Kind>` (`ArticlesUpdate409`), a related or
+     * relationship operation `<Type><Relation><Kind>` (`ArticlesAuthorUpdateRelationship409`),
+     * an action `<Type><Path>Action` with its method appended when it answers to several
+     * (`ArticlesPublishAction409`, `ArticlesPublishActionPost409`), and the Atomic Operations
+     * endpoint `AtomicOperations409`. The codes the document offers never enter its name.
+     */
+    public static function operationDocument(string $type, OperationKey $key, bool $methodQualified, int $status): string
+    {
+        $name = match (true) {
+            $key->kind === OperationKind::Atomic => 'AtomicOperations',
+            $key->kind === OperationKind::Action => ComponentNaming::base($type) . ComponentNaming::base((string) $key->actionPath) . 'Action'
+                . ($methodQualified ? ComponentNaming::base(\strtolower($key->method)) : ''),
+            $key->relation !== null => ComponentNaming::base($type) . ComponentNaming::base($key->relation) . \ucfirst($key->kind->value),
+            default => ComponentNaming::base($type) . \ucfirst($key->kind->value),
+        };
+
+        return $name . $status;
     }
 
     /**

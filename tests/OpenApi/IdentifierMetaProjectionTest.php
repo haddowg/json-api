@@ -125,7 +125,7 @@ final class IdentifierMetaProjectionTest extends TestCase
     #[Test]
     public function onlyADocumentDeclaringIdentifierMetaCarriesItsContract(): void
     {
-        self::assertSame(GeneratorContract::IDENTIFIER_META, $this->contract(new FakeRelationMetadata('author', ['people'], false, identifierMetaFields: [Str::make('role')->build()])));
+        self::assertSame(\max(GeneratorContract::BASELINE, GeneratorContract::IDENTIFIER_META), $this->contract(new FakeRelationMetadata('author', ['people'], false, identifierMetaFields: [Str::make('role')->build()])));
         self::assertSame(GeneratorContract::BASELINE, $this->contract(new FakeRelationMetadata('author', ['people'], false)));
     }
 

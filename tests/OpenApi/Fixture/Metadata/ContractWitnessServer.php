@@ -219,9 +219,14 @@ final class ContractWitnessServer
                 $server,
                 // ArticleLocked scopes itself to an article update and delete, so those two offer it
                 // and a delete, which advertises no 409 otherwise, gains one. PaymentRequired is
-                // scoped here, as for an error the application does not own.
+                // scoped here, as for an error the application does not own, to a CRUD operation,
+                // a relationship operation, an action and one method of a two-method action, so
+                // each way of naming an operation's own error document is reached.
                 new ClassListErrorSource(SubscriptionExpired::class, ArticleLocked::class),
-                new ScopedErrorSource(ErrorScope::on('tags', 'create'), PaymentRequired::class),
+                new ScopedErrorSource(
+                    ErrorScope::on('tags', 'create')->and(ErrorScope::on('articles', 'addRelationship.tags', 'action.publish.post', 'action.export.post')),
+                    PaymentRequired::class,
+                ),
             ),
             documentUrl: '/docs/openapi.json',
         );
