@@ -72,19 +72,19 @@ final class ValueTypes
 
     /**
      * Whether a required value of the field must also be non-empty as a whole, refusing
-     * `''`, `[]` and `{}`: a string, a list or an object. A boolean or number only has to be
-     * present, so `false` and `0` pass. A {@see OneOf} answers through its variant's
-     * children, and a {@see Union} through the member its value selects, which
-     * {@see UnionValues} reports with {@see UnionValue::$nonEmpty}, so both answer `false`
-     * here. The OpenAPI projection documents the same rule.
+     * `''`, `[]` and `{}`. Every field does, an application's own
+     * {@see ProvidesFieldSchema} field included, except those known not to: a boolean or
+     * number only has to be present, so `false` and `0` pass, a {@see OneOf} answers through
+     * its variant's children, and a {@see Union} through the member its value selects, which
+     * {@see UnionValues} reports with {@see UnionValue::$nonEmpty}.
      */
     public static function requiredRefusesEmpty(FieldInterface $field): bool
     {
-        if ($field instanceof OneOf || $field instanceof Union) {
-            return false;
-        }
-
-        return \in_array(self::of($field), [self::STRING, self::ARRAY, self::OBJECT], true);
+        return !($field instanceof Integer
+            || $field instanceof Decimal
+            || $field instanceof Boolean
+            || $field instanceof OneOf
+            || $field instanceof Union);
     }
 
     /**

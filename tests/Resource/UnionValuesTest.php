@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Resource;
 
+use haddowg\JsonApi\OpenApi\EnumComponentCollector;
+use haddowg\JsonApi\OpenApi\Schema;
+use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\Decimal;
+use haddowg\JsonApi\Resource\Field\FieldState;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
+use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\Field\UnionBuilder;
@@ -170,7 +176,7 @@ final class UnionValuesTest extends TestCase
     }
 
     #[Test]
-    public function requiredRefusesEmptyForStringsListsAndObjectsOnly(): void
+    public function requiredRefusesEmptyForEveryFieldButNumbersBooleansAndUnions(): void
     {
         foreach ([
             'Str' => [Str::make('s')->build(), true],
@@ -183,6 +189,8 @@ final class UnionValuesTest extends TestCase
             'Boolean' => [Boolean::make('b')->build(), false],
             'OneOf' => [OneOf::make('o')->discriminator('k')->variant('a')->build(), false],
             'Union' => [$this->value()->build(), false],
+            // A field supplying its own schema has no type core can name, and stays non-empty.
+            'custom schema' => [new UnionValuesCustomField(new FieldState('custom', 'custom')), true],
         ] as $case => [$field, $refuses]) {
             self::assertSame($refuses, ValueTypes::requiredRefusesEmpty($field), $case);
         }
@@ -222,5 +230,13 @@ final class UnionValuesTest extends TestCase
             Boolean::make(),
             ArrayList::make()->maxItems(5)->of(Union::of(Str::make(), Decimal::make(), Boolean::make())),
         );
+    }
+}
+
+final readonly class UnionValuesCustomField extends AbstractFieldValue implements ProvidesFieldSchema
+{
+    public function projectFieldSchema(SchemaProjector $projector, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        return Schema::ofType('string')->withFormat('money');
     }
 }

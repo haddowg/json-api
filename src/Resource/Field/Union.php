@@ -179,6 +179,35 @@ final readonly class Union extends AbstractFieldValue implements ProvidesFieldSc
         return $member === null ? $raw : $member->serializeWithoutRequest([self::slot($member) => $raw]);
     }
 
+    /**
+     * The JSON-safe form a data layer stores a hydrated value in, such as a JSON column:
+     * the member's wire form, so a `Date` member stores its date string, a `DateTime` or
+     * `Time` member its formatted string, and a list each element's own. A plain string,
+     * number or boolean comes back as its member renders it, and a value no member takes
+     * unchanged. It reads back through {@see fromStoredForm()}, and a read renders it
+     * as it renders the hydrated value. Storage that holds PHP values as they are, such as
+     * an in-memory store, can keep the hydrated value instead.
+     */
+    public function toStoredForm(mixed $value): mixed
+    {
+        return $this->render($value);
+    }
+
+    /**
+     * The hydrated value for a value {@see toStoredForm()} produced, cast as a write would
+     * cast it, so a date member's string is a `\DateTimeImmutable` again. A value no member
+     * takes, or one the member cannot cast, comes back unchanged, since a read never fails
+     * over what is stored.
+     */
+    public function fromStoredForm(mixed $stored): mixed
+    {
+        try {
+            return $this->cast($stored, false, null, true);
+        } catch (AttributeValueInvalid) {
+            return $stored;
+        }
+    }
+
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->hydratesThroughHook()) {
