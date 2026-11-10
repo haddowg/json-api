@@ -322,6 +322,7 @@ the filters that carry the helper expose it:
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereThrough`, `WhereThroughIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
+| `enum(string $enum)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough`, `WhereThroughIn` | restricts the value, or each member of a list, to a backed enum's backing values (see [Backed enums](#backed-enums)) |
 | `deprecated()` | every built-in filter | marks the `filter[<key>]` parameter `deprecated: true` in the [OpenAPI document](openapi.md#deprecation); the filter still applies as before |
 
 ```php
@@ -516,6 +517,37 @@ public function filters(): array
 `constrain()` and the shortcuts reuse the same
 [constraint vocabulary](constraints.md) as fields, so any
 `Resource\Constraint\ConstraintInterface` (`Min`, `Max`, `In`, …) works too.
+
+### Backed enums
+
+`enum()` takes a backed enum's class, as a field builder's `enum()` does, and appends an
+`In` over the backing values of its cases that keeps the enum's class:
+
+```php
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+
+public function filters(): array
+{
+    return [
+        Where::make('state')->enum(RunState::class),                    // filter[state]=running
+        WhereIn::make('states', 'state')->enum(RunState::class)->acceptsList(), // each member checked
+    ];
+}
+```
+
+It is on `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough` and `WhereThroughIn`, so a
+filter a [family](#filter-families-keys-matched-by-prefix) resolves to can declare it
+too. A list filter checks each member against it. It refuses a pure enum when you
+declare it, since its cases have no value a request could carry.
+
+The filter still compares the backing value, never the case, which Doctrine and
+Eloquent both bind against an enum column, so `enum()` only validates and documents. In
+the OpenAPI document the parameter's value, or each item of a list parameter, is a `$ref`
+to the enum's [component](openapi.md#backed-enums-x-enum-varnames--x-enum-descriptions),
+the same one a field declaring the enum references, so a client generator types the
+filter and the field with one enum. The `filter` parameter of a family keeps describing
+its members as strings, since its members are resolved per request.
 
 Constraints are **metadata only** — core never executes them. A framework adapter
 (the Symfony bundle) translates them to its native validator and checks the

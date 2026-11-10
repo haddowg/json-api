@@ -113,6 +113,17 @@ final class EnumComponentCollector
     }
 
     /**
+     * The component name each registered enum class-string took.
+     *
+     * @return array<class-string<\BackedEnum>, string>
+     */
+    public function enumNames(): array
+    {
+        /** @var array<class-string<\BackedEnum>, string> */
+        return $this->namesByClass;
+    }
+
+    /**
      * The collected enum component schemas, keyed by component name.
      *
      * @return array<string, Schema>

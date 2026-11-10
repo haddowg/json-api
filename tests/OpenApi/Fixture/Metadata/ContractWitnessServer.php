@@ -511,6 +511,8 @@ final class ContractWitnessServer
             filters: [
                 Where::make('status')->describedAs('Filter by status.')->example('published')->build(),
                 Where::make('wordCount')->integer()->build(),
+                // A filter declaring the enum its field declares references the field's component.
+                WhereIn::make('priorities', 'priority')->enum(Priority::class)->build(),
                 Where::make('archived')->fixed(true)->build(),
                 Range::make('rating')->example(['min' => 1, 'max' => 5])->build(),
                 DateRange::make('publishedAt')->build(),

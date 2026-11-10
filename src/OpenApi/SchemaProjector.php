@@ -538,15 +538,18 @@ final class SchemaProjector
      * A query value has no create/update context, so every constraint projects
      * whatever {@see Context} it carries. A filter validator enforces them all.
      *
+     * With a `$collector`, an {@see In} sourced from a backed enum is hoisted into the
+     * enum's component and referenced, as a field's is.
+     *
      * @param iterable<ConstraintInterface> $constraints
      */
-    public function projectConstraints(iterable $constraints): Schema
+    public function projectConstraints(iterable $constraints, ?EnumComponentCollector $collector = null): Schema
     {
         $schema = Schema::create();
         $notes = [];
         $always = static fn(Context $context): bool => true;
         foreach ($constraints as $constraint) {
-            $schema = $this->applyConstraint($schema, $constraint, $always, $notes);
+            $schema = $this->applyConstraint($schema, $constraint, $always, $notes, $collector);
         }
 
         return $this->withNotes($schema, $notes);

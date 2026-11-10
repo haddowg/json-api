@@ -100,6 +100,12 @@ final class OperationProjector
         'json-pointer', 'relative-json-pointer', 'regex', 'byte', 'binary', 'password',
     ];
 
+    /**
+     * Where a backed enum a filter value declares is hoisted while {@see projectType()}
+     * runs, or `null` to keep it inline.
+     */
+    private ?EnumComponentCollector $filterEnums = null;
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
     ) {}
@@ -111,9 +117,27 @@ final class OperationProjector
      * relationship reads and action paths (a standalone serializer with only actions,
      * say), but never a relationship mutation — that verb rides on the type's `Update`.
      *
+     * A `$filterEnums` collector takes the backed enums the filters' values declare, and
+     * each filter parameter references the enum's component instead of carrying the enum
+     * inline.
+     *
      * @return array<string, PathItem> path template → {@see PathItem}
      */
-    public function projectType(TypeMetadataInterface $type, ServerMetadataInterface $server): array
+    public function projectType(TypeMetadataInterface $type, ServerMetadataInterface $server, ?EnumComponentCollector $filterEnums = null): array
+    {
+        $previous = $this->filterEnums;
+        $this->filterEnums = $filterEnums;
+        try {
+            return $this->projectTypePaths($type, $server);
+        } finally {
+            $this->filterEnums = $previous;
+        }
+    }
+
+    /**
+     * @return array<string, PathItem>
+     */
+    private function projectTypePaths(TypeMetadataInterface $type, ServerMetadataInterface $server): array
     {
         ActionDeclarations::validateType($type);
 
@@ -1358,7 +1382,7 @@ final class OperationProjector
                 continue;
             }
 
-            $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints());
+            $valueSchema = $this->schemaProjector->projectConstraints($filter->constraints(), $this->filterEnums);
             // Only a value the constraints said NOTHING about falls back to the column's
             // type. One that declared a keyword keeps what it declared, so the fallback
             // never contradicts an author's own narrowing; an untyped one that only a
@@ -1411,7 +1435,8 @@ final class OperationProjector
     private static function onlyAStringSatisfies(Schema $schema): bool
     {
         $keywords = $schema->keywords();
-        if (\array_key_exists('type', $keywords)) {
+        // A `$ref`, such as a backed enum's component, carries its own type.
+        if (\array_key_exists('type', $keywords) || \array_key_exists('$ref', $keywords)) {
             return false;
         }
 

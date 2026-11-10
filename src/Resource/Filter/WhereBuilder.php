@@ -20,6 +20,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 class WhereBuilder implements FilterBuilderInterface
 {
+    use BuildsEnumValue;
     use BuildsValueConstraints;
 
     protected string $column;

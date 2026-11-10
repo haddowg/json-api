@@ -12,6 +12,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 final class WhereNotInBuilder implements FilterBuilderInterface
 {
     use BuildsListValue;
+    use BuildsEnumValue;
     use BuildsValueConstraints;
 
     private string $column;

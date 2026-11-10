@@ -11,6 +11,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final class WhereThroughBuilder implements FilterBuilderInterface
 {
+    use BuildsEnumValue;
     use BuildsValueConstraints;
 
     private string $path;
