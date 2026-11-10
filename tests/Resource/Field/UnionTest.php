@@ -22,6 +22,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Field\Time;
 use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\Field\UnionBuilder;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -373,6 +374,45 @@ final class UnionTest extends TestCase
 
         self::assertSame(3.0, $field->castWireValue(3));
         self::assertSame(['a', 1.0], $field->castWireValue(['a', 1]));
+    }
+
+    #[Test]
+    public function theStoredFormIsEachMembersWireForm(): void
+    {
+        $field = Union::make('value')
+            ->of(Date::make(), Decimal::make(), Boolean::make(), ArrayList::make()->of(Union::of(DateTime::make()->outputTimezone('UTC'), Integer::make())))
+            ->build();
+        $time = Union::make('at')->of(Time::make(), Boolean::make())->build();
+        $instant = Union::make('at')->of(DateTime::make()->outputTimezone('UTC'), Boolean::make())->build();
+
+        foreach ([
+            'a date' => [$field, '2024-07-01', '2024-07-01'],
+            'a number' => [$field, 3, 3.0],
+            'a boolean' => [$field, true, true],
+            'a list' => [$field, ['2024-07-01T12:30:00+02:00', 4], ['2024-07-01T10:30:00+00:00', 4]],
+            'a time' => [$time, '09:08:07', '09:08:07'],
+            'a date-time' => [$instant, '2024-07-01T12:30:00+02:00', '2024-07-01T10:30:00+00:00'],
+            'null' => [$field, null, null],
+        ] as $case => [$union, $written, $stored]) {
+            $hydrated = $union->castWireValue($written);
+            $form = $union->toStoredForm($hydrated);
+
+            self::assertSame($stored, $form, $case);
+            // It survives a JSON column, where a whole float comes back an int, and reads
+            // back as the value a write hydrates to.
+            $column = \json_decode(\json_encode($form, \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
+            self::assertEquals($hydrated, $union->fromStoredForm($column), $case);
+            self::assertSame($union->serialize(['v' => $hydrated], $this->request(), 'v'), $union->serialize(['v' => $column], $this->request(), 'v'), $case);
+        }
+    }
+
+    #[Test]
+    public function aStoredValueThatNoLongerCastsReadsBackUnchanged(): void
+    {
+        $field = Union::make('when')->of(Date::make(), Boolean::make())->build();
+
+        self::assertSame('not a date', $field->fromStoredForm('not a date'));
+        self::assertSame(['k' => 'v'], $field->fromStoredForm(['k' => 'v']));
     }
 
     private function value(): UnionBuilder
