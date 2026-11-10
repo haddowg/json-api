@@ -116,7 +116,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
 
-        return fn(mixed $row): bool => $this->compare(Accessor::get($row, $filter->column), $filter->operator, $expected);
+        return fn(mixed $row): bool => $this->compare(self::column($row, $filter->column), $filter->operator, $expected);
     }
 
     /**
@@ -211,7 +211,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $column = $path?->relatedIdColumn();
 
         return $column === null
-            ? static fn(mixed $actual): mixed => $actual
+            ? static fn(mixed $actual): mixed => $actual instanceof \BackedEnum ? $actual->value : $actual
             : static fn(mixed $related): mixed => Accessor::get($related, $column);
     }
 
@@ -260,7 +260,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             // coerces null (e.g. null->0) cannot smuggle a NULL row into a
             // present bound: a NULL column never falls within a bound (SQL
             // UNKNOWN), so it is excluded on every provider.
-            $actual = Accessor::get($row, $filter->column);
+            $actual = self::column($row, $filter->column);
             if ($actual === null) {
                 return false;
             }
@@ -434,7 +434,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private function whereIn(string $column, array $values, bool $negate): \Closure
     {
         return static function (mixed $row) use ($column, $values, $negate): bool {
-            $actual = Accessor::get($row, $column);
+            $actual = self::column($row, $column);
             $contained = \in_array($actual, $values, false);
 
             return $negate ? !$contained : $contained;
@@ -465,5 +465,16 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         }
 
         return [$value];
+    }
+
+    /**
+     * A column's value as a database compares it: a backed enum case, as an `enum()` field
+     * hydrates, by its backing value.
+     */
+    private static function column(mixed $row, string $column): mixed
+    {
+        $value = Accessor::get($row, $column);
+
+        return $value instanceof \BackedEnum ? $value->value : $value;
     }
 }

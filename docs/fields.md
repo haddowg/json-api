@@ -402,7 +402,8 @@ enum, converts between the wire's backing value and the enum's case:
   reads the case back through `fromStoredForm()`.
 
 Filters are not affected: a filter on an enum field still compares the backing value, which
-Doctrine and Eloquent both bind against an enum column.
+Doctrine and Eloquent both bind against an enum column. The reference in-memory filter and
+sort handlers read a stored case by its backing value too.
 
 `enum()` takes a backed enum only, and refuses a pure enum when you declare it, since its
 cases have no value a request could carry. A value outside the enum is refused by

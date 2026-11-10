@@ -84,7 +84,12 @@ final class ArraySortHandler implements SortHandlerInterface
         if ($sort instanceof SortByField) {
             $column = $sort->column;
 
-            return static fn(mixed $row): mixed => Accessor::get($row, $column);
+            // A backed enum case, as an enum() field hydrates, sorts by its backing value.
+            return static function (mixed $row) use ($column): mixed {
+                $value = Accessor::get($row, $column);
+
+                return $value instanceof \BackedEnum ? $value->value : $value;
+            };
         }
 
         foreach ($this->arms as $arm) {

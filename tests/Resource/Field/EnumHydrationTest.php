@@ -21,6 +21,12 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Field\Union;
+use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIn;
+use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
+use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Validation\DocumentValidator;
 use haddowg\JsonApi\Validation\SchemaCompiler;
@@ -42,6 +48,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Obj::class)]
 #[CoversClass(OneOf::class)]
 #[CoversClass(Map::class)]
+#[CoversClass(ArrayFilterHandler::class)]
+#[CoversClass(ArraySortHandler::class)]
 final class EnumHydrationTest extends TestCase
 {
     // ---- Top-level writes -----------------------------------------------------------
@@ -264,6 +272,31 @@ final class EnumHydrationTest extends TestCase
             '{"state":"running","value":"cancelled"}',
             \json_encode($field->serialize(['settings' => ['state' => EnumHydrationState::Running, 'value' => EnumHydrationState::Cancelled]], $this->request(), 'settings')),
         );
+    }
+
+    // ---- Filters and sorts ----------------------------------------------------------
+
+    #[Test]
+    public function inMemoryFiltersCompareAStoredCaseByItsBackingValue(): void
+    {
+        $rows = [['id' => 1, 'state' => EnumHydrationState::Running], ['id' => 2, 'state' => EnumHydrationState::Cancelled]];
+        $handler = new ArrayFilterHandler();
+
+        self::assertSame([2], \array_column(\array_values($handler->apply(Where::make('state')->build(), $rows, 'cancelled')), 'id'));
+        self::assertSame([1, 2], \array_column(\array_values($handler->apply(WhereIn::make('state')->build(), $rows, ['running', 'cancelled'])), 'id'));
+    }
+
+    #[Test]
+    public function inMemorySortsOrderAStoredCaseByItsBackingValue(): void
+    {
+        $rows = [['id' => 1, 'priority' => EnumHydrationPriority::High], ['id' => 2, 'priority' => EnumHydrationPriority::Low]];
+
+        $handler = new ArraySortHandler();
+        $ascending = $handler->apply([new SortDirective(SortByField::make('priority'), false)], $rows);
+        $descending = $handler->apply([new SortDirective(SortByField::make('priority'), true)], \array_reverse($rows));
+
+        self::assertSame([2, 1], \array_column(\array_values($ascending), 'id'));
+        self::assertSame([1, 2], \array_column(\array_values($descending), 'id'));
     }
 
     // ---- Refusals -------------------------------------------------------------------
