@@ -43,17 +43,25 @@ final class IdentifierResponse extends AbstractResponse
         private readonly mixed $parent,
         private readonly SerializerInterface $parentResource,
         private readonly string $relationshipName,
+        private readonly ?bool $selfCountable = null,
     ) {}
 
     /**
      * A relationship-linkage response for the named relationship on the parent.
+     *
+     * `$selfCountable` is the relation's `countable()`, which gates
+     * `?withCount=_self_` on this linkage. Pass it when `$parentResource` wraps the
+     * resource that declares the relation, since the gate can then not find the
+     * relation itself; left null, it is read off `$parentResource` when that is an
+     * {@see \haddowg\JsonApi\Resource\AbstractResource}.
      */
     public static function forRelationship(
         mixed $parent,
         SerializerInterface $parentResource,
         string $relationshipName,
+        ?bool $selfCountable = null,
     ): self {
-        return new self($parent, $parentResource, $relationshipName);
+        return new self($parent, $parentResource, $relationshipName, $selfCountable);
     }
 
     /**
@@ -107,9 +115,10 @@ final class IdentifierResponse extends AbstractResponse
             scopes: \haddowg\JsonApi\Scope\ScopeEnforcer::forServer($server),
             // `?withCount=_self_` here counts the relationship's own linkage, so the
             // relation decides it, not the parent's primary collection.
-            countableSelfOverride: $this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource
-                ? $this->parentResource->relationNamed($this->relationshipName)?->isCountable()
-                : null,
+            countableSelfOverride: $this->selfCountable
+                ?? ($this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource
+                    ? $this->parentResource->relationNamed($this->relationshipName)?->isCountable()
+                    : null),
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;

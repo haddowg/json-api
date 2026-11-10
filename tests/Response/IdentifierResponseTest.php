@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
 use haddowg\JsonApi\Response\IdentifierResponse;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Relationship\ToManyRelationship;
 use haddowg\JsonApi\Schema\Relationship\ToOneRelationship;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
@@ -101,6 +103,35 @@ final class IdentifierResponseTest extends TestCase
             ],
             $body['data'],
         );
+    }
+
+    #[Test]
+    public function aGivenSelfCountableGatesWithCountSelfOnTheLinkage(): void
+    {
+        // A bare serializer cannot say whether the relation is countable, so the
+        // response takes the relation's answer from the caller.
+        $parentResource = new StubResource(
+            type: 'article',
+            id: '1',
+            relationships: [
+                'comments' => static fn(mixed $object): ToManyRelationship => ToManyRelationship::create()
+                    ->setData([new \stdClass()], new StubResource(type: 'comment', id: '5')),
+            ],
+        );
+        $request = StubJsonApiRequest::create(
+            ['withCount' => '_self_'],
+            ['Accept' => 'application/vnd.api+json;profile="' . CountableProfile::URI . '"'],
+        );
+
+        $counted = IdentifierResponse::forRelationship(new \stdClass(), $parentResource, 'comments', selfCountable: true)
+            ->withMeta(['total' => 1])
+            ->toPsrResponse(new StubServer(), $request);
+        self::assertSame(200, $counted->getStatusCode());
+        self::assertSame(['total' => 1], $this->decode($counted->getBody()->getContents())['meta']);
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+        IdentifierResponse::forRelationship(new \stdClass(), $parentResource, 'comments', selfCountable: false)
+            ->toPsrResponse(new StubServer(), $request);
     }
 
     #[Test]
