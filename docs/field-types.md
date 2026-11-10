@@ -381,20 +381,22 @@ Write semantics on the single value:
   when a child value needs a richer PHP type than JSON can hold, such as a value
   object.
 
-A value from `computedUsing()` or `extractUsing()` goes through the declared children
-the same way a stored value does, so a `DateTime` child renders its formatted string
-and a child reads its own key from the computed array or object. A declared child the
-computed value leaves out stays absent, a hidden or write-only child is dropped, and a
-key no child declares passes through as returned. `serializeUsing()` still owns the
+A value from `computedUsing()` or `extractUsing()` renders exactly as a stored value
+does. A `DateTime` child renders its formatted string, a child reads its own key from
+the computed array or object, a declared child the value leaves out renders `null`, a
+hidden or write-only child is dropped, and a key no child declares is dropped too unless
+[`additionalProperties()`](#open-members) takes it. A `OneOf` picks its variant from the
+computed value and a `Union` its member, the same way. `serializeUsing()` still owns the
 whole value and skips the children.
 
 In the generated OpenAPI document an `Obj` projects a typed `object` schema built
 from its children (it self-describes via `ProvidesFieldSchema`). A `Map` projects the
 same way. The create schema requires each child a create must supply, the update schema
 requires none, and the read schema requires every child the object renders, which is
-all of them except a write-only or request-conditional child. A field with its own
-`serializeUsing()` / `extractUsing()` hook requires no children on read, and a `OneOf`
-with one doesn't require its discriminator either. The schema still lists the
+all of them except a write-only or request-conditional child. A computed or extracted
+value gets the same read schema, since it renders through the same children. A field
+with its own `serializeUsing()` hook requires no children on read and stays open, and a
+`OneOf` with one doesn't require its discriminator either. The schema still lists the
 children's properties, and nothing checks a `serializeUsing()` return value against
 them, so a hook that returns another shape puts a value on the wire the document
 doesn't describe. See [presence on read](openapi.md).
@@ -586,7 +588,8 @@ than carried over. An empty list stores `[]` and a `null` clears the list.
 
 Hooks belong on the list or on the element's children, not on the element itself.
 `extractUsing()` or `computedUsing()` on the list supplies the elements, and each one
-still renders through the children, as a computed `Obj` does. `serializeUsing()` and
+renders through the element as a stored one does, so an undeclared key is dropped and
+the read schema keeps the element's shape. `serializeUsing()` and
 `fillUsing()` on the list own the whole value: the hook reads or stores it instead of
 the elements' children. A write is still validated against the element, with its open
 members and counts, and the write schema still describes it. An element

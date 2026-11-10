@@ -105,7 +105,7 @@ final class OpenObjTest extends TestCase
             ->extractUsing(static fn(mixed $model): array => ['Seen' => new \DateTimeImmutable(self::AT), 'key' => 'a'])
             ->build();
 
-        self::assertSame(['Seen' => self::AT, 'key' => 'a'], $field->serialize([], $this->request(), 'row'));
+        self::assertSame(['key' => 'a', 'Seen' => self::AT], $field->serialize([], $this->request(), 'row'));
     }
 
     #[Test]

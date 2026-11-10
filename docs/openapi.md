@@ -147,9 +147,11 @@ sketch:
 - **Closed objects.** Every attributes component and every nested object a field declares
   (`Map`, `Obj`, each `OneOf` branch, a structured list's element) carries
   `additionalProperties: false`, so a member the type does not declare is rejected rather
-  than silently dropped. A nested object a `serializeUsing()`/`extractUsing()` hook
-  renders stays open on a read, since the hook, not the declared children, owns the shape
-  it renders. A `fillUsing()`/`deserializeUsing()` hook only changes how a write is
+  than silently dropped. A nested object a `serializeUsing()` hook renders stays open on a
+  read, since that hook's return value goes out as it is. An `extractUsing()` or
+  `computedUsing()` hook only supplies the value, which then renders through the declared
+  shape, so the read schema is the one the field has with no hook: closed, with an
+  undeclared key dropped from the response. A `fillUsing()`/`deserializeUsing()` hook only changes how a write is
   stored, so the write schema keeps the declared shape, open members and counts, and the
   server validates the value against it. A standalone
   serializer with no field inventory keeps an open attributes object.
@@ -315,13 +317,13 @@ sketch:
   narrows the type itself. The rule recurses into `Map`, `Obj` and `OneOf` values: a
   nested object lists every child it renders, leaving out a write-only child (absent from
   the read `properties` too) and a `hidden(when:)` / `writeOnly(when:)` one, and a
-  discriminated `OneOf` branch also requires its discriminator. A nested object whose
-  `serializeUsing()` or `extractUsing()` hook builds the value lists none, and a
-  `OneOf` with such a hook stops requiring its discriminator, since the hook decides
-  its shape. Its `properties` are still projected from the declared children. An
-  `extractUsing()` value still renders through those children, but a
-  `serializeUsing()` hook's return value goes out as it is, so keep it to the
-  declared shape or the response won't match the documented one. A nullable nested
+  discriminated `OneOf` branch also requires its discriminator. An `extractUsing()` or
+  `computedUsing()` value renders through those children like a stored one, so the same
+  rule holds for it. A nested object whose `serializeUsing()` hook builds the value
+  lists none, and a `OneOf` with such a hook stops requiring its discriminator, since
+  the hook decides its shape. Its `properties` are still projected from the declared
+  children, but the hook's return value goes out as it is, so keep it to the declared
+  shape or the response won't match the documented one. A nullable nested
   object can still be `null`; when it is present, its required children are there.
 - **`required()` means non-empty too.** A `Required` field must be present on create and
   may never be empty, so a required string carries `minLength: 1`, a required list

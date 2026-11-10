@@ -62,8 +62,9 @@ inside an attribute value, so an attribute or relationship called `links` or
 `relationships` is still allowed.
 
 The check stops at what is declared. An `ArrayHash`, a nested array handed to an `Obj` or
-`Map` under a key no child declares, or a value built in a `serializeUsing()` or
-`computedUsing()` hook is free-form, and nothing inspects it while serving. The
+`Map` under a key no child declares, a value built in a `serializeUsing()` hook, or a
+`computedUsing()` value for a field that declares no children is free-form, and nothing
+inspects it while serving. The
 validation layer does. The bundled JSON:API 1.1 schema rejects a `links` or
 `relationships` member in any object inside an attribute value, at any depth and inside
 arrays, so the spec-compliance assertion and the optional `DocumentValidator` flag
@@ -466,8 +467,11 @@ customise writing — reach for them before dropping to a whole-resource custom
 
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting
-finish the job, while `serializeUsing` owns the value outright (it is the place to
-null a computed transient on read, as `passwordConfirm` above does). To suppress a
+finish the job, and on an `Obj`, `Map`, `OneOf`, structured `ArrayList` or `Union` the
+declared shape renders its value and sets the read schema, dropping a key the field
+doesn't declare. `serializeUsing` owns the value outright and leaves the read schema
+open (it is the place to null a computed transient on read, as `passwordConfirm` above
+does). To suppress a
 *stored* member from output entirely, prefer
 [`writeOnly()`](#write-only-members) — it drops the member rather than rendering it
 as `null`.

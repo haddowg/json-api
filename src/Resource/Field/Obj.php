@@ -163,14 +163,11 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
     }
 
     /**
-     * Runs the declared children over a value an `extractUsing()` / `computedUsing()`
-     * hook produced, so each child formats its own key just as it does from a stored
-     * value. A declared child the value does not carry stays absent, a hidden or
-     * write-only one is dropped, and a key no child declares passes through untouched.
-     */
-    /**
-     * Runs the declared children over a computed value, the way the column path runs
-     * them over the stored one. A {@see OneOf} renders its matched variant through it.
+     * Renders a value an `extractUsing()` / `computedUsing()` hook produced exactly as
+     * {@see serializeStored()} renders a stored one: each declared child formats its own
+     * key and a key the object does not declare is dropped, unless
+     * {@see additionalProperties()} takes it. A {@see OneOf} renders its matched variant
+     * through it.
      *
      * @internal
      */
@@ -183,47 +180,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             return $value;
         }
 
-        $members = \is_array($value) ? $value : \get_object_vars($value);
-        $children = [];
-        foreach ($this->children as $child) {
-            $children[$child->column() ?? $child->name()] = $child;
-        }
-
-        $field = $this->additionalProperties;
-        $additional = $field === null ? null : $this->additionalMembersOf($members);
-        $rendersAdditional = $field !== null && $this->rendersChild($field, $value, $request);
-
-        $nested = [];
-        foreach ($members as $key => $member) {
-            $child = $children[$key] ?? null;
-            if ($child === null) {
-                // An open object renders an undeclared key through its member field.
-                if ($additional === null) {
-                    $nested[$key] = $member;
-                } elseif ($field !== null && $rendersAdditional && \array_key_exists((string) $key, $additional)) {
-                    $nested[$key] = self::serializeMember($field, $member, $request);
-                }
-
-                continue;
-            }
-
-            unset($children[$key]);
-            if ($this->rendersChild($child, $value, $request)) {
-                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
-            }
-        }
-
-        // A child with its own hook needs no key, and an object can expose a declared
-        // child through a getter rather than a property.
-        foreach ($children as $key => $child) {
-            $present = ($child instanceof AbstractFieldValue && $child->rendersThroughHook())
-                || (\is_object($value) && Accessor::get($value, (string) $key) !== null);
-            if ($present && $this->rendersChild($child, $value, $request)) {
-                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
-            }
-        }
-
-        return JsonObject::of($nested);
+        return $this->serializeStored($value, $request);
     }
 
     private function rendersChild(FieldInterface $child, mixed $value, JsonApiRequestInterface $request): bool

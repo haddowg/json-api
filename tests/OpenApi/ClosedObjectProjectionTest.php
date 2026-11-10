@@ -65,12 +65,29 @@ final class ClosedObjectProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aReadHookOpensTheObjectOnlyOnRead(): void
+    public function aSerializeHookOpensTheObjectOnlyOnRead(): void
     {
-        $field = Obj::make('meta')->fields(Str::make('a'))->extractUsing(static fn(): array => [])->build();
+        $field = Obj::make('meta')->fields(Str::make('a'))->serializeUsing(static fn(): array => [])->build();
 
         self::assertArrayNotHasKey('additionalProperties', $this->schema($field, RepresentationContext::Read));
         self::assertFalse(self::at($this->schema($field, RepresentationContext::Create), 'additionalProperties'));
+    }
+
+    #[Test]
+    public function anExtractHookKeepsEveryDeclaredShapeClosedOnRead(): void
+    {
+        $hook = static fn(): array => [];
+        $fields = [
+            Obj::make('meta')->fields(Str::make('a'))->extractUsing($hook)->build(),
+            Map::make('info')->fields(Str::make('label'))->extractUsing($hook)->build(),
+            OneOf::make('block')->discriminator('kind')->variant('circle', Str::make('radius'))->extractUsing($hook)->build(),
+            ArrayList::make('steps')->of(Obj::make('step')->fields(Str::make('op')))->computedUsing($hook)->build(),
+        ];
+
+        self::assertFalse(self::at($this->schema($fields[0], RepresentationContext::Read), 'additionalProperties'));
+        self::assertFalse(self::at($this->schema($fields[1], RepresentationContext::Read), 'additionalProperties'));
+        self::assertFalse(self::at($this->schema($fields[2], RepresentationContext::Read), 'oneOf', 0, 'additionalProperties'));
+        self::assertFalse(self::at($this->schema($fields[3], RepresentationContext::Read), 'items', 'additionalProperties'));
     }
 
     #[Test]
