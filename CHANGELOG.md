@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.11.0](https://github.com/haddowg/json-api/compare/v2.10.1...v2.11.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* hydrate an enum field's backing value as its case
+
+### Features
+
+* hydrate an enum field's backing value as its case ([f9765bd](https://github.com/haddowg/json-api/commit/f9765bdf872689feaaa8192971f863f378cfc9bf))
+* match a list through a relationship path and compare related ids ([#336](https://github.com/haddowg/json-api/issues/336)) ([1c2f999](https://github.com/haddowg/json-api/commit/1c2f999b9677504f654bc41c77053b54069679c8))
+* name an operation's scoped error document for the operation ([#339](https://github.com/haddowg/json-api/issues/339)) ([781f60b](https://github.com/haddowg/json-api/commit/781f60b9f6cd684fec6bb47e20a8fc9cfa047ece))
+* restrict a filter's value to a backed enum with enum ([#342](https://github.com/haddowg/json-api/issues/342)) ([4f3b68d](https://github.com/haddowg/json-api/commit/4f3b68d3d5e7057ca831e7e87e0b18c688fa4e94))
+
+
+### Bug Fixes
+
+* keep the named operations of a type only the second error scope names ([#338](https://github.com/haddowg/json-api/issues/338)) ([74708e1](https://github.com/haddowg/json-api/commit/74708e195d7852729bd8d8c94754966d43356a7a))
+* type a filter value a string when its format is a string format ([#340](https://github.com/haddowg/json-api/issues/340)) ([aa96cf7](https://github.com/haddowg/json-api/commit/aa96cf77115b20166ff027e4ff0d4144371ee09e))
+
 ## [2.10.1](https://github.com/haddowg/json-api/compare/v2.10.0...v2.10.1) (2026-11-10)
 
 
