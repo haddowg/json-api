@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/haddowg/json-api/compare/v2.11.0...v2.12.0) (2026-11-10)
+
+
+### Features
+
+* read the resources a DataResponse renders ([#343](https://github.com/haddowg/json-api/issues/343)) ([9f77bd0](https://github.com/haddowg/json-api/commit/9f77bd026cdd37ec7eba8b63e1b088ca5fbfc61b))
+
 ## [2.11.0](https://github.com/haddowg/json-api/compare/v2.10.1...v2.11.0) (2026-11-10)
 
 
