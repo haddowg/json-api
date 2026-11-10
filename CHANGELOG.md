@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/haddowg/json-api/compare/v2.10.0...v2.10.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* count a cursor page's collection when a client asks ([#334](https://github.com/haddowg/json-api/issues/334)) ([d8ce0b1](https://github.com/haddowg/json-api/commit/d8ce0b13d33d8c8b830c55a5961c9db8a37550e0))
+
 ## [2.10.0](https://github.com/haddowg/json-api/compare/v2.9.0...v2.10.0) (2026-11-10)
 
 
