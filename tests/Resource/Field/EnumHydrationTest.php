@@ -13,6 +13,7 @@ use haddowg\JsonApi\Resource\Field\AbstractFieldBuilder;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Boolean;
+use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
@@ -166,6 +167,19 @@ final class EnumHydrationTest extends TestCase
         self::assertSame(
             ['settings' => ['state' => 'running', 'history' => ['cancelled'], 'value' => 'cancelled']],
             $field->hydrate([], ['state' => 'running', 'history' => ['cancelled'], 'value' => 'cancelled'], [], $this->request(), true),
+        );
+    }
+
+    #[Test]
+    public function aMapNestedInAnObjWritesItsChildrenInNestedForm(): void
+    {
+        $field = Obj::make('settings')->fields(
+            Map::make('status')->fields(Str::make('state')->enum(EnumHydrationState::class), DateTime::make('at')),
+        )->build();
+
+        self::assertSame(
+            ['settings' => ['state' => 'running', 'at' => '2026-11-03T15:52:53.000000+00:00']],
+            $field->hydrate([], ['status' => ['state' => 'running', 'at' => '2026-11-03T15:52:53Z']], [], $this->request(), true),
         );
     }
 
