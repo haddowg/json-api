@@ -72,7 +72,8 @@ interface PaginatorInterface
      * Whether this strategy runs the `COUNT` on every paged request (the author
      * opt-in: count-free by default, `true` only when {@see PagePaginator::withCount()}
      * (or its sibling on the other count-based strategies) flipped it; the cursor
-     * strategy is inherently count-free and returns `false`). The bundle handler
+     * strategy returns `false`). A client's `?withCount=_self_` counts a countable
+     * collection under any strategy, this one included. The bundle handler
      * reads this to decide {@see paginate()} vs {@see paginateWithoutCount()} and
      * whether to issue the `COUNT`.
      */

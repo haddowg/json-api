@@ -181,9 +181,11 @@ final readonly class CursorPaginator implements PaginatorInterface, SelectableFr
     }
 
     /**
-     * A cursor (keyset) strategy is inherently count-free — it never derives a
-     * total — so it never runs a `COUNT`. Always `false`; there is no `withCount()`
-     * counterpart (the cursor takes neither {@see withCount()} nor `?withCount`).
+     * A cursor (keyset) strategy pages without a total, so it never asks for a
+     * `COUNT` on every request. Always `false`; there is no `withCount()` author
+     * opt-in. A client's `?withCount=_self_` on a countable collection still counts
+     * it: the total renders as the top-level `meta.total`, never as
+     * `meta.page.total` or a `last` link.
      */
     public function wantsCount(): bool
     {

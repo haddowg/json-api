@@ -155,7 +155,10 @@ logic:
 - **a counted page** → count the pre-window total, fetch the window;
 - **a count-free page** → no `COUNT`; probe `limit + 1` and a surplus item proves a
   further page (see the [count-free note](#count-free-pages) below);
-- **a `CursorWindow`** → its own entry point `runCursor()` (keyset, count-free).
+- **a `CursorWindow`** → its own entry point `runCursor()` (keyset). It is
+  count-free unless the request asked for the total with `?withCount=_self_`; then
+  the provider passes a count closure as well, and the result carries the total of
+  the filtered collection for `meta.total`.
 
 `run()` returns a [`CollectionResult`](../src/Collection/CollectionResult.php) —
 the materialized items plus the pre-window total (non-null only on a counted page),
@@ -289,7 +292,11 @@ vs `paginateWithoutCount()`. There are two levers to turn counting on:
 When a total is computed — for either reason — the same number is written to the
 **top-level `meta.total`** (the universal cardinality slot) and, additionally, to
 **`meta.page.total`** when the collection is paginated; never counted twice. The
-cursor strategy is inherently count-free and takes neither lever.
+cursor strategy has no `withCount()` author lever, but a client's `?withCount=_self_`
+still counts a countable cursor-paged collection. That total is the size of the
+filtered collection, ignoring the cursor bounds and the page size, and it renders only
+as the top-level `meta.total`: a cursor page carries no `meta.page.total` and no
+`last` link.
 
 **No paginator ⇒ free total.** If the resolved paginator is `null` (no server
 default, none on the resource, or `withoutPagination()` on a relation), the collection
@@ -348,8 +355,10 @@ server. Its `window()` returns a [`CursorWindow`](../src/Pagination/CursorWindow
 (the resolved size plus the decoded `page[after]` / `page[before]` boundaries) that
 a keyset-capable data layer executes exactly as it narrows on the
 [`OffsetWindow`](#the-fetch-window) — see [the fetch window](#the-fetch-window).
-A cursor page has **no total count by design** (computing one would defeat the
-purpose of cursors), so it is inherently count-free and emits no `last` link.
+A cursor page needs **no total count** to page (computing one on every request
+would defeat the purpose of cursors), so it is count-free by default and never emits
+a `last` link. Only a client's `?withCount=_self_` on a countable collection runs a
+count, and that total goes to the top-level `meta.total` alone.
 
 Its `prev`/`next` boundaries are the cursors of the returned items, which only the
 executing provider can mint (it owns the row → boundary-value reader). So the
@@ -402,7 +411,7 @@ cursor-paginated response advertises the profile on its `Content-Type` and in
 [`bootstrap.php`](../examples/music-catalog/src/bootstrap.php) for exactly this.
 
 Its `meta.page` carries `perPage` and a `hasMore` flag (plus `from`/`to` ids when
-the page is non-empty) — never a `total`, since there is none:
+the page is non-empty), and never a `total`:
 
 ```json
 { "page": { "perPage": 20, "from": "4", "to": "23", "hasMore": true } }

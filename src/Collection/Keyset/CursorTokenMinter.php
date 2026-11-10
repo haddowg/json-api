@@ -39,10 +39,11 @@ final class CursorTokenMinter
      * @param list<KeysetColumn>                    $columns   the keyset columns the values are read for
      * @param list<object>                          $rows      the page rows in natural forward order
      * @param callable(object,string):(scalar|null) $readValue reads a row's keyset value for a store column, already JSON-safe-coercible; a custom-sort level reads {@see \haddowg\JsonApi\Resource\Sort\KeysetSortInterface::keysetValue()} instead
+     * @param ?int                                  $total     the filtered collection's size when the request counts it, carried onto the result unchanged
      *
      * @return CursorCollectionResult<object>
      */
-    public function mint(CursorWindow $window, array $columns, array $rows, bool $hasSurplus, callable $readValue): CursorCollectionResult
+    public function mint(CursorWindow $window, array $columns, array $rows, bool $hasSurplus, callable $readValue, ?int $total = null): CursorCollectionResult
     {
         $backward = $window->before !== null;
 
@@ -61,6 +62,7 @@ final class CursorTokenMinter
             cursorAfter: $cursorAfter,
             hasPrevious: $hasPrevious,
             hasMore: $hasMore,
+            total: $total,
         );
     }
 

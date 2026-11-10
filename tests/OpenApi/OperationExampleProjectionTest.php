@@ -289,6 +289,23 @@ final class OperationExampleProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aCountableCursorCollectionShowsItsTotalOnlyAtTheTopLevel(): void
+    {
+        $type = FakeTypeMetadata::resource('tags', [Id::make()->example('tag-1')->build()], pageSchema: CursorPaginator::make()->describePageSchema(), countable: true);
+        $collection = self::responseExample($this->project([$type], profiles: [CountableProfile::URI]), '/tags', 'get', '200');
+
+        self::assertSame(['first', 'prev', 'next', 'self'], \array_keys(self::arr(self::at($collection, 'links'))));
+        $next = self::at($collection, 'links', 'next', 'href');
+        self::assertIsString($next);
+        self::assertStringContainsString('withCount=_self_', $next);
+        self::assertSame([
+            'total' => 75,
+            'page' => ['perPage' => 15, 'from' => 'tag-1', 'to' => 'tag-1', 'hasMore' => true],
+        ], self::at($collection, 'meta'));
+        self::assertContains(CountableProfile::URI, self::arr(self::at($collection, 'jsonapi', 'profile')));
+    }
+
+    #[Test]
     public function anAlwaysCountingCollectionShowsItsTotalWithoutBeingAsked(): void
     {
         // No Countable profile and no `withCount`: the paginator counts every request.

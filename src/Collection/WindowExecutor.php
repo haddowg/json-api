@@ -28,7 +28,7 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  *
  * - **no window** — {@see $all} is returned verbatim, no count;
  * - **a {@see CursorWindow}** — handled by {@see runCursor()} (the keyset branch,
- *   count-free by definition): {@see run()} rejects it like any non-offset window,
+ *   count-free unless the request asks for the total): {@see run()} rejects it like any non-offset window,
  *   because the cursor probe is keyset-shaped (boundary in, not `offset`/`limit`)
  *   and a store that does not implement keyset must not silently fall through to
  *   offset paging;
@@ -45,14 +45,16 @@ use haddowg\JsonApi\Pagination\WindowInterface;
  *   + count(page)` form: both report "more available beyond this page" without a
  *   total.
  *
- * The cursor (keyset) window is **count-free by definition** and keyset-shaped, so
- * it has its own entry point {@see runCursor()} rather than overloading the
- * offset {@see run()} signature: the provider supplies a single keyset-probe
- * closure that fetches up to `limit + 1` rows past the decoded boundary and a
- * token-minting closure that reads the boundary cursors off the sliced page (the
- * provider owns the row → value reader). The executor computes `hasMore` from the
- * surplus exactly as the count-free offset branch does, slices, and returns a
- * {@see CursorCollectionResult} carrying the minted boundary cursors.
+ * The cursor (keyset) window is keyset-shaped, so it has its own entry point
+ * {@see runCursor()} rather than overloading the offset {@see run()} signature: the
+ * provider supplies a single keyset-probe closure that fetches up to `limit + 1`
+ * rows past the decoded boundary and a token-minting closure that reads the
+ * boundary cursors off the sliced page (the provider owns the row → value reader).
+ * The executor computes `hasMore` from the surplus exactly as the count-free offset
+ * branch does, slices, and returns a {@see CursorCollectionResult} carrying the
+ * minted boundary cursors. Paging never needs a count, but a request that asks for
+ * the collection's size (`?withCount=_self_`) passes a count closure too, and the
+ * result carries that total for the top-level `meta.total`.
  */
 final class WindowExecutor
 {
@@ -125,8 +127,12 @@ final class WindowExecutor
     /**
      * Runs the keyset (cursor) tail and returns a {@see CursorCollectionResult}.
      *
-     * The cursor window is **count-free by definition** — no COUNT ever runs — and
-     * keyset-shaped, so it is a distinct entry point from the offset {@see run()}.
+     * The cursor window is keyset-shaped, so it is a distinct entry point from the
+     * offset {@see run()}. Paging is count-free: no COUNT runs unless {@see $count}
+     * is given, which a provider does only when the request asked for the
+     * collection's size. That count covers the filtered collection with its scopes,
+     * ignoring the cursor bounds and the window, and reaches {@see $cursors} as its
+     * third argument for the provider to carry onto the result.
      * The store-specific work is two closures: {@see $probe} runs the keyset fetch
      * (the IS-NULL-branched WHERE, the active-sort → column resolution, the stale
      * check, the `before`-reversal — all C2/C3 concerns) and returns UP TO
@@ -140,7 +146,8 @@ final class WindowExecutor
      *
      * @param CursorWindow                            $window  the decoded keyset window (limit + boundaries)
      * @param callable(CursorWindow):list<TEntity>    $probe   runs the keyset fetch, returning UP TO `limit + 1` rows in render order
-     * @param callable(list<TEntity>,bool):CursorCollectionResult<TEntity> $cursors mints the {@see CursorCollectionResult} from the sliced page rows and the computed `hasMore` (the provider reads the boundary cursors off the rows)
+     * @param callable(list<TEntity>,bool,?int):CursorCollectionResult<TEntity> $cursors mints the {@see CursorCollectionResult} from the sliced page rows, the computed `hasMore` and the total (null when not counted); the provider reads the boundary cursors off the rows
+     * @param (callable():int)|null                   $count   counts the filtered collection without the cursor bounds or the window, or null for a count-free page
      *
      * @return CursorCollectionResult<TEntity>
      */
@@ -148,7 +155,10 @@ final class WindowExecutor
         CursorWindow $window,
         callable $probe,
         callable $cursors,
+        ?callable $count = null,
     ): CursorCollectionResult {
+        $total = $count === null ? null : $count();
+
         // Over-fetch by one past the window: a surplus row proves a further page
         // follows, exactly as the count-free offset branch determines hasMore.
         $probed = $probe($window);
@@ -160,6 +170,20 @@ final class WindowExecutor
 
         // The provider reads the boundary cursors off the sliced page and mints the
         // CursorCollectionResult; the executor never inspects a row's values.
-        return $cursors($probed, $hasMore);
+        $result = $cursors($probed, $hasMore, $total);
+
+        // A cursors closure that drops the total would answer an accepted
+        // ?withCount=_self_ with no meta.total and no error.
+        if ($result->total !== $total) {
+            throw new \LogicException(\sprintf(
+                'The cursors closure given to %s::runCursor() must carry the counted total (%s) onto its %s; it returned %s.',
+                self::class,
+                $total ?? 'null',
+                CursorCollectionResult::class,
+                $result->total ?? 'null',
+            ));
+        }
+
+        return $result;
     }
 }

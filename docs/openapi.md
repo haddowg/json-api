@@ -817,9 +817,11 @@ The examples show what the server sends and accepts:
   paginator always counts, which type or relation metadata reports through
   `DeclaresAlwaysCounted`, shows `last`, `meta.total` and `meta.page.total`, as every
   request gets them. A menu counts when its default strategy does, which is what its
-  `wantsCount()` reports, and a cursor page never counts. Otherwise a countable collection
-  on a server that registers the Countable profile shows what a `withCount=_self_` request
-  gets, the parameter and the profile included. Any other collection shows the count-free
+  `wantsCount()` reports, and a cursor paginator never counts every request. Otherwise a countable
+  collection on a server that registers the Countable profile shows what a
+  `withCount=_self_` request gets, the parameter and the profile included. On a cursor
+  page that is `meta.total` alone, with no `last` and no `meta.page.total`. Any other
+  collection shows the count-free
   page. An unpaginated collection carries `meta.total`,
   which the server always renders for one.
 - A resource's [declared links](links-and-meta.md#declared-links) are in its `links`,
