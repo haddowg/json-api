@@ -346,8 +346,8 @@ plain `$ref`:
   from the related type, and its related `?withCount` offers no relations of it. A
   relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
 
-A `MorphToMany` declared with [`identifiedBy()`](relations.md#identifying-the-members-without-loading-them)
-is the one exception: its relationship endpoint pages its stored pairs, so it takes the
+A `MorphToMany` declared with [`identifiedByRows()` or `identifiedBy()`](relations.md#identifying-the-members-without-loading-them)
+is the one exception, projected the same whichever it uses: its relationship endpoint pages its stored pairs, so it takes the
 same `page` and `withCount` parameters as its related endpoint. With
 [pivot fields](relations.md#pivot-fields-on-the-link-rows) on its link rows, both its
 endpoints also take the `filter[<key>]` and `sort` parameters of the relation's own

@@ -27,9 +27,11 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * {@see PolymorphicSerializer} that resolves and delegates per member. Authors
  * declare one with {@see make()}, which returns a mutable {@see MorphToManyBuilder}.
  *
- * Declared with {@see MorphToManyBuilder::identifiedBy()}, the relation reads its
- * members' `[type, id]` pairs off the parent instead, so its linkage never loads a
- * member. {@see storedIdentifiers()} gives a host the pairs of many parents grouped by
+ * Declared with {@see MorphToManyBuilder::identifiedByRows()} or
+ * {@see MorphToManyBuilder::identifiedBy()}, the relation reads its members' `[type, id]`
+ * pairs off the parent's link rows instead, so its linkage never loads a member. The
+ * first declares the rows' fields ({@see linkRowFields()}), so a data layer can query
+ * the rows itself; the second reads them through a closure only core can run. {@see storedIdentifiers()} gives a host the pairs of many parents grouped by
  * type, to load each type's members in one query.
  *
  * An identified relation can declare **pivot fields** on the rows it reads its pairs
@@ -52,6 +54,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         private ?\Closure $identifiedBy = null,
         private array $pivotFields = [],
         private ?string $pivotThrough = null,
+        private ?LinkRowFields $linkRowFields = null,
     ) {
         parent::__construct($state, $relationState);
     }
@@ -71,7 +74,17 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
 
     public function storesIdentifiers(): bool
     {
-        return $this->identifiedBy !== null;
+        return $this->identifiedBy !== null || $this->linkRowFields !== null;
+    }
+
+    /**
+     * How the link rows map to members, when the relation was declared with
+     * `identifiedByRows()`: what a data layer reads to query the rows itself. `null` for
+     * a relation declared with `identifiedBy()`, whose rows only the closure can read.
+     */
+    public function linkRowFields(): ?LinkRowFields
+    {
+        return $this->linkRowFields;
     }
 
     /**
@@ -95,9 +108,12 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
 
     /**
      * The members the parent stores, in order, each carrying the link row its pair was
-     * read from when the `identifiedBy()` closure returned one. A pair repeated in the
-     * list is kept once, at its first position. These are the rows the relation's pivot
-     * fields read and a {@see LinkRowQuery} filters, sorts and pages.
+     * read from. Declared with `identifiedByRows()`, they are the relation's value on the
+     * parent, one member per row that names a declared type and an id, other rows left
+     * out. Declared with `identifiedBy()`, they are what the closure returns, with a row
+     * when it returned one. A pair repeated in the list is kept once, at its first
+     * position. These are the rows the relation's pivot fields read and a
+     * {@see LinkRowQuery} filters, sorts and pages.
      *
      * @return list<IdentifiedMember>
      *
@@ -108,8 +124,12 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
      */
     public function identifiedMembers(mixed $model, JsonApiRequestInterface $request): array
     {
+        if ($this->linkRowFields !== null) {
+            return $this->rowMembers($model, $request, $this->linkRowFields);
+        }
+
         if ($this->identifiedBy === null) {
-            throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedBy(), so it stores no identifiers.', $this->state->name));
+            throw new \LogicException(\sprintf('MorphToMany relation "%s" was not declared with identifiedBy() or identifiedByRows(), so it stores no identifiers.', $this->state->name));
         }
 
         $returned = ($this->identifiedBy)($model, $request);
@@ -199,7 +219,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
      */
     public function emitsDataOnlyWhenLoaded(): bool
     {
-        return $this->identifiedBy === null && parent::emitsDataOnlyWhenLoaded();
+        return !$this->storesIdentifiers() && parent::emitsDataOnlyWhenLoaded();
     }
 
     public function buildRelationship(
@@ -225,7 +245,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         // relation's members per (parent, relation), for example narrowed to the rows
         // each member type's provider admits, without writing them onto the parent.
         $linkage = $this->relationshipLinkage($model, $request, $resolver);
-        if ($this->identifiedBy !== null) {
+        if ($this->storesIdentifiers()) {
             $relationship->setStoredMembers($this->storedMembers($model, $request, $resolver, $linkage), $serializer);
         } elseif ($linkage !== null) {
             $relationship->setData($linkage->data, $serializer);
@@ -248,15 +268,16 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
 
     protected function shouldDeferLinkage(mixed $model, SerializerResolverInterface $resolver): bool
     {
-        return $this->identifiedBy === null && parent::shouldDeferLinkage($model, $resolver);
+        return !$this->storesIdentifiers() && parent::shouldDeferLinkage($model, $resolver);
     }
 
     /**
      * The members to render as the linkage: the host-supplied ones, or else the pairs
-     * the parent stores, ordered by the relation's default sort over their rows. A
-     * member whose type has no registered serializer is left out. A member with no
-     * supplied target is matched, only if the relationship is included, against the
-     * relation's usual value on the parent. Each carries its `meta.pivot` and its
+     * the parent stores, ordered by the relation's default sort over their rows, ties
+     * broken as a declared row query breaks them. A member whose type has no registered
+     * serializer is left out. A member with no supplied target is matched, only if the
+     * relationship is included, against the relation's usual value on the parent, unless
+     * that value is the link rows themselves. Each carries its `meta.pivot` and its
      * identifier meta.
      *
      * @return list<array{type: string, id: string, resource: SerializerInterface, target: \Closure(): mixed, meta: array<string, mixed>}>
@@ -272,15 +293,15 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         } else {
             $members = $this->identifiedMembers($model, $request);
             $order = RelationSorts::ownDefault($this);
-            if ($order !== []) {
-                $members = (new InMemoryLinkRows())->apply($members, new LinkRowQuery($order))->items;
+            if ($order !== [] || $this->linkRowFields !== null) {
+                $members = (new InMemoryLinkRows())->apply($members, new LinkRowQuery($order, fields: $this->linkRowFields))->items;
             }
         }
 
         $onParent = null;
         $readParent = function () use (&$onParent, $model, $request): array {
             if ($onParent === null) {
-                $value = $this->relatedValue($model, $request, $this->state->name);
+                $value = $this->linkRowFields === null ? $this->relatedValue($model, $request, $this->state->name) : [];
                 $onParent = [];
                 foreach (\is_iterable($value) ? $value : [] as $object) {
                     if (\is_object($object)) {
@@ -339,7 +360,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         foreach (\is_iterable($linkage->data) ? $linkage->data : [] as $member) {
             if (!$member instanceof IdentifiedMember) {
                 throw new \LogicException(\sprintf(
-                    'The linkage supplied for MorphToMany relation "%s", declared with identifiedBy(), must list %s values; got %s.',
+                    'The linkage supplied for MorphToMany relation "%s", which stores its identifiers, must list %s values; got %s.',
                     $this->state->name,
                     IdentifiedMember::class,
                     \get_debug_type($member),
@@ -349,6 +370,43 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             $this->assertDeclared($model, $member->type);
             $this->assertRow($member, $model);
             $members[] = $member;
+        }
+
+        return $members;
+    }
+
+    /**
+     * @return list<IdentifiedMember>
+     */
+    private function rowMembers(mixed $model, JsonApiRequestInterface $request, LinkRowFields $fields): array
+    {
+        $rows = $this->relatedValue($model, $request, $this->state->name);
+        if ($rows === null) {
+            return [];
+        }
+
+        if (!\is_iterable($rows)) {
+            throw new \LogicException(\sprintf(
+                'MorphToMany relation "%s", declared with identifiedByRows(), reads its link rows as its value on the parent, which is %s on a parent of type %s; it must be iterable. Point storedAs() or extractUsing() at the parent\'s link rows.',
+                $this->state->name,
+                \get_debug_type($rows),
+                \get_debug_type($model),
+            ));
+        }
+
+        $members = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $member = $fields->member($row);
+            if ($member === null) {
+                continue;
+            }
+
+            $key = $member->type . "\0" . $member->id;
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $members[] = $member;
+            }
         }
 
         return $members;

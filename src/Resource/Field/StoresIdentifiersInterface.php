@@ -15,8 +15,8 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 interface StoresIdentifiersInterface extends RelationInterface
 {
     /**
-     * Whether the relation was declared with `identifiedBy()`, so its targets'
-     * identifiers are read off the parent.
+     * Whether the relation was declared with `identifiedBy()`, or for a `MorphToMany`
+     * `identifiedByRows()`, so its targets' identifiers are read off the parent.
      */
     public function storesIdentifiers(): bool;
 

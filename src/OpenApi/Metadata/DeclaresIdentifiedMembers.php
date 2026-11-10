@@ -6,7 +6,7 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
 
 /**
  * Relation metadata that says whether a polymorphic to-many reads its members as stored
- * `[type, id]` pairs, a `MorphToMany` declared with `identifiedBy()`. Its relationship
+ * `[type, id]` pairs, a `MorphToMany` declared with `identifiedBy()` or `identifiedByRows()`. Its relationship
  * endpoint pages the pairs like its related endpoint, so the projector gives that
  * operation the same page and `withCount` parameters, and the `filter` and `sort`
  * parameters of the relation's own filters and sorts. Report the pivot fields of its link

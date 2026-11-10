@@ -106,6 +106,12 @@ The stored row an identified polymorphic to-many reads one member's type and id 
 fields render as the member's `meta.pivot`, and its endpoints filter and sort over them.
 _Avoid_: join row (for a polymorphic relation), morph pivot
 
+**Link-row fields**:
+The declaration of the fields of a **Link row** that point at its owner and hold its member's
+stored type and id, with an optional map from stored type to JSON:API type. It lets a data layer
+query the rows itself, under the counting, narrowing and tiebreak rules core sets.
+_Avoid_: morph columns, link-row columns
+
 **Position**:
 The stored integer a positioned to-many **Relation** keeps per member, set by the server from the
 member's place in the linkage and never by a client.

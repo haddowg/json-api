@@ -10,17 +10,24 @@ use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Schema\Relationship\IdentifiedMember;
 
 /**
- * Reads one parent's link rows for a {@see MorphToMany} declared with `identifiedBy()`,
- * filtered, sorted and paged per a {@see LinkRowQuery}: what the relation's
- * relationship and related endpoints and its windowed linkage read.
+ * Reads one parent's link rows for an identified {@see MorphToMany}, filtered, sorted and
+ * paged per a {@see LinkRowQuery}: what the relation's relationship and related
+ * endpoints and its windowed linkage read.
  *
- * A data layer implements it over its own storage: association entities on Doctrine, a
- * morph pivot or row model on Eloquent, applying each sort and filter to the row's
- * column ({@see LinkRowQuery::rowColumn()}) through its own handlers. Each returned
+ * A data layer implements it over its own storage for a relation declared with
+ * `identifiedByRows()`, reading everything it needs off the query and its
+ * {@see LinkRowQuery::$fields}: select rows of the `through` class whose owner field is
+ * the parent and whose type field holds one of {@see LinkRowQuery::typeValues()} or,
+ * with its id, matches {@see LinkRowQuery::admittedIds()}; apply each filter and sort
+ * to the row's column ({@see LinkRowQuery::rowColumn()}) through its own handlers;
+ * order ties by {@see LinkRowQuery::tiebreak()}, ascending; then page. Turn each row
+ * into its member with {@see LinkRowQuery::member()}. Each returned
  * {@see IdentifiedMember} carries its row, so core renders its `meta.pivot`, and the
  * host's {@see \haddowg\JsonApi\Serializer\RelationshipLinkageInterface} supplies the
- * page as the relation's linkage. {@see InMemoryLinkRows} is the reference, over the
- * rows the relation's `identifiedBy()` closure returns.
+ * page as the relation's linkage.
+ *
+ * A relation declared with `identifiedBy()` has no declared fields, and is served by
+ * {@see InMemoryLinkRows}, the reference every implementation must agree with.
  */
 interface LinkRowQueryInterface
 {
