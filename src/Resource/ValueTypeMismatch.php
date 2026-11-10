@@ -16,7 +16,8 @@ final readonly class ValueTypeMismatch
      * @param string         $pointer  the JSON Pointer of the value, as `/data/attributes/rows/0/Key`
      * @param FieldInterface $field    the field the value was written to; for an element of a list of
      *                                 scalars, the list
-     * @param string         $expected the JSON type the value must have, one of the {@see ValueTypes} constants
+     * @param string         $expected the JSON type the value must have, one of the {@see ValueTypes} constants,
+     *                                 or for a {@see Field\Union} its members' types joined by `|`
      * @param mixed          $value    the value as the request sent it, `null` when the field is not nullable
      */
     public function __construct(
@@ -33,6 +34,16 @@ final readonly class ValueTypeMismatch
     public function isNull(): bool
     {
         return $this->value === null;
+    }
+
+    /**
+     * The JSON types the value may have: one, or each member type of a union.
+     *
+     * @return list<string>
+     */
+    public function expectedTypes(): array
+    {
+        return \explode('|', $this->expected);
     }
 
     /**

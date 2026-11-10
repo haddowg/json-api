@@ -128,12 +128,22 @@ final class Schema implements \JsonSerializable
     }
 
     /**
-     * Widens an existing scalar `type` to also allow `null`. A no-op when the
-     * type is already a union or unset.
+     * Widens an existing `type` to also allow `null`, appending it to a list of types.
+     * A no-op when the type already admits `null` or is unset.
      */
     public function asNullable(): self
     {
         $type = $this->keywords['type'] ?? null;
+        if (\is_array($type)) {
+            if (\in_array('null', $type, true)) {
+                return $this;
+            }
+
+            $self = clone $this;
+            $self->keywords['type'] = [...\array_values($type), 'null'];
+
+            return $self;
+        }
         if (!\is_string($type)) {
             return $this;
         }
@@ -151,6 +161,15 @@ final class Schema implements \JsonSerializable
     public function hasScalarType(): bool
     {
         return \is_string($this->keywords['type'] ?? null);
+    }
+
+    /**
+     * Whether `type` lists several types, as a {@see \haddowg\JsonApi\Resource\Field\Union}'s
+     * compact schema does. {@see asNullable()} widens it too.
+     */
+    public function hasTypeList(): bool
+    {
+        return \is_array($this->keywords['type'] ?? null);
     }
 
     public function withFormat(string $format): self
@@ -429,6 +448,16 @@ final class Schema implements \JsonSerializable
     public function get(string $keyword): mixed
     {
         return $this->keywords[$keyword] ?? null;
+    }
+
+    /**
+     * Every standard keyword as set, nested nodes left as {@see Schema} instances.
+     *
+     * @return array<string, mixed>
+     */
+    public function keywords(): array
+    {
+        return $this->keywords;
     }
 
     /**

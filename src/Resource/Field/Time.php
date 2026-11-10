@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Time extends DateTime
 {
-    public static function make(string $name): TimeBuilder
+    public static function make(string $name = ''): TimeBuilder
     {
         return new TimeBuilder($name);
     }

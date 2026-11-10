@@ -17,9 +17,9 @@ them exercise every type here.
 
 A written value must already have the JSON type its field's write schema documents: a
 string for `Str` and its facades, the date fields and a string enum, an integer for
-`Integer`, a number for `Decimal`, a boolean for `Boolean`, a list for `ArrayList` and an
-object for `Obj`, `OneOf`, `Map` and `ArrayHash`. A list's elements take the type `of()`
-gives them. The casts never convert between types, so `"1"` for an `Integer`, `"yes"`
+`Integer`, a number for `Decimal`, a boolean for `Boolean`, a list for `ArrayList`, an
+object for `Obj`, `OneOf`, `Map` and `ArrayHash`, and one of its members' types for a
+[`Union`](#union). A list's elements take the type `of()` gives them. The casts never convert between types, so `"1"` for an `Integer`, `"yes"`
 or `1` for a `Boolean` and `42` for a `Str` each get a `422` at the value's pointer.
 `null` passes only where the field is `nullable()`. A whole float such as `3.0` counts
 as an integer, and an integer counts as a number.
@@ -522,11 +522,13 @@ A zero-indexed array attribute (JSON `type: array`).
 |---|---|
 | `of(string $elementType)` | Types the projected `items` schema as `string`, `integer`, `number` or `boolean` (default `string`, so a list never projects as untyped); it does not cast values. |
 | `of(Obj\|OneOf $element)` | Makes a list of [structured elements](#lists-of-structured-elements), each read and written through the shape's children. Builders are accepted too. |
+| `of(Union $element)` | Makes a [list of unions](#lists-of-unions): each element is a string, number, boolean or list, as the union's members allow. Pass an unnamed `Union::of(...)`. |
 | `minItems(int)` / `maxItems(int)` | `MinItems` / `MaxItems`. |
 | `uniqueItems()` | `UniqueItems`. |
 | `each(ConstraintInterface ...$constraints)` | `Each` — applies the given constraints to every item. Scalar lists only. |
 | `sorted()` | Sorts the list on serialization. Scalar lists only. |
 | `element()` | The built `Obj` or `OneOf` of a structured list, `null` for a scalar one (for adapters and projection). |
+| `elementUnion()` | The built `Union` of a list of unions, `null` otherwise. |
 
 The track's [`genres`](../examples/music-catalog/src/Resource/TrackResource.php)
 is the worked example — at least one genre, each a non-empty string, no
@@ -609,6 +611,164 @@ the `Obj` or `OneOf` would project as an attribute, and the list's own `minItems
 the update schema requires the same children and discriminator inside an element that
 a create does. An operation example builds each element from its children's examples,
 so a child with no example is reported missing, as an `Obj` child is.
+
+## `Union`
+
+A value that can be one of several JSON primitive types, or a list of them. Reach for it
+when the type depends on data you don't know until runtime, such as a setting whose value
+is a label, an amount, a flag or a list of those. A `OneOf` won't do, since its variants
+are objects, and an untyped field throws away what you do know.
+
+| Method | Effect |
+|---|---|
+| `of(FieldInterface ...$members)` | Declares the members, at most one per JSON type. |
+| `Union::of(...$members)` | An unnamed union, for a list's elements. |
+| `members()` | The built members, ordered string, number, boolean, array. |
+| `memberFor(mixed $value)` | The member a written value's JSON type selects, or `null`. |
+| `memberForStored(mixed $value)` | The member a stored value's PHP type selects, or `null`. |
+
+```php
+Union::make('value')->of(
+    Str::make()->maxLength(200),
+    Decimal::make(),
+    Boolean::make(),
+    ArrayList::make()->of(Union::of(Str::make(), Decimal::make(), Boolean::make())),
+)->nullable();
+```
+
+accepts `"gold"`, `2.5`, `true`, `["gold", 2.5, false]` and `null`.
+
+A member is an unnamed field, so `make()` takes no name. Its name is never used. It can
+be one of four kinds:
+
+- a string-family field: `Str` or one of its facades (`Email`, `Url`, `Uuid`, `Slug`,
+  `Ip`), or `DateTime`, `Date` or `Time`;
+- a number: `Integer` or `Decimal`;
+- a `Boolean`;
+- an `ArrayList` of scalars, or of a nested `Union::of()`.
+
+`Obj`, `OneOf`, `Map`, `ArrayHash` and a list of objects are refused, and so is a union
+member directly. There is no discriminator.
+
+### One member per JSON type
+
+A union takes at most one string member, one number member, one boolean and one list. An
+`Integer` and a `Decimal` count as the same type, so a union can't hold both. A second
+member of a type throws a `LogicException` when the union is built.
+
+The rule is what keeps a union simple to reason about. A value's JSON type names exactly
+one member, so there is never doubt over whose rules apply: a string meets the string
+member's `maxLength`, a list the list member's `maxItems`. It also fixes the PHP type a
+write stores, a `float` from a `Decimal` member or a `\DateTimeImmutable` from a `Date`.
+And it keeps the projected schema exact, as [below](#the-generated-schema).
+
+Presence, visibility and hooks belong on the union, not on a member. A member declaring
+`required()`, `nullable()`, `readOnly()`, `hidden()`, `writeOnly()`, `on()` or one of the
+four hooks throws a `LogicException` when the union is built.
+
+### Reads and writes
+
+A write picks the member by the value's JSON type. That member casts it, so `3` sent to a
+union with a `Decimal` member stores `3.0`, and a `Date` member parses its string to a
+`\DateTimeImmutable`. Inside an `Obj`, a `OneOf` variant or a list, a date member stores a
+string instead, as a [nested date](#nested-dates-are-stored-as-strings) does. A cast that
+fails, such as an impossible date, is a `422` at the union's pointer, or at the element's
+inside a list member (`/data/attributes/value/2`).
+
+A value no member takes is a type mismatch: `{}` for a union with no object member, `1.5`
+for one whose number member is an `Integer`, or `null` for one that isn't nullable.
+`ValueTypes::mismatchesIn()` returns each as one mismatch at its pointer whose `expected`
+joins the union's types with `|` (`string|number|boolean|array`), and `expectedTypes()`
+lists them. A value of a member's type then meets that member's own constraints at the
+same pointer, and a list member's elements at their own.
+
+A read picks the member by the stored value's PHP type. A string goes to the string
+member, as does a `\DateTimeInterface` when the string member is a date. An `int` or
+`float` goes to the number member, a `bool` to the boolean member and a list to the list
+member. A backed enum goes by its value. That member renders the value, so a `Decimal`
+member renders a stored `3` as `3.0` and a `Date` member formats its instant. A stored value
+no member takes renders unchanged, as a `OneOf` value naming no variant does. That keeps a
+response from failing over one odd row, but the value won't match the schema, so keep what
+you store within the members.
+
+### Lists of unions
+
+`ArrayList::make('values')->of(Union::of(Str::make(), Decimal::make()))` makes each element
+of the list a string or a number. Each element is cast by its own member and checked at
+`/data/attributes/values/<index>`. A list never holds `null` in place of an element, so the
+element union can't be `nullable()`, and the list takes no `sorted()` and no `each()`, since
+mixed types share no order and the members carry the per-element rules.
+
+### In a data layer
+
+Hydration needs nothing from an adapter: the union casts through its member itself. Rule
+validation is the adapter's job, and core makes the value-dependent choice for it.
+`UnionValues::in()` takes the resource's fields and the body's attributes and returns a
+`UnionValue` for each place a member applies, at any depth: a union attribute, a union
+inside an `Obj`, `Map` or `OneOf` variant, an open object's member field, each element of
+a list of unions, and each element of a union's list member. Each one carries the
+`pointer`, the `union`, the selected `member` and the `value`, so an adapter translates
+that member's constraints and validates the value at that pointer, as it does for any
+field. `UnionValues::of()` walks one value from a pointer you give it, for a pivot field
+in a linkage member's `meta`. A `null`, and a value no member takes, isn't returned, since
+presence and the type check report those.
+
+A required union refuses an empty string or list but accepts `false` and `0`. Each
+`UnionValue` says so in `nonEmpty`, set when the union is required in the write's context
+and the selected member is its string or list member, and `isRefusedAsEmpty()` answers for
+its value. So an adapter adds its own non-empty rule to the member's constraints when
+`nonEmpty` is set. For the presence rule on the union itself, ask
+`ValueTypes::requiredRefusesEmpty()` of every field: it is `true` for strings, lists and
+objects and `false` for numbers, booleans, a `OneOf` and a `Union`, so a required union
+only has to be present and not `null` there.
+
+### The generated schema
+
+A union projects one schema whose `type` lists its members' types, `null` included when it
+is nullable, with the members' keywords that only constrain their own type merged in:
+`format`, `minLength`, `maxLength` and `pattern` for the string member, `minimum`,
+`maximum`, `exclusiveMinimum`, `exclusiveMaximum` and `multipleOf` for the number member,
+and `minItems`, `maxItems`, `uniqueItems` and `items` for the list member. The example
+above projects as
+
+```json
+{
+  "type": ["string", "number", "boolean", "array", "null"],
+  "maxLength": 200,
+  "items": { "type": ["string", "number", "boolean"] }
+}
+```
+
+JSON Schema applies each of those keywords only to a value of its type, so the merged
+schema accepts exactly what the members accept. That is only true because each type has
+one member. Two string members with different `maxLength`s would leave nothing to merge.
+
+A keyword that isn't scoped to one type, such as `enum`, `const`, a hoisted enum's `$ref`
+or a member's own description, would constrain every member's values. When any member
+carries one, the union projects a `oneOf` of the members' schemas instead, with `null` as
+its own branch:
+
+```php
+Union::make('threshold')->of(Str::make()->in(['auto', 'off']), Integer::make()->min(0))->nullable();
+```
+
+```json
+{
+  "oneOf": [
+    { "type": "string", "enum": ["auto", "off"] },
+    { "type": "integer", "minimum": 0 },
+    { "type": "null" }
+  ]
+}
+```
+
+The branches are exclusive because their types are. A required union refuses an empty
+string or list, not `false` or `0`, so the schema carries `minLength: 1` and `minItems: 1`
+for its string and list members only. The union's own description and example sit on the
+schema itself. An operation example uses the union's example, or failing that the first
+member's, in member order. The body-validation schema from `SchemaCompiler` is the same
+schema, and a document holding a union declares the `UNIONS` contract tier in its
+[`x-generator`](openapi.md#the-generator-contract-x-generator) stamp.
 
 ## `ArrayHash`
 

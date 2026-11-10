@@ -36,6 +36,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\ValueTypes;
 
 /**
@@ -121,10 +122,54 @@ final class SchemaProjector
             $field instanceof Map => $this->projectNestedObject($field, $field->children(), $creating, $collector),
             $field instanceof ArrayList && $field->element() !== null => Schema::ofType('array')
                 ->withItems($this->projectListElement($field, $field->element(), $creating, $collector)),
+            $field instanceof ArrayList && $field->elementUnion() !== null => Schema::ofType('array')
+                ->withItems($this->projectElementUnion($field->elementUnion(), $creating, $collector)),
             default => $this->typeSchema($field),
         };
 
         return $this->applyFieldPostProcessing($schema, $field, $creating, $collector);
+    }
+
+    /**
+     * Projects one member of a {@see Union}: its type and its own constraints, with its
+     * description and example. Presence and `null` belong to the union, so neither is
+     * applied here. An {@see ArrayList} member's `items` is its element union's schema.
+     */
+    public function projectUnionMember(FieldInterface $member, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        $union = $member instanceof ArrayList ? $member->elementUnion() : null;
+        $schema = $union === null
+            ? $this->typeSchema($member)
+            : Schema::ofType('array')->withItems($this->projectElementUnion($union, $creating, $collector));
+
+        $itemType = $member instanceof ArrayList ? $member->elementType() : 'string';
+        $applies = $this->narrowingScope($member, $creating);
+        $notes = $this->temporalShapeNotes($member);
+        foreach ($member->constraints() as $constraint) {
+            if ($applies($constraint->context())) {
+                $schema = $this->applyConstraint($schema, $constraint, $applies, $notes, $collector, $itemType);
+            }
+        }
+
+        return $this->applyExample($this->applyDescription($schema, $member, $notes), $member);
+    }
+
+    /**
+     * Projects a list's element {@see Union} as it would project as an attribute, less the
+     * `null` a list never holds in place of an element.
+     */
+    private function projectElementUnion(Union $union, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        $schema = $union->projectFieldSchema($this, $creating, $collector);
+        $applies = $this->narrowingScope($union, $creating);
+        $notes = [];
+        foreach ($union->constraints() as $constraint) {
+            if ($applies($constraint->context())) {
+                $schema = $this->applyConstraint($schema, $constraint, $applies, $notes, $collector);
+            }
+        }
+
+        return $this->applyExample($this->applyDescription($schema, $union, $notes), $union);
     }
 
     /**
@@ -1048,6 +1093,8 @@ final class SchemaProjector
 
         if ($schema->hasScalarType()) {
             $schema = $this->allowNullInEnum($schema->asNullable());
+        } elseif ($schema->hasTypeList()) {
+            $schema = $schema->asNullable();
         }
 
         // A combinator must also admit `null` explicitly: widening the type
@@ -1259,7 +1306,8 @@ final class SchemaProjector
 
     /**
      * Projects the non-empty half of an unconditional {@see Required}: a required value
-     * may not be an empty string, list or object, in either context (absence is the
+     * may not be an empty string, list or object, in either context, and a required
+     * {@see Union}'s value may not be an empty string or list (absence is the
      * other half, carried by the object's `required` list). A boolean or number has no
      * keyword for it, and a `Required` inside a {@see When} applies only to some
      * requests, so neither narrows the schema.
@@ -1280,7 +1328,33 @@ final class SchemaProjector
             return $schema;
         }
 
-        $keyword = match ($schema->get('type')) {
+        // A union's value is non-empty only when its string or list member takes it: each
+        // keyword is scoped to one type, so the compact schema carries both, and a `oneOf`
+        // puts each on its own branch.
+        if (!$field instanceof Union) {
+            return $this->nonEmptyOf($schema, $schema->get('type'));
+        }
+
+        $branches = $schema->get('oneOf');
+        if (\is_array($branches)) {
+            /** @var list<Schema> $branches */
+            return $schema->withOneOf(\array_map(fn(Schema $branch): Schema => $this->nonEmptyOf($branch, $branch->get('type')), $branches));
+        }
+
+        $types = $schema->get('type');
+        foreach (\is_array($types) ? $types : [] as $type) {
+            $schema = $this->nonEmptyOf($schema, $type);
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Narrows a schema to refuse the empty value of one type it takes.
+     */
+    private function nonEmptyOf(Schema $schema, mixed $type): Schema
+    {
+        $keyword = match ($type) {
             'string' => 'minLength',
             'array' => 'minItems',
             'object' => 'minProperties',

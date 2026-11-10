@@ -21,6 +21,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
@@ -608,6 +609,18 @@ final class ExampleDocumentBuilder
             return [$this->value($field->element(), $context, $type, $path)];
         }
 
+        $union = $field instanceof ArrayList ? $field->elementUnion() : null;
+        if (!$hooked && $union !== null && $this->unionExample($union) !== null) {
+            return [$this->value($union, $context, $type, $path)];
+        }
+
+        if (!$hooked && $field instanceof Union) {
+            $member = $this->unionExample($field);
+            if ($member !== null) {
+                return $this->value($member, $context, $type, $path);
+            }
+        }
+
         if (!$hooked && $field instanceof OneOf) {
             foreach ($field->variants() as $variant => $shape) {
                 $nested = $this->nested($shape->children(), $context, $type, $path);
@@ -624,6 +637,26 @@ final class ExampleDocumentBuilder
         }
 
         $this->miss($type, $path);
+
+        return null;
+    }
+
+    /**
+     * The first member of a union, in member order, an example can be built from: one
+     * declaring its own, or a list of a union that has one.
+     */
+    private function unionExample(Union $union): ?FieldInterface
+    {
+        if ($union->hasExample()) {
+            return $union;
+        }
+
+        foreach ($union->members() as $member) {
+            $element = $member instanceof ArrayList ? $member->elementUnion() : null;
+            if ($member->hasExample() || ($element !== null && $this->unionExample($element) !== null)) {
+                return $member;
+            }
+        }
 
         return null;
     }

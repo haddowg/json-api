@@ -12,7 +12,7 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Integer extends AbstractFieldValue
 {
-    public static function make(string $name): IntegerBuilder
+    public static function make(string $name = ''): IntegerBuilder
     {
         return new IntegerBuilder($name);
     }

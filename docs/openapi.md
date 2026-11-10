@@ -162,6 +162,12 @@ sketch:
   `SchemaCompiler` keeps read-only members as accepted ones, as it keeps a read-only
   child. A document holding an open object declares the `OPEN_OBJECTS` contract tier in
   its [`x-generator`](#the-generator-contract-x-generator) stamp.
+- **Unions.** A [`Union`](field-types.md#union) projects one schema whose `type` lists
+  its members' JSON types, with each member's type-scoped keywords beside it, or a `oneOf`
+  of the members' schemas once a member carries `enum`, `const`, a `$ref` or another
+  keyword not scoped to its type. A nullable union adds `null` to the `type` list, or a
+  `null` branch to the `oneOf`. A document holding a union declares the `UNIONS` contract
+  tier in its [`x-generator`](#the-generator-contract-x-generator) stamp.
 - **Read-only children.** A nested object's child that is read-only for a write is left
   out of that write's shape, as a read-only attribute is, in a `Map`, an `Obj`, each
   `OneOf` branch and a structured list's element. A child read-only only by a `when:`

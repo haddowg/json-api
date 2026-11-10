@@ -13,7 +13,7 @@ final class Url extends StrBuilder
     /**
      * @return static
      */
-    public static function make(string $name): static
+    public static function make(string $name = ''): static
     {
         $field = new static($name);
 

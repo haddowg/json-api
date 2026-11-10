@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-three scoped
+ * is warned only by the documents that contain it. There are twenty-four scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -69,8 +69,9 @@ namespace haddowg\JsonApi\OpenApi;
  * `filter[<key>][]` ({@see LIST_FILTERS}), the declared members of a linkage
  * identifier's `meta` ({@see IDENTIFIER_META}), an object open to members it does
  * not declare ({@see OPEN_OBJECTS}), the queried link rows of a polymorphic to-many
- * identified by stored pairs ({@see IDENTIFIED_PIVOTS}) and the error code of a relation
- * whose members are fixed ({@see FIXED_MEMBERSHIP}).
+ * identified by stored pairs ({@see IDENTIFIED_PIVOTS}), the error code of a relation
+ * whose members are fixed ({@see FIXED_MEMBERSHIP}) and a value of several primitive
+ * types ({@see UNIONS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -85,7 +86,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 30;
+    public const CONTRACT = 31;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -290,6 +291,14 @@ final class GeneratorContract
     public const FIXED_MEMBERSHIP = 30;
 
     /**
+     * The contract that introduced primitive unions: a schema whose `type` lists several
+     * JSON types, each member's type-scoped keywords beside it, or, when a member carries
+     * a keyword not scoped to its type such as `enum`, a `oneOf` of one schema per member.
+     * A document carries it only when some field declares a {@see \haddowg\JsonApi\Resource\Field\Union}.
+     */
+    public const UNIONS = 31;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -318,6 +327,7 @@ final class GeneratorContract
         bool $openObjects = false,
         bool $identifiedPivots = false,
         bool $fixedMembership = false,
+        bool $unions = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -344,6 +354,7 @@ final class GeneratorContract
             $openObjects ? self::OPEN_OBJECTS : self::BASELINE,
             $identifiedPivots ? self::IDENTIFIED_PIVOTS : self::BASELINE,
             $fixedMembership ? self::FIXED_MEMBERSHIP : self::BASELINE,
+            $unions ? self::UNIONS : self::BASELINE,
         )];
     }
 }

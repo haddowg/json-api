@@ -128,12 +128,12 @@ final class SchemaCompiler
      */
     private function fieldSchema(\haddowg\JsonApi\Resource\Field\FieldInterface $field, bool $creating): array
     {
-        // A structured field (an Obj, a OneOf, a list of either, or an application's own
+        // A structured field (an Obj, a OneOf, a Union, a list of any of them, or an application's own
         // ProvidesFieldSchema composite) compiles exactly as the OpenAPI projection
         // describes it, so the two can never disagree about its shape. A child read-only
         // for the write stays optional here, since hydration ignores it rather than
         // rejecting it.
-        if ($field instanceof ProvidesFieldSchema || ($field instanceof ArrayList && $field->element() !== null)) {
+        if ($field instanceof ProvidesFieldSchema || ($field instanceof ArrayList && ($field->element() !== null || $field->elementUnion() !== null))) {
             return $this->projector->admittingReadOnly(fn(): array => $this->projector->projectField($field, $creating)->toArray());
         }
 

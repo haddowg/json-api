@@ -308,7 +308,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
         $slot = $field->column() ?? $field->name();
         foreach ($this->additionalMembersOf($value) as $key => $member) {
             try {
-                $scratch = $field instanceof DateTime
+                $scratch = $field instanceof DateTime || $field instanceof Union
                     ? $field->hydrateNested([], $member, $data, $request, $creating)
                     : $field->hydrate([], $member, $data, $request, $creating);
             } catch (AttributeValueInvalid $e) {
@@ -324,7 +324,8 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
 
     /**
      * Hydrates each writable child the request value carries onto `$nested`. A date
-     * child stores a string here, as {@see DateTime::hydrateNested()} explains.
+     * child, or a union's date member, stores a string here, as
+     * {@see DateTime::hydrateNested()} explains.
      *
      * @internal
      *
@@ -340,7 +341,7 @@ final readonly class Obj extends AbstractFieldValue implements ProvidesFieldSche
             }
 
             if (\array_key_exists($child->name(), $value)) {
-                $nested = $child instanceof DateTime
+                $nested = $child instanceof DateTime || $child instanceof Union
                     ? $child->hydrateNested($nested, $value[$child->name()], $data, $request, $creating)
                     : $child->hydrate($nested, $value[$child->name()], $data, $request, $creating);
             }
