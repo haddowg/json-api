@@ -1105,6 +1105,44 @@ A key in *neither* set still `400`s as an unrecognized parameter.
 > framework does not auto-wire join-table columns. Declare the metadata here and
 > point it at your handler.
 
+### Dropping the related type's filter defaults
+
+A filter on the related type can declare a [default](filters.md#default-values), and
+that default applies wherever the type's filters do, so it also narrows every read of a
+to-many to that type: its linkage, `?include`, `?withCount`, the related and
+relationship endpoints and a Relationship Queries window. When a relation should list
+every member, drop the default there with `withoutFilterDefaults()`:
+
+```php
+// TrackResource declares Where::make('explicit')->asBoolean()->default(false)
+HasMany::make('tracks', 'tracks')->withoutFilterDefaults('explicit'),
+
+// drops every default the related type declares
+HasMany::make('allTracks', 'tracks')->withoutFilterDefaults(),
+```
+
+With keys, only those keys' defaults stop applying. With none, every default the
+related type declares does. The filter itself stays, so `filter[explicit]=false` on
+`/albums/1/tracks` still narrows the members, and `/tracks` keeps its default. A
+default the relation declares on its own `withFilters()` filter is unaffected.
+
+Each named key must be a filter of the related type that declares a default. A
+polymorphic relation needs the key defaulted on at least one of its related types,
+since a default may belong to only some of them. The related type's filters are out of
+the builder's reach, so `RelationFilterDefaultsValidator` checks this at warm-up, beside
+`RelationOrderValidator`, and also refuses a dropped default on a custom filter that
+doesn't implement `HasRemovableDefault`. An empty key fails at declaration.
+
+A data layer reads the related type's filters through
+`RelationFilters::relatedFilters($relation, $relatedResource->allFilters())`, which
+returns them in order with each dropped default removed, then merges the relation's own
+filters as before. `RelationFilters::vocabulary($relation, $relatedFilters)` does both
+steps at once. Read them this way on every path that folds defaults in, so a relation
+drops the same defaults however a client reaches its members. The built relation
+reports its declaration through `DropsFilterDefaultsInterface`, which every core
+relation implements. Filter defaults aren't written into the OpenAPI document, so a
+dropped one changes nothing there.
+
 These vocabularies also drive the **relationship-queries profile**: a client that
 negotiates it can filter and sort a relationship's *linkage* from the primary
 request — `relatedQuery[<path>][filter][<key>]=…` / `[sort]=…` (shorthand `rQ`) —

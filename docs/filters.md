@@ -435,6 +435,13 @@ When two declared filters share a key, the first wins — the same first-match
 rule a handler uses to resolve a requested key to its declared filter. A custom
 filter opts in by implementing `HasDefaultValue` itself.
 
+A related type's defaults also narrow every to-many relation to that type. A relation
+can drop them with `withoutFilterDefaults()`, keeping the filters themselves; see
+[dropping the related type's filter defaults](relations.md#dropping-the-related-types-filter-defaults).
+The built-ins hand back a copy without the default through `HasRemovableDefault`, so a
+handler dispatches it as before. A custom defaulting filter needs that interface too if
+a relation is to drop its default.
+
 ## Fixed values
 
 `->fixed($value)` pins the compared value on a `Where` (or any convenience

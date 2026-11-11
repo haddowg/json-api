@@ -16,7 +16,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * typed value deserializer and the matching value constraint and build a plain
  * `Where`, so a handler's existing `instanceof Where` arm dispatches them unchanged.
  */
-final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\HasRemovableDefault, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
@@ -76,5 +76,25 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \h
     public function defaultValue(): mixed
     {
         return $this->default;
+    }
+
+    public function withoutDefault(): static
+    {
+        return new self(
+            key: $this->key,
+            column: $this->column,
+            operator: $this->operator,
+            deserialize: $this->deserialize,
+            singular: $this->singular,
+            default: null,
+            hasDefault: false,
+            constraints: $this->constraints,
+            description: $this->description,
+            hasExample: $this->hasExample,
+            example: $this->example,
+            fixedValue: $this->fixedValue,
+            hasFixed: $this->hasFixed,
+            deprecated: $this->deprecated,
+        );
     }
 }

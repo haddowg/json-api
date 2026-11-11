@@ -1,0 +1,3 @@
+# A relation drops its related type's filter defaults and keeps the filters
+
+A related type's filter defaults narrow every to-many to that type, and redeclaring each key on the relation was the only way out. A relation now declares `withoutFilterDefaults()`, which keeps each filter and drops only its default, through a `HasRemovableDefault::withoutDefault()` copy rather than a wrapper, since a wrapper would hide the `Where` or `WhereIn` class a handler dispatches on. `RelationFilterDefaultsValidator` checks the named keys at warm-up, and a polymorphic relation needs a key defaulted on only one of its related types, because they don't share a filter vocabulary.

@@ -9,7 +9,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see WhereIdIn}) — the built, readonly value object an adapter consumes. Authors
  * declare one with {@see make()}, which returns a mutable {@see WhereIdNotInBuilder}.
  */
-final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\HasDefaultValue, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\HasRemovableDefault, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
     use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
@@ -59,5 +59,22 @@ final readonly class WhereIdNotIn implements \haddowg\JsonApi\Resource\Deprecata
     public function defaultValue(): mixed
     {
         return $this->default;
+    }
+
+    public function withoutDefault(): static
+    {
+        return new self(
+            key: $this->key,
+            column: $this->column,
+            delimiter: $this->delimiter,
+            default: null,
+            hasDefault: false,
+            constraints: $this->constraints,
+            description: $this->description,
+            hasExample: $this->hasExample,
+            example: $this->example,
+            deprecated: $this->deprecated,
+            list: $this->list,
+        );
     }
 }
