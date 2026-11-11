@@ -13,6 +13,7 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\CountableSelfInterface;
+use haddowg\JsonApi\Serializer\PolymorphicSerializer;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Transformer\DocumentTransformer;
@@ -203,6 +204,68 @@ final class RelationshipCountValidationTest extends TestCase
         $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'comments'], self::COUNTS_ACCEPT));
     }
 
+    #[Test]
+    public function aMixedTypeCollectionAcceptsANameAnyMemberTypeCounts(): void
+    {
+        $serializer = $this->mixed(
+            new CountableSerializer('agencies', '1', countable: ['campaigns']),
+            new CountableSerializer('publishers', '2', countable: ['sites']),
+            new PlainSerializer('brands', '3'),
+        );
+
+        $result = $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'campaigns,sites'], self::COUNTS_ACCEPT));
+
+        self::assertArrayHasKey('data', $result);
+    }
+
+    #[Test]
+    public function aMixedTypeCollectionRejectsANameNoMemberTypeCounts(): void
+    {
+        $serializer = $this->mixed(
+            new CountableSerializer('agencies', '1', countable: ['campaigns']),
+            new PlainSerializer('brands', '3'),
+        );
+
+        try {
+            $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'campaigns,sites'], self::COUNTS_ACCEPT));
+            self::fail('Expected RelationshipCountNotAllowed.');
+        } catch (RelationshipCountNotAllowed $e) {
+            self::assertStringContainsString('sites', $e->getMessage());
+            self::assertStringNotContainsString('campaigns', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function aMixedTypeCollectionWithoutMembersCountsNothing(): void
+    {
+        $serializer = new PolymorphicSerializer(static fn(mixed $object): SerializerInterface => new CountableSerializer('agencies', '1', countable: ['campaigns']));
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $this->renderCollection($serializer, [['id' => '1']], new StubJsonApiRequest(['withCount' => 'campaigns'], self::COUNTS_ACCEPT));
+    }
+
+    #[Test]
+    public function aMixedTypeCollectionLeavesTheSelfTokenToTheOverride(): void
+    {
+        $serializer = $this->mixed(new CountableSelfSerializer('agencies', '1', selfCountable: true));
+        $request = new StubJsonApiRequest(['withCount' => CountableProfile::SELF_TOKEN], self::COUNTS_ACCEPT);
+
+        // A member type's own `_self_` countability does not make the mixed page countable.
+        try {
+            $this->renderCollection($serializer, [['id' => '1']], $request);
+            self::fail('Expected RelationshipCountNotAllowed.');
+        } catch (RelationshipCountNotAllowed) {
+        }
+
+        self::assertArrayHasKey('data', $this->renderCollection($serializer, [['id' => '1']], $request, countableSelfOverride: true));
+    }
+
+    private function mixed(SerializerInterface $first, SerializerInterface ...$rest): PolymorphicSerializer
+    {
+        return new PolymorphicSerializer(static fn(mixed $object): SerializerInterface => $first, [$first, ...$rest]);
+    }
+
     /**
      * @param array<string, mixed> $result
      */
@@ -253,6 +316,7 @@ final class RelationshipCountValidationTest extends TestCase
         SerializerInterface $serializer,
         array $objects,
         ?JsonApiRequestInterface $request = null,
+        ?bool $countableSelfOverride = null,
     ): array {
         $document = new CollectionDocument($serializer, null, [], null);
 
@@ -265,6 +329,7 @@ final class RelationshipCountValidationTest extends TestCase
             [],
             '',
             null,
+            $countableSelfOverride,
         );
 
         return (new DocumentTransformer())->transformResourceDocument($transformation)->result;

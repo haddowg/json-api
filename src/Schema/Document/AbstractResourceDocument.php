@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
+use haddowg\JsonApi\Serializer\PolymorphicSerializer;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Transformer\IncludePathGuard;
 use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
@@ -69,6 +70,10 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
      * to-one — is rejected. Either offence raises {@see RelationshipCountNotAllowed}
      * (400).
      *
+     * On a mixed-type primary (a {@see PolymorphicSerializer}) a name is countable when
+     * any of its member types counts it; each member renders its own count and a
+     * member whose type lacks the relation renders none.
+     *
      * A serializer that is not {@see CountableControlsInterface} declares no countable
      * relationships, and one that is not {@see CountableSelfInterface} is not
      * `_self_`-countable, so any `?withCount` against a bare serializer is rejected —
@@ -104,21 +109,44 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
             static fn(string $name): bool => $name !== \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
         ));
 
-        $countable = $primary instanceof CountableControlsInterface
-            ? $primary->getCountableRelationships($transformation->object)
-            : [];
-        // A relation write-only for this request renders no relationship object to
-        // carry a count, so it is not countable here either.
-        if ($primary instanceof \haddowg\JsonApi\Resource\AbstractResource) {
-            $countable = \array_values(\array_filter(
-                $countable,
-                static fn(string $name): bool => $primary->relationNamed($name)?->isWriteOnlyFor($transformation->request) !== true,
-            ));
-        }
+        $countable = $this->countableRelationships($primary, $transformation);
 
         $offending = [...$offending, ...\array_values(\array_diff($relationNames, $countable))];
         if ($offending !== []) {
             throw new RelationshipCountNotAllowed($offending);
         }
+    }
+
+    /**
+     * The relationship names `$serializer` can count for this request. A mixed-type
+     * serializer can count a name when any of its member types can, each member
+     * applying its own write-only exclusion.
+     *
+     * @return list<string>
+     */
+    private function countableRelationships(SerializerInterface $serializer, ResourceDocumentTransformation $transformation): array
+    {
+        if ($serializer instanceof PolymorphicSerializer) {
+            $names = [];
+            foreach ($serializer->members() as $member) {
+                \array_push($names, ...$this->countableRelationships($member, $transformation));
+            }
+
+            return \array_values(\array_unique($names));
+        }
+
+        $countable = $serializer instanceof CountableControlsInterface
+            ? $serializer->getCountableRelationships($transformation->object)
+            : [];
+        // A relation write-only for this request renders no relationship object to
+        // carry a count, so it is not countable here either.
+        if ($serializer instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+            $countable = \array_values(\array_filter(
+                $countable,
+                static fn(string $name): bool => $serializer->relationNamed($name)?->isWriteOnlyFor($transformation->request) !== true,
+            ));
+        }
+
+        return $countable;
     }
 }

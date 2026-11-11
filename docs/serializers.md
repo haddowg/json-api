@@ -321,10 +321,13 @@ serializer for a given member object and delegates every one of the seven method
 to it, so each member carries its own correct `type` / `id` / attributes.
 
 ```php
-final class PolymorphicSerializer implements SerializerInterface
+final class PolymorphicSerializer implements SerializerInterface, CountableControlsInterface
 {
-    /** @param \Closure(mixed): SerializerInterface $serializerFor */
-    public function __construct(private readonly \Closure $serializerFor) {}
+    /**
+     * @param \Closure(mixed): SerializerInterface $serializerFor
+     * @param iterable<SerializerInterface>        $members       the serializer of each member type
+     */
+    public function __construct(private readonly \Closure $serializerFor, iterable $members = []) {}
 
     public function getType(mixed $object): string
     {
@@ -339,6 +342,14 @@ final class PolymorphicSerializer implements SerializerInterface
     }
 }
 ```
+
+`PolymorphicSerializer::forRelation($relation, $resolver)` builds one for a polymorphic
+relation: each member resolves through the relation, and every registered related type
+becomes a member type. The member types matter when the decorator renders a mixed-type
+primary response. `getCountableRelationships()` returns the union of their countable
+relations, so `?withCount` accepts a name any member type counts (see
+[counting on a mixed-type response](relations.md#counting-on-a-mixed-type-response)).
+Built from the closure alone, it has no member types and counts nothing.
 
 The per-member resolution typically runs through `RelationInterface::resolveSerializer()`,
 which picks the declared type whose serializer reports the object's own `getType()`:

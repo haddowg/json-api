@@ -227,12 +227,14 @@ $serializer = $polymorphic
 ```php
 private function polymorphicSerializer(RelationInterface $relation, Server $server): PolymorphicSerializer
 {
-    return new PolymorphicSerializer(
-        static fn(mixed $object): SerializerInterface => $relation->resolveSerializer($object, $server)
-            ?? throw new \LogicException(/* … */),
-    );
+    return PolymorphicSerializer::forRelation($relation, $server);
 }
 ```
+
+`forRelation()` also records the relation's related types as the member types, so
+`?withCount=<rel>` on the mixed page accepts a relation any member type counts and
+each member renders its own `meta.total` (see
+[counting on a mixed-type response](relations.md#counting-on-a-mixed-type-response)).
 
 `GET /libraries/1/items` returns a track, an album, and an artist, each with its
 own `type`. The relationship read renders mixed linkage the same way.

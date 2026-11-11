@@ -77,6 +77,12 @@ _Avoid_: embedded type, nested type, endpointless type
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer
 
+**Member type**:
+A type a member of a mixed-type response may have, such as each related type of a polymorphic
+to-many on its related endpoint. A relation counts on the mixed response when any member type
+counts it.
+_Avoid_: variant, subtype
+
 **Hydrator**:
 The input direction: maps an incoming document onto a domain object.
 _Avoid_: deserializer, denormalizer, mapper

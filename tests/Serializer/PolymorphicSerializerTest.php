@@ -6,12 +6,16 @@ namespace haddowg\JsonApi\Tests\Serializer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Serializer\PolymorphicSerializer;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubSerializer;
+use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -57,6 +61,70 @@ final class PolymorphicSerializerTest extends TestCase
 
         self::assertSame(['download'], \array_keys($serializer->renderDeclaredLinks('file', $request)));
         self::assertSame([], $serializer->renderDeclaredLinks('note', $request));
+    }
+
+    #[Test]
+    public function aClosureOnlySerializerCountsNothing(): void
+    {
+        $serializer = new PolymorphicSerializer(static fn(mixed $object): SerializerInterface => new StubSerializer('notes'));
+
+        self::assertSame([], $serializer->members());
+        self::assertSame([], $serializer->getCountableRelationships([]));
+    }
+
+    #[Test]
+    public function itCountsTheUnionOfItsMemberTypesCountableRelationships(): void
+    {
+        $serializer = new PolymorphicSerializer(
+            static fn(mixed $object): SerializerInterface => new StubSerializer('notes'),
+            [new PolymorphicCountableResource(), new PolymorphicOtherCountableResource(), new StubSerializer('notes')],
+        );
+
+        self::assertSame(['comments', 'tags', 'likes'], $serializer->getCountableRelationships([]));
+    }
+
+    #[Test]
+    public function forRelationTakesEachRegisteredRelatedTypeAsAMember(): void
+    {
+        $files = new PolymorphicCountableResource();
+        $resolver = (new StubSerializerResolver('notes'))->withSerializer('files', $files);
+        $relation = MorphToMany::make('attachments', ['files', 'notes', 'unregistered'])->build();
+
+        $serializer = PolymorphicSerializer::forRelation($relation, $resolver);
+
+        self::assertSame([$files, $resolver->serializerFor('notes')], $serializer->members());
+        self::assertSame(['comments', 'tags'], $serializer->getCountableRelationships([]));
+        self::assertSame('files', $serializer->getType('anything'));
+    }
+}
+
+final class PolymorphicCountableResource extends AbstractResource
+{
+    public static string $type = 'files';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            HasMany::make('comments', 'notes')->countable(),
+            HasMany::make('tags', 'notes')->countable(),
+            HasMany::make('owners', 'notes'),
+            BelongsTo::make('folder', 'notes'),
+        ];
+    }
+}
+
+final class PolymorphicOtherCountableResource extends AbstractResource
+{
+    public static string $type = 'images';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            HasMany::make('tags', 'notes')->countable(),
+            HasMany::make('likes', 'notes')->countable(),
+        ];
     }
 }
 

@@ -236,10 +236,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
         // (matching the member's own type against a declared one) and delegates, so
         // a mixed-type collection renders correct per-member type/id/attributes
         // without any transformer or ToManyRelationship change.
-        $serializer = new PolymorphicSerializer(function (mixed $object) use ($resolver): SerializerInterface {
-            return $this->resolveSerializer($object, $resolver)
-                ?? throw new \LogicException(\sprintf('No declared type of the "%s" relationship serializes the related object.', $this->state->name));
-        });
+        $serializer = PolymorphicSerializer::forRelation($this, $resolver);
 
         // Out-of-band linkage, as for a monomorphic to-many: a host may supply this
         // relation's members per (parent, relation), for example narrowed to the rows

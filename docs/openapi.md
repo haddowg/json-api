@@ -370,8 +370,10 @@ plain `$ref`:
 - the `data` of its related document or related collection is the same `oneOf` over the
   member resources, its discriminator mapping each type to its `<Type>Resource`;
 - its related and relationship endpoints take no `filter`, `sort` or `page` parameters
-  from the related type, and its related `?withCount` offers no relations of it. A
-  relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
+  from the related type. Its related `?withCount` offers every relation that any of its
+  related types counts, since each member renders its own total
+  ([counting on a mixed-type response](relations.md#counting-on-a-mixed-type-response)).
+  A relation's own filters and sorts, and the `fields[<type>]` parameters, are unchanged.
 
 A `MorphToMany` declared with [`identifiedByRows()` or `identifiedBy()`](relations.md#identifying-the-members-without-loading-them)
 is the one exception, projected the same whichever it uses: its relationship endpoint pages its stored pairs, so it takes the
