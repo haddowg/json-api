@@ -24,7 +24,8 @@ final class RelationSorts
 {
     /**
      * The sorts the relation derives from its pivot fields: one {@see SortByField} per
-     * stored field, keyed by the field name and columned by its stored column. A
+     * stored field, keyed by the field name, columned by its stored column and carrying
+     * its description. A
      * computed field has no column to sort by. Empty for a relation without pivot
      * fields.
      *
@@ -48,7 +49,9 @@ final class RelationSorts
         foreach ($pivotFields as $field) {
             $column = $field->column();
             if ($column !== null) {
-                $sorts[] = SortByField::make($field->name(), $column);
+                $sort = SortByField::make($field->name(), $column);
+                $description = $field->getDescription();
+                $sorts[] = $description !== null && $description !== '' ? $sort->describedAs($description) : $sort;
             }
         }
 

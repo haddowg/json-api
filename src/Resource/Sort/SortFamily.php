@@ -14,7 +14,7 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  *     => new PlaceholderValueSort('value.' . $suffix, $suffix));
  * ```
  */
-final readonly class SortFamily implements SortFamilyInterface, \haddowg\JsonApi\Resource\Deprecatable
+final readonly class SortFamily implements SortFamilyInterface, DescribedSort, \haddowg\JsonApi\Resource\Deprecatable
 {
     /**
      * @param \Closure(string, JsonApiRequestInterface): ?SortInterface $resolver
@@ -24,6 +24,7 @@ final readonly class SortFamily implements SortFamilyInterface, \haddowg\JsonApi
         private \Closure $resolver,
         private string $suffixPattern,
         private bool $deprecated = false,
+        private ?string $description = null,
     ) {}
 
     /**
@@ -49,7 +50,7 @@ final readonly class SortFamily implements SortFamilyInterface, \haddowg\JsonApi
             throw new \InvalidArgumentException(\sprintf('The suffix pattern "%s" of sort family "%s" is not a valid regular expression.', $pattern, $this->prefix));
         }
 
-        return new self($this->prefix, $this->resolver, $pattern, $this->deprecated);
+        return new self($this->prefix, $this->resolver, $pattern, $this->deprecated, $this->description);
     }
 
     /**
@@ -58,12 +59,26 @@ final readonly class SortFamily implements SortFamilyInterface, \haddowg\JsonApi
      */
     public function deprecated(): self
     {
-        return new self($this->prefix, $this->resolver, $this->suffixPattern, true);
+        return new self($this->prefix, $this->resolver, $this->suffixPattern, true, $this->description);
     }
 
     public function isDeprecated(): bool
     {
         return $this->deprecated;
+    }
+
+    /**
+     * A copy carrying a description of what the family's keys sort by, written into the
+     * family's `x-sort-families` entry on the `sort` parameter of the OpenAPI document.
+     */
+    public function describedAs(string $description): self
+    {
+        return new self($this->prefix, $this->resolver, $this->suffixPattern, $this->deprecated, $description);
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
     }
 
     public function key(): string

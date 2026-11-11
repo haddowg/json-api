@@ -58,7 +58,7 @@ final class RelationDefaultSortProjectionTest extends TestCase
         $plain = $this->paths(new FakeRelationMetadata('tracks', ['tracks'], true, sorts: $sorts));
         $sorted = $this->paths(new FakeRelationMetadata('tracks', ['tracks'], true, sorts: $sorts, defaultSort: [new SortDirective(SortByField::make('position'), false)]));
 
-        self::assertSame(\json_encode($plain), \json_encode($this->withoutSortDefaults($sorted)));
+        self::assertSame(\json_encode($this->withoutSortDefaults($plain)), \json_encode($this->withoutSortDefaults($sorted)));
     }
 
     /**
@@ -79,7 +79,8 @@ final class RelationDefaultSortProjectionTest extends TestCase
                 self::assertIsArray($parameter);
                 if ($parameter['name'] === 'sort') {
                     self::assertIsArray($parameter['schema']);
-                    unset($parameter['schema']['default']);
+                    // The default order is also the example, in place of the first key.
+                    unset($parameter['schema']['default'], $parameter['example']);
                     $parameters[$i] = $parameter;
                 }
             }

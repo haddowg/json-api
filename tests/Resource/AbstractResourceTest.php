@@ -337,6 +337,38 @@ final class AbstractResourceTest extends TestCase
     }
 
     #[Test]
+    public function aSortableFieldsSortCarriesTheFieldsDescriptionUnlessAnExplicitSortReplacesIt(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'posts';
+
+            public function fields(): array
+            {
+                return [
+                    Id::make(),
+                    Str::make('title')->describedAs('The headline.')->sortable(),
+                    Str::make('slug')->describedAs('The URL slug.')->sortable(),
+                    Str::make('body')->sortable(),
+                ];
+            }
+
+            public function sorts(): array
+            {
+                return [\haddowg\JsonApi\Resource\Sort\SortByField::make('slug')->describedAs('Alphabetical by slug.')];
+            }
+        };
+
+        $descriptions = [];
+        foreach ($resource->allSorts() as $sort) {
+            self::assertInstanceOf(\haddowg\JsonApi\Resource\Sort\DescribedSort::class, $sort);
+            $descriptions[$sort->key()] = $sort->getDescription();
+        }
+
+        self::assertSame(['title' => 'The headline.', 'slug' => 'Alphabetical by slug.', 'body' => null], $descriptions);
+        self::assertNull($resource->sortExample());
+    }
+
+    #[Test]
     public function allSortsKeepsAFamilyBesideAnExactSortSharingItsKey(): void
     {
         $family = \haddowg\JsonApi\Resource\Sort\SortFamily::make('title', static fn(string $suffix): ?\haddowg\JsonApi\Resource\Sort\SortInterface => null);
