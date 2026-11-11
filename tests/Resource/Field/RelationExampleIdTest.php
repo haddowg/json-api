@@ -32,4 +32,13 @@ final class RelationExampleIdTest extends TestCase
     {
         self::assertNull(BelongsTo::make('company', 'companies')->build()->exampleId());
     }
+
+    #[Test]
+    public function aRelationRefusesExampleAndPointsAtExampleId(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Relation "company" cannot declare example(): its OpenAPI example is the linkage of a related resource. Declare the related id with exampleId() instead.');
+
+        BelongsTo::make('company', 'companies')->example('co-1');
+    }
 }

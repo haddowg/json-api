@@ -41,12 +41,12 @@ final class DateRangeBuilder extends RangeBuilder
         return (new static($key, $column))
             ->deserializeUsing(static fn(mixed $value): mixed => self::toDateTime($value))
             ->pattern(self::ISO_8601)
-            ->describedAs('Matches values within the given inclusive date-time range.');
+            ->presetDescription('Matches values within the given inclusive date-time range.');
     }
 
     public function build(): DateRange
     {
-        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
+        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription);
     }
 
     /**

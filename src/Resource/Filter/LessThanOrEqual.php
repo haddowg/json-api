@@ -26,6 +26,6 @@ final class LessThanOrEqual extends WhereBuilder
         return parent::make($key, $column, '<=')
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches values less than or equal to the given number.');
+            ->presetDescription('Matches values less than or equal to the given number.');
     }
 }

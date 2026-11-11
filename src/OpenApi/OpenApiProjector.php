@@ -1205,7 +1205,7 @@ final class OpenApiProjector
         // respond with.
         foreach ($type->relations() as $relation) {
             $relBase = $name . $this->componentBase($relation->name());
-            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $relBase);
+            $schemas[$relBase . 'Relationship'] = $this->relationshipObjectSchema($relation, $relBase, $byType);
 
             // The relationship-linkage endpoint's document envelope — emitted whenever
             // the relationship endpoint is exposed (the path projection $ref's it).
@@ -2056,13 +2056,22 @@ final class OpenApiProjector
      * `Meta` component. Each linkage identifier's own `meta` is typed by
      * {@see linkageMetaNarrowing()}: a `belongsToMany` relation's `pivot` object and the
      * members an `identifierMeta()` resolver declares.
+     *
+     * Its example is the linkage of one member, {@see RelationFacts::relationshipExample()}.
+     *
+     * @param array<string, TypeMetadataInterface> $byType
      */
-    private function relationshipObjectSchema(RelationMetadataInterface $relation, string $relBase): Schema
+    private function relationshipObjectSchema(RelationMetadataInterface $relation, string $relBase, array $byType): Schema
     {
         $schema = Schema::ofType('object')
             ->withProperty('links', Schema::ref(ComponentNaming::schemaRef(LinkSchemaProjector::RELATIONSHIP_LINKS)))
             ->withProperty('data', $this->linkageData($relation, $relBase, writing: false))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'));
+
+        $example = RelationFacts::relationshipExample($relation, $byType);
+        if ($example !== null) {
+            $schema = $schema->withExample($example);
+        }
 
         return $this->withRelationDescription($schema, $relation);
     }

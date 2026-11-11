@@ -25,6 +25,6 @@ final class EndsWith extends WhereBuilder
         FixedOperator::guard(self::class, 'ends', $operator);
 
         return parent::make($key, $column, 'ends')
-            ->describedAs('Matches values ending with the given suffix.');
+            ->presetDescription('Matches values ending with the given suffix.');
     }
 }

@@ -94,7 +94,7 @@ final class ServeArtifactCodecTest extends TestCase
         $decoded = $codec->decode($codec->encode(self::artifact(Schema::ofType('string')->withExample(Status::Draft))));
 
         self::assertNotNull($decoded);
-        self::assertSame(Status::Draft, (fn(): mixed => $this->keywords['examples'][0])->call($decoded->document->components->schemas['Example']));
+        self::assertSame([Status::Draft], $decoded->document->components->schemas['Example']->get('examples'));
         self::assertStringContainsString('"examples":["draft"]', $decoded->document->toJsonString());
     }
 
@@ -139,7 +139,9 @@ final class ServeArtifactCodecTest extends TestCase
 
         self::assertFalse(Tripwire::$woken);
         self::assertNotNull($decoded);
-        self::assertInstanceOf(\__PHP_Incomplete_Class::class, (fn(): mixed => $this->keywords['examples'][0])->call($decoded->document->components->schemas['Example']));
+        $examples = $decoded->document->components->schemas['Example']->get('examples');
+        self::assertIsArray($examples);
+        self::assertInstanceOf(\__PHP_Incomplete_Class::class, $examples[0]);
     }
 
     #[Test]

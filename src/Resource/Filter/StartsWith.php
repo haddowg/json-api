@@ -26,6 +26,6 @@ final class StartsWith extends WhereBuilder
         FixedOperator::guard(self::class, 'starts', $operator);
 
         return parent::make($key, $column, 'starts')
-            ->describedAs('Matches values starting with the given prefix.');
+            ->presetDescription('Matches values starting with the given prefix.');
     }
 }

@@ -208,10 +208,13 @@ final class OperationProjectorTest extends TestCase
     {
         $get = $this->arrAt($this->paths(), '/articles', 'get');
 
-        // A bare Where, a fixed Where, a fixed group, and a consumer filter that does
-        // not implement ExemplifiedFilter.
-        foreach (['filter[wordCount]', 'filter[archived]', 'filter[urgent]', 'filter[labels]'] as $name) {
+        // A bare Where and a consumer filter that does not implement ExemplifiedFilter.
+        foreach (['filter[wordCount]', 'filter[labels]'] as $name) {
             self::assertArrayNotHasKey('example', $this->parameterNamed($get, $name), $name);
+        }
+        // A fixed Where and a fixed group are switches, so their example is always `true`.
+        foreach (['filter[archived]', 'filter[urgent]'] as $name) {
+            self::assertSame('true', $this->at($this->parameterNamed($get, $name), 'example'), $name);
         }
     }
 
@@ -314,7 +317,7 @@ final class OperationProjectorTest extends TestCase
 
         // A ->fixed() filter's value is server-set: the parameter documents that its
         // value is ignored (presence trigger), not a client value-input schema.
-        self::assertStringContainsString('server-set', $this->strAt($archived, 'description'));
+        self::assertSame('Filter the collection by `archived`. Applied when present; value ignored.', $this->strAt($archived, 'description'));
         // No value-input keyword is advertised (the value is dropped, not constrained).
         self::assertArrayNotHasKey('pattern', $this->arrAt($archived, 'schema'));
         self::assertArrayNotHasKey('const', $this->arrAt($archived, 'schema'));
@@ -333,7 +336,7 @@ final class OperationProjectorTest extends TestCase
         // filter[<key>] carrying the author's description — the value IS a client
         // input, so it is not marked server-set.
         self::assertSame('Search title or summary.', $this->strAt($search, 'description'));
-        self::assertStringNotContainsString('server-set', $this->strAt($search, 'description'));
+        self::assertStringNotContainsString('Applied when present', $this->strAt($search, 'description'));
         self::assertArrayNotHasKey('style', $search);
         self::assertArrayNotHasKey('explode', $search);
     }
@@ -346,7 +349,7 @@ final class OperationProjectorTest extends TestCase
 
         // A group whose children are all fixed is a canned toggle: presence applies
         // it and the value is ignored, so it documents as server-set like ->fixed().
-        self::assertStringContainsString('server-set', $this->strAt($urgent, 'description'));
+        self::assertSame('Filter the collection by `urgent`. Applied when present; value ignored.', $this->strAt($urgent, 'description'));
         self::assertArrayNotHasKey('style', $urgent);
         self::assertArrayNotHasKey('explode', $urgent);
     }

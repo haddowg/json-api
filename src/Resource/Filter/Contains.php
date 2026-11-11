@@ -26,6 +26,6 @@ final class Contains extends WhereBuilder
         FixedOperator::guard(self::class, 'like', $operator);
 
         return parent::make($key, $column, 'like')
-            ->describedAs('Matches values containing the given substring.');
+            ->presetDescription('Matches values containing the given substring.');
     }
 }

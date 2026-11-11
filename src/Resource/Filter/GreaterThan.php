@@ -28,6 +28,6 @@ final class GreaterThan extends WhereBuilder
         return parent::make($key, $column, '>')
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches values greater than the given number.');
+            ->presetDescription('Matches values greater than the given number.');
     }
 }

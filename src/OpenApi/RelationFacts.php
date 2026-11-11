@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationDefaultSort;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationUriFieldName;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -216,6 +217,36 @@ final class RelationFacts
             static fn(\haddowg\JsonApi\Resource\Sort\SortDirective $directive): string => ($directive->descending ? '-' : '') . $directive->sort->key(),
             $relation->defaultSort(),
         );
+    }
+
+    /**
+     * The example of the relation's relationship object: `{data: {type, id}}` for a
+     * to-one and `{data: [{type, id}]}` for a to-many, of its first related type. The id
+     * is the one the operation examples show, that type's `Id` example, else the
+     * relation's {@see DeclaresRelationExampleId::exampleId()}. `null` when neither gives
+     * an id.
+     *
+     * @param array<string, TypeMetadataInterface> $byType
+     *
+     * @return array{data: array{type: string, id: string}|list<array{type: string, id: string}>}|null
+     */
+    public static function relationshipExample(RelationMetadataInterface $relation, array $byType): ?array
+    {
+        $type = $relation->relatedTypes()[0] ?? null;
+        if ($type === null) {
+            return null;
+        }
+
+        $related = $byType[$type] ?? null;
+        $id = ($related === null ? null : ExampleDocumentBuilder::idExample($related))
+            ?? ($relation instanceof DeclaresRelationExampleId ? $relation->exampleId() : null);
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        $identifier = ['type' => $type, 'id' => $id];
+
+        return ['data' => $relation->isToMany() ? [$identifier] : $identifier];
     }
 
     /**

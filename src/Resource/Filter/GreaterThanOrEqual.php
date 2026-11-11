@@ -26,6 +26,6 @@ final class GreaterThanOrEqual extends WhereBuilder
         return parent::make($key, $column, '>=')
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches values greater than or equal to the given number.');
+            ->presetDescription('Matches values greater than or equal to the given number.');
     }
 }

@@ -33,6 +33,10 @@ use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
  * constraints (authored via {@see WhereGroupBuilder}); an all-fixed group declares
  * none. Not `final`: the AND/OR distinction is the concrete subclass, dispatched by
  * a handler's `instanceof WhereAll` / `instanceof WhereAny` arm.
+ *
+ * A child's own description or example would never reach the OpenAPI document, which
+ * shows the group as its one `filter[<key>]` parameter, so a child declaring either
+ * fails when the group is built, as the resource's filters are at warm-up.
  */
 abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
@@ -50,7 +54,36 @@ abstract readonly class WhereGroup implements \haddowg\JsonApi\Resource\Deprecat
         public bool $hasExample = false,
         public mixed $example = null,
         public bool $deprecated = false,
-    ) {}
+    ) {
+        foreach ($children as $child) {
+            $declared = self::documentationOf($child);
+            if ($declared !== null) {
+                throw new \LogicException(\sprintf(
+                    'Filter "%s" in the group "%s" declares %s, which the OpenAPI document never shows: a group is one filter[%s] parameter. Declare it on the group instead.',
+                    $child->key(),
+                    $key,
+                    $declared,
+                    $key,
+                ));
+            }
+        }
+    }
+
+    /**
+     * What an author declared on `$child` for the OpenAPI document, which only a
+     * group's own `filter[<key>]` parameter carries: `describedAs()`, `example()` or
+     * `null`. A convenience filter's preset description is not the author's.
+     */
+    private static function documentationOf(FilterInterface $child): ?string
+    {
+        $description = $child instanceof DescribedFilter ? $child->getDescription() : null;
+        $preset = ($child instanceof Where || $child instanceof Range) && $child->presetDescription;
+        if ($description !== null && $description !== '' && !$preset) {
+            return 'describedAs()';
+        }
+
+        return $child instanceof ExemplifiedFilter && $child->hasExample() ? 'example()' : null;
+    }
 
     public function key(): string
     {

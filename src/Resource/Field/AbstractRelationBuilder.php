@@ -496,10 +496,25 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * A relation has no value of its own to exemplify: its linkage example is built from
+     * the related type and an id. Declare the id with {@see exampleId()}.
+     *
+     * @throws \LogicException always
+     */
+    public function example(mixed $example): never
+    {
+        throw new \LogicException(\sprintf(
+            'Relation "%s" cannot declare example(): its OpenAPI example is the linkage of a related resource. Declare the related id with exampleId() instead.',
+            $this->name,
+        ));
+    }
+
+    /**
      * Declares the related resource id this relation's linkage shows in generated
      * examples. The OpenAPI projection uses the related type's own `Id` example when it
      * has one, and this where it does not: a related type the server does not register,
-     * or one whose `Id` declares no example. Render-neutral, like `example()`.
+     * or one whose `Id` declares no example. Render-neutral. The relationship object's
+     * schema shows the same linkage as its example.
      *
      * @return static
      */

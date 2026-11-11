@@ -25,6 +25,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \h
      * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints declared value constraints
      * @param mixed                                                          $fixedValue  the value pinned by {@see WhereBuilder::fixed()} (only meaningful when `$hasFixed`)
      * @param bool                                                           $hasFixed    whether the compared value is pinned by {@see WhereBuilder::fixed()}
+     * @param bool                                                           $presetDescription whether `$description` is a convenience filter's preset rather than the author's
      */
     public function __construct(
         public string $key,
@@ -41,6 +42,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \h
         public mixed $fixedValue = null,
         public bool $hasFixed = false,
         public bool $deprecated = false,
+        public bool $presetDescription = false,
     ) {}
 
     public static function make(string $key, ?string $column = null, string $operator = '='): WhereBuilder
@@ -95,6 +97,7 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Deprecatable, \h
             fixedValue: $this->fixedValue,
             hasFixed: $this->hasFixed,
             deprecated: $this->deprecated,
+            presetDescription: $this->presetDescription,
         );
     }
 }

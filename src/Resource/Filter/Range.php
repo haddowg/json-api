@@ -35,6 +35,7 @@ readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg
     /**
      * @param \Closure(mixed): mixed|null                                   $deserialize optional value transformer applied to each bound and the column value before comparison
      * @param list<\haddowg\JsonApi\Resource\Constraint\ConstraintInterface> $constraints declared value constraints (applied to each present bound)
+     * @param bool                                                           $presetDescription whether `$description` is a convenience filter's preset rather than the author's
      */
     public function __construct(
         public string $key,
@@ -45,6 +46,7 @@ readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg
         public bool $hasExample = false,
         public mixed $example = null,
         public bool $deprecated = false,
+        public bool $presetDescription = false,
     ) {}
 
     public static function make(string $key, ?string $column = null): RangeBuilder

@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDroppedFilterDefaults;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresFixedMembership;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
@@ -23,7 +24,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership
+final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership, DeclaresDroppedFilterDefaults
 {
     /**
      * @param list<string>          $relatedTypes
@@ -33,6 +34,7 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
      * @param list<FieldInterface>  $pivotFields
      * @param list<FieldInterface>  $identifierMetaFields
      * @param list<SortDirective>   $defaultSort
+     * @param list<string>          $droppedFilterDefaults
      */
     public function __construct(
         private readonly string $name,
@@ -61,7 +63,19 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
         private readonly array $identifierMetaFields = [],
         private readonly array $defaultSort = [],
         private readonly bool $fixesMembership = false,
+        private readonly bool $dropsAllFilterDefaults = false,
+        private readonly array $droppedFilterDefaults = [],
     ) {}
+
+    public function dropsAllFilterDefaults(): bool
+    {
+        return $this->dropsAllFilterDefaults;
+    }
+
+    public function droppedFilterDefaults(): array
+    {
+        return $this->droppedFilterDefaults;
+    }
 
     public function defaultSort(): array
     {
