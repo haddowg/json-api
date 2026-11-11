@@ -71,7 +71,7 @@ final class DeclaredLinkProjectionTest extends TestCase
         self::assertSame('string', $method['type']);
         self::assertSame(['PUT'], $method['enum']);
         self::assertSame('The HTTP method to upload with.', $method['description']);
-        self::assertSame('PUT', $method['example']);
+        self::assertSame(['PUT'], $method['examples']);
 
         $expiresAt = self::arr(self::arr($meta['properties'])['expiresAt']);
         self::assertSame('date-time', $expiresAt['format']);

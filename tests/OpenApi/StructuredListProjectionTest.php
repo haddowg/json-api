@@ -105,7 +105,7 @@ final class StructuredListProjectionTest extends TestCase
                 'items' => [
                     'description' => 'One edit applied in order.',
                     'oneOf' => [$trim, $findReplace($writeParams, ['operation'])],
-                    'example' => ['operation' => 'trim'],
+                    'examples' => [['operation' => 'trim']],
                     'discriminator' => ['propertyName' => 'operation'],
                 ],
             ], $this->attribute($field, $context), $context->name);
@@ -120,7 +120,7 @@ final class StructuredListProjectionTest extends TestCase
                     $trim,
                     $findReplace(['type' => ['object', 'null'], 'properties' => $writeParams['properties'], 'required' => ['find', 'replace'], 'additionalProperties' => false], ['params', 'operation']),
                 ],
-                'example' => ['operation' => 'trim'],
+                'examples' => [['operation' => 'trim']],
                 'discriminator' => ['propertyName' => 'operation'],
             ],
         ], $this->attribute($field, RepresentationContext::Read));

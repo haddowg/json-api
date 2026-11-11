@@ -96,8 +96,7 @@ final class SchemaTest extends TestCase
     {
         $schema = Schema::ofType('string')->withExample(null)->toArray();
 
-        self::assertArrayHasKey('example', $schema);
-        self::assertNull($schema['example']);
+        self::assertSame([null], $schema['examples']);
     }
 
     #[Test]
@@ -110,7 +109,7 @@ final class SchemaTest extends TestCase
             ->withMinLength(1)
             ->toArray();
 
-        self::assertSame(['type', 'description', 'minLength', 'maxLength', 'example'], \array_keys($schema));
+        self::assertSame(['type', 'description', 'minLength', 'maxLength', 'examples'], \array_keys($schema));
     }
 
     #[Test]
@@ -149,11 +148,11 @@ final class SchemaTest extends TestCase
         $withExample = Schema::ref('#/components/schemas/Link')->withDescription('A link.')->withExample(['href' => '/a']);
 
         self::assertSame(
-            ['description' => 'A link.', 'allOf' => [['$ref' => '#/components/schemas/Link']], 'example' => ['href' => '/a']],
+            ['description' => 'A link.', 'allOf' => [['$ref' => '#/components/schemas/Link']], 'examples' => [['href' => '/a']]],
             $withExample->toArray(),
         );
         self::assertSame(
-            '{"description":"A link.","allOf":[{"$ref":"#/components/schemas/Link"}],"example":{"href":"/a"}}',
+            '{"description":"A link.","allOf":[{"$ref":"#/components/schemas/Link"}],"examples":[{"href":"/a"}]}',
             \json_encode($withExample->toJson(), \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR),
         );
         self::assertSame(
@@ -179,7 +178,7 @@ final class SchemaTest extends TestCase
     {
         $schema = Schema::ofType('object')->withExample(new \stdClass());
 
-        self::assertSame('{"type":"object","example":{}}', \json_encode($schema->toJson(), \JSON_THROW_ON_ERROR));
-        self::assertSame(['type' => 'object', 'example' => []], $schema->toArray());
+        self::assertSame('{"type":"object","examples":[{}]}', \json_encode($schema->toJson(), \JSON_THROW_ON_ERROR));
+        self::assertSame(['type' => 'object', 'examples' => [[]]], $schema->toArray());
     }
 }
