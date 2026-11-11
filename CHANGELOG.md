@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0](https://github.com/haddowg/json-api/compare/v2.12.0...v2.13.0) (2026-11-11)
+
+
+### Features
+
+* let a relation drop its related type's filter defaults ([#345](https://github.com/haddowg/json-api/issues/345)) ([dce5de9](https://github.com/haddowg/json-api/commit/dce5de95c4f0f90f4ec2bf0a379773958ce443f0))
+
 ## [2.12.0](https://github.com/haddowg/json-api/compare/v2.11.0...v2.12.0) (2026-11-10)
 
 
