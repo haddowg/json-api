@@ -34,6 +34,7 @@ final readonly class RelationState
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface>                                                        $relationSorts        extra sorts scoped to the related-collection endpoint
      * @param list<\haddowg\JsonApi\Resource\Sort\SortDirective>                                                       $defaultSort          the members' read order when a request names no sort
      * @param string|null                                                                                               $positionField        the stored integer field holding each member's position
+     * @param list<string>                                                                                              $droppedFilterDefaults the filter keys whose related-type default the relation drops
      */
     public function __construct(
         public array $relatedTypes = [],
@@ -65,5 +66,7 @@ final readonly class RelationState
         public ?string $positionField = null,
         public bool $allowsMembershipChange = true,
         public ?\Closure $cannotChangeMembershipWhen = null,
+        public bool $dropsAllFilterDefaults = false,
+        public array $droppedFilterDefaults = [],
     ) {}
 }

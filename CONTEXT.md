@@ -97,6 +97,12 @@ A composite **Filter** (`WhereAll` / `WhereAny`) that combines child filters wit
 one `filter[<key>]` and passes its request value to every child.
 _Avoid_: boolean filter, and/or grouping
 
+**Filter default**:
+A value a **Filter** applies when the request omits its key; a requested value always wins. It
+applies to every to-many **Relation** to its type too, unless the relation drops it with
+`withoutFilterDefaults()`.
+_Avoid_: implicit filter, base filter
+
 **Fixed value**:
 A **Filter** value pinned by the author, so the request value is ignored and the key is a presence
 trigger.

@@ -158,6 +158,18 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     protected array $relationFilters = [];
 
     /**
+     * Whether {@see withoutFilterDefaults()} drops every related-type filter default.
+     */
+    protected bool $dropsAllFilterDefaults = false;
+
+    /**
+     * The filter keys whose related-type default {@see withoutFilterDefaults()} drops.
+     *
+     * @var list<string>
+     */
+    protected array $droppedFilterDefaults = [];
+
+    /**
      * Extra sorts scoped to this relation's related-collection endpoint.
      *
      * @var list<\haddowg\JsonApi\Resource\Sort\SortInterface>
@@ -599,6 +611,41 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * Stops the related type's filter defaults applying to this relation's reads: its
+     * linkage, `?include`, `?withCount`, its related and relationship endpoints and a
+     * Relationship Queries window. With no keys every default the related type declares
+     * stops applying; with keys only those keys' defaults do. A filter the client sends
+     * still applies, and the related type's own collection keeps its defaults. A default
+     * the relation declares itself, through {@see withFilters()}, is unaffected.
+     *
+     *     HasMany::make('tracks', 'tracks')->withoutFilterDefaults('explicit');
+     *
+     * Each key must name a filter of the related type that declares a default; the
+     * check needs the related type, so {@see \haddowg\JsonApi\Serializer\RelationFilterDefaultsValidator}
+     * runs it when the host warms its resources. Appends to any keys already named.
+     *
+     * @return static
+     */
+    public function withoutFilterDefaults(string ...$keys): static
+    {
+        if ($keys === []) {
+            $this->dropsAllFilterDefaults = true;
+
+            return $this;
+        }
+
+        foreach ($keys as $key) {
+            if ($key === '') {
+                throw new \InvalidArgumentException(\sprintf('Relation "%s" names an empty filter key in withoutFilterDefaults().', $this->name));
+            }
+        }
+
+        $this->droppedFilterDefaults = \array_values(\array_unique([...$this->droppedFilterDefaults, ...\array_values($keys)]));
+
+        return $this;
+    }
+
+    /**
      * Declares extra sorts scoped to this relation's related-collection endpoint
      * (`GET /{type}/{id}/{rel}`) — not the primary collection of the related type.
      * Appends to any already declared, matching the relation builder's other
@@ -724,6 +771,8 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             positionField: $this->positionField,
             allowsMembershipChange: $this->allowsMembershipChange,
             cannotChangeMembershipWhen: $this->cannotChangeMembershipWhen,
+            dropsAllFilterDefaults: $this->dropsAllFilterDefaults,
+            droppedFilterDefaults: $this->droppedFilterDefaults,
         );
     }
 }
