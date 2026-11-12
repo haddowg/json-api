@@ -124,6 +124,13 @@ relationship that is not countable, is a to-one, or does not exist — or `_self
 against a resource that is not countable — is an error (see
 [Error Cases](#error-cases)).
 
+When the primary data holds resources of more than one type (for example the related
+endpoint of a polymorphic to-many), a relationship name is valid when at least one of
+the types the primary data may hold exposes it as countable. The server adds `total` to
+that relationship object on each resource whose type exposes it, and adds nothing to the
+resources of the other types. The server **MUST NOT** combine the counts of different
+resources into one figure.
+
 ### Processing
 
 #### Profile negotiation

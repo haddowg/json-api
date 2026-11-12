@@ -88,6 +88,36 @@ final class RegistrationAwareProjectionTest extends TestCase
     // ---- relatedQuery (Relationship Queries profile) ----------------------------
 
     #[Test]
+    public function aPolymorphicRelatedEndpointCountsARelationAnyRelatedTypeCounts(): void
+    {
+        $campaigns = new FakeRelationMetadata('campaigns', ['campaigns'], true, countable: true);
+        $paths = $this->paths(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(
+                    type: 'accounts',
+                    fields: [Id::make()->build()],
+                    relations: [new FakeRelationMetadata('companies', ['agencies', 'advertisers', 'publishers'], true, countable: true, polymorphic: true)],
+                ),
+                FakeTypeMetadata::resource(type: 'agencies', fields: [Id::make()->build()], relations: [$campaigns]),
+                FakeTypeMetadata::resource(type: 'advertisers', fields: [Id::make()->build()], relations: [
+                    $campaigns,
+                    new FakeRelationMetadata('notes', ['campaigns'], true, countable: true),
+                ]),
+                FakeTypeMetadata::resource(type: 'publishers', fields: [Id::make()->build()], relations: [
+                    new FakeRelationMetadata('sites', ['campaigns'], true),
+                ]),
+                FakeTypeMetadata::resource(type: 'campaigns', fields: [Id::make()->build()]),
+            ],
+            profiles: [CountableProfile::URI],
+        ));
+
+        $withCount = $this->parameterNamed($this->arrAt($paths, '/accounts/{id}/companies', 'get'), 'withCount');
+        self::assertSame(['_self_', 'campaigns', 'notes'], $this->listAt($withCount, 'schema', 'items', 'enum'));
+    }
+
+    #[Test]
     public function relatedQueryReferencesTheSingleComponentOnlyWhenRegisteredAndTheTypeHasRelations(): void
     {
         // Unregistered → no `relatedQuery` on either primary read endpoint, and the shared

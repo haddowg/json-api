@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 
 /**
@@ -16,14 +18,78 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * relationship renders per-member without any change to the transformer,
  * {@see \haddowg\JsonApi\Schema\Relationship\ToManyRelationship}, or a host's
  * related-resource collection.
+ *
+ * The member serializers, when given, are the serializers of every type a member may
+ * have. They make a relation countable on the mixed response when any member type
+ * counts it, so `?withCount` validates against their union and each member renders
+ * its own `meta.total`. Without them nothing is countable.
  */
-final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface
 {
     /**
-     * @param \Closure(mixed): SerializerInterface $serializerFor resolves the
-     *                                                            serializer for a given member object
+     * @var list<SerializerInterface>
      */
-    public function __construct(private readonly \Closure $serializerFor) {}
+    private readonly array $members;
+
+    /**
+     * @param \Closure(mixed): SerializerInterface $serializerFor resolves the serializer for a given member object
+     * @param iterable<SerializerInterface>        $members       the serializer of each type a member may have
+     */
+    public function __construct(private readonly \Closure $serializerFor, iterable $members = [])
+    {
+        $list = [];
+        foreach ($members as $member) {
+            $list[] = $member;
+        }
+        $this->members = $list;
+    }
+
+    /**
+     * A serializer for the members of a polymorphic relation: each member resolves
+     * through {@see RelationInterface::resolveSerializer()}, and every registered
+     * related type is a member type.
+     */
+    public static function forRelation(RelationInterface $relation, SerializerResolverInterface $resolver): self
+    {
+        $members = [];
+        foreach ($relation->relatedTypes() as $type) {
+            if ($resolver->hasSerializerFor($type)) {
+                $members[] = $resolver->serializerFor($type);
+            }
+        }
+
+        return new self(
+            static fn(mixed $object): SerializerInterface => $relation->resolveSerializer($object, $resolver)
+                ?? throw new \LogicException(\sprintf('No declared type of the "%s" relationship serializes the related object.', $relation->name())),
+            $members,
+        );
+    }
+
+    /**
+     * The serializer of each type a member may have, as given at construction.
+     *
+     * @return list<SerializerInterface>
+     */
+    public function members(): array
+    {
+        return $this->members;
+    }
+
+    /**
+     * The union of the member types' countable relationships: a name is countable
+     * here when at least one member type counts it.
+     */
+    public function getCountableRelationships(mixed $object): array
+    {
+        $names = [];
+        foreach ($this->members as $member) {
+            if ($member instanceof CountableControlsInterface) {
+                \array_push($names, ...$member->getCountableRelationships($object));
+            }
+        }
+
+        return \array_values(\array_unique($names));
+    }
 
     public function getType(mixed $object): string
     {

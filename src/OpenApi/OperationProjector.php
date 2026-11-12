@@ -2316,7 +2316,8 @@ final class OperationProjector
      * The valid `withCount` tokens for a related to-many `GET /{type}/{id}/{rel}`:
      * `_self_` when the relation is {@see RelationMetadataInterface::isCountable()} (its
      * related collection advertises the count), plus every countable relation of the
-     * RELATED type (counted per related item across the page).
+     * RELATED type (counted per related item across the page). A polymorphic relation's
+     * page mixes types, so it takes a relation any of its related types counts.
      *
      * @return list<string>
      */
@@ -2324,10 +2325,15 @@ final class OperationProjector
     {
         $tokens = $relation->isCountable() ? ['_self_'] : [];
 
-        $relatedType = $this->relatedTypeMetadata($relation, $server);
-        $relationNames = $relatedType === null ? [] : $this->countableRelationNames($relatedType);
+        $relationNames = [];
+        foreach ($relation->relatedTypes() as $type) {
+            $relatedType = $this->typeNamed($type, $server);
+            if ($relatedType !== null) {
+                \array_push($relationNames, ...$this->countableRelationNames($relatedType));
+            }
+        }
 
-        return [...$tokens, ...$relationNames];
+        return [...$tokens, ...\array_values(\array_unique($relationNames))];
     }
 
     /**

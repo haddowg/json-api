@@ -1062,6 +1062,26 @@ naming a to-one relation, which has no cardinality — is a
 `InclusionNotAllowed`. A resource that declares no countable relations rejects any
 `?withCount` against it; counting is opt-in.
 
+### Counting on a mixed-type response
+
+When the primary data mixes types, such as the related endpoint of a `MorphToMany`
+or an action that returns members of several types, a relation name is accepted when
+**any** member type declares it countable. `GET /accounts/1/companies?withCount=campaigns`
+over agencies, advertisers and publishers is valid when agencies or advertisers count
+`campaigns`. Each member renders its own `relationships.campaigns.meta.total`, read
+through `RelationshipCountInterface` with that member's own relation; a member whose
+type has no such countable relation renders without one. Nothing is summed across
+members. A name that no member type counts, or counts only where it is write-only for
+the request, is still a `400 RelationshipCountNotAllowed`. `_self_` is unaffected: on
+a related endpoint the owning relation's `countable()` still decides it.
+
+Validation needs to know the member types up front, so the mixed response's
+[`PolymorphicSerializer`](serializers.md#polymorphic-serialization-the-read-side-of-polymorphism)
+must be given them. `PolymorphicSerializer::forRelation($relation, $resolver)` takes
+every registered related type of the relation as a member; a hand-built one passes
+the member serializers as its second constructor argument. One built from the
+resolving closure alone has no member types and so counts nothing.
+
 Core never computes the count — it is storage-specific (a pushed-down `COUNT`, a
 counted in-memory collection) and batched across a fetched page of parents to
 avoid an N+1. The host supplies it through an injected
