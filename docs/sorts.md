@@ -60,7 +60,8 @@ asserts exactly this ordering.)
 `AbstractResource::allSorts()` is the full set of sorts a resource accepts. It
 walks the fields and produces a `SortByField` for each one marked `->sortable()`
 (keyed by the field name, targeting the field's column and falling back to the
-field name), then merges in whatever `sorts()` returns. The merge is keyed by sort
+field name, and carrying the field's `describedAs()` description), then merges in
+whatever `sorts()` returns. The merge is keyed by sort
 key, **later entries win**, so an explicit `sorts()` entry overrides a
 field-derived one with the same key. A [sort family](#sort-families-keys-matched-by-prefix)
 is the exception: it never answers its bare prefix, so it sits beside an exact sort
@@ -70,7 +71,8 @@ with the same key instead of replacing it.
 // AbstractResource::allSorts() — derived first, explicit sorts() merged over them
 foreach ($this->allFields() as $field) {
     if ($field->isSortable()) {
-        $derived[] = SortByField::make($field->name(), $field->column() ?? $field->name());
+        $derived[] = SortByField::make($field->name(), $field->column() ?? $field->name())
+            ->describedAs(...); // the field's description, when it has one
     }
 }
 
@@ -267,10 +269,55 @@ To write your own family, implement
 returns the prefix, `suffixPattern()` the fragment and `resolve($suffix, $request)`
 the sort.
 
+## Describing a sort
+
+`SortByField` and `SortFamily` each have a `describedAs()` wither that returns a copy
+carrying a description of the order the key gives. A `->sortable()` field's sort already
+carries the field's description, and so does the sort a relation derives from a
+[pivot field](relations.md); declare the key explicitly in `sorts()` to say something
+different:
+
+```php
+public function sorts(): array
+{
+    return [
+        SortByField::make('name', 'last_name')->describedAs('Alphabetical by surname.'),
+        SortFamily::make('value', $resolver)->describedAs('By a placeholder value.'),
+    ];
+}
+```
+
+The OpenAPI document shows the descriptions the way it shows a described enum's values,
+following the projector's `EnumDescriptionMode`: a markdown table of the keys appended to
+the `sort` parameter's description, and the map
+[`x-sort-descriptions`](openapi.md#sort-descriptions-x-sort-descriptions) from each
+described exact key to its description. A family's description goes in its
+`x-sort-families` entry. A custom sort opts in by implementing
+[`DescribedSort`](../src/Resource/Sort/DescribedSort.php).
+
+### The `sort` example
+
+The `sort` parameter's example is the order worth copying: a relation's
+[default read order](relations.md#default-read-order) on its related and relationship
+endpoints, else the type's `defaultSort()`, else the first exact sort ascending, such as
+`["title"]`. A type with only families gets no example. Override `sortExample()` on the
+resource to name one of your own:
+
+```php
+public function sortExample(): ?array
+{
+    return ['-releasedAt', 'title'];
+}
+```
+
+It applies to the type's collection and to the endpoints of a relation to the type that
+declares no order of its own. Adapters report it through the `DeclaresSortExample`
+metadata interface.
+
 ## Deprecating a sort
 
 `SortByField` and `SortFamily` each have a `deprecated()` wither that returns a copy
-marked deprecated. A `->sortable()` field declared `deprecated()` derives a deprecated
+marked deprecated, keeping any description. A `->sortable()` field declared `deprecated()` derives a deprecated
 `SortByField` on its own.
 
 ```php

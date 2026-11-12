@@ -175,8 +175,9 @@ That default is a constraint like any other, so it validates as well as document
 
 The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`, `WhereDoesntHave`)
 and a [`fixed()`](#fixed-values) filter document as a plain `string` whatever they
-target: the server decides the match and discards the value, and their description says
-so.
+target: the server decides the match and discards the value. Their description ends
+"Applied when present; value ignored." and their example is always `true`; see
+[documenting presence filters](#documenting-presence-filters).
 
 This is documentation, not validation. A derived type never becomes a `400` — only a
 declared constraint does (see [Validating filter values](#validating-filter-values)).
@@ -260,7 +261,8 @@ extra `constrain(...)`), and each carries its own OpenAPI value schema and a
 generated description ("Matches values greater than or equal to the given number.",
 …) which you can override with `describedAs()`. Any value-carrying filter also takes an
 `example(...)`, which becomes the `example` of its `filter[<key>]` parameter in the
-[OpenAPI document](openapi.md#authoring-the-schemas-describedas-and-example).
+[OpenAPI document](openapi.md#authoring-the-schemas-describedas-and-example). Both stay on
+the parameter and never reach its value schema.
 
 Their operator is fixed — it *is* the filter's identity — so the third `make()`
 argument exists only for signature parity with `Where::make()`, and passing a
@@ -337,8 +339,27 @@ WhereIn::make('genres')->delimiter('|');
 ```
 
 The presence-only filters (`WhereNull`, `WhereNotNull`, `WhereHas`,
-`WhereDoesntHave`) carry no refinement helpers other than `deprecated()`: their
-requested presence *is* their semantics.
+`WhereDoesntHave`) carry no refinement helpers other than `describedAs()` and
+`deprecated()`: their requested presence *is* their semantics.
+
+### Documenting presence filters
+
+A presence filter applies when its key is sent and ignores the value: the four
+presence-only filters, a [`fixed()`](#fixed-values) `Where`, and a
+[group](#filter-groups-whereall--whereany) whose children are all fixed. Each takes
+`describedAs()`, whose text replaces the generic "Filter the collection by `<key>`." line.
+The projector always ends the description with "Applied when present; value ignored." and
+always gives the parameter the example `true`, so a fixed `Where`'s own `example()` is not
+shown:
+
+```php
+WhereNull::make('unbudgeted', 'budget')->describedAs('Campaigns without a budget.');
+// description: "Campaigns without a budget. Applied when present; value ignored."
+// example: "true"
+```
+
+The example is the string `true`, matching the parameter's `string` schema; the value
+travels as query text and nothing reads it.
 
 A custom filter is marked deprecated by implementing
 `haddowg\JsonApi\Resource\Deprecatable`, whose `isDeprecated()` the projector reads. A
@@ -435,12 +456,17 @@ When two declared filters share a key, the first wins — the same first-match
 rule a handler uses to resolve a requested key to its declared filter. A custom
 filter opts in by implementing `HasDefaultValue` itself.
 
+The OpenAPI document shows a default as the `default` of the `filter[<key>]` parameter's
+schema. A list filter's default is shown in both of its parameters' forms, converted the
+way [its example is](#declaring-a-list-acceptslist).
+
 A related type's defaults also narrow every to-many relation to that type. A relation
 can drop them with `withoutFilterDefaults()`, keeping the filters themselves; see
 [dropping the related type's filter defaults](relations.md#dropping-the-related-types-filter-defaults).
 The built-ins hand back a copy without the default through `HasRemovableDefault`, so a
 handler dispatches it as before. A custom defaulting filter needs that interface too if
-a relation is to drop its default.
+a relation is to drop its default. A default the relation drops is left off the
+`filter[<key>]` parameters of its related and relationship endpoints.
 
 ## Fixed values
 
@@ -476,8 +502,9 @@ the built-in `Where` arm — in the reference `ArrayFilterHandler` and in a Doct
 or Eloquent adapter — runs it unchanged. Because the request value carries no
 meaning, any [declared value constraints](#validating-filter-values) are dropped
 (there is nothing client-supplied to validate), and the OpenAPI generator
-documents the parameter honestly as server-applied — its presence applies the
-filter, its value is ignored.
+documents the parameter honestly as server-applied: its presence applies the
+filter, its value is ignored. See
+[documenting presence filters](#documenting-presence-filters).
 
 ## Validating filter values
 
@@ -806,7 +833,11 @@ you:
 
 Adapters validate each member against the filter's value constraints on its own. The
 OpenAPI document adds a `filter[<key>][]` parameter for the array form, see
-[OpenAPI generation](openapi.md#list-filters-x-filter-list). Without `acceptsList()`
+[OpenAPI generation](openapi.md#list-filters-x-filter-list). An `example()` or
+`default()` shows the same members in both parameters, whichever form you declare it in:
+`'red,blue'` and `['red', 'blue']` both become `["red", "blue"]` on the array form, and on
+a delimited `filter[<key>]` whose delimiter OAS can't spell, where the schema is a string,
+an array is joined with the delimiter. Without `acceptsList()`
 a set filter keeps reading both forms leniently and documents only the delimited one,
 exactly as before.
 
@@ -857,6 +888,20 @@ By default any non-empty suffix is accepted. `withSuffixPattern()` narrows it to
 regular-expression fragment the whole suffix must match, checked before the resolver
 runs and projected into the [OpenAPI document](openapi.md#filter-families-x-filter-families).
 `deprecated()` marks the family deprecated there.
+
+`describedAs()` says what the family's keys filter by, and `example()` shows one key the
+family answers with the value sent with it. Both go in the family's `x-filter-families`
+entry. The description also becomes a line of the shared `filter` parameter's description,
+and the example joins the parameter's example:
+
+```php
+FilterFamily::make('value', $resolver)
+    ->withSuffixPattern('[a-z_]+')
+    ->describedAs('Matches a placeholder value.')
+    ->example('cap', '10');            // filter[value.cap]=10, written as {"value.cap": "10"}
+```
+
+The example's suffix must match the family's suffix pattern, or `example()` throws.
 
 A family is never handed to a filter handler. Matching replaces it with the filter its
 resolver returns, so families work wherever a filter key does: the primary `filter`, a
@@ -924,6 +969,12 @@ A fanning group declares its **shared value's** constraints exactly like a
 `Where` (`->numeric()`, `->pattern(...)`, `->constrain(...)`), and the OpenAPI
 generator projects it as a single scalar `filter[q]` value parameter.
 
+That one parameter is the only place the group appears in the document, so its
+description and example belong on the group. A child that declares `describedAs()` or
+`example()` of its own fails when the group is built, which a host does at warm-up, with a
+message pointing at the group. A convenience filter's preset description, such as
+`Contains`'s, doesn't count.
+
 ### Canned toggle
 
 Combine `->fixed()` children and the group becomes a **canned toggle** — its
@@ -946,9 +997,9 @@ GET /tickets?filter[urgent]=1   →  priority > 5 AND flagged = true
 ```
 
 Because every child is [fixed](#fixed-values), the group is presence-triggered:
-the OpenAPI generator documents `filter[urgent]` as server-applied (value
-ignored), and a group whose children all fix their value declares no value
-constraints of its own.
+the OpenAPI generator documents `filter[urgent]` as
+[a presence filter](#documenting-presence-filters), and a group whose children all fix
+their value declares no value constraints of its own.
 
 ### Nesting
 

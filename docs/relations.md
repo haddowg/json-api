@@ -720,6 +720,14 @@ BelongsTo::make('company', 'companies')->exampleId('co-1'),
 The related type's own example still wins where it has one. `exampleId()` is
 render-neutral: the runtime never reads it.
 
+The same id is the example of the relation's relationship object schema
+(`<Type><Relation>Relationship`): `{"data": {"type": "companies", "id": "co-1"}}` for a
+to-one, and a list of that one identifier for a to-many. A polymorphic relation shows its
+first related type. With no id from either source the schema has no example.
+
+A relation has no value of its own to exemplify, so calling `example()` on a relation
+builder throws a `\LogicException` pointing at `exampleId()`.
+
 ## Identifier meta — parent-aware per-relation meta
 
 A resource identifier object may carry `meta` (`{ "type": …, "id": …, "meta": … }`).
@@ -1140,8 +1148,10 @@ filters as before. `RelationFilters::vocabulary($relation, $relatedFilters)` doe
 steps at once. Read them this way on every path that folds defaults in, so a relation
 drops the same defaults however a client reaches its members. The built relation
 reports its declaration through `DropsFilterDefaultsInterface`, which every core
-relation implements. Filter defaults aren't written into the OpenAPI document, so a
-dropped one changes nothing there.
+relation implements. The OpenAPI document shows a filter default as the `default` of its
+`filter[<key>]` parameter's schema, and leaves a dropped one off the relation's related and
+relationship endpoints. Relation metadata reports the declaration through
+`DeclaresDroppedFilterDefaults`.
 
 These vocabularies also drive the **relationship-queries profile**: a client that
 negotiates it can filter and sort a relationship's *linkage* from the primary

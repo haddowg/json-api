@@ -108,6 +108,12 @@ A **Filter** value pinned by the author, so the request value is ignored and the
 trigger.
 _Avoid_: default (a default is a value the client can override)
 
+**Presence filter**:
+A **Filter** whose key applies a condition when present and ignores the value sent with it: a
+**Fixed value**, a **Filter group** whose children all have one, or `WhereNull`, `WhereNotNull`,
+`WhereHas` and `WhereDoesntHave`. Its **Projection** example is always `true`.
+_Avoid_: toggle filter, flag filter
+
 **Filter family**:
 A **Filter** that answers every key starting with its prefix and a dot (`value.cap`), resolving the
 suffix to a concrete **Filter** per request by the same rule as a **Sort family**.
@@ -260,6 +266,12 @@ occurrence from the error's context.
 **Projection**:
 The OpenAPI document (and its diagnostics) that core derives from a **Server**'s metadata.
 _Avoid_: generated spec, export
+
+**Sort example**:
+The `sort` tokens the **Projection** shows as an endpoint's example: a **Relation**'s
+**Default read order**, else the type's declared example or its default order, else its first
+exact **Sort** ascending.
+_Avoid_: default sort (that is the order a request without `sort` gets)
 
 **Generator contract**:
 The integer stamped on every **Projection** that tells a code generator which document structure
