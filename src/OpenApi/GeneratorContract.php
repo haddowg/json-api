@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 33;
+    public const CONTRACT = 34;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -101,9 +101,13 @@ final class GeneratorContract
      * Contract 23 did again, closing every attributes component and declared nested
      * object with `additionalProperties: false`. Contract 33 did too, giving each
      * operation that raises scoped error codes an inline error response and an error
-     * document of its own, named for the operation rather than for the codes.
+     * document of its own, named for the operation rather than for the codes. Contract 34
+     * did again, writing every schema example as an `examples` list, giving the `sort`
+     * parameter an example and its keys' descriptions under `x-sort-descriptions`, giving
+     * filter and sort family entries a `description` and a filter family's an `example`,
+     * and a relationship object an example.
      */
-    public const BASELINE = 33;
+    public const BASELINE = 34;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API
