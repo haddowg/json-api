@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.15.0](https://github.com/haddowg/json-api/compare/v2.14.0...v2.15.0) (2026-11-12)
+
+
+### Features
+
+* document withCount on single-resource operations ([#353](https://github.com/haddowg/json-api/issues/353)) ([15ffaa3](https://github.com/haddowg/json-api/commit/15ffaa3c672b680a88de30350053c5d8dcfb54a9))
+* name the atomic relationship operations' identifier union ([#351](https://github.com/haddowg/json-api/issues/351)) ([7842ad2](https://github.com/haddowg/json-api/commit/7842ad2e8d48e8f1857d4e0c4c0b4dbc727db630))
+* offer feature error codes only on the operations that raise them ([#350](https://github.com/haddowg/json-api/issues/350)) ([f5a39b2](https://github.com/haddowg/json-api/commit/f5a39b2b7ffbffa983618d034cab911461eb5ddc))
+
 ## [2.14.0](https://github.com/haddowg/json-api/compare/v2.13.0...v2.14.0) (2026-11-12)
 
 
