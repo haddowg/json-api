@@ -116,14 +116,33 @@ final class CodeErrorScopeProjectionTest extends TestCase
     {
         $document = $this->project($this->server(
             articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]],
+            comments: ['filters' => [Where::make('body')->build()], 'sorts' => [SortByField::make('body')]],
             profiles: [RelationshipQueriesProfile::URI],
         ));
 
-        foreach (['SORTING_UNSUPPORTED', 'SORTING_UNRECOGNIZED', 'FILTERING_UNRECOGNIZED', 'FILTER_VALUE_INVALID'] as $code) {
+        foreach (['SORTING_UNRECOGNIZED', 'FILTERING_UNRECOGNIZED', 'FILTER_VALUE_INVALID'] as $code) {
             self::assertContains($code, $this->codes($document, '/articles/{id}', 'get'), $code);
+            self::assertContains($code, $this->codes($document, '/articles', 'post'), $code);
+            self::assertContains($code, $this->codes($document, '/articles/{id}', 'patch'), $code);
             self::assertNotContains($code, $this->codes($document, '/comments/{id}', 'get'), 'a comment has no relation to query');
             self::assertNotContains($code, $this->codes($document, '/articles/{id}', 'delete'), $code);
         }
+        self::assertNotContains('SORTING_UNSUPPORTED', $this->codes($document, '/articles/{id}', 'get'), 'comments sort by something');
+    }
+
+    #[Test]
+    public function aRelationshipQueryOverNoVocabularyRefusesAnySortAndAnyFilterKey(): void
+    {
+        $document = $this->project($this->server(
+            articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]],
+            profiles: [RelationshipQueriesProfile::URI],
+        ));
+
+        $codes = $this->codes($document, '/articles/{id}', 'get');
+        self::assertContains('SORTING_UNSUPPORTED', $codes);
+        self::assertContains('FILTERING_UNRECOGNIZED', $codes);
+        self::assertNotContains('SORTING_UNRECOGNIZED', $codes);
+        self::assertNotContains('FILTER_VALUE_INVALID', $codes);
     }
 
     #[Test]

@@ -298,7 +298,7 @@ final class OperationProjector
         $tags = $operation->tags;
         $scopes = OperationScopes::of($server)?->forOperation($operation) ?? [];
 
-        return match (true) {
+        $built = match (true) {
             $operation->key->kind === OperationKind::FetchCollection => $this->fetchCollectionOperation($type, $server, $id, $tags, $scopes),
             $operation->key->kind === OperationKind::Create => $this->createOperation($type, $server, $id, $tags, $scopes),
             $operation->key->kind === OperationKind::FetchOne => $this->fetchOneOperation($type, $server, $id, $tags, $scopes),
@@ -310,6 +310,10 @@ final class OperationProjector
             $operation->key->kind === OperationKind::FetchRelationship => $this->relationshipFetchOperation($type, $relation, $server, $id, $tags, $scopes),
             default => $this->relationshipMutationOperation($type, $relation, $operation->key->kind, $server, $id, $tags, $scopes),
         };
+
+        $relatedQuery = OperationFacts::relatedQueryType($type, $operation, $server);
+
+        return $relatedQuery === null ? $built : $built->withParameter(Reference::to('parameters', self::relatedQueryComponentName($relatedQuery)));
     }
 
     // ---- Operations -------------------------------------------------------------
@@ -326,7 +330,6 @@ final class OperationProjector
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
             [$this->withCountParameter(OperationFacts::collectionWithCountTokens($type), $server)],
-            [$this->relatedQueryParameter($type, $server)],
         );
 
         $security = $this->securityFor($type, OperationType::FetchCollection, $server);
@@ -359,7 +362,6 @@ final class OperationProjector
         $parameters = $this->concatParameters(
             $this->documentShapeParameters($type, $server),
             [$this->withCountParameter(OperationFacts::resourceWithCountTokens($type), $server)],
-            [$this->relatedQueryParameter($type, $server)],
         );
 
         $security = $this->securityFor($type, OperationType::FetchOne, $server);
@@ -2192,58 +2194,53 @@ final class OperationProjector
     }
 
     /**
-     * A `$ref` to the shared `relatedQuery` parameter component for a primary read
-     * endpoint (`GET /{type}` and `GET /{type}/{id}`), or `null` when the affordance
-     * does not apply: the Relationship Queries profile must be **registered** AND the
-     * primary type must declare at least one relation to address from the primary
-     * request. Registration-gated for the same reason as `?withCount` — the runtime
-     * parses the `relatedQuery` family only under the negotiated profile, so advertising
-     * it unregistered would document a `400`. Every eligible endpoint references the
-     * SAME single component ({@see relatedQueryParameterComponent()}); the allowed
-     * paths/keys are validated per relationship at runtime, not enumerated per endpoint.
+     * The name of the `relatedQuery` parameter component for operations rendering `$type`'s
+     * resources, under `#/components/parameters`.
      */
-    private function relatedQueryParameter(TypeMetadataInterface $type, ServerMetadataInterface $server): ?Reference
+    public static function relatedQueryComponentName(TypeMetadataInterface $type): string
     {
-        if ($type->relations() === [] || !\in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)) {
-            return null;
-        }
-
-        return Reference::to('parameters', RelationshipQueriesProfile::FAMILY);
+        return ComponentNaming::base($type->type()) . 'RelatedQuery';
     }
 
     /**
-     * The single reusable `relatedQuery` parameter component (the Relationship Queries
-     * profile), emitted once under `#/components/parameters/relatedQuery` by the
-     * {@see OpenApiProjector} and `$ref`d by every relation-bearing primary read endpoint
-     * ({@see relatedQueryParameter()}).
-     *
-     * ONE generic `deepObject` shape for the whole
-     * `relatedQuery[<path>][sort]` / `relatedQuery[<path>][filter][<key>]` family: an
-     * object keyed by relationship (include) path, each value an object with an optional
-     * `sort` string and `filter` map (the same shape as the primary `?filter`). The
-     * allowed relationship paths and filter/sort keys are deliberately NOT enumerated —
-     * the addressed relationship's own vocabulary validates them at runtime. Only the
-     * canonical {@see RelationshipQueriesProfile::FAMILY} is projected; the byte-identical
-     * `rQ` shorthand is an undocumented convenience alias (documenting both would duplicate
-     * the parameter with no added meaning, and the two merge with the canonical winning).
+     * The `relatedQuery` parameter (the Relationship Queries profile) every operation
+     * rendering `$type`'s resources references, as {@see OperationFacts::relatedQueryType()}
+     * decides. A `deepObject` object keyed by the relations the runtime addresses
+     * ({@see OperationFacts::relatedQueryRelations()}), each by its name and closed to any
+     * other. A to-many's entry takes a `sort` over its related endpoint's sort vocabulary and
+     * a to-one's none, since a single member has nothing to order. Each takes a `filter`
+     * whose members are the related endpoint's `filter[<key>]` values. An entry leaves out
+     * a `sort` or `filter` its relation has no vocabulary for. Only the canonical family is
+     * projected: the `rQ` shorthand is an undocumented alias the canonical wins over.
      */
-    public function relatedQueryParameterComponent(): Parameter
+    public function relatedQueryParameterComponent(TypeMetadataInterface $type, ServerMetadataInterface $server): Parameter
     {
-        $perPath = Schema::ofType('object')
-            ->withProperty('sort', Schema::ofType('string')->withDescription(
-                'A comma-separated list of sort fields for the addressed relationship; prefix a field with `-` for descending order.',
-            ))
-            ->withProperty('filter', Schema::ofType('object')
-                ->withAdditionalProperties(Schema::create())
-                ->withDescription('A `filter[<key>]=<value>` map applied to the addressed relationship, in the same shape as the primary `filter`.'))
-            ->withAdditionalProperties(false);
+        $paths = Schema::ofType('object');
+        foreach (OperationFacts::relatedQueryRelations($type) as $relation) {
+            $entry = Schema::ofType('object');
+            if ($relation->isToMany()) {
+                $sort = $this->relatedQuerySortSchema($relation, $server);
+                if ($sort !== null) {
+                    $entry = $entry->withProperty('sort', $sort);
+                }
+            }
+            $filter = $this->relatedQueryFilterSchema($relation, $server);
+            if ($filter !== null) {
+                $entry = $entry->withProperty('filter', $filter);
+            }
+            $paths = $paths->withProperty($relation->name(), $entry->withAdditionalProperties(false)->withDescription(
+                'Sorts and filters the `' . $relation->name() . '` relationship as its related endpoint would.',
+            ));
+        }
+
+        $first = OperationFacts::relatedQueryRelations($type)[0]->name();
 
         return Parameter::query(
             RelationshipQueriesProfile::FAMILY,
-            Schema::ofType('object')->withAdditionalProperties($perPath),
-            'Per-relationship sort and filter applied from the primary request, addressed by relationship (include) path (the Relationship Queries profile). '
-            . 'e.g. `' . RelationshipQueriesProfile::FAMILY . '[author][sort]=-createdAt` or `'
-            . RelationshipQueriesProfile::FAMILY . '[comments][filter][state]=open`. '
+            $paths->withAdditionalProperties(false),
+            'Per-relationship sort and filter applied from this request, addressed by relationship name (the Relationship Queries profile), '
+            . 'e.g. `' . RelationshipQueriesProfile::FAMILY . '[' . $first . '][filter][<key>]=<value>`. '
+            . 'Each relationship takes the sort and filter vocabulary of its related endpoint. '
             . 'Recognised only when the Relationship Queries profile is negotiated.',
             style: ParameterStyle::DeepObject,
             explode: true,
@@ -2251,10 +2248,97 @@ final class OperationProjector
     }
 
     /**
+     * A to-many's `relatedQuery[<name>][sort]`: a comma-separated string of its related
+     * endpoint's sort keys, each optionally `-` prefixed, with a family matching its
+     * prefixed keys, and that endpoint's default order as its default. `null` when the
+     * relation sorts by nothing.
+     */
+    private function relatedQuerySortSchema(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?Schema
+    {
+        $sorts = OperationFacts::relatedSortVocabulary($relation, $server);
+        if ($sorts === []) {
+            return null;
+        }
+
+        $keys = [];
+        $alternatives = [];
+        foreach ($sorts as $sort) {
+            if ($sort instanceof SortFamilyInterface) {
+                $keys[] = '`' . $sort->key() . '.<suffix>`';
+                $alternatives[] = self::escapeEcmaPattern($sort->key()) . '\\.(?:' . $sort->suffixPattern() . ')';
+
+                continue;
+            }
+            $keys[] = '`' . $sort->key() . '`';
+            $alternatives[] = self::escapeEcmaPattern($sort->key());
+        }
+        $token = '-?(?:' . \implode('|', $alternatives) . ')';
+
+        $schema = Schema::ofType('string')
+            ->withPattern('^' . $token . '(?:,' . $token . ')*$')
+            ->withDescription('A comma-separated list of sort fields, any of ' . \implode(', ', $keys) . '. Prefix a field with `-` for descending order.');
+        $default = RelationFacts::defaultSort($relation);
+
+        return $default === [] ? $schema : $schema->withDefault(\implode(',', $default));
+    }
+
+    /**
+     * A relation's `relatedQuery[<name>][filter]`: an object whose members are the
+     * values its related endpoint's `filter[<key>]` parameters take, a key taking a list
+     * as `filter[<key>][]` there accepting that list too, and whose filter families match
+     * their prefixed keys. Closed to any other key. `null` when the relation filters by
+     * nothing.
+     */
+    private function relatedQueryFilterSchema(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?Schema
+    {
+        $properties = [];
+        $patterns = [];
+        foreach ($this->relatedFilterParameters($relation, $server) as $parameter) {
+            $schema = $parameter->schema;
+            if (!$schema instanceof Schema) {
+                continue;
+            }
+            if ($parameter->name === 'filter') {
+                $families = $schema->get('patternProperties');
+                foreach (\is_array($families) ? $families : [] as $pattern => $member) {
+                    if ($member instanceof Schema) {
+                        $patterns[(string) $pattern] = $member;
+                    }
+                }
+
+                continue;
+            }
+
+            $list = \str_ends_with($parameter->name, '[]');
+            $key = \substr($parameter->name, \strlen('filter['), $list ? -3 : -1);
+            if ($parameter->description !== null) {
+                $schema = $schema->withDescription($parameter->description);
+            }
+            if ($parameter->deprecated === true) {
+                $schema = $schema->withDeprecated();
+            }
+            $properties[$key] = match (true) {
+                !isset($properties[$key]) => $schema,
+                $properties[$key]->get('type') === 'array' => $properties[$key],
+                default => Schema::create()->withAnyOf([$properties[$key], $schema->without('description')]),
+            };
+        }
+
+        if ($properties === [] && $patterns === []) {
+            return null;
+        }
+
+        $schema = Schema::ofType('object')->withProperties($properties);
+        if ($patterns !== []) {
+            $schema = $schema->withPatternProperties($patterns);
+        }
+
+        return $schema->withAdditionalProperties(false);
+    }
+
+    /**
      * Flattens parameter groups into one list, dropping the `null`s a single-or-none
-     * helper (`sortParameter`/`includeParameter`/`relatedQueryParameter`) returns when its
-     * source is empty. A group entry may be a {@see Reference} (the shared `relatedQuery`
-     * parameter component) as well as an inline {@see Parameter}.
+     * helper (`sortParameter`/`includeParameter`) returns when its source is empty.
      *
      * @param list<Parameter|Reference|null> ...$groups
      * @return list<Parameter|Reference>

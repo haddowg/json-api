@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 36;
+    public const CONTRACT = 37;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -117,8 +117,12 @@ final class GeneratorContract
      * decide a code exactly, from the field and relation definitions and from what an
      * adapter declares about its security layer, data layer and validation, so a code a
      * predicate, an encoder, a safeguard or a declared refusal cannot raise is left out.
+     * Contract 37 did again, documenting `relatedQuery` on every operation rendering
+     * resources of one type that has a relation to address, through one parameter component
+     * per type listing those relations and each one's sort and filter vocabulary, so the
+     * shared `relatedQuery` component is gone.
      */
-    public const BASELINE = 36;
+    public const BASELINE = 37;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

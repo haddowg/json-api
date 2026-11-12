@@ -270,3 +270,9 @@ a `400 Bad Request`; a single resource identifier has nothing to order or page.
 - Because the families carry this profile's semantics only when the profile is
   negotiated, a relationship, filter key, or member literally named `relatedQuery`
   or `rQ` never collides with this profile.
+- The primary resource is whatever resource the response renders as primary data,
+  so the families apply to any request whose response renders resources: a fetch,
+  a create or update that answers with the resource, a related resource read, or a
+  custom operation answering with a resource. A server that describes its API, for
+  example in OpenAPI, documents the families on each such request, as
+  [this library's projection](../openapi.md#profile-gated-parameters-x-profile) does.
