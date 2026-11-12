@@ -51,9 +51,9 @@ final class ErrorScopeProjectionTest extends TestCase
         self::assertSame('ArticlesDelete409', $this->errorDocument($document, '/articles/{id}', 'delete', '409'));
         self::assertNotContains('Error409ArticleLocked', $this->offered($document, '/articles', 'post', '409'));
 
-        // The update reads a document, so it also offers the request-document codes at 409;
+        // The update reads a document, so it also offers the id and type conflicts at 409;
         // the delete reads none, so it offers the scoped code alone.
-        self::assertSame(['Error', 'Error409PointerResourceIdConflict', 'Error409ArticleLocked'], $this->offered($document, '/articles/{id}', 'patch', '409'));
+        self::assertSame(['Error', 'Error409PointerResourceIdConflict', 'Error409PointerResourceTypeUnacceptable', 'Error409ArticleLocked'], $this->offered($document, '/articles/{id}', 'patch', '409'));
         self::assertSame(['Error', 'Error409ArticleLocked'], $this->offered($document, '/articles/{id}', 'delete', '409'));
 
         $schemas = $this->arr($document, 'components', 'schemas');
@@ -142,7 +142,7 @@ final class ErrorScopeProjectionTest extends TestCase
         ]);
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('would both name their 402 error document "BlogPostsFetchOne402"');
+        $this->expectExceptionMessage('would both name their 400 error document "BlogPostsFetchCollection400"');
 
         (new OpenApiProjector())->project(new ContributingServerMetadata($server, new ScopedErrorSource(ErrorScope::kinds(OperationKind::FetchOne), PaymentRequired::class)));
     }

@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 35;
+    public const CONTRACT = 36;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -110,8 +110,12 @@ final class GeneratorContract
      * and `AtomicIdentifiers` components they reference, and offering each error code
      * tied to an {@see \haddowg\JsonApi\Exception\ErrorFeature} only on the operations
      * that can raise it, so most writes and some reads gained error documents of their own.
+     * Contract 36 did again, offering each of core's codes, feature-gated or not, only on the
+     * operations whose runtime can raise it, so nearly every operation answers `400` and
+     * `404` with an error document of its own, and codes that shared a shape by feature now
+     * share one only with the codes following the same rule.
      */
-    public const BASELINE = 35;
+    public const BASELINE = 36;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

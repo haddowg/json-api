@@ -92,11 +92,11 @@ final class ErrorResponseProjectionTest extends TestCase
     #[Test]
     public function aSharedResponseCarriesTheDescriptionAndTheJsonApiBodyTheOperationsUsedToInline(): void
     {
-        $response = $this->arrAt($this->project($this->fullServer()), 'components', 'responses', 'NotFound');
+        $response = $this->arrAt($this->project($this->fullServer()), 'components', 'responses', 'NotAcceptable');
 
-        self::assertSame('Not Found — the resource does not exist.', $this->strAt($response, 'description'));
+        self::assertSame('Not Acceptable — the `Accept` header could not be satisfied.', $this->strAt($response, 'description'));
         self::assertSame(
-            '#/components/schemas/ErrorDocument404',
+            '#/components/schemas/ErrorDocument406',
             $this->strAt($response, 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
     }
@@ -105,11 +105,12 @@ final class ErrorResponseProjectionTest extends TestCase
     public function onlyTheStatusesTheServerAdvertisesGetAResponseComponent(): void
     {
         // A read-only, unsecured server negotiates and reads; it never writes, so it
-        // advertises no 409/415/422, and no 401.
+        // advertises no 409/415/422, and no 401. Every read offers codes of its own at 400
+        // and 404, so those statuses need no shared component.
         $components = $this->arrAt($this->project($this->readOnlyServer()), 'components', 'responses');
 
         self::assertSame(
-            ['BadRequest', 'Forbidden', 'NotFound', 'NotAcceptable', 'InternalServerError'],
+            ['Forbidden', 'NotAcceptable', 'InternalServerError'],
             \array_keys($components),
         );
     }
@@ -121,10 +122,9 @@ final class ErrorResponseProjectionTest extends TestCase
         // what earns the atomic endpoint its own phrasing without its own components.
         $operation = $this->arrAt($this->project($this->fullServer()), 'paths', '/operations', 'post', 'responses');
 
-        self::assertSame(
-            ['$ref' => '#/components/responses/NotFound', 'description' => 'Not Found — an operation targets a resource that does not exist.'],
-            $this->arrAt($operation, '404'),
-        );
+        // The batch offers 404 codes of its own, and its own document keeps the wording.
+        self::assertSame('Not Found — an operation targets a resource that does not exist.', $this->strAt($operation, '404', 'description'));
+        self::assertSame('#/components/schemas/AtomicOperations404', $this->strAt($operation, '404', 'content', 'application/vnd.api+json', 'schema', '$ref'));
         // 500 reads the same on the batch as everywhere else, so it references the
         // component bare rather than restating it.
         self::assertSame(['$ref' => '#/components/responses/InternalServerError'], $this->arrAt($operation, '500'));

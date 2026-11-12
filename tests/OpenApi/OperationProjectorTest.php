@@ -599,12 +599,12 @@ final class OperationProjectorTest extends TestCase
             self::assertSame(['Articles'], $this->listAt($operation, 'tags'), "{$method} {$path} should be tagged Articles");
         }
 
-        // The create's 404 is a bare `$ref` to the shared response component — no inline
+        // The create's 406 is a bare `$ref` to the shared response component — no inline
         // description, no inline content.
         $post = $this->arrAt($paths, '/articles', 'post');
         self::assertSame(
-            ['$ref' => '#/components/responses/NotFound'],
-            $this->arrAt($post, 'responses', '404'),
+            ['$ref' => '#/components/responses/NotAcceptable'],
+            $this->arrAt($post, 'responses', '406'),
         );
     }
 

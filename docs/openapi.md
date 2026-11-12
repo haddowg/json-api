@@ -420,9 +420,9 @@ components:
             code:
               anyOf:
                 - type: string
-                  const: FILTERING_UNRECOGNIZED
-                  title: Filtering parameter is unrecognized
-                  description: The request filtered on a key this endpoint does not declare. Filter only on the keys the API documents for this resource type.
+                  const: FIELDSET_MEMBER_UNRECOGNIZED
+                  title: Fieldset member is unrecognized
+                  description: A `fields[TYPE]` parameter names a member that type does not have. Request only the attributes and relationships the type declares.
                 - type: string
                   const: QUERY_PARAM_UNRECOGNIZED
                   title: Query parameter is unrecognized
@@ -444,8 +444,8 @@ the codes that guarantee it. The `code` is an `anyOf` even when the shape holds 
 adding a code is always one more branch.
 
 A shape is named for its status, then its `source` member, then, when it declares `meta` or
-only some operations offer it, its first code: `Error404`, `Error400Parameter`,
-`Error406Header`, `Error403InsufficientScope`, `Error400ParameterCursorMalformed`.
+only some operations offer it, its first code: `Error400Parameter`, `Error406Header`,
+`Error404ResourceNotFound`, `Error403InsufficientScope`, `Error400ParameterCursorMalformed`.
 
 Each branch's `description` says what its code means and what a client should do about it,
 which a generator can carry onto the typed exception it emits. Every code core ships has a
@@ -514,31 +514,64 @@ the client-id codes need a type that permits one; and the whole request-document
 request body somewhere — a CRUD write, a mutable relationship endpoint, an action taking a
 document, or the atomic batch.
 
-Once your server offers the capability, each of those codes is offered only on the
-operations that can raise it, the way a [scoped code](#scoping-a-code-to-the-operations-that-raise-it)
-is:
+Past that gate, each of core's codes is offered only on the operations whose runtime can
+raise it, the way a [scoped code](#scoping-a-code-to-the-operations-that-raise-it) is.
+What a type, relation or action declares narrows that further, and a code no operation can
+raise is left out, such as `FILTER_VALUE_INVALID` on a server that declares no filter:
 
 | Codes | Offered on |
 | --- | --- |
+| `QUERY_PARAM_UNRECOGNIZED`, `QUERY_PARAM_MALFORMED`, `FIELDSET_MEMBER_UNRECOGNIZED`, `MEDIA_TYPE_UNACCEPTABLE`, `MEDIA_TYPE_UNSUPPORTED`, `AUTHENTICATION_REQUIRED`, `ACCESS_DENIED`, `METHOD_NOT_ALLOWED` and the `500` codes | every operation |
+| `SORTING_UNSUPPORTED` | a collection read, or a to-many's related or relationship read, whose sort vocabulary is empty, and a to-many relationship mutation |
+| `SORTING_UNRECOGNIZED` | a collection read, or a to-many's related or relationship read, that declares a sort |
+| `FILTERING_UNRECOGNIZED` | a collection read, a related or relationship read, a collection action that takes filters, and a to-many relationship mutation |
+| `FILTER_VALUE_INVALID` | those of the reads and actions above that declare a filter |
+| the four above, with the [Relationship Queries](profiles/relationship-queries.md) profile | also every operation rendering resources of a type with a relation, for `relatedQuery` |
+| `INCLUSION_UNRECOGNIZED`, `INCLUSION_UNSUPPORTED` | a collection or single read, a create, an update, a related or relationship read, an action answering with a resource, and the atomic batch |
+| `INCLUSION_NOT_ALLOWED`, `INCLUSION_DEPTH_EXCEEDED` | the same, and a relationship mutation echoing its linkage |
+| `RELATIONSHIP_COUNT_NOT_ALLOWED` | every operation rendering a document: the reads, a create or update answering with its resource, a relationship mutation echoing its linkage, an action answering with a resource, and the atomic batch |
 | `CURSOR_MALFORMED`, `CURSOR_STALE` | a collection read, or a to-many's related or relationship read, whose `page` pages by cursor, bare or as a menu arm |
 | `PAGINATION_KIND_UNKNOWN` | the reads whose `page` is a `MultiPaginator` menu |
-| `RELATIONSHIP_COUNT_NOT_ALLOWED` | the reads that take `withCount` |
-| `CLIENT_GENERATED_ID_REQUIRED`, `CLIENT_GENERATED_ID_ALREADY_EXISTS` | the create of a type that permits a client id, and an action whose document input is such a type |
-| the request-document family | a create, an update, a relationship mutation, an action taking a document, and the atomic batch |
-| `ATTRIBUTE_WRITE_PROHIBITED` | a create, an update, and an action taking a document |
+| `INSUFFICIENT_SCOPE` | an operation needing scopes of its own, a read, create, update or related read with a path to include, and the batch when it or a write it runs needs scopes |
+| `RESOURCE_NOT_FOUND` | every operation addressing a resource, a create of a type with a relation, whose linkage can name a missing resource, and an action on a resource or taking a document; never a collection read |
+| `RELATIONSHIP_NOT_EXISTS` | the related and relationship endpoints |
+| `REQUEST_BODY_INVALID_JSON`, `REQUEST_BODY_INVALID_JSON_API` | a create, an update, a relationship mutation, an action taking a document, and the atomic batch |
+| `REQUIRED_TOP_LEVEL_MEMBERS_MISSING`, `TOP_LEVEL_MEMBERS_INCOMPATIBLE`, `TOP_LEVEL_MEMBER_NOT_ALLOWED`, `LOCAL_ID_NOT_SUPPORTED` | the same, except the atomic batch |
+| `DATA_MEMBER_MISSING`, `RESOURCE_TYPE_MISSING`, `RESOURCE_ID_INVALID`, `ATTRIBUTE_MEMBER_UNRECOGNIZED` | a create, an update, and an action taking a document |
+| `RESOURCE_TYPE_UNACCEPTABLE` | the same, and a relationship mutation |
+| the `RESOURCE_IDENTIFIER_*` codes | a relationship mutation, and a create, update or document action whose type declares a relation |
+| `RELATIONSHIP_TYPE_INAPPROPRIATE` | a relationship mutation, and a write of a type with no field inventory, whose own hydrator checks cardinality |
+| `ATTRIBUTE_VALUE_INVALID` | a create, an update, an action taking a document, and a mutation of a relation with pivot fields |
+| `ATTRIBUTE_WRITE_PROHIBITED` | a create, an update, and an action taking a document, of a type declaring an attribute |
+| `RELATED_ATTRIBUTE_OWNER_MISSING` | the same, of a type with an attribute flattened `on()` a relation |
+| `RESOURCE_ID_MISSING` | an update |
+| `RESOURCE_ID_CONFLICT` | an update, but not inside the atomic batch |
+| `CLIENT_GENERATED_ID_NOT_SUPPORTED` | the create of a type that refuses a client id, and an action whose document input is such a type |
+| `CLIENT_GENERATED_ID_REQUIRED` | the create of a type that requires a client id, and such an action |
+| `CLIENT_GENERATED_ID_ALREADY_EXISTS`, `RESOURCE_ID_UNDECODABLE` | the create of a type that permits a client id, and such an action |
+| `FULL_REPLACEMENT_PROHIBITED` | a relationship replacement, and the update of a type with a relation |
+| `ADDITION_PROHIBITED` | a relationship addition |
+| `REMOVAL_PROHIBITED` | a relationship removal, the replacement of a to-one, which `null` clears, and the update of a type with a relation |
 | `MEMBERSHIP_CHANGE_PROHIBITED` | the relationship replacement of a relation declared `cannotChangeMembership()`, and the update of its type |
 | the atomic and local-id codes | the atomic batch |
 
-The batch also offers a code when it can perform a write that does, since a batch entry runs
-that write through the same handler. `INSUFFICIENT_SCOPE` stays on every operation, since an
-operation can raise it through `?include` as well as through its own scopes, and so does
-`METHOD_NOT_ALLOWED`, which answers a method no documented operation has. A cursor-paged
-collection therefore leaves your deletes and single-resource reads untouched, and a
-breaking-change check sees only the operations a change reaches.
+The batch offers a code when it can perform a write that does, since a batch entry runs that
+write through the same handler, unless the batch skips that check: its document has no
+top-level `data`, its entries may carry a `lid`, and nothing checks an entry's `id` against
+its `ref`. It also offers `ADDITION_PROHIBITED` when a relation refuses additions outright,
+since a batch entry can still target one. A code the batch raises itself, such as a
+malformed body, is always offered there.
 
-Each feature's codes form shapes of their own, so `Error400ParameterCursorMalformed` keeps
+Where the metadata cannot tell whether an operation raises a code, the code is offered.
+A `readOnly(when:)` or `cannotAdd(when:)` predicate is invisible to the document, so
+`ATTRIBUTE_WRITE_PROHIBITED` is offered on every write of a type declaring an attribute, and
+the relationship guards on every mutation they could refuse. A delete, a single read, or a
+write never reads `sort` or `filter`, so those codes stay off them, and a cursor-paged
+collection leaves your deletes and single-resource reads untouched.
+
+Each rule's codes form shapes of their own, so `Error400ParameterCursorMalformed` keeps
 its name when another collection starts paging by cursor, and never takes in a code of
-another feature that happens to reach the same operations. A status every operation shares
+another rule that happens to reach the same operations. A status every operation shares
 no code at still gets its `ErrorDocument<status>`, offering only the generic `Error`, for the
 operations outside every scope at that status.
 
@@ -567,7 +600,7 @@ Operations endpoint offers a code whose scope names `OperationKind::Atomic`, and
 scope covers a create, update, delete or relationship write, since a batch entry runs that
 write through the same handler. A code scoped to reads stays off the batch. For an
 error you do not own, catalogue it through a `ScopedErrorSource`, whose scope replaces the
-descriptor's, and for one of core's feature codes the operations its feature reaches:
+descriptor's, and for one of core's codes the operations its rule reaches:
 
 ```php
 new ScopedErrorSource(ErrorScope::on('articles', 'action.purchase.post'), PaymentRequired::class)
@@ -657,15 +690,15 @@ paths:
     get:
       responses:
         '200': { … }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
 
 components:
   responses:
-    NotFound:
-      description: Not Found — the resource does not exist.
+    NotAcceptable:
+      description: Not Acceptable — the `Accept` header could not be satisfied.
       content:
         application/vnd.api+json:
-          schema: { $ref: '#/components/schemas/ErrorDocument404' }
+          schema: { $ref: '#/components/schemas/ErrorDocument406' }
 ```
 
 One response component per status your server advertises — nothing more, in keeping with
@@ -676,9 +709,11 @@ component's; the [Atomic Operations](atomic-operations.md) batch does this for t
 describes in terms of an operation within the batch rather than the request as a whole.
 
 **Each response carries the narrowest error document its status supports.** Every
-catalogued shape pins its `status` to a `const`, so `ErrorDocument404` is the error document
-whose `errors.items.anyOf` offers only the shapes whose codes can arrive with a `404` on any
-operation — and the open generic `Error` still leads it. A status the catalogue claims no
+catalogued shape pins its `status` to a `const`, so `ErrorDocument406` is the error document
+whose `errors.items.anyOf` offers only the shapes whose codes can arrive with a `406` on any
+operation — and the open generic `Error` still leads it. Since nearly every operation offers
+`400` and `404` codes of its own, those statuses usually answer with an operation's own
+document, and a status no operation answers from a shared response has no component. A status the catalogue claims no
 code for keeps the generic `ErrorDocument`, such as a status whose codes your feature set
 gated out. `401` and `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED`
 and `ACCESS_DENIED` for the adapters to render when the framework's security layer refuses a

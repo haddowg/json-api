@@ -258,6 +258,11 @@ placeholder shape, `source` member and **Error feature**.
 **Error feature**:
 The server capability an error kind depends on (atomic operations, cursor pagination, writes, …).
 
+**Coverage rule**:
+The operations whose runtime can raise one of core's **Error codes**, narrowed by what the type,
+relation or action declares. Codes following one rule share error shapes only with each other.
+_Avoid_: feature scope, code scope
+
 **Operation error document**:
 The error document one operation answers a status with when it raises codes scoped to it, named
 for its type, operation and status (`ArticlesUpdate409`) rather than for the codes it offers.

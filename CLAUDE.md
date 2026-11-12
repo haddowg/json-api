@@ -402,10 +402,12 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   scope, and only the operations it covers offer it; scope lives with the error, never on
   the type. Each code's example is one `components.examples` entry the responses reference
   ([ADR 0093](docs/adr/0093-a-code-is-offered-only-by-the-operations-declared-to-raise-it.md)).
-  A code tied to an `ErrorFeature` and no scope of its own is scoped the same way to the
-  operations its feature reaches, in shapes grouped by feature, read from `OperationFacts`,
-  which the operation projector reads too; never give either side its own copy of those rules
-  ([ADR 0121](docs/adr/0121-a-feature-gated-code-is-offered-only-by-the-operations-that-can-raise-it.md)).
+  Every core code with no scope of its own is scoped the same way by its rule in
+  `OpenApi\ErrorCoverage::RULES`, in shapes grouped by rule, read from `OperationFacts`, which
+  the operation projector reads too; never give either side its own copy of those rules, and
+  give every new core exception a rule. `ErrorFeature` only gates
+  ([ADR 0121](docs/adr/0121-a-feature-gated-code-is-offered-only-by-the-operations-that-can-raise-it.md),
+  [ADR 0123](docs/adr/0123-each-core-error-code-is-offered-only-by-the-operations-whose-runtime-raises-it.md)).
 - Such an operation answers that status with an inline response and an error document of its
   own, named for the type, operation and status (`ArticlesUpdate409`) by
   `ErrorResponseProjector::operationDocument()`, never for the codes it offers. It references
