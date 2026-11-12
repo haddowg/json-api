@@ -362,6 +362,7 @@ final class OperationProjector
     {
         $parameters = $this->concatParameters(
             $this->documentShapeParameters($type, $server),
+            [$this->withCountParameter(OperationFacts::resourceWithCountTokens($type), $server)],
             [$this->relatedQueryParameter($type, $server)],
         );
 
@@ -412,7 +413,7 @@ final class OperationProjector
             summary: 'Create ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: $operationId,
-            parameters: $this->declaresStatus($declared, 201) ? $this->documentShapeParameters($type, $server) : [],
+            parameters: OperationFacts::declaresStatus($declared, 201) ? $this->resourceDocumentParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
@@ -444,7 +445,7 @@ final class OperationProjector
             summary: 'Update ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: $operationId,
-            parameters: $this->declaresStatus($declared, 200) ? $this->documentShapeParameters($type, $server) : [],
+            parameters: OperationFacts::declaresStatus($declared, 200) ? $this->resourceDocumentParameters($type, $server) : [],
             requestBody: RequestBody::ofSchema($requestSchema),
             security: $security,
         );
@@ -772,6 +773,7 @@ final class OperationProjector
                     : [],
                 [$includeParameter],
                 $fieldsParameters,
+                [$this->withCountParameter(OperationFacts::toOneRelatedWithCountTokens($relation, $server), $server)],
             );
             $successDescription = 'The related ' . $relation->name() . ' resource.';
         }
@@ -1037,6 +1039,7 @@ final class OperationProjector
             parameters: $this->concatParameters(
                 $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields(), $server),
                 $this->actionDocumentShapeParameters($action, $server),
+                [$this->withCountParameter(OperationFacts::actionWithCountTokens($action, $server), $server)],
             ),
             requestBody: $this->actionRequestBody($action, $server),
             security: $security,
@@ -1281,6 +1284,20 @@ final class OperationProjector
     }
 
     /**
+     * The parameters of a write answering with `$type`'s resource document: the pair that
+     * shapes it, and the `withCount` its relations take.
+     *
+     * @return list<Parameter|Reference>
+     */
+    private function resourceDocumentParameters(TypeMetadataInterface $type, ServerMetadataInterface $server): array
+    {
+        return $this->concatParameters(
+            $this->documentShapeParameters($type, $server),
+            [$this->withCountParameter(OperationFacts::resourceWithCountTokens($type), $server)],
+        );
+    }
+
+    /**
      * The `?include` / `fields[<type>]` parameters for a custom action: the pair for the
      * type named by its {@see ActionResource} or {@see ActionCreated} response, since that response is rendered
      * as a resource document through the same serializer a read of that type uses. An
@@ -1304,26 +1321,6 @@ final class OperationProjector
         }
 
         return [];
-    }
-
-    /**
-     * Whether a declared success-response set advertises `$status` — the status whose
-     * body is the type's own resource document (`201` for a create, `200` for an
-     * update). A set without it answers with no such document: a `204` carries no body
-     * at all and a `202`'s body is the job resource, so there is nothing for
-     * `?include` / `fields[<type>]` to shape and neither is advertised.
-     *
-     * @param non-empty-list<OperationResponseInterface> $responses
-     */
-    private function declaresStatus(array $responses, int $status): bool
-    {
-        foreach ($responses as $response) {
-            if ($response->status() === $status) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

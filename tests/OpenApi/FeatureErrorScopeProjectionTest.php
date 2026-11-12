@@ -112,7 +112,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles', 'get'));
         self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}/comments', 'get'));
         self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}/relationships/comments', 'get'));
-        self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'get'));
+        self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'get'), 'a single resource counts its relations');
         self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'delete'));
         // Nothing on a comment counts, so its collection takes no withCount.
         self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/comments', 'get'));

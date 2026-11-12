@@ -1,0 +1,3 @@
+# A single-resource operation documents withCount without `_self_`
+
+The Symfony and Laravel adapters already count a resource's relations on a fetch-one, on a create or update that answers with the resource, on a to-one related read and on an action answering with a resource, but the document advertised `withCount` only on collections, so a generated client could not ask for a count the server would give. Those operations now take `withCount` with the rendered type's countable relations. They never take `_self_`: core's document gate accepts it on a countable type's single resource, but there is no collection to total, so documenting it would promise a count with nothing to count.
