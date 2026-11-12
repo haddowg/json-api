@@ -1,0 +1,3 @@
+# Atomic relationship operations reference named identifier components
+
+The atomic relationship operations take their linkage from two components, `AtomicIdentifier`, the `oneOf` over each `<Type>AtomicIdentifier` discriminated by `type`, and `AtomicIdentifiers`, its array, instead of three inline copies of the union. OpenAPI diff tools compare inline `oneOf` lists by position, so each type a server gained reported every operation's existing branches as removed and flagged the change as breaking, and naming the union confines that churn to one component. A server whose relations link to a single type keeps a one-branch `oneOf` with its discriminator rather than a bare `$ref`, so a second type adds a branch to the same shape instead of replacing it.

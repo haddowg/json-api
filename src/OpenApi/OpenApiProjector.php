@@ -67,6 +67,15 @@ final class OpenApiProjector
      */
     private const OPERATION_RESPONSE = 'operation:';
 
+    /**
+     * The atomic relationship operations' identifier union and its array. A type-derived
+     * name is a type's base followed by a fixed suffix, and none of those suffixes can
+     * spell either name, so only an author-chosen name can clash, and that is refused.
+     */
+    private const ATOMIC_IDENTIFIER = 'AtomicIdentifier';
+
+    private const ATOMIC_IDENTIFIERS = 'AtomicIdentifiers';
+
     public function __construct(
         private readonly SchemaProjector $schemaProjector = new SchemaProjector(),
         private readonly OperationProjector $operationProjector = new OperationProjector(),
@@ -1397,9 +1406,10 @@ final class OpenApiProjector
      * - `AtomicResult` — one result fragment (`{data?, meta?}`; an empty `{}` is
      *   valid).
      *
-     * Each kind's `data` is a `oneOf` discriminated by `type`: over `<Type>AtomicAdd` or
-     * `<Type>AtomicUpdate` for a resource kind, and over `<Type>AtomicIdentifier`, which
-     * takes an `id` or a `lid`, for a relationship kind.
+     * A resource kind's `data` is a `oneOf` over `<Type>AtomicAdd` or `<Type>AtomicUpdate`
+     * discriminated by `type`. A relationship kind's `data` references `AtomicIdentifier`,
+     * the `oneOf` over `<Type>AtomicIdentifier` discriminated by `type`, or
+     * `AtomicIdentifiers`, its array. Each `<Type>AtomicIdentifier` takes an `id` or a `lid`.
      *
      * @param array<string, Schema> $schemas
      */
@@ -1434,7 +1444,6 @@ final class OpenApiProjector
         // and the target, a relationship or not, keep the kinds exclusive.
         $adds = $this->typesAllowing($server, OperationType::Create);
         $updates = $this->typesAllowing($server, OperationType::Update);
-        $identifiers = $linkageTypes === [] ? null : $this->discriminatedUnion($linkageTypes, 'AtomicIdentifier');
         $kinds = [];
         if ($adds !== []) {
             $kinds['AtomicAddOperation'] = $this->atomicKindSchema('add', false, 'Adds a resource.', $this->discriminatedUnion($adds, 'AtomicAdd'), true);
@@ -1443,10 +1452,17 @@ final class OpenApiProjector
             $kinds['AtomicUpdateOperation'] = $this->atomicKindSchema('update', false, 'Updates a resource.', $this->discriminatedUnion($updates, 'AtomicUpdate'), true);
         }
         $kinds['AtomicRemoveOperation'] = $this->atomicKindSchema('remove', false, 'Removes a resource.', null, false);
-        if ($identifiers !== null) {
-            $toMany = Schema::ofType('array')->withItems($identifiers);
+        if ($linkageTypes !== []) {
+            // The linkage union and its array are components, so a type joining the server
+            // adds a branch to one named `oneOf` rather than reshaping three inline lists.
+            $schemas[self::ATOMIC_IDENTIFIER] = $this->discriminatedUnion($linkageTypes, 'AtomicIdentifier')
+                ->withDescription('A resource identifier an atomic relationship operation carries, naming its resource by `id` or by the `lid` an earlier operation in the batch gave it.');
+            $schemas[self::ATOMIC_IDENTIFIERS] = Schema::ofType('array')
+                ->withItems(Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIER)));
+            $identifier = Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIER));
+            $toMany = Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIERS));
             $kinds['AtomicRelationshipAddOperation'] = $this->atomicKindSchema('add', true, 'Adds members to a to-many relationship.', $toMany, true);
-            $kinds['AtomicRelationshipUpdateOperation'] = $this->atomicKindSchema('update', true, 'Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many.', Schema::create()->withOneOf([$identifiers, Schema::ofType('null'), $toMany]), true);
+            $kinds['AtomicRelationshipUpdateOperation'] = $this->atomicKindSchema('update', true, 'Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many.', Schema::create()->withOneOf([$identifier, Schema::ofType('null'), $toMany]), true);
             $kinds['AtomicRelationshipRemoveOperation'] = $this->atomicKindSchema('remove', true, 'Removes members from a to-many relationship.', $toMany, true);
         }
 
