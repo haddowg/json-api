@@ -443,8 +443,9 @@ in the shape always fills, so a client can read `source.parameter` without a nul
 the codes that guarantee it. The `code` is an `anyOf` even when the shape holds one code, so
 adding a code is always one more branch.
 
-A shape is named for its status, then its `source` member, then, when it declares `meta`, its
-first code: `Error404`, `Error422Pointer`, `Error406Header`, `Error403InsufficientScope`.
+A shape is named for its status, then its `source` member, then, when it declares `meta` or
+only some operations offer it, its first code: `Error404`, `Error400Parameter`,
+`Error406Header`, `Error403InsufficientScope`, `Error400ParameterCursorMalformed`.
 
 Each branch's `description` says what its code means and what a client should do about it,
 which a generator can carry onto the typed exception it emits. Every code core ships has a
@@ -513,6 +514,34 @@ the client-id codes need a type that permits one; and the whole request-document
 request body somewhere — a CRUD write, a mutable relationship endpoint, or the atomic
 batch.
 
+Once your server offers the capability, each of those codes is offered only on the
+operations that can raise it, the way a [scoped code](#scoping-a-code-to-the-operations-that-raise-it)
+is:
+
+| Codes | Offered on |
+| --- | --- |
+| `CURSOR_MALFORMED`, `CURSOR_STALE` | a collection read, or a to-many's related or relationship read, whose `page` pages by cursor, bare or as a menu arm |
+| `PAGINATION_KIND_UNKNOWN` | the reads whose `page` is a `MultiPaginator` menu |
+| `RELATIONSHIP_COUNT_NOT_ALLOWED` | the reads that take `withCount` |
+| `CLIENT_GENERATED_ID_REQUIRED`, `CLIENT_GENERATED_ID_ALREADY_EXISTS` | the create of a type that permits a client id, and an action whose document input is such a type |
+| the request-document family | a create, an update, a relationship mutation, an action taking a document, and the atomic batch |
+| `ATTRIBUTE_WRITE_PROHIBITED` | a create, an update, and an action taking a document |
+| `MEMBERSHIP_CHANGE_PROHIBITED` | the relationship replacement of a relation declared `cannotChangeMembership()`, and the update of its type |
+| the atomic and local-id codes | the atomic batch |
+
+The batch also offers a code when it can perform a write that does, since a batch entry runs
+that write through the same handler. `INSUFFICIENT_SCOPE` stays on every operation, since an
+operation can raise it through `?include` as well as through its own scopes, and so does
+`METHOD_NOT_ALLOWED`, which answers a method no documented operation has. A cursor-paged
+collection therefore leaves your deletes and single-resource reads untouched, and a
+breaking-change check sees only the operations a change reaches.
+
+Each feature's codes form shapes of their own, so `Error400ParameterCursorMalformed` keeps
+its name when another collection starts paging by cursor, and never takes in a code of
+another feature that happens to reach the same operations. A status every operation shares
+no code at still gets its `ErrorDocument<status>`, offering only the generic `Error`, for the
+operations outside every scope at that status.
+
 ### Scoping a code to the operations that raise it
 
 Most codes can arrive on any operation, but an application's own codes are often endpoint
@@ -538,7 +567,7 @@ Operations endpoint offers a code whose scope names `OperationKind::Atomic`, and
 scope covers a create, update, delete or relationship write, since a batch entry runs that
 write through the same handler. A code scoped to reads stays off the batch. For an
 error you do not own, catalogue it through a `ScopedErrorSource`, whose scope replaces the
-descriptor's:
+descriptor's, and for one of core's feature codes the operations its feature reaches:
 
 ```php
 new ScopedErrorSource(ErrorScope::on('articles', 'action.purchase.post'), PaymentRequired::class)
@@ -577,7 +606,7 @@ components:
           items:
             anyOf:
               - { $ref: '#/components/schemas/Error' }
-              - { $ref: '#/components/schemas/Error409Pointer' }
+              - { $ref: '#/components/schemas/Error409PointerResourceIdConflict' }
               - { $ref: '#/components/schemas/Error409ArticleLocked' }
         links: { $ref: '#/components/schemas/Links' }
         meta: { $ref: '#/components/schemas/Meta' }
@@ -624,19 +653,19 @@ HTTP status:
 
 ```yaml
 paths:
-  /articles:
-    post:
+  /articles/{id}:
+    get:
       responses:
-        '201': { … }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '200': { … }
+        '404': { $ref: '#/components/responses/NotFound' }
 
 components:
   responses:
-    UnprocessableEntity:
-      description: Unprocessable Entity — the document failed validation.
+    NotFound:
+      description: Not Found — the resource does not exist.
       content:
         application/vnd.api+json:
-          schema: { $ref: '#/components/schemas/ErrorDocument422' }
+          schema: { $ref: '#/components/schemas/ErrorDocument404' }
 ```
 
 One response component per status your server advertises — nothing more, in keeping with
@@ -647,14 +676,14 @@ component's; the [Atomic Operations](atomic-operations.md) batch does this for t
 describes in terms of an operation within the batch rather than the request as a whole.
 
 **Each response carries the narrowest error document its status supports.** Every
-catalogued shape pins its `status` to a `const`, so `ErrorDocument422` is the error document
-whose `errors.items.anyOf` offers only the shapes whose codes can arrive with a `422` — and
-the open generic `Error` still leads it. A status the catalogue claims no code for keeps the
-generic `ErrorDocument`, such as a status whose codes your feature set gated out. `401` and
-`403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED` and `ACCESS_DENIED`
-for the adapters to render when the framework's security layer refuses a request, so
-`ErrorDocument401` offers the one and `ErrorDocument403` offers the other beside any
-write-side `403` codes.
+catalogued shape pins its `status` to a `const`, so `ErrorDocument404` is the error document
+whose `errors.items.anyOf` offers only the shapes whose codes can arrive with a `404` on any
+operation — and the open generic `Error` still leads it. A status the catalogue claims no
+code for keeps the generic `ErrorDocument`, such as a status whose codes your feature set
+gated out. `401` and `403` narrow like the rest: core catalogues `AUTHENTICATION_REQUIRED`
+and `ACCESS_DENIED` for the adapters to render when the framework's security layer refuses a
+request, so `ErrorDocument401` offers the one and `ErrorDocument403` offers the other. The
+write-side `403` codes are the writes' own.
 
 Two things follow, and the second is easy to miss. The `anyOf` is still a catalogue and
 still not a constraint — your own `422` code validates against `ErrorDocument422` for the

@@ -12,7 +12,8 @@ namespace haddowg\JsonApi\Exception;
  * server does not offer the capability — the same registration-awareness that already
  * gates `?withCount`, the cursor `x-profile` marker and the write components. A client
  * generated from a read-only server has no use for a typed
- * `RESOURCE_TYPE_UNACCEPTABLE`.
+ * `RESOURCE_TYPE_UNACCEPTABLE`. Where the server does offer it, the code is offered only on
+ * the operations that can raise it, such as the cursor codes on the reads that page by cursor.
  *
  * Each case states the condition it tests, because an over-eager gate hides an error a
  * client will actually meet.

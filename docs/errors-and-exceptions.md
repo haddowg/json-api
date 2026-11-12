@@ -481,7 +481,10 @@ registers it.
 ### Scoping a code to the operations that raise it
 
 A code is offered by every operation's error response for its status unless its descriptor
-says otherwise. When only some operations raise it, give the descriptor a `scope`:
+says otherwise, or it depends on an `ErrorFeature`: core's feature codes are offered only on
+the operations that can raise them, such as the cursor codes on the reads that page by
+cursor ([the full list](openapi.md#the-error-code-catalogue)). When only some operations
+raise one of your own codes, give its descriptor a `scope`:
 `ErrorScope::on('articles', 'update', 'delete')` for operations of one type,
 `ErrorScope::kinds(OperationKind::Delete)` for every delete. The
 [projection](openapi.md#scoping-a-code-to-the-operations-that-raise-it) then offers the code

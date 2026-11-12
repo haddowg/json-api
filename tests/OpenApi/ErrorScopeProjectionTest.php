@@ -11,6 +11,7 @@ use haddowg\JsonApi\Exception\ScopedErrorSource;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -48,21 +49,17 @@ final class ErrorScopeProjectionTest extends TestCase
 
         self::assertSame('ArticlesUpdate409', $this->errorDocument($document, '/articles/{id}', 'patch', '409'));
         self::assertSame('ArticlesDelete409', $this->errorDocument($document, '/articles/{id}', 'delete', '409'));
-        self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles', 'post', 'responses', '409', '$ref'));
+        self::assertNotContains('Error409ArticleLocked', $this->offered($document, '/articles', 'post', '409'));
+
+        // The update reads a document, so it also offers the request-document codes at 409;
+        // the delete reads none, so it offers the scoped code alone.
+        self::assertSame(['Error', 'Error409PointerResourceIdConflict', 'Error409ArticleLocked'], $this->offered($document, '/articles/{id}', 'patch', '409'));
+        self::assertSame(['Error', 'Error409ArticleLocked'], $this->offered($document, '/articles/{id}', 'delete', '409'));
 
         $schemas = $this->arr($document, 'components', 'schemas');
-        $shared = $this->arr($schemas, 'ErrorDocument409', 'properties', 'errors', 'items');
-        $narrowed = $this->arr($schemas, 'ArticlesUpdate409', 'properties', 'errors', 'items');
-        self::assertNotContains(['$ref' => '#/components/schemas/Error409ArticleLocked'], $this->arr($shared, 'anyOf'));
-        self::assertSame(
-            [...$this->arr($shared, 'anyOf'), ['$ref' => '#/components/schemas/Error409ArticleLocked']],
-            $this->arr($narrowed, 'anyOf'),
-            'the narrowed document offers the shared codes, then the scoped ones, behind the generic branch',
-        );
         self::assertSame('Article locked', $this->at($schemas, 'Error409ArticleLocked', 'title'));
-        self::assertArrayHasKey('description', $shared, 'the shared document explains the open list');
-        self::assertArrayNotHasKey('description', $narrowed, 'an operation\'s own document does not repeat it');
-        self::assertSame($this->at($schemas, 'ArticlesUpdate409'), $this->at($schemas, 'ArticlesDelete409'));
+        self::assertArrayHasKey('description', $this->arr($schemas, 'ErrorDocument404', 'properties', 'errors', 'items'), 'the shared document explains the open list');
+        self::assertArrayNotHasKey('description', $this->arr($schemas, 'ArticlesUpdate409', 'properties', 'errors', 'items'), 'an operation\'s own document does not repeat it');
     }
 
     #[Test]
@@ -74,7 +71,6 @@ final class ErrorScopeProjectionTest extends TestCase
         self::assertArrayNotHasKey('$ref', $response);
         self::assertSame('Conflict — the request conflicts with the resource state (e.g. a type or id mismatch).', $response['description'] ?? null);
         $components = \array_keys($this->arr($document, 'components', 'responses'));
-        self::assertContains('Conflict', $components);
         self::assertNotContains('ArticlesUpdate409', $components);
         self::assertSame([], \preg_grep('/^(?!Conflict$).*(Conflict|409)/', $components), 'no response component is emitted beside the operation\'s document');
     }
@@ -139,15 +135,16 @@ final class ErrorScopeProjectionTest extends TestCase
     #[Test]
     public function twoOperationsNamingOneErrorDocumentAreRefused(): void
     {
+        $readOnly = [OperationType::FetchCollection, OperationType::FetchOne];
         $server = new FakeServerMetadata(title: 'API', version: '1.0.0', types: [
-            FakeTypeMetadata::resource(type: 'blog-posts', fields: [Id::make()->example('1')->build()]),
-            FakeTypeMetadata::resource(type: 'blog_posts', fields: [Id::make()->example('1')->build()]),
+            FakeTypeMetadata::resource(type: 'blog-posts', fields: [Id::make()->example('1')->build()], operations: $readOnly),
+            FakeTypeMetadata::resource(type: 'blog_posts', fields: [Id::make()->example('1')->build()], operations: $readOnly),
         ]);
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('would both name their 402 error document "BlogPostsUpdate402"');
+        $this->expectExceptionMessage('would both name their 402 error document "BlogPostsFetchOne402"');
 
-        (new OpenApiProjector())->project(new ContributingServerMetadata($server, new ScopedErrorSource(ErrorScope::kinds(OperationKind::Update), PaymentRequired::class)));
+        (new OpenApiProjector())->project(new ContributingServerMetadata($server, new ScopedErrorSource(ErrorScope::kinds(OperationKind::FetchOne), PaymentRequired::class)));
     }
 
     #[Test]
@@ -187,7 +184,8 @@ final class ErrorScopeProjectionTest extends TestCase
         );
 
         self::assertSame('ArticlesCreate409', $this->errorDocument($document, '/articles', 'post', '409'));
-        self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', '$ref'));
+        self::assertContains('Error409ArticleLocked', $this->offered($document, '/articles', 'post', '409'));
+        self::assertNotContains('Error409ArticleLocked', $this->offered($document, '/articles/{id}', 'patch', '409'));
     }
 
     #[Test]
@@ -235,7 +233,7 @@ final class ErrorScopeProjectionTest extends TestCase
         $response = $this->arr($document, 'paths', '/operations', 'post', 'responses', '409');
         self::assertSame('AtomicOperations409', $this->errorDocument($document, '/operations', 'post', '409'));
         self::assertStringContainsString('an operation conflicts', \is_string($response['description'] ?? null) ? $response['description'] : '');
-        self::assertSame('#/components/responses/Conflict', $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', '$ref'));
+        self::assertNotContains('Error409ArticleLocked', $this->offered($document, '/articles/{id}', 'patch', '409'));
     }
 
     #[Test]
@@ -282,7 +280,7 @@ final class ErrorScopeProjectionTest extends TestCase
             ['$ref' => '#/components/examples/ARTICLE_LOCKED'],
             $this->at($document, 'paths', '/articles/{id}', 'patch', 'responses', '409', 'content', 'application/vnd.api+json', 'examples', 'ARTICLE_LOCKED'),
         );
-        self::assertArrayNotHasKey('ARTICLE_LOCKED', $this->arr($document, 'components', 'responses', 'Conflict', 'content', 'application/vnd.api+json', 'examples'));
+        self::assertArrayNotHasKey('ARTICLE_LOCKED', $this->arr($document, 'paths', '/articles', 'post', 'responses', '409', 'content', 'application/vnd.api+json', 'examples'));
     }
 
     #[Test]
@@ -357,6 +355,33 @@ final class ErrorScopeProjectionTest extends TestCase
         self::assertIsString($ref);
 
         return \substr($ref, \strlen('#/components/schemas/'));
+    }
+
+    /**
+     * The shapes an operation's `$status` response offers, whether it is the operation's own
+     * document or a shared response.
+     *
+     * @param array<array-key, mixed> $document
+     *
+     * @return list<string>
+     */
+    private function offered(array $document, string $path, string $method, string $status): array
+    {
+        $response = $this->arr($document, 'paths', $path, $method, 'responses', $status);
+        $ref = $response['$ref'] ?? null;
+        if (\is_string($ref)) {
+            $response = $this->arr($document, 'components', 'responses', \substr($ref, \strlen('#/components/responses/')));
+        }
+        $schema = $this->at($response, 'content', 'application/vnd.api+json', 'schema', '$ref');
+        self::assertIsString($schema);
+        $shapes = [];
+        foreach ($this->arr($document, 'components', 'schemas', \substr($schema, \strlen('#/components/schemas/')), 'properties', 'errors', 'items', 'anyOf') as $branch) {
+            self::assertIsArray($branch);
+            self::assertIsString($branch['$ref'] ?? null);
+            $shapes[] = \substr($branch['$ref'], \strlen('#/components/schemas/'));
+        }
+
+        return $shapes;
     }
 
     /**

@@ -329,7 +329,7 @@ final class OperationProjector
             [$this->sortParameter($type->sorts(), [], self::typeSortExample($type))],
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
-            [$this->withCountParameter($this->collectionWithCountTokens($type), $server)],
+            [$this->withCountParameter(OperationFacts::collectionWithCountTokens($type), $server)],
             [$this->relatedQueryParameter($type, $server)],
         );
 
@@ -756,7 +756,7 @@ final class OperationProjector
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->pageSchema(), $server),
-                [$this->withCountParameter($this->relatedWithCountTokens($relation, $server), $server)],
+                [$this->withCountParameter(OperationFacts::relatedWithCountTokens($relation, $server), $server)],
             );
             $successDescription = 'The related ' . $relation->name() . ' collection.';
         } else {
@@ -835,14 +835,14 @@ final class OperationProjector
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
-                [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
+                [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
             );
         } elseif (RelationFacts::identifiesMembers($relation)) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
-                [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
+                [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
             );
         } else {
             $getParameters = [];
@@ -2296,75 +2296,6 @@ final class OperationProjector
             style: ParameterStyle::DeepObject,
             explode: true,
         )->withExtension('profile', RelationshipQueriesProfile::URI);
-    }
-
-    /**
-     * The valid `withCount` tokens for a primary collection `GET /{type}`: `_self_` when
-     * the type is {@see TypeMetadataInterface::isCountable()} (its collection advertises
-     * the count), plus every countable relation of the type (counted per primary item).
-     *
-     * @return list<string>
-     */
-    private function collectionWithCountTokens(TypeMetadataInterface $type): array
-    {
-        $tokens = $type->isCountable() ? ['_self_'] : [];
-
-        return [...$tokens, ...$this->countableRelationNames($type)];
-    }
-
-    /**
-     * The valid `withCount` tokens for a related to-many `GET /{type}/{id}/{rel}`:
-     * `_self_` when the relation is {@see RelationMetadataInterface::isCountable()} (its
-     * related collection advertises the count), plus every countable relation of the
-     * RELATED type (counted per related item across the page). A polymorphic relation's
-     * page mixes types, so it takes a relation any of its related types counts.
-     *
-     * @return list<string>
-     */
-    private function relatedWithCountTokens(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
-    {
-        $tokens = $relation->isCountable() ? ['_self_'] : [];
-
-        $relationNames = [];
-        foreach ($relation->relatedTypes() as $type) {
-            $relatedType = $this->typeNamed($type, $server);
-            if ($relatedType !== null) {
-                \array_push($relationNames, ...$this->countableRelationNames($relatedType));
-            }
-        }
-
-        return [...$tokens, ...\array_values(\array_unique($relationNames))];
-    }
-
-    /**
-     * The valid `withCount` tokens for a relationship (linkage) `GET …/relationships/{rel}`:
-     * only `_self_` (when the relation is {@see RelationMetadataInterface::isCountable()}),
-     * since the linkage endpoint renders identifiers, not the related resources' own
-     * relationships.
-     *
-     * @return list<string>
-     */
-    private function relationshipWithCountTokens(RelationMetadataInterface $relation): array
-    {
-        return $relation->isCountable() ? ['_self_'] : [];
-    }
-
-    /**
-     * The names of a type's countable to-many relations, in declaration order — the
-     * relation tokens a `?withCount` accepts for that type.
-     *
-     * @return list<string>
-     */
-    private function countableRelationNames(TypeMetadataInterface $type): array
-    {
-        $names = [];
-        foreach ($type->relations() as $relation) {
-            if ($relation->isCountable() && !self::isWriteOnly($relation)) {
-                $names[] = $relation->name();
-            }
-        }
-
-        return $names;
     }
 
     /**

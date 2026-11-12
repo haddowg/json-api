@@ -50,7 +50,7 @@ final class ErrorResponseProjectionTest extends TestCase
     // ---- Extraction into components.responses ---------------------------------------
 
     #[Test]
-    public function everyErrorResponseInTheDocumentIsARefIntoComponentsResponses(): void
+    public function everySharedErrorResponseInTheDocumentIsARefIntoComponentsResponses(): void
     {
         $document = $this->project($this->fullServer());
         $components = $this->arrAt($document, 'components', 'responses');
@@ -67,9 +67,16 @@ final class ErrorResponseProjectionTest extends TestCase
                     if (!\str_starts_with((string) $status, '4') && !\str_starts_with((string) $status, '5')) {
                         continue;
                     }
-                    ++$seen;
                     self::assertIsArray($response);
                     $where = "{$method} {$path} {$status}";
+                    if (!isset($response['$ref'])) {
+                        // An operation offering a code scoped to it answers with its own
+                        // document, never a shared one restated inline.
+                        $schema = $this->strAt($response, 'content', 'application/vnd.api+json', 'schema', '$ref');
+                        self::assertStringNotContainsString('ErrorDocument', $schema, $where);
+                        continue;
+                    }
+                    ++$seen;
                     // Only a `$ref`, optionally with a description override — never an
                     // inline body.
                     self::assertSame([], \array_diff(\array_keys($response), ['$ref', 'description']), $where);
@@ -85,11 +92,11 @@ final class ErrorResponseProjectionTest extends TestCase
     #[Test]
     public function aSharedResponseCarriesTheDescriptionAndTheJsonApiBodyTheOperationsUsedToInline(): void
     {
-        $response = $this->arrAt($this->project($this->fullServer()), 'components', 'responses', 'UnprocessableEntity');
+        $response = $this->arrAt($this->project($this->fullServer()), 'components', 'responses', 'NotFound');
 
-        self::assertSame('Unprocessable Entity — the document failed validation.', $this->strAt($response, 'description'));
+        self::assertSame('Not Found — the resource does not exist.', $this->strAt($response, 'description'));
         self::assertSame(
-            '#/components/schemas/ErrorDocument422',
+            '#/components/schemas/ErrorDocument404',
             $this->strAt($response, 'content', 'application/vnd.api+json', 'schema', '$ref'),
         );
     }
@@ -118,9 +125,9 @@ final class ErrorResponseProjectionTest extends TestCase
             ['$ref' => '#/components/responses/NotFound', 'description' => 'Not Found — an operation targets a resource that does not exist.'],
             $this->arrAt($operation, '404'),
         );
-        // 403 reads the same on the batch as everywhere else, so it references the
+        // 500 reads the same on the batch as everywhere else, so it references the
         // component bare rather than restating it.
-        self::assertSame(['$ref' => '#/components/responses/Forbidden'], $this->arrAt($operation, '403'));
+        self::assertSame(['$ref' => '#/components/responses/InternalServerError'], $this->arrAt($operation, '500'));
     }
 
     // ---- Per-status narrowing --------------------------------------------------------
@@ -133,15 +140,35 @@ final class ErrorResponseProjectionTest extends TestCase
 
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0], 'the generic branch must lead');
 
-        $expected = [];
+        // Every 400 shape is offered by the shared document or by an operation's own 400
+        // document, and the shared document offers nothing else.
+        $at400 = [];
         foreach ($schemas as $name => $schema) {
             if (self::dig($schema, 'allOf', 1, 'properties', 'status', 'const') === '400') {
-                $expected[] = ['$ref' => '#/components/schemas/' . $name];
+                $at400[] = '#/components/schemas/' . $name;
+            }
+        }
+        $offered = [];
+        foreach ($schemas as $name => $schema) {
+            if ($name === 'ErrorDocument400' || \preg_match('/^[A-Z]\w*400$/', (string) $name) === 1) {
+                foreach ((array) self::dig($schema, 'properties', 'errors', 'items', 'anyOf') as $branch) {
+                    $ref = self::dig($branch, '$ref');
+                    self::assertIsString($ref);
+                    $offered[] = $ref;
+                }
             }
         }
 
-        self::assertGreaterThan(1, \count($expected), 'the 400 codes should span several shapes');
-        self::assertEqualsCanonicalizing($expected, \array_slice($branches, 1));
+        $shared = [];
+        foreach (\array_slice($branches, 1) as $branch) {
+            $ref = self::dig($branch, '$ref');
+            self::assertIsString($ref);
+            $shared[] = $ref;
+        }
+        self::assertNotSame([], $shared);
+        self::assertSame([], \array_diff($shared, $at400), 'the shared document offers only 400 shapes');
+        self::assertGreaterThan(1, \count($at400), 'the 400 codes should span several shapes');
+        self::assertSame([], \array_diff($at400, $offered), 'every 400 shape is offered somewhere');
     }
 
     #[Test]
