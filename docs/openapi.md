@@ -1691,6 +1691,15 @@ one that accepts relation tokens it names the first, e.g. "Request a relation na
 `withCount=comments`, to receive that relation's total on each resource in
 `relationships.comments.meta.total`".
 
+`withCount` appears on every operation that renders resources and has something to count.
+A collection read and a to-many's related read take `_self_` when the collection is
+countable, plus the countable relations of the type they render. A to-many's relationship
+read takes `_self_` alone. An operation rendering one resource takes that resource's
+countable relations and never `_self_`, since there is no collection to total: a fetch-one,
+a create or update answering with the resource, a to-one related read, and an action
+answering with a resource. A to-one relationship read renders an identifier and takes none.
+`RELATIONSHIP_COUNT_NOT_ALLOWED` is offered on exactly those operations.
+
 ### Sort families: `x-sort-families`
 
 A [sort family](sorts.md#sort-families-keys-matched-by-prefix) accepts keys that
