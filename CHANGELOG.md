@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.16.0](https://github.com/haddowg/json-api/compare/v2.15.0...v2.16.0) (2026-11-12)
+
+
+### Features
+
+* offer each error code only on the operations that raise it ([#354](https://github.com/haddowg/json-api/issues/354)) ([25f20ed](https://github.com/haddowg/json-api/commit/25f20ed02380e5c51d7ed465d2a7bae6a74ebd42))
+* read the facts that decide whether an operation raises a code ([#356](https://github.com/haddowg/json-api/issues/356)) ([6c7e862](https://github.com/haddowg/json-api/commit/6c7e862acc46d9de31b23c91f25aab49c99a06d9))
+
+
+### Bug Fixes
+
+* check include on relationship endpoints before the parent loads ([#357](https://github.com/haddowg/json-api/issues/357)) ([0503e3a](https://github.com/haddowg/json-api/commit/0503e3a2900b47d721966d4be3250591c1fe86bf))
+
 ## [2.15.0](https://github.com/haddowg/json-api/compare/v2.14.0...v2.15.0) (2026-11-12)
 
 
