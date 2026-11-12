@@ -113,7 +113,10 @@ final class GeneratorContract
      * Contract 36 did again, offering each of core's codes, feature-gated or not, only on the
      * operations whose runtime can raise it, so nearly every operation answers `400` and
      * `404` with an error document of its own, and codes that shared a shape by feature now
-     * share one only with the codes following the same rule.
+     * share one only with the codes following the same rule. It also reads the facts that
+     * decide a code exactly, from the field and relation definitions and from what an
+     * adapter declares about its security layer, data layer and validation, so a code a
+     * predicate, an encoder, a safeguard or a declared refusal cannot raise is left out.
      */
     public const BASELINE = 36;
 

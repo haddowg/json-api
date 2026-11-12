@@ -521,37 +521,44 @@ raise is left out, such as `FILTER_VALUE_INVALID` on a server that declares no f
 
 | Codes | Offered on |
 | --- | --- |
-| `QUERY_PARAM_UNRECOGNIZED`, `QUERY_PARAM_MALFORMED`, `FIELDSET_MEMBER_UNRECOGNIZED`, `MEDIA_TYPE_UNACCEPTABLE`, `MEDIA_TYPE_UNSUPPORTED`, `AUTHENTICATION_REQUIRED`, `ACCESS_DENIED`, `METHOD_NOT_ALLOWED` and the `500` codes | every operation |
-| `SORTING_UNSUPPORTED` | a collection read, or a to-many's related or relationship read, whose sort vocabulary is empty, and a to-many relationship mutation |
+| `QUERY_PARAM_UNRECOGNIZED`, `QUERY_PARAM_MALFORMED`, `MEDIA_TYPE_UNACCEPTABLE`, `MEDIA_TYPE_UNSUPPORTED`, `METHOD_NOT_ALLOWED`, `APPLICATION_ERROR` and `NO_RESOURCE_REGISTERED` | every operation |
+| `ACCESS_DENIED`, `AUTHENTICATION_REQUIRED` | the operations the adapter says its security layer can refuse, and the batch when it can be refused or runs a write that can; every operation when it does not say |
+| `FIELDSET_MEMBER_UNRECOGNIZED` | every operation, on a strict server with a type declaring its fields |
+| `RESPONSE_BODY_INVALID_JSON`, `RESPONSE_BODY_INVALID_JSON_API` | every operation, on a server that validates its responses |
+| `SORTING_UNSUPPORTED` | a collection read, or a to-many's related or relationship read, whose sort vocabulary is empty |
 | `SORTING_UNRECOGNIZED` | a collection read, or a to-many's related or relationship read, that declares a sort |
-| `FILTERING_UNRECOGNIZED` | a collection read, a related or relationship read, a collection action that takes filters, and a to-many relationship mutation |
+| `FILTERING_UNRECOGNIZED` | a collection read, a related or relationship read, and a collection action that takes filters |
 | `FILTER_VALUE_INVALID` | those of the reads and actions above that declare a filter |
 | the four above, with the [Relationship Queries](profiles/relationship-queries.md) profile | also every operation rendering resources of a type with a relation, for `relatedQuery` |
-| `INCLUSION_UNRECOGNIZED`, `INCLUSION_UNSUPPORTED` | a collection or single read, a create, an update, a related or relationship read, an action answering with a resource, and the atomic batch |
-| `INCLUSION_NOT_ALLOWED`, `INCLUSION_DEPTH_EXCEEDED` | the same, and a relationship mutation echoing its linkage |
+| `INCLUSION_UNRECOGNIZED` | a collection or single read, a create, an update, a related or relationship read, an action answering with a resource, and the atomic batch |
+| `INCLUSION_UNSUPPORTED` | only the operations whose type declares that its handler refuses `include` |
+| `INCLUSION_NOT_ALLOWED` | the same as `INCLUSION_UNRECOGNIZED` and a relationship mutation echoing its linkage, where the document's root has an allow-list or excluded paths, or the include tree reaches a relation that cannot be included or is gated by `cannotBeIncluded(when:)` |
+| `INCLUSION_DEPTH_EXCEEDED` | the same operations, where the root's maximum include depth, its own or else the server's, is set |
 | `RELATIONSHIP_COUNT_NOT_ALLOWED` | every operation rendering a document: the reads, a create or update answering with its resource, a relationship mutation echoing its linkage, an action answering with a resource, and the atomic batch |
 | `CURSOR_MALFORMED`, `CURSOR_STALE` | a collection read, or a to-many's related or relationship read, whose `page` pages by cursor, bare or as a menu arm |
 | `PAGINATION_KIND_UNKNOWN` | the reads whose `page` is a `MultiPaginator` menu |
 | `INSUFFICIENT_SCOPE` | an operation needing scopes of its own, a read, create, update or related read with a path to include, and the batch when it or a write it runs needs scopes |
-| `RESOURCE_NOT_FOUND` | every operation addressing a resource, a create of a type with a relation, whose linkage can name a missing resource, and an action on a resource or taking a document; never a collection read |
-| `RELATIONSHIP_NOT_EXISTS` | the related and relationship endpoints |
-| `REQUEST_BODY_INVALID_JSON`, `REQUEST_BODY_INVALID_JSON_API` | a create, an update, a relationship mutation, an action taking a document, and the atomic batch |
+| `RESOURCE_NOT_FOUND` | every operation addressing a resource, a create of a type with a relation it may set whose linkage can name a missing resource, and an action on a resource or taking a document; never a collection read |
+| `RELATIONSHIP_NOT_EXISTS` | the relationship mutations, and the related and relationship reads of a relation that a `hidden(when:)` or `writeOnly(when:)` predicate can hide, or, on the relationship read, that renders only when `fields[<type>]` names it |
+| `REQUEST_BODY_INVALID_JSON` | a create, an update, a relationship mutation, an action taking a document, and the atomic batch |
+| `REQUEST_BODY_INVALID_JSON_API` | the same on a server validating request documents; otherwise only a create or update, and the batch, on a server checking a resource object's members |
 | `REQUIRED_TOP_LEVEL_MEMBERS_MISSING`, `TOP_LEVEL_MEMBERS_INCOMPATIBLE`, `TOP_LEVEL_MEMBER_NOT_ALLOWED`, `LOCAL_ID_NOT_SUPPORTED` | the same, except the atomic batch |
 | `DATA_MEMBER_MISSING`, `RESOURCE_TYPE_MISSING`, `RESOURCE_ID_INVALID`, `ATTRIBUTE_MEMBER_UNRECOGNIZED` | a create, an update, and an action taking a document |
 | `RESOURCE_TYPE_UNACCEPTABLE` | the same, and a relationship mutation |
 | the `RESOURCE_IDENTIFIER_*` codes | a relationship mutation, and a create, update or document action whose type declares a relation |
-| `RELATIONSHIP_TYPE_INAPPROPRIATE` | a relationship mutation, and a write of a type with no field inventory, whose own hydrator checks cardinality |
+| `RELATIONSHIP_TYPE_INAPPROPRIATE` | a relationship mutation, and a write of a type with no field inventory whose hydrator checks cardinality |
 | `ATTRIBUTE_VALUE_INVALID` | a create, an update, an action taking a document, and a mutation of a relation with pivot fields |
-| `ATTRIBUTE_WRITE_PROHIBITED` | a create, an update, and an action taking a document, of a type declaring an attribute |
+| `ATTRIBUTE_WRITE_PROHIBITED` | a create, an update, and an action taking a document, of a type declaring an attribute that is read-only for that write, unconditionally or by a `readOnly(when:)` predicate |
 | `RELATED_ATTRIBUTE_OWNER_MISSING` | the same, of a type with an attribute flattened `on()` a relation |
 | `RESOURCE_ID_MISSING` | an update |
 | `RESOURCE_ID_CONFLICT` | an update, but not inside the atomic batch |
 | `CLIENT_GENERATED_ID_NOT_SUPPORTED` | the create of a type that refuses a client id, and an action whose document input is such a type |
 | `CLIENT_GENERATED_ID_REQUIRED` | the create of a type that requires a client id, and such an action |
-| `CLIENT_GENERATED_ID_ALREADY_EXISTS`, `RESOURCE_ID_UNDECODABLE` | the create of a type that permits a client id, and such an action |
-| `FULL_REPLACEMENT_PROHIBITED` | a relationship replacement, and the update of a type with a relation |
-| `ADDITION_PROHIBITED` | a relationship addition |
-| `REMOVAL_PROHIBITED` | a relationship removal, the replacement of a to-one, which `null` clears, and the update of a type with a relation |
+| `CLIENT_GENERATED_ID_ALREADY_EXISTS` | the create of a type that permits a client id and whose data layer detects a taken one, and such an action |
+| `RESOURCE_ID_UNDECODABLE` | the create of a type that permits a client id and encodes its ids, and such an action |
+| `FULL_REPLACEMENT_PROHIBITED` | a relationship replacement the relation does not always allow or whose data layer can refuse to detach a member, and the update of a type with such a data-layer refusal |
+| `ADDITION_PROHIBITED` | a relationship addition the relation does not always allow |
+| `REMOVAL_PROHIBITED` | a relationship removal, or the replacement of a to-one, which `null` clears, that the relation does not always allow or whose data layer can refuse, and the update of a type with a to-one the data layer can refuse to clear |
 | `MEMBERSHIP_CHANGE_PROHIBITED` | the relationship replacement of a relation declared `cannotChangeMembership()`, and the update of its type |
 | the atomic and local-id codes | the atomic batch |
 
@@ -562,12 +569,32 @@ its `ref`. It also offers `ADDITION_PROHIBITED` when a relation refuses addition
 since a batch entry can still target one. A code the batch raises itself, such as a
 malformed body, is always offered there.
 
-Where the metadata cannot tell whether an operation raises a code, the code is offered.
-A `readOnly(when:)` or `cannotAdd(when:)` predicate is invisible to the document, so
-`ATTRIBUTE_WRITE_PROHIBITED` is offered on every write of a type declaring an attribute, and
-the relationship guards on every mutation they could refuse. A delete, a single read, or a
-write never reads `sort` or `filter`, so those codes stay off them, and a cursor-paged
-collection leaves your deletes and single-resource reads untouched.
+A delete, a single read, a write or a relationship mutation never reads `sort` or `filter`,
+so those codes stay off them, and a cursor-paged collection leaves your deletes and
+single-resource reads untouched.
+
+Some of these facts core reads from your definitions, through the fields a type reports: a
+`readOnly(when:)`, `hidden(when:)` or `writeOnly(when:)` predicate, a relation's
+`cannotReplace(when:)`, `cannotAdd(when:)`, `cannotRemove(when:)` or
+`cannotBeIncluded(when:)`, and whether the `Id` field has an encoder. The rest only an
+adapter knows, and it says so through an opt-in interface on its metadata:
+
+| Interface | On | Decides |
+| --- | --- | --- |
+| `DeclaresOperationSecurity` | the server | `ACCESS_DENIED` and `AUTHENTICATION_REQUIRED`, per operation |
+| `DeclaresStrictQueryParameters` | the server | `FIELDSET_MEMBER_UNRECOGNIZED` |
+| `DeclaresDocumentValidation` | the server | `REQUEST_BODY_INVALID_JSON_API` and the `RESPONSE_BODY_INVALID_*` codes |
+| `DeclaresMaxIncludeDepth` | the server | `INCLUSION_DEPTH_EXCEEDED`, for a root with no depth of its own |
+| `DeclaresIncludeSafeguards` | a type | `INCLUSION_NOT_ALLOWED` and `INCLUSION_DEPTH_EXCEEDED` where it is the root |
+| `DeclaresInclusionUnsupported` | a type | `INCLUSION_UNSUPPORTED` |
+| `DeclaresClientIdCollisions` | a type | `CLIENT_GENERATED_ID_ALREADY_EXISTS` |
+| `DeclaresHydratorCardinality` | a type with no field inventory | `RELATIONSHIP_TYPE_INAPPROPRIATE` on its writes |
+| `DeclaresDetachmentRefusal` | a relation | `FULL_REPLACEMENT_PROHIBITED` and `REMOVAL_PROHIBITED` from the data layer |
+| `DeclaresLinkageResolution` | a relation | `RESOURCE_NOT_FOUND` on a create |
+
+Where neither tells, the code is offered, because a missing code hurts a client more than a
+spare one: metadata implementing none of these documents what it did before, except
+`INCLUSION_UNSUPPORTED`, which nothing raises unless a type declares it.
 
 Each rule's codes form shapes of their own, so `Error400ParameterCursorMalformed` keeps
 its name when another collection starts paging by cursor, and never takes in a code of

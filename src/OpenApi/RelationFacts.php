@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecatedRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDetachmentRefusal;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresFixedMembership;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifiedMembers;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIdentifierMeta;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkageResolution;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresPolymorphicRelation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
@@ -18,7 +20,10 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
+use haddowg\JsonApi\Resource\Field\ConditionalRelationInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 
 /**
@@ -53,13 +58,98 @@ final class RelationFacts
      */
     public static function isReadOnlyOnCreate(TypeMetadataInterface $type, RelationMetadataInterface $relation): bool
     {
+        return self::field($type, $relation)?->isReadOnly(true) ?? false;
+    }
+
+    /**
+     * The relation's definition among the type's fields, or `null` when the type declares
+     * no field of that name.
+     */
+    public static function field(TypeMetadataInterface $type, RelationMetadataInterface $relation): ?RelationInterface
+    {
         foreach ($type->fields() as $field) {
             if ($field instanceof RelationInterface && $field->name() === $relation->name()) {
-                return $field->isReadOnly(true);
+                return $field;
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /**
+     * Whether the relation lets a relationship mutation in `$mode` through: never when its
+     * metadata refuses the mode outright, conditionally when its definition gates the mode
+     * on a predicate or when no definition says, and always otherwise.
+     */
+    public static function mutation(TypeMetadataInterface $type, RelationMetadataInterface $relation, Mode $mode): MutationPermission
+    {
+        $allows = match ($mode) {
+            Mode::Replace => $relation->allowsReplace(),
+            Mode::Add => $relation->allowsAdd(),
+            Mode::Remove => $relation->allowsRemove(),
+        };
+        if (!$allows) {
+            return MutationPermission::Never;
+        }
+
+        $field = self::field($type, $relation);
+
+        return $field instanceof ConditionalRelationInterface && !$field->hasMutationPredicate($mode)
+            ? MutationPermission::Allowed
+            : MutationPermission::Conditional;
+    }
+
+    /**
+     * Whether the data layer can refuse to detach one of the relation's members
+     * ({@see DeclaresDetachmentRefusal}); `true` when the metadata does not say.
+     */
+    public static function canRefuseDetachment(RelationMetadataInterface $relation): bool
+    {
+        return !$relation instanceof DeclaresDetachmentRefusal || $relation->canRefuseDetachment();
+    }
+
+    /**
+     * Whether linkage a create sends for the relation can name a resource the data layer
+     * cannot find ({@see DeclaresLinkageResolution}); `true` when the metadata does not say.
+     */
+    public static function canMissLinkage(RelationMetadataInterface $relation): bool
+    {
+        return !$relation instanceof DeclaresLinkageResolution || $relation->canMissLinkage();
+    }
+
+    /**
+     * Whether a read of the relation's related or relationship endpoint can find the
+     * relation absent for the caller and answer `RELATIONSHIP_NOT_EXISTS`: its definition
+     * hides it or makes it write-only by a predicate, a relationship read renders it only
+     * when `fields[<type>]` names it, or no definition says.
+     */
+    public static function canBeAbsentFromRead(TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $linkage): bool
+    {
+        $field = self::field($type, $relation);
+        if (!$field instanceof ConditionalFieldInterface) {
+            return true;
+        }
+
+        return $field->hasHiddenPredicate() || $field->hasWriteOnlyPredicate() || ($linkage && $field->isSparseByDefault());
+    }
+
+    /**
+     * Whether an `include` path through the relation can be refused with
+     * `INCLUSION_NOT_ALLOWED`: it cannot be included, its definition gates inclusion on a
+     * predicate, or no definition says. A write-only relation is unknown to `include`, so
+     * it never is.
+     */
+    public static function canRefuseInclusion(TypeMetadataInterface $type, RelationMetadataInterface $relation): bool
+    {
+        if (self::isWriteOnly($relation)) {
+            return false;
+        }
+        if (!$relation->isIncludable()) {
+            return true;
+        }
+        $field = self::field($type, $relation);
+
+        return !$field instanceof ConditionalRelationInterface || $field->hasInclusionPredicate();
     }
 
     /**

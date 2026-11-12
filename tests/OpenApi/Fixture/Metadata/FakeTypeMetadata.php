@@ -7,13 +7,18 @@ namespace haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresClientIdCollisions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresHydratorCardinality;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIncludeSafeguards;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresInclusionUnsupported;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelatedOnly;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponses;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
@@ -33,7 +38,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -54,6 +59,8 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>                    $deprecatedOperations
      * @param list<SortDirective>             $defaultSort
      * @param list<string>|null               $sortExample
+     * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards `null` to answer as undeclared
+     * @param list<string>                    $rejectsIncludeOn
      */
     public function __construct(
         private readonly string $type,
@@ -87,7 +94,43 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         private readonly bool $relatedOnly = false,
         private readonly array $defaultSort = [],
         private readonly ?array $sortExample = null,
+        private readonly ?array $includeSafeguards = null,
+        private readonly array $rejectsIncludeOn = [],
+        private readonly bool $detectsClientIdCollisions = true,
+        private readonly bool $checksRelationshipCardinality = true,
     ) {}
+
+    public function allowedIncludePaths(): ?array
+    {
+        // Undeclared safeguards answer as an allow-list and a depth would, so both include
+        // codes stay offered as they are for metadata declaring nothing.
+        return $this->includeSafeguards === null ? [] : $this->includeSafeguards['allowed'] ?? null;
+    }
+
+    public function excludedIncludePaths(): array
+    {
+        return $this->includeSafeguards['excluded'] ?? [];
+    }
+
+    public function maxIncludeDepth(): ?int
+    {
+        return $this->includeSafeguards === null ? 1 : $this->includeSafeguards['depth'] ?? null;
+    }
+
+    public function rejectsInclude(OperationKey $operation): bool
+    {
+        return \in_array($operation->name(), $this->rejectsIncludeOn, true);
+    }
+
+    public function detectsClientIdCollisions(): bool
+    {
+        return $this->detectsClientIdCollisions;
+    }
+
+    public function checksRelationshipCardinality(): bool
+    {
+        return $this->checksRelationshipCardinality;
+    }
 
     public function defaultSort(): array
     {
@@ -159,6 +202,8 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param bool                            $relatedOnly       whether the type serves no endpoint of its own
      * @param list<SortDirective>             $defaultSort       the type's default order
      * @param list<string>|null               $sortExample       the type's declared sort example
+     * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards the type's include safeguards, `null` to answer as undeclared
+     * @param list<string>                    $rejectsIncludeOn  the operation names refusing every `include`
      */
     public static function resource(
         string $type,
@@ -192,6 +237,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         bool $relatedOnly = false,
         array $defaultSort = [],
         ?array $sortExample = null,
+        ?array $includeSafeguards = null,
+        array $rejectsIncludeOn = [],
+        bool $detectsClientIdCollisions = true,
     ): self {
         return new self(
             type: $type,
@@ -231,6 +279,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
             relatedOnly: $relatedOnly,
             defaultSort: $defaultSort,
             sortExample: $sortExample,
+            includeSafeguards: $includeSafeguards,
+            rejectsIncludeOn: $rejectsIncludeOn,
+            detectsClientIdCollisions: $detectsClientIdCollisions,
         );
     }
 
@@ -238,16 +289,21 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * A serializer-only type with no field inventory (no read/write inventory to
      * project from).
      *
-     * @param list<string> $tags
+     * @param list<string>                     $tags
+     * @param list<OperationType>|null         $operations
+     * @param list<RelationMetadataInterface>|null $relations
      */
-    public static function standalone(string $type, ?string $uriType = null, array $tags = []): self
+    public static function standalone(string $type, ?string $uriType = null, array $tags = [], ?array $operations = null, ?array $relations = null, bool $checksRelationshipCardinality = true): self
     {
         return new self(
             type: $type,
             uriType: $uriType ?? $type,
             hasFields: false,
+            relations: $relations ?? [],
+            operations: $operations ?? [],
             pageSchema: null,
             tags: $tags,
+            checksRelationshipCardinality: $checksRelationshipCardinality,
         );
     }
 

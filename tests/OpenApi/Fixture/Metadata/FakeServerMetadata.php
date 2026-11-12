@@ -8,7 +8,12 @@ use haddowg\JsonApi\OpenApi\Contact;
 use haddowg\JsonApi\OpenApi\ExternalDocumentation;
 use haddowg\JsonApi\OpenApi\License;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\SecurityRequirement;
@@ -19,8 +24,13 @@ use haddowg\JsonApi\OpenApi\Tag;
 /**
  * An in-core {@see ServerMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
+ *
+ * It reports the runtime facts an adapter may declare, defaulting each to the answer that
+ * offers the codes it decides as metadata declaring nothing would: every operation can deny
+ * access and require authentication, query parameters are strict, every document is
+ * validated, and a server maximum include depth is set.
  */
-final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration
+final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration, DeclaresOperationSecurity, DeclaresStrictQueryParameters, DeclaresDocumentValidation, DeclaresMaxIncludeDepth
 {
     /**
      * @param list<TypeMetadataInterface>      $types
@@ -29,6 +39,8 @@ final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExamp
      * @param array<string, SecurityScheme>    $securitySchemes
      * @param list<SecurityRequirement>        $defaultSecurity
      * @param list<string>                     $profiles
+     * @param (\Closure(?TypeMetadataInterface, OperationKey): bool)|null $canDenyAccess            `null` for every operation
+     * @param (\Closure(?TypeMetadataInterface, OperationKey): bool)|null $canRequireAuthentication `null` for every operation
      */
     public function __construct(
         private readonly string $title,
@@ -46,7 +58,49 @@ final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExamp
         private readonly ?AtomicOperationsMetadataInterface $atomicOperations = null,
         private readonly array $profiles = [],
         private readonly bool $generatesExamples = true,
+        private readonly ?\Closure $canDenyAccess = null,
+        private readonly ?\Closure $canRequireAuthentication = null,
+        private readonly bool $strictQueryParameters = true,
+        private readonly bool $validatesRequestDocuments = true,
+        private readonly bool $checksResourceObjectMembers = true,
+        private readonly bool $validatesResponseDocuments = true,
+        private readonly ?int $maxIncludeDepth = 1,
     ) {}
+
+    public function canDenyAccess(?TypeMetadataInterface $type, OperationKey $operation): bool
+    {
+        return $this->canDenyAccess === null || ($this->canDenyAccess)($type, $operation) === true;
+    }
+
+    public function canRequireAuthentication(?TypeMetadataInterface $type, OperationKey $operation): bool
+    {
+        return $this->canRequireAuthentication === null || ($this->canRequireAuthentication)($type, $operation) === true;
+    }
+
+    public function strictQueryParameters(): bool
+    {
+        return $this->strictQueryParameters;
+    }
+
+    public function validatesRequestDocuments(): bool
+    {
+        return $this->validatesRequestDocuments;
+    }
+
+    public function checksResourceObjectMembers(): bool
+    {
+        return $this->checksResourceObjectMembers;
+    }
+
+    public function validatesResponseDocuments(): bool
+    {
+        return $this->validatesResponseDocuments;
+    }
+
+    public function maxIncludeDepth(): ?int
+    {
+        return $this->maxIncludeDepth;
+    }
 
     public function generatesExamples(): bool
     {

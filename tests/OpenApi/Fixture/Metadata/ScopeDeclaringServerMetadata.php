@@ -22,8 +22,10 @@ use haddowg\JsonApi\Scope\ScopeTable;
  * implementation. It adds the scope scheme to the inner security schemes and passes
  * every other opt-in the inner metadata declares through unchanged.
  */
-final readonly class ScopeDeclaringServerMetadata implements DeclaresOperationScopeTable, DeclaresLinkObjects, ContributesErrorCodes, DeclaresExampleGeneration, DeclaresReadOnlyAttributeRejection
+final readonly class ScopeDeclaringServerMetadata implements DeclaresOperationScopeTable, DeclaresLinkObjects, ContributesErrorCodes, DeclaresExampleGeneration, DeclaresReadOnlyAttributeRejection, \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity, \haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation, \haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth
 {
+    use ForwardsRuntimeFacts;
+
     /**
      * @param array<string, SecurityScheme> $schemes extra security schemes, such as the scope scheme
      * @param array<string, string>         $catalog

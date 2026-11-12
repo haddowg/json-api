@@ -29,6 +29,7 @@ use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ContributingServerMetadata;
@@ -529,7 +530,8 @@ final class ErrorCatalogProjectionTest extends TestCase
         );
         // The type declares no filter, no sort and no relation, so no operation can raise
         // the codes that need one.
-        $unreachable = ['FILTER_VALUE_INVALID', 'SORTING_UNRECOGNIZED', 'RELATIONSHIP_NOT_EXISTS'];
+        // No type declares a handler refusing `include` either.
+        $unreachable = ['FILTER_VALUE_INVALID', 'SORTING_UNRECOGNIZED', 'RELATIONSHIP_NOT_EXISTS', 'INCLUSION_UNSUPPORTED'];
         self::assertEqualsCanonicalizing(\array_values(\array_diff($universal, $unreachable)), \array_keys($codes));
     }
 
@@ -600,7 +602,9 @@ final class ErrorCatalogProjectionTest extends TestCase
     ): ServerMetadataInterface {
         $type = FakeTypeMetadata::resource(
             type: 'books',
-            fields: [Id::make()->build(), Str::make('title')->build(), Str::make('publisherName')->on('publisher')->build()],
+            // An encoded id and a read-only attribute, so an undecodable client id and a
+            // prohibited attribute write can arise.
+            fields: [Id::make()->encodeUsing(new ReversingIdEncoder())->build(), Str::make('title')->build(), Str::make('isbn')->readOnly()->build(), Str::make('publisherName')->on('publisher')->build()],
             relations: [
                 new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true, fixesMembership: $fixedMembership),
                 new FakeRelationMetadata('publisher', ['people'], false),
@@ -611,6 +615,7 @@ final class ErrorCatalogProjectionTest extends TestCase
             countable: true,
             filters: [Where::make('title')->build()],
             sorts: [SortByField::make('title')],
+            rejectsIncludeOn: ['fetchCollection'],
         );
         // A type refusing client ids, with no sorts, so the codes only it raises are reached.
         $people = FakeTypeMetadata::resource(

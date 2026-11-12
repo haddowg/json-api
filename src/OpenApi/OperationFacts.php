@@ -223,8 +223,7 @@ final class OperationFacts
      * `sort`. A collection read takes its type's sorts, and a to-many's related and
      * relationship reads the merged related ones ({@see relatedSortVocabulary()}). A
      * polymorphic to-many not stored as pairs shares no related type, so it has none and any
-     * sort is refused there. So does a to-many relationship mutation, whose echoed linkage an
-     * adapter may read through a collection query.
+     * sort is refused there. A relationship mutation ignores `sort`.
      *
      * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>|null
      */
@@ -239,7 +238,6 @@ final class OperationFacts
                 self::pagesLinkage($relation) => self::relatedSortVocabulary($relation, $server),
                 default => [],
             },
-            OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship => $relation !== null && $relation->isToMany() ? [] : null,
             default => null,
         };
     }
@@ -248,8 +246,7 @@ final class OperationFacts
      * The filter vocabulary the operation checks a `filter` against, or `null` when it
      * ignores `filter`. A related or relationship read takes the merged related vocabulary
      * ({@see relatedFilterVocabulary()}), or none for a polymorphic relation; a collection
-     * action takes the filters it declares; a to-many relationship mutation, like its
-     * {@see sortVocabulary()}, takes none.
+     * action takes the filters it declares. A relationship mutation ignores `filter`.
      *
      * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>|null
      */
@@ -265,7 +262,6 @@ final class OperationFacts
                 $relation->isToMany() && ($operation->key->kind === OperationKind::FetchRelated || RelationFacts::identifiesMembers($relation)) => self::relatedFilterVocabulary($relation, $server),
                 default => [],
             },
-            OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship => $relation !== null && $relation->isToMany() ? [] : null,
             OperationKind::Action => $operation->action !== null && ActionDeclarations::filters($type, $operation->action) !== []
                 ? ActionDeclarations::filters($type, $operation->action)
                 : null,

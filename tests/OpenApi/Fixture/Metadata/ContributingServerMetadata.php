@@ -18,8 +18,10 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
  * existing implementation, which is how a framework integration adds one without
  * rewriting the metadata it already builds.
  */
-final readonly class ContributingServerMetadata implements ContributesErrorCodes, DeclaresExampleGeneration
+final readonly class ContributingServerMetadata implements ContributesErrorCodes, DeclaresExampleGeneration, \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity, \haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation, \haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth
 {
+    use ForwardsRuntimeFacts;
+
     /** @var list<ErrorCatalogSourceInterface> */
     private array $sources;
 

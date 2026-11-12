@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * and {@see isToMany()}; the fluent authoring surface lives on the mirror
  * {@see AbstractRelationBuilder}.
  */
-abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface, DropsFilterDefaultsInterface, PositionedRelationInterface, GuardsMembershipInterface
+abstract readonly class AbstractRelationValue extends AbstractFieldValue implements RelationInterface, ExemplifiedRelationInterface, DefaultSortedRelationInterface, DropsFilterDefaultsInterface, PositionedRelationInterface, GuardsMembershipInterface, ConditionalRelationInterface
 {
     public function __construct(
         FieldState $state,
@@ -162,6 +162,24 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
         if (!$this->allowsMembershipChangeFor($request, $model) && Membership::differs($current, $incoming)) {
             throw new MembershipChangeProhibited($this->state->name);
         }
+    }
+
+    public function hasMutationPredicate(Mode $mode): bool
+    {
+        $own = match ($mode) {
+            Mode::Replace => $this->relationState->cannotReplaceWhen,
+            Mode::Add => $this->relationState->cannotAddWhen,
+            Mode::Remove => $this->relationState->cannotRemoveWhen,
+        };
+
+        return $own !== null
+            || ($mode !== Mode::Replace && $this->relationState->cannotChangeMembershipWhen !== null)
+            || $this->hasReadOnlyPredicate(false);
+    }
+
+    public function hasInclusionPredicate(): bool
+    {
+        return $this->relationState->cannotBeIncludedWhen !== null;
     }
 
     public function isIncludable(): bool

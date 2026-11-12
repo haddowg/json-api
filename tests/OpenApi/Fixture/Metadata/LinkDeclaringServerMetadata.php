@@ -17,8 +17,10 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
  * Server metadata that declares how its links render, wrapped round an existing
  * implementation. It passes through any error codes the inner metadata contributes.
  */
-final readonly class LinkDeclaringServerMetadata implements DeclaresLinkObjects, ContributesErrorCodes, DeclaresExampleGeneration
+final readonly class LinkDeclaringServerMetadata implements DeclaresLinkObjects, ContributesErrorCodes, DeclaresExampleGeneration, \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity, \haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation, \haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth
 {
+    use ForwardsRuntimeFacts;
+
     public function __construct(
         private ServerMetadataInterface $inner,
         private bool $linkObjects = true,
