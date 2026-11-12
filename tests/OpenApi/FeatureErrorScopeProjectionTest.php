@@ -184,6 +184,21 @@ final class FeatureErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aServerWhoseOnlyDocumentReaderIsAnActionStillOffersTheRequestDocumentCodes(): void
+    {
+        $document = $this->project(new ReadOnlyAttributeRejectingServerMetadata($this->server(
+            operations: [OperationType::FetchCollection, OperationType::FetchOne],
+            articleActions: [new FakeActionMetadata('import', ['POST'], inputMode: ActionInputMode::Document, inputType: 'articles')],
+            commentOperations: [OperationType::FetchCollection, OperationType::FetchOne],
+        )));
+
+        foreach (['REQUEST_BODY_INVALID_JSON', 'DATA_MEMBER_MISSING', 'ATTRIBUTE_WRITE_PROHIBITED'] as $code) {
+            self::assertContains($code, $this->codes($document, '/articles/{id}/-actions/import', 'post'), $code);
+            self::assertNotContains($code, $this->codes($document, '/articles/{id}', 'get'), $code);
+        }
+    }
+
+    #[Test]
     public function theReadOnlyAttributeCodeIsOfferedOnlyWhereAResourceIsHydrated(): void
     {
         $document = $this->project(new ReadOnlyAttributeRejectingServerMetadata($this->server(
@@ -249,7 +264,8 @@ final class FeatureErrorScopeProjectionTest extends TestCase
      *
      * @param list<FakeRelationMetadata>  $relations      the articles' relations
      * @param list<FakeActionMetadata>    $articleActions
-     * @param list<OperationType>|null    $operations     the articles' operations
+     * @param list<OperationType>|null    $operations        the articles' operations
+     * @param list<OperationType>|null    $commentOperations the comments' operations
      * @param list<string>                $profiles
      */
     private function server(
@@ -262,6 +278,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         array $articleActions = [],
         array $profiles = [],
         bool $atomic = false,
+        ?array $commentOperations = null,
     ): FakeServerMetadata {
         return new FakeServerMetadata(
             title: 'API',
@@ -281,6 +298,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
                 FakeTypeMetadata::resource(
                     type: 'comments',
                     fields: [Id::make()->example('1')->build(), Str::make('body')->example('Nice')->build()],
+                    operations: $commentOperations,
                     pageSchema: $commentPage,
                 ),
             ],

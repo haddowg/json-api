@@ -511,8 +511,8 @@ codes need the [Atomic Operations](atomic-operations.md) extension; `CURSOR_MALF
 `MultiPaginator` menu; `RELATIONSHIP_COUNT_NOT_ALLOWED` needs the Countable profile;
 the client-id codes need a type that permits one; and the whole request-document family
 (bad JSON, missing `data`, an unacceptable `type`, …) needs a server that accepts a
-request body somewhere — a CRUD write, a mutable relationship endpoint, or the atomic
-batch.
+request body somewhere — a CRUD write, a mutable relationship endpoint, an action taking a
+document, or the atomic batch.
 
 Once your server offers the capability, each of those codes is offered only on the
 operations that can raise it, the way a [scoped code](#scoping-a-code-to-the-operations-that-raise-it)

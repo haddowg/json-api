@@ -57,8 +57,8 @@ enum ErrorFeature: string
     case ClientGeneratedIds = 'client-generated-ids';
 
     /**
-     * The server exposes at least one write (create, update, delete, or an atomic
-     * batch). Everything that parses or hydrates a request document hangs off this.
+     * The server exposes at least one write (create, update, delete, an action taking
+     * a document, or an atomic batch). Everything that parses or hydrates a request document hangs off this.
      */
     case Writes = 'writes';
 

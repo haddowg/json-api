@@ -10,6 +10,7 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\ErrorScope;
 use haddowg\JsonApi\Exception\ErrorSourceShape;
+use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
@@ -718,8 +719,8 @@ final class ErrorCatalogProjector
 
     /**
      * Whether the server accepts a request document anywhere: a CRUD write on some type,
-     * or the atomic batch endpoint. Everything that parses or hydrates a body hangs off
-     * this.
+     * an action taking a document, or the atomic batch endpoint. Everything that parses or
+     * hydrates a body hangs off this.
      *
      * A relationship mutation needs no branch of its own: it rides on its type's
      * {@see OperationType::Update}, so a type permissive enough to project one is already
@@ -734,6 +735,11 @@ final class ErrorCatalogProjector
         foreach ($server->types() as $type) {
             foreach ([OperationType::Create, OperationType::Update, OperationType::Delete] as $operation) {
                 if (\in_array($operation, $type->operations(), true)) {
+                    return true;
+                }
+            }
+            foreach ($type->actions() as $action) {
+                if ($action->inputMode() === ActionInputMode::Document) {
                     return true;
                 }
             }
