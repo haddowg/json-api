@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Server;
 
+use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Middleware\ErrorHandlerMiddleware;
 use haddowg\JsonApi\Operation\FetchRelatedOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
 use haddowg\JsonApi\Operation\JsonApiOperationInterface;
+use haddowg\JsonApi\Operation\OperationContext;
+use haddowg\JsonApi\Operation\OperationFactory;
 use haddowg\JsonApi\Operation\OperationHandlerInterface;
 use haddowg\JsonApi\Operation\Target;
+use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\HasMany;
@@ -17,12 +21,14 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Transformer\IncludePathGuard;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -31,8 +37,9 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * `?include` is validated against the primary type's relation tree before any data
  * exists, so an empty collection answers an unknown path with the same `400` a
- * populated one does. Driven through {@see Server::handle()}, with a handler that
- * always answers with no data.
+ * populated one does. A relationship endpoint's paths start at the parent. Driven
+ * through {@see Server::handle()}, with a handler that always answers with no data,
+ * and through {@see Server::dispatch()}.
  */
 #[CoversClass(IncludePathGuard::class)]
 #[CoversClass(Server::class)]
@@ -189,27 +196,179 @@ final class IncludePathValidationTest extends TestCase
     }
 
     #[Test]
-    public function aRelationshipEndpointKeepsItsLinkageOnlyBehaviour(): void
+    public function aRelationshipReadRootsItsPathsAtTheParent(): void
     {
-        // The linkage document has no compound inclusion rooted at a single type,
-        // so the up-front check leaves it alone.
-        $response = $this->get('/articles/1/relationships/author?include=bogus', new Target('articles', '1', 'author', true));
+        // The spec's own example: the paths start at the parent, through the relationship.
+        $response = $this->get('/articles/1/relationships/comments?include=comments.commentable', $this->relationship('comments'));
 
-        self::assertNotSame(400, $response->getStatusCode());
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            200,
+            $this->get('/articles/1/relationships/comments?include=author.publisher', $this->relationship('comments'))->getStatusCode(),
+            'a known path on another branch is accepted',
+        );
     }
 
-    private function get(string $uri, Target $target, ?int $maxIncludeDepth = null, bool $strict = true): ResponseInterface
+    #[Test]
+    public function aRelationshipReadRejectsAnUnknownTopLevelPath(): void
+    {
+        $response = $this->get('/articles/1/relationships/comments?include=bogus', $this->relationship('comments'));
+
+        $this->assertError($response, 400, 'INCLUSION_UNRECOGNIZED', "Included paths 'bogus' can't be recognized by the endpoint!");
+    }
+
+    #[Test]
+    public function aRelationshipReadRejectsAnUnknownPathOnAnotherBranch(): void
+    {
+        $response = $this->get('/articles/1/relationships/comments?include=author.bogus', $this->relationship('comments'));
+
+        $this->assertError($response, 400, 'INCLUSION_UNRECOGNIZED', "Included paths 'author.bogus' can't be recognized by the endpoint!");
+    }
+
+    #[Test]
+    public function aRelationshipReadRejectsAnUnknownPathUnderItsRelationship(): void
+    {
+        $response = $this->get('/articles/1/relationships/comments?include=comments.bogus', $this->relationship('comments'));
+
+        $this->assertError($response, 400, 'INCLUSION_UNRECOGNIZED', "Included paths 'comments.bogus' can't be recognized by the endpoint!");
+    }
+
+    #[Test]
+    public function aRelationshipReadAppliesTheParentsSafeguards(): void
+    {
+        $this->assertError(
+            $this->get('/articles/1/relationships/comments?include=editor', $this->relationship('comments')),
+            400,
+            'INCLUSION_NOT_ALLOWED',
+        );
+        $this->assertError(
+            $this->get('/guarded-articles/1/relationships/comments?include=comments', new Target('guarded-articles', '1', 'comments', true)),
+            400,
+            'INCLUSION_NOT_ALLOWED',
+            null,
+            'the parent\'s allowed include paths apply',
+        );
+        $this->assertError(
+            $this->get('/articles/1/relationships/comments?include=author.publisher', $this->relationship('comments'), maxIncludeDepth: 1),
+            400,
+            'INCLUSION_DEPTH_EXCEEDED',
+        );
+    }
+
+    #[Test]
+    public function anUndeclaredRelationKeepsItsNotFound(): void
+    {
+        $response = $this->get('/articles/1/relationships/bogus?include=bogus', $this->relationship('bogus'));
+
+        self::assertSame(404, $response->getStatusCode());
+        $errors = $this->decode($response)['errors'];
+        self::assertIsArray($errors);
+        self::assertIsArray($errors[0]);
+        self::assertSame('RELATIONSHIP_NOT_EXISTS', $errors[0]['code']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function relationshipMutations(): iterable
+    {
+        yield 'replace' => ['PATCH'];
+        yield 'add' => ['POST'];
+        yield 'remove' => ['DELETE'];
+    }
+
+    #[Test]
+    #[DataProvider('relationshipMutations')]
+    public function aRelationshipMutationChecksItsPathsLikeTheRead(string $method): void
+    {
+        self::assertSame(200, $this->get('/articles/1/relationships/comments?include=comments.commentable', $this->relationship('comments'), method: $method)->getStatusCode());
+        $this->assertError(
+            $this->get('/articles/1/relationships/comments?include=bogus', $this->relationship('comments'), method: $method),
+            400,
+            'INCLUSION_UNRECOGNIZED',
+        );
+        $this->assertError(
+            $this->get('/articles/1/relationships/comments?include=author.bogus', $this->relationship('comments'), method: $method),
+            400,
+            'INCLUSION_UNRECOGNIZED',
+        );
+        $this->assertError(
+            $this->get('/articles/1/relationships/comments?include=author.publisher', $this->relationship('comments'), maxIncludeDepth: 1, method: $method),
+            400,
+            'INCLUSION_DEPTH_EXCEEDED',
+        );
+    }
+
+    #[Test]
+    #[DataProvider('relationshipMutations')]
+    public function aWriteOnlyRelationsMutationIgnoresInclude(string $method): void
+    {
+        // It answers 204 with no document, so like a delete it has nothing to include into.
+        $response = $this->get('/articles/1/relationships/watchers?include=bogus', $this->relationship('watchers'), method: $method);
+
+        self::assertSame(204, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function dispatchChecksARelationshipReadBeforeTheHandlerRuns(): void
+    {
+        $this->expectException(InclusionUnrecognized::class);
+
+        $this->dispatch('GET', '/articles/1/relationships/comments?include=author.bogus', $this->relationship('comments'));
+    }
+
+    #[Test]
+    #[DataProvider('relationshipMutations')]
+    public function dispatchChecksARelationshipMutationBeforeTheHandlerRuns(string $method): void
+    {
+        $this->expectException(InclusionUnrecognized::class);
+
+        $this->dispatch($method, '/articles/1/relationships/comments?include=bogus', $this->relationship('comments'));
+    }
+
+    #[Test]
+    public function dispatchLeavesAWriteOnlyRelationsMutationToAnswer(): void
+    {
+        $response = $this->dispatch('PATCH', '/articles/1/relationships/watchers?include=bogus', $this->relationship('watchers'));
+
+        self::assertInstanceOf(IdentifierResponse::class, $response);
+    }
+
+    private function relationship(string $name): Target
+    {
+        return new Target('articles', '1', $name, true);
+    }
+
+    private function dispatch(string $method, string $uri, Target $target): mixed
+    {
+        $server = $this->server(null, true);
+        $request = new JsonApiRequest($this->request($method, $uri, $target));
+
+        return $server->dispatch((new OperationFactory())->fromRequest($request, $target, new OperationContext($server, $request)));
+    }
+
+    private function get(string $uri, Target $target, ?int $maxIncludeDepth = null, bool $strict = true, string $method = 'GET'): ResponseInterface
+    {
+        $server = $this->server($maxIncludeDepth, $strict);
+
+        return $server->withMiddleware([new ErrorHandlerMiddleware($server)])->handle($this->request($method, $uri, $target));
+    }
+
+    private function request(string $method, string $uri, Target $target): ServerRequest
     {
         $parts = \parse_url($uri);
         \parse_str($parts['query'] ?? '', $query);
 
-        $request = (new ServerRequest('GET', $uri))
+        return (new ServerRequest($method, $uri))
             ->withQueryParams($query)
             ->withAttribute(Target::class, $target);
+    }
 
+    private function server(?int $maxIncludeDepth, bool $strict): Server
+    {
         $psr17 = new Psr17Factory();
         $handler = new class implements OperationHandlerInterface {
-            public function handle(JsonApiOperationInterface $operation): DataResponse|RelatedResponse
+            public function handle(JsonApiOperationInterface $operation): DataResponse|RelatedResponse|IdentifierResponse
             {
                 $server = $operation->context()->server;
                 $target = $operation->target();
@@ -217,12 +376,13 @@ final class IncludePathValidationTest extends TestCase
                 return match (true) {
                     $operation instanceof FetchRelatedOperation => RelatedResponse::fromResource(null, $server->serializerFor('people')),
                     $operation instanceof FetchResourceOperation => DataResponse::fromCollection([], $server->serializerFor($target->type)),
+                    $target->isRelationshipEndpoint => IdentifierResponse::forRelationship(['id' => '1'], $server->serializerFor($target->type), (string) $target->relationship),
                     default => DataResponse::fromResource(null, $server->serializerFor($target->type)),
                 };
             }
         };
 
-        $server = Server::make()
+        return Server::make()
             ->withPsr17($psr17, $psr17)
             ->withMaxIncludeDepth($maxIncludeDepth)
             ->withStrictQueryParameters($strict)
@@ -234,13 +394,11 @@ final class IncludePathValidationTest extends TestCase
             ->register(IncludeVideo::class)
             ->register(IncludeChannel::class)
             ->withHandler($handler);
-
-        return $server->withMiddleware([new ErrorHandlerMiddleware($server)])->handle($request);
     }
 
-    private function assertError(ResponseInterface $response, int $status, string $code, ?string $detail = null): void
+    private function assertError(ResponseInterface $response, int $status, string $code, ?string $detail = null, string $message = ''): void
     {
-        self::assertSame($status, $response->getStatusCode());
+        self::assertSame($status, $response->getStatusCode(), $message);
 
         $errors = $this->decode($response)['errors'];
         self::assertIsArray($errors);
@@ -277,6 +435,7 @@ final class IncludeArticle extends AbstractResource
             BelongsTo::make('draftEditor', 'people')->cannotBeIncluded(static fn(mixed $article): bool => true),
             HasMany::make('internalNotes', 'comments')->hidden(),
             HasMany::make('reviewers', 'people')->sparseByDefault(),
+            HasMany::make('watchers', 'people')->writeOnly(),
         ];
     }
 }

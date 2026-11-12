@@ -163,9 +163,9 @@ final class DocumentTransformer
         }
 
         // A relationship endpoint's document is **linkage-only**: it carries the linkage
-        // `data` (and top-level jsonapi/meta/links), never a compound `included`. `?include`
-        // is not part of the relationship-endpoint contract — it is tolerated but does not
-        // produce an `included` member — so no included set (requested or default) is emitted
-        // here (unlike a primary/related resource document).
+        // `data` (and top-level jsonapi/meta/links), never a compound `included`. The server
+        // checks `?include` against the parent before the handler runs, but a valid path
+        // produces no `included` member, so no included set (requested or default) is
+        // emitted here (unlike a primary/related resource document).
     }
 }

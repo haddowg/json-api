@@ -321,10 +321,23 @@ final class OperationFacts
 
     /**
      * Whether the operation checks `?include` before it runs: a collection or single read,
-     * a create, an update, or a related read. The scope check of each `include` hop runs on
-     * the same operations.
+     * a create, an update, a related or relationship read, or a relationship mutation
+     * echoing its linkage (a write-only relation's answers `204` and ignores `include`).
      */
     public static function validatesInclude(EnumeratedOperation $operation): bool
+    {
+        return match ($operation->key->kind) {
+            OperationKind::FetchRelationship => true,
+            OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship => $operation->relation !== null && !RelationFacts::isWriteOnly($operation->relation),
+            default => self::checksIncludeScopes($operation),
+        };
+    }
+
+    /**
+     * Whether the operation checks the scopes of each `include` hop before it runs: a
+     * collection or single read, a create, an update, or a related read.
+     */
+    public static function checksIncludeScopes(EnumeratedOperation $operation): bool
     {
         return match ($operation->key->kind) {
             OperationKind::FetchCollection, OperationKind::FetchOne, OperationKind::Create, OperationKind::Update, OperationKind::FetchRelated => true,

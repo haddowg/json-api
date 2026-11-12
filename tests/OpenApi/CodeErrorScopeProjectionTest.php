@@ -38,6 +38,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ReadOnlyAttributeRejectingServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeDeclaringServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\ScopeTables;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\WriteOnlyRelationMetadata;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -129,13 +130,20 @@ final class CodeErrorScopeProjectionTest extends TestCase
     public function theIncludeCodesFollowWhereIncludeIsCheckedOrRendered(): void
     {
         $document = $this->project($this->server(
-            articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]],
+            articles: ['relations' => [
+                new FakeRelationMetadata('comments', ['comments'], true),
+                new WriteOnlyRelationMetadata(new FakeRelationMetadata('watchers', ['comments'], true, includable: false, relatedEndpoint: false)),
+            ]],
         ));
 
-        self::assertContains('INCLUSION_UNRECOGNIZED', $this->codes($document, '/articles/{id}/relationships/comments', 'get'));
-        self::assertNotContains('INCLUSION_UNRECOGNIZED', $this->codes($document, '/articles/{id}/relationships/comments', 'patch'), 'the echoed linkage includes nothing');
-        self::assertContains('INCLUSION_NOT_ALLOWED', $this->codes($document, '/articles/{id}/relationships/comments', 'patch'), 'the echo checks the root');
-        self::assertNotContains('INCLUSION_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'delete'));
+        foreach (['INCLUSION_UNRECOGNIZED', 'INCLUSION_NOT_ALLOWED', 'INCLUSION_DEPTH_EXCEEDED'] as $code) {
+            self::assertContains($code, $this->codes($document, '/articles/{id}/relationships/comments', 'get'), $code);
+            foreach (['patch', 'post', 'delete'] as $method) {
+                self::assertContains($code, $this->codes($document, '/articles/{id}/relationships/comments', $method), $code . ' on the echoed linkage of ' . $method);
+                self::assertNotContains($code, $this->codes($document, '/articles/{id}/relationships/watchers', $method), $code . ': a write-only relation answers 204 and ignores include');
+            }
+            self::assertNotContains($code, $this->codes($document, '/articles/{id}', 'delete'), $code);
+        }
     }
 
     #[Test]
