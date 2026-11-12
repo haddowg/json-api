@@ -10,6 +10,7 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\OpenApi\ErrorCatalogProjector;
+use haddowg\JsonApi\OpenApi\ErrorCoverage;
 use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
@@ -25,6 +26,8 @@ use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\SubscriptionExpired;
@@ -76,9 +79,10 @@ final class ErrorCatalogProjectionTest extends TestCase
     {
         $codes = $this->codes($this->schemas($this->fullServer()));
 
-        self::assertSame('Error400Parameter', $codes['FILTERING_UNRECOGNIZED']);
         self::assertSame('Error400Parameter', $codes['QUERY_PARAM_UNRECOGNIZED']);
-        self::assertSame('Error404', $codes['RESOURCE_NOT_FOUND']);
+        self::assertSame('Error400Parameter', $codes['FIELDSET_MEMBER_UNRECOGNIZED']);
+        self::assertSame('Error404ResourceNotFound', $codes['RESOURCE_NOT_FOUND']);
+        self::assertSame('Error400ResourceIdentifierIdInvalid', $codes['RESOURCE_IDENTIFIER_TYPE_MISSING']);
         self::assertSame('Error406Header', $codes['MEDIA_TYPE_UNACCEPTABLE']);
         self::assertSame('Error415Header', $codes['MEDIA_TYPE_UNSUPPORTED']);
         self::assertSame('Error403InsufficientScope', $codes['INSUFFICIENT_SCOPE']);
@@ -523,7 +527,10 @@ final class ErrorCatalogProjectionTest extends TestCase
                 static fn(ErrorDescriptor $descriptor): bool => $descriptor->feature === null,
             )),
         );
-        self::assertEqualsCanonicalizing($universal, \array_keys($codes));
+        // The type declares no filter, no sort and no relation, so no operation can raise
+        // the codes that need one.
+        $unreachable = ['FILTER_VALUE_INVALID', 'SORTING_UNRECOGNIZED', 'RELATIONSHIP_NOT_EXISTS'];
+        self::assertEqualsCanonicalizing(\array_values(\array_diff($universal, $unreachable)), \array_keys($codes));
     }
 
     // ---- Fixtures & helpers ---------------------------------------------------------
@@ -552,7 +559,8 @@ final class ErrorCatalogProjectionTest extends TestCase
         $withheld = $this->codes($this->schemas($withholding));
 
         $gated = 0;
-        foreach (ErrorCatalog::core()->descriptors() as $descriptor) {
+        $catalog = ErrorCatalog::core();
+        foreach (\array_combine($catalog->exceptions(), $catalog->descriptors()) as $class => $descriptor) {
             $component = $descriptor->code;
 
             if ($descriptor->feature === $feature) {
@@ -562,7 +570,9 @@ final class ErrorCatalogProjectionTest extends TestCase
                 continue;
             }
 
-            if ($descriptor->feature === null) {
+            // An ungated code a rule narrows can come and go with the operations either
+            // server exposes; one every operation raises cannot.
+            if ($descriptor->feature === null && ErrorCoverage::coversEveryOperation($class)) {
                 self::assertArrayHasKey($component, $offered);
                 self::assertArrayHasKey($component, $withheld);
             }
@@ -590,17 +600,28 @@ final class ErrorCatalogProjectionTest extends TestCase
     ): ServerMetadataInterface {
         $type = FakeTypeMetadata::resource(
             type: 'books',
-            fields: [Id::make()->build(), Str::make('title')->build()],
-            relations: [new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true, fixesMembership: $fixedMembership)],
+            fields: [Id::make()->build(), Str::make('title')->build(), Str::make('publisherName')->on('publisher')->build()],
+            relations: [
+                new FakeRelationMetadata('authors', ['people'], true, relatedEndpoint: false, countable: true, fixesMembership: $fixedMembership),
+                new FakeRelationMetadata('publisher', ['people'], false),
+            ],
             allowsClientId: $clientIds,
+            requiresClientId: $clientIds,
             pageSchema: $page ?? (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
             countable: true,
+            filters: [Where::make('title')->build()],
+            sorts: [SortByField::make('title')],
+        );
+        // A type refusing client ids, with no sorts, so the codes only it raises are reached.
+        $people = FakeTypeMetadata::resource(
+            type: 'people',
+            fields: [Id::make()->build(), Str::make('name')->build()],
         );
 
         $server = new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
-            types: [$type],
+            types: [$type, $people],
             atomicOperations: $atomic ? new FakeAtomicOperationsMetadata('/operations', 'Atomic') : null,
             profiles: $profiles ?? [CountableProfile::URI],
         );

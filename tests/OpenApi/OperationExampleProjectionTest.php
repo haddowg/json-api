@@ -449,7 +449,8 @@ final class OperationExampleProjectionTest extends TestCase
 
         self::assertSame('QUERY_PARAM_MALFORMED', $code('BadRequest'));
         self::assertSame('ACCESS_DENIED', $code('Forbidden'));
-        self::assertSame('RESOURCE_NOT_FOUND', $code('NotFound'));
+        // Every 404 code is an operation's own, so the fetch's response leads with its own.
+        self::assertSame('RESOURCE_NOT_FOUND', \array_key_first(self::arr(self::at($document, 'paths', '/articles/{id}', 'get', 'responses', '404', 'content', 'application/vnd.api+json', 'examples'))));
         // The request-document codes are the create's own, so its responses lead with them.
         $created = static fn(string $status): mixed => \array_key_first(self::arr(self::at($document, 'paths', '/articles', 'post', 'responses', $status, 'content', 'application/vnd.api+json', 'examples')));
         self::assertSame('RESOURCE_TYPE_UNACCEPTABLE', $created('409'));

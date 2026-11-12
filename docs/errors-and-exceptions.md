@@ -481,9 +481,10 @@ registers it.
 ### Scoping a code to the operations that raise it
 
 A code is offered by every operation's error response for its status unless its descriptor
-says otherwise, or it depends on an `ErrorFeature`: core's feature codes are offered only on
-the operations that can raise them, such as the cursor codes on the reads that page by
-cursor ([the full list](openapi.md#the-error-code-catalogue)). When only some operations
+says otherwise. Core's own codes are each offered only on the operations whose runtime can
+raise them, such as `CLIENT_GENERATED_ID_NOT_SUPPORTED` on the creates of a type that refuses
+a client id, or the `sort` codes on the operations that read `sort`
+([the full list](openapi.md#the-error-code-catalogue)). When only some operations
 raise one of your own codes, give its descriptor a `scope`:
 `ErrorScope::on('articles', 'update', 'delete')` for operations of one type,
 `ErrorScope::kinds(OperationKind::Delete)` for every delete. The

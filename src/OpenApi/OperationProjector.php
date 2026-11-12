@@ -18,7 +18,6 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresDroppedFilterDefaults;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresNamedOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample;
@@ -37,14 +36,11 @@ use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
 use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
-use haddowg\JsonApi\Resource\Filter\FilterMatcher;
 use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
-use haddowg\JsonApi\Resource\Filter\HasRemovableDefault;
 use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
 use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
-use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
@@ -753,7 +749,7 @@ final class OperationProjector
             $responseRef = $this->relatedCollectionResponseRef($relBase);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
+                [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->pageSchema(), $server),
@@ -835,14 +831,14 @@ final class OperationProjector
         } elseif (RelationFacts::monomorphicType($relation) !== null) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
+                [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
             );
         } elseif (RelationFacts::identifiesMembers($relation)) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
+                [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
             );
@@ -2002,9 +1998,7 @@ final class OperationProjector
      */
     private function relatedTypeMetadata(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?TypeMetadataInterface
     {
-        $single = RelationFacts::monomorphicType($relation);
-
-        return $single !== null ? $this->typeNamed($single, $server) : null;
+        return OperationFacts::relatedType($relation, $server);
     }
 
     /**
@@ -2019,49 +2013,10 @@ final class OperationProjector
     private function relatedFilterParameters(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
     {
         return $this->filterParameters(
-            $this->relatedFilterVocabulary($relation, $server),
+            OperationFacts::relatedFilterVocabulary($relation, $server),
             $this->relatedTypeMetadata($relation, $server)?->fields() ?? [],
             $server,
         );
-    }
-
-    /**
-     * The filter vocabulary a related / relationship endpoint honours: the **related
-     * resource's own** filters merged with the relation's relation-scoped
-     * ({@see RelationMetadataInterface::filters()}) ones — the relation wins on a key
-     * collision, mirroring the runtime's merged criteria. A related filter whose default
-     * the relation drops ({@see DeclaresDroppedFilterDefaults}) is taken without it. A
-     * polymorphic relation has no shared vocabulary, so only its own (typically empty)
-     * filters apply.
-     *
-     * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
-     */
-    private function relatedFilterVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
-    {
-        $related = $this->relatedTypeMetadata($relation, $server)?->filters() ?? [];
-        if ($relation instanceof DeclaresDroppedFilterDefaults) {
-            $related = \array_map(
-                static fn(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $filter instanceof HasRemovableDefault
-                    && $filter->hasDefault()
-                    && ($relation->dropsAllFilterDefaults() || \in_array($filter->key(), $relation->droppedFilterDefaults(), true))
-                    ? $filter->withoutDefault()
-                    : $filter,
-                $related,
-            );
-        }
-
-        return FilterMatcher::merge($related, $relation->filters());
-    }
-
-    /**
-     * The sort vocabulary a related to-many endpoint honours (the related resource's
-     * own sorts merged with the relation's), mirroring {@see relatedFilterVocabulary()}.
-     *
-     * @return list<\haddowg\JsonApi\Resource\Sort\SortInterface>
-     */
-    private function relatedSortVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
-    {
-        return SortMatcher::merge($this->relatedTypeMetadata($relation, $server)?->sorts() ?? [], $relation->sorts());
     }
 
     /**

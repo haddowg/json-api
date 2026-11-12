@@ -340,7 +340,7 @@ final class OpenApiProjectorTest extends TestCase
         // keeps an undocumented code valid — then the catalogued error shapes.
         $branches = $this->listAt($schemas, 'ErrorDocument', 'properties', 'errors', 'items', 'anyOf');
         self::assertSame(['$ref' => '#/components/schemas/Error'], $branches[0]);
-        self::assertContains(['$ref' => '#/components/schemas/Error404'], $branches);
+        self::assertContains(['$ref' => '#/components/schemas/Error404ResourceNotFound'], $branches);
         self::assertContains('errors', $this->listAt($schemas, 'ErrorDocument', 'required'));
     }
 
@@ -856,11 +856,11 @@ final class OpenApiProjectorTest extends TestCase
 
         // The enumerated error responses each reference the shared response component for their
         // status, except where the batch raises codes only a request document can cause, which
-        // it answers with its own error documents. The atomic op is secured (bearer default +
+        // it answers with its own error documents, and its 404s. The atomic op is secured (bearer default +
         // per-endpoint), so it carries 401 like every other operation — the effective-security
         // invariant core #99 established.
         $expected = [
-            '401' => 'Unauthorized', '404' => 'NotFound', '406' => 'NotAcceptable',
+            '401' => 'Unauthorized', '406' => 'NotAcceptable',
             '415' => 'UnsupportedMediaType', '500' => 'InternalServerError',
         ];
         foreach ($expected as $status => $component) {
@@ -870,7 +870,7 @@ final class OpenApiProjectorTest extends TestCase
                 "missing/incorrect error response {$status}",
             );
         }
-        foreach (['400', '403', '409', '422'] as $status) {
+        foreach (['400', '403', '404', '409', '422'] as $status) {
             self::assertSame(
                 '#/components/schemas/AtomicOperations' . $status,
                 $this->strAt($post, 'responses', $status, 'content', 'application/vnd.api+json', 'schema', '$ref'),

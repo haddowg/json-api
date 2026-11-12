@@ -55,7 +55,10 @@ final class SingleResourceWithCountProjectionTest extends TestCase
         self::assertNull($this->withCount($document, '/comments/{id}', 'patch'), 'the update answers 204');
         self::assertNull($this->withCount($document, '/articles/{id}/-actions/archive', 'post'), 'the action answers 204');
         self::assertNull($this->withCount($document, '/comments/{id}/relationships/article', 'get'), 'a to-one linkage renders no resource');
-        self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/comments/{id}', 'get'));
+        // A rendered document still refuses a withCount naming a relation that does not count;
+        // a delete renders none.
+        self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/comments/{id}', 'get'));
+        self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'delete'));
     }
 
     #[Test]

@@ -14,11 +14,8 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
-use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
-use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
-use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Resource\Field\Obj;
@@ -60,14 +57,17 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * out entirely. A read-only server's client has no use for a typed
  * `RESOURCE_TYPE_UNACCEPTABLE` it can never receive.
  *
- * **Feature codes are scoped too.** When the server does offer the feature, a code that
- * declares no scope of its own is offered only on the operations that can raise it
- * ({@see featureCoverage()}): the cursor codes on the reads whose `page` is a cursor, the
- * request-document codes on the operations that read one, and so on. Each feature's codes
- * form shapes of their own, so `Error400ParameterCursorMalformed` keeps its name as the
- * operations it reaches change. A feature every operation can raise, such as
- * {@see ErrorFeature::OperationScopes}, stays in the shared shapes, and a declared scope
- * replaces the feature's.
+ * **Every core code is scoped to the operations that raise it.** Past the feature gate, each
+ * of core's codes follows a rule in {@see ErrorCoverage}, which names the operations whose
+ * runtime can raise it, narrowed by what the type, relation or action declares:
+ * `CLIENT_GENERATED_ID_NOT_SUPPORTED` on the creates of a type refusing client ids, the
+ * `sort` codes on the operations that read `sort`, and so on. Where the metadata cannot
+ * tell, the rule offers the code. A rule's codes form shapes of their own, so
+ * `Error400ParameterCursorMalformed` keeps its name as the operations it reaches change.
+ * A rule covering every operation keeps its codes in the shared shapes, a code no
+ * operation can raise is left out, and a declared scope replaces the rule. A code core
+ * does not catalogue, such as an application's, is offered on every operation unless it
+ * declares a scope.
  *
  * **{@see ErrorDescriptor::$context} is not projected.** It is the interpolation input
  * core fills into the `title` / `detail` templates and never reaches the wire.
@@ -81,6 +81,8 @@ final class ErrorCatalogProjector
 {
     private readonly SchemaProjector $fields;
 
+    private readonly ErrorCoverage $coverage;
+
     /**
      * The last server's shapes and scoped shapes, so the per-operation lookups a projection
      * makes build them once.
@@ -92,6 +94,7 @@ final class ErrorCatalogProjector
     public function __construct()
     {
         $this->fields = new SchemaProjector();
+        $this->coverage = new ErrorCoverage();
     }
 
     /**
@@ -278,19 +281,21 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The descriptors this server can actually raise, in catalogue order: the assembled
-     * catalogue minus every code whose {@see ErrorFeature} the server does not offer.
+     * The descriptors this server can actually raise, keyed by exception class in catalogue
+     * order: the assembled catalogue minus every code whose {@see ErrorFeature} the server
+     * does not offer.
      *
-     * @return \Generator<int, ErrorDescriptor>
+     * @return \Generator<class-string, ErrorDescriptor>
      */
     private function raisable(ServerMetadataInterface $server): \Generator
     {
-        foreach (self::catalog($server)->descriptors() as $descriptor) {
+        $catalog = self::catalog($server);
+        foreach (\array_combine($catalog->exceptions(), $catalog->descriptors()) as $class => $descriptor) {
             if ($descriptor->feature !== null && !$this->offers($descriptor->feature, $server)) {
                 continue;
             }
 
-            yield $descriptor;
+            yield $class => $descriptor;
         }
     }
 
@@ -308,29 +313,17 @@ final class ErrorCatalogProjector
         }
 
         $descriptors = [];
-        $byFeature = [];
-        foreach ($this->raisable($server) as $descriptor) {
-            $group = '';
-            if ($descriptor->scope !== null) {
-                $operations = self::operationsCovered($server, ...self::scopeCoverage($descriptor->scope));
-            } elseif ($descriptor->feature !== null) {
-                $feature = $descriptor->feature;
-                if (!\array_key_exists($feature->value, $byFeature)) {
-                    $byFeature[$feature->value] = $this->featureCoverage($feature, $server);
-                }
-                $operations = $byFeature[$feature->value];
-                if ($operations === []) {
-                    continue;
-                }
-                $group = $operations === null ? '' : $feature->value;
-            } else {
-                $operations = null;
+        foreach ($this->raisable($server) as $class => $descriptor) {
+            [$group, $operations] = $this->coverage->of($server, $class, $descriptor);
+            // A code no operation can raise is left out; one an author scoped is kept.
+            if ($operations === [] && $descriptor->scope === null) {
+                continue;
             }
             $descriptors[] = [$descriptor, $operations, $group];
         }
 
-        // A feature's codes share a shape only with that feature's, so a shape keeps its name
-        // as the operations a feature reaches change.
+        // A rule's codes share a shape only with that rule's, so a shape keeps its name as
+        // the operations a rule reaches change.
         $shapes = [];
         $names = [];
         $members = [];
@@ -340,7 +333,7 @@ final class ErrorCatalogProjector
             $scope = $operations === null ? null : \implode("\n", $operations);
             $key = $descriptor->status . "\0" . ($descriptor->source->value ?? '') . "\0"
                 . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR)) . "\0"
-                . ($group !== '' ? $group : ($scope ?? ''));
+                . $group;
             if (!isset($names[$key])) {
                 $name = self::shapeName($descriptor->status, $descriptor->source, $meta === null && $scope === null ? null : $descriptor->code);
                 $names[$key] = $name;
@@ -360,166 +353,6 @@ final class ErrorCatalogProjector
         }
 
         return $this->memo = ['server' => $server, 'shapes' => $out, 'scoped' => $scoped];
-    }
-
-    /**
-     * The operations of the server's types `$covers` accepts, as `<type>\0<operation name>`,
-     * sorted. The Atomic Operations endpoint belongs to no type, so it is keyed under the
-     * empty type. It is covered when `$atomic` says so, or when a covered operation is a
-     * write a batch entry can perform, since the batch runs that write through the same
-     * handler.
-     *
-     * @param \Closure(TypeMetadataInterface, EnumeratedOperation): bool $covers
-     *
-     * @return list<string>
-     */
-    private static function operationsCovered(ServerMetadataInterface $server, \Closure $covers, bool $atomic): array
-    {
-        $covered = [];
-        $viaBatch = false;
-        foreach ($server->types() as $type) {
-            foreach (OperationEnumerator::forType($type) as $enumerated) {
-                if ($covers($type, $enumerated)) {
-                    $covered[] = $type->type() . "\0" . $enumerated->key->name();
-                    $viaBatch = $viaBatch || $enumerated->key->kind->isAtomicWrite();
-                }
-            }
-        }
-        if ($server->atomicOperations() !== null && ($viaBatch || $atomic)) {
-            $covered[] = "\0" . OperationKey::atomic()->name();
-        }
-        \sort($covered, \SORT_STRING);
-
-        return $covered;
-    }
-
-    /**
-     * What a declared {@see ErrorScope} covers, as {@see operationsCovered()} takes it. A
-     * scope naming a type the server does not register covers nothing there.
-     *
-     * @return array{\Closure(TypeMetadataInterface, EnumeratedOperation): bool, bool}
-     */
-    private static function scopeCoverage(ErrorScope $scope): array
-    {
-        return [
-            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $scope->covers($type->type(), $operation->key),
-            $scope->covers('', OperationKey::atomic()),
-        ];
-    }
-
-    /**
-     * The operations that can raise a code tied to `$feature`, as {@see operationsCovered()}
-     * lists them, or `null` when every operation can. A code with no declared scope is offered
-     * on these alone, so a server paging one collection by cursor does not offer the cursor
-     * codes on its deletes. Each arm mirrors where the runtime raises the feature's codes.
-     *
-     * @return list<string>|null
-     */
-    private function featureCoverage(ErrorFeature $feature, ServerMetadataInterface $server): ?array
-    {
-        [$covers, $atomic] = match ($feature) {
-            ErrorFeature::AtomicOperations => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => false, true],
-            ErrorFeature::CursorPagination => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::pages(
-                    $type,
-                    $operation,
-                    static fn(Schema $page): bool => self::carriesCursorProfile($page),
-                ),
-                false,
-            ],
-            ErrorFeature::PaginationMenu => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::pages(
-                    $type,
-                    $operation,
-                    static fn(Schema $page): bool => \is_array($page->get('oneOf')),
-                ),
-                false,
-            ],
-            ErrorFeature::RelationshipCounts => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::withCountTokens($type, $operation, $server) !== [],
-                false,
-            ],
-            ErrorFeature::ClientGeneratedIds => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::takesClientId($server, $type, $operation),
-                false,
-            ],
-            ErrorFeature::Writes => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::readsDocument($operation),
-                true,
-            ],
-            ErrorFeature::ReadOnlyAttributeRejection => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::hydratesResource($operation),
-                false,
-            ],
-            ErrorFeature::FixedMembership => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::guardsMembership($type, $operation),
-                false,
-            ],
-            ErrorFeature::OperationScopes, ErrorFeature::MethodNotAllowed => [null, false],
-        };
-
-        return $covers === null ? null : self::operationsCovered($server, $covers, $atomic);
-    }
-
-    /**
-     * Whether the operation takes a `page` parameter whose schema satisfies `$predicate`.
-     *
-     * @param \Closure(Schema): bool $predicate
-     */
-    private static function pages(TypeMetadataInterface $type, EnumeratedOperation $operation, \Closure $predicate): bool
-    {
-        $page = OperationFacts::pageSchema($type, $operation);
-
-        return $page !== null && $predicate($page);
-    }
-
-    /**
-     * Whether the operation can take a client-generated id: a create of a type that permits
-     * one, or an action whose document input is such a type, since the action hydrates it as
-     * a create.
-     */
-    private static function takesClientId(ServerMetadataInterface $server, TypeMetadataInterface $type, EnumeratedOperation $operation): bool
-    {
-        $target = match (true) {
-            $operation->key->kind === OperationKind::Create => $type,
-            OperationFacts::hydratesResource($operation) && $operation->action !== null => self::typeNamed($server, $operation->action->inputType() ?? $type->type()),
-            default => null,
-        };
-
-        return $target !== null && ($target->allowsClientId() || $target->requiresClientId());
-    }
-
-    /**
-     * Whether the operation can replace the members of a relation declared
-     * `cannotChangeMembership()`: a relationship replacement of that relation, or an update of
-     * a type that has one, whose document may carry its linkage.
-     */
-    private static function guardsMembership(TypeMetadataInterface $type, EnumeratedOperation $operation): bool
-    {
-        if ($operation->key->kind === OperationKind::UpdateRelationship) {
-            return $operation->relation !== null && RelationFacts::fixesMembership($operation->relation);
-        }
-        if ($operation->key->kind !== OperationKind::Update) {
-            return false;
-        }
-        foreach ($type->relations() as $relation) {
-            if (RelationFacts::fixesMembership($relation)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static function typeNamed(ServerMetadataInterface $server, string $name): ?TypeMetadataInterface
-    {
-        foreach ($server->types() as $type) {
-            if ($type->type() === $name) {
-                return $type;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -669,7 +502,7 @@ final class ErrorCatalogProjector
      * Whether a page schema paginates by cursor — the strategy marks itself with the
      * cursor profile URI, bare or as one arm of a {@see MultiPaginator} menu.
      */
-    private static function carriesCursorProfile(Schema $page): bool
+    public static function carriesCursorProfile(Schema $page): bool
     {
         foreach (self::branches($page) as $branch) {
             if ($branch->extension('profile') === CursorPaginationProfile::URI) {

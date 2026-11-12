@@ -65,7 +65,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         self::assertNotContains('CURSOR_MALFORMED', $this->codes($document, '/comments', 'get'));
 
         self::assertSame('ArticlesFetchCollection400', $this->errorDocument($document, '/articles', 'get', '400'));
-        self::assertSame('#/components/responses/BadRequest', $this->at($document, 'paths', '/articles/{id}', 'get', 'responses', '400', '$ref'));
+        self::assertNotContains('Error400ParameterCursorMalformed', $this->offered($document, 'ArticlesFetchOne400'));
         self::assertNotContains('Error400ParameterCursorMalformed', $this->offered($document, 'ErrorDocument400'));
     }
 
@@ -81,7 +81,16 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         ));
 
         self::assertSame(
-            ['Error', 'Error400Parameter', 'Error400ParameterCursorMalformed', 'Error400ParameterRelationshipCountNotAllowed'],
+            [
+                'Error',
+                'Error400Parameter',
+                'Error400ParameterCursorMalformed',
+                'Error400ParameterFilteringUnrecognized',
+                'Error400ParameterInclusionDepthExceeded',
+                'Error400ParameterInclusionUnrecognized',
+                'Error400ParameterRelationshipCountNotAllowed',
+                'Error400ParameterSortingUnsupported',
+            ],
             $this->offered($document, 'ArticlesFetchCollection400'),
         );
     }
@@ -101,7 +110,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
     }
 
     #[Test]
-    public function theCountCodeIsOfferedOnlyOnTheReadsThatTakeWithCount(): void
+    public function theCountCodeIsOfferedOnTheOperationsThatRenderADocument(): void
     {
         $document = $this->project($this->server(
             countable: true,
@@ -114,8 +123,9 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}/relationships/comments', 'get'));
         self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'get'), 'a single resource counts its relations');
         self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/articles/{id}', 'delete'));
-        // Nothing on a comment counts, so its collection takes no withCount.
-        self::assertNotContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/comments', 'get'));
+        // Nothing on a comment counts, so its collection documents no withCount, but the
+        // render still refuses one naming a relation that does not count.
+        self::assertContains('RELATIONSHIP_COUNT_NOT_ALLOWED', $this->codes($document, '/comments', 'get'));
     }
 
     #[Test]
@@ -168,8 +178,12 @@ final class FeatureErrorScopeProjectionTest extends TestCase
         ];
         foreach ($reading as [$path, $method]) {
             self::assertContains('REQUEST_BODY_INVALID_JSON', $this->codes($document, $path, $method), "{$method} {$path}");
+        }
+        // A relationship mutation reads linkage, never a resource object with a `data` to miss.
+        foreach ([['/articles', 'post'], ['/articles/{id}', 'patch'], ['/articles/{id}/-actions/import', 'post'], ['/operations', 'post']] as [$path, $method]) {
             self::assertContains('DATA_MEMBER_MISSING', $this->codes($document, $path, $method), "{$method} {$path}");
         }
+        self::assertNotContains('DATA_MEMBER_MISSING', $this->codes($document, '/articles/{id}/relationships/comments', 'patch'));
 
         $notReading = [
             ['/articles', 'get'], ['/articles/{id}', 'get'], ['/articles/{id}', 'delete'],
