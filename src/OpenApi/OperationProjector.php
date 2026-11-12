@@ -16,9 +16,12 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDroppedFilterDefaults;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresNamedOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
@@ -35,8 +38,11 @@ use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
 use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\FilterMatcher;
+use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
+use haddowg\JsonApi\Resource\Filter\HasRemovableDefault;
 use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -90,6 +96,23 @@ final class OperationProjector
      * The `sort` parameter schema's list of the exact sort keys declared deprecated.
      */
     public const string DEPRECATED_SORTS_EXTENSION = 'x-deprecated-sorts';
+
+    /**
+     * The `sort` parameter schema's map from each described exact sort key to its
+     * description.
+     */
+    public const string SORT_DESCRIPTIONS_EXTENSION = 'x-sort-descriptions';
+
+    /**
+     * The sentence every presence-triggered filter's description ends with.
+     */
+    public const string PRESENCE_NOTE = 'Applied when present; value ignored.';
+
+    /**
+     * The example of every presence-triggered filter's parameter: the value is ignored,
+     * and `true` reads as the switch it is.
+     */
+    private const string PRESENCE_EXAMPLE = 'true';
 
     /**
      * The `format` values JSON Schema 2020-12 and OpenAPI 3.1 define for strings.
@@ -303,7 +326,7 @@ final class OperationProjector
     {
         $parameters = $this->concatParameters(
             $this->filterParameters($type->filters(), $type->fields(), $server),
-            [$this->sortParameter($type->sorts())],
+            [$this->sortParameter($type->sorts(), [], self::typeSortExample($type))],
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
             [$this->withCountParameter($this->collectionWithCountTokens($type), $server)],
@@ -729,7 +752,7 @@ final class OperationProjector
             $responseRef = $this->relatedCollectionResponseRef($relBase);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
                 $this->pageParameters($relation->pageSchema(), $server),
@@ -810,14 +833,14 @@ final class OperationProjector
         } elseif (RelationFacts::monomorphicType($relation) !== null) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
             );
         } elseif (RelationFacts::identifiesMembers($relation)) {
             $getParameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
-                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation))],
+                [$this->sortParameter($this->relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter($this->relationshipWithCountTokens($relation), $server)],
             );
@@ -1345,11 +1368,17 @@ final class OperationProjector
      * {@see \haddowg\JsonApi\Resource\Filter\WhereAny}) projects as a single scalar
      * `filter[<key>]` too: a fanning group carries the shared value schema from its
      * own `constraints()`, and an all-fixed group (like a `->fixed()` scalar filter)
-     * declares none — a presence parameter whose description notes the value is
-     * server-set, see {@see filterDescription()}.
+     * declares none.
      *
-     * A declared `->example(...)` ({@see \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter})
-     * becomes the parameter's own `example`, emitted as declared.
+     * A presence-triggered filter ({@see \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter})
+     * ignores its value, so its description ends with {@see PRESENCE_NOTE} and its
+     * example is always `true`, whatever example it declares.
+     *
+     * Any other declared `->example(...)` ({@see \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter})
+     * becomes the parameter's own `example`, and a declared default
+     * ({@see HasDefaultValue}) the `default` of its schema. A list filter's are converted
+     * to the form each of its parameters takes ({@see listFormValue()}). Neither the
+     * description nor the example is copied into the schema.
      *
      * A filter that {@see AcceptsList accepts a list} adds a `filter[<key>][]` parameter
      * for the array form, an `array` of the value schema with `style: form, explode:
@@ -1402,15 +1431,22 @@ final class OperationProjector
                     default => new QueryParameterShape($valueSchema),
                 };
 
+                $schema = $shape->schema;
+                if (self::hasDefault($filter)) {
+                    $schema = $schema->withDefault(self::listFormValue($list, $schema, $filter->defaultValue()));
+                }
+
                 $parameter = Parameter::query(
                     'filter[' . $filter->key() . ']',
-                    $shape->schema,
+                    $schema,
                     $this->filterDescription($filter),
                     style: $shape->style,
                     explode: $shape->explode,
                 );
-                if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
-                    $parameter = $parameter->withExample($filter->getExample());
+                if (self::isPresenceTriggered($filter)) {
+                    $parameter = $parameter->withExample(self::PRESENCE_EXAMPLE);
+                } elseif ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
+                    $parameter = $parameter->withExample(self::listFormValue($list, $schema, $filter->getExample()));
                 }
                 $parameters[] = $this->deprecatedFilterParameter($parameter, $filter);
             }
@@ -1425,6 +1461,53 @@ final class OperationProjector
         }
 
         return $parameters;
+    }
+
+    /**
+     * Whether the filter applies a fixed condition when its key is present, ignoring
+     * the value sent with it.
+     */
+    private static function isPresenceTriggered(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): bool
+    {
+        return $filter instanceof \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter && $filter->isPresenceTriggered();
+    }
+
+    /**
+     * @phpstan-assert-if-true HasDefaultValue $filter
+     */
+    private static function hasDefault(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): bool
+    {
+        return $filter instanceof HasDefaultValue && $filter->hasDefault();
+    }
+
+    /**
+     * A declared example or default as the parameter carrying `$schema` takes it. A
+     * scalar filter's is as declared. A list filter's parameter takes its members: a
+     * list where the schema is an array, the members joined with the delimiter where it
+     * is a string. A string value is split on the delimiter first, so both of a list
+     * filter's parameters show the same members whichever form was declared.
+     */
+    private static function listFormValue(?ListValue $list, Schema $schema, mixed $value): mixed
+    {
+        if ($list === null) {
+            return $value;
+        }
+
+        $members = $list->members($value);
+        if ($schema->get('type') === 'array') {
+            return $members;
+        }
+
+        return \implode($list->delimiter ?? ',', \array_map(self::memberText(...), $members));
+    }
+
+    private static function memberText(mixed $member): string
+    {
+        return match (true) {
+            \is_bool($member) => $member ? 'true' : 'false',
+            \is_string($member), \is_int($member), \is_float($member) => (string) $member,
+            default => \json_encode($member, \JSON_THROW_ON_ERROR),
+        };
     }
 
     /**
@@ -1450,21 +1533,26 @@ final class OperationProjector
 
     /**
      * The `filter[<key>][]` parameter of a list filter: the array form, one
-     * `filter[<key>][]=<member>` pair per member. Its example is the declared one when
-     * that is a list.
+     * `filter[<key>][]=<member>` pair per member. Its example and default are the
+     * declared ones as a list of members.
      */
     private function listFilterParameter(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, ListValue $list, Schema $valueSchema): Parameter
     {
+        $schema = Schema::ofType('array')->withItems($valueSchema);
+        if (self::hasDefault($filter)) {
+            $schema = $schema->withDefault($list->members($filter->defaultValue()));
+        }
+
         $parameter = Parameter::query(
             'filter[' . $filter->key() . '][]',
-            Schema::ofType('array')->withItems($valueSchema),
+            $schema,
             $this->filterDescription($filter),
             style: ParameterStyle::Form,
             explode: true,
         )->withExtension(self::FILTER_LIST_EXTENSION, ['key' => $filter->key(), 'delimited' => $list->isDelimited()]);
 
-        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample() && \is_array($filter->getExample())) {
-            $parameter = $parameter->withExample(\array_values($filter->getExample()));
+        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $filter->hasExample()) {
+            $parameter = $parameter->withExample($list->members($filter->getExample()));
         }
 
         return $this->deprecatedFilterParameter($parameter, $filter);
@@ -1482,7 +1570,11 @@ final class OperationProjector
      * members are strings, or a list of strings when it accepts a list. The schema lists
      * each family under {@see FILTER_FAMILIES_EXTENSION} with its prefix, suffix pattern,
      * whether it takes a list and, for a list, whether the delimited string form is
-     * accepted, plus `deprecated: true` on a deprecated family's entry.
+     * accepted, plus `deprecated: true` on a deprecated family's entry. A described
+     * family's entry carries its `description`, which the parameter's description also
+     * lists one line per family, and an exemplified family's its `example`, one full key
+     * and its value such as `{"value.cap": 10}`. The parameter's example is every
+     * family's example together.
      *
      * @param non-empty-list<FilterFamilyInterface> $families
      */
@@ -1490,6 +1582,8 @@ final class OperationProjector
     {
         $patterns = [];
         $declared = [];
+        $lines = [];
+        $example = [];
         foreach ($families as $family) {
             $list = $family instanceof AcceptsList ? $family->listValue() : null;
             $string = Schema::ofType('string');
@@ -1506,19 +1600,31 @@ final class OperationProjector
             if ($family instanceof Deprecatable && $family->isDeprecated()) {
                 $entry['deprecated'] = true;
             }
+            $description = $family instanceof \haddowg\JsonApi\Resource\Filter\DescribedFilter ? $family->getDescription() : null;
+            if ($description !== null && $description !== '') {
+                $entry['description'] = $description;
+                $lines[] = '- `filter[' . $family->key() . '.<suffix>]`: ' . $description;
+            }
+            if ($family instanceof \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter && $family->hasExample() && \is_array($family->getExample())) {
+                $entry['example'] = $family->getExample();
+                $example = [...$example, ...$family->getExample()];
+            }
             $declared[] = $entry;
         }
 
-        return Parameter::query(
+        $parameter = Parameter::query(
             'filter',
             Schema::ofType('object')
                 ->withPatternProperties($patterns)
                 ->withExtension(self::FILTER_FAMILIES_EXTENSION, $declared),
             'Filter the collection by keys a filter family answers: `filter[<prefix>.<suffix>]`, the suffix naming the value to filter on. '
-            . 'A family that takes a list accepts `filter[<prefix>.<suffix>][]` once per member, and a comma-separated string unless its `x-filter-families` entry says `delimited: false`.',
+            . 'A family that takes a list accepts `filter[<prefix>.<suffix>][]` once per member, and a comma-separated string unless its `x-filter-families` entry says `delimited: false`.'
+            . ($lines === [] ? '' : "\n\n" . \implode("\n", $lines)),
             style: ParameterStyle::DeepObject,
             explode: true,
         );
+
+        return $example === [] ? $parameter : $parameter->withExample($example);
     }
 
     /**
@@ -1575,6 +1681,7 @@ final class OperationProjector
      * substring.", "Matches values within the given inclusive numeric range…") when
      * present, else a generic per-key fallback. Read through the `DescribedFilter`
      * interface so it stays type-safe over the bare {@see \haddowg\JsonApi\Resource\Filter\FilterInterface}.
+     * A presence-triggered filter's ends with {@see PRESENCE_NOTE}, whichever it is.
      */
     private function filterDescription(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): string
     {
@@ -1586,12 +1693,8 @@ final class OperationProjector
             }
         }
 
-        // A presence-triggered filter (a `->fixed()` Where, or a group whose
-        // children are all fixed) has a **server-set** value: the parameter's
-        // presence applies a canned condition and the request value is ignored, so
-        // document it honestly rather than implying a client value input.
-        if ($filter instanceof \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter && $filter->isPresenceTriggered()) {
-            $description .= ' The value is server-set: include this parameter with any value to apply the filter; the value you send is ignored.';
+        if (self::isPresenceTriggered($filter)) {
+            $description .= ' ' . self::PRESENCE_NOTE;
         }
 
         return $description;
@@ -1608,16 +1711,27 @@ final class OperationProjector
      * A {@see SortFamilyInterface} has no closed token list, so with one the items
      * become an `anyOf` of that enum and one `pattern` per family, and the array
      * schema lists each family's prefix and suffix pattern under `x-sort-families`, with
-     * `deprecated: true` on a deprecated family's entry. The exact keys declared
-     * deprecated are listed, without the `-`, under `x-deprecated-sorts`.
+     * `deprecated: true` on a deprecated family's entry and its `description` on a
+     * described one. The exact keys declared deprecated are listed, without the `-`,
+     * under `x-deprecated-sorts`.
+     *
+     * A described sort ({@see DescribedSort}) is documented the way a described enum
+     * value is, as {@see SchemaProjector::enumDescriptionMode()} says: a markdown table of
+     * every key appended to the parameter's description, and an
+     * {@see SORT_DESCRIPTIONS_EXTENSION} map on the array schema from each described
+     * exact key to its description.
      *
      * A relation's declared default order becomes the array schema's `default`, the
      * tokens a request without `sort` behaves as if it had sent.
      *
+     * The parameter's example is `$example`, the declared or default order the caller
+     * resolved, else the first exact key ascending. Only families leave it without one.
+     *
      * @param list<\haddowg\JsonApi\Resource\Sort\SortInterface> $sorts
      * @param list<string>                                     $default the default order's tokens, `-` marking descending
+     * @param list<string>                                     $example the example's tokens, `[]` for the first exact key
      */
-    private function sortParameter(array $sorts, array $default = []): ?Parameter
+    private function sortParameter(array $sorts, array $default = [], array $example = []): ?Parameter
     {
         if ($sorts === []) {
             return null;
@@ -1626,9 +1740,15 @@ final class OperationProjector
         $tokens = [];
         $families = [];
         $deprecated = [];
+        $described = [];
+        $rows = [];
+        $rowDescriptions = [];
         foreach ($sorts as $sort) {
+            $description = $sort instanceof DescribedSort ? ($sort->getDescription() ?? '') : '';
             if ($sort instanceof SortFamilyInterface) {
                 $families[] = $sort;
+                $rows[] = $sort->key() . '.<suffix>';
+                $rowDescriptions[] = $description;
 
                 continue;
             }
@@ -1637,6 +1757,11 @@ final class OperationProjector
             if ($sort instanceof Deprecatable && $sort->isDeprecated()) {
                 $deprecated[] = $sort->key();
             }
+            if ($description !== '') {
+                $described[$sort->key()] = $description;
+            }
+            $rows[] = $sort->key();
+            $rowDescriptions[] = $description;
         }
 
         $items = Schema::ofType('string')->withEnum($tokens);
@@ -1653,6 +1778,10 @@ final class OperationProjector
                 if ($family instanceof Deprecatable && $family->isDeprecated()) {
                     $entry['deprecated'] = true;
                 }
+                $description = $family instanceof DescribedSort ? $family->getDescription() : null;
+                if ($description !== null && $description !== '') {
+                    $entry['description'] = $description;
+                }
                 $declared[] = $entry;
             }
             $items = Schema::create()->withAnyOf($anyOf);
@@ -1663,17 +1792,76 @@ final class OperationProjector
             $schema = $schema->withExtension(self::DEPRECATED_SORTS_EXTENSION, $deprecated);
         }
 
+        $mode = $this->schemaProjector->enumDescriptionMode();
+        if ($described !== [] && $mode->emitsExtensions()) {
+            $schema = $schema->withExtension(self::SORT_DESCRIPTIONS_EXTENSION, $described);
+        }
+
         $schema = $schema->withItems($items);
         if ($default !== []) {
             $schema = $schema->withDefault($default);
         }
 
-        return Parameter::query(
+        $description = 'A comma-separated list of sort fields. Prefix a field with `-` for descending order.';
+        if ($mode->emitsDescription() && \array_filter($rowDescriptions, static fn(string $text): bool => $text !== '') !== []) {
+            $description .= "\n\n" . $this->schemaProjector->descriptionTable($rows, $rowDescriptions, 'Sort');
+        }
+
+        $parameter = Parameter::query(
             'sort',
             $schema,
-            'A comma-separated list of sort fields. Prefix a field with `-` for descending order.',
+            $description,
             style: ParameterStyle::Form,
             explode: false,
+        );
+
+        if ($example === [] && ($tokens[0] ?? null) !== null) {
+            $example = [$tokens[0]];
+        }
+
+        return $example === [] ? $parameter : $parameter->withExample($example);
+    }
+
+    /**
+     * The `sort` example a type's collections show: the type's declared example
+     * ({@see DeclaresSortExample}), else its default order ({@see DeclaresDefaultSort}),
+     * else `[]`, which leaves {@see sortParameter()} to take the first exact key.
+     *
+     * @return list<string>
+     */
+    private static function typeSortExample(?TypeMetadataInterface $type): array
+    {
+        $declared = $type instanceof DeclaresSortExample ? $type->sortExample() : null;
+        if ($declared !== null && $declared !== []) {
+            return $declared;
+        }
+
+        return $type instanceof DeclaresDefaultSort ? self::sortTokens($type->defaultSort()) : [];
+    }
+
+    /**
+     * The `sort` example a relation's related and relationship endpoints show: its own
+     * default order, else what its related type's collections show.
+     *
+     * @return list<string>
+     */
+    private function relationSortExample(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    {
+        $own = RelationFacts::defaultSort($relation);
+
+        return $own !== [] ? $own : self::typeSortExample($this->relatedTypeMetadata($relation, $server));
+    }
+
+    /**
+     * @param list<\haddowg\JsonApi\Resource\Sort\SortDirective> $directives
+     *
+     * @return list<string>
+     */
+    private static function sortTokens(array $directives): array
+    {
+        return \array_map(
+            static fn(\haddowg\JsonApi\Resource\Sort\SortDirective $directive): string => ($directive->descending ? '-' : '') . $directive->sort->key(),
+            $directives,
         );
     }
 
@@ -1844,14 +2032,28 @@ final class OperationProjector
      * The filter vocabulary a related / relationship endpoint honours: the **related
      * resource's own** filters merged with the relation's relation-scoped
      * ({@see RelationMetadataInterface::filters()}) ones — the relation wins on a key
-     * collision, mirroring the runtime's merged criteria. A polymorphic relation has
-     * no shared vocabulary, so only its own (typically empty) filters apply.
+     * collision, mirroring the runtime's merged criteria. A related filter whose default
+     * the relation drops ({@see DeclaresDroppedFilterDefaults}) is taken without it. A
+     * polymorphic relation has no shared vocabulary, so only its own (typically empty)
+     * filters apply.
      *
      * @return list<\haddowg\JsonApi\Resource\Filter\FilterInterface>
      */
     private function relatedFilterVocabulary(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
     {
-        return FilterMatcher::merge($this->relatedTypeMetadata($relation, $server)?->filters() ?? [], $relation->filters());
+        $related = $this->relatedTypeMetadata($relation, $server)?->filters() ?? [];
+        if ($relation instanceof DeclaresDroppedFilterDefaults) {
+            $related = \array_map(
+                static fn(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $filter instanceof HasRemovableDefault
+                    && $filter->hasDefault()
+                    && ($relation->dropsAllFilterDefaults() || \in_array($filter->key(), $relation->droppedFilterDefaults(), true))
+                    ? $filter->withoutDefault()
+                    : $filter,
+                $related,
+            );
+        }
+
+        return FilterMatcher::merge($related, $relation->filters());
     }
 
     /**

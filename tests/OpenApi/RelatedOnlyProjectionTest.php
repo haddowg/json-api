@@ -81,9 +81,9 @@ final class RelatedOnlyProjectionTest extends TestCase
     #[Test]
     public function theLinkObjectExampleIsAResourceThatHasASelfLink(): void
     {
-        $example = self::at($this->project(), 'components', 'schemas', 'LinkObject', 'example');
+        $examples = self::at($this->project(), 'components', 'schemas', 'LinkObject', 'examples');
 
-        self::assertSame(['href' => 'https://api.example.com/albums/alb-1'], $example);
+        self::assertSame([['href' => 'https://api.example.com/albums/alb-1']], $examples);
     }
 
     #[Test]

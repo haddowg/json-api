@@ -987,7 +987,27 @@ final class SchemaProjector
      */
     private function enumTable(array $values, array $descriptions): string
     {
-        $lines = ['| Value | Description |', '| --- | --- |'];
+        return $this->descriptionTable($values, $descriptions);
+    }
+
+    /**
+     * How this projector surfaces per-value descriptions, which the operation projector
+     * follows for the `sort` parameter's keys too.
+     */
+    public function enumDescriptionMode(): EnumDescriptionMode
+    {
+        return $this->enumDescriptionMode;
+    }
+
+    /**
+     * A markdown `value → description` table, one row per value, headed `$heading`.
+     *
+     * @param list<int|string> $values
+     * @param list<string>     $descriptions aligned to `$values`, `''` for an undescribed one
+     */
+    public function descriptionTable(array $values, array $descriptions, string $heading = 'Value'): string
+    {
+        $lines = ['| ' . $heading . ' | Description |', '| --- | --- |'];
         foreach ($values as $i => $value) {
             $description = $descriptions[$i] ?? '';
             $lines[] = \sprintf('| `%s` | %s |', $this->escapeTableCell((string) $value), $this->escapeTableCell($description));

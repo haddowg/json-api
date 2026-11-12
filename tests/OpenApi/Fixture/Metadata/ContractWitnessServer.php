@@ -70,6 +70,7 @@ use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereAll;
 use haddowg\JsonApi\Resource\Filter\WhereAny;
+use haddowg\JsonApi\Resource\Filter\WhereHas;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
 use haddowg\JsonApi\Resource\Filter\WhereIdNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
@@ -79,6 +80,7 @@ use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Link\ActionLink;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Sort\SortByField;
+use haddowg\JsonApi\Resource\Sort\SortDirective;
 use haddowg\JsonApi\Resource\Sort\SortFamily;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -435,7 +437,7 @@ final class ContractWitnessServer
                     countable: true,
                     pageSchema: PagePaginator::make()->describePageSchema(),
                     filters: [Where::make('label')->describedAs('Filter tags by label.')->build()],
-                    sorts: [SortByField::make('label')],
+                    sorts: [SortByField::make('label')->describedAs('Alphabetical by label.')],
                     relatedIncludablePaths: ['articles'],
                     // A pivot-backed (belongsToMany) relation: the linkage identifier
                     // carries a typed `meta.pivot`, with a response shape (read-only fields
@@ -453,6 +455,7 @@ final class ContractWitnessServer
                     // but not change them, and add and remove stay routed for the requests
                     // the closure lets through.
                     fixesMembership: $fixedMembership,
+                    droppedFilterDefaults: ['color'],
                 ),
                 // Served under a URI segment other than its name: its paths and links use
                 // the segment, its member and operation ids the name.
@@ -529,30 +532,35 @@ final class ContractWitnessServer
                 Where::make('releasedOn')->build(),
                 WhereIn::make('keywords')->example(['php', 'json'])->build(),
                 WhereThrough::make('author.name')->build(),
-                WhereNull::make('unpublished', 'publishedAt'),
+                WhereNull::make('unpublished', 'publishedAt')->describedAs('Articles not yet published.'),
+                WhereHas::make('tagged', 'tags'),
+                Where::make('language')->default('en')->example('fr')->build(),
                 ...($deprecations ? [Where::make('state', 'status')->deprecated()->build()] : []),
                 ...($listFilters ? [
                     WhereIn::make('categories')->acceptsList()->example(['news', 'tech'])->build(),
                     WhereIn::make('columns')->acceptsList(delimited: false)->build(),
-                    WhereNotIn::make('excludedRegions', 'region')->delimiter('|')->acceptsList()->build(),
+                    WhereNotIn::make('excludedRegions', 'region')->delimiter('|')->acceptsList()->example('eu|us')->build(),
                 ] : []),
                 ...($filterFamilies ? [
-                    FilterFamily::make('value', static fn(string $suffix): ?FilterInterface => null)->acceptsList(),
+                    FilterFamily::make('value', static fn(string $suffix): ?FilterInterface => null)->acceptsList()
+                        ->describedAs('Matches a custom field value.')->example('cap', ['10', '20']),
                     FilterFamily::make('exact', static fn(string $suffix): ?FilterInterface => null)->acceptsList(delimited: false)->withSuffixPattern('[a-z][a-z_]*'),
                     FilterFamily::make('meta', static fn(string $suffix): ?FilterInterface => null),
                     ...($deprecations ? [FilterFamily::make('legacy', static fn(string $suffix): ?FilterInterface => null)->deprecated()] : []),
                 ] : []),
             ],
             sorts: [
-                SortByField::make('title'),
+                SortByField::make('title')->describedAs('Alphabetical by title.'),
                 SortByField::make('wordCount'),
                 ...($deprecations ? [SortByField::make('length', 'wordCount')->deprecated()] : []),
                 ...($sortFamilies ? [
                     ...($deprecations ? [SortFamily::make('legacy', static fn(string $suffix): ?SortInterface => null)->deprecated()] : []),
                     SortFamily::make('meta', static fn(string $suffix): ?SortInterface => null)->withSuffixPattern('[a-z][a-z_]*'),
-                    SortFamily::make('custom.fields', static fn(string $suffix): ?SortInterface => null),
+                    SortFamily::make('custom.fields', static fn(string $suffix): ?SortInterface => null)->describedAs('By a custom field value.'),
                 ] : []),
             ],
+            // The default order, shown as the sort parameter's example.
+            defaultSort: [new SortDirective(SortByField::make('wordCount'), true)],
             actions: [
                 ...($deprecations ? [new FakeActionMetadata('retract', ['POST'], ActionScope::Resource, ActionInputMode::None, tags: ['Articles'], example: false, deprecated: true)] : []),
                 new FakeActionMetadata('publish', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'articles', secured: true, tags: ['Articles'], summary: 'Publish the article', example: false),
@@ -682,13 +690,17 @@ final class ContractWitnessServer
             requiresClientId: true,
             pageSchema: CursorPaginator::make()->describePageSchema(),
             filters: [
-                Where::make('color')->build(),
-                WhereIn::make('label')->build(),
+                // Defaults: a scalar one the articles' tags relation drops, and a list one
+                // it keeps, documented in both of the list's forms.
+                Where::make('color')->default('blue')->build(),
+                WhereIn::make('label')->acceptsList()->default('php,json')->build(),
                 // A delimiter OAS cannot spell: the value documents as the one string
                 // the client sends, never as a list split on the wrong character.
                 WhereIdNotIn::make('excludeId')->delimiter(';')->build(),
             ],
             sorts: [SortByField::make('id')],
+            // The sort example a type declares in place of its first sort.
+            sortExample: ['-id'],
             responses: [OperationType::Create->value => [new NoContent()]],
             deprecated: $deprecations,
             sunset: $deprecations ? new \DateTimeImmutable('2027-06-30T00:00:00Z') : null,

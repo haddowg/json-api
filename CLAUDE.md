@@ -460,6 +460,13 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one
   its own walk
   ([ADR 0080](docs/adr/0080-resource-unions-are-discriminated-by-type-and-included-is-typed.md)).
+- A filter's description and example live on its Parameter Object, never its schema; its
+  default is the schema's `default`. A presence filter's example is always the string `true`,
+  and a group child's or a relation builder's own example fails at build. Schema examples
+  are the `examples` list, never the singular keyword. A sort's example is the default
+  order, else the first exact key
+  ([ADR 0117](docs/adr/0117-a-filters-documentation-lives-on-its-parameter-and-a-presence-filter-shows-true.md),
+  [ADR 0118](docs/adr/0118-a-sort-reuses-its-fields-description-and-its-example-is-the-default-order.md)).
 - A named shape's component holds the shape and its own constraints, never a use's `null`,
   description, example, deprecation or non-empty keyword, and splits into `<Name>Create` /
   `<Name>Update` only where a write differs from the read. A clashing or reused-but-different

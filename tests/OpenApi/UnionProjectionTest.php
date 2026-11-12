@@ -136,7 +136,7 @@ final class UnionProjectionTest extends TestCase
     {
         $field = Union::make('v')->of(Str::make(), Decimal::make())->describedAs('A binding value.')->example(1.5)->build();
 
-        self::assertSame(['type' => ['string', 'number'], 'description' => 'A binding value.', 'example' => 1.5], $this->attribute($field, RepresentationContext::Create));
+        self::assertSame(['type' => ['string', 'number'], 'description' => 'A binding value.', 'examples' => [1.5]], $this->attribute($field, RepresentationContext::Create));
     }
 
     #[Test]

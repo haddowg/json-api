@@ -90,7 +90,7 @@ final class NamedComponentProjectionTest extends TestCase
         $document = $this->project([self::placeholder('first')->example('hello')->build()]);
 
         self::assertSame(
-            ['allOf' => [['$ref' => '#/components/schemas/PlaceholderValue']], 'example' => 'hello'],
+            ['allOf' => [['$ref' => '#/components/schemas/PlaceholderValue']], 'examples' => ['hello']],
             $this->property($document, 'ArticlesCreateAttributes', 'first'),
         );
     }

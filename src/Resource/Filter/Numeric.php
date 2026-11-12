@@ -27,6 +27,6 @@ final class Numeric extends WhereBuilder
         return parent::make($key, $column, '=')
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches the given number.');
+            ->presetDescription('Matches the given number.');
     }
 }

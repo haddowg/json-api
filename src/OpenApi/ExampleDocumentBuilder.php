@@ -381,7 +381,10 @@ final class ExampleDocumentBuilder
         return $id ?? '';
     }
 
-    private static function idExample(TypeMetadataInterface $type): ?string
+    /**
+     * The id example `$type`'s `Id` field declares, or `null` when it declares none.
+     */
+    public static function idExample(TypeMetadataInterface $type): ?string
     {
         foreach ($type->fields() as $field) {
             if ($field instanceof Id && $field->hasExample()) {

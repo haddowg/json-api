@@ -14,7 +14,7 @@ fixtures and no framework.
 This page is the reference for that projection: the model that builds the document, the
 contract you implement to feed it, the field-level authoring surface that shapes the
 schemas (`describedAs()` / `example()`), the per-code error catalogue, and the vendor
-extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`, `x-sort-families`, `x-filter-list`, `x-filter-families`). For *serving* the document,
+extensions it emits (`x-generator`, `x-enum-*`, `x-profile`, `x-safety`, `x-sort-families`, `x-sort-descriptions`, `x-filter-list`, `x-filter-families`). For *serving* the document,
 the config, and the UI, see the Symfony bundle's OpenAPI docs.
 
 ## The projection model
@@ -36,7 +36,7 @@ The projection is a small pipeline of **pure** classes in
   its keyword via [`ProvidesJsonSchema`](../src/Resource/Constraint/ProvidesJsonSchema.php),
   so the projector shares one constraint→keyword source of truth with the
   body-validation `SchemaCompiler` (rather than mirroring it) — but emits a
-  **standalone, OpenAPI-shaped** schema on top: `description` / `example`, full
+  **standalone, OpenAPI-shaped** schema on top: `description` / `examples`, full
   nullable handling, enum var-names, and the complete attributes / resource-object
   shapes. A constraint that has no faithful JSON Schema
   2020-12 keyword (a `When` with an opaque condition, `CompareField`, a date/time bound
@@ -273,7 +273,10 @@ sketch:
   A to-many relation that declares a [default read order](relations.md#default-read-order)
   gives the `sort` parameter of its relationship and related endpoints that order as the
   schema's `default`, such as `["position", "-title"]`. Metadata reports it through
-  `DeclaresRelationDefaultSort`.
+  `DeclaresRelationDefaultSort`. Every `sort` parameter carries an `example`, the
+  [sort example](sorts.md#the-sort-example), and tables its
+  [described keys](#sort-descriptions-x-sort-descriptions). A filter's declared
+  [default](filters.md#default-values) is its `filter[<key>]` schema's `default`.
 - **`?include` / `fields[…]` on writes.** These two shape the *rendered document*, not the
   query that selects it, so they belong to every operation that answers with a resource
   document — a `POST` create and a `PATCH` update as much as a `GET`, with the identical
@@ -285,7 +288,8 @@ sketch:
   **that** type's pair, even when it is mounted on another.
 - **Filter values that carry a type.** A `filter[<key>]` gets its **container** shape from
   the filter kind — a set is an array, a range a `min`/`max` object, a presence-only filter
-  a plain string whose description says the value is ignored — and its **value** schema from
+  a plain string whose description ends "Applied when present; value ignored." and whose
+  example is `true` — and its **value** schema from
   the filter's declared [value constraints](filters.md#validating-filter-values). A filter
   that declared none falls back to the JSON type of the field it targets, matching the
   filter's column against the type's field inventory: a `Where` over an `Integer` documents
@@ -791,9 +795,9 @@ link does:
             "meta": {
               "type": "object",
               "properties": {
-                "method": { "type": "string", "enum": ["PUT"], "example": "PUT" },
-                "headers": { "type": "object", "additionalProperties": {}, "example": { "Content-Type": "image/png" } },
-                "expiresAt": { "type": "string", "format": "date-time", "example": "2026-10-26T12:00:00+00:00" }
+                "method": { "type": "string", "enum": ["PUT"], "examples": ["PUT"] },
+                "headers": { "type": "object", "additionalProperties": {}, "examples": [{ "Content-Type": "image/png" }] },
+                "expiresAt": { "type": "string", "format": "date-time", "examples": ["2026-10-26T12:00:00+00:00"] }
               },
               "required": ["method", "headers", "expiresAt"]
             }
@@ -829,9 +833,9 @@ note about absolute `href`s, and the links in its operation examples are plain s
 
 #### A `$ref` with an example is wrapped in `allOf`
 
-Wherever a schema `$ref`s a component and also carries an `example`, `examples` or
-`default`, the document writes the `$ref` as the single entry of an `allOf`, with the
-other keywords beside it: `{"description": …, "allOf": [{"$ref": …}], "example": …}`. OAS
+Wherever a schema `$ref`s a component and also carries `examples` or a `default`, the
+document writes the `$ref` as the single entry of an `allOf`, with the other keywords beside
+it: `{"description": …, "allOf": [{"$ref": …}], "examples": […]}`. OAS
 3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
 example sampler among them, ignore them and would show a sample of the bare component
 instead. Today that covers an attribute, or a declared link's `meta` member, whose enum is
@@ -1071,6 +1075,18 @@ Two more feed the examples facts the rest of the contract does not carry.
 collection paginator's `wantsCount()`. `DeclaresRelationExampleId` extends
 `RelationMetadataInterface` with `exampleId(): ?string`: return the core relation's
 `exampleId()`.
+
+Two more shape the [sort example](sorts.md#the-sort-example). `DeclaresDefaultSort` extends
+`TypeMetadataInterface` with `defaultSort(): list<SortDirective>`: return the resource's
+`defaultSort()`. `DeclaresSortExample` extends it with `sortExample(): ?list<string>`: return
+the resource's `sortExample()`. Metadata that implements neither shows the first exact sort
+as the example.
+
+`DeclaresDroppedFilterDefaults` extends `RelationMetadataInterface` with
+`dropsAllFilterDefaults(): bool` and `droppedFilterDefaults(): list<string>`: return the core
+relation's, from `DropsFilterDefaultsInterface`. The projector leaves a dropped default off
+the relation's related and relationship endpoints. Metadata that doesn't implement it shows
+every related default there.
 
 Four more describe links. `DeclaresLinkObjects` extends `ServerMetadataInterface` with
 `rendersLinkObjects(): bool` (mirror `Server::withLinkObjects()`) and
@@ -1418,8 +1434,9 @@ public function fields(): array
 
 - **`describedAs(string)`** sets the schema `description`. (The setter is named to match
   the filters' `describedAs()`; the read-back getter is `getDescription()`.)
-- **`example(mixed)`** sets the schema `example`. A declared `null` is honoured and is
-  distinct from "no example".
+- **`example(mixed)`** sets the schema's `examples` to a list holding the value, the OAS
+  3.1 keyword; the singular Schema Object `example` is deprecated there. A declared `null`
+  is honoured and is distinct from "no example".
 
 Filters take both too. A filter's `describedAs()` overrides the generated default every
 convenience filter ships with, and its `example()` becomes the `filter[<key>]` parameter's
@@ -1435,9 +1452,27 @@ Range::make('rating')->example(['min' => 3, 'max' => 5]),
 
 The projector emits the example as declared and does not check it against the schema. A
 filter without one is unchanged, and a custom filter opts in by implementing
-`ExemplifiedFilter`.
+`ExemplifiedFilter`. Neither the description nor the example is copied into the parameter's
+schema. Some filters are documented by rule rather than as declared:
 
-[Relations](relations.md) take `describedAs()` as well. Beyond fields, every documentable element
+- A [presence filter](filters.md#documenting-presence-filters) ends its description with
+  "Applied when present; value ignored." and always has the example `true`.
+  `WhereNull`, `WhereNotNull`, `WhereHas` and `WhereDoesntHave` take `describedAs()` too.
+- A [list filter's](filters.md#declaring-a-list-acceptslist) example and default are shown
+  as the same members on `filter[<key>]` and `filter[<key>][]`, split or joined on the
+  delimiter to fit each schema.
+- A [filter family's](filters.md#filter-families-keys-matched-by-prefix) description and
+  example go in its [`x-filter-families`](#filter-families-x-filter-families) entry and on
+  the shared `filter` parameter.
+- A [group](filters.md#filter-groups-whereall--whereany) is one parameter, so a child
+  declaring its own description or example fails when the group is built.
+
+[Sorts](sorts.md#describing-a-sort) take `describedAs()` as well, and a sortable field's
+sort carries the field's description.
+
+[Relations](relations.md) take `describedAs()` as well, and their relationship object's
+schema is exemplified from [`exampleId()`](relations.md#example-ids-for-linkage) or the
+related type's id; a relation builder refuses `example()`. Beyond fields, every documentable element
 gets a **generated default description** the author may override declaratively: a type's
 resource object via its `description()`, and each CRUD / related / relationship operation
 via a per-operation description override — the projector emits the author's value when
@@ -1649,8 +1684,38 @@ An endpoint with no family keeps the plain enum, and a document whose endpoints
 declare none carries no `x-sort-families` and keeps the lower contract stamp.
 
 A [deprecated](sorts.md#deprecating-a-sort) family's entry adds `"deprecated": true` beside
-its `prefix` and `suffixPattern`. The flag sits in the family's own entry so a prefix is
-never mistaken for an exact key.
+its `prefix` and `suffixPattern`, and a [described](sorts.md#describing-a-sort) one its
+`"description"`. Both sit in the family's own entry so a prefix is never mistaken for an
+exact key.
+
+### Sort descriptions: `x-sort-descriptions`
+
+A [described sort](sorts.md#describing-a-sort) is documented the way a described enum value
+is, as the projector's `EnumDescriptionMode` says. With `Both`, the default, the `sort`
+parameter's description gains a markdown table of every key, families as
+`<prefix>.<suffix>`, and the array schema maps each described exact key to its description
+under `x-sort-descriptions`. `Extensions` emits only the map and `Description` only the
+table:
+
+```json
+{
+  "name": "sort",
+  "in": "query",
+  "description": "A comma-separated list of sort fields. Prefix a field with `-` for descending order.\n\n| Sort | Description |\n| --- | --- |\n| `title` | Alphabetical by title. |\n| `budget` |  |",
+  "schema": {
+    "type": "array",
+    "items": { "type": "string", "enum": ["title", "-title", "budget", "-budget"] },
+    "x-sort-descriptions": { "title": "Alphabetical by title." }
+  },
+  "style": "form",
+  "explode": false,
+  "example": ["title"]
+}
+```
+
+The map holds exact keys without the `-`, and only the described ones. A family's
+description is in its `x-sort-families` entry. A `sort` parameter with no described key
+carries neither.
 
 ### List filters: `x-filter-list`
 
@@ -1713,8 +1778,24 @@ whether it takes a `list` and, for a list, whether it is `delimited`:
 OAS does not define how `deepObject` carries an array, so `x-filter-families` is what a
 generator should read: a list family takes `filter[<prefix>.<suffix>][]` once per member,
 and a delimited one a single comma-separated string as well. A deprecated family's entry
-adds `"deprecated": true`. An endpoint with no family has no `filter` parameter, and a
-document using neither families nor list filters keeps the lower contract stamp.
+adds `"deprecated": true`.
+
+A [described or exemplified](filters.md#filter-families-keys-matched-by-prefix) family's
+entry carries its `description` and its `example`, one full key and the value sent with it.
+The parameter's description gains one line per described family, and its `example` holds
+every family's example together:
+
+```json
+"x-filter-families": [
+  {
+    "prefix": "value", "suffixPattern": "[a-z_]+", "list": false,
+    "description": "Matches a placeholder value.",
+    "example": { "value.cap": "10" }
+  }
+]
+```
+
+An endpoint with no family has no `filter` parameter.
 
 ### Deprecated sorts: `x-deprecated-sorts`
 

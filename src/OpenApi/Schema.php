@@ -198,11 +198,13 @@ final class Schema implements \JsonSerializable
     }
 
     /**
-     * Sets a single OpenAPI 3.1 `example` value. A `null` example is honoured.
+     * Sets one example value, written as the OpenAPI 3.1 (JSON Schema) `examples` list
+     * holding it; the singular `example` keyword is deprecated on a Schema Object. A
+     * `null` example is honoured.
      */
     public function withExample(mixed $example): self
     {
-        return $this->with('example', $example);
+        return $this->with('examples', [$example]);
     }
 
     /**
@@ -532,7 +534,7 @@ final class Schema implements \JsonSerializable
             'minItems', 'maxItems', 'uniqueItems', 'items',
             'minProperties', 'maxProperties', 'properties', 'patternProperties', 'required', 'additionalProperties',
             'allOf', 'anyOf', 'oneOf', 'not',
-            'example',
+            'examples',
         ];
 
         $out = [];
@@ -557,16 +559,15 @@ final class Schema implements \JsonSerializable
     }
 
     /**
-     * The node as it is written out. A `$ref` that carries an `example`, `examples` or
-     * `default` moves into a single-entry `allOf` with every other keyword beside it,
-     * because OAS 3.0 tooling (ReDoc's sampler among it) ignores a `$ref`'s siblings and
+     * The node as it is written out. A `$ref` that carries `examples` or `default` moves
+     * into a single-entry `allOf` with every other keyword beside it, because OAS 3.0 tooling (ReDoc's sampler among it) ignores a `$ref`'s siblings and
      * would never show them. A `$ref` with no such sibling is written as it is.
      */
     private function emitted(): self
     {
         $ref = $this->keywords['$ref'] ?? null;
         if (!\is_string($ref)
-            || !(\array_key_exists('example', $this->keywords) || \array_key_exists('examples', $this->keywords) || \array_key_exists('default', $this->keywords))) {
+            || !(\array_key_exists('examples', $this->keywords) || \array_key_exists('default', $this->keywords))) {
             return $this;
         }
 

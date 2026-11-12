@@ -70,6 +70,7 @@ class WhereBuilder implements FilterBuilderInterface
             $this->fixedValue,
             $this->hasFixed,
             $this->deprecated,
+            $this->presetDescription,
         );
     }
 

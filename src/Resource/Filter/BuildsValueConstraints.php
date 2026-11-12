@@ -45,6 +45,12 @@ trait BuildsValueConstraints
 
     protected ?string $description = null;
 
+    /**
+     * Whether {@see $description} is a convenience filter's preset rather than the
+     * author's own.
+     */
+    protected bool $presetDescription = false;
+
     protected bool $hasExample = false;
 
     protected mixed $example = null;
@@ -59,6 +65,21 @@ trait BuildsValueConstraints
     public function describedAs(string $description): static
     {
         $this->description = $description;
+        $this->presetDescription = false;
+
+        return $this;
+    }
+
+    /**
+     * Sets the description a convenience filter presets, which an author's own
+     * {@see describedAs()} replaces.
+     *
+     * @return static
+     */
+    protected function presetDescription(string $description): static
+    {
+        $this->description = $description;
+        $this->presetDescription = true;
 
         return $this;
     }

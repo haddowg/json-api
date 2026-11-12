@@ -254,4 +254,43 @@ final class FilterGroupTest extends TestCase
         self::assertFalse(WhereAll::make('x')->build()->isPresenceTriggered());
         self::assertFalse(WhereAny::make('x')->build()->isPresenceTriggered());
     }
+
+    #[Test]
+    public function aChildsDescriptionFailsTheGroup(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Filter "name" in the group "q" declares describedAs(), which the OpenAPI document never shows: a group is one filter[q] parameter. Declare it on the group instead.');
+
+        WhereAny::make('q', Contains::make('name')->describedAs('By name.'), Contains::make('email'))->build();
+    }
+
+    #[Test]
+    public function aChildsExampleFailsTheGroup(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Filter "email" in the group "q" declares example()');
+
+        WhereAll::make('q', Contains::make('name'), Where::make('email')->example('ada@example.com'))->build();
+    }
+
+    #[Test]
+    public function aBuiltChildOrANestedGroupIsCheckedToo(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Filter "inner" in the group "outer" declares describedAs()');
+
+        WhereAll::make('outer', Contains::make('name')->build(), WhereAny::make('inner', Contains::make('email'))->describedAs('Inner.')->build())->build();
+    }
+
+    #[Test]
+    public function aConvenienceFiltersPresetDescriptionIsNotTheAuthors(): void
+    {
+        $group = WhereAny::make('q', Contains::make('name')->build(), \haddowg\JsonApi\Resource\Filter\Range::make('score')->build())
+            ->describedAs('Search.')
+            ->example('ada')
+            ->build();
+
+        self::assertSame('Search.', $group->getDescription());
+        self::assertSame('Matches values containing the given substring.', $group->children[0] instanceof Where ? $group->children[0]->getDescription() : null);
+    }
 }

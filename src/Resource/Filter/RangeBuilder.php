@@ -38,12 +38,12 @@ class RangeBuilder implements FilterBuilderInterface
         return (new static($key, $column))
             ->deserializeUsing(NumericCoercion::deserializer())
             ->numeric()
-            ->describedAs('Matches values within the given inclusive numeric range.');
+            ->presetDescription('Matches values within the given inclusive numeric range.');
     }
 
     public function build(): Range
     {
-        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
+        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription);
     }
 
     /**

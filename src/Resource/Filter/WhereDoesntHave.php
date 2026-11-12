@@ -8,12 +8,13 @@ namespace haddowg\JsonApi\Resource\Filter;
  * Matches rows that lack a related record on the named relationship (the
  * negation of {@see WhereHas}).
  */
-final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\FilterInterface, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
+final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\PresenceTriggeredFilter
 {
     public function __construct(
         public string $key,
         public string $relationship,
         public bool $deprecated = false,
+        public ?string $description = null,
     ) {}
 
     public static function make(string $key, ?string $relationship = null): self
@@ -32,12 +33,27 @@ final readonly class WhereDoesntHave implements \haddowg\JsonApi\Resource\Deprec
      */
     public function deprecated(): self
     {
-        return new self($this->key, $this->relationship, true);
+        return new self($this->key, $this->relationship, true, $this->description);
     }
 
     public function isDeprecated(): bool
     {
         return $this->deprecated;
+    }
+
+    /**
+     * A copy carrying a description for its `filter[<key>]` parameter in the OpenAPI
+     * document, in place of the generic one. The document still says the filter applies
+     * when present and ignores its value.
+     */
+    public function describedAs(string $description): self
+    {
+        return new self($this->key, $this->relationship, $this->deprecated, $description);
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
     }
 
     /**

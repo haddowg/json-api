@@ -179,7 +179,7 @@ final class LinkProjectionTest extends TestCase
     {
         $document = $this->project(serverUrl: null, idExample: null);
 
-        self::assertSame('/records/1', $this->at($this->schema($document, 'LinkObject'), 'example', 'href'));
+        self::assertSame('/records/1', $this->at($this->schema($document, 'LinkObject'), 'examples', 0, 'href'));
     }
 
     #[Test]
@@ -211,7 +211,7 @@ final class LinkProjectionTest extends TestCase
         self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'ResourceLinks'), 'properties', 'self', '$ref'));
         self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'RelationshipDocumentLinks'), 'properties', 'next', '$ref'));
         self::assertSame('#/components/schemas/LinkObject', $this->at($this->schema($document, 'AlbumsResourceLinks'), 'allOf', 1, 'properties', 'publish', '$ref'));
-        self::assertSame('/api/v5/records/alb-1', $this->at($this->schema($document, 'LinkObject'), 'example'));
+        self::assertSame('/api/v5/records/alb-1', $this->at($this->schema($document, 'LinkObject'), 'examples', 0));
         self::assertStringContainsString('absolute to the request host', $this->str($this->schema($document, 'LinkObject'), 'description'));
         self::assertSame('/api/v5/records/alb-1', $this->at($this->responseExample($document, '/records/{id}', 'get'), 'data', 'links', 'self'));
     }
@@ -221,12 +221,12 @@ final class LinkProjectionTest extends TestCase
     {
         self::assertSame(
             ['href' => '/api/v5/records/alb-1', 'describedby' => self::DOCS . '#/paths/~1records~1%7Bid%7D/get'],
-            $this->at($this->schema($this->project(), 'LinkObject'), 'example'),
+            $this->at($this->schema($this->project(), 'LinkObject'), 'examples', 0),
         );
-        self::assertSame(['href' => '/api/v5/records/alb-1'], $this->at($this->schema($this->project(documentUrl: null), 'LinkObject'), 'example'));
+        self::assertSame(['href' => '/api/v5/records/alb-1'], $this->at($this->schema($this->project(documentUrl: null), 'LinkObject'), 'examples', 0));
 
         $empty = new FakeServerMetadata(title: 'Music', version: '1', types: [], servers: [new Server('/api/v5')]);
-        self::assertSame(['href' => '/api/v5/'], $this->at($this->schema((new OpenApiProjector())->project($empty)->toArray(), 'LinkObject'), 'example'));
+        self::assertSame(['href' => '/api/v5/'], $this->at($this->schema((new OpenApiProjector())->project($empty)->toArray(), 'LinkObject'), 'examples', 0));
     }
 
     #[Test]

@@ -168,6 +168,24 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     }
 
     /**
+     * The `sort` example the generated OpenAPI document shows for this resource's
+     * collections, as the tokens a client sends (`['-publishedAt', 'title']`, a leading
+     * `-` for descending). Returning `null` (the default) lets the generator derive one:
+     * the declared {@see defaultSort()} when there is one, else the first sort the
+     * collection accepts. A relation's related and relationship endpoints show the
+     * relation's own default order before this.
+     *
+     * Consumed by the adapter's OpenAPI metadata source through
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample}, not core's projector.
+     *
+     * @return list<string>|null
+     */
+    public function sortExample(): ?array
+    {
+        return null;
+    }
+
+    /**
      * A zero-ceremony default `page[size]` for this resource's primary collection.
      * When set, the base {@see pagination()} returns a page-based paginator with this
      * default size (capped by {@see $maxPerPage} when also set) instead of the server
@@ -235,8 +253,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
     /**
      * Every sort the resource accepts: the field-derived
-     * {@see \haddowg\JsonApi\Resource\Sort\SortByField}s plus any explicit
-     * {@see sorts()}. Keyed by sort key (later entries win), returned as a list; a
+     * {@see \haddowg\JsonApi\Resource\Sort\SortByField}s, each carrying its field's
+     * description, plus any explicit {@see sorts()}. Keyed by sort key (later entries
+     * win, so an explicit sort replaces a field's own), returned as a list; a
      * {@see \haddowg\JsonApi\Resource\Sort\SortFamilyInterface} never replaces an
      * exact sort sharing its key ({@see \haddowg\JsonApi\Resource\Sort\SortMatcher::merge()}).
      *
@@ -251,6 +270,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                     $field->name(),
                     $field->column() ?? $field->name(),
                 );
+                $description = $field->getDescription();
+                if ($description !== null && $description !== '') {
+                    $sort = $sort->describedAs($description);
+                }
                 $derived[] = $field instanceof Deprecatable && $field->isDeprecated() ? $sort->deprecated() : $sort;
             }
         }

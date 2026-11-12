@@ -191,6 +191,22 @@ final class RelationDefaultSortTest extends TestCase
     {
         return \array_map(static fn(SortDirective $directive): string => $directive->sort->key(), $directives);
     }
+
+    #[Test]
+    public function aPivotSortCarriesItsFieldsDescription(): void
+    {
+        $relation = BelongsToMany::make('tags', 'tags')
+            ->fields(Integer::make('weight')->describedAs('How strongly the tag applies.'), Str::make('note'))
+            ->build();
+
+        $descriptions = [];
+        foreach (RelationSorts::pivotSorts($relation) as $sort) {
+            self::assertInstanceOf(SortByField::class, $sort);
+            $descriptions[$sort->key()] = $sort->getDescription();
+        }
+
+        self::assertSame(['weight' => 'How strongly the tag applies.', 'note' => null], $descriptions);
+    }
 }
 
 final class DefaultSortTrackResource extends AbstractResource
