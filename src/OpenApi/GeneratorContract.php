@@ -107,7 +107,9 @@ final class GeneratorContract
      * filter and sort family entries a `description` and a filter family's an `example`,
      * and a relationship object an example. Contract 35 did again, moving the atomic
      * relationship operations' identifier union and its array into the `AtomicIdentifier`
-     * and `AtomicIdentifiers` components they reference.
+     * and `AtomicIdentifiers` components they reference, and offering each error code
+     * tied to an {@see \haddowg\JsonApi\Exception\ErrorFeature} only on the operations
+     * that can raise it, so most writes and some reads gained error documents of their own.
      */
     public const BASELINE = 35;
 

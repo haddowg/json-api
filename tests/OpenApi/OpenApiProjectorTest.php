@@ -855,12 +855,13 @@ final class OpenApiProjectorTest extends TestCase
         );
 
         // The enumerated error responses each reference the shared response component for their
-        // status. The atomic op is secured (bearer default + per-endpoint), so it carries 401
-        // like every other operation — the effective-security invariant core #99 established.
+        // status, except where the batch raises codes only a request document can cause, which
+        // it answers with its own error documents. The atomic op is secured (bearer default +
+        // per-endpoint), so it carries 401 like every other operation — the effective-security
+        // invariant core #99 established.
         $expected = [
-            '400' => 'BadRequest', '401' => 'Unauthorized', '403' => 'Forbidden',
-            '404' => 'NotFound', '406' => 'NotAcceptable', '409' => 'Conflict',
-            '415' => 'UnsupportedMediaType', '422' => 'UnprocessableEntity', '500' => 'InternalServerError',
+            '401' => 'Unauthorized', '404' => 'NotFound', '406' => 'NotAcceptable',
+            '415' => 'UnsupportedMediaType', '500' => 'InternalServerError',
         ];
         foreach ($expected as $status => $component) {
             self::assertSame(
@@ -869,17 +870,27 @@ final class OpenApiProjectorTest extends TestCase
                 "missing/incorrect error response {$status}",
             );
         }
+        foreach (['400', '403', '409', '422'] as $status) {
+            self::assertSame(
+                '#/components/schemas/AtomicOperations' . $status,
+                $this->strAt($post, 'responses', $status, 'content', 'application/vnd.api+json', 'schema', '$ref'),
+                "missing/incorrect error response {$status}",
+            );
+        }
 
         // The batch phrases six of them in terms of an operation within it; those carry the
-        // wording as an OAS 3.1 Reference Object description override. The three it phrases
-        // identically to every other endpoint reference the component bare.
+        // wording as an OAS 3.1 Reference Object description override, and its own documents
+        // keep it. The ones it phrases identically to every other endpoint reference the
+        // component bare.
         self::assertSame(
             'Not Found — an operation targets a resource that does not exist.',
             $this->strAt($post, 'responses', '404', 'description'),
         );
-        foreach (['401', '403', '500'] as $status) {
+        self::assertStringContainsString('an operation', $this->strAt($post, 'responses', '409', 'description'));
+        foreach (['401', '500'] as $status) {
             self::assertArrayNotHasKey('description', $this->arrAt($post, 'responses', $status));
         }
+        self::assertSame('Forbidden — the request is not authorised.', $this->strAt($post, 'responses', '403', 'description'));
     }
 
     #[Test]

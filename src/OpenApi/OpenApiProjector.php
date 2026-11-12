@@ -903,9 +903,9 @@ final class OpenApiProjector
             $catalog->errorsItemSchema(\array_keys($variants)),
         );
 
-        // One narrowing per advertised status the catalogue claims. A status it claims no
-        // code for keeps the generic document, such as a status whose codes the server's
-        // feature set gated out.
+        // One narrowing per advertised status the catalogue claims, even when only scoped
+        // codes claim it. A status it claims no code for keeps the generic document, such as
+        // a status whose codes the server's feature set gated out.
         $byStatus = $catalog->componentsByStatus($server);
         foreach ($errorStatuses as $status) {
             $codes = $byStatus[(int) $status] ?? null;

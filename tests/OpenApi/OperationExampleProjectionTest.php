@@ -450,8 +450,11 @@ final class OperationExampleProjectionTest extends TestCase
         self::assertSame('QUERY_PARAM_MALFORMED', $code('BadRequest'));
         self::assertSame('ACCESS_DENIED', $code('Forbidden'));
         self::assertSame('RESOURCE_NOT_FOUND', $code('NotFound'));
-        self::assertSame('RESOURCE_TYPE_UNACCEPTABLE', $code('Conflict'));
-        self::assertSame('ATTRIBUTE_VALUE_INVALID', $code('UnprocessableEntity'));
+        // The request-document codes are the create's own, so its responses lead with them.
+        $created = static fn(string $status): mixed => \array_key_first(self::arr(self::at($document, 'paths', '/articles', 'post', 'responses', $status, 'content', 'application/vnd.api+json', 'examples')));
+        self::assertSame('RESOURCE_TYPE_UNACCEPTABLE', $created('409'));
+        self::assertSame('ATTRIBUTE_VALUE_INVALID', $created('422'));
+        self::assertSame('QUERY_PARAM_MALFORMED', $created('400'));
         // A status with no preferred code leads with the first one catalogued.
         self::assertSame('MEDIA_TYPE_UNSUPPORTED', $code('UnsupportedMediaType'));
     }

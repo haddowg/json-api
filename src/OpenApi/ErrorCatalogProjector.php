@@ -10,12 +10,15 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorFeature;
 use haddowg\JsonApi\Exception\ErrorScope;
 use haddowg\JsonApi\Exception\ErrorSourceShape;
+use haddowg\JsonApi\OpenApi\Metadata\ActionInputMode;
 use haddowg\JsonApi\OpenApi\Metadata\ContributesErrorCodes;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMethodNotAllowed;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresReadOnlyAttributeRejection;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Resource\Field\Obj;
@@ -56,6 +59,15 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * code whose descriptor names an {@see ErrorFeature} the server does not offer is left
  * out entirely. A read-only server's client has no use for a typed
  * `RESOURCE_TYPE_UNACCEPTABLE` it can never receive.
+ *
+ * **Feature codes are scoped too.** When the server does offer the feature, a code that
+ * declares no scope of its own is offered only on the operations that can raise it
+ * ({@see featureCoverage()}): the cursor codes on the reads whose `page` is a cursor, the
+ * request-document codes on the operations that read one, and so on. Each feature's codes
+ * form shapes of their own, so `Error400ParameterCursorMalformed` keeps its name as the
+ * operations it reaches change. A feature every operation can raise, such as
+ * {@see ErrorFeature::OperationScopes}, stays in the shared shapes, and a declared scope
+ * replaces the feature's.
  *
  * **{@see ErrorDescriptor::$context} is not projected.** It is the interpolation input
  * core fills into the `title` / `detail` templates and never reaches the wire.
@@ -134,7 +146,9 @@ final class ErrorCatalogProjector
      * a `const` — the input to the per-status `ErrorDocument` narrowing. A status the
      * catalogue never claims is absent from the map, so the narrowing is derivable from the
      * catalogue alone. Scoped shapes are left out: only the operations they are scoped to
-     * offer them.
+     * offer them. A status the catalogue claims only through scoped shapes maps to `[]`, so
+     * an operation outside every scope narrows to the generic `Error` alone rather than
+     * falling back to the document offering every shape.
      *
      * @return array<int, list<string>>
      */
@@ -144,6 +158,8 @@ final class ErrorCatalogProjector
         foreach ($this->build($server)['shapes'] as $name => $shape) {
             if ($shape['scope'] === null) {
                 $byStatus[$shape['status']][] = $name;
+            } else {
+                $byStatus[$shape['status']] ??= [];
             }
         }
 
@@ -292,19 +308,39 @@ final class ErrorCatalogProjector
         }
 
         $descriptors = [];
+        $byFeature = [];
         foreach ($this->raisable($server) as $descriptor) {
-            $descriptors[] = [$descriptor, $descriptor->scope === null ? null : self::operationsCovered($server, $descriptor->scope)];
+            $group = '';
+            if ($descriptor->scope !== null) {
+                $operations = self::operationsCovered($server, ...self::scopeCoverage($descriptor->scope));
+            } elseif ($descriptor->feature !== null) {
+                $feature = $descriptor->feature;
+                if (!\array_key_exists($feature->value, $byFeature)) {
+                    $byFeature[$feature->value] = $this->featureCoverage($feature, $server);
+                }
+                $operations = $byFeature[$feature->value];
+                if ($operations === []) {
+                    continue;
+                }
+                $group = $operations === null ? '' : $feature->value;
+            } else {
+                $operations = null;
+            }
+            $descriptors[] = [$descriptor, $operations, $group];
         }
 
+        // A feature's codes share a shape only with that feature's, so a shape keeps its name
+        // as the operations a feature reaches change.
         $shapes = [];
         $names = [];
         $members = [];
         $scopeOf = [];
-        foreach ($descriptors as [$descriptor, $operations]) {
+        foreach ($descriptors as [$descriptor, $operations, $group]) {
             $meta = $this->metaSchema($descriptor);
             $scope = $operations === null ? null : \implode("\n", $operations);
             $key = $descriptor->status . "\0" . ($descriptor->source->value ?? '') . "\0"
-                . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR)) . "\0" . ($scope ?? '');
+                . ($meta === null ? '' : \json_encode($meta->toJson(), \JSON_THROW_ON_ERROR)) . "\0"
+                . ($group !== '' ? $group : ($scope ?? ''));
             if (!isset($names[$key])) {
                 $name = self::shapeName($descriptor->status, $descriptor->source, $meta === null && $scope === null ? null : $descriptor->code);
                 $names[$key] = $name;
@@ -327,33 +363,163 @@ final class ErrorCatalogProjector
     }
 
     /**
-     * The operations of the server's types `$scope` covers, as `<type>\0<operation name>`,
-     * sorted. A scope naming a type the server does not register covers nothing there. The
-     * Atomic Operations endpoint belongs to no type, so it is keyed under the empty type. It
-     * is covered when the scope names its kind, or covers a write a batch entry can perform,
-     * since the batch runs that write through the same handler.
+     * The operations of the server's types `$covers` accepts, as `<type>\0<operation name>`,
+     * sorted. The Atomic Operations endpoint belongs to no type, so it is keyed under the
+     * empty type. It is covered when `$atomic` says so, or when a covered operation is a
+     * write a batch entry can perform, since the batch runs that write through the same
+     * handler.
+     *
+     * @param \Closure(TypeMetadataInterface, EnumeratedOperation): bool $covers
      *
      * @return list<string>
      */
-    private static function operationsCovered(ServerMetadataInterface $server, ErrorScope $scope): array
+    private static function operationsCovered(ServerMetadataInterface $server, \Closure $covers, bool $atomic): array
     {
         $covered = [];
         $viaBatch = false;
         foreach ($server->types() as $type) {
             foreach (OperationEnumerator::forType($type) as $enumerated) {
-                if ($scope->covers($type->type(), $enumerated->key)) {
+                if ($covers($type, $enumerated)) {
                     $covered[] = $type->type() . "\0" . $enumerated->key->name();
                     $viaBatch = $viaBatch || $enumerated->key->kind->isAtomicWrite();
                 }
             }
         }
-        $atomic = OperationKey::atomic();
-        if ($server->atomicOperations() !== null && ($viaBatch || $scope->covers('', $atomic))) {
-            $covered[] = "\0" . $atomic->name();
+        if ($server->atomicOperations() !== null && ($viaBatch || $atomic)) {
+            $covered[] = "\0" . OperationKey::atomic()->name();
         }
         \sort($covered, \SORT_STRING);
 
         return $covered;
+    }
+
+    /**
+     * What a declared {@see ErrorScope} covers, as {@see operationsCovered()} takes it. A
+     * scope naming a type the server does not register covers nothing there.
+     *
+     * @return array{\Closure(TypeMetadataInterface, EnumeratedOperation): bool, bool}
+     */
+    private static function scopeCoverage(ErrorScope $scope): array
+    {
+        return [
+            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $scope->covers($type->type(), $operation->key),
+            $scope->covers('', OperationKey::atomic()),
+        ];
+    }
+
+    /**
+     * The operations that can raise a code tied to `$feature`, as {@see operationsCovered()}
+     * lists them, or `null` when every operation can. A code with no declared scope is offered
+     * on these alone, so a server paging one collection by cursor does not offer the cursor
+     * codes on its deletes. Each arm mirrors where the runtime raises the feature's codes.
+     *
+     * @return list<string>|null
+     */
+    private function featureCoverage(ErrorFeature $feature, ServerMetadataInterface $server): ?array
+    {
+        [$covers, $atomic] = match ($feature) {
+            ErrorFeature::AtomicOperations => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => false, true],
+            ErrorFeature::CursorPagination => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::pages(
+                    $type,
+                    $operation,
+                    static fn(Schema $page): bool => self::carriesCursorProfile($page),
+                ),
+                false,
+            ],
+            ErrorFeature::PaginationMenu => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::pages(
+                    $type,
+                    $operation,
+                    static fn(Schema $page): bool => \is_array($page->get('oneOf')),
+                ),
+                false,
+            ],
+            ErrorFeature::RelationshipCounts => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::withCountTokens($type, $operation, $server) !== [],
+                false,
+            ],
+            ErrorFeature::ClientGeneratedIds => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::takesClientId($server, $type, $operation),
+                false,
+            ],
+            ErrorFeature::Writes => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::readsDocument($operation),
+                true,
+            ],
+            ErrorFeature::ReadOnlyAttributeRejection => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::hydratesResource($operation),
+                false,
+            ],
+            ErrorFeature::FixedMembership => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::guardsMembership($type, $operation),
+                false,
+            ],
+            ErrorFeature::OperationScopes, ErrorFeature::MethodNotAllowed => [null, false],
+        };
+
+        return $covers === null ? null : self::operationsCovered($server, $covers, $atomic);
+    }
+
+    /**
+     * Whether the operation takes a `page` parameter whose schema satisfies `$predicate`.
+     *
+     * @param \Closure(Schema): bool $predicate
+     */
+    private static function pages(TypeMetadataInterface $type, EnumeratedOperation $operation, \Closure $predicate): bool
+    {
+        $page = OperationFacts::pageSchema($type, $operation);
+
+        return $page !== null && $predicate($page);
+    }
+
+    /**
+     * Whether the operation can take a client-generated id: a create of a type that permits
+     * one, or an action whose document input is such a type, since the action hydrates it as
+     * a create.
+     */
+    private static function takesClientId(ServerMetadataInterface $server, TypeMetadataInterface $type, EnumeratedOperation $operation): bool
+    {
+        $target = match (true) {
+            $operation->key->kind === OperationKind::Create => $type,
+            OperationFacts::hydratesResource($operation) && $operation->action !== null => self::typeNamed($server, $operation->action->inputType() ?? $type->type()),
+            default => null,
+        };
+
+        return $target !== null && ($target->allowsClientId() || $target->requiresClientId());
+    }
+
+    /**
+     * Whether the operation can replace the members of a relation declared
+     * `cannotChangeMembership()`: a relationship replacement of that relation, or an update of
+     * a type that has one, whose document may carry its linkage.
+     */
+    private static function guardsMembership(TypeMetadataInterface $type, EnumeratedOperation $operation): bool
+    {
+        if ($operation->key->kind === OperationKind::UpdateRelationship) {
+            return $operation->relation !== null && RelationFacts::fixesMembership($operation->relation);
+        }
+        if ($operation->key->kind !== OperationKind::Update) {
+            return false;
+        }
+        foreach ($type->relations() as $relation) {
+            if (RelationFacts::fixesMembership($relation)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function typeNamed(ServerMetadataInterface $server, string $name): ?TypeMetadataInterface
+    {
+        foreach ($server->types() as $type) {
+            if ($type->type() === $name) {
+                return $type;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -553,8 +719,8 @@ final class ErrorCatalogProjector
 
     /**
      * Whether the server accepts a request document anywhere: a CRUD write on some type,
-     * or the atomic batch endpoint. Everything that parses or hydrates a body hangs off
-     * this.
+     * an action taking a document, or the atomic batch endpoint. Everything that parses or
+     * hydrates a body hangs off this.
      *
      * A relationship mutation needs no branch of its own: it rides on its type's
      * {@see OperationType::Update}, so a type permissive enough to project one is already
@@ -569,6 +735,11 @@ final class ErrorCatalogProjector
         foreach ($server->types() as $type) {
             foreach ([OperationType::Create, OperationType::Update, OperationType::Delete] as $operation) {
                 if (\in_array($operation, $type->operations(), true)) {
+                    return true;
+                }
+            }
+            foreach ($type->actions() as $action) {
+                if ($action->inputMode() === ActionInputMode::Document) {
                     return true;
                 }
             }
