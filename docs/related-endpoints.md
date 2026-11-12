@@ -299,8 +299,8 @@ reads before the handler runs.
 
 ## Compound includes
 
-Both endpoints honour `?include`, so you can pull a related resource and its own
-relations in one request. `GET /albums/1/artist?include=albums` returns the
+The related endpoint honours `?include`, so you can pull a related resource and its
+own relations in one request. `GET /albums/1/artist?include=albums` returns the
 related artist plus that artist's albums in `included`:
 
 ```php
@@ -310,8 +310,11 @@ JsonApiDocument::of($response)
     ->assertHasIncluded('albums');
 ```
 
-See [sparse-fieldsets-and-includes](sparse-fieldsets-and-includes.md) for the
-full inclusion and sparse-fieldset rules.
+The relationship endpoint checks `?include` too, with paths starting at the
+parent, so `GET /albums/1/relationships/tracks?include=bogus` is a `400`. Its
+document stays linkage-only and never carries `included`. See
+[sparse-fieldsets-and-includes](sparse-fieldsets-and-includes.md#include-paths-are-checked-before-any-data)
+for the full inclusion and sparse-fieldset rules.
 
 ## Filtering a relationship's linkage from the primary request
 

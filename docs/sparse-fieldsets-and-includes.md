@@ -284,7 +284,20 @@ relationships before the handler runs, on both `dispatch()` and `handle()`, so
 `GET /albums?include=bogus` is a `400` even when there are no albums. This check
 runs whether or not strict query parameters are on. The primary type is the
 target's type, or the relation's related type on a related endpoint
-(`/albums/1/artist?include=...`). A nested path walks the related types through
+(`/albums/1/artist?include=...`).
+
+On a relationship endpoint the paths start at the parent, as in the spec's own
+`/articles/1/relationships/comments?include=comments.author`. The parent's allowed
+and excluded include paths and its maximum include depth apply, and a path is
+checked whole, so `?include=bogus` or `?include=author.bogus` is a `400` there
+even though it never reaches the requested relationship. The relationship reads
+and the relationship mutations that answer with the linkage are checked the same
+way, before the parent loads. A mutation of a
+[write-only relation](relations.md#write-only-relations) answers `204` with no
+document, so, like a delete, it ignores `include`. The linkage document itself
+carries no `included` member, whatever paths are valid.
+
+A nested path walks the related types through
 the registry, and a segment after a polymorphic relation is accepted when any of
 its declared types has it. The checks run in the order rendering applies them:
 the root's allowed include paths, then its excluded include paths, then the maximum include depth, then unknown and
@@ -293,8 +306,8 @@ the root's allowed include paths, then its excluded include paths, then the maxi
 Rendering keeps its own per-resource check. It covers what can't be known without
 an object: a `cannotBeIncluded()` or `hidden()` predicate, a serializer that is
 not an `AbstractResource`, and each member of a polymorphic relation, which must
-itself have the next segment. Relationship-linkage endpoints, custom actions and
-atomic operations are not checked up front.
+itself have the next segment. Custom actions and atomic operations are not checked
+up front.
 
 ## Spec errors
 

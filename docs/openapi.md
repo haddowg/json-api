@@ -530,9 +530,9 @@ raise is left out, such as `FILTER_VALUE_INVALID` on a server that declares no f
 | `FILTERING_UNRECOGNIZED` | a collection read, a related or relationship read, and a collection action that takes filters |
 | `FILTER_VALUE_INVALID` | those of the reads and actions above that declare a filter |
 | the four above, with the [Relationship Queries](profiles/relationship-queries.md) profile | also every operation rendering resources of a type with a relation, for `relatedQuery` |
-| `INCLUSION_UNRECOGNIZED` | a collection or single read, a create, an update, a related or relationship read, an action answering with a resource, and the atomic batch |
+| `INCLUSION_UNRECOGNIZED` | a collection or single read, a create, an update, a related or relationship read, a relationship mutation echoing its linkage, an action answering with a resource, and the atomic batch |
 | `INCLUSION_UNSUPPORTED` | only the operations whose type declares that its handler refuses `include` |
-| `INCLUSION_NOT_ALLOWED` | the same as `INCLUSION_UNRECOGNIZED` and a relationship mutation echoing its linkage, where the document's root has an allow-list or excluded paths, or the include tree reaches a relation that cannot be included or is gated by `cannotBeIncluded(when:)` |
+| `INCLUSION_NOT_ALLOWED` | the same operations as `INCLUSION_UNRECOGNIZED`, where the document's root has an allow-list or excluded paths, or the include tree reaches a relation that cannot be included or is gated by `cannotBeIncluded(when:)` |
 | `INCLUSION_DEPTH_EXCEEDED` | the same operations, where the root's maximum include depth, its own or else the server's, is set |
 | `RELATIONSHIP_COUNT_NOT_ALLOWED` | every operation rendering a document: the reads, a create or update answering with its resource, a relationship mutation echoing its linkage, an action answering with a resource, and the atomic batch |
 | `CURSOR_MALFORMED`, `CURSOR_STALE` | a collection read, or a to-many's related or relationship read, whose `page` pages by cursor, bare or as a menu arm |

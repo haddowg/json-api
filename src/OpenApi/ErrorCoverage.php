@@ -362,9 +362,7 @@ final class ErrorCoverage
                 $inherit,
             ],
             self::INCLUDE => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::validatesInclude($operation)
-                    || $operation->key->kind === OperationKind::FetchRelationship
-                    || OperationFacts::renderedTypes($type, $operation, $server) !== [],
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::checksIncludeRoot($type, $operation, $server),
                 $always,
             ],
             self::INCLUDE_UNSUPPORTED => [
@@ -462,7 +460,7 @@ final class ErrorCoverage
 
         return [
             static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => ($scopes?->forOperation($operation) ?? []) !== []
-                || (OperationFacts::validatesInclude($operation) && self::includablePaths($type, $operation) !== []),
+                || (OperationFacts::checksIncludeScopes($operation) && self::includablePaths($type, $operation) !== []),
             static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites || ($scopes?->atomic() ?? []) !== [],
         ];
     }

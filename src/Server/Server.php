@@ -959,6 +959,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             $operation instanceof \haddowg\JsonApi\Operation\CreateResourceOperation,
             $operation instanceof \haddowg\JsonApi\Operation\UpdateResourceOperation => $this->validateIncludePaths($request, $target, false),
             $operation instanceof \haddowg\JsonApi\Operation\FetchRelatedOperation => $this->validateIncludePaths($request, $target, true),
+            $operation instanceof \haddowg\JsonApi\Operation\FetchRelationshipOperation => $this->validateRelationshipIncludePaths($request, $target, false),
+            $operation instanceof \haddowg\JsonApi\Operation\UpdateRelationshipOperation,
+            $operation instanceof \haddowg\JsonApi\Operation\AddToRelationshipOperation,
+            $operation instanceof \haddowg\JsonApi\Operation\RemoveFromRelationshipOperation => $this->validateRelationshipIncludePaths($request, $target, true),
             default => null,
         };
     }
@@ -990,6 +994,10 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             $this->validateIncludePaths($request, $target, false);
         } elseif ($method === 'GET' && $target->hasRelationship() && !$target->isRelationshipEndpoint) {
             $this->validateIncludePaths($request, $target, true);
+        } elseif ($method === 'GET' && $target->hasRelationship()) {
+            $this->validateRelationshipIncludePaths($request, $target, false);
+        } elseif ($target->hasRelationship() && \in_array($method, ['POST', 'PATCH', 'DELETE'], true)) {
+            $this->validateRelationshipIncludePaths($request, $target, true);
         }
     }
 
@@ -1051,8 +1059,9 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     /**
      * Validates `?include` against the primary type's relation tree before any
      * data exists, so an empty collection rejects an unknown path exactly as a
-     * populated one does. The primary type is the target's own type, or for a
-     * related endpoint the relation's related type(s). Runs whether or not
+     * populated one does. The primary type is the target's own type, the parent on
+     * a relationship endpoint, or for a related endpoint the relation's related
+     * type(s). Runs whether or not
      * strict mode is on, because an unknown include path was never tolerated.
      *
      * Order matches the render-time checks it front-runs: the root's allowed
@@ -1099,6 +1108,41 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
 
         \haddowg\JsonApi\Transformer\IncludePathGuard::rootSafeguards($paths, $primary, $this->maxIncludeDepth);
         \haddowg\JsonApi\Transformer\IncludePathGuard::validateTree($request, $rootTypes, $this->resources);
+    }
+
+    /**
+     * Validates `?include` on a relationship endpoint before the parent loads. The
+     * paths start at the parent type, as in the spec's
+     * `/articles/1/relationships/comments?include=comments.author`, so the parent's
+     * own safeguards apply and a path failing on any branch is rejected, not only
+     * one under the requested relationship.
+     *
+     * A relation the parent does not declare is left to the handler's `404`. A
+     * mutation of a relation that is write-only for this request answers `204` with
+     * no document, so, like a delete, it ignores `include`.
+     *
+     * @throws \haddowg\JsonApi\Exception\InclusionUnrecognized
+     * @throws \haddowg\JsonApi\Exception\InclusionNotAllowed
+     * @throws \haddowg\JsonApi\Exception\InclusionDepthExceeded
+     */
+    private function validateRelationshipIncludePaths(
+        \haddowg\JsonApi\Request\JsonApiRequestInterface $request,
+        \haddowg\JsonApi\Operation\Target $target,
+        bool $mutation,
+    ): void {
+        if ($request->getIncludePaths() === [] || $target->relationship === null || !$this->resources->hasSerializerFor($target->type)) {
+            return;
+        }
+
+        $serializer = $this->resources->serializerFor($target->type);
+        if ($serializer instanceof AbstractResource) {
+            $relation = $serializer->relationNamed($target->relationship);
+            if ($relation === null || ($mutation && $relation->isWriteOnlyFor($request))) {
+                return;
+            }
+        }
+
+        $this->validateIncludePaths($request, $target, false);
     }
 
     /**

@@ -93,7 +93,15 @@ re-reads and renders the mutated relationship; a handler that returns no body
 would render `204` instead (see [responses](responses.md)). A
 [write-only relation](relations.md#write-only-relations) always answers `204`: the
 `IdentifierResponse` the handler returns renders no body, since its linkage is never
-shown. A mutation persists —
+shown.
+
+A mutation answering with the linkage checks `?include` before it loads the parent,
+exactly as the relationship read does: the paths start at the parent, and an unknown
+one is a `400 INCLUSION_UNRECOGNIZED`. A write-only relation's mutation ignores
+`include`, since its `204` has no document. See
+[include paths](sparse-fieldsets-and-includes.md#include-paths-are-checked-before-any-data).
+
+A mutation persists —
 re-reading the relationship endpoint afterwards shows the change stuck:
 
 ```php
