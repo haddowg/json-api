@@ -118,35 +118,34 @@ final class RegistrationAwareProjectionTest extends TestCase
     }
 
     #[Test]
-    public function relatedQueryReferencesTheSingleComponentOnlyWhenRegisteredAndTheTypeHasRelations(): void
+    public function relatedQueryReferencesTheTypesComponentOnlyWhenRegisteredAndTheTypeHasRelations(): void
     {
-        // Unregistered → no `relatedQuery` on either primary read endpoint, and the shared
-        // component is not emitted.
+        // Unregistered → no `relatedQuery` on either primary read endpoint, and no component
+        // is emitted.
         $unregistered = $this->projector()->project($this->articlesServer([]))->toArray();
         $unregisteredPaths = $this->arrAt($unregistered, 'paths');
-        self::assertNotContains('#/components/parameters/relatedQuery', $this->parameterRefs($this->arrAt($unregisteredPaths, '/articles', 'get')));
-        self::assertNotContains('#/components/parameters/relatedQuery', $this->parameterRefs($this->arrAt($unregisteredPaths, '/articles/{id}', 'get')));
+        self::assertNotContains('#/components/parameters/ArticlesRelatedQuery', $this->parameterRefs($this->arrAt($unregisteredPaths, '/articles', 'get')));
+        self::assertNotContains('#/components/parameters/ArticlesRelatedQuery', $this->parameterRefs($this->arrAt($unregisteredPaths, '/articles/{id}', 'get')));
         self::assertArrayNotHasKey('parameters', $this->arrAt($unregistered, 'components'));
 
-        // Registered → both the collection and resource read endpoints `$ref` the SAME
-        // single component, defined once under `#/components/parameters/relatedQuery`.
+        // Registered → both the collection and resource read endpoints `$ref` the one
+        // component of the type they render, `#/components/parameters/ArticlesRelatedQuery`.
         $registered = $this->projector()->project($this->articlesServer([RelationshipQueriesProfile::URI]))->toArray();
         $registeredPaths = $this->arrAt($registered, 'paths');
-        self::assertContains('#/components/parameters/relatedQuery', $this->parameterRefs($this->arrAt($registeredPaths, '/articles', 'get')));
-        self::assertContains('#/components/parameters/relatedQuery', $this->parameterRefs($this->arrAt($registeredPaths, '/articles/{id}', 'get')));
+        self::assertContains('#/components/parameters/ArticlesRelatedQuery', $this->parameterRefs($this->arrAt($registeredPaths, '/articles', 'get')));
+        self::assertContains('#/components/parameters/ArticlesRelatedQuery', $this->parameterRefs($this->arrAt($registeredPaths, '/articles/{id}', 'get')));
 
         // The component itself: a `deepObject` query parameter named `relatedQuery`,
-        // self-describing its profile, whose generic shape is an object keyed by
-        // relationship path — NOT an enumeration of the type's relations.
-        $component = $this->arrAt($registered, 'components', 'parameters', 'relatedQuery');
+        // self-describing its profile, keyed by the relations it addresses.
+        $component = $this->arrAt($registered, 'components', 'parameters', 'ArticlesRelatedQuery');
         self::assertSame('relatedQuery', $component['name'] ?? null);
         self::assertSame('query', $component['in'] ?? null);
         self::assertSame('deepObject', $component['style'] ?? null);
         self::assertSame(RelationshipQueriesProfile::URI, $component['x-profile'] ?? null);
         self::assertSame('object', $this->strAt($component, 'schema', 'type'));
-        $perPath = $this->arrAt($component, 'schema', 'additionalProperties');
-        self::assertSame(['sort', 'filter'], \array_keys($this->arrAt($perPath, 'properties')));
-        self::assertFalse($perPath['additionalProperties'] ?? null);
+        self::assertSame(['author'], \array_keys($this->arrAt($component, 'schema', 'properties')));
+        self::assertFalse($this->arrAt($component, 'schema')['additionalProperties'] ?? null);
+        self::assertFalse($this->arrAt($component, 'schema', 'properties', 'author')['additionalProperties'] ?? null);
     }
 
     #[Test]
@@ -162,7 +161,7 @@ final class RegistrationAwareProjectionTest extends TestCase
         ))->toArray();
 
         self::assertArrayNotHasKey('parameters', $this->arrAt($document, 'components'));
-        self::assertNotContains('#/components/parameters/relatedQuery', $this->parameterRefs($this->arrAt($document, 'paths', '/tags', 'get')));
+        self::assertSame([], $this->parameterRefs($this->arrAt($document, 'paths', '/tags', 'get')));
     }
 
     // ---- Cursor page-schema x-profile marker ------------------------------------

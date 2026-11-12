@@ -25,7 +25,6 @@ use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
-use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
  * Which operations can raise each of core's error codes: the rule every core code follows,
@@ -382,22 +381,22 @@ final class ErrorCoverage
             ],
             self::SORT_UNSUPPORTED => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::sortVocabulary($type, $operation, $server) === []
-                    || self::readsRelatedQuery($type, $operation, $server),
+                    || self::relatedQuerySorts($type, $operation, $server, static fn(array $sorts): bool => $sorts === []),
                 $never,
             ],
             self::SORT_UNRECOGNIZED => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => !\in_array(OperationFacts::sortVocabulary($type, $operation, $server), [null, []], true)
-                    || self::readsRelatedQuery($type, $operation, $server),
+                    || self::relatedQuerySorts($type, $operation, $server, static fn(array $sorts): bool => $sorts !== []),
                 $never,
             ],
             self::FILTER => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::filterVocabulary($type, $operation, $server) !== null
-                    || self::readsRelatedQuery($type, $operation, $server),
+                    || OperationFacts::relatedQueryType($type, $operation, $server) !== null,
                 $never,
             ],
             self::FILTER_VALUE => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => !\in_array(OperationFacts::filterVocabulary($type, $operation, $server), [null, []], true)
-                    || self::readsRelatedQuery($type, $operation, $server),
+                    || self::relatedQueryFilters($type, $operation, $server),
                 $never,
             ],
             self::CURSOR => [
@@ -475,10 +474,38 @@ final class ErrorCoverage
             : $type->includablePaths();
     }
 
-    private static function readsRelatedQuery(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    /**
+     * Whether a to-many the operation's `relatedQuery` addresses has a sort vocabulary
+     * `$accepts` takes: an empty one refuses any sort, a declared one an unknown field.
+     *
+     * @param \Closure(list<\haddowg\JsonApi\Resource\Sort\SortInterface>): bool $accepts
+     */
+    private static function relatedQuerySorts(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server, \Closure $accepts): bool
     {
-        return \in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)
-            && OperationFacts::readsRelatedQuery($type, $operation, $server);
+        $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
+        foreach ($rendered === null ? [] : OperationFacts::relatedQueryRelations($rendered) as $relation) {
+            if ($relation->isToMany() && $accepts(OperationFacts::relatedSortVocabulary($relation, $server))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a relation the operation's `relatedQuery` addresses declares a filter, whose
+     * value the runtime can refuse.
+     */
+    private static function relatedQueryFilters(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    {
+        $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
+        foreach ($rendered === null ? [] : OperationFacts::relatedQueryRelations($rendered) as $relation) {
+            if (OperationFacts::relatedFilterVocabulary($relation, $server) !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function mutatesRelationship(EnumeratedOperation $operation): bool

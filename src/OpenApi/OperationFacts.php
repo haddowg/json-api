@@ -20,6 +20,7 @@ use haddowg\JsonApi\Resource\Filter\FilterMatcher;
 use haddowg\JsonApi\Resource\Filter\HasRemovableDefault;
 use haddowg\JsonApi\Resource\Sort\SortMatcher;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
  * What one enumerated operation takes: the `page` schema it advertises, the `withCount`
@@ -386,20 +387,43 @@ final class OperationFacts
     }
 
     /**
-     * Whether the operation reads `relatedQuery` under the Relationship Queries profile:
-     * one rendering resources of a type that declares a relation to address, as its
-     * `relatedQuery` parameter is offered on the primary reads. The profile's registration
-     * is the caller's to check.
+     * The type whose relations the operation's `relatedQuery` addresses, or `null` when it
+     * takes none. The Relationship Queries profile must be registered, and the operation
+     * must render resources of exactly one type ({@see renderedTypes()}) declaring a relation
+     * to address ({@see relatedQueryRelations()}): a read, a create or update answering with
+     * its resource, a related read over one type, or an action answering with a resource. A
+     * related read of a polymorphic relation, even over one type, renders members of several
+     * types and so takes none. The projector documents the parameter and the error catalogue
+     * offers the codes it raises from this one fact.
      */
-    public static function readsRelatedQuery(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    public static function relatedQueryType(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): ?TypeMetadataInterface
     {
-        foreach (self::renderedTypes($type, $operation, $server) as $rendered) {
-            if ($rendered->relations() !== []) {
-                return true;
-            }
+        if (!\in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)) {
+            return null;
+        }
+        if ($operation->key->kind === OperationKind::FetchRelated && ($operation->relation === null || RelationFacts::monomorphicType($operation->relation) === null)) {
+            return null;
         }
 
-        return false;
+        $rendered = self::renderedTypes($type, $operation, $server);
+
+        return \count($rendered) === 1 && self::relatedQueryRelations($rendered[0]) !== [] ? $rendered[0] : null;
+    }
+
+    /**
+     * The relations of a type's resources `relatedQuery` can address, each by its name: a
+     * relation over one type that a read renders. A polymorphic relation has no shared sort
+     * or filter vocabulary, and a write-only one renders no linkage. A to-many takes `sort`
+     * and `filter` over its related endpoint's vocabulary, a to-one only `filter`.
+     *
+     * @return list<RelationMetadataInterface>
+     */
+    public static function relatedQueryRelations(TypeMetadataInterface $type): array
+    {
+        return \array_values(\array_filter(
+            $type->relations(),
+            static fn(RelationMetadataInterface $relation): bool => RelationFacts::monomorphicType($relation) !== null && !RelationFacts::isWriteOnly($relation),
+        ));
     }
 
     /**

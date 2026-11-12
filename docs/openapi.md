@@ -50,7 +50,7 @@ The projection is a small pipeline of **pure** classes in
   `/{uriType}/{id}` (honouring the per-type operation allow-list), each relation's
   exposed related and relationship endpoints, and its custom actions under the
   `-actions` segment. Each operation enumerates its concrete query parameters
-  (`filter[…]`, `sort`, `include`, `fields[…]`, `page[…]`, `withCount`), its request body,
+  (`filter[…]`, `sort`, `include`, `fields[…]`, `page[…]`, `withCount`, `relatedQuery`), its request body,
   its declared success responses (see [Response declarations](#response-declarations)) and a
   `$ref` per standard error status, and carries its tags and per-operation security.
 
@@ -529,7 +529,7 @@ raise is left out, such as `FILTER_VALUE_INVALID` on a server that declares no f
 | `SORTING_UNRECOGNIZED` | a collection read, or a to-many's related or relationship read, that declares a sort |
 | `FILTERING_UNRECOGNIZED` | a collection read, a related or relationship read, and a collection action that takes filters |
 | `FILTER_VALUE_INVALID` | those of the reads and actions above that declare a filter |
-| the four above, with the [Relationship Queries](profiles/relationship-queries.md) profile | also every operation rendering resources of a type with a relation, for `relatedQuery` |
+| the four above, with the [Relationship Queries](profiles/relationship-queries.md) profile | also every operation documenting `relatedQuery`, by the vocabulary of the relations it addresses: `SORTING_UNSUPPORTED` where an addressed to-many sorts by nothing, `SORTING_UNRECOGNIZED` where one sorts by something, `FILTERING_UNRECOGNIZED` always, and `FILTER_VALUE_INVALID` where an addressed relation declares a filter |
 | `INCLUSION_UNRECOGNIZED` | a collection or single read, a create, an update, a related or relationship read, a relationship mutation echoing its linkage, an action answering with a resource, and the atomic batch |
 | `INCLUSION_UNSUPPORTED` | only the operations whose type declares that its handler refuses `include` |
 | `INCLUSION_NOT_ALLOWED` | the same operations as `INCLUSION_UNRECOGNIZED`, where the document's root has an allow-list or excluded paths, or the include tree reaches a relation that cannot be included or is gated by `cannotBeIncluded(when:)` |
@@ -1760,6 +1760,26 @@ read takes `_self_` alone. An operation rendering one resource takes that resour
 countable relations and never `_self_`, since there is no collection to total: a fetch-one,
 a create or update answering with the resource, a to-one related read, and an action
 answering with a resource. A to-one relationship read renders an identifier and takes none.
+
+`relatedQuery`, under the [Relationship Queries profile](profiles/relationship-queries.md),
+is marked the same way. It appears on every operation that renders resources of one type
+with a relation it can address: a collection or single read, a create or update answering
+with its resource, a related read over one type, and an action answering with a resource.
+Its addressable relations are the type's relations over one type that a read renders, so
+a polymorphic relation and a write-only one are left out, and a type with no other
+relation takes no `relatedQuery`. A polymorphic related read renders several types and
+takes none either. Delete, relationship reads and mutations, and actions answering
+without a resource never take it.
+
+Each type has one parameter component, `#/components/parameters/<Type>RelatedQuery`,
+which every operation rendering that type references. Its `deepObject` schema is closed
+and keyed by the addressable relations' names. A to-many's entry takes a `sort`, a string
+whose `pattern` admits a comma-separated list of its related endpoint's sort keys, each
+optionally prefixed with `-`, and defaults to that endpoint's declared order. A to-one's
+takes no `sort`. Each entry's `filter` is a closed object whose members are the values its
+related endpoint's `filter[<key>]` parameters take, with that endpoint's filter families
+under `patternProperties`. An entry leaves out a `sort` or `filter` its relation has no
+vocabulary for. The `rQ` shorthand is not documented.
 `RELATIONSHIP_COUNT_NOT_ALLOWED` is offered on exactly those operations.
 
 ### Sort families: `x-sort-families`

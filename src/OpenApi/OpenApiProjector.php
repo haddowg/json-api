@@ -34,7 +34,6 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Union;
-use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
  * Projects a server's worth of JSON:API metadata (a {@see ServerMetadataInterface})
@@ -209,14 +208,12 @@ final class OpenApiProjector
         }
         \ksort($schemas);
 
-        // The Relationship Queries profile (when registered and some type has a relation
-        // to address) contributes ONE shared `relatedQuery` parameter component that the
-        // relation-bearing read endpoints `$ref`; emitted only when referenced, mirroring
-        // the shared `MetaDocument` schema above.
+        // One `relatedQuery` parameter component per type some operation renders it for.
         $parameters = [];
-        if ($this->referencesRelatedQuery($server)) {
-            $parameters[RelationshipQueriesProfile::FAMILY] = $this->operationProjector->relatedQueryParameterComponent();
+        foreach ($this->relatedQueryTypes($server) as $rendered) {
+            $parameters[OperationProjector::relatedQueryComponentName($rendered)] = $this->operationProjector->relatedQueryParameterComponent($rendered, $server);
         }
+        \ksort($parameters);
 
         $responses = ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server));
         $codesByResponse = [];
@@ -2437,25 +2434,24 @@ final class OpenApiProjector
     }
 
     /**
-     * Whether the document references the shared `relatedQuery` parameter component: the
-     * Relationship Queries profile is registered AND at least one type declares a
-     * relation to address. Mirrors the per-endpoint gate in
-     * {@see OperationProjector::relatedQueryParameter()} so the component is emitted iff
-     * some operation `$ref`s it.
+     * The types whose `relatedQuery` parameter component some operation references
+     * ({@see OperationFacts::relatedQueryType()}), each once.
+     *
+     * @return list<TypeMetadataInterface>
      */
-    private function referencesRelatedQuery(ServerMetadataInterface $server): bool
+    private function relatedQueryTypes(ServerMetadataInterface $server): array
     {
-        if (!\in_array(RelationshipQueriesProfile::URI, $server->profiles(), true)) {
-            return false;
-        }
-
+        $types = [];
         foreach ($server->types() as $type) {
-            if ($type->relations() !== []) {
-                return true;
+            foreach (OperationEnumerator::forType($type) as $operation) {
+                $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
+                if ($rendered !== null) {
+                    $types[$rendered->type()] = $rendered;
+                }
             }
         }
 
-        return false;
+        return \array_values($types);
     }
 
     /**

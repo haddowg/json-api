@@ -251,7 +251,10 @@ rQ[<relationship-path>][sort]=-field            # rQ is an OPTIONAL shorthand al
 ```
 
 The path is the relationship's **include path** (a dotted path like
-`albums.tracks` is legal in the single bracket), not its type. `relatedQuery` is
+`albums.tracks` is legal in the single bracket), not its type. The bundled adapters
+address a relationship of the primary resource only, by its relation name: a to-many
+over one type takes `sort` and `filter`, a to-one over one type takes `filter`, and any
+other path is a `400`. `relatedQuery` is
 canonical and `rQ` is an **optional** shorthand alias with identical semantics — the
 alias is a **MAY** in the relationship-queries spec, so an implementation need not
 support it; on a conflict targeting the same `[path][op]` the canonical
@@ -275,6 +278,13 @@ family never takes on profile meaning. A structurally malformed param under the 
 `QueryParamMalformed`; semantic validation of the sort/filter keys against the
 relationship's vocabulary (and that the path resolves to a to-many relation) is
 the host's, raising the same `400` the related-collection endpoint does.
+
+The family is read wherever the response renders resources of one type: a collection or
+single read, a create or update answering with its resource, a related read over one
+type, and an action answering with a resource. The
+[OpenAPI projection](openapi.md#profile-gated-parameters-x-profile) documents
+`relatedQuery` on exactly those operations, listing each addressable relationship with
+its sort and filter vocabulary.
 
 Core exposes the parsed query through the request and supplies a render seam; the
 host (e.g. the Doctrine bundle) does the page-1 windowing:
