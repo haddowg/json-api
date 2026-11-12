@@ -1005,8 +1005,9 @@ final class OpenApiProjectorTest extends TestCase
         // A relationship operation's linkage is discriminated over identifiers taking an id or a lid.
         self::assertSame(
             ['people' => '#/components/schemas/PeopleAtomicIdentifier', 'tags' => '#/components/schemas/TagsAtomicIdentifier', 'articles' => '#/components/schemas/ArticlesAtomicIdentifier'],
-            $this->at($schemas, 'AtomicRelationshipAddOperation', 'properties', 'data', 'items', 'discriminator', 'mapping'),
+            $this->at($schemas, 'AtomicIdentifier', 'discriminator', 'mapping'),
         );
+        self::assertSame('#/components/schemas/AtomicIdentifiers', $this->strAt($schemas, 'AtomicRelationshipAddOperation', 'properties', 'data', '$ref'));
 
         // `articles` forbids a client id, so its **add** forbids `id` (a `false` schema,
         // server-assigned) and needs no id/lid choice; `lid` stays optional.

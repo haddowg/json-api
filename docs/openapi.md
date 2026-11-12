@@ -259,8 +259,13 @@ sketch:
   and a relationship kind needs a target that names the relationship, a `ref` with
   `relationship` or an `href` ending in `relationships/<name>`, which a resource kind
   refuses, so a valid operation matches exactly one kind. An add or update carries a
-  `oneOf` over `<Type>AtomicAdd` or `<Type>AtomicUpdate`, and a relationship kind carries
-  `<Type>AtomicIdentifier`s, which take an `id` or a `lid`, all discriminated by `type`.
+  `oneOf` over `<Type>AtomicAdd` or `<Type>AtomicUpdate`, discriminated by `type`. A
+  relationship kind references `AtomicIdentifier`, the `oneOf` over each
+  `<Type>AtomicIdentifier` discriminated by `type`, or `AtomicIdentifiers`, its array: the
+  update takes an identifier, `null` or the array, and the add and remove take the array.
+  Each `<Type>AtomicIdentifier` takes an `id` or a `lid`. A type the server gains adds a
+  branch to `AtomicIdentifier` and leaves the operations unchanged, and the union keeps
+  its `oneOf` and discriminator when the relations link to a single type.
   The relationships inside an add or update carry the same identifiers, so they can link
   a resource an earlier operation created.
   An `AtomicResult`'s `data` is the `anyOf` of the returned resource, discriminated over

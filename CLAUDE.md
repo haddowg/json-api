@@ -460,6 +460,9 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   enum and `fields[<type>]` reach, all three through `IncludeReachability`; never give one
   its own walk
   ([ADR 0080](docs/adr/0080-resource-unions-are-discriminated-by-type-and-included-is-typed.md)).
+  The atomic relationship operations `$ref` the `AtomicIdentifier` union and its
+  `AtomicIdentifiers` array, never an inline copy, and a single type keeps a one-branch union
+  ([ADR 0120](docs/adr/0120-atomic-relationship-operations-reference-named-identifier-components.md)).
 - A filter's description and example live on its Parameter Object, never its schema; its
   default is the schema's `default`. A presence filter's example is always the string `true`,
   and a group child's or a relation builder's own example fails at build. Schema examples
