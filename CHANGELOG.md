@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.0](https://github.com/haddowg/json-api/compare/v2.13.0...v2.14.0) (2026-11-12)
+
+
+### Features
+
+* count a relation on a mixed-type response when any member type counts it ([#347](https://github.com/haddowg/json-api/issues/347)) ([7c5759a](https://github.com/haddowg/json-api/commit/7c5759ac609b16626bc89390fd3ea51e5700a64e))
+* describe and exemplify every filter, sort and relation in the OpenAPI document ([#348](https://github.com/haddowg/json-api/issues/348)) ([352910e](https://github.com/haddowg/json-api/commit/352910ef049141d3b6bccba355219f79ab59a61e))
+
 ## [2.13.0](https://github.com/haddowg/json-api/compare/v2.12.0...v2.13.0) (2026-11-11)
 
 
