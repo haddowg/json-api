@@ -19,8 +19,10 @@ use haddowg\JsonApi\Scope\ScopeTable;
  * path does not accept with a JSON:API error. It passes through any operation scopes and
  * read-only attribute rejection the inner metadata declares.
  */
-final readonly class MethodNotAllowedServerMetadata implements DeclaresMethodNotAllowed, DeclaresReadOnlyAttributeRejection, DeclaresOperationScopeTable
+final readonly class MethodNotAllowedServerMetadata implements DeclaresMethodNotAllowed, DeclaresReadOnlyAttributeRejection, DeclaresOperationScopeTable, \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity, \haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation, \haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth
 {
+    use ForwardsRuntimeFacts;
+
     public function __construct(private ServerMetadataInterface $inner, private bool $renders = true) {}
 
     public function rendersMethodNotAllowed(): bool

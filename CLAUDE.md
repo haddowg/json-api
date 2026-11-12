@@ -408,6 +408,9 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   give every new core exception a rule. `ErrorFeature` only gates
   ([ADR 0121](docs/adr/0121-a-feature-gated-code-is-offered-only-by-the-operations-that-can-raise-it.md),
   [ADR 0123](docs/adr/0123-each-core-error-code-is-offered-only-by-the-operations-whose-runtime-raises-it.md)).
+  A rule reads a fact from the field and relation definitions when core holds it, else from an
+  opt-in `Declares*` metadata interface, and a fact nobody states offers the code
+  ([ADR 0124](docs/adr/0124-a-coverage-rule-reads-the-facts-that-decide-a-code.md)).
 - Such an operation answers that status with an inline response and an error document of its
   own, named for the type, operation and status (`ArticlesUpdate409`) by
   `ErrorResponseProjector::operationDocument()`, never for the codes it offers. It references

@@ -8,12 +8,22 @@ use haddowg\JsonApi\Exception;
 use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\Exception\ErrorScope;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresClientIdCollisions;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentValidation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresHydratorCardinality;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresIncludeSafeguards;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresInclusionUnsupported;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
@@ -23,8 +33,11 @@ use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
  *
  * A rule names the operations whose runtime raises its codes, read from {@see OperationFacts}
  * as the operation projector reads them, and narrowed by what the type, relation or action
- * declares. Where the metadata cannot tell whether an operation raises a code, such as a
- * `readOnly(when:)` predicate or a relation's `cannotAdd(when:)`, the rule offers it.
+ * declares. Core reads what the definitions say itself, such as a `readOnly(when:)`
+ * predicate, a relation's `cannotAdd(when:)` or an id encoder, through the fields a type
+ * reports. What only an adapter knows, such as its security layer, its data layer's
+ * refusals or the server's validation, it reports through an opt-in `Declares*` interface;
+ * where neither tells, the rule offers the code.
  *
  * Each rule is a group: codes following one rule share shapes only with each other, so a
  * shape keeps its name as the operations a rule reaches change. A rule covering every
@@ -52,10 +65,18 @@ final class ErrorCoverage
     private const CARDINALITY = 'cardinality';
     private const ATTRIBUTE_VALUE = 'attribute-value';
     private const READ_ONLY_ATTRIBUTE = 'read-only-attribute';
+    private const ACCESS = 'access';
+    private const AUTHENTICATION = 'authentication';
+    private const STRICT_FIELDSET = 'strict-fieldset';
+    private const RESPONSE_VALIDATION = 'response-validation';
+    private const REQUEST_VALIDATION = 'request-validation';
+    private const ID_COLLISION = 'id-collision';
+    private const ID_ENCODING = 'id-encoding';
+    private const INCLUDE_UNSUPPORTED = 'include-unsupported';
+    private const INCLUDE_DEPTH = 'include-depth';
     private const RELATED_ATTRIBUTE = 'related-attribute';
     private const UPDATE_ID = 'update-id';
     private const ID_CONFLICT = 'id-conflict';
-    private const CLIENT_ID = 'client-id';
     private const CLIENT_ID_REFUSED = 'client-id-refused';
     private const CLIENT_ID_REQUIRED = 'client-id-required';
     private const REPLACEMENT = 'replacement';
@@ -65,7 +86,7 @@ final class ErrorCoverage
     private const RESOURCE = 'resource';
     private const RELATIONSHIP = 'relationship';
     private const INCLUDE = 'include';
-    private const INCLUDE_ROOT = 'include-root';
+    private const INCLUDE_NOT_ALLOWED = 'include-not-allowed';
     private const SORT_UNSUPPORTED = 'sort-unsupported';
     private const SORT_UNRECOGNIZED = 'sort-unrecognized';
     private const FILTER = 'filter';
@@ -82,25 +103,26 @@ final class ErrorCoverage
      * @var array<class-string<Exception\DescribedErrorInterface>, string>
      */
     public const RULES = [
-        Exception\AccessDenied::class => self::EVERY,
         Exception\ApplicationError::class => self::EVERY,
-        Exception\AuthenticationRequired::class => self::EVERY,
-        Exception\FieldsetMemberUnrecognized::class => self::EVERY,
         Exception\MediaTypeUnacceptable::class => self::EVERY,
         Exception\MediaTypeUnsupported::class => self::EVERY,
         Exception\MethodNotAllowed::class => self::EVERY,
         Exception\NoResourceRegistered::class => self::EVERY,
         Exception\QueryParamMalformed::class => self::EVERY,
         Exception\QueryParamUnrecognized::class => self::EVERY,
-        Exception\ResponseBodyInvalidJson::class => self::EVERY,
-        Exception\ResponseBodyInvalidJsonApi::class => self::EVERY,
+
+        Exception\AccessDenied::class => self::ACCESS,
+        Exception\AuthenticationRequired::class => self::AUTHENTICATION,
+        Exception\FieldsetMemberUnrecognized::class => self::STRICT_FIELDSET,
+        Exception\ResponseBodyInvalidJson::class => self::RESPONSE_VALIDATION,
+        Exception\ResponseBodyInvalidJsonApi::class => self::RESPONSE_VALIDATION,
 
         Exception\AtomicOperationsInvalid::class => self::BATCH,
         Exception\LocalIdConflict::class => self::BATCH,
         Exception\LocalIdNotFound::class => self::BATCH,
 
         Exception\RequestBodyInvalidJson::class => self::DOCUMENT,
-        Exception\RequestBodyInvalidJsonApi::class => self::DOCUMENT,
+        Exception\RequestBodyInvalidJsonApi::class => self::REQUEST_VALIDATION,
         Exception\LocalIdNotSupported::class => self::DOCUMENT_MEMBERS,
         Exception\RequiredTopLevelMembersMissing::class => self::DOCUMENT_MEMBERS,
         Exception\TopLevelMemberNotAllowed::class => self::DOCUMENT_MEMBERS,
@@ -123,8 +145,8 @@ final class ErrorCoverage
         Exception\ResourceIdMissing::class => self::UPDATE_ID,
         Exception\ResourceIdConflict::class => self::ID_CONFLICT,
 
-        Exception\ClientGeneratedIdAlreadyExists::class => self::CLIENT_ID,
-        Exception\ResourceIdUndecodable::class => self::CLIENT_ID,
+        Exception\ClientGeneratedIdAlreadyExists::class => self::ID_COLLISION,
+        Exception\ResourceIdUndecodable::class => self::ID_ENCODING,
         Exception\ClientGeneratedIdNotSupported::class => self::CLIENT_ID_REFUSED,
         Exception\ClientGeneratedIdRequired::class => self::CLIENT_ID_REQUIRED,
 
@@ -137,9 +159,9 @@ final class ErrorCoverage
         Exception\RelationshipNotExists::class => self::RELATIONSHIP,
 
         Exception\InclusionUnrecognized::class => self::INCLUDE,
-        Exception\InclusionUnsupported::class => self::INCLUDE,
-        Exception\InclusionDepthExceeded::class => self::INCLUDE_ROOT,
-        Exception\InclusionNotAllowed::class => self::INCLUDE_ROOT,
+        Exception\InclusionUnsupported::class => self::INCLUDE_UNSUPPORTED,
+        Exception\InclusionDepthExceeded::class => self::INCLUDE_DEPTH,
+        Exception\InclusionNotAllowed::class => self::INCLUDE_NOT_ALLOWED,
         Exception\SortingUnsupported::class => self::SORT_UNSUPPORTED,
         Exception\SortParamUnrecognized::class => self::SORT_UNRECOGNIZED,
         Exception\FilterParamUnrecognized::class => self::FILTER,
@@ -211,6 +233,20 @@ final class ErrorCoverage
      */
     private function operationsOf(string $rule, ServerMetadataInterface $server): ?array
     {
+        switch ($rule) {
+            case self::ACCESS:
+            case self::AUTHENTICATION:
+                return self::securityRule($server, $rule === self::ACCESS);
+            case self::STRICT_FIELDSET:
+                // Only a type declaring its field names can have an unknown member.
+                return (!$server instanceof DeclaresStrictQueryParameters || $server->strictQueryParameters())
+                    && self::anyType($server, static fn(TypeMetadataInterface $type): bool => $type->hasFields())
+                    ? null
+                    : [];
+            case self::RESPONSE_VALIDATION:
+                return !$server instanceof DeclaresDocumentValidation || $server->validatesResponseDocuments() ? null : [];
+        }
+
         $inherit = static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites;
         $always = static fn(ServerMetadataInterface $server, bool $viaWrites): bool => true;
         $never = static fn(ServerMetadataInterface $server, bool $viaWrites): bool => false;
@@ -219,6 +255,7 @@ final class ErrorCoverage
             self::EVERY => [null, $always],
             self::BATCH => [static fn(): bool => false, $always],
             self::DOCUMENT => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::readsDocument($operation), $always],
+            self::REQUEST_VALIDATION => self::requestValidationRule($server),
             self::DOCUMENT_MEMBERS => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::readsDocument($operation), $never],
             self::HYDRATED => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::hydratesResource($operation), $inherit],
             self::RESOURCE_TYPE => [
@@ -232,7 +269,7 @@ final class ErrorCoverage
             ],
             self::CARDINALITY => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::mutatesRelationship($operation)
-                    || OperationFacts::hydratedType($type, $operation, $server)?->hasFields() === false,
+                    || self::checksHydratorCardinality(OperationFacts::hydratedType($type, $operation, $server)),
                 $inherit,
             ],
             self::ATTRIBUTE_VALUE => [
@@ -241,7 +278,10 @@ final class ErrorCoverage
                 $inherit,
             ],
             self::READ_ONLY_ATTRIBUTE => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::writesAttributes(OperationFacts::hydratedType($type, $operation, $server)),
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::writesReadOnlyAttribute(
+                    OperationFacts::hydratedType($type, $operation, $server),
+                    $operation->key->kind !== OperationKind::Update,
+                ),
                 $inherit,
             ],
             self::RELATED_ATTRIBUTE => [
@@ -253,8 +293,16 @@ final class ErrorCoverage
             ],
             self::UPDATE_ID => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->key->kind === OperationKind::Update, $inherit],
             self::ID_CONFLICT => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->key->kind === OperationKind::Update, $never],
-            self::CLIENT_ID => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::createdType($type, $operation, $server)?->allowsClientId() === true,
+            self::ID_COLLISION => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => ($created = self::createdType($type, $operation, $server)) !== null
+                    && $created->allowsClientId()
+                    && (!$created instanceof DeclaresClientIdCollisions || $created->detectsClientIdCollisions()),
+                $inherit,
+            ],
+            self::ID_ENCODING => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => ($created = self::createdType($type, $operation, $server)) !== null
+                    && $created->allowsClientId()
+                    && self::decodesClientId($created),
                 $inherit,
             ],
             self::CLIENT_ID_REFUSED => [
@@ -267,21 +315,27 @@ final class ErrorCoverage
                 $inherit,
             ],
             self::REPLACEMENT => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->key->kind === OperationKind::UpdateRelationship
-                    || ($operation->key->kind === OperationKind::Update && $type->relations() !== []),
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => match ($operation->key->kind) {
+                    OperationKind::UpdateRelationship => $operation->relation !== null && self::guards($type, $operation->relation, Mode::Replace),
+                    OperationKind::Update => self::anyDetachable($type, static fn(Metadata\RelationMetadataInterface $relation): bool => true),
+                    default => false,
+                },
                 $inherit,
             ],
             self::REMOVAL => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => match ($operation->key->kind) {
-                    OperationKind::RemoveRelationship => true,
-                    OperationKind::UpdateRelationship => $operation->relation !== null && !$operation->relation->isToMany(),
-                    OperationKind::Update => $type->relations() !== [],
+                    OperationKind::RemoveRelationship => $operation->relation !== null && self::guards($type, $operation->relation, Mode::Remove),
+                    OperationKind::UpdateRelationship => $operation->relation !== null && !$operation->relation->isToMany() && self::guards($type, $operation->relation, Mode::Remove),
+                    // An update clears a to-one with `null`; a to-many it replaces.
+                    OperationKind::Update => self::anyDetachable($type, static fn(Metadata\RelationMetadataInterface $relation): bool => !$relation->isToMany()),
                     default => false,
                 },
                 $inherit,
             ],
             self::ADDITION => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->key->kind === OperationKind::AddRelationship,
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->key->kind === OperationKind::AddRelationship
+                    && $operation->relation !== null
+                    && RelationFacts::mutation($type, $operation->relation, Mode::Add) !== MutationPermission::Allowed,
                 // A batch entry can add to a relation that refuses additions outright,
                 // whose endpoint the document therefore leaves out.
                 static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites || self::anyRelation(
@@ -293,22 +347,39 @@ final class ErrorCoverage
             self::RESOURCE => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => match ($operation->key->kind) {
                     OperationKind::FetchCollection => false,
-                    OperationKind::Create => $type->relations() !== [],
+                    OperationKind::Create => self::createMayMissLinkage($type),
                     OperationKind::Action => $operation->key->actionScope === ActionScope::Resource || OperationFacts::readsDocument($operation),
                     default => true,
                 },
                 $inherit,
             ],
-            self::RELATIONSHIP => [static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->relation !== null, $inherit],
+            self::RELATIONSHIP => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $operation->relation !== null && match ($operation->key->kind) {
+                    OperationKind::FetchRelated => RelationFacts::canBeAbsentFromRead($type, $operation->relation, false),
+                    OperationKind::FetchRelationship => RelationFacts::canBeAbsentFromRead($type, $operation->relation, true),
+                    default => true,
+                },
+                $inherit,
+            ],
             self::INCLUDE => [
                 static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::validatesInclude($operation)
                     || $operation->key->kind === OperationKind::FetchRelationship
                     || OperationFacts::renderedTypes($type, $operation, $server) !== [],
                 $always,
             ],
-            self::INCLUDE_ROOT => [
-                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::validatesInclude($operation)
-                    || OperationFacts::rendersDocument($type, $operation, $server),
+            self::INCLUDE_UNSUPPORTED => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $type instanceof DeclaresInclusionUnsupported
+                    && $type->rejectsInclude($operation->key->withType($type->type())),
+                $never,
+            ],
+            self::INCLUDE_NOT_ALLOWED => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::checksIncludeRoot($type, $operation, $server)
+                    && self::refusesInclusion($type, $operation, $server),
+                $always,
+            ],
+            self::INCLUDE_DEPTH => [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => self::checksIncludeRoot($type, $operation, $server)
+                    && self::limitsIncludeDepth($type, $operation, $server),
                 $always,
             ],
             self::SORT_UNSUPPORTED => [
@@ -431,16 +502,277 @@ final class ErrorCoverage
     }
 
     /**
-     * Whether a hydrated type declares an attribute a write could send, read-only or not:
-     * which of them is read-only for a request can rest on a predicate.
+     * Whether a hydrated type declares an attribute that can be read-only for a write in this
+     * context: unconditionally, by a `readOnly(when:)` predicate, or by a field that does not
+     * say ({@see ConditionalFieldInterface}).
      */
-    private static function writesAttributes(?TypeMetadataInterface $hydrated): bool
+    private static function writesReadOnlyAttribute(?TypeMetadataInterface $hydrated, bool $creating): bool
     {
-        if ($hydrated === null) {
-            return false;
+        foreach ($hydrated?->fields() ?? [] as $field) {
+            if ($field instanceof Id || $field instanceof RelationInterface) {
+                continue;
+            }
+            if ($field->isReadOnly($creating) || !$field instanceof ConditionalFieldInterface || $field->hasReadOnlyPredicate($creating)) {
+                return true;
+            }
         }
-        foreach ($hydrated->fields() as $field) {
-            if (!$field instanceof Id && !$field instanceof RelationInterface) {
+
+        return false;
+    }
+
+    /**
+     * Whether a hydrated type with no field inventory can refuse linkage of the wrong
+     * cardinality: its hand-written hydrator checks it, or the metadata does not say.
+     */
+    private static function checksHydratorCardinality(?TypeMetadataInterface $hydrated): bool
+    {
+        return $hydrated !== null
+            && !$hydrated->hasFields()
+            && (!$hydrated instanceof DeclaresHydratorCardinality || $hydrated->checksRelationshipCardinality());
+    }
+
+    /**
+     * Whether a client id sent to a created type is decoded, so one can be undecodable: its
+     * `Id` field carries an encoder, or the type has no field inventory to tell.
+     */
+    private static function decodesClientId(TypeMetadataInterface $created): bool
+    {
+        if (!$created->hasFields()) {
+            return true;
+        }
+        foreach ($created->fields() as $field) {
+            if ($field instanceof Id) {
+                return $field->encoder() !== null;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a relationship mutation in `$mode` can be refused: the relation does not let
+     * the mode through for every request, or, for a replacement or removal, the data layer
+     * can refuse to detach a member.
+     */
+    private static function guards(TypeMetadataInterface $type, Metadata\RelationMetadataInterface $relation, Mode $mode): bool
+    {
+        return RelationFacts::mutation($type, $relation, $mode) !== MutationPermission::Allowed
+            || RelationFacts::canRefuseDetachment($relation);
+    }
+
+    /**
+     * Whether an update can send linkage replacing a relation `$which` accepts whose data
+     * layer can refuse to detach a member. The relationship guards run only on the
+     * relationship endpoints; an update meets the data layer's refusal alone.
+     *
+     * @param \Closure(Metadata\RelationMetadataInterface): bool $which
+     */
+    private static function anyDetachable(TypeMetadataInterface $type, \Closure $which): bool
+    {
+        foreach ($type->relations() as $relation) {
+            if ($relation->allowsReplace() && $which($relation) && RelationFacts::canRefuseDetachment($relation)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a create can send linkage naming a resource the data layer cannot find: a
+     * relation it may set resolves its linkage against storage that can miss.
+     */
+    private static function createMayMissLinkage(TypeMetadataInterface $type): bool
+    {
+        foreach ($type->relations() as $relation) {
+            if (!RelationFacts::isReadOnlyOnCreate($type, $relation) && RelationFacts::canMissLinkage($relation)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the operation checks an `include` against the root of its document, up front or
+     * when it renders.
+     */
+    private static function checksIncludeRoot(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    {
+        return OperationFacts::validatesInclude($operation) || OperationFacts::rendersDocument($type, $operation, $server);
+    }
+
+    /**
+     * The roots an operation's `include` is checked against: the type whose safeguards apply,
+     * `null` for a polymorphic related read, which has none of its own, and the types the
+     * include tree starts from. A relationship document is rooted at the parent and reaches
+     * the related types through the relation.
+     *
+     * @return list<array{TypeMetadataInterface|null, list<TypeMetadataInterface>}>
+     */
+    private static function includeRoots(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): array
+    {
+        $relation = $operation->relation;
+
+        return match ($operation->key->kind) {
+            OperationKind::FetchRelated => $relation === null ? [] : [[
+                OperationFacts::relatedType($relation, $server),
+                OperationFacts::renderedTypes($type, $operation, $server),
+            ]],
+            OperationKind::FetchRelationship,
+            OperationKind::UpdateRelationship,
+            OperationKind::AddRelationship,
+            OperationKind::RemoveRelationship => [[$type, [$type, ...self::typesNamed($server, $relation?->relatedTypes() ?? [])]]],
+            OperationKind::Action => \array_map(
+                static fn(TypeMetadataInterface $rendered): array => [$rendered, [$rendered]],
+                OperationFacts::renderedTypes($type, $operation, $server),
+            ),
+            default => [[$type, [$type]]],
+        };
+    }
+
+    /**
+     * `INCLUSION_NOT_ALLOWED`: a root's allow-list or excluded paths, or a relation the include
+     * tree can reach that may not be included.
+     */
+    private static function refusesInclusion(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    {
+        foreach (self::includeRoots($type, $operation, $server) as [$root, $from]) {
+            if ($root !== null && (!$root instanceof DeclaresIncludeSafeguards || $root->allowedIncludePaths() !== null || $root->excludedIncludePaths() !== [])) {
+                return true;
+            }
+
+            $seen = [];
+            $queue = $from;
+            while (($current = \array_shift($queue)) !== null) {
+                if (isset($seen[$current->type()])) {
+                    continue;
+                }
+                $seen[$current->type()] = true;
+                foreach ($current->relations() as $relation) {
+                    if (RelationFacts::canRefuseInclusion($current, $relation)) {
+                        return true;
+                    }
+                    if (!RelationFacts::isWriteOnly($relation)) {
+                        \array_push($queue, ...self::typesNamed($server, $relation->relatedTypes()));
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * `INCLUSION_DEPTH_EXCEEDED`: a root whose effective maximum depth, its own or else the
+     * server's, is set, or unknown. A depth below one is no limit, as at runtime.
+     */
+    private static function limitsIncludeDepth(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    {
+        foreach (self::includeRoots($type, $operation, $server) as [$root]) {
+            if ($root !== null && !$root instanceof DeclaresIncludeSafeguards) {
+                return true;
+            }
+            $own = $root instanceof DeclaresIncludeSafeguards ? $root->maxIncludeDepth() : null;
+            if ($own !== null) {
+                if ($own > 0) {
+                    return true;
+                }
+
+                continue;
+            }
+            if (!$server instanceof DeclaresMaxIncludeDepth || ($server->maxIncludeDepth() ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * `REQUEST_BODY_INVALID_JSON_API`: every operation reading a document when the server
+     * validates request documents or does not say; only a create or update, and the batch
+     * entries running one, when it checks just their resource object's members.
+     *
+     * @return array{\Closure(TypeMetadataInterface, EnumeratedOperation): bool, \Closure(ServerMetadataInterface, bool): bool}
+     */
+    private static function requestValidationRule(ServerMetadataInterface $server): array
+    {
+        if (!$server instanceof DeclaresDocumentValidation || $server->validatesRequestDocuments()) {
+            return [
+                static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => OperationFacts::readsDocument($operation),
+                static fn(ServerMetadataInterface $server, bool $viaWrites): bool => true,
+            ];
+        }
+        $members = $server->checksResourceObjectMembers();
+
+        return [
+            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $members
+                && \in_array($operation->key->kind, [OperationKind::Create, OperationKind::Update], true),
+            static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites,
+        ];
+    }
+
+    /**
+     * `ACCESS_DENIED` or `AUTHENTICATION_REQUIRED`: the operations the adapter's security layer
+     * can refuse ({@see DeclaresOperationSecurity}), and the batch when it can be refused or
+     * runs a write that can; in the shared shapes when that is every operation or the
+     * metadata does not say.
+     *
+     * @return list<string>|null
+     */
+    private static function securityRule(ServerMetadataInterface $server, bool $access): ?array
+    {
+        if (!$server instanceof DeclaresOperationSecurity) {
+            return null;
+        }
+        $ask = static fn(?TypeMetadataInterface $type, OperationKey $key): bool => $access
+            ? $server->canDenyAccess($type, $key)
+            : $server->canRequireAuthentication($type, $key);
+
+        $operations = self::operations(
+            $server,
+            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $ask($type, $operation->key->withType($type->type())),
+            // A batch entry runs a write the security layer can refuse.
+            static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites || $ask(null, OperationKey::atomic()),
+        );
+        $every = self::operations(
+            $server,
+            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => true,
+            static fn(ServerMetadataInterface $server, bool $viaWrites): bool => true,
+        );
+
+        return $operations === $every ? null : $operations;
+    }
+
+    /**
+     * The server's types named `$names`, in order, skipping a name it does not describe.
+     *
+     * @param list<string> $names
+     *
+     * @return list<TypeMetadataInterface>
+     */
+    private static function typesNamed(ServerMetadataInterface $server, array $names): array
+    {
+        $types = [];
+        foreach ($server->types() as $type) {
+            if (\in_array($type->type(), $names, true)) {
+                $types[] = $type;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Whether some type of the server satisfies `$predicate`.
+     *
+     * @param \Closure(TypeMetadataInterface): bool $predicate
+     */
+    private static function anyType(ServerMetadataInterface $server, \Closure $predicate): bool
+    {
+        foreach ($server->types() as $type) {
+            if ($predicate($type)) {
                 return true;
             }
         }

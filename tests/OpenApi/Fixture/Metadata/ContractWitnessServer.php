@@ -40,11 +40,13 @@ use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Email;
+use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\IntegerBuilder;
@@ -214,6 +216,16 @@ final class ContractWitnessServer
             atomicOperations: new FakeAtomicOperationsMetadata('/operations', 'Atomic Operations', [SecurityRequirement::scheme('bearer')]),
             profiles: [CountableProfile::URI, RelationshipQueriesProfile::URI],
             generatesExamples: $examples,
+            // Only the article writes carry a security gate an authenticated caller can
+            // fail. The bearer firewall answers a rejected token everywhere, public
+            // operations too, so every operation can require authentication.
+            canDenyAccess: static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => $type?->type() === 'articles'
+                && \in_array($operation->kind, [OperationKind::Create, OperationKind::Update], true),
+            // Request documents are not schema-validated, but a create or update whose
+            // resource object members are not objects is refused; responses are validated.
+            validatesRequestDocuments: false,
+            checksResourceObjectMembers: true,
+            maxIncludeDepth: 3,
         );
 
         $witness = new LinkDeclaringServerMetadata(
@@ -660,10 +672,15 @@ final class ContractWitnessServer
                 Str::make('name')->required()->example('Ada Lovelace')->build(),
                 // No example, so every people operation reports it missing and has none.
                 Str::make('role')->enum(Status::class)->build(),
+                BelongsTo::make('company', 'companies')->build(),
             ],
-            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false)],
+            // The company is an owning foreign key the data layer sets without loading,
+            // so its linkage never misses and detaching it is never refused.
+            relations: [new FakeRelationMetadata('company', ['companies'], false, relatedEndpoint: false, canRefuseDetachment: false, canMissLinkage: false)],
             tags: ['People'],
             allowsClientId: true,
+            // No include safeguards of its own: the server's depth applies.
+            includeSafeguards: ['allowed' => null, 'excluded' => [], 'depth' => null],
             pageSchema: (new MultiPaginator(PagePaginator::make(), CursorPaginator::make()))->describePageSchema(),
             filters: [Where::make('name')->build()],
             publicOperations: [OperationType::FetchCollection],
@@ -683,8 +700,12 @@ final class ContractWitnessServer
             fields: [
                 Id::make()->example('tag-1')->build(),
                 Str::make('label')->required()->example('php')->build(),
+                HasMany::make('articles', 'articles')->cannotRemove(static fn(mixed $model, JsonApiRequestInterface $request): bool => false)->build(),
             ],
-            relations: [new FakeRelationMetadata('articles', ['articles'], true)],
+            // A removal some callers may not make, and no data-layer refusal: the
+            // relationship's replacement and addition are never refused.
+            relations: [new FakeRelationMetadata('articles', ['articles'], true, canRefuseDetachment: false)],
+            includeSafeguards: ['allowed' => null, 'excluded' => ['articles.author'], 'depth' => 2],
             tags: ['Tags'],
             allowsClientId: true,
             requiresClientId: true,

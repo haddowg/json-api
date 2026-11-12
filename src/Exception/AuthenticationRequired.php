@@ -12,6 +12,9 @@ namespace haddowg\JsonApi\Exception;
  * `AuthenticationException`, or an access denial for an anonymous token; Laravel's
  * `AuthenticationException`).
  *
+ * Only the adapter knows which operations its security layer can refuse, so it tells the
+ * OpenAPI projection through {@see \haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity}.
+ *
  * The `detail` is omitted unless one is given. A framework's own message can name the
  * credential or the rule that refused the request, so an adapter passes it through only
  * when it is safe to, typically in debug mode.

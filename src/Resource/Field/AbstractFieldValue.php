@@ -23,7 +23,7 @@ use haddowg\JsonApi\Resource\Constraint\In;
  * fluent authoring surface lives on the mirror {@see AbstractFieldBuilder}; this
  * object exposes none of it.
  */
-abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\JsonApi\Resource\Deprecatable
+abstract readonly class AbstractFieldValue implements FieldInterface, ConditionalFieldInterface, \haddowg\JsonApi\Resource\Deprecatable
 {
     public function __construct(
         protected FieldState $state,
@@ -91,6 +91,21 @@ abstract readonly class AbstractFieldValue implements FieldInterface, \haddowg\J
         return !$this->state->hidden
             && !$this->state->writeOnly
             && ($this->state->hiddenWhen !== null || $this->state->writeOnlyWhen !== null);
+    }
+
+    public function hasReadOnlyPredicate(bool $creating): bool
+    {
+        return ($creating ? $this->state->readOnlyOnCreateWhen : $this->state->readOnlyOnUpdateWhen) !== null;
+    }
+
+    public function hasWriteOnlyPredicate(): bool
+    {
+        return $this->state->writeOnlyWhen !== null;
+    }
+
+    public function hasHiddenPredicate(): bool
+    {
+        return $this->state->hiddenWhen !== null;
     }
 
     public function isSparseField(): bool

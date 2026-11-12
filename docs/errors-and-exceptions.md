@@ -484,7 +484,10 @@ A code is offered by every operation's error response for its status unless its 
 says otherwise. Core's own codes are each offered only on the operations whose runtime can
 raise them, such as `CLIENT_GENERATED_ID_NOT_SUPPORTED` on the creates of a type that refuses
 a client id, or the `sort` codes on the operations that read `sort`
-([the full list](openapi.md#the-error-code-catalogue)). When only some operations
+([the full list](openapi.md#the-error-code-catalogue)). Core reads what decides a code from
+your field and relation definitions, such as a `readOnly(when:)` predicate, and an adapter
+declares what only it knows, such as which operations its security layer can refuse; a code
+nothing rules out is offered. When only some operations
 raise one of your own codes, give its descriptor a `scope`:
 `ErrorScope::on('articles', 'update', 'delete')` for operations of one type,
 `ErrorScope::kinds(OperationKind::Delete)` for every delete. The

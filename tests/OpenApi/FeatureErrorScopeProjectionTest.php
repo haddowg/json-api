@@ -17,6 +17,7 @@ use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -87,6 +88,7 @@ final class FeatureErrorScopeProjectionTest extends TestCase
                 'Error400ParameterCursorMalformed',
                 'Error400ParameterFilteringUnrecognized',
                 'Error400ParameterInclusionDepthExceeded',
+                'Error400ParameterInclusionNotAllowed',
                 'Error400ParameterInclusionUnrecognized',
                 'Error400ParameterRelationshipCountNotAllowed',
                 'Error400ParameterSortingUnsupported',
@@ -300,7 +302,8 @@ final class FeatureErrorScopeProjectionTest extends TestCase
             types: [
                 FakeTypeMetadata::resource(
                     type: 'articles',
-                    fields: [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build()],
+                    // A title some callers may not write, so a prohibited attribute write can arise.
+                    fields: [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->readOnly(static fn(JsonApiRequestInterface $request): bool => false)->build()],
                     relations: $relations,
                     allowsClientId: $clientId,
                     requiresClientId: $clientId,

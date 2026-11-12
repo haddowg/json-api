@@ -14,17 +14,22 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
+use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\OpenApi\OAuthFlow;
 use haddowg\JsonApi\OpenApi\OAuthFlows;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationFacts;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
+use haddowg\JsonApi\Tests\Double\ReversingIdEncoder;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeAtomicOperationsMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -242,12 +247,15 @@ final class CodeErrorScopeProjectionTest extends TestCase
                 'relations' => [new FakeRelationMetadata('author', ['comments'], false)],
                 'actions' => [new FakeActionMetadata('import', ['POST'], inputMode: ActionInputMode::Document, inputType: 'tags')],
             ],
+            comments: ['fields' => [Id::make()->example('1')->build(), Str::make('body')->example('Nice')->build(), Str::make('author')->readOnlyOnCreate()->build()]],
             tags: true,
         )));
 
         self::assertContains('RELATED_ATTRIBUTE_OWNER_MISSING', $this->codes($document, '/articles/{id}', 'patch'));
         self::assertNotContains('RELATED_ATTRIBUTE_OWNER_MISSING', $this->codes($document, '/comments/{id}', 'patch'));
-        self::assertContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/comments', 'post'));
+        self::assertContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/comments', 'post'), 'a comment\'s author is read-only');
+        self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/comments/{id}', 'patch'), 'an update may write the author');
+        self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/articles', 'post'), 'no article attribute is ever read-only');
         self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/tags', 'post'), 'a tag declares no attribute');
         self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/articles/{id}/-actions/import', 'post'), 'the action hydrates a tag');
     }
@@ -291,6 +299,258 @@ final class CodeErrorScopeProjectionTest extends TestCase
         self::assertCount(\count(ErrorCatalog::core()->exceptions()), ErrorCoverage::RULES);
     }
 
+    #[Test]
+    public function aWriteProhibitedAttributeNeedsAnAttributeThatCanBeReadOnly(): void
+    {
+        $document = $this->project(new ReadOnlyAttributeRejectingServerMetadata($this->server(
+            articles: ['fields' => [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->readOnlyOnUpdate(static fn(JsonApiRequestInterface $request): bool => true)->build()]],
+            comments: ['fields' => [Id::make()->example('1')->build(), Str::make('body')->example('Nice')->build()]],
+        )));
+
+        self::assertContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/articles/{id}', 'patch'), 'a predicate can make the title read-only');
+        self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/articles', 'post'), 'the predicate gates updates only');
+        self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/comments', 'post'), 'the body is never read-only');
+        self::assertNotContains('ATTRIBUTE_WRITE_PROHIBITED', $this->codes($document, '/comments/{id}', 'patch'));
+    }
+
+    #[Test]
+    public function aRelationshipGuardFollowsTheRelationsPredicatesAndTheDataLayersRefusals(): void
+    {
+        $plain = $this->project($this->server(
+            articles: [
+                'fields' => [
+                    Id::make()->example('1')->build(),
+                    HasMany::make('comments', 'comments')->build(),
+                    BelongsTo::make('author', 'comments')->build(),
+                ],
+                'relations' => [
+                    new FakeRelationMetadata('comments', ['comments'], true, canRefuseDetachment: false),
+                    new FakeRelationMetadata('author', ['comments'], false, canRefuseDetachment: false),
+                ],
+            ],
+        ));
+        $comments = '/articles/{id}/relationships/comments';
+        foreach ([[$comments, 'post', 'ADDITION_PROHIBITED'], [$comments, 'delete', 'REMOVAL_PROHIBITED'], [$comments, 'patch', 'FULL_REPLACEMENT_PROHIBITED'], ['/articles/{id}/relationships/author', 'patch', 'FULL_REPLACEMENT_PROHIBITED'], ['/articles/{id}/relationships/author', 'patch', 'REMOVAL_PROHIBITED'], ['/articles/{id}', 'patch', 'FULL_REPLACEMENT_PROHIBITED'], ['/articles/{id}', 'patch', 'REMOVAL_PROHIBITED']] as [$path, $method, $code]) {
+            self::assertNotContains($code, $this->codes($plain, $path, $method), "{$code} on {$method} {$path}: nothing refuses it");
+        }
+
+        $guarded = $this->project($this->server(
+            articles: [
+                'fields' => [
+                    Id::make()->example('1')->build(),
+                    HasMany::make('comments', 'comments')
+                        ->cannotAdd(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)
+                        ->cannotRemove(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)
+                        ->build(),
+                    BelongsTo::make('author', 'comments')->cannotReplace(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)->build(),
+                ],
+                'relations' => [
+                    new FakeRelationMetadata('comments', ['comments'], true, canRefuseDetachment: false),
+                    new FakeRelationMetadata('author', ['comments'], false),
+                ],
+            ],
+        ));
+        self::assertContains('ADDITION_PROHIBITED', $this->codes($guarded, $comments, 'post'));
+        self::assertContains('REMOVAL_PROHIBITED', $this->codes($guarded, $comments, 'delete'));
+        self::assertNotContains('FULL_REPLACEMENT_PROHIBITED', $this->codes($guarded, $comments, 'patch'), 'nothing guards the replacement');
+        self::assertContains('FULL_REPLACEMENT_PROHIBITED', $this->codes($guarded, '/articles/{id}/relationships/author', 'patch'), 'a predicate and the data layer guard it');
+        self::assertContains('REMOVAL_PROHIBITED', $this->codes($guarded, '/articles/{id}/relationships/author', 'patch'), 'the data layer can refuse to clear it');
+        self::assertContains('FULL_REPLACEMENT_PROHIBITED', $this->codes($guarded, '/articles/{id}', 'patch'), 'an update meets the data layer\'s refusal');
+        self::assertContains('REMOVAL_PROHIBITED', $this->codes($guarded, '/articles/{id}', 'patch'), 'an update can clear the to-one');
+    }
+
+    #[Test]
+    public function anUndecodableIdNeedsAnEncodedId(): void
+    {
+        $document = $this->project($this->server(
+            articles: ['allowsClientId' => true, 'fields' => [Id::make()->encodeUsing(new ReversingIdEncoder())->example('1')->build()]],
+            comments: ['allowsClientId' => true],
+        ));
+
+        self::assertContains('RESOURCE_ID_UNDECODABLE', $this->codes($document, '/articles', 'post'));
+        self::assertNotContains('RESOURCE_ID_UNDECODABLE', $this->codes($document, '/comments', 'post'), 'the id is taken as sent');
+    }
+
+    #[Test]
+    public function theIncludeSafeguardCodesNeedASafeguardThatCanRefuse(): void
+    {
+        $open = ['allowed' => null, 'excluded' => [], 'depth' => null];
+        $relations = [
+            'fields' => [Id::make()->example('1')->build(), HasMany::make('comments', 'comments')->build()],
+            'relations' => [new FakeRelationMetadata('comments', ['comments'], true)],
+        ];
+        $unlimited = $this->project($this->server(
+            articles: [...$relations, 'includeSafeguards' => $open],
+            comments: ['includeSafeguards' => $open],
+            server: ['maxIncludeDepth' => null],
+        ));
+        foreach (['INCLUSION_NOT_ALLOWED', 'INCLUSION_DEPTH_EXCEEDED'] as $code) {
+            self::assertNotContains($code, $this->codes($unlimited, '/articles/{id}', 'get'), "{$code}: nothing limits the include");
+            self::assertNotContains($code, $this->codes($unlimited, '/articles/{id}/comments', 'get'), $code);
+        }
+        self::assertContains('INCLUSION_UNRECOGNIZED', $this->codes($unlimited, '/articles/{id}', 'get'));
+
+        $limited = $this->project($this->server(
+            articles: [...$relations, 'includeSafeguards' => ['allowed' => ['comments'], 'excluded' => [], 'depth' => null]],
+            comments: ['includeSafeguards' => ['depth' => 2]],
+            server: ['maxIncludeDepth' => null],
+        ));
+        self::assertContains('INCLUSION_NOT_ALLOWED', $this->codes($limited, '/articles/{id}', 'get'), 'an allow-list refuses the rest');
+        self::assertNotContains('INCLUSION_DEPTH_EXCEEDED', $this->codes($limited, '/articles/{id}', 'get'));
+        self::assertContains('INCLUSION_DEPTH_EXCEEDED', $this->codes($limited, '/comments/{id}', 'get'), 'a comment caps its depth');
+        self::assertContains('INCLUSION_DEPTH_EXCEEDED', $this->codes($limited, '/articles/{id}/comments', 'get'), 'a related read is rooted at the comment');
+
+        $serverDepth = $this->project($this->server(articles: ['includeSafeguards' => $open], comments: ['includeSafeguards' => $open], server: ['maxIncludeDepth' => 3]));
+        self::assertContains('INCLUSION_DEPTH_EXCEEDED', $this->codes($serverDepth, '/articles/{id}', 'get'), 'the server default applies');
+
+        $conditional = $this->project($this->server(
+            articles: [
+                'fields' => [Id::make()->example('1')->build(), HasMany::make('comments', 'comments')->cannotBeIncluded(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)->build()],
+                'relations' => [new FakeRelationMetadata('comments', ['comments'], true)],
+                'includeSafeguards' => $open,
+            ],
+            comments: ['includeSafeguards' => $open],
+            server: ['maxIncludeDepth' => null],
+        ));
+        self::assertContains('INCLUSION_NOT_ALLOWED', $this->codes($conditional, '/articles/{id}', 'get'), 'a predicate can refuse the comments');
+
+        $undeclared = $this->project($this->server(articles: $relations));
+        self::assertContains('INCLUSION_NOT_ALLOWED', $this->codes($undeclared, '/articles/{id}', 'get'));
+        self::assertContains('INCLUSION_DEPTH_EXCEEDED', $this->codes($undeclared, '/articles/{id}', 'get'));
+    }
+
+    #[Test]
+    public function anUnsupportedIncludeIsOfferedOnlyWhereAHandlerDeclaresIt(): void
+    {
+        self::assertNotContains('INCLUSION_UNSUPPORTED', $this->codes($this->project($this->server()), '/articles/{id}', 'get'), 'nothing raises it by default');
+
+        $document = $this->project($this->server(articles: ['rejectsIncludeOn' => ['fetchOne']]));
+        self::assertContains('INCLUSION_UNSUPPORTED', $this->codes($document, '/articles/{id}', 'get'));
+        self::assertNotContains('INCLUSION_UNSUPPORTED', $this->codes($document, '/articles', 'get'));
+    }
+
+    #[Test]
+    public function aTakenClientIdIsOfferedWhereTheDataLayerDetectsIt(): void
+    {
+        $document = $this->project($this->server(
+            articles: ['allowsClientId' => true],
+            comments: ['allowsClientId' => true, 'detectsClientIdCollisions' => false],
+        ));
+
+        self::assertContains('CLIENT_GENERATED_ID_ALREADY_EXISTS', $this->codes($document, '/articles', 'post'));
+        self::assertNotContains('CLIENT_GENERATED_ID_ALREADY_EXISTS', $this->codes($document, '/comments', 'post'), 'the store\'s own error answers');
+    }
+
+    #[Test]
+    public function anUnknownFieldsetMemberNeedsStrictQueryParameters(): void
+    {
+        self::assertContains('FIELDSET_MEMBER_UNRECOGNIZED', $this->codes($this->project($this->server()), '/articles/{id}', 'delete'));
+
+        $lenient = $this->project($this->server(server: ['strictQueryParameters' => false]));
+        self::assertNotContains('FIELDSET_MEMBER_UNRECOGNIZED', $this->codes($lenient, '/articles/{id}', 'get'));
+        self::assertContains('QUERY_PARAM_UNRECOGNIZED', $this->codes($lenient, '/articles/{id}', 'get'), 'the family names are checked anyway');
+    }
+
+    #[Test]
+    public function theBodyValidationCodesNeedTheValidationThatRaisesThem(): void
+    {
+        $relations = ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]];
+        $validated = $this->project($this->server(articles: $relations));
+        self::assertContains('REQUEST_BODY_INVALID_JSON_API', $this->codes($validated, '/articles/{id}/relationships/comments', 'patch'));
+        self::assertContains('RESPONSE_BODY_INVALID_JSON_API', $this->codes($validated, '/articles/{id}', 'get'));
+
+        $members = $this->project($this->server(articles: $relations, server: ['validatesRequestDocuments' => false, 'validatesResponseDocuments' => false]));
+        self::assertContains('REQUEST_BODY_INVALID_JSON_API', $this->codes($members, '/articles', 'post'), 'a resource object\'s members are still checked');
+        self::assertContains('REQUEST_BODY_INVALID_JSON_API', $this->codes($members, '/articles/{id}', 'patch'));
+        self::assertNotContains('REQUEST_BODY_INVALID_JSON_API', $this->codes($members, '/articles/{id}/relationships/comments', 'patch'));
+        foreach (['RESPONSE_BODY_INVALID_JSON', 'RESPONSE_BODY_INVALID_JSON_API'] as $code) {
+            self::assertNotContains($code, $this->codes($members, '/articles/{id}', 'get'), $code);
+        }
+
+        $none = $this->project($this->server(server: ['validatesRequestDocuments' => false, 'checksResourceObjectMembers' => false]));
+        self::assertNotContains('REQUEST_BODY_INVALID_JSON_API', $this->codes($none, '/articles', 'post'));
+    }
+
+    #[Test]
+    public function aCreateMissesLinkageOnlyThroughARelationResolvedAgainstStorage(): void
+    {
+        $resolved = $this->project($this->server(articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true, canMissLinkage: false)]]));
+        self::assertNotContains('RESOURCE_NOT_FOUND', $this->codes($resolved, '/articles', 'post'), 'the linkage always resolves');
+        self::assertContains('RESOURCE_NOT_FOUND', $this->codes($resolved, '/articles/{id}', 'patch'), 'the update looks the article up');
+
+        $readOnly = $this->project($this->server(articles: [
+            'fields' => [Id::make()->example('1')->build(), HasMany::make('comments', 'comments')->readOnlyOnCreate()->build()],
+            'relations' => [new FakeRelationMetadata('comments', ['comments'], true)],
+        ]));
+        self::assertNotContains('RESOURCE_NOT_FOUND', $this->codes($readOnly, '/articles', 'post'), 'a create cannot set the comments');
+
+        $unknown = $this->project($this->server(articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]]));
+        self::assertContains('RESOURCE_NOT_FOUND', $this->codes($unknown, '/articles', 'post'));
+    }
+
+    #[Test]
+    public function aRelationshipReadIsAbsentOnlyForARelationThatCanBeHidden(): void
+    {
+        $visible = $this->project($this->server(articles: [
+            'fields' => [Id::make()->example('1')->build(), HasMany::make('comments', 'comments')->build(), HasMany::make('drafts', 'comments')->hidden(static fn(mixed $model, JsonApiRequestInterface $request): bool => true)->build()],
+            'relations' => [new FakeRelationMetadata('comments', ['comments'], true), new FakeRelationMetadata('drafts', ['comments'], true)],
+        ]));
+        self::assertNotContains('RELATIONSHIP_NOT_EXISTS', $this->codes($visible, '/articles/{id}/comments', 'get'));
+        self::assertNotContains('RELATIONSHIP_NOT_EXISTS', $this->codes($visible, '/articles/{id}/relationships/comments', 'get'));
+        self::assertContains('RELATIONSHIP_NOT_EXISTS', $this->codes($visible, '/articles/{id}/relationships/comments', 'post'), 'a mutation reads the relation from the document');
+        self::assertContains('RELATIONSHIP_NOT_EXISTS', $this->codes($visible, '/articles/{id}/drafts', 'get'), 'a predicate can hide the drafts');
+        self::assertContains('RELATIONSHIP_NOT_EXISTS', $this->codes($visible, '/articles/{id}/relationships/drafts', 'get'));
+    }
+
+    #[Test]
+    public function theSecurityCodesFollowWhatTheAdapterSaysItsSecurityLayerCanRefuse(): void
+    {
+        $everywhere = $this->project($this->server(atomic: true));
+        self::assertContains('ACCESS_DENIED', $this->codes($everywhere, '/comments/{id}', 'get'), 'undeclared, every operation');
+        self::assertContains('Error403', $this->offered($everywhere, 'ErrorDocument403'));
+
+        $document = $this->project($this->server(atomic: true, server: [
+            'canDenyAccess' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => $type?->type() === 'articles' && $operation->kind === OperationKind::Delete,
+            'canRequireAuthentication' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => $type === null || $operation->method !== 'GET',
+        ]));
+        self::assertContains('ACCESS_DENIED', $this->codes($document, '/articles/{id}', 'delete'));
+        self::assertNotContains('ACCESS_DENIED', $this->codes($document, '/articles/{id}', 'get'));
+        self::assertContains('ACCESS_DENIED', $this->codes($document, '/operations', 'post'), 'a batch entry can run the delete');
+        self::assertContains('AUTHENTICATION_REQUIRED', $this->codes($document, '/comments', 'post'));
+        self::assertContains('AUTHENTICATION_REQUIRED', $this->codes($document, '/operations', 'post'));
+        self::assertNotContains('AUTHENTICATION_REQUIRED', $this->codes($document, '/comments', 'get'));
+
+        $readsOnly = $this->project($this->server(atomic: true, server: [
+            'canDenyAccess' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => $operation->kind === OperationKind::FetchOne,
+        ]));
+        self::assertContains('ACCESS_DENIED', $this->codes($readsOnly, '/comments/{id}', 'get'));
+        self::assertNotContains('ACCESS_DENIED', $this->codes($readsOnly, '/operations', 'post'), 'a batch runs no read');
+    }
+
+    #[Test]
+    public function aHandWrittenHydratorRefusesTheWrongCardinalityOnlyWhenItChecks(): void
+    {
+        $checking = FakeTypeMetadata::standalone('notes', operations: [OperationType::Create, OperationType::FetchOne]);
+        $trusting = FakeTypeMetadata::standalone('memos', operations: [OperationType::Create, OperationType::FetchOne], checksRelationshipCardinality: false);
+        $document = $this->project($this->server(extra: [$checking, $trusting]));
+
+        self::assertContains('RELATIONSHIP_TYPE_INAPPROPRIATE', $this->codes($document, '/notes', 'post'));
+        self::assertNotContains('RELATIONSHIP_TYPE_INAPPROPRIATE', $this->codes($document, '/memos', 'post'));
+    }
+
+    #[Test]
+    public function aRelationshipMutationIgnoresSortAndFilter(): void
+    {
+        $document = $this->project($this->server(articles: ['relations' => [new FakeRelationMetadata('comments', ['comments'], true)]]));
+
+        foreach (['patch', 'post', 'delete'] as $method) {
+            foreach (['SORTING_UNSUPPORTED', 'FILTERING_UNRECOGNIZED'] as $code) {
+                self::assertNotContains($code, $this->codes($document, '/articles/{id}/relationships/comments', $method), "{$code} on {$method}");
+            }
+        }
+        self::assertContains('FILTERING_UNRECOGNIZED', $this->codes($document, '/articles/{id}/relationships/comments', 'get'));
+    }
+
     /**
      * An `articles` and a `comments` type, fully writable, and a `tags` type declaring no
      * attribute when asked for; each type's named arguments override the defaults.
@@ -298,8 +558,10 @@ final class CodeErrorScopeProjectionTest extends TestCase
      * @param array<string, mixed> $articles
      * @param array<string, mixed> $comments
      * @param list<string>         $profiles
+     * @param array<string, mixed> $server   FakeServerMetadata's own named arguments
+     * @param list<FakeTypeMetadata> $extra  further types
      */
-    private function server(array $articles = [], array $comments = [], bool $atomic = false, array $profiles = [], bool $tags = false): FakeServerMetadata
+    private function server(array $articles = [], array $comments = [], bool $atomic = false, array $profiles = [], bool $tags = false, array $server = [], array $extra = []): FakeServerMetadata
     {
         $types = [
             // @phpstan-ignore argument.type (the overrides are FakeTypeMetadata::resource()'s own named arguments)
@@ -318,14 +580,17 @@ final class CodeErrorScopeProjectionTest extends TestCase
         if ($tags) {
             $types[] = FakeTypeMetadata::resource(type: 'tags', fields: [Id::make()->example('1')->build()], operations: [OperationType::Create, OperationType::FetchOne]);
         }
+        $types = [...$types, ...$extra];
 
-        return new FakeServerMetadata(
-            title: 'API',
-            version: '1.0.0',
-            types: $types,
-            atomicOperations: $atomic ? new FakeAtomicOperationsMetadata() : null,
-            profiles: $profiles,
-        );
+        // @phpstan-ignore argument.type (the overrides are FakeServerMetadata's own named arguments)
+        return new FakeServerMetadata(...[
+            'title' => 'API',
+            'version' => '1.0.0',
+            'types' => $types,
+            'atomicOperations' => $atomic ? new FakeAtomicOperationsMetadata() : null,
+            'profiles' => $profiles,
+            ...$server,
+        ]);
     }
 
     /**

@@ -263,6 +263,13 @@ The operations whose runtime can raise one of core's **Error codes**, narrowed b
 relation or action declares. Codes following one rule share error shapes only with each other.
 _Avoid_: feature scope, code scope
 
+**Coverage fact**:
+What a **Coverage rule** reads to tell whether an operation can raise a code: a predicate, encoder
+or guard core reads from the field and relation definitions, or a fact only an adapter knows,
+such as its security layer or a data-layer refusal, declared through an opt-in metadata
+interface. A fact nobody states offers the code.
+_Avoid_: coverage hint, runtime flag
+
 **Operation error document**:
 The error document one operation answers a status with when it raises codes scoped to it, named
 for its type, operation and status (`ArticlesUpdate409`) rather than for the codes it offers.

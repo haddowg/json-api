@@ -61,8 +61,9 @@ use haddowg\JsonApi\Schema\Profile\CountableProfile;
  * of core's codes follows a rule in {@see ErrorCoverage}, which names the operations whose
  * runtime can raise it, narrowed by what the type, relation or action declares:
  * `CLIENT_GENERATED_ID_NOT_SUPPORTED` on the creates of a type refusing client ids, the
- * `sort` codes on the operations that read `sort`, and so on. Where the metadata cannot
- * tell, the rule offers the code. A rule's codes form shapes of their own, so
+ * `sort` codes on the operations that read `sort`, and so on. A rule reads the facts that
+ * decide a code from the definitions or from what the adapter declares, and where neither
+ * tells, it offers the code. A rule's codes form shapes of their own, so
  * `Error400ParameterCursorMalformed` keeps its name as the operations it reaches change.
  * A rule covering every operation keeps its codes in the shared shapes, a code no
  * operation can raise is left out, and a declared scope replaces the rule. A code core

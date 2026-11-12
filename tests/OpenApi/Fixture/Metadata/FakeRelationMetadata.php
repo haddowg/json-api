@@ -24,7 +24,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership, DeclaresDroppedFilterDefaults
+final class FakeRelationMetadata implements RelationMetadataInterface, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDetachmentRefusal, \haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkageResolution, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership, DeclaresDroppedFilterDefaults
 {
     /**
      * @param list<string>          $relatedTypes
@@ -65,7 +65,19 @@ final class FakeRelationMetadata implements RelationMetadataInterface, DeclaresD
         private readonly bool $fixesMembership = false,
         private readonly bool $dropsAllFilterDefaults = false,
         private readonly array $droppedFilterDefaults = [],
+        private readonly bool $canRefuseDetachment = true,
+        private readonly bool $canMissLinkage = true,
     ) {}
+
+    public function canRefuseDetachment(): bool
+    {
+        return $this->canRefuseDetachment;
+    }
+
+    public function canMissLinkage(): bool
+    {
+        return $this->canMissLinkage;
+    }
 
     public function dropsAllFilterDefaults(): bool
     {
