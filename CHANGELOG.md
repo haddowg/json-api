@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/haddowg/json-api/compare/v2.16.0...v2.17.0) (2026-11-12)
+
+
+### Features
+
+* document relatedQuery on every operation that reads it ([#358](https://github.com/haddowg/json-api/issues/358)) ([dcde2c4](https://github.com/haddowg/json-api/commit/dcde2c4a0afa45d22c35651830b8cc2e7307f699))
+
 ## [2.16.0](https://github.com/haddowg/json-api/compare/v2.15.0...v2.16.0) (2026-11-12)
 
 
