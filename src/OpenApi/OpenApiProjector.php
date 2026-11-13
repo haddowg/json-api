@@ -106,6 +106,13 @@ final class OpenApiProjector
         // carries. Path projection reads only the metadata, so the move is free.
         $filterEnums = new EnumComponentCollector();
         $paths = $this->paths($server, $filterEnums);
+        // One `relatedQuery` parameter component per type some operation renders it for,
+        // its filters projected as the paths' are.
+        $parameters = [];
+        foreach ($this->relatedQueryTypes($server) as $rendered) {
+            $parameters[OperationProjector::relatedQueryComponentName($rendered)] = $this->operationProjector->relatedQueryParameterComponent($rendered, $server, $filterEnums);
+        }
+        \ksort($parameters);
         // An operation raising codes scoped to it answers with an error document of its
         // own, so the shared response for that status may go unreferenced.
         [$paths, $errorSets] = $this->scopeErrorResponses($server, $paths);
@@ -141,7 +148,7 @@ final class OpenApiProjector
         foreach ($server->types() as $type) {
             $this->addTypeComponents($schemas, $type, $collector, $links, $server);
         }
-        $paths = self::adoptFilterEnums($paths, $filterEnums, $collector);
+        [$paths, $parameters] = self::adoptFilterEnums($paths, $parameters, $filterEnums, $collector);
 
         // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
         // linkage-only related type need not be registered here — an identifier is
@@ -207,13 +214,6 @@ final class OpenApiProjector
             $schemas[$name] = $this->errorDocumentSchema($this->errorCatalogProjector->operationErrorsItemSchema($set['shapes']));
         }
         \ksort($schemas);
-
-        // One `relatedQuery` parameter component per type some operation renders it for.
-        $parameters = [];
-        foreach ($this->relatedQueryTypes($server) as $rendered) {
-            $parameters[OperationProjector::relatedQueryComponentName($rendered)] = $this->operationProjector->relatedQueryParameterComponent($rendered, $server);
-        }
-        \ksort($parameters);
 
         $responses = ErrorResponseProjector::components($errorStatuses, $this->errorCatalogProjector->componentsByStatus($server));
         $codesByResponse = [];
@@ -415,40 +415,45 @@ final class OpenApiProjector
     /**
      * Registers the backed enums the filter parameters declared in the document's
      * collector, so a filter and a field declaring one enum reference one component. The
-     * paths were projected before the document's component names were known, so a filter
-     * parameter's `$ref` is renamed where the document gave its enum another name.
+     * paths and the `relatedQuery` parameter components were projected before the
+     * document's component names were known, so a filter's `$ref` is renamed where the
+     * document gave its enum another name.
+     *
+     * @param array<string, Parameter> $components
+     *
+     * @return array{Paths, array<string, Parameter>}
      */
-    private static function adoptFilterEnums(Paths $paths, EnumComponentCollector $filterEnums, EnumComponentCollector $collector): Paths
+    private static function adoptFilterEnums(Paths $paths, array $components, EnumComponentCollector $filterEnums, EnumComponentCollector $collector): array
     {
-        $components = $filterEnums->components();
+        $bodies = $filterEnums->components();
         $renamed = [];
         foreach ($filterEnums->enumNames() as $class => $name) {
-            $final = $collector->register($class, $components[$name]);
+            $final = $collector->register($class, $bodies[$name]);
             if ($final !== $name) {
                 $renamed[ComponentNaming::schemaRef($name)] = ComponentNaming::schemaRef($final);
             }
         }
         if ($renamed === []) {
-            return $paths;
+            return [$paths, $components];
         }
+
+        $rename = static fn(Parameter $parameter): Parameter => $parameter->schema instanceof Schema
+            ? $parameter->withSchema(Schema::fromArray(self::renameRefs($parameter->schema->toArray(), $renamed)))
+            : $parameter;
 
         $items = [];
         foreach ($paths->items as $path => $item) {
             $operations = [];
             foreach ($item->operations as $method => $operation) {
-                $parameters = [];
-                foreach ($operation->parameters as $parameter) {
-                    $schema = $parameter instanceof Parameter ? $parameter->schema : null;
-                    $parameters[] = $schema instanceof Schema
-                        ? $parameter->withSchema(Schema::fromArray(self::renameRefs($schema->toArray(), $renamed)))
-                        : $parameter;
-                }
-                $operations[$method] = $operation->withParameters($parameters);
+                $operations[$method] = $operation->withParameters(\array_map(
+                    static fn(Parameter|Reference $parameter): Parameter|Reference => $parameter instanceof Parameter ? $rename($parameter) : $parameter,
+                    $operation->parameters,
+                ));
             }
             $items[$path] = $item->withOperations($operations);
         }
 
-        return new Paths($items);
+        return [new Paths($items), \array_map($rename, $components)];
     }
 
     /**
