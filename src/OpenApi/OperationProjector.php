@@ -145,10 +145,25 @@ final class OperationProjector
      */
     public function projectType(TypeMetadataInterface $type, ServerMetadataInterface $server, ?EnumComponentCollector $filterEnums = null): array
     {
+        return $this->withFilterEnums($filterEnums, fn(): array => $this->projectTypePaths($type, $server));
+    }
+
+    /**
+     * Runs `$projection` with `$filterEnums` taking the backed enums its filter values
+     * declare.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    private function withFilterEnums(?EnumComponentCollector $filterEnums, \Closure $projection): mixed
+    {
         $previous = $this->filterEnums;
         $this->filterEnums = $filterEnums;
         try {
-            return $this->projectTypePaths($type, $server);
+            return $projection();
         } finally {
             $this->filterEnums = $previous;
         }
@@ -2225,8 +2240,17 @@ final class OperationProjector
      * whose members are the related endpoint's `filter[<key>]` values. An entry leaves out
      * a `sort` or `filter` its relation has no vocabulary for. Only the canonical family is
      * projected: the `rQ` shorthand is an undocumented alias the canonical wins over.
+     *
+     * A `$filterEnums` collector takes the backed enums the filters' values declare, as
+     * it does for {@see projectType()}, so each `filter` member is the schema of the
+     * related endpoint's `filter[<key>]` parameter.
      */
-    public function relatedQueryParameterComponent(TypeMetadataInterface $type, ServerMetadataInterface $server): Parameter
+    public function relatedQueryParameterComponent(TypeMetadataInterface $type, ServerMetadataInterface $server, ?EnumComponentCollector $filterEnums = null): Parameter
+    {
+        return $this->withFilterEnums($filterEnums, fn(): Parameter => $this->relatedQueryParameter($type, $server));
+    }
+
+    private function relatedQueryParameter(TypeMetadataInterface $type, ServerMetadataInterface $server): Parameter
     {
         $paths = Schema::ofType('object');
         foreach (OperationFacts::relatedQueryRelations($type) as $relation) {
