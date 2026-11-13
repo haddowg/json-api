@@ -820,16 +820,20 @@ The component holds the shape: the children or members, their own rules, and the
 constraints declared on the named field itself, such as an `Obj`'s `maxProperties()` or a
 list's `maxItems()`. What belongs to one field stays on its `$ref`:
 
-- its `describedAs()`, `example()` and `deprecated()`, as siblings of the `$ref`. An
-  example wraps the `$ref` in a single-entry `allOf`, as every
-  [`$ref` with an example](openapi.md#a-ref-with-an-example-is-wrapped-in-allof) is;
+- the component's `type`, the one the shape would carry inline: `object` for an `Obj` or
+  a `Map`, `array` for an `ArrayList`, and a `Union`'s list of member types. A `OneOf`, and
+  a `Union` that projects a `oneOf`, have no single type, so their references carry none.
+  The `type` wraps the `$ref` in a single-entry `allOf`, as every
+  [`$ref` with a type or an example](openapi.md#a-ref-with-a-type-or-an-example-is-wrapped-in-allof) is,
+  so moving a field to or from `component()` leaves its `type` in place;
+- its `describedAs()`, `example()` and `deprecated()`, as siblings of the `$ref`;
 - the non-empty half of its `required()`, such as `minLength: 1` beside the `$ref` of a
   required union with a string member, while its presence goes in the parent's `required`
   as usual;
 - its `null`. A field that admits `null` projects as
-  `{"anyOf": [{"$ref": "#/components/schemas/<Name>"}, {"type": "null"}]}`, the form a
-  nullable hoisted enum takes, and the component never admits `null` itself. So one field
-  can be nullable and another not while both share the component.
+  `{"type": ["object", "null"], "anyOf": [{"$ref": "#/components/schemas/<Name>"}, {"type": "null"}]}`,
+  the form a nullable hoisted enum takes, and the component never admits `null` itself. So
+  one field can be nullable and another not while both share the component.
 
 A shape can differ between a response, a create and an update: a read-only or write-only
 member, a member required only on create, a constraint scoped to one context, or an

@@ -578,8 +578,8 @@ declare it, since its cases have no value a request could carry.
 The filter still compares the backing value, never the case, which Doctrine and
 Eloquent both bind against an enum column, so `enum()` only validates and documents. In
 the OpenAPI document the parameter's value, or each item of a list parameter, is a `$ref`
-to the enum's [component](openapi.md#backed-enums-x-enum-varnames--x-enum-descriptions),
-the same one a field declaring the enum references, so a client generator types the
+to the enum's [component](openapi.md#backed-enums-x-enum-varnames--x-enum-descriptions)
+with the enum's backing type beside it, the same one a field declaring the enum references, so a client generator types the
 filter and the field with one enum. The `filter` parameter of a family keeps describing
 its members as strings, since its members are resolved per request.
 

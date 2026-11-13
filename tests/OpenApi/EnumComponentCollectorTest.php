@@ -91,8 +91,7 @@ final class EnumComponentCollectorTest extends TestCase
 
         $schema = (new SchemaProjector())->projectField($field, false, $collector)->toArray();
 
-        self::assertSame('#/components/schemas/Status', $schema['$ref']);
-        self::assertArrayNotHasKey('enum', $schema);
+        self::assertSame(['type' => 'string', 'allOf' => [['$ref' => '#/components/schemas/Status']]], $schema);
 
         // The hoisted component carries the enum + var-names + table-in-description.
         $component = $collector->components()['Status']->toArray();

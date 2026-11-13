@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 37;
+    public const CONTRACT = 38;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -120,9 +120,12 @@ final class GeneratorContract
      * Contract 37 did again, documenting `relatedQuery` on every operation rendering
      * resources of one type that has a relation to address, through one parameter component
      * per type listing those relations and each one's sort and filter vocabulary, so the
-     * shared `relatedQuery` component is gone.
+     * shared `relatedQuery` component is gone. Contract 38 did again, giving every field-level
+     * reference to a backed enum or a named shape, and every raw body reference, the
+     * referenced schema's `type` beside it, with a `null` added where the use is nullable, so
+     * the reference carries the `type` the inline schema would.
      */
-    public const BASELINE = 37;
+    public const BASELINE = 38;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

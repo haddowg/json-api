@@ -22,6 +22,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresNamedOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExtensions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresWriteOnlyRelation;
+use haddowg\JsonApi\OpenApi\Metadata\DescribesRawBody;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
@@ -1128,7 +1129,7 @@ final class OperationProjector
             $schema = match (true) {
                 $accepted->document => $this->actionDocumentSchema($action, $server),
                 $accepted->binary => Schema::ofType('string')->withFormat('binary'),
-                \is_string($accepted->schema) => Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($accepted->schema))),
+                \is_string($accepted->schema) => self::rawBodyReference($accepted->schema),
                 \is_array($accepted->schema) => Schema::fromArray($accepted->schema),
                 default => self::defaultAcceptedSchema($accepted->essence()),
             };
@@ -1224,6 +1225,18 @@ final class OperationProjector
     }
 
     /**
+     * A `$ref` to the component {@see OpenApiProjector} emits for a raw body class,
+     * carrying the `type` its schema declares, as the schema would inline.
+     *
+     * @param class-string<DescribesRawBody> $class
+     */
+    private static function rawBodyReference(string $class): Schema
+    {
+        return Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($class)))
+            ->withTypeOf(Schema::fromArray($class::jsonSchema()));
+    }
+
+    /**
      * Adds one {@see RawResult} to the success response at its status: its media type
      * joins the `content` map beside any JSON:API body, with its schema and example, and
      * its headers join the response's. A schema class is a `$ref` to the component
@@ -1233,7 +1246,7 @@ final class OperationProjector
     {
         $schema = match (true) {
             $raw->binary => Schema::ofType('string')->withFormat('binary'),
-            \is_string($raw->schema) => Schema::ref(ComponentNaming::schemaRef(ComponentNaming::rawBody($raw->schema))),
+            \is_string($raw->schema) => self::rawBodyReference($raw->schema),
             \is_array($raw->schema) => Schema::fromArray($raw->schema),
             default => null,
         };

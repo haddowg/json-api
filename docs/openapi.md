@@ -181,7 +181,9 @@ sketch:
   `<Type>Attributes` follows; one that doesn't shares the bare name. Each use keeps its
   description, deprecation, example and the non-empty keyword of its `required()` beside
   the `$ref`, and a use that admits `null` is the `anyOf` of the `$ref` and
-  `{"type": "null"}`, so the component itself never admits `null`. Two fields claiming one
+  `{"type": "null"}`, so the component itself never admits `null`. Each use also carries
+  the component's `type`, with `null` added when it admits `null`, exactly as the inline
+  shape would (see [typed references](#a-reference-carries-its-components-type)). Two fields claiming one
   name with different shapes, or a name the document already generates, fail the
   projection. A document holding a named shape declares the `NAMED_COMPONENTS` contract
   tier in its [`x-generator`](#the-generator-contract-x-generator) stamp.
@@ -331,7 +333,7 @@ sketch:
   declares [`guaranteed()`](fields.md#null-on-read-guaranteed). A read-only field and an
   [`on()`](fields.md#flattened-related-attributes-on) value admit `null` until asserted. A
   nullable enum adds `null` to its `enum` list, or unions its `$ref` with `{"type":
-  "null"}`; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
+  "null"}` and adds `null` to the `type` beside it; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
   same rule, and the resource `id` is never null. So a client can trust a read type
   without `null`: that member always carries a value.
 - **Presence is a separate promise.** The read shape's `required` lists every attribute a
@@ -929,18 +931,48 @@ strings) and `meta`. A server that [opts out](links-and-meta.md#built-links-are-
 to strings gets no `RenderedLink`; its members point at `LinkObject`, which then carries the
 note about absolute `href`s, and the links in its operation examples are plain strings.
 
-#### A `$ref` with an example is wrapped in `allOf`
+#### A `$ref` with a type or an example is wrapped in `allOf`
 
-Wherever a schema `$ref`s a component and also carries `examples` or a `default`, the
-document writes the `$ref` as the single entry of an `allOf`, with the other keywords beside
-it: `{"description": …, "allOf": [{"$ref": …}], "examples": […]}`. OAS
-3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
-example sampler among them, ignore them and would show a sample of the bare component
-instead. Today that covers an attribute, or a declared link's `meta` member, whose enum is
-a named component when the field declares an example, and a field using a
-[named shape](field-types.md#sharing-a-shape-component) that declares one. A `$ref` with no such sibling is
-written plainly. A code generator should read a single-entry `allOf` holding only a `$ref`
-as that `$ref`.
+Wherever a schema `$ref`s a component and also carries `type`, `examples` or a `default`,
+the document writes the `$ref` as the single entry of an `allOf`, with the other keywords
+beside it: `{"type": "string", "description": …, "allOf": [{"$ref": …}], "examples": […]}`.
+OAS 3.1 allows siblings next to a `$ref`, but tools that read OAS 3.0 semantics, ReDoc's
+example sampler and oasdiff among them, ignore them, so they would never see the type or
+the example. Every typed reference below is written this way, as is any other `$ref` with
+an example or a default. A `$ref` with no such sibling is written plainly. A code generator
+should read a single-entry `allOf` holding only a `$ref` as that `$ref`.
+
+#### A reference carries its component's type
+
+A field whose value is a component, a [backed enum](#backed-enums-x-enum-varnames--x-enum-descriptions)
+or a [named shape](field-types.md#sharing-a-shape-component), carries that component's JSON
+`type` beside its `$ref`, the `type` the field would carry inline. So moving a field between
+an inline enum and an enum component, or between an inline shape and `component()`, leaves
+its `type` where a diff tool or a generator reads it, and only the `allOf` wrapper differs:
+
+- a string-backed enum is `{"type": "string", "allOf": [{"$ref": "#/components/schemas/Status"}]}`,
+  an int-backed one `integer`;
+- a named object or map is `object`, a named list `array`, and a named union the list of its
+  members' types, such as `["string", "number", "boolean"]`;
+- a use that admits `null` keeps its `anyOf` of the `$ref` and `{"type": "null"}` and adds
+  `null` to the type beside it, `{"type": ["string", "null"], "anyOf": [{"$ref": …}, {"type": "null"}]}`.
+  The `$ref` inside the `anyOf` stays bare.
+
+The same holds wherever such a reference sits: an attribute, a nested child, a list's items
+and `each()` items, a union member declared with `enum()`, a pivot or identifier `meta`
+field, a declared link's `meta`, a `filter[<key>]` value or list item, and an action's
+raw request or response body declared with a `DescribesRawBody` class
+([raw action responses](#raw-action-responses)), which takes the top-level `type` of its
+`jsonSchema()`. The `type` restates the component's, so nothing
+validates differently, and a reference gains no `minLength` from `required()` that the
+component does not have.
+
+A reference whose component has no single type carries none, as the inline form has none:
+a named `OneOf`, whose variants sit in a `oneOf`, and a named `Union` that projects a
+`oneOf` because a member carries an enum or another keyword not scoped to its type. A
+reference to a raw body schema with no top-level `type` carries none either. The `$ref`s
+core uses for its own document structure, the resource objects, documents, identifiers,
+relationships, links, meta, errors and responses, never carry a `type`.
 
 ### Operation examples
 
@@ -1301,7 +1333,7 @@ $responds = [
 
 `schema` is an inline JSON Schema array, or the class name of a `DescribesRawBody`, whose
 static `jsonSchema()` the projector emits once as `#/components/schemas/<ShortClassName>`
-and `$ref`s from each use. A class whose short name another component already holds is
+and `$ref`s from each use, with the schema's top-level `type` beside the `$ref`. A class whose short name another component already holds is
 refused. `binary: true` projects `{type: string, format: binary}`. `headers` maps a header
 name to its description, or to a `Header` object, and joins the response's headers.
 `example` becomes the media type's example. Each media type lands under the status's
@@ -1709,7 +1741,9 @@ A `$ref` that carries an `example` or `default` is written as a single-entry `al
 holding the `$ref`, with the example beside it. That means the same schema, but
 `oasdiff breaking` compares the `allOf` wrapper with a bare `$ref` and reports false
 "required property removed" findings against a document from an older release. Pass
-`--flatten-allof` so oasdiff merges each `allOf` before comparing:
+`--flatten-allof` so oasdiff merges each `allOf` before comparing. A field moving between an
+inline enum or shape and a component then compares as the same `type`, since the
+[reference carries it](#a-reference-carries-its-components-type):
 
 ```bash
 oasdiff breaking --flatten-allof old.json new.json
@@ -1722,8 +1756,10 @@ class-string, e.g. the `enum()` field builder), the projected `enum` schema is h
 into a **reusable named component** (`#/components/schemas/<Enum>`) and `$ref`'d — so the
 same enum shared by several fields is one component, not a repeated inline list. A
 filter declared with [`enum()`](filters.md#backed-enums) references the same component
-from its `filter[<key>]` value, or from each item of a list filter's value. That
-component carries:
+from its `filter[<key>]` value, or from each item of a list filter's value. Each reference
+carries the enum's backing type, `string` or `integer`, beside the `$ref`, with `null`
+added for a nullable field, so a field reads the same `type` inline and hoisted
+([typed references](#a-reference-carries-its-components-type)). That component carries:
 
 - **`x-enum-varnames`** — the enum **case names**, aligned to the `enum` values, so a code
   generator can emit a typed enum with meaningful member names rather than raw values.

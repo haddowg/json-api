@@ -231,7 +231,7 @@ final class ReadNullabilityProjectionTest extends TestCase
         $collector = new EnumComponentCollector();
         $hoisted = $this->read([Str::make('status')->enum(Status::class)->build()], $collector);
         self::assertSame(
-            ['anyOf' => [['$ref' => '#/components/schemas/Status'], ['type' => 'null']]],
+            ['type' => ['string', 'null'], 'anyOf' => [['$ref' => '#/components/schemas/Status'], ['type' => 'null']]],
             self::at($hoisted, 'properties', 'status'),
         );
     }

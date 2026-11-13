@@ -196,7 +196,8 @@ final class SchemaProjector
 
     /**
      * Projects a named shape's read, create and update bodies with `$shape` and returns
-     * the `$ref` to the one for the representation being projected, with that body.
+     * the `$ref` to the one for the representation being projected, with that body. The
+     * `$ref` carries the body's `type`, the one the shape would carry inline.
      *
      * @param \Closure(bool): Schema $shape the body for a create (`true`) or another representation
      *
@@ -215,7 +216,7 @@ final class SchemaProjector
             default => [RepresentationContext::Update, 'update'],
         };
 
-        return [$collector->referenceShape($name, $field, $bodies, $context), $bodies[$key]];
+        return [$collector->referenceShape($name, $field, $bodies, $context)->withTypeOf($bodies[$key]), $bodies[$key]];
     }
 
     /**
@@ -929,7 +930,11 @@ final class SchemaProjector
 
         $name = $collector->register($enumClass, $body);
 
-        return $collector->reference($name);
+        // The backing type the inline form carries, so swapping between the two forms
+        // keeps the field's `type`.
+        $backing = (string) (new \ReflectionEnum($enumClass))->getBackingType();
+
+        return $collector->reference($name)->withType($backing === 'int' ? 'integer' : 'string');
     }
 
     /**
@@ -1232,11 +1237,14 @@ final class SchemaProjector
      */
     private function admitNull(Schema $schema): Schema
     {
-        // A hoisted backed-enum field is a bare `$ref` with no scalar `type` to
-        // widen; the OAS-3.1 way to make a referenced schema nullable is to
-        // union it with the null type.
+        // A `$ref` can't widen the referenced schema, so the OAS-3.1 way to make it
+        // nullable is to union it with the null type. The `type` it carries moves out
+        // to the union, widened the same way.
         if (\is_string($schema->get('$ref'))) {
-            return Schema::create()->withAnyOf([$schema, Schema::ofType('null')]);
+            return Schema::create()
+                ->withTypeOf($schema)
+                ->asNullable()
+                ->withAnyOf([$schema->without('type'), Schema::ofType('null')]);
         }
 
         if ($schema->hasScalarType()) {
@@ -1494,14 +1502,16 @@ final class SchemaProjector
         // A union's value is non-empty only when its string or list member takes it: each
         // keyword is scoped to one type, so the compact schema carries both, and a `oneOf`
         // puts each on its own branch.
+        // A reference's `type` only restates its component's, which already decides
+        // whether the value can be empty.
         if (!$field instanceof Union) {
-            return $this->nonEmptyOf($schema, $schema->get('type'));
+            return \is_string($schema->get('$ref')) ? $schema : $this->nonEmptyOf($schema, $schema->get('type'));
         }
 
         $branches = $schema->get('oneOf');
         if (\is_array($branches)) {
             /** @var list<Schema> $branches */
-            return $schema->withOneOf(\array_map(fn(Schema $branch): Schema => $this->nonEmptyOf($branch, $branch->get('type')), $branches));
+            return $schema->withOneOf(\array_map(fn(Schema $branch): Schema => \is_string($branch->get('$ref')) ? $branch : $this->nonEmptyOf($branch, $branch->get('type')), $branches));
         }
 
         $types = $schema->get('type');
@@ -1538,7 +1548,7 @@ final class SchemaProjector
             $types = \is_array($types[0]) ? $types[0] : [];
             $branches = $body->get('oneOf');
             foreach (\is_array($branches) ? $branches : [] as $branch) {
-                if ($branch instanceof Schema) {
+                if ($branch instanceof Schema && !\is_string($branch->get('$ref'))) {
                     $types[] = $branch->get('type');
                 }
             }
