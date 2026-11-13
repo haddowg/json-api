@@ -40,6 +40,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(GeneratorContract::class)]
 final class NamedComponentProjectionTest extends TestCase
 {
+    private const array SCALARS = ['string', 'number', 'boolean'];
+
     #[Test]
     public function aShapeSharedByTwoFieldsIsOneComponent(): void
     {
@@ -52,12 +54,12 @@ final class NamedComponentProjectionTest extends TestCase
         self::assertArrayNotHasKey('PlaceholderValueCreate', $this->components($document));
         self::assertArrayNotHasKey('PlaceholderValueUpdate', $this->components($document));
         foreach (['CreateAttributes', 'UpdateAttributes'] as $suffix) {
-            self::assertSame(['$ref' => '#/components/schemas/PlaceholderValue'], $this->property($document, 'Articles' . $suffix, 'first'));
-            self::assertSame(['$ref' => '#/components/schemas/PlaceholderValue'], $this->property($document, 'Articles' . $suffix, 'second'));
+            self::assertSame(self::reference(self::SCALARS, 'PlaceholderValue'), $this->property($document, 'Articles' . $suffix, 'first'));
+            self::assertSame(self::reference(self::SCALARS, 'PlaceholderValue'), $this->property($document, 'Articles' . $suffix, 'second'));
         }
         // A response can render null for a value no create had to supply.
         self::assertSame(
-            ['anyOf' => [['$ref' => '#/components/schemas/PlaceholderValue'], ['type' => 'null']]],
+            self::nullableReference(self::SCALARS, 'PlaceholderValue'),
             $this->property($document, 'ArticlesAttributes', 'first'),
         );
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::NAMED_COMPONENTS)], self::at($document, 'info', 'x-generator'));
@@ -72,13 +74,14 @@ final class NamedComponentProjectionTest extends TestCase
         ]);
 
         self::assertSame([
-            '$ref' => '#/components/schemas/PlaceholderValue',
+            'type' => self::SCALARS,
             'description' => 'The first value.',
             'deprecated' => true,
             'minLength' => 1,
+            'allOf' => [['$ref' => '#/components/schemas/PlaceholderValue']],
         ], $this->property($document, 'ArticlesCreateAttributes', 'first'));
         self::assertSame(
-            ['anyOf' => [['$ref' => '#/components/schemas/PlaceholderValue'], ['type' => 'null']]],
+            self::nullableReference(self::SCALARS, 'PlaceholderValue'),
             $this->property($document, 'ArticlesUpdateAttributes', 'second'),
         );
         self::assertSame(['type' => ['string', 'number', 'boolean'], 'maxLength' => 200], $this->component($document, 'PlaceholderValue'));
@@ -90,7 +93,7 @@ final class NamedComponentProjectionTest extends TestCase
         $document = $this->project([self::placeholder('first')->example('hello')->build()]);
 
         self::assertSame(
-            ['allOf' => [['$ref' => '#/components/schemas/PlaceholderValue']], 'examples' => ['hello']],
+            ['type' => self::SCALARS, 'allOf' => [['$ref' => '#/components/schemas/PlaceholderValue']], 'examples' => ['hello']],
             $this->property($document, 'ArticlesCreateAttributes', 'first'),
         );
     }
@@ -109,8 +112,8 @@ final class NamedComponentProjectionTest extends TestCase
         self::assertSame(['name'], \array_keys(self::properties($this->component($document, 'ReviewerUpdate'))));
         self::assertArrayNotHasKey('required', $this->component($document, 'ReviewerUpdate'));
 
-        self::assertSame(['$ref' => '#/components/schemas/ReviewerCreate'], $this->property($document, 'ArticlesCreateAttributes', 'approvedBy'));
-        self::assertSame(['$ref' => '#/components/schemas/ReviewerUpdate'], $this->property($document, 'ArticlesUpdateAttributes', 'approvedBy'));
+        self::assertSame(self::reference('object', 'ReviewerCreate'), $this->property($document, 'ArticlesCreateAttributes', 'approvedBy'));
+        self::assertSame(self::reference('object', 'ReviewerUpdate'), $this->property($document, 'ArticlesUpdateAttributes', 'approvedBy'));
     }
 
     #[Test]
@@ -122,8 +125,8 @@ final class NamedComponentProjectionTest extends TestCase
 
         self::assertArrayNotHasKey('AddressCreate', $this->components($document));
         self::assertArrayHasKey('AddressUpdate', $this->components($document));
-        self::assertSame(['$ref' => '#/components/schemas/Address'], $this->property($document, 'ArticlesCreateAttributes', 'address'));
-        self::assertSame(['$ref' => '#/components/schemas/AddressUpdate'], $this->property($document, 'ArticlesUpdateAttributes', 'address'));
+        self::assertSame(self::reference('object', 'Address'), $this->property($document, 'ArticlesCreateAttributes', 'address'));
+        self::assertSame(self::reference('object', 'AddressUpdate'), $this->property($document, 'ArticlesUpdateAttributes', 'address'));
     }
 
     #[Test]
@@ -145,12 +148,12 @@ final class NamedComponentProjectionTest extends TestCase
             Union::make('one')->of(Str::make(), Decimal::make(), Boolean::make())->component('Scalar')->build(),
         ]);
 
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Scalar']], $this->property($document, 'ArticlesCreateAttributes', 'values'));
-        self::assertSame(['$ref' => '#/components/schemas/Scalar'], $this->property($document, 'ArticlesCreateAttributes', 'one'));
+        self::assertSame(['type' => 'array', 'items' => self::reference(self::SCALARS, 'Scalar')], $this->property($document, 'ArticlesCreateAttributes', 'values'));
+        self::assertSame(self::reference(self::SCALARS, 'Scalar'), $this->property($document, 'ArticlesCreateAttributes', 'one'));
         self::assertSame(['type' => ['string', 'number', 'boolean']], $this->component($document, 'Scalar'));
         // A list's element is written whole, so its update requires what an update requires.
         self::assertSame(['key'], $this->component($document, 'Entry')['required']);
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Entry']], $this->property($document, 'ArticlesUpdateAttributes', 'entries'));
+        self::assertSame(['type' => 'array', 'items' => self::reference('object', 'Entry')], $this->property($document, 'ArticlesUpdateAttributes', 'entries'));
     }
 
     #[Test]
@@ -166,11 +169,13 @@ final class NamedComponentProjectionTest extends TestCase
             ArrayList::make('tags')->of('string')->maxItems(5)->component('TagList')->build(),
         ]);
 
+        // A OneOf has no single type, inline or named, so its reference carries none.
         self::assertSame(['$ref' => '#/components/schemas/ShapeCreate'], $this->property($document, 'ArticlesCreateAttributes', 'shape'));
+        self::assertSame(self::reference('array', 'TagList'), $this->property($document, 'ArticlesCreateAttributes', 'tags'));
         self::assertSame(['type' => 'array', 'maxItems' => 5, 'items' => ['type' => 'string']], $this->component($document, 'TagList'));
         $line = self::at($this->component($document, 'ShapeCreate'), 'oneOf', 1, 'properties');
-        self::assertSame(['$ref' => '#/components/schemas/Point', 'minProperties' => 1], self::at($line, 'to'));
-        self::assertSame(['$ref' => '#/components/schemas/Point'], self::at($line, 'point'));
+        self::assertSame(['type' => 'object', 'minProperties' => 1, 'allOf' => [['$ref' => '#/components/schemas/Point']]], self::at($line, 'to'));
+        self::assertSame(self::reference('object', 'Point'), self::at($line, 'point'));
         // Inside a union written whole an update requires what a response renders.
         self::assertSame(['x', 'y'], $this->component($document, 'Point')['required']);
         self::assertArrayNotHasKey('PointUpdate', $this->components($document));
@@ -211,7 +216,7 @@ final class NamedComponentProjectionTest extends TestCase
 
         self::assertSame(['name', 'reviewedAt'], $this->component($document, 'Reviewer')['required']);
         // The hook's non-null return type guarantees a value, so the use admits no null.
-        self::assertSame(['$ref' => '#/components/schemas/Reviewer'], $this->property($document, 'ArticlesAttributes', 'approvedBy'));
+        self::assertSame(self::reference('object', 'Reviewer'), $this->property($document, 'ArticlesAttributes', 'approvedBy'));
     }
 
     #[Test]
@@ -281,6 +286,26 @@ final class NamedComponentProjectionTest extends TestCase
                 $projector->projectAttributes([$named], $context)->toArray(),
             );
         }
+    }
+
+    /**
+     * @param string|list<string> $type
+     *
+     * @return array<string, mixed>
+     */
+    private static function reference(string|array $type, string $component): array
+    {
+        return ['type' => $type, 'allOf' => [['$ref' => '#/components/schemas/' . $component]]];
+    }
+
+    /**
+     * @param string|list<string> $type
+     *
+     * @return array<string, mixed>
+     */
+    private static function nullableReference(string|array $type, string $component): array
+    {
+        return ['type' => [...(array) $type, 'null'], 'anyOf' => [['$ref' => '#/components/schemas/' . $component], ['type' => 'null']]];
     }
 
     private static function placeholder(string $name): UnionBuilder

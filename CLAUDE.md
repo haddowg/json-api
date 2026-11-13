@@ -484,6 +484,10 @@ Settled rules a change here must not quietly reopen. Each has an ADR:
   `<Name>Update` only where a write differs from the read. A clashing or reused-but-different
   name throws; never rename it
   ([ADR 0111](docs/adr/0111-a-named-shape-is-one-component-per-differing-representation-and-each-use-keeps-its-own-null.md)).
+  Every field-level reference to it, or to a hoisted enum or a raw body class, carries the
+  `type` the inline form would, with the `$ref` inside a single-entry `allOf`; never type
+  core's structural `$ref`s
+  ([ADR 0127](docs/adr/0127-a-reference-to-a-named-value-shape-carries-its-type-inside-an-allof.md)).
 
 ### Testing utilities & escape hatches
 `src/Testing` → [testing](docs/testing.md). Shipped in the package autoload (**not**

@@ -41,7 +41,7 @@ final class AcceptedBodyProjectionTest extends TestCase
                 'image/*' => ['schema' => ['type' => 'string', 'format' => 'binary']],
                 'multipart/form-data' => ['schema' => ['type' => 'object']],
                 'application/octet-stream' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-                'application/json' => ['schema' => ['$ref' => '#/components/schemas/ArticleImportRow']],
+                'application/json' => ['schema' => ['type' => 'array', 'allOf' => [['$ref' => '#/components/schemas/ArticleImportRow']]]],
             ],
             'required' => false,
         ], $body);

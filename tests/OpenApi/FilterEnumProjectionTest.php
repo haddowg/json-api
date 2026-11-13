@@ -37,12 +37,14 @@ final class FilterEnumProjectionTest extends TestCase
 {
     private const string STATUS = '#/components/schemas/Status';
 
+    private const array STATUS_REF = ['type' => 'string', 'allOf' => [['$ref' => self::STATUS]]];
+
     #[Test]
     public function aScalarFilterReferencesTheComponentItsFieldReferences(): void
     {
         $document = $this->document([Where::make('status')->enum(Status::class)->build()]);
 
-        self::assertSame(['$ref' => self::STATUS], $this->schemaOf($document, 'filter[status]'));
+        self::assertSame(self::STATUS_REF, $this->schemaOf($document, 'filter[status]'));
         self::assertStringContainsString('"$ref":"' . \str_replace('/', '\\/', self::STATUS) . '"', \json_encode(self::node($document, 'components', 'schemas', 'WidgetsAttributes', 'properties', 'status'), \JSON_THROW_ON_ERROR));
 
         $component = self::node($document, 'components', 'schemas', 'Status');
@@ -59,22 +61,24 @@ final class FilterEnumProjectionTest extends TestCase
             WhereNotIn::make('notStatus', 'status')->enum(Status::class)->build(),
         ]);
 
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => self::STATUS]], $this->schemaOf($document, 'filter[status]'));
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => self::STATUS]], $this->schemaOf($document, 'filter[status][]'));
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => self::STATUS]], $this->schemaOf($document, 'filter[notStatus]'));
+        self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[status]'));
+        self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[status][]'));
+        self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[notStatus]'));
     }
 
     #[Test]
-    public function anEnumReferenceTakesNoSiblingStringType(): void
+    public function anEnumReferenceTakesItsBackingTypeAndNotOneAPatternImplies(): void
     {
         $document = $this->document([
             Where::make('status')->pattern('^[a-z]+$')->enum(Status::class)->build(),
             WhereIn::make('statuses', 'status')->enum(Status::class)->pattern('^[a-z]+$')->acceptsList()->build(),
+            WhereIn::make('ranks', 'priority')->enum(Priority::class)->acceptsList()->build(),
         ]);
 
-        self::assertSame(['$ref' => self::STATUS], $this->schemaOf($document, 'filter[status]'));
-        // A pattern declared after the enum stays beside the reference, still with no type.
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => self::STATUS, 'pattern' => '^[a-z]+$']], $this->schemaOf($document, 'filter[statuses][]'));
+        self::assertSame(self::STATUS_REF, $this->schemaOf($document, 'filter[status]'));
+        // A pattern declared after the enum stays beside the reference, whose type is the enum's.
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^[a-z]+$', 'allOf' => [['$ref' => self::STATUS]]]], $this->schemaOf($document, 'filter[statuses][]'));
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'integer', 'allOf' => [['$ref' => '#/components/schemas/Priority']]]], $this->schemaOf($document, 'filter[ranks][]'));
     }
 
     #[Test]
@@ -85,8 +89,8 @@ final class FilterEnumProjectionTest extends TestCase
             WhereThroughIn::make('ownerStatuses', 'owner.status')->enum(Status::class)->acceptsList(delimited: false)->build(),
         ]);
 
-        self::assertSame(['$ref' => self::STATUS], $this->schemaOf($document, 'filter[ownerStatus]'));
-        self::assertSame(['type' => 'array', 'items' => ['$ref' => self::STATUS]], $this->schemaOf($document, 'filter[ownerStatuses][]'));
+        self::assertSame(self::STATUS_REF, $this->schemaOf($document, 'filter[ownerStatus]'));
+        self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[ownerStatuses][]'));
     }
 
     #[Test]
@@ -97,7 +101,7 @@ final class FilterEnumProjectionTest extends TestCase
             WhereIn::make('priorities', 'priority')->enum(Priority::class)->build(),
         ]);
 
-        self::assertSame(['$ref' => '#/components/schemas/Priority'], $this->schemaOf($document, 'filter[priority]'));
+        self::assertSame(['type' => 'integer', 'allOf' => [['$ref' => '#/components/schemas/Priority']]], $this->schemaOf($document, 'filter[priority]'));
         self::assertSame(['enum' => [1, 2], 'x-enum-varnames' => ['Low', 'High']], self::node($document, 'components', 'schemas', 'Priority'));
     }
 
@@ -106,7 +110,7 @@ final class FilterEnumProjectionTest extends TestCase
     {
         $document = $this->document([Where::make('kind')->enum(Meta::class)->build()]);
 
-        self::assertSame(['$ref' => '#/components/schemas/Meta2'], $this->schemaOf($document, 'filter[kind]'));
+        self::assertSame(['type' => 'string', 'allOf' => [['$ref' => '#/components/schemas/Meta2']]], $this->schemaOf($document, 'filter[kind]'));
         self::assertSame(['a', 'b'], self::node($document, 'components', 'schemas', 'Meta2', 'enum'));
         self::assertArrayNotHasKey('enum', self::node($document, 'components', 'schemas', 'Meta'));
     }

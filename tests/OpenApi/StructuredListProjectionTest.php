@@ -151,7 +151,7 @@ final class StructuredListProjectionTest extends TestCase
 
         $schema = (new SchemaProjector())->projectField($field, true, $collector)->toArray();
 
-        self::assertSame(['$ref' => '#/components/schemas/Status'], self::at($schema, 'items', 'properties', 'status'));
+        self::assertSame(['type' => 'string', 'allOf' => [['$ref' => '#/components/schemas/Status']]], self::at($schema, 'items', 'properties', 'status'));
         self::assertArrayHasKey('Status', $collector->components());
     }
 

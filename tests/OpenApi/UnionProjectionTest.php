@@ -116,7 +116,7 @@ final class UnionProjectionTest extends TestCase
 
         $collector = new EnumComponentCollector();
         $schema = (new SchemaProjector())->projectField($hoisted, true, $collector)->toArray();
-        self::assertSame(['oneOf' => [['$ref' => '#/components/schemas/UnionProjectionStatus'], ['type' => 'boolean']]], $schema);
+        self::assertSame(['oneOf' => [['type' => 'string', 'allOf' => [['$ref' => '#/components/schemas/UnionProjectionStatus']]], ['type' => 'boolean']]], $schema);
     }
 
     #[Test]

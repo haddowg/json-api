@@ -38,6 +38,7 @@ use haddowg\JsonApi\Pagination\CursorPaginator;
 use haddowg\JsonApi\Pagination\MultiPaginator;
 use haddowg\JsonApi\Pagination\PagePaginator;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
@@ -350,6 +351,7 @@ final class ContractWitnessServer
                 })->build(),
                 Ip::make('originIp')->build(),
                 ArrayList::make('keywords')->minItems(1)->maxItems(10)->uniqueItems()->build(),
+                ArrayList::make('priorities')->of('integer')->each(new In(\array_map(static fn(Priority $case): int => $case->value, Priority::cases()), enumClass: Priority::class))->build(),
                 ArrayHash::make('analytics')->nullable()->build(),
                 Map::make('address')->fields(
                     Str::make('street')->required()->build(),
@@ -424,6 +426,7 @@ final class ContractWitnessServer
                         ArrayList::make()->of(Union::of(Str::make(), Decimal::make(), Boolean::make())),
                     )->nullable()->build(),
                     Union::make('threshold')->of(Str::make()->in(['auto', 'off']), Integer::make()->min(0))->build(),
+                    Union::make('level')->of(Str::make()->enum(Status::class), Integer::make()->min(0))->build(),
                 ] : []),
                 // Shapes declared once and shared as named components: a union both fields
                 // reference, and an object whose read-only member makes its write shapes
@@ -433,6 +436,15 @@ final class ContractWitnessServer
                     self::placeholderValue('fallbackValue')->nullable()->build(),
                     self::reviewer('reviewedBy')->describedAs('Who reviewed the article.')->build(),
                     self::reviewer('approvedBy')->nullable()->deprecated()->build(),
+                    // A named list, and a named union of objects, which has no single type.
+                    ArrayList::make('aliases')->maxItems(5)->component('Aliases')->build(),
+                    ArrayList::make('formerAliases')->maxItems(5)->component('Aliases')->nullable()->build(),
+                    OneOf::make('placement')
+                        ->discriminator('kind')
+                        ->variant('inline')
+                        ->variant('sidebar', Obj::make('position')->fields(Integer::make('order')->guaranteed()))
+                        ->component('Placement')
+                        ->build(),
                 ] : []),
             ],
             relations: [

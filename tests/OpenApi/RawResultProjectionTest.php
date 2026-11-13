@@ -37,7 +37,7 @@ final class RawResultProjectionTest extends TestCase
         self::assertSame(['type' => 'string', 'x-delimiter' => ','], self::at($document, ...$responses, ...['200', 'content', 'text/csv', 'schema']));
         self::assertSame("a,b\n", self::at($document, ...$responses, ...['200', 'content', 'text/csv', 'example']));
         self::assertSame(
-            ['schema' => ['$ref' => '#/components/schemas/ArticleSummary']],
+            ['schema' => ['type' => 'object', 'allOf' => [['$ref' => '#/components/schemas/ArticleSummary']]]],
             self::at($document, ...$responses, ...['201', 'content', 'application/json']),
         );
         self::assertSame(ArticleSummary::jsonSchema(), self::at($document, 'components', 'schemas', 'ArticleSummary'));

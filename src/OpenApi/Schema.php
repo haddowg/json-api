@@ -128,6 +128,23 @@ final class Schema implements \JsonSerializable
     }
 
     /**
+     * Sets `type` to the one `$schema` declares, a single type or a list. A no-op when
+     * `$schema` declares none.
+     */
+    public function withTypeOf(self $schema): self
+    {
+        $type = $schema->keywords['type'] ?? null;
+        if (!\is_string($type) && !\is_array($type)) {
+            return $this;
+        }
+
+        $self = clone $this;
+        $self->keywords['type'] = $type;
+
+        return $self;
+    }
+
+    /**
      * Widens an existing `type` to also allow `null`, appending it to a list of types.
      * A no-op when the type already admits `null` or is unset.
      */
@@ -559,15 +576,18 @@ final class Schema implements \JsonSerializable
     }
 
     /**
-     * The node as it is written out. A `$ref` that carries `examples` or `default` moves
-     * into a single-entry `allOf` with every other keyword beside it, because OAS 3.0 tooling (ReDoc's sampler among it) ignores a `$ref`'s siblings and
-     * would never show them. A `$ref` with no such sibling is written as it is.
+     * The node as it is written out. A `$ref` that carries `type`, `examples` or `default`
+     * moves into a single-entry `allOf` with every other keyword beside it, because OAS 3.0
+     * tooling (ReDoc's sampler and the diff tools among it) ignores a `$ref`'s siblings and
+     * would never see them. A `$ref` with no such sibling is written as it is.
      */
     private function emitted(): self
     {
         $ref = $this->keywords['$ref'] ?? null;
         if (!\is_string($ref)
-            || !(\array_key_exists('examples', $this->keywords) || \array_key_exists('default', $this->keywords))) {
+            || !(\array_key_exists('type', $this->keywords)
+                || \array_key_exists('examples', $this->keywords)
+                || \array_key_exists('default', $this->keywords))) {
             return $this;
         }
 
