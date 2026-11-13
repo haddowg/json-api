@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0](https://github.com/haddowg/json-api/compare/v2.17.0...v2.18.0) (2026-11-13)
+
+
+### Features
+
+* give every reference to a named value shape its component's type ([#360](https://github.com/haddowg/json-api/issues/360)) ([c4d692c](https://github.com/haddowg/json-api/commit/c4d692c65506e7724e7f74ef9198a59320bff53b))
+
 ## [2.17.0](https://github.com/haddowg/json-api/compare/v2.16.0...v2.17.0) (2026-11-12)
 
 
