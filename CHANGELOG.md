@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.1](https://github.com/haddowg/json-api/compare/v2.18.0...v2.18.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* type the enum references inside relatedQuery parameter components ([#362](https://github.com/haddowg/json-api/issues/362)) ([fc3c469](https://github.com/haddowg/json-api/commit/fc3c4697ed1f94e65834ff4a2118418e4627cca4))
+
 ## [2.18.0](https://github.com/haddowg/json-api/compare/v2.17.0...v2.18.0) (2026-11-13)
 
 
