@@ -1,0 +1,33 @@
+name: Feature request or enhancement
+description: Suggest something new, or an improvement to existing behaviour
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like the API to look like. A code sketch helps.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds and alternatives
+      description: Anything you're doing now instead, or other designs you considered.
+  - type: dropdown
+    id: spec
+    attributes:
+      label: JSON:API spec
+      description: Does this relate to part of the JSON:API 1.1 spec or an extension?
+      options:
+        - 'No'
+        - Yes, core spec
+        - Yes, an extension or profile
+        - Not sure
