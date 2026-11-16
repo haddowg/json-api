@@ -28,8 +28,8 @@ use haddowg\JsonApi\Schema\Link\Link;
  * links use the spec's plain `sort` / `filter` / `page` grammar against the
  * relationship's own endpoint, never the profile's `relatedQuery[…]` form.
  *
- * `$total` is the member count when the page was counted. Core renders it as the
- * relationship object's `meta.total` unless a count seam already supplied one.
+ * `$total` is the member count when the page was counted. Core renders it as a
+ * countable relation's `meta.total` unless a count seam already supplied one.
  *
  * The link URLs are completed in {@see AbstractRelationship::transform()}, the
  * only layer that knows the parent resource's type + id and the base URI: the

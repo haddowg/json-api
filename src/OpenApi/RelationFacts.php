@@ -37,7 +37,7 @@ final class RelationFacts
     /**
      * How a relationship object of a {@see pagesLinkageData()} relation reads.
      */
-    public const string FIRST_PAGE_LINKAGE = 'Its `data`, when present, is the first page of the relationship\'s members in the order its related endpoint serves them, its `links` reach the other pages, and its `meta.total` is the member count when that page is counted.';
+    public const string FIRST_PAGE_LINKAGE = 'Its `data`, when present, is the first page of the relationship\'s members in the order its related endpoint serves them, its `links` reach the other pages, and a countable relation\'s `meta.total` is the member count when that page is counted.';
 
     /**
      * The segment the relation's related and relationship paths are keyed by.

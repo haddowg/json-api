@@ -1002,7 +1002,22 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
-    public function aCountedFirstPageRendersItsTotalAsMeta(): void
+    public function aCountableRelationsCountedFirstPageRendersItsTotalAsMeta(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->countable()->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: 5, page: 1, size: 2);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page, total: 5)));
+
+        $relationshipObject = $this->transformTracks($relation, $model, $resolver);
+
+        self::assertSame(['total' => 5], $relationshipObject['meta'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function aRelationThatIsNotCountableRendersNoTotalFromItsPage(): void
     {
         $relation = HasMany::make('tracks', 'tracks')->build();
         $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
@@ -1012,7 +1027,9 @@ final class RelationTest extends TestCase
 
         $relationshipObject = $this->transformTracks($relation, $model, $resolver);
 
-        self::assertSame(['total' => 5], $relationshipObject['meta'] ?? null);
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+        self::assertIsArray($relationshipObject['links'] ?? null);
+        self::assertArrayHasKey('last', $relationshipObject['links']);
     }
 
     #[Test]

@@ -380,7 +380,7 @@ requires wherever its linkage renders, and injects the matching page with
 `withRelationshipPagination()`. A `RelationshipPaginationInterface` returns, per parent
 and relation, the `RelationshipPagination` built by `RelationshipPagination::firstPage()`
 from the windowed read: core renders its `first`, `prev`, `next` and `last` links in the
-relationship object, and a counted page's total as its `meta.total`.
+relationship object, and a counted page's total as a countable relation's `meta.total`.
 `RelationshipPagination::firstPageRequest()` is the request that read is made with, and
 `Server::linkagePaginator()` the paginator it is cut to.
 

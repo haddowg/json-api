@@ -521,10 +521,10 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
 
         $pagination = $this->resolvePagination($model, $request, $resolver);
 
-        // A counted first page knows the member count, so it renders as `meta.total`
-        // when no count seam supplied one.
+        // A countable relation's counted first page knows the member count, so it
+        // renders as `meta.total` when no count seam supplied one.
         $meta = $this->relationshipMeta($model, $request, $resolver);
-        if ($pagination?->total !== null && !\array_key_exists('total', $meta)) {
+        if ($pagination?->total !== null && $this->isCountable() && !\array_key_exists('total', $meta)) {
             $meta['total'] = $pagination->total;
         }
         if ($meta !== []) {

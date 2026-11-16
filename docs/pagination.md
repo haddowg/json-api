@@ -596,8 +596,8 @@ two tracks, not the album's whole tracklist:
 
 The page links address the relationship endpoint, or the related endpoint when
 only that one is exposed. A page that was counted, by a `withCount()` paginator or a
-`?withCount` naming the relation, adds `last` and the relationship object's
-`meta.total`. A nested include (`?include=tracks.playlists`) cuts each level the
+`?withCount` naming the relation, adds `last`, and on a `countable()` relation the
+relationship object's `meta.total`. A nested include (`?include=tracks.playlists`) cuts each level the
 same way, under each relation's own paginator.
 
 `Server::linkagePaginator($relation)` names the paginator a host cuts the linkage

@@ -12,7 +12,7 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
  * Storage-aware resolver that supplies the first-page pagination state of a rendered
  * to-many relation: the `first` / `prev` / `next` / `last` links core renders in the
  * relationship's own `links` object, and the total of a counted page, which core
- * renders as its `meta.total`.
+ * renders as a countable relation's `meta.total`.
  *
  * Core never reads a relationship's members itself: the window is storage-specific
  * and the host's to compute through its data layer and paginator. Wherever a
