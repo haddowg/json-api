@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-five scoped
+ * is warned only by the documents that contain it. There are twenty-six scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -71,8 +71,8 @@ namespace haddowg\JsonApi\OpenApi;
  * not declare ({@see OPEN_OBJECTS}), the queried link rows of a polymorphic to-many
  * identified by stored pairs ({@see IDENTIFIED_PIVOTS}), the error code of a relation
  * whose members are fixed ({@see FIXED_MEMBERSHIP}), a value of several primitive
- * types ({@see UNIONS}) and a field's shape declared as a named component
- * ({@see NAMED_COMPONENTS}).
+ * types ({@see UNIONS}), a field's shape declared as a named component
+ * ({@see NAMED_COMPONENTS}) and a singleton type ({@see SINGLETONS}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -87,7 +87,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 39;
+    public const CONTRACT = 40;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -336,6 +336,15 @@ final class GeneratorContract
     public const NAMED_COMPONENTS = 32;
 
     /**
+     * The contract that introduced singleton types ({@see Metadata\DeclaresSingleton}): a
+     * type whose fetch and update, relationship, related and action paths hang off
+     * `/{uriType}` with no `{id}` parameter, and whose `<Type>Resource` component names that
+     * path in an `x-singleton` extension. A document carries it only when a type is a
+     * singleton.
+     */
+    public const SINGLETONS = 40;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -366,6 +375,7 @@ final class GeneratorContract
         bool $fixedMembership = false,
         bool $unions = false,
         bool $namedComponents = false,
+        bool $singletons = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -394,6 +404,7 @@ final class GeneratorContract
             $fixedMembership ? self::FIXED_MEMBERSHIP : self::BASELINE,
             $unions ? self::UNIONS : self::BASELINE,
             $namedComponents ? self::NAMED_COMPONENTS : self::BASELINE,
+            $singletons ? self::SINGLETONS : self::BASELINE,
         )];
     }
 }

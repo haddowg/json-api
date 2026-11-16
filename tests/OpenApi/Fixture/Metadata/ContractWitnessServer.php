@@ -178,8 +178,10 @@ final class ContractWitnessServer
      *                     which the baseline witness leaves out too
      * @param bool $namedComponents whether articles fields share shapes declared as named
      *                              components, which the baseline witness leaves out too
+     * @param bool $singletons whether the singleton inboxes type is served, which the
+     *                         baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -193,6 +195,7 @@ final class ContractWitnessServer
                 new SingularNameTypeMetadata(self::videos($relatedOnly), 'video clip'),
                 FakeTypeMetadata::standalone('healthcheck', tags: ['Ops']),
                 ...($relatedOnly ? [self::credits()] : []),
+                ...($singletons ? [self::inboxes()] : []),
             ],
             description: 'Every projector branch the witness can reach, in one document.',
             contact: new Contact('API Team', 'https://example.com/support', 'api@example.com'),
@@ -799,6 +802,33 @@ final class ContractWitnessServer
             actions: $relatedOnly ? [
                 new FakeActionMetadata('credit', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'credits', outputType: 'credits', tags: ['Media']),
             ] : [],
+        );
+    }
+
+    /**
+     * A singleton: the caller's one inbox at `/inbox`, fetched and updated with no `{id}`,
+     * with read-only counts and a writable watermark. Its relation's endpoints and its
+     * resource action, which also renders as a link, hang off `/inbox`.
+     */
+    private static function inboxes(): FakeTypeMetadata
+    {
+        return FakeTypeMetadata::resource(
+            type: 'inboxes',
+            fields: [
+                Id::make()->example('42')->build(),
+                Integer::make('unseen')->readOnly()->example(3)->build(),
+                Integer::make('unread')->readOnly()->example(5)->build(),
+                DateTime::make('seenUpTo')->example('2026-11-16T09:30:00+00:00')->build(),
+            ],
+            relations: [new FakeRelationMetadata('owner', ['people'], false, exampleId: '7')],
+            uriType: 'inbox',
+            tags: ['People'],
+            operations: [OperationType::FetchOne, OperationType::Update],
+            actions: [
+                new FakeActionMetadata('mark-all-read', ['POST'], ActionScope::Resource, ActionInputMode::None, outputType: 'inboxes', tags: ['People']),
+            ],
+            actionLinks: [ActionLink::for('mark-all-read')->build()],
+            singleton: true,
         );
     }
 

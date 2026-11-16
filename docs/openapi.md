@@ -1108,6 +1108,8 @@ action name where there is one:
 | custom action | `action.<type>.<path>`, or `action.<type>.<path>.<method>` when the action answers to more than one method |
 | Atomic Operations | `atomic.operations` |
 
+A [singleton type](resources.md#singleton-types) keeps these ids on its `/{uriType}` paths.
+
 So the ids stay unique, even for a consumer that flattens them into names by dropping
 case and punctuation, `ActionDeclarations` rejects with a `\LogicException`:
 
@@ -1244,6 +1246,21 @@ components when an action takes it as its request document. A document with a re
 type declares the `RELATED_ONLY` contract tier in its
 [`x-generator`](#the-generator-contract-x-generator) stamp. Metadata that doesn't implement
 it projects every type with a `self`.
+
+`DeclaresSingleton` extends `TypeMetadataInterface` with `isSingleton(): bool`. Return
+`true` for a [singleton type](resources.md#singleton-types). Its fetch and update are
+projected at `/{uriType}`, its relationship and related endpoints at
+`/{uriType}/relationships/{rel}` and `/{uriType}/{rel}`, and its actions at
+`/{uriType}/-actions/{name}`, none of them with an `{id}` path parameter. Its operation ids
+stay `fetchOne.<type>`, `update.<type>` and so on, so operation scopes, `operationExtensions`
+and `x-mcp` keyed by operation name, error documents (`InboxesUpdate409`), examples and
+`describedby` all follow it to those paths. Its `<Type>Resource` component carries
+[`x-singleton`](#singleton-types-x-singleton). The metadata of a singleton must expose no
+`FetchCollection`, `Create` or `Delete` and no collection-scope action, and the projector
+refuses it with a `Resource\SingletonMisdeclared` otherwise. A document with a singleton
+declares the `SINGLETONS` contract tier in its
+[`x-generator`](#the-generator-contract-x-generator) stamp. Metadata that doesn't implement
+it projects every type at `/{uriType}/{id}`.
 
 Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `readOnly()`,
 `destructive()` and `idempotent()`, each `?bool`, which project as
@@ -1750,6 +1767,25 @@ inline enum or shape and a component then compares as the same `type`, since the
 ```bash
 oasdiff breaking --flatten-allof old.json new.json
 ```
+
+### Singleton types: `x-singleton`
+
+A [singleton type](resources.md#singleton-types) has no collection or create endpoint for a
+generator to find it from, and its fetch and update paths carry no `{id}`. Its
+`<Type>Resource` component names its path instead:
+
+```json
+"InboxesResource": {
+  "type": "object",
+  "x-singleton": "/inbox",
+  "properties": { "type": { "const": "inboxes" }, "id": { "type": "string" } }
+}
+```
+
+The value is the path key of its `fetchOne.<type>` and `update.<type>` operations. Its
+related, relationship and action paths are that path followed by `/{rel}`,
+`/relationships/{rel}` and `/-actions/{name}`. A generator calls them without an id, while
+the resource object it reads back still carries one.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 

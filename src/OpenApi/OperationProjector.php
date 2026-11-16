@@ -393,7 +393,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $tags,
-            summary: 'Fetch ' . TypeNoun::of($type)->withArticle(),
+            summary: 'Fetch ' . self::singularNoun($type),
             description: $this->crudOperationDescription($type, OperationType::FetchOne),
             operationId: $operationId,
             parameters: $parameters,
@@ -456,7 +456,7 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $tags,
-            summary: 'Update ' . TypeNoun::of($type)->withArticle(),
+            summary: 'Update ' . self::singularNoun($type),
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: $operationId,
             parameters: OperationFacts::declaresStatus($declared, 200) ? $this->resourceDocumentParameters($type, $server) : [],
@@ -722,6 +722,13 @@ final class OperationProjector
         }
 
         $noun = TypeNoun::of($type);
+        if (OperationEnumerator::isSingleton($type)) {
+            return match ($operation) {
+                OperationType::FetchOne => 'Returns the caller\'s ' . $noun->singular . '.',
+                OperationType::Update => 'Updates the caller\'s ' . $noun->singular . ', applying the supplied attributes and relationships.',
+                default => throw new \LogicException(\sprintf('A singleton serves no %s operation.', $operation->value)),
+            };
+        }
 
         return match ($operation) {
             OperationType::FetchCollection => 'Returns a ' . ($type->pageSchema() !== null ? 'paginated ' : '') . 'collection of ' . $noun->plural . '.',
@@ -730,6 +737,15 @@ final class OperationProjector
             OperationType::Update => 'Updates an existing ' . $noun->singular . ', applying the supplied attributes and relationships.',
             OperationType::Delete => 'Deletes the ' . $noun->singular . ' identified by its `id`.',
         };
+    }
+
+    /**
+     * The type's noun with an article, or as the caller's own for a singleton, which has one
+     * resource per caller.
+     */
+    private static function singularNoun(TypeMetadataInterface $type): string
+    {
+        return OperationEnumerator::isSingleton($type) ? 'the caller\'s ' . TypeNoun::of($type)->singular : TypeNoun::of($type)->withArticle();
     }
 
     // ---- Relationship & related endpoints -------------------------------------
@@ -805,12 +821,12 @@ final class OperationProjector
         return new Operation(
             responses: $responses,
             tags: $tags,
-            summary: 'Fetch the related ' . $relation->name() . ' of ' . TypeNoun::of($type)->withArticle(),
+            summary: 'Fetch the related ' . $relation->name() . ' of ' . self::singularNoun($type),
             description: $this->relationDescription(
                 $relation,
                 $relation->isToMany()
-                    ? 'Returns the related `' . $relation->name() . '` resources of ' . TypeNoun::of($type)->withArticle() . '.'
-                    : 'Returns the related `' . $relation->name() . '` resource of ' . TypeNoun::of($type)->withArticle() . '.',
+                    ? 'Returns the related `' . $relation->name() . '` resources of ' . self::singularNoun($type) . '.'
+                    : 'Returns the related `' . $relation->name() . '` resource of ' . self::singularNoun($type) . '.',
             ),
             operationId: $operationId,
             parameters: $parameters,
@@ -828,7 +844,7 @@ final class OperationProjector
     private function relationshipFetchOperation(TypeMetadataInterface $type, RelationMetadataInterface $relation, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $documentRef = $this->relationshipDocumentRef($type, $relation);
-        $parent = TypeNoun::of($type)->withArticle();
+        $parent = self::singularNoun($type);
 
         // A **monomorphic to-one** relationship endpoint honours the related resource's
         // `filter[]` vocabulary (a relation filter that excludes the target nulls the
@@ -909,7 +925,7 @@ final class OperationProjector
         array $scopes,
     ): Operation {
         $documentRef = $this->relationshipDocumentRef($type, $relation);
-        $parent = TypeNoun::of($type)->withArticle();
+        $parent = self::singularNoun($type);
         [$summary, $defaultDescription] = match ($kind) {
             OperationKind::UpdateRelationship => [
                 'Replace the ' . $relation->name() . ' relationship of ' . $parent,
@@ -1048,7 +1064,7 @@ final class OperationProjector
             // only operation left undescribed.
             summary: $action->summary() ?? ('Invoke the `' . $action->path() . '` action'),
             description: $action->description() ?? ('Invokes the `' . $action->path() . '` custom action on ' . ($action->scope() === ActionScope::Resource
-                ? TypeNoun::of($type)->withArticle()
+                ? self::singularNoun($type)
                 : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
             parameters: $this->concatParameters(
                 $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields(), $server),

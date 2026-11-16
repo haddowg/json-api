@@ -68,7 +68,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false, deprecations: false, actionFilters: false, actionCreated: false, relatedOnly: false, filterFamilies: false, listFilters: false, identifierMeta: false, openObjects: false, identifiedPivots: false, fixedMembership: false, unions: false, namedComponents: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false, deprecations: false, actionFilters: false, actionCreated: false, relatedOnly: false, filterFamilies: false, listFilters: false, identifierMeta: false, openObjects: false, identifiedPivots: false, fixedMembership: false, unions: false, namedComponents: false, singletons: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
@@ -77,7 +77,8 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true, deprecation: true, actionFilters: true, actionCreated: true, relatedOnly: true, filterFamilies: true, listFilters: true, identifierMeta: true, openObjects: true, identifiedPivots: true, fixedMembership: true, unions: true, namedComponents: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true, deprecation: true, actionFilters: true, actionCreated: true, relatedOnly: true, filterFamilies: true, listFilters: true, identifierMeta: true, openObjects: true, identifiedPivots: true, fixedMembership: true, unions: true, namedComponents: true, singletons: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SINGLETONS)], GeneratorContract::toArray(singletons: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::RELATED_ONLY)], GeneratorContract::toArray(relatedOnly: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FILTER_FAMILIES)], GeneratorContract::toArray(filterFamilies: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::LIST_FILTERS)], GeneratorContract::toArray(listFilters: true));

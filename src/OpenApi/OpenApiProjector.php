@@ -9,6 +9,7 @@ use haddowg\JsonApi\OpenApi\Metadata\AcceptedBody;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionDeclarations;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
+use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\AtomicOperationsMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionDeprecation;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExtensions;
@@ -99,6 +100,7 @@ final class OpenApiProjector
         // server does not register has no honest projection (see the method).
         $this->guardRelatedTypesAreRegistered($server);
         $this->guardRelatedOnlyTypesServeNothing($server);
+        self::guardSingletonsServeOneResource($server);
 
         // The paths are projected FIRST because the error responses are now shared
         // components: which statuses the operations reference decides which response
@@ -539,6 +541,7 @@ final class OpenApiProjector
             actionFilters: $actions['actionFilters'],
             actionCreated: $actions['actionCreated'],
             relatedOnly: self::hasRelatedOnlyType($server),
+            singletons: self::hasSingleton($server),
             filterFamilies: $filters['filterFamilies'],
             listFilters: $filters['listFilters'],
             identifierMeta: self::declaresIdentifierMeta($server),
@@ -1195,6 +1198,11 @@ final class OpenApiProjector
         }
         $resource = $this->withRelationshipsProperty($resource, $type);
         $resource = $this->withLinksAndSharedMeta($resource, LinkSchemaProjector::resourceLinksComponent($type, $name));
+        if (OperationEnumerator::isSingleton($type)) {
+            // Names the singleton's own path, which carries no `{id}`, so a generator finds
+            // the type without a collection or create endpoint to start from.
+            $resource = $resource->withExtension('singleton', PathTemplate::resource($type->uriType(), true));
+        }
         $schemas[$name . 'Resource'] = $resource;
 
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
@@ -1330,6 +1338,45 @@ final class OpenApiProjector
                 ));
             }
         }
+    }
+
+    /**
+     * Refuses a singleton type whose metadata exposes a collection fetch, a create, a delete
+     * or a collection-scope action, none of which a singleton serves.
+     *
+     * @throws \haddowg\JsonApi\Resource\SingletonMisdeclared
+     */
+    private static function guardSingletonsServeOneResource(ServerMetadataInterface $server): void
+    {
+        foreach ($server->types() as $type) {
+            if (!OperationEnumerator::isSingleton($type)) {
+                continue;
+            }
+
+            $collectionActions = [];
+            foreach ($type->actions() as $action) {
+                if ($action->scope() === ActionScope::Collection) {
+                    $collectionActions[] = $action->path();
+                }
+            }
+
+            \haddowg\JsonApi\Resource\SingletonMisdeclared::assertExclusive($type->type(), $type->operations(), $collectionActions);
+        }
+    }
+
+    /**
+     * Whether a type of the server is a singleton, which the document's generator contract
+     * reflects ({@see GeneratorContract::SINGLETONS}).
+     */
+    private static function hasSingleton(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            if (OperationEnumerator::isSingleton($type)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

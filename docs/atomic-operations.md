@@ -117,6 +117,14 @@ detection, transactions). Three pieces make up the core foundation:
 Both the success and the rolled-back error document advertise the extension on their
 `Content-Type` (a document produced under an applied extension must declare it).
 
+A [singleton type](resources.md#singleton-types) takes part like any other. An operation
+whose `ref` names it by `{type, id}` runs as usual, and the data layer's access scope keeps
+it to the caller's row. An `href` of `/{uriType}`, or of a relationship under it, carries no
+id, so the backend that turns an `href` into a `Target` resolves it the way the HTTP route
+does: build `Target::singleton()`, resolve the id once through the server's
+`resolveSingletonId()`, and answer `404` when it is `null`. A `/{uriType}/{id}` `href` on a
+singleton type names no endpoint, so it is refused like any other unknown path.
+
 ## Operations as an independent extension
 
 The Atomic Operations extension defines exactly three operation codes — `add`,

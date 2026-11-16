@@ -73,6 +73,12 @@ included resources or as a custom action's request document. Its resources and r
 objects render no links to its own endpoints.
 _Avoid_: embedded type, nested type, endpointless type
 
+**Singleton type**:
+A type serving one resource per caller at `/{uriType}`, with no id in its own endpoints'
+paths. The type resolves the caller's id, its resource object still carries it, and other
+types link to it by type and id as usual.
+_Avoid_: singular resource, current-user resource, me endpoint
+
 **Serializer**:
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer
@@ -210,7 +216,9 @@ relationship mutation or a custom action.
 _Avoid_: command, request
 
 **Target**:
-What an **Operation** acts on: a type, optionally an id, and optionally a relation name.
+What an **Operation** acts on: a type, optionally an id, and optionally a relation name. A
+singleton target addresses a **Singleton type**'s resource and carries the caller's resolved
+id.
 
 **Operation handler**:
 Consumer code that performs an **Operation** and returns a **Response**.

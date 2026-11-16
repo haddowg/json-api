@@ -49,7 +49,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface
 {
     use RendersRelationsTrait;
 
@@ -65,6 +65,13 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * JSON:API type (a plural, or a kebab-cased name).
      */
     public static string $uriType = '';
+
+    /**
+     * Whether this type is a singleton, served at `/{uriType}` for the caller's own resource
+     * with no `{id}` segment. A singleton overrides {@see resolveSingletonId()} to name that
+     * resource; see {@see SingletonResourceInterface}.
+     */
+    public static bool $singleton = false;
 
     protected ?\haddowg\JsonApi\Resource\SerializerResolverInterface $serializerResolver = null;
 
@@ -304,6 +311,21 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function uriType(): string
     {
         return static::$uriType !== '' ? static::$uriType : static::$type;
+    }
+
+    public static function isSingleton(): bool
+    {
+        return static::$singleton;
+    }
+
+    /**
+     * The id of the caller's resource when this type is a singleton, or `null` when the
+     * caller has none, which answers `404`. A singleton must override it; registering one
+     * that doesn't is an error.
+     */
+    public function resolveSingletonId(SingletonContext $context): ?string
+    {
+        return null;
     }
 
     /**

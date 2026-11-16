@@ -50,14 +50,14 @@ final readonly class OperationReference
         return new self(PathTemplate::collection($uriType), 'post');
     }
 
-    public static function fetchOne(string $uriType): self
+    public static function fetchOne(string $uriType, bool $singleton = false): self
     {
-        return new self(PathTemplate::resource($uriType), 'get');
+        return new self(PathTemplate::resource($uriType, $singleton), 'get');
     }
 
-    public static function update(string $uriType): self
+    public static function update(string $uriType, bool $singleton = false): self
     {
-        return new self(PathTemplate::resource($uriType), 'patch');
+        return new self(PathTemplate::resource($uriType, $singleton), 'patch');
     }
 
     public static function delete(string $uriType): self
@@ -65,19 +65,19 @@ final readonly class OperationReference
         return new self(PathTemplate::resource($uriType), 'delete');
     }
 
-    public static function fetchRelated(string $uriType, string $relationship): self
+    public static function fetchRelated(string $uriType, string $relationship, bool $singleton = false): self
     {
-        return new self(PathTemplate::related($uriType, $relationship), 'get');
+        return new self(PathTemplate::related($uriType, $relationship, $singleton), 'get');
     }
 
-    public static function fetchRelationship(string $uriType, string $relationship): self
+    public static function fetchRelationship(string $uriType, string $relationship, bool $singleton = false): self
     {
-        return new self(PathTemplate::relationship($uriType, $relationship), 'get');
+        return new self(PathTemplate::relationship($uriType, $relationship, $singleton), 'get');
     }
 
-    public static function action(string $uriType, string $action, ActionScope $scope, string $method): self
+    public static function action(string $uriType, string $action, ActionScope $scope, string $method, bool $singleton = false): self
     {
-        return new self(PathTemplate::action($uriType, $action, $scope), $method);
+        return new self(PathTemplate::action($uriType, $action, $scope, $singleton), $method);
     }
 
     /**
@@ -97,7 +97,8 @@ final readonly class OperationReference
      * The URI segment is the type's {@see UriTypeAwareInterface::uriType()} when its
      * registered serializer declares one, else the JSON:API type, the same fallback the
      * by-convention links use. A relationship target names the relation, and its segment
-     * is that relation's {@see AbstractRelationValue::uriFieldName()}.
+     * is that relation's {@see AbstractRelationValue::uriFieldName()}. A singleton target
+     * names its type's singleton paths, with no `{id}` segment.
      */
     public static function forOperation(JsonApiOperationInterface $operation, SerializerResolverInterface $resolver): ?self
     {
@@ -110,24 +111,26 @@ final readonly class OperationReference
         $target = $operation->target();
         $uriType = self::uriTypeOf($target->type, $resolver);
         $relationship = $target->relationship === null ? '' : self::uriFieldNameOf($target->type, $target->relationship, $resolver);
+        $singleton = $target->singleton;
 
         return match (true) {
-            $operation instanceof FetchResourceOperation => $target->hasId()
-                ? self::fetchOne($uriType)
+            $operation instanceof FetchResourceOperation => $target->addressesResource()
+                ? self::fetchOne($uriType, $singleton)
                 : self::fetchCollection($uriType),
             $operation instanceof CreateResourceOperation => self::create($uriType),
-            $operation instanceof UpdateResourceOperation => self::update($uriType),
+            $operation instanceof UpdateResourceOperation => self::update($uriType, $singleton),
             $operation instanceof DeleteResourceOperation => self::delete($uriType),
-            $operation instanceof FetchRelatedOperation => self::fetchRelated($uriType, $relationship),
-            $operation instanceof FetchRelationshipOperation => self::fetchRelationship($uriType, $relationship),
-            $operation instanceof UpdateRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship), 'patch'),
-            $operation instanceof AddToRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship), 'post'),
-            $operation instanceof RemoveFromRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship), 'delete'),
+            $operation instanceof FetchRelatedOperation => self::fetchRelated($uriType, $relationship, $singleton),
+            $operation instanceof FetchRelationshipOperation => self::fetchRelationship($uriType, $relationship, $singleton),
+            $operation instanceof UpdateRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship, $singleton), 'patch'),
+            $operation instanceof AddToRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship, $singleton), 'post'),
+            $operation instanceof RemoveFromRelationshipOperation => new self(PathTemplate::relationship($uriType, $relationship, $singleton), 'delete'),
             $operation instanceof CustomActionOperation => self::action(
                 $uriType,
                 $operation->action(),
-                $target->hasId() ? ActionScope::Resource : ActionScope::Collection,
+                $target->addressesResource() ? ActionScope::Resource : ActionScope::Collection,
                 $operation->method(),
+                $singleton,
             ),
             default => null,
         };

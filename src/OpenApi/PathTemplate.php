@@ -12,6 +12,10 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
  *
  * The projector builds its path keys here, and {@see OperationReference} builds the
  * operation a rendered link's `describedby` points at here too, so the two can't drift.
+ *
+ * A singleton type's resource is addressed at `/{uriType}` with no `{id}` segment, and its
+ * relationship, related and action paths hang off that, so each resource-addressed template
+ * takes `$singleton`.
  */
 final class PathTemplate
 {
@@ -25,25 +29,25 @@ final class PathTemplate
         return '/' . $uriType;
     }
 
-    public static function resource(string $uriType): string
+    public static function resource(string $uriType, bool $singleton = false): string
     {
-        return '/' . $uriType . '/' . self::ID;
+        return $singleton ? '/' . $uriType : '/' . $uriType . '/' . self::ID;
     }
 
-    public static function related(string $uriType, string $relationship): string
+    public static function related(string $uriType, string $relationship, bool $singleton = false): string
     {
-        return self::resource($uriType) . '/' . $relationship;
+        return self::resource($uriType, $singleton) . '/' . $relationship;
     }
 
-    public static function relationship(string $uriType, string $relationship): string
+    public static function relationship(string $uriType, string $relationship, bool $singleton = false): string
     {
-        return self::resource($uriType) . '/relationships/' . $relationship;
+        return self::resource($uriType, $singleton) . '/relationships/' . $relationship;
     }
 
-    public static function action(string $uriType, string $action, ActionScope $scope): string
+    public static function action(string $uriType, string $action, ActionScope $scope, bool $singleton = false): string
     {
         return $scope === ActionScope::Resource
-            ? self::resource($uriType) . '/-actions/' . $action
+            ? self::resource($uriType, $singleton) . '/-actions/' . $action
             : self::collection($uriType) . '/-actions/' . $action;
     }
 }

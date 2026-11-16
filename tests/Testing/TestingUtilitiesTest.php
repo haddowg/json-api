@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\Testing;
 
 use haddowg\JsonApi\Operation\CreateResourceOperation;
 use haddowg\JsonApi\Operation\FetchResourceOperation;
+use haddowg\JsonApi\Operation\UpdateResourceOperation;
 use haddowg\JsonApi\Testing\AssertsSpecCompliance;
 use haddowg\JsonApi\Testing\Internal\Decode;
 use haddowg\JsonApi\Testing\Internal\Diff;
@@ -487,6 +488,40 @@ final class TestingUtilitiesTest extends TestCase
         self::assertIsArray($body);
         self::assertSame('Hello', $body['data']['attributes']['title']);
         self::assertSame('users', $body['data']['relationships']['author']['data']['type']);
+    }
+
+    #[Test]
+    public function operationBuilderBuildsSingletonFetchesAndUpdates(): void
+    {
+        $fetch = JsonApiOperationBuilder::fetch('inboxes', '42', new StubServer())->asSingleton()->build();
+
+        self::assertInstanceOf(FetchResourceOperation::class, $fetch);
+        self::assertTrue($fetch->target()->singleton);
+        self::assertSame('42', $fetch->target()->id);
+
+        $update = JsonApiOperationBuilder::update('inboxes', '42', new StubServer())->asSingleton()->withAttribute('seenUpTo', '2026-11-16T10:00:00Z')->build();
+
+        self::assertInstanceOf(UpdateResourceOperation::class, $update);
+        self::assertTrue($update->target()->singleton);
+        $body = $update->body()->getParsedBody();
+        self::assertIsArray($body);
+        // The body carries the id, as any update's must.
+        self::assertSame('42', $body['data']['id']);
+
+        self::assertFalse(JsonApiOperationBuilder::fetch('inboxes', '42', new StubServer())->build()->target()->singleton);
+    }
+
+    #[Test]
+    public function operationBuilderRefusesASingletonCreateOrDelete(): void
+    {
+        foreach ([JsonApiOperationBuilder::create('inboxes', new StubServer()), JsonApiOperationBuilder::delete('inboxes', '42', new StubServer())] as $builder) {
+            try {
+                $builder->asSingleton();
+                self::fail('A singleton create or delete should be refused.');
+            } catch (\LogicException $e) {
+                self::assertStringContainsString('only a fetch or an update can be built for it', $e->getMessage());
+            }
+        }
     }
 
     #[Test]

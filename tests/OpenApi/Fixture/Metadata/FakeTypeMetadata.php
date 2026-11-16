@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresInclusionUnsupported;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelatedOnly;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceLinks;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresSingleton;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresSortExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
@@ -38,7 +39,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresSingleton, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -98,6 +99,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         private readonly array $rejectsIncludeOn = [],
         private readonly bool $detectsClientIdCollisions = true,
         private readonly bool $checksRelationshipCardinality = true,
+        private readonly bool $singleton = false,
     ) {}
 
     public function allowedIncludePaths(): ?array
@@ -145,6 +147,11 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
     public function isRelatedOnly(): bool
     {
         return $this->relatedOnly;
+    }
+
+    public function isSingleton(): bool
+    {
+        return $this->singleton;
     }
 
     public function isDeprecated(): bool
@@ -200,6 +207,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param array<string, OperationExample|false|null> $operationExamples per-operation example overrides, keyed by operation name
      * @param list<string>                    $deprecatedOperations operation names declared deprecated
      * @param bool                            $relatedOnly       whether the type serves no endpoint of its own
+     * @param bool                            $singleton         whether the type serves the caller's one resource at `/{uriType}`
      * @param list<SortDirective>             $defaultSort       the type's default order
      * @param list<string>|null               $sortExample       the type's declared sort example
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards the type's include safeguards, `null` to answer as undeclared
@@ -240,6 +248,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         ?array $includeSafeguards = null,
         array $rejectsIncludeOn = [],
         bool $detectsClientIdCollisions = true,
+        bool $singleton = false,
     ): self {
         return new self(
             type: $type,
@@ -282,6 +291,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
             includeSafeguards: $includeSafeguards,
             rejectsIncludeOn: $rejectsIncludeOn,
             detectsClientIdCollisions: $detectsClientIdCollisions,
+            singleton: $singleton,
         );
     }
 

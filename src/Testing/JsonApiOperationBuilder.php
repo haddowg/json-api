@@ -30,6 +30,9 @@ use haddowg\JsonApi\Server\ResolvingServerInterface;
  * Body-carrying verbs (create/update) assemble a {@see JsonApiRequest} from the
  * declared attributes/relationships; bodyless verbs (fetch/delete) ignore them.
  * A {@see ResolvingServerInterface} is required for the {@see OperationContext}.
+ *
+ * {@see asSingleton()} builds a fetch or update of a singleton type, on a
+ * {@see Target::singleton()} target carrying the id the type would resolve for the caller.
  */
 final class JsonApiOperationBuilder
 {
@@ -42,6 +45,8 @@ final class JsonApiOperationBuilder
      * @var array<string, array{data: array<string, mixed>|list<array<string, mixed>>}>
      */
     private array $relationships = [];
+
+    private bool $singleton = false;
 
     private function __construct(
         private readonly string $verb,
@@ -68,6 +73,23 @@ final class JsonApiOperationBuilder
     public static function delete(string $type, string $id, ResolvingServerInterface $server): self
     {
         return new self('delete', $type, $server, $id);
+    }
+
+    /**
+     * Targets the singleton type's resource at `/{uriType}`, with this builder's id as the
+     * caller's resolved id. Only a fetch or an update can address a singleton.
+     *
+     * @throws \LogicException for a create or a delete
+     */
+    public function asSingleton(): self
+    {
+        if (!\in_array($this->verb, ['fetch', 'update'], true)) {
+            throw new \LogicException(\sprintf('A singleton serves no %s, so only a fetch or an update can be built for it.', $this->verb));
+        }
+
+        $this->singleton = true;
+
+        return $this;
     }
 
     public function withAttribute(string $name, mixed $value): self
@@ -100,7 +122,7 @@ final class JsonApiOperationBuilder
 
     public function build(): JsonApiOperationInterface
     {
-        $target = new Target($this->type, $this->id);
+        $target = new Target($this->type, $this->id, singleton: $this->singleton);
         $context = new OperationContext($this->server);
         $query = new QueryParameters([], [], [], [], []);
 
