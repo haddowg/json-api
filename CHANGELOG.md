@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.20.0](https://github.com/haddowg/json-api/compare/v2.19.0...v2.20.0) (2026-11-16)
+
+
+### Features
+
+* cut a rendered to-many to its first page ([81d8756](https://github.com/haddowg/json-api/commit/81d8756b9597abe8945537d82e2b074ae17ee5bf))
+* read back a response's activated profiles ([81d8756](https://github.com/haddowg/json-api/commit/81d8756b9597abe8945537d82e2b074ae17ee5bf))
+
+
+### Bug Fixes
+
+* keep a counted page's links counted and page a polymorphic to-many at its related endpoint ([81d8756](https://github.com/haddowg/json-api/commit/81d8756b9597abe8945537d82e2b074ae17ee5bf))
+
 ## [2.19.0](https://github.com/haddowg/json-api/compare/v2.18.2...v2.19.0) (2026-11-16)
 
 
