@@ -913,7 +913,9 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
 
     /**
      * Invokes the configured {@see OperationHandler} directly, without the PSR-15
-     * chain. The operation is assumed pre-constructed and complete.
+     * chain. The operation is assumed pre-constructed and complete, so a singleton
+     * target must already carry the caller's resolved id; only
+     * {@see \haddowg\JsonApi\Operation\OperationFactory} resolves one.
      *
      * A {@see \haddowg\JsonApi\Response\SeeOtherResponse} returned by a custom action
      * whose declared {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther} names a media

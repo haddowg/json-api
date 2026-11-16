@@ -537,7 +537,8 @@ Resolve the id once per request and carry it on a `Target::singleton()` target. 
 for a singleton target that arrives without an id, passing the request it builds the
 operation from; an adapter with more to hand, such as its authenticated user, builds the
 `SingletonContext` itself, with that as an attribute, and passes the resolved id on the
-target. A `null` id answers `404`.
+target. A `null` id answers `404`. `dispatch()` builds no operation, so a singleton target
+passed to it must already carry the resolved id.
 
 The transformer renders a singleton's resource `self` link as `{baseUri}/{uriType}` and
 its relationship `self` and `related` links under it. A type is a singleton when its serializer

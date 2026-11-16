@@ -299,6 +299,7 @@ bodyless verbs (`fetch`/`delete`) ignore them.
 | `withAttribute(string $name, mixed $value)` | sets one body attribute |
 | `withRelationship(string $name, string $type, string $id)` | sets a to-one linkage |
 | `withRelationships(string $name, array $identifiers)` | sets a to-many linkage; `$identifiers` is `list<array{type, id}>` |
+| `asSingleton()` | targets a [singleton type](resources.md#singleton-types) with `Target::singleton()`, taking the builder's id as the caller's resolved id; a fetch or update only |
 | `build()` | the operation value object |
 
 Since `dispatch()` returns an **unrendered** response value object, pass the

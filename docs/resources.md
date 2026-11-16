@@ -145,6 +145,9 @@ so access scopes, query extensions, lifecycle hooks, transactions and the `409` 
 `PATCH` body whose id isn't the caller's all apply unchanged. A row the data layer doesn't
 find is a `404` as well. `SingletonContext` carries the type, the PSR-7 request when there
 is one, and whatever else the adapter passes as named attributes through `attribute()`.
+A `PATCH` body still carries the resource's `id`, as the spec requires of every update,
+and no adapter fills it in. A client reads the singleton first, or otherwise knows the
+caller's id, and sends that id in the body. An absent id is refused as for any other type.
 Registering a singleton that doesn't override `resolveSingletonId()` throws a
 `\LogicException`.
 
