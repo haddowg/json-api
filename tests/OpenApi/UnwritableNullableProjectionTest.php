@@ -166,6 +166,19 @@ final class UnwritableNullableProjectionTest extends TestCase
     }
 
     #[Test]
+    public function theStandaloneResourceObjectSchemaAdmitsTheNullToo(): void
+    {
+        // The JSON-Schema documents an adapter serves inline every named shape.
+        $attributes = self::at((new SchemaProjector())->projectResourceObject('run-items', [Id::make()->build(), $this->changes()])->toArray(), 'properties', 'attributes', 'properties', 'changes', 'properties');
+
+        self::assertSame(['number', 'null'], self::at($attributes, 'contracts', 'items', 'properties', 'from', 'type'));
+        self::assertSame(['string', 'number', 'boolean', 'null'], self::at($attributes, 'columns', 'items', 'properties', 'to', 'type'));
+        $variants = self::at($attributes, 'values', 'items', 'oneOf');
+        self::assertIsArray($variants);
+        self::assertSame(['string', 'number', 'boolean', 'null'], self::at($variants, 1, 'properties', 'from', 'type'));
+    }
+
+    #[Test]
     public function aResponseWithNullNestedMembersValidatesAgainstTheProjectedDocument(): void
     {
         $document = $this->project([$this->changes()], 'run-items');
