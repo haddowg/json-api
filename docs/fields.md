@@ -342,6 +342,24 @@ Str::make('status')->guaranteed(),  // the entity defaults it to 'draft'
 create and update schemas still follow `nullable()`. Declared on a field that can render
 `null`, it makes the document lie to every client generated from it.
 
+On a field no write can set, `nullable()` has no write to describe, so it describes the
+rendered value and the read schema admits `null` even beside `guaranteed()`. That holds
+for every member of a read-only or computed value too, because no write reaches them:
+
+```php
+Obj::make('changes')->readOnly()->fields(
+    Decimal::make('from')->guaranteed()->nullable(),  // number or null
+    Decimal::make('to')->guaranteed(),                // always a number
+),
+```
+
+A member is written only by the writes that can set every value around it, so a member
+of an `Obj` declared `readOnlyOnUpdate()` takes its read constraints and its `null` from
+the create alone.
+
+A [named shape](field-types.md) is one component for every field using it, so inside one
+a `guaranteed()->nullable()` member admits `null` on read whichever field uses it.
+
 ### Deprecation: `deprecated()`
 
 `deprecated()` marks a field as one clients should stop using. The field's property in the

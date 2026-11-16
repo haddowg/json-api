@@ -331,10 +331,12 @@ sketch:
   `requiredOnCreate()` on a field a create can write, and no write declares `nullable()`),
   when the closure producing it declares a non-null return type, or when the field
   declares [`guaranteed()`](fields.md#null-on-read-guaranteed). A read-only field and an
-  [`on()`](fields.md#flattened-related-attributes-on) value admit `null` until asserted. A
+  [`on()`](fields.md#flattened-related-attributes-on) value admit `null` until asserted, and a
+  field no write can set admits it whenever it declares `nullable()`, guaranteed or not. A
   nullable enum adds `null` to its `enum` list, or unions its `$ref` with `{"type":
-  "null"}` and adds `null` to the `type` beside it; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children follow the
-  same rule, and the resource `id` is never null. So a client can trust a read type
+  "null"}` and adds `null` to the `type` beside it; a nullable `OneOf` gains a `null` branch. `Obj` and `Map` children, list
+  elements' members and `OneOf` variants' members follow the same rule, each written only
+  by the writes that can set the value around it, and the resource `id` is never null. So a client can trust a read type
   without `null`: that member always carries a value.
 - **Presence is a separate promise.** The read shape's `required` lists every attribute a
   response without `fields[<type>]` always carries, `null` or not. A `hidden(when:)` or

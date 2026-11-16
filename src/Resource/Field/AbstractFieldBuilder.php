@@ -535,7 +535,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * whatever a write left out: a column or entity default, a `fillUsing()` that fills
      * one in, a timestamp the server always sets. The OpenAPI read schema then types the
      * attribute without `null`. Validation is unchanged; whether a write may send `null`
-     * is still `nullable()`'s call.
+     * is still `nullable()`'s call. On a field no write can set, a read-only one or a member
+     * of a read-only value, `nullable()` describes the rendered value instead and wins.
      *
      * @return static
      */

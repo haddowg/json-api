@@ -83,6 +83,20 @@ final class SchemaProjector
     private bool $wholeValue = false;
 
     /**
+     * Whether a create and an update can write the value being projected into: a member
+     * is read-only for every write its enclosing value is read-only for.
+     *
+     * @var array{bool, bool}
+     */
+    private array $enclosingWrites = [true, true];
+
+    /**
+     * Set while a named shape's component body is being projected. The body holds for
+     * every use of the shape, whichever writes can set that use.
+     */
+    private bool $sharedShape = false;
+
+    /**
      * Set while a write is projected for request validation, which ignores a declared
      * child read-only for the write rather than rejecting it, so it stays as an optional
      * member there.
@@ -128,6 +142,11 @@ final class SchemaProjector
      */
     private function baseSchema(FieldInterface $field, bool $creating, ?EnumComponentCollector $collector): Schema
     {
+        return $this->within($field, fn(): Schema => $this->ownSchema($field, $creating, $collector));
+    }
+
+    private function ownSchema(FieldInterface $field, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
         // A field that describes its own schema (a composite type — Obj, the
         // discriminated union) supplies the base node; the projector still layers the
         // common post-processing (constraints, nullable, description, example) on it.
@@ -157,7 +176,7 @@ final class SchemaProjector
         [$schema, $body] = $this->namedReference(
             $name,
             $field->name(),
-            fn(bool $creating): Schema => $this->shapeBody($field, $this->baseSchema($field, $creating, $collector), $creating, $collector),
+            fn(bool $creating): Schema => $this->shapeBody($field, $this->ownSchema($field, $creating, $collector), $creating, $collector),
             $creating,
             $collector,
         );
@@ -205,11 +224,11 @@ final class SchemaProjector
      */
     private function namedReference(string $name, string $field, \Closure $shape, bool $creating, EnumComponentCollector $collector): array
     {
-        $bodies = [
+        $bodies = $this->sharedShape(fn(): array => [
             'read' => $this->inRepresentation(true, static fn(): Schema => $shape(false)),
             'create' => $this->inRepresentation(false, static fn(): Schema => $shape(true)),
             'update' => $this->inRepresentation(false, static fn(): Schema => $shape(false)),
-        ];
+        ]);
         [$context, $key] = match (true) {
             $creating => [RepresentationContext::Create, 'create'],
             $this->reading => [RepresentationContext::Read, 'read'],
@@ -249,6 +268,11 @@ final class SchemaProjector
      */
     private function projectElementUnion(Union $union, bool $creating, ?EnumComponentCollector $collector): Schema
     {
+        return $this->within($union, fn(): Schema => $this->projectUnionElement($union, $creating, $collector));
+    }
+
+    private function projectUnionElement(Union $union, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
         $name = $union->componentName();
         if ($name !== null && $collector !== null) {
             [$schema] = $this->namedReference(
@@ -279,6 +303,11 @@ final class SchemaProjector
      * as an attribute, less the `null` a list never holds in place of an element.
      */
     private function projectListElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
+    {
+        return $this->within($element, fn(): Schema => $this->projectElement($list, $element, $creating, $collector));
+    }
+
+    private function projectElement(ArrayList $list, Obj|OneOf $element, bool $creating, ?EnumComponentCollector $collector): Schema
     {
         $name = $element->componentName();
         if ($name !== null && $collector !== null) {
@@ -1157,7 +1186,10 @@ final class SchemaProjector
      * A value is guaranteed when the field promises it ({@see readGuarantee()}), or when
      * it renders what was written and every create had to supply it: an unconditional
      * {@see Required} on create, on a field a create can write. Even then a write that
-     * accepts `null` lets it in, as for a request body. Everything else may render `null`:
+     * accepts `null` lets it in, as for a request body. A field no write can set has only
+     * its rendered value for `nullable()` to describe, so there it admits `null` even
+     * beside a guarantee, as it does inside a named shape, which some use may not let a
+     * write set. Everything else may render `null`:
      * an optional field a create left out, a read-only field the server may not have
      * populated, a value flattened through a to-one chain with a null hop.
      */
@@ -1168,7 +1200,9 @@ final class SchemaProjector
         }
 
         return match ($this->readGuarantee($field)) {
-            true => $schema,
+            true => ($this->sharedShape || !$this->isWritable($field)) && $this->declaresNullable($field, $this->wideningScope($field, false))
+                ? $this->admitNull($schema)
+                : $schema,
             false => $this->admitNull($schema),
             null => !$this->requiredOnEveryCreate($field) || $this->declaresNullable($field, $this->wideningScope($field, false))
                 ? $this->admitNull($schema)
@@ -1438,14 +1472,71 @@ final class SchemaProjector
     }
 
     /**
-     * @return array{bool, bool} whether a create and an update can write the field
+     * @return array{bool, bool} whether a create and an update can write the field, or both when neither can
      */
     private function writableContexts(FieldInterface $field): array
     {
-        $onCreate = !$field->isReadOnly(true);
-        $onUpdate = !$field->isReadOnly(false);
+        return $this->isWritable($field) ? $this->writes($field) : [true, true];
+    }
 
-        return $onCreate || $onUpdate ? [$onCreate, $onUpdate] : [true, true];
+    /**
+     * @return array{bool, bool} whether a create and an update can write the field, inside the value being projected into
+     */
+    private function writes(FieldInterface $field): array
+    {
+        return [
+            $this->enclosingWrites[0] && !$field->isReadOnly(true),
+            $this->enclosingWrites[1] && !$field->isReadOnly(false),
+        ];
+    }
+
+    private function isWritable(FieldInterface $field): bool
+    {
+        return \in_array(true, $this->writes($field), true);
+    }
+
+    /**
+     * Runs `$projection` for what `$field` holds, which no write can set that cannot set
+     * `$field`.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    private function within(FieldInterface $field, \Closure $projection): mixed
+    {
+        $previous = $this->enclosingWrites;
+        $this->enclosingWrites = $this->writes($field);
+
+        try {
+            return $projection();
+        } finally {
+            $this->enclosingWrites = $previous;
+        }
+    }
+
+    /**
+     * Runs `$projection` for a named shape's component body, which starts from no
+     * enclosing value since each use has its own.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $projection
+     *
+     * @return T
+     */
+    private function sharedShape(\Closure $projection): mixed
+    {
+        [$enclosing, $shared] = [$this->enclosingWrites, $this->sharedShape];
+        [$this->enclosingWrites, $this->sharedShape] = [[true, true], true];
+
+        try {
+            return $projection();
+        } finally {
+            [$this->enclosingWrites, $this->sharedShape] = [$enclosing, $shared];
+        }
     }
 
     /**
