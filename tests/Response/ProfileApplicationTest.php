@@ -113,6 +113,16 @@ final class ProfileApplicationTest extends TestCase
     }
 
     #[Test]
+    public function readsBackTheActivatedProfiles(): void
+    {
+        $response = DataResponse::fromResource(new \stdClass(), new StubResource('user', '1'));
+        self::assertSame([], $response->activatedProfiles());
+
+        $profile = $this->timestampsProfile();
+        self::assertSame([$profile], $response->withActivatedProfiles($profile)->activatedProfiles());
+    }
+
+    #[Test]
     public function dropsAnUnregisteredActivatedProfile(): void
     {
         // Empty registry: an activated profile the server never registered is silently
