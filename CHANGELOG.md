@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.19.0](https://github.com/haddowg/json-api/compare/v2.18.2...v2.19.0) (2026-11-16)
+
+
+### Features
+
+* add WhereMorph and WhereSet filters ([#371](https://github.com/haddowg/json-api/issues/371)) ([68442ea](https://github.com/haddowg/json-api/commit/68442eaca326923a2c8fbb0c1395f526dec7ce50))
+* serve singleton resources at their type's path ([#369](https://github.com/haddowg/json-api/issues/369)) ([4e46195](https://github.com/haddowg/json-api/commit/4e46195b3e373e6b21cf5fb1cf47195c721587f6))
+
+
+### Bug Fixes
+
+* require an update's id and link decorated singletons at their path ([#372](https://github.com/haddowg/json-api/issues/372)) ([11dba9a](https://github.com/haddowg/json-api/commit/11dba9a9376a33ea40324b679548d8192b3045af))
+
 ## [2.18.2](https://github.com/haddowg/json-api/compare/v2.18.1...v2.18.2) (2026-11-16)
 
 
