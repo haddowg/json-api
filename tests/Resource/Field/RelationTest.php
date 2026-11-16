@@ -1092,6 +1092,26 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
+    public function aPolymorphicToManysPagesAddressItsRelatedEndpoint(): void
+    {
+        // Its relationship endpoint renders the whole linkage, so the pages are the related
+        // endpoint's. An empty page keeps the members out of the way.
+        $relation = MorphToMany::make('tracks', ['tracks', 'playlists'])->build();
+        $model = ['tracks' => []];
+
+        $page = new PageBasedPage([], totalItems: null, page: 1, size: 1, hasMore: true);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page)));
+
+        $links = $this->transformTracks($relation, $model, $resolver)['links'] ?? [];
+        self::assertIsArray($links);
+
+        self::assertSame('https://api.example.com/albums/1/relationships/tracks', $links['self'] ?? null);
+        self::assertIsString($links['next'] ?? null);
+        self::assertStringStartsWith('https://api.example.com/albums/1/tracks?', $links['next']);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
     public function noPagesWhenNeitherEndpointIsExposed(): void
     {
         $relation = HasMany::make('tracks', 'tracks')->withoutRelationshipEndpoint()->withoutRelatedEndpoint()->build();

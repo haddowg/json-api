@@ -594,8 +594,10 @@ two tracks, not the album's whole tracklist:
 }
 ```
 
-The page links address the relationship endpoint, or the related endpoint when
-only that one is exposed. A page that was counted, by a `withCount()` paginator or a
+The page links address the relationship endpoint, or the related endpoint when only
+that one is exposed or when the relationship endpoint does not page, as a polymorphic
+to-many's renders its whole linkage. A page counted because the request asked for it
+carries `withCount=_self_` in its links, so the pages they reach are counted too. A page that was counted, by a `withCount()` paginator or a
 `?withCount` naming the relation, adds `last`, and on a `countable()` relation the
 relationship object's `meta.total`. A nested include (`?include=tracks.playlists`) cuts each level the
 same way, under each relation's own paginator.

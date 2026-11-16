@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Examples\MusicCatalog\Data;
 use haddowg\JsonApi\Operation\QueryParameters;
 use haddowg\JsonApi\Pagination\PageInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Request\RelatedQuery;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
@@ -102,10 +103,16 @@ final class InMemoryFirstPages implements RelationshipLinkageInterface, Relation
 
         // This repository counts every page, but the total is shown only where a client
         // or the paginator asked for one.
+        // A page the client asked to count links to pages that count too.
         $total = $page->pageMeta()['total'] ?? null;
-        $counted = $request->countsRelationship($relation->name()) || ($this->server?->linkagePaginator($relation)?->wantsCount() ?? false);
+        $requested = $request->countsRelationship($relation->name());
+        $counted = $requested || ($this->server?->linkagePaginator($relation)?->wantsCount() ?? false);
 
-        return new RelationshipPagination($page, total: $counted && \is_int($total) ? $total : null);
+        return new RelationshipPagination(
+            $page,
+            (new RelatedQuery())->toPlainQueryString(counted: $requested),
+            $counted && \is_int($total) ? $total : null,
+        );
     }
 
     /**

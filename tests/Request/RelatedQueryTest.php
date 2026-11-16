@@ -68,4 +68,11 @@ final class RelatedQueryTest extends TestCase
         self::assertSame('sort=-duration', \urldecode((new RelatedQuery('-duration'))->toPlainQueryString()));
         self::assertSame('filter%5Bk%5D=v', (new RelatedQuery(null, ['k' => 'v']))->toPlainQueryString());
     }
+
+    #[Test]
+    public function aCountedPlainQueryStringAsksEveryPageToCount(): void
+    {
+        self::assertSame('withCount=_self_', (new RelatedQuery())->toPlainQueryString(counted: true));
+        self::assertSame('sort=-duration&withCount=_self_', \urldecode((new RelatedQuery('-duration'))->toPlainQueryString(counted: true)));
+    }
 }

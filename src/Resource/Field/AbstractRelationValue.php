@@ -691,6 +691,20 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
      * Applies the convention `self`/`related` links to a relationship when this
      * relation emits links — the shared link tail of every relationship builder.
      */
+    /**
+     * Whether the relationship endpoint pages this relation's linkage: a to-many whose
+     * members are one type, or stored pairs. A polymorphic to-many's pages are its
+     * related endpoint's.
+     */
+    private function pagesLinkage(): bool
+    {
+        if ($this instanceof \haddowg\JsonApi\Resource\Field\StoresIdentifiersInterface && $this->storesIdentifiers()) {
+            return true;
+        }
+
+        return !$this instanceof PolymorphicRelationInterface && \count($this->relatedTypes()) === 1;
+    }
+
     private function applyConventionLinks(AbstractRelationship $relationship): void
     {
         if ($this->relationState->includesLinks) {
@@ -698,6 +712,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
                 $this->uriFieldName(),
                 $this->relationState->exposesRelationshipEndpoint,
                 $this->relationState->exposesRelatedEndpoint,
+                $this->pagesLinkage(),
             );
         }
     }
