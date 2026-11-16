@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.2](https://github.com/haddowg/json-api/compare/v2.18.1...v2.18.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* mark nested nullable members nullable in the OpenAPI schema ([#367](https://github.com/haddowg/json-api/issues/367)) ([6ba1638](https://github.com/haddowg/json-api/commit/6ba1638ff6c20c3f4bc6c2415bc01a9384eb5965))
+
 ## [2.18.1](https://github.com/haddowg/json-api/compare/v2.18.0...v2.18.1) (2026-11-13)
 
 
