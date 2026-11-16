@@ -44,7 +44,9 @@ batch (the spec's `POST /operations`), distinct from the per-type CRUD endpoints
 - a **`data`** payload — a resource object (an `add`/`update` of a resource), a
   single resource-identifier or `null` (a to-one relationship `update`), or a list
   of resource-identifiers (a to-many relationship operation). A `remove` of a
-  resource carries no `data`.
+  resource carries no `data`. The resource object of an `update` names its resource
+  by `id` as a `PATCH` body does, and one without is refused with
+  `400 RESOURCE_ID_MISSING` at `/atomic:operations/<i>/data`.
 
 ### The response
 

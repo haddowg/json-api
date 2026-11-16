@@ -74,7 +74,9 @@ method. Pick the one matching the operations your type accepts:
 
 `AbstractHydrator` composes three traits (`HydratorTrait` + `CreateHydratorTrait` +
 `UpdateHydratorTrait`): `POST` runs the create path, `PATCH` the update path, and a
-`validateDomainObject()` hook runs after both. The create-only and update-only
+`validateDomainObject()` hook runs after both. The update path refuses a body with no
+`data.id` (`400 RESOURCE_ID_MISSING`) or a non-string one (`400 RESOURCE_ID_INVALID`)
+before `setId()` runs, as `AbstractResource` does. The create-only and update-only
 bases drop the trait they don't need — useful for a write-once log (create only)
 or an immutable-key resource that only ever patches.
 

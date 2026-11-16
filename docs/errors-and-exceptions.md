@@ -558,7 +558,7 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 |---|---|---|---|---|
 | `DataMemberMissing` | 400 | `DATA_MEMBER_MISSING` | pointer | The top-level `data` member is absent where required. |
 | `ResourceTypeMissing` | 400 | `RESOURCE_TYPE_MISSING` | pointer | A resource object has no `type`. |
-| `ResourceIdMissing` | 400 | `RESOURCE_ID_MISSING` | pointer | A resource object that must carry an `id` has none. |
+| `ResourceIdMissing` | 400 | `RESOURCE_ID_MISSING` | pointer | An update's resource object has no `id`, a singleton's included. |
 | `ResourceIdInvalid` | 400 | `RESOURCE_ID_INVALID` | pointer | The `id` member is present but not a string. |
 | `RequestBodyInvalidJson` | 400 | `REQUEST_BODY_INVALID_JSON` | — | The request body is not well-formed JSON. |
 | `RequestBodyInvalidJsonApi` | 400 | `REQUEST_BODY_INVALID_JSON_API` | pointer | The body fails JSON:API [schema validation](schema-validation.md). |

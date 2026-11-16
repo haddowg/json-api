@@ -147,7 +147,8 @@ find is a `404` as well. `SingletonContext` carries the type, the PSR-7 request 
 is one, and whatever else the adapter passes as named attributes through `attribute()`.
 A `PATCH` body still carries the resource's `id`, as the spec requires of every update,
 and no adapter fills it in. A client reads the singleton first, or otherwise knows the
-caller's id, and sends that id in the body. An absent id is refused as for any other type.
+caller's id, and sends that id in the body. A body without one is refused with
+`400 RESOURCE_ID_MISSING`, as for any other type.
 Registering a singleton that doesn't override `resolveSingletonId()` throws a
 `\LogicException`.
 
@@ -287,6 +288,11 @@ For a `POST` (create) or `PATCH` (update), the same fields fill the domain objec
   // examples/music-catalog/src/Resource/PlaylistResource.php
   Id::make()->uuid()->allowClientId(),
   ```
+
+  An update names the resource it changes, so its body must carry `data.id`. One
+  without is refused with `400 RESOURCE_ID_MISSING`, and an id that isn't a string
+  with `400 RESOURCE_ID_INVALID`, before anything is hydrated. The update hydrator
+  trait refuses the same bodies with the same errors.
 
 - **Attribute fields** write back through the accessor (or the field's
   `deserializeUsing()` / `fillUsing()` hook), **unless the field is read-only in
