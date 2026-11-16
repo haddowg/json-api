@@ -125,8 +125,13 @@ attributes:
 { "data": { "type": "artists", "id": "1" } }
 ```
 
-`GET /albums/1/relationships/tracks` returns a list of identifiers — three
-`{ "type": "tracks", "id": … }` objects, none carrying `attributes`.
+`GET /albums/1/relationships/tracks` returns a list of identifiers, none carrying
+`attributes`: the first page of the album's two-per-page tracks, with a `next` link to
+the third. The example's handler reads that page, and the first page every rendered
+`tracks` linkage holds, through its
+[`InMemoryFirstPages`](../examples/music-catalog/src/Data/InMemoryFirstPages.php)
+seam (see
+[pagination](pagination.md#included-and-rendered-relationships-show-their-first-page)).
 
 ## Paginated related collections
 

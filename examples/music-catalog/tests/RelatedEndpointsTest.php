@@ -82,18 +82,21 @@ final class RelatedEndpointsTest extends MusicCatalogTestCase
     #[Test]
     public function relationshipReadReturnsToManyLinkage(): void
     {
-        // GET /albums/1/relationships/tracks → three identifiers, no attributes.
+        // GET /albums/1/relationships/tracks → the first page of the two-per-page
+        // relation: two identifiers, no attributes. Its second page holds the third.
         $response = $this->get('/albums/1/relationships/tracks');
 
         self::assertSame(200, $response->getStatusCode());
         $this->assertJsonApiSpecCompliant($response);
 
         $data = $this->collection($response);
-        self::assertCount(3, $data);
+        self::assertCount(2, $data);
         foreach ($data as $identifier) {
             self::assertSame('tracks', $identifier['type'] ?? null);
             self::assertArrayNotHasKey('attributes', $identifier);
         }
+
+        self::assertCount(1, $this->collection($this->get('/albums/1/relationships/tracks?page[number]=2&page[size]=2')));
     }
 
     #[Test]

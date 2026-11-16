@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Examples\MusicCatalog\Handler;
 
+use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryFirstPages;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryRepository;
 use haddowg\JsonApi\Examples\MusicCatalog\Domain\Album;
 use haddowg\JsonApi\Examples\MusicCatalog\Domain\Artist;
@@ -74,11 +75,16 @@ use haddowg\JsonApi\Server\Server;
  */
 final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationHandlerInterface
 {
-    public function __construct(private readonly InMemoryRepository $repository) {}
+    public function __construct(
+        private readonly InMemoryRepository $repository,
+        private readonly ?InMemoryFirstPages $pages = null,
+    ) {}
 
     public function handle(
         JsonApiOperationInterface $operation,
     ): DataResponse|RelatedResponse|IdentifierResponse|NoContentResponse|ErrorResponse {
+        $this->pages?->forget();
+
         return match (true) {
             $operation instanceof FetchResourceOperation => $this->fetch($operation),
             $operation instanceof FetchRelatedOperation => $this->fetchRelated($operation),
@@ -259,6 +265,11 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
         $relation = $server->resourceFor($type)->relationNamed($relationshipName);
         if ($relation === null || !$relation->exposesRelationshipEndpoint()) {
             return ErrorResponse::fromException(new RelationshipNotExists($relationshipName));
+        }
+
+        // A to-many's linkage is the page the request asks for.
+        if ($relation->isToMany()) {
+            $this->pages?->pageAt($parent, $relationshipName, $this->request($operation->context()));
         }
 
         return IdentifierResponse::forRelationship($parent, $server->serializerFor($type), $relationshipName);
@@ -515,6 +526,14 @@ final class MusicCatalogHandler implements \haddowg\JsonApi\Operation\OperationH
         $this->applyRelationship($parent, $relation, $linkage, $mode);
 
         $this->repository->update($type, $parent, (string) $target->id);
+
+        // A to-many's linkage is the page the request asks for.
+        if ($relation->isToMany()) {
+            $this->pages?->pageAt($parent, $relationshipName, $this->request($operation->context()));
+        }
+
+        // A mutation answers with the whole updated linkage.
+        $this->pages?->wholeAt($parent, $relationshipName);
 
         return IdentifierResponse::forRelationship($parent, $server->serializerFor($type), $relationshipName);
     }
