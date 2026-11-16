@@ -65,10 +65,11 @@ final readonly class RelatedQuery
      * `relatedQuery[…]` form, which only addresses a relationship from a parent
      * request). The host feeds it to a {@see \haddowg\JsonApi\Schema\Relationship\RelationshipPagination}
      * so the relationship-object pagination links mirror the client-supplied
-     * sort/filter; the page strategy appends `page[…]`. Empty when this carries
-     * neither sort nor filter.
+     * sort/filter; the page strategy appends `page[…]`. `$counted` adds
+     * `withCount=_self_`, so a page the client asked to count links to pages that
+     * count too. Empty when this carries none of them.
      */
-    public function toPlainQueryString(): string
+    public function toPlainQueryString(bool $counted = false): string
     {
         $params = [];
 
@@ -78,6 +79,10 @@ final readonly class RelatedQuery
 
         if ($this->filter !== []) {
             $params['filter'] = $this->filter;
+        }
+
+        if ($counted) {
+            $params['withCount'] = \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN;
         }
 
         return \http_build_query($params);

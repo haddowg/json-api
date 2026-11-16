@@ -1061,6 +1061,12 @@ and ignores it. Opt a relation **out** of pagination entirely with
 regardless of any resolved fallback. See [pagination](pagination.md) for the
 paginators.
 
+The paginator bounds the relationship object too. Wherever the relation's linkage
+`data` renders, included or declared `withData()`, it holds the first page of the
+members, and the relationship object's `links` carry the other pages. A relation
+declared `withoutPagination()` renders its whole set there as well. See
+[pagination](pagination.md#included-and-rendered-relationships-show-their-first-page).
+
 ## Countable relations and `?withCount`
 
 A to-many relation can expose its cardinality as `meta.total` on the relationship
@@ -1087,11 +1093,20 @@ a request that negotiates the profile names a countable relation —
 
 ```json
 {
-  "links": { "self": "…/albums/1/relationships/tracks", "related": "…/albums/1/tracks" },
+  "links": {
+    "self": "…/albums/1/relationships/tracks",
+    "related": "…/albums/1/tracks",
+    "first": "…/albums/1/relationships/tracks?page[number]=1&page[size]=2",
+    "next": "…/albums/1/relationships/tracks?page[number]=2&page[size]=2",
+    "last": "…/albums/1/relationships/tracks?page[number]=2&page[size]=2"
+  },
   "meta": { "total": 3 },
-  "data": [ { "type": "tracks", "id": "1" }, { "type": "tracks", "id": "2" }, { "type": "tracks", "id": "3" } ]
+  "data": [ { "type": "tracks", "id": "1" }, { "type": "tracks", "id": "2" } ]
 }
 ```
+
+The `data` is the first page of the relation's two-per-page paginator, and the
+count also makes that page counted, so it links `last`.
 
 With **no** `?withCount` (or none naming this relation) the relationship object
 carries no `meta` key at all. The meta key is exactly **`total`** — the same key

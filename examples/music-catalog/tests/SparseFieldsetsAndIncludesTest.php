@@ -111,7 +111,8 @@ final class SparseFieldsetsAndIncludesTest extends MusicCatalogTestCase
         JsonApiDocument::of($response)
             ->assertHasType('albums')
             ->assertHasIncluded('artists', 1)
-            ->assertHasIncluded('tracks', 3);
+            // The first page of album 1's two-per-page tracks.
+            ->assertHasIncluded('tracks', 2);
     }
 
     #[Test]

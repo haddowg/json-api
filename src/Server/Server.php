@@ -132,10 +132,9 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
 
     /**
-     * The storage-aware resolver that supplies a to-many relation's page-1
-     * pagination state (the relationship-object pagination links) under the
-     * Relationship Queries profile, or null for the standalone default (no such
-     * links emitted). Pushed into the {@see ResourceRegistry} the same way the
+     * The storage-aware resolver that supplies a rendered to-many relation's
+     * first-page pagination state (the relationship-object pagination links), or
+     * null for the standalone default (no such links emitted). Pushed into the {@see ResourceRegistry} the same way the
      * count resolver is.
      */
     private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
@@ -467,13 +466,12 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     }
 
     /**
-     * Injects the storage-aware resolver a to-many relation consults — when the
-     * Relationship Queries profile is negotiated — for the page-1 pagination state
-     * rendered as the relationship-object `first` / `prev` / `next` (+ `last`)
-     * links. Passing `null` (the default) restores the standalone behaviour: no
-     * relationship-object pagination links are emitted. The data-layer adapter
-     * windows each relation to page 1 (ordered/filtered by the per-relationship
-     * sort/filter) and supplies the page here.
+     * Injects the storage-aware resolver a rendered to-many relation consults for its
+     * first-page pagination state, rendered as the relationship-object `first` /
+     * `prev` / `next` / `last` links. Passing `null` (the default) restores the
+     * standalone behaviour: no relationship-object pagination links are emitted. The
+     * data-layer adapter cuts each rendered to-many to its first page under
+     * {@see linkagePaginator()} and supplies the page here.
      */
     public function withRelationshipPagination(?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination): self
     {
@@ -796,6 +794,44 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     public function defaultPaginator(): ?\haddowg\JsonApi\Pagination\PaginatorInterface
     {
         return $this->defaultPaginator;
+    }
+
+    /**
+     * The paginator `$relation`'s related collection is served with: the relation's
+     * own `paginate()`, else its related resource's `pagination()`, else this server's
+     * default. A polymorphic relation has no single related resource, so it skips that
+     * step. `null` for a to-one, or for a relation declared `withoutPagination()`.
+     */
+    public function relationPaginator(\haddowg\JsonApi\Resource\Field\RelationInterface $relation): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    {
+        if (!$relation->isToMany()) {
+            return null;
+        }
+
+        $relatedTypes = $relation->relatedTypes();
+        $relatedResource = !$relation instanceof \haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface
+            && \count($relatedTypes) === 1
+            && $this->hasResourceFor($relatedTypes[0])
+                ? $this->resourceFor($relatedTypes[0])
+                : null;
+
+        return $relation->pagination($relatedResource?->pagination($this->defaultPaginator) ?? $this->defaultPaginator);
+    }
+
+    /**
+     * The paginator a rendered to-many's linkage is cut to: wherever its `data`
+     * renders, included or declared `withData()`, it holds the first page under
+     * {@see relationPaginator()}. `null` keeps the whole set: a to-one, a relation
+     * declared `withoutPagination()`, and one that exposes neither its relationship
+     * nor its related endpoint, which leaves no page to link to.
+     */
+    public function linkagePaginator(\haddowg\JsonApi\Resource\Field\RelationInterface $relation): ?\haddowg\JsonApi\Pagination\PaginatorInterface
+    {
+        if (!$relation->exposesRelationshipEndpoint() && !$relation->exposesRelatedEndpoint()) {
+            return null;
+        }
+
+        return $this->relationPaginator($relation);
     }
 
     public function errorMessageResolver(): ?\haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface

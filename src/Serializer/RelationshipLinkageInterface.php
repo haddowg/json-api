@@ -13,9 +13,9 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipLinkage;
  * OUT-OF-BAND — so core renders the supplied page rather than reading the linkage
  * off the parent model's backing property.
  *
- * Its motivating consumer is the Relationship Queries profile's per-page window: the
- * host windows a to-many to page 1 of its profile sort/filter and supplies that page
- * here, keyed per (parent model, relation), INSTEAD of writing it back onto the
+ * Its motivating consumer is the first-page window: the host cuts a rendered to-many
+ * to its first page, ordered and narrowed by any Relationship Queries `relatedQuery`,
+ * and supplies that page here, keyed per (parent model, relation), INSTEAD of writing it back onto the
  * parent property. The write-back is destructive — core reads every relation's
  * linkage off its backing column, so a windowed relation's filtered page would
  * overwrite the column a SIBLING relation sharing it also reads, leaking the

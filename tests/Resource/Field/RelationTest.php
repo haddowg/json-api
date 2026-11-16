@@ -1002,6 +1002,158 @@ final class RelationTest extends TestCase
 
     #[Test]
     #[Group('spec:document-resource-object-relationships')]
+    public function aCountableRelationsCountedFirstPageRendersItsTotalAsMeta(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->countable()->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: 5, page: 1, size: 2);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page, total: 5)));
+
+        $relationshipObject = $this->transformTracks($relation, $model, $resolver);
+
+        self::assertSame(['total' => 5], $relationshipObject['meta'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function aRelationThatIsNotCountableRendersNoTotalFromItsPage(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: 5, page: 1, size: 2);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page, total: 5)));
+
+        $relationshipObject = $this->transformTracks($relation, $model, $resolver);
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+        self::assertIsArray($relationshipObject['links'] ?? null);
+        self::assertArrayHasKey('last', $relationshipObject['links']);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function aCountFreeFirstPageRendersNoTotal(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: null, page: 1, size: 2, hasMore: true);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page)));
+
+        $relationshipObject = $this->transformTracks($relation, $model, $resolver);
+
+        self::assertArrayNotHasKey('meta', $relationshipObject);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function theCountSeamsTotalWinsOverTheFirstPagesTotal(): void
+    {
+        $relation = HasMany::make('items', 'items')->countable()->build();
+        $model = ['items' => [['id' => '1', 'type' => 'items']]];
+
+        $page = new PageBasedPage($model['items'], totalItems: 4, page: 1, size: 2);
+        $resolver = (new StubSerializerResolver())
+            ->withRelationshipCount(new FakeRelationshipCount(7))
+            ->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page, total: 4)));
+
+        $request = new StubJsonApiRequest(['withCount' => 'items'], self::COUNTS_ACCEPT);
+        $built = $relation->buildRelationship($model, $request, $resolver);
+        $relationshipObject = (array) $built->transform(
+            new ResourceTransformation(new StubResource('articles', '42'), $model, 'articles', $request, '', '', 'items', 'https://api.example.com'),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+
+        self::assertSame(['total' => 7], $relationshipObject['meta'] ?? null);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function pagesAddressTheRelatedEndpointWhenTheRelationshipEndpointIsWithheld(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->withoutRelationshipEndpoint()->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: null, page: 1, size: 1, hasMore: true);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page)));
+
+        $links = $this->transformTracks($relation, $model, $resolver)['links'] ?? [];
+        self::assertIsArray($links);
+
+        self::assertArrayNotHasKey('self', $links);
+        self::assertSame('https://api.example.com/albums/1/tracks', $links['related'] ?? null);
+        self::assertIsString($links['next'] ?? null);
+        self::assertStringStartsWith('https://api.example.com/albums/1/tracks?', $links['next']);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function aPolymorphicToManysPagesAddressItsRelatedEndpoint(): void
+    {
+        // Its relationship endpoint renders the whole linkage, so the pages are the related
+        // endpoint's. An empty page keeps the members out of the way.
+        $relation = MorphToMany::make('tracks', ['tracks', 'playlists'])->build();
+        $model = ['tracks' => []];
+
+        $page = new PageBasedPage([], totalItems: null, page: 1, size: 1, hasMore: true);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page)));
+
+        $links = $this->transformTracks($relation, $model, $resolver)['links'] ?? [];
+        self::assertIsArray($links);
+
+        self::assertSame('https://api.example.com/albums/1/relationships/tracks', $links['self'] ?? null);
+        self::assertIsString($links['next'] ?? null);
+        self::assertStringStartsWith('https://api.example.com/albums/1/tracks?', $links['next']);
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
+    public function noPagesWhenNeitherEndpointIsExposed(): void
+    {
+        $relation = HasMany::make('tracks', 'tracks')->withoutRelationshipEndpoint()->withoutRelatedEndpoint()->build();
+        $model = ['tracks' => [['id' => '1', 'type' => 'tracks']]];
+
+        $page = new PageBasedPage($model['tracks'], totalItems: null, page: 1, size: 1, hasMore: true);
+        $resolver = (new StubSerializerResolver())->withRelationshipPagination(new FakeRelationshipPagination(new RelationshipPagination($page)));
+
+        $links = $this->transformTracks($relation, $model, $resolver)['links'] ?? [];
+        self::assertIsArray($links);
+        self::assertArrayNotHasKey('next', $links);
+        self::assertArrayNotHasKey('first', $links);
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     *
+     * @return array<string, mixed>
+     */
+    private function transformTracks(RelationInterface $relation, array $model, StubSerializerResolver $resolver): array
+    {
+        $built = $relation->buildRelationship($model, $this->request(), $resolver);
+
+        return (array) $built->transform(
+            new ResourceTransformation(
+                new StubResource('albums', '1'),
+                $model,
+                'albums',
+                new StubJsonApiRequest(),
+                '',
+                '',
+                'tracks',
+                'https://api.example.com',
+            ),
+            new ResourceTransformer(),
+            new DummyData(),
+            [],
+        );
+    }
+
+    #[Test]
+    #[Group('spec:document-resource-object-relationships')]
     public function noPaginationLinksWithoutAResolver(): void
     {
         // Standalone core (no resolver injected): no relationship-object pagination

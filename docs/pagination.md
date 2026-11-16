@@ -571,6 +571,47 @@ at the related endpoint, not at `/tracks`. A polymorphic to-many carries no shar
 filter/sort vocabulary, so on it `filter`/`sort` are a `400` and only `page`
 windows the mixed members — see [related endpoints](related-endpoints.md).
 
+`Server::relationPaginator($relation)` resolves that chain for a host, so an
+adapter never spells it out itself.
+
+### Included and rendered relationships show their first page
+
+The same paginator bounds a to-many wherever its linkage `data` renders: when it is
+included, and when it is declared `withData()`. The relationship object then holds
+the **first page** of the members, in the order the related endpoint serves them,
+and `included` holds exactly those members. `GET /albums/1?include=tracks` renders
+two tracks, not the album's whole tracklist:
+
+```json
+"tracks": {
+  "links": {
+    "self": "…/albums/1/relationships/tracks",
+    "related": "…/albums/1/tracks",
+    "first": "…/albums/1/relationships/tracks?page[number]=1&page[size]=2",
+    "next": "…/albums/1/relationships/tracks?page[number]=2&page[size]=2"
+  },
+  "data": [ { "type": "tracks", "id": "1" }, { "type": "tracks", "id": "2" } ]
+}
+```
+
+The page links address the relationship endpoint, or the related endpoint when only
+that one is exposed or when the relationship endpoint does not page, as a polymorphic
+to-many's renders its whole linkage. A page counted because the request asked for it
+carries `withCount=_self_` in its links, so the pages they reach are counted too. A page that was counted, by a `withCount()` paginator or a
+`?withCount` naming the relation, adds `last`, and on a `countable()` relation the
+relationship object's `meta.total`. A nested include (`?include=tracks.playlists`) cuts each level the
+same way, under each relation's own paginator.
+
+`Server::linkagePaginator($relation)` names the paginator a host cuts the linkage
+to. It is `null`, and the whole set renders, for a relation declared
+`withoutPagination()` and for one that exposes neither endpoint, which leaves no
+page to link to. Core never reads the members itself: the host windows each
+relation through its data layer, supplies the page through the
+`RelationshipLinkageInterface` seam and its links through
+`RelationshipPaginationInterface`, built with `RelationshipPagination::firstPage()`.
+The [Relationship Queries profile](profiles/relationship-queries.md) narrows and
+reorders the same first page from the primary request.
+
 ## Offering a menu of strategies
 
 Sometimes one collection should support more than one pagination strategy and let

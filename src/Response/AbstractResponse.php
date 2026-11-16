@@ -229,6 +229,16 @@ abstract class AbstractResponse
     }
 
     /**
+     * The profiles {@see withActivatedProfiles()} set, so a host adding more keeps them.
+     *
+     * @return list<ProfileInterface>
+     */
+    public function activatedProfiles(): array
+    {
+        return $this->activatedProfiles;
+    }
+
+    /**
      * Advertises one or more JSON:API extensions on this response's `Content-Type`
      * `ext` media-type parameter. A document produced by applied extension
      * processing MUST declare those extensions — e.g. an error response rolled back

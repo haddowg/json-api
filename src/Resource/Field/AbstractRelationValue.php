@@ -519,25 +519,31 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     ): void {
         $this->applyConventionLinks($relationship);
 
+        $pagination = $this->resolvePagination($model, $request, $resolver);
+
+        // A countable relation's counted first page knows the member count, so it
+        // renders as `meta.total` when no count seam supplied one.
         $meta = $this->relationshipMeta($model, $request, $resolver);
+        if ($pagination?->total !== null && $this->isCountable() && !\array_key_exists('total', $meta)) {
+            $meta['total'] = $pagination->total;
+        }
         if ($meta !== []) {
             $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
         }
 
         $this->applyIdentifierMeta($relationship, $model, $request);
 
-        $pagination = $this->resolvePagination($model, $request, $resolver);
         if ($pagination !== null) {
             $relationship->withPagination($pagination);
         }
     }
 
     /**
-     * Resolves the page-1 pagination state for this to-many relation on `$model`
-     * under the Relationship Queries profile — the relationship-object
-     * `first` / `prev` / `next` (+ `last`) links — or `null` when none should be
-     * emitted. The injected resolver owns the page-1 windowing and the plain-form
-     * link translation; core only attaches the result.
+     * Resolves the first-page pagination state for this to-many relation on `$model`
+     * (the relationship-object `first` / `prev` / `next` / `last` links, and the
+     * total of a counted page) or `null` when none should be emitted. The injected
+     * resolver owns the windowing and the plain-form link translation; core only
+     * attaches the result.
      */
     protected function resolvePagination(
         mixed $model,
@@ -685,6 +691,20 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
      * Applies the convention `self`/`related` links to a relationship when this
      * relation emits links — the shared link tail of every relationship builder.
      */
+    /**
+     * Whether the relationship endpoint pages this relation's linkage: a to-many whose
+     * members are one type, or stored pairs. A polymorphic to-many's pages are its
+     * related endpoint's.
+     */
+    private function pagesLinkage(): bool
+    {
+        if ($this instanceof \haddowg\JsonApi\Resource\Field\StoresIdentifiersInterface && $this->storesIdentifiers()) {
+            return true;
+        }
+
+        return !$this instanceof PolymorphicRelationInterface && \count($this->relatedTypes()) === 1;
+    }
+
     private function applyConventionLinks(AbstractRelationship $relationship): void
     {
         if ($this->relationState->includesLinks) {
@@ -692,6 +712,7 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
                 $this->uriFieldName(),
                 $this->relationState->exposesRelationshipEndpoint,
                 $this->relationState->exposesRelatedEndpoint,
+                $this->pagesLinkage(),
             );
         }
     }

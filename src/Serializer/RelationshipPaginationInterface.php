@@ -9,25 +9,23 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
 
 /**
- * Storage-aware resolver that supplies the page-1 pagination state for a rendered
- * to-many relation under the Relationship Queries profile — the
- * `first` / `prev` / `next` (+ `last` when countable) links core renders in the
- * relationship's own `links` object.
+ * Storage-aware resolver that supplies the first-page pagination state of a rendered
+ * to-many relation: the `first` / `prev` / `next` / `last` links core renders in the
+ * relationship's own `links` object, and the total of a counted page, which core
+ * renders as a countable relation's `meta.total`.
  *
- * Core never paginates a relationship: the page-1 window (ordered/filtered by the
- * profile's per-relationship sort/filter) is storage-specific and is the host's
- * to compute through its data layer and paginator. The adapter (e.g. a Doctrine
- * bundle) windows the relation to page 1, reads the request's
- * {@see JsonApiRequestInterface::getRelatedQuery()} for the relation, builds a
- * {@see RelationshipPagination} (page + the plain-form query string from
- * {@see \haddowg\JsonApi\Request\RelatedQuery::toPlainQueryString()}), and returns
- * it; core attaches it to the built relationship so {@see \haddowg\JsonApi\Schema\Relationship\AbstractRelationship::transform()}
- * emits the plain-form endpoint links.
+ * Core never reads a relationship's members itself: the window is storage-specific
+ * and the host's to compute through its data layer and paginator. Wherever a
+ * to-many's linkage `data` renders, included or declared `withData()`, a host cuts it
+ * to the first page under {@see \haddowg\JsonApi\Server\Server::linkagePaginator()},
+ * ordered and narrowed like its related endpoint and by any `relatedQuery` the request
+ * carries ({@see JsonApiRequestInterface::getRelatedQuery()}), supplies those members
+ * through {@see RelationshipLinkageInterface}, and returns the matching
+ * {@see RelationshipPagination} here (built with
+ * {@see RelationshipPagination::firstPage()}).
  *
- * Consulted only for a to-many relation when the Relationship Queries profile is
- * negotiated. Core ships no implementation: with no resolver injected (standalone
- * library) no relationship-object pagination links are emitted, exactly as before
- * this seam existed.
+ * Core ships no implementation: with no resolver injected (standalone library) no
+ * relationship-object pagination links are emitted.
  *
  * Injected through the {@see \haddowg\JsonApi\Resource\SerializerResolverInterface},
  * mirroring {@see RelationshipCountInterface} / {@see RelationshipLoadStateInterface}.
@@ -35,10 +33,9 @@ use haddowg\JsonApi\Schema\Relationship\RelationshipPagination;
 interface RelationshipPaginationInterface
 {
     /**
-     * Returns the page-1 pagination state for `$relation` on `$model`, or `null`
-     * when the relation is not paginated for this request (no profile-supplied
-     * query and no default relation pagination, or no page available) — in which
-     * case core emits no relationship-object pagination links.
+     * Returns the first-page pagination state for `$relation` on `$model`, or `null`
+     * when its linkage was not cut to a page for this request, in which case core
+     * emits no relationship-object pagination links.
      *
      * Implementations must window to page 1 only (never materialize the whole
      * relationship). The `$relation` carries the cardinality

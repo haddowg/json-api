@@ -488,6 +488,35 @@ final class OpenApiProjectorTest extends TestCase
     }
 
     #[Test]
+    public function aPaginatedToManysRelationshipObjectSaysItsDataIsTheFirstPage(): void
+    {
+        $page = \haddowg\JsonApi\OpenApi\Schema::ofType('object');
+        $server = new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(
+                    type: 'albums',
+                    fields: [Id::make()->build()],
+                    relations: [
+                        new FakeRelationMetadata('tracks', ['tracks'], true, 'The album\'s tracks.', pageSchema: $page),
+                        new FakeRelationMetadata('notes', ['tracks'], true, pageSchema: $page),
+                        new FakeRelationMetadata('liners', ['tracks'], true, 'Liner notes.'),
+                        new FakeRelationMetadata('hidden', ['tracks'], true, relatedEndpoint: false, relationshipEndpoint: false, pageSchema: $page),
+                    ],
+                ),
+                FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make()->build()]),
+            ],
+        );
+        $schemas = $this->arrAt($this->projector()->project($server)->toArray(), 'components', 'schemas');
+
+        self::assertSame("The album's tracks. " . \haddowg\JsonApi\OpenApi\RelationFacts::FIRST_PAGE_LINKAGE, $this->strAt($schemas, 'AlbumsTracksRelationship', 'description'));
+        self::assertSame(\haddowg\JsonApi\OpenApi\RelationFacts::FIRST_PAGE_LINKAGE, $this->strAt($schemas, 'AlbumsNotesRelationship', 'description'));
+        self::assertSame('Liner notes.', $this->strAt($schemas, 'AlbumsLinersRelationship', 'description'));
+        self::assertArrayNotHasKey('description', $this->arrAt($schemas, 'AlbumsHiddenRelationship'));
+    }
+
+    #[Test]
     public function itDistinguishesCreateAndUpdateRequestSchemas(): void
     {
         $schemas = $this->schemas();

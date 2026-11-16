@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Examples\MusicCatalog;
 
 use haddowg\JsonApi\Examples\MusicCatalog\Data\CriteriaApplier;
+use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryFirstPages;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryRelationshipCount;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryRepository;
 use haddowg\JsonApi\Examples\MusicCatalog\Data\InMemoryStore;
@@ -79,6 +80,7 @@ function assemble(InMemoryStore $store, bool $debug): array
 {
     $psr17 = new Psr17Factory();
     $repository = new InMemoryRepository($store, new CriteriaApplier());
+    $pages = new InMemoryFirstPages($repository);
 
     // Step 1: the configuration root — base URI, PSR-17 factories, a default
     // paginator, and the recognised profiles. Every `with…()` returns a new
@@ -96,6 +98,10 @@ function assemble(InMemoryStore $store, bool $debug): array
         // (e.g. GET /albums/1?withCount=tracks). With none injected, no count is
         // emitted even for a countable relation.
         ->withRelationshipCount(new InMemoryRelationshipCount())
+        // The first-page seam: every rendered to-many, included or withData(), holds the
+        // first page its related endpoint serves, with that page's links.
+        ->withRelationshipLinkage($pages)
+        ->withRelationshipPagination($pages)
         ->withProfile(new TimestampProfile())
         ->withProfile(new CursorPaginationProfile())
         ->withProfile(new CountableProfile())
@@ -128,7 +134,8 @@ function assemble(InMemoryStore $store, bool $debug): array
             new RequestBodyParsingMiddleware(),
             new PathPrefixRouter($base),
         ])
-        ->withHandler(new MusicCatalogHandler($repository));
+        ->withHandler(new MusicCatalogHandler($repository, $pages));
+    $pages->bind($server);
 
     return [$server, $repository];
 }

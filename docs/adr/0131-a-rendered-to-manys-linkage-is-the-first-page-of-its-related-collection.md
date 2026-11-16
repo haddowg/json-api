@@ -1,0 +1,3 @@
+# A rendered to-many's linkage is the first page of its related collection
+
+An included to-many used to render every member, because a relation's paginator reached only its related endpoint and the Relationship Queries window. One include of a relation with a year of rows was then an unbounded read. Wherever a to-many's linkage `data` renders, included or declared `withData()`, it is now the first page under `Server::linkagePaginator()`, with the page links and a counted total on the relationship object, so `included` and the linkage are always the members the related endpoint's first page serves. `withoutPagination()` keeps the whole set, and so does a relation exposing neither endpoint, since its pages would have nothing to link to.

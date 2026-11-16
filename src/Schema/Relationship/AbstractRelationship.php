@@ -71,6 +71,12 @@ abstract class AbstractRelationship
     protected bool $conventionLinksRelated = true;
 
     /**
+     * Whether the page links address the relationship endpoint, which must be exposed
+     * and page its linkage; otherwise they address the related endpoint.
+     */
+    protected bool $conventionPagesSelf = true;
+
+    /**
      * The pagination state for a rendered to-many relationship, or `null` for an
      * unpaginated relationship. When set (and the relationship carries convention
      * links so a parent identity is resolvable), {@see transform()} emits the
@@ -226,17 +232,20 @@ abstract class AbstractRelationship
      *
      * `$exposeSelf` / `$exposeRelated` gate the individual links: pass `false`
      * for either to omit the link to a suppressed endpoint, so a rendered link
-     * never points at a host 404.
+     * never points at a host 404. `$pagedSelf` is `false` when the relationship
+     * endpoint does not page its linkage, a polymorphic to-many's, so the page links
+     * address the related endpoint instead.
      *
      * @internal
      *
      * @return $this
      */
-    public function withConventionLinks(string $uriFieldName, bool $exposeSelf = true, bool $exposeRelated = true): static
+    public function withConventionLinks(string $uriFieldName, bool $exposeSelf = true, bool $exposeRelated = true, bool $pagedSelf = true): static
     {
         $this->conventionLinksUriFieldName = $uriFieldName;
         $this->conventionLinksSelf = $exposeSelf;
         $this->conventionLinksRelated = $exposeRelated;
+        $this->conventionPagesSelf = $exposeSelf && $pagedSelf;
 
         return $this;
     }
@@ -472,12 +481,17 @@ abstract class AbstractRelationship
 
         $base = SingletonType::of($parent, $this->parentJsonApiType($transformation), $transformation->resolver) ? '/' . $parentType : '/' . $parentType . '/' . $parentId;
         $selfHref = $base . '/relationships/' . $uriFieldName;
+        $relatedHref = $base . '/' . $uriFieldName;
+
+        // The pages are the relationship endpoint's, else the related endpoint's when only
+        // that one is exposed or pages: both serve the same members in the same order.
+        $pagesHref = $this->conventionPagesSelf ? $selfHref : ($this->conventionLinksRelated ? $relatedHref : null);
 
         return new RelationshipLinks(
             $transformation->baseUri,
             $this->conventionLinksSelf ? new Link($selfHref) : null,
-            $this->conventionLinksRelated ? new Link($base . '/' . $uriFieldName) : null,
-            $this->paginationLinks($selfHref),
+            $this->conventionLinksRelated ? new Link($relatedHref) : null,
+            $pagesHref === null ? [] : $this->paginationLinks($pagesHref),
         );
     }
 
@@ -515,9 +529,9 @@ abstract class AbstractRelationship
     }
 
     /**
-     * The rendered convention links, in the server's link form: `self` and the
-     * pagination links are described by the relationship endpoint's `GET`, `related`
-     * by the related endpoint's.
+     * The rendered convention links, in the server's link form: `self` is described by
+     * the relationship endpoint's `GET`, `related` by the related endpoint's, and the
+     * pagination links by whichever of the two they address.
      *
      * @return array<string, mixed>
      */
@@ -540,8 +554,13 @@ abstract class AbstractRelationship
         $relationship = OperationReference::fetchRelationship($parentType, $uriFieldName, $singleton);
         $related = OperationReference::fetchRelated($parentType, $uriFieldName, $singleton);
 
+        $pages = $this->conventionPagesSelf ? $relationship : $related;
         foreach ($rendered as $name => $link) {
-            $rendered[$name] = $rendering->upgrade($link, $name === 'related' ? $related : $relationship);
+            $rendered[$name] = $rendering->upgrade($link, match ($name) {
+                'self' => $relationship,
+                'related' => $related,
+                default => $pages,
+            });
         }
 
         return $rendered;
@@ -550,20 +569,20 @@ abstract class AbstractRelationship
     /**
      * The relationship-object pagination links (`first` / `prev` / `next` / `last`)
      * for a paginated to-many relationship, built from the carried page against
-     * the relationship-linkage endpoint (`$selfHref`) in the spec's plain-form;
-     * `[]` when the relationship is not paginated. The `self` relation the page
-     * may emit is dropped — the convention `self` link already addresses the
-     * endpoint — and any `null` relation is filtered by {@see RelationshipLinks}.
+     * `$endpointHref` in the spec's plain form; `[]` when the relationship is not
+     * paginated. The `self` relation the page may emit is dropped, since the
+     * convention `self` link already addresses the relationship, and any `null`
+     * relation is filtered by {@see RelationshipLinks}.
      *
      * @return array<string, Link|null>
      */
-    private function paginationLinks(string $selfHref): array
+    private function paginationLinks(string $endpointHref): array
     {
         if ($this->pagination === null) {
             return [];
         }
 
-        $links = $this->pagination->linksFor($selfHref);
+        $links = $this->pagination->linksFor($endpointHref);
         unset($links['self']);
 
         return $links;

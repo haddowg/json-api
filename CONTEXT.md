@@ -214,6 +214,10 @@ cursor boundaries and a limit).
 **Page**:
 The value object holding one slice of results with its pagination links and meta.
 
+**First page**:
+What a paginated to-many's relationship object holds wherever its linkage renders, included or
+declared `withData()`: the first **Page** its related endpoint serves, with links to the rest.
+
 ### The request lifecycle
 
 **Server**:
