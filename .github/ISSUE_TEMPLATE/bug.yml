@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in haddowg/json-api doesn't work as documented or expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Usage questions go in [Discussions](https://github.com/haddowg/json-api/discussions). Using the Laravel or Symfony integration? File it here if you've traced the bug to core, or in that integration's repo if you're not sure.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: From `composer show haddowg/json-api`
+      placeholder: 2.18.1 # x-release-please-version
+    validations:
+      required: true
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+      placeholder: '8.4'
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework in use
+      options:
+        - Laravel (haddowg/json-api-laravel)
+        - Symfony (haddowg/json-api-symfony)
+        - None, using haddowg/json-api directly
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      description: The json-api-laravel or json-api-symfony version, if you use one.
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: What you did and what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened instead, and why. Link the JSON:API spec section or our docs if it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code that shows the bug, ideally a schema or resource plus the request. A failing PHPUnit test is even better.
+      render: php
+  - type: textarea
+    id: output
+    attributes:
+      label: Response or stack trace
+      description: The JSON:API document returned, or the exception.
+      render: text

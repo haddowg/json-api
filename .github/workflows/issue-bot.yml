@@ -1,0 +1,30 @@
+name: Issue bot
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  # Never check out or run the PR's code from this trigger; it runs with secrets.
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize]
+
+permissions: {}
+
+jobs:
+  issue-bot:
+    if: github.event_name == 'pull_request_target' || github.event.action != 'labeled' || github.event.label.name == 'fix-it'
+    uses: haddowg/.github/.github/workflows/issue-bot.yml@main
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    with:
+      language: php
+      pkg-label: pkg:core
+      test-command: composer test
+      check-commands: |
+        composer phpstan
+        composer cs-fix
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ISSUE_BOT_TOKEN: ${{ secrets.ISSUE_BOT_TOKEN }}
