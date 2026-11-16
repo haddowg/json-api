@@ -126,6 +126,16 @@ A **Filter** whose key applies a condition when present and ignores the value se
 `WhereHas` and `WhereDoesntHave`. Its **Projection** example is always `true`.
 _Avoid_: toggle filter, flag filter
 
+**Set filter**:
+A `WhereSet` **Filter** asking whether a nullable column holds a value: `true` for IS NOT NULL,
+`false` for IS NULL, both for either. Unlike a **Presence filter** its value decides the match.
+_Avoid_: null filter, boolean null check
+
+**Morph filter**:
+A `WhereMorph` **Filter** matching rows by a polymorphic **Relation**'s stored identifier, sent
+as `filter[<key>][type]` and an optional `filter[<key>][id]` list.
+_Avoid_: polymorphic filter, type filter
+
 **Filter family**:
 A **Filter** that answers every key starting with its prefix and a dot (`value.cap`), resolving the
 suffix to a concrete **Filter** per request by the same rule as a **Sort family**.

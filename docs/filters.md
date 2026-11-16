@@ -200,6 +200,8 @@ its target column (or relationship) to the filter key when you omit it.
 | `WhereDoesntHave` | `make(string $key, ?string $relationship = null)` | a relationship | negation of `WhereHas` (presence-only) |
 | `WhereThrough` | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
 | `WhereThroughIn` | `make(string $key, ?string $path = null)` | a relationship path | the value reached through a dotted path is any of a list; always a list, `acceptsList(delimited: false)`, `constrain(...)` and the shortcuts (see [Matching a list through a path](#matching-a-list-through-a-path-wherethroughin)) |
+| `WhereSet` | `make(string $key, ?string $column = null)` | a nullable column | whether the column holds a value, `true` or `false`; always a list of booleans, `default()` (see [Whether a column is set](#whether-a-column-is-set-whereset)) |
+| `WhereMorph` | `make(string $key, ?string $relation = null)` | a polymorphic relation | the relation's stored type and, optionally, ids (see [Filtering by a polymorphic relation](#filtering-by-a-polymorphic-relation-wheremorph)) |
 
 `Where` carries the comparison operator as its third `make()` argument — `=`
 (the default), `like`, `starts`, `ends`, `>`, `>=`, `<`, `<=`, `!=` (with `<>` as
@@ -321,7 +323,7 @@ the filters that carry the helper expose it:
 | `delimiter(string)` | `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | overrides the default `,` a string value is split on |
 | `deserializeUsing(\Closure)` | `Where` | a value transformer applied before comparison |
 | `asBoolean()` | `Where` | a shortcut for `deserializeUsing()` coercing via `FILTER_VALIDATE_BOOLEAN` |
-| `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | a value to apply when the key is absent (see [Default values](#default-values)) |
+| `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereSet` | a value to apply when the key is absent (see [Default values](#default-values)) |
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereThrough`, `WhereThroughIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 | `enum(string $enum)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough`, `WhereThroughIn` | restricts the value, or each member of a list, to a backed enum's backing values (see [Backed enums](#backed-enums)) |
@@ -751,6 +753,124 @@ against the declared constraints on its own, with the same `400` `FILTER_VALUE_I
 A data layer runs it as one correlated `EXISTS` whose leaf is an `IN` over the list, never
 one `EXISTS` per value. It carries `describedAs()`, `example()` and `deprecated()` like the
 other filters, but no `delimiter()`, `default()` or `singular()`.
+
+## Whether a column is set: `WhereSet`
+
+`WhereSet` asks whether a nullable column holds a value, which suits state kept as a
+timestamp, such as when an item was read or archived. `true` matches the rows where the
+column IS NOT NULL and `false` the rows where it IS NULL:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereSet;
+
+public function filters(): array
+{
+    return [
+        WhereSet::make('read', 'readTs'),
+        WhereSet::make('archived', 'archivedTs')
+            ->default(false)
+            ->describedAs('Whether the item is archived. Archived items are left out unless you ask for them.'),
+    ];
+}
+```
+
+```
+GET /inbox-items                            # not archived, the default
+GET /inbox-items?filter[archived]=true      # archived only
+GET /inbox-items?filter[archived]=true,false
+GET /inbox-items?filter[archived][]=true&filter[archived][]=false   # both
+```
+
+Its value is always a [list](#declaring-a-list-acceptslist) of booleans, so sending both
+`true` and `false` matches every row. That is the only way to say "both" once the filter has
+a default, since a default applies whenever the key is absent. Each member is read with
+`FILTER_VALIDATE_BOOLEAN`, the same set `boolean()` accepts: `true`/`false`, `1`/`0`,
+`on`/`off`, `yes`/`no`, and the empty string as `false`. Anything else is a `400`
+`FILTER_VALUE_INVALID`, raised by the filter itself, so it holds whether or not the adapter
+validates filter values.
+
+Declare a default as the request would carry it: `default(false)`, `default([false])` and
+`default('false')` are the same default. The filter keeps it, and a declared `example()`,
+as a list of booleans, so the OpenAPI document shows `[false]` whichever you wrote. A
+relation can drop the default with `withoutFilterDefaults()`, as for every built-in.
+
+`WhereSet::match($value)` reads a requested value into a `WhereSetMatch` a data layer
+applies: `Set`, `NotSet`, `Either`, which adds no condition, or `Neither` for an empty
+list, which matches nothing. In the OpenAPI document both of its parameters are arrays of
+booleans, with the default shown on both. It takes `describedAs()`, `example()` and
+`deprecated()`, but no value constraints of its own.
+
+`WhereNull` and `WhereNotNull` stay presence-only: sending the key applies them and the
+value is ignored. Reach for `WhereSet` when the client chooses between the two, or when the
+filter needs a default.
+
+## Filtering by a polymorphic relation: `WhereMorph`
+
+`WhereMorph` matches rows by the stored identifier of a `MorphTo` or `MorphToMany` on the
+filtered type. Its value mirrors a resource identifier:
+
+```php
+use haddowg\JsonApi\Resource\Filter\WhereMorph;
+
+public function filters(): array
+{
+    return [
+        WhereMorph::make('subject')->describedAs('Items about this resource.'),
+    ];
+}
+```
+
+```
+GET /inbox-items?filter[subject][type]=rfps                       # every item about an rfp
+GET /inbox-items?filter[subject][type]=rfps&filter[subject][id]=812,813
+GET /inbox-items?filter[subject][type]=rfps&filter[subject][id][]=812
+```
+
+`type` is required and names exactly one of the relation's types. `id` is optional and is a
+list, comma-separated or in the array form. Each id is a wire id, the one a client reads in
+`data.id`, validated against that type's id format and decoded through its
+[id encoder](ids.md#encoding-when-the-wire-id-differs-from-the-storage-key), the same as a
+[path that ends on a relationship](#paths-that-end-on-a-relationship). Each of these is a
+`400` `FILTER_VALUE_INVALID`:
+
+| Sent | Located at |
+|---|---|
+| a value that isn't an object, such as `filter[subject]=rfps` | `filter[subject]` |
+| a member other than `type` and `id` | `filter[subject]` |
+| no `type`, an empty one, or more than one | `filter[subject][type]` |
+| a type the relation doesn't declare | `filter[subject][type]` |
+| an empty id, a named one, or one its type can't decode or doesn't accept | `filter[subject][id]` |
+
+The second `make()` argument names the relation by its storage name, its `column()`, when
+the key differs: `WhereMorph::make('about', 'subject')`. It names one relation of the
+filtered type, never a path. A filter keyed by type, such as `filter[subject][rfps]=812`,
+is not supported.
+
+On a `MorphTo`, the filter compares the stored type and id. On a `MorphToMany`, it keeps a
+row with at least one member of that type, or of that type and one of those ids, as one
+`EXISTS`, the polymorphic counterpart of a [`WhereThroughIn`](#matching-a-list-through-a-path-wherethroughin)
+that ends on a relationship. It reads only the stored identifier, so it works on a relation
+with no related endpoint that can't be included.
+
+The relation must say where its identifier is stored. A `MorphTo` declares
+[`identifiedByColumns()`](relations.md#declaring-the-pairs-fields-with-identifiedbycolumns)
+and a `MorphToMany` declares
+[`identifiedByRows()`](relations.md#identifying-the-members-without-loading-them). The reference
+`ArrayFilterHandler` compares those, and so does the Doctrine adapter. The Eloquent adapter
+reads the model's own `morphTo` relation. A relation identified only by a closure can't be
+compared in a query.
+
+Resolution works like a traversal path's. A `ThroughPathResolver` resolves the filter
+against the type it runs against, failing with a `\LogicException` when that type declares
+no relation of that name or the relation isn't polymorphic. The resolved filter reads a
+requested value through `requested($value)`, which checks the shape and the type and
+returns the wire ids, and through `selection($value)`, which returns a `MorphSelection` of
+the type and the decoded storage keys, with `ids` `null` when the request names none.
+`idConstraints($type)` returns what each id of a type validates against.
+
+In the OpenAPI document `filter[<key>]` is a `deepObject` whose `type` is an enum of the
+relation's types and whose `id` is a comma-separated string or an array of ids. It takes
+`describedAs()`, `example()` and `deprecated()`.
 
 ## Paths that end on a relationship
 

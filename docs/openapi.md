@@ -1610,6 +1610,13 @@ schema. Some filters are documented by rule rather than as declared:
 - A [list filter's](filters.md#declaring-a-list-acceptslist) example and default are shown
   as the same members on `filter[<key>]` and `filter[<key>][]`, split or joined on the
   delimiter to fit each schema.
+- A [`WhereSet`'s](filters.md#whether-a-column-is-set-whereset) example and default are
+  lists of booleans, shown as `[true, false]` on both of its array parameters whichever
+  form you declared them in.
+- A [`WhereMorph`](filters.md#filtering-by-a-polymorphic-relation-wheremorph) is a
+  `deepObject` whose `type` is an enum of its relation's types and whose `id` is a
+  comma-separated string or an array of ids. Give its example as an object:
+  `WhereMorph::make('subject')->example(['type' => 'rfps', 'id' => ['812']])`.
 - A [filter family's](filters.md#filter-families-keys-matched-by-prefix) description and
   example go in its [`x-filter-families`](#filter-families-x-filter-families) entry and on
   the shared `filter` parameter.
