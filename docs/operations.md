@@ -147,6 +147,18 @@ map onto it directly:
 | `/albums/1/artist` (related) | `"1"` | `"artist"` | `false` |
 | `/albums/1/relationships/tracks` (linkage) | `"1"` | `"tracks"` | `true` |
 
+A [singleton type](resources.md#singleton-types) is served at
+`/{uriType}`, so its router builds a **singleton target** with `Target::singleton()`. Its
+`singleton` flag is `true` and its `id` is the caller's resolved id, or `null` until it is
+resolved. `addressesResource()` answers `true` for it either way, so it reads as a fetch of
+one resource, never a collection:
+
+| Path | Target |
+|---|---|
+| `/inbox` | `Target::singleton('inboxes')` |
+| `/inbox/owner` (related) | `Target::singleton('inboxes', relationship: 'owner')` |
+| `/inbox/relationships/owner` (linkage) | `Target::singleton('inboxes', relationship: 'owner', isRelationshipEndpoint: true)` |
+
 Routing is *your* job — the library never parses a path. Your framework's router
 (or, in the example, the toy [`PathPrefixRouter`](../examples/music-catalog/src/Http/PathPrefixRouter.php))
 builds a `Target` and attaches it as a PSR-7 request attribute **keyed by
@@ -206,6 +218,13 @@ Atomic Operations request builds those two itself. A few deliberate boundaries:
   `Target`, keeping the no-route concern at the adapter edge.
 - An unhandled HTTP method throws [`ApplicationError`](../src/Exception/ApplicationError.php)
   (a `500`).
+- A singleton target with no id is resolved first, once, through the server's
+  `resolveSingletonId()` with the request, and the operation carries the resolved id. So a
+  `GET` on it is a `FetchResourceOperation` for one resource and the `PATCH` body id check
+  compares against the resolved id, answering `409` on a mismatch. A `null` id answers
+  `404`, and a `POST` or `DELETE` on the singleton itself answers `405`. A target that
+  already carries the id, because the adapter resolved it with more than the request, is
+  used as it is.
 
 Override or wrap `OperationFactory` if your custom integration needs a different
 method-to-operation mapping; the [adapter](#psr7tooperationhandleradapter-the-psr-15-join)

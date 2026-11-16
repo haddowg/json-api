@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
 {
     /**
      * @var array<string, Entry>
@@ -282,6 +282,7 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
         }
 
         $this->guardUnregistered($type);
+        self::guardSingletonResolves($resource);
 
         $this->entries[$type] = new Entry($resource, $serializer, $hydrator, $type);
     }
@@ -310,6 +311,33 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
         $this->guardUnregistered($type);
 
         $this->entries[$type] = new Entry(null, $serializer, $hydrator, $type);
+    }
+
+    /**
+     * Whether `$type` is a singleton: its Resource class declares itself one, or, with no
+     * Resource class or one that doesn't, its serializer class does. Read from the classes,
+     * so nothing is built.
+     */
+    public function isSingleton(string $type): bool
+    {
+        return $this->singletonClass($type) !== null;
+    }
+
+    /**
+     * The caller's id for the singleton `$type`, resolved by the class that declares it a
+     * singleton, or `null` when the type isn't one or the caller has none.
+     */
+    public function resolveSingletonId(string $type, \haddowg\JsonApi\Resource\SingletonContext $context): ?string
+    {
+        $class = $this->singletonClass($type);
+        if ($class === null) {
+            return null;
+        }
+
+        $entry = $this->entries[$type];
+        $resolver = $entry->resource === $class ? $this->resourceFor($type) : $this->serializerFor($type);
+
+        return $resolver instanceof \haddowg\JsonApi\Resource\SingletonResourceInterface ? $resolver->resolveSingletonId($context) : null;
     }
 
     public function has(string $type): bool
@@ -412,6 +440,49 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function types(): array
     {
         return \array_keys($this->entries);
+    }
+
+    /**
+     * The class that declares `$type` a singleton, or `null` when none does.
+     *
+     * @return class-string|null
+     */
+    private function singletonClass(string $type): ?string
+    {
+        $entry = $this->entries[$type] ?? null;
+        if ($entry === null) {
+            return null;
+        }
+
+        foreach ([$entry->resource, $entry->serializer] as $class) {
+            if ($class !== null && \is_a($class, \haddowg\JsonApi\Resource\SingletonResourceInterface::class, true) && $class::isSingleton()) {
+                return $class;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Refuses a singleton Resource class that doesn't say how to resolve the caller's id,
+     * which would answer every request with a `404`.
+     *
+     * @param class-string<AbstractResource> $resource
+     *
+     * @throws \LogicException
+     */
+    private static function guardSingletonResolves(string $resource): void
+    {
+        if (!$resource::isSingleton()) {
+            return;
+        }
+
+        if ((new \ReflectionMethod($resource, 'resolveSingletonId'))->getDeclaringClass()->getName() === AbstractResource::class) {
+            throw new \LogicException(\sprintf(
+                'Resource "%s" is a singleton, so it must override resolveSingletonId() to name the caller\'s resource.',
+                $resource,
+            ));
+        }
     }
 
     /**

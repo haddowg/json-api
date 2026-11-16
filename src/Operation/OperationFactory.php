@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Operation;
 
 use haddowg\JsonApi\Exception\ApplicationError;
+use haddowg\JsonApi\Exception\MethodNotAllowed;
 use haddowg\JsonApi\Exception\ResourceIdConflict;
+use haddowg\JsonApi\Exception\ResourceNotFound;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface;
+use haddowg\JsonApi\Resource\SingletonContext;
 
 /**
  * The single source of truth for the JSON:API dispatch decision: builds the one
@@ -42,6 +46,13 @@ final class OperationFactory
      * ({@see \haddowg\JsonApi\Exception\ResourceIdInvalid}) by the hydrator's own
      * id validation, so it can never reach a mismatching-yet-accepted state here.
      *
+     * A singleton target ({@see Target::singleton()}) is resolved first: a target without
+     * an id takes the one the type resolves for the caller, so a `GET` on it is a fetch of
+     * one resource, never a collection, and the `PATCH` id check compares the body id with
+     * the resolved one. A caller the type names no resource for gets a `404`
+     * ({@see ResourceNotFound}), and a `POST` or `DELETE` on the singleton itself a `405`
+     * ({@see MethodNotAllowed}).
+     *
      * The id half lives here, so it guards the **HTTP dispatch path only**. The
      * type half is in the hydrator and therefore covers every path (HTTP and
      * programmatic). A caller that constructs an {@see UpdateResourceOperation}
@@ -58,6 +69,10 @@ final class OperationFactory
         $query = QueryParameters::fromRequest($request);
         $hasRelationship = $target->hasRelationship();
         $method = \strtoupper($request->getMethod());
+
+        if ($target->singleton) {
+            $target = $this->resolveSingleton($request, $target, $context, $method);
+        }
 
         if ($method === 'PATCH' && $hasRelationship === false) {
             $bodyId = $request->getResourceId();
@@ -83,5 +98,35 @@ final class OperationFactory
                 : new DeleteResourceOperation($target, $query, $context),
             default => throw new ApplicationError(),
         };
+    }
+
+    /**
+     * The singleton target with the caller's id. A target already carrying one keeps it;
+     * otherwise the server resolves it once, here, from the request. A singleton serves no
+     * create or delete of its own, so those answer `405`, and a caller with no resource
+     * answers `404`.
+     *
+     * @throws MethodNotAllowed for a create or delete on the singleton itself
+     * @throws ResourceNotFound when the type names no resource for the caller
+     */
+    private function resolveSingleton(JsonApiRequestInterface $request, Target $target, OperationContext $context, string $method): Target
+    {
+        if (!$target->hasRelationship() && \in_array($method, ['POST', 'DELETE'], true)) {
+            throw new MethodNotAllowed($method, ['GET', 'PATCH']);
+        }
+
+        if ($target->id === null) {
+            $server = $context->server;
+            $id = $server instanceof DeclaresSingletonTypesInterface
+                ? $server->resolveSingletonId($target->type, new SingletonContext($target->type, $context->httpRequest() ?? $request))
+                : null;
+            $target = $target->withId($id);
+        }
+
+        if ($target->id === null || $target->id === '') {
+            throw new ResourceNotFound();
+        }
+
+        return $target;
     }
 }

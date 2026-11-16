@@ -521,6 +521,37 @@ A resolver that decorates the server's should implement it and delegate. For the
 document, have the type's OpenAPI metadata implement `OpenApi\Metadata\DeclaresRelatedOnly`
 (see [OpenAPI](openapi.md)).
 
+## Singleton types
+
+A [singleton type](resources.md#singleton-types) serves the caller's one resource at
+`/{uriType}`. The server says which registered types are singletons and resolves the
+caller's id for one:
+
+```php
+$server->isSingleton('inboxes');                                   // true
+$server->resolveSingletonId('inboxes', new SingletonContext('inboxes', $request)); // '42', or null
+```
+
+Resolve the id once per request and carry it on a `Target::singleton()` target. The
+[`OperationFactory`](operations.md#operationfactory-from-request-to-operation) does that
+for a singleton target that arrives without an id, passing the request it builds the
+operation from; an adapter with more to hand, such as its authenticated user, builds the
+`SingletonContext` itself, with that as an attribute, and passes the resolved id on the
+target. A `null` id answers `404`.
+
+The transformer renders a singleton's resource `self` link as `{baseUri}/{uriType}` and
+its relationship `self` and `related` links under it. A type is a singleton when its serializer
+declares itself one through `SingletonResourceInterface`, or when the resource's resolver
+says so through `Resource\DeclaresSingletonTypesInterface`, which the server and its
+registry implement. A resolver that decorates the server's should
+implement it and delegate. For the generated document, have the type's OpenAPI metadata
+implement `OpenApi\Metadata\DeclaresSingleton` (see [OpenAPI](openapi.md)).
+
+The server doesn't route, so serving `/{uriType}` in place of the collection and
+`/{uriType}/{id}`, and refusing the operations a singleton can't serve, is the adapter's
+job. `Resource\SingletonMisdeclared::assertExclusive()` refuses a collection fetch, a
+create, a delete or a collection-scope action with the message the adapters raise.
+
 ## Wiring faults are exceptions, not error documents
 
 A misconfigured server is a programming error, so the registry throws a
@@ -532,6 +563,7 @@ might hit:
 | Duplicate type | Registering two Resource classes (or two bare pairs) for the same `$type`. |
 | Empty `$type` | A Resource whose `static $type` is empty, or a bare pair under an empty type-string. |
 | Empty bare pair | `registerSerializerHydrator()` with neither a serializer nor a hydrator. |
+| Unresolved singleton | A Resource declaring `$singleton = true` that doesn't override `resolveSingletonId()`. |
 | Duplicate profile URI | Registering two [profiles](profiles.md) with the same URI. |
 | Wrong-type factory return | A `withContainer()` factory returning the wrong concern (or a non-object). |
 | Missing PSR-17 | `responseFactory()` / `streamFactory()` read before `withPsr17()`. |

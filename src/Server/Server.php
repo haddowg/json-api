@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
 {
     private ResourceRegistry $resources;
 
@@ -665,6 +665,27 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     public function isRelatedOnly(string $type): bool
     {
         return \in_array($type, $this->relatedOnlyTypes, true);
+    }
+
+    /**
+     * Whether the registered type `$type` is a singleton
+     * ({@see \haddowg\JsonApi\Resource\SingletonResourceInterface}).
+     */
+    public function isSingleton(string $type): bool
+    {
+        return $this->resources->isSingleton($type);
+    }
+
+    /**
+     * The caller's id for the singleton type `$type`, or `null` when the caller has none or
+     * the type isn't a singleton. Resolve it once per request and carry it on a
+     * {@see \haddowg\JsonApi\Operation\Target::singleton()} target;
+     * {@see \haddowg\JsonApi\Operation\OperationFactory} does so for a singleton target
+     * that has no id yet.
+     */
+    public function resolveSingletonId(string $type, \haddowg\JsonApi\Resource\SingletonContext $context): ?string
+    {
+        return $this->resources->resolveSingletonId($type, $context);
     }
 
     public function withProfile(ProfileInterface $profile): self

@@ -18,6 +18,7 @@ final readonly class EnumeratedOperation
     /**
      * @param string       $path   the path template the document keys the operation under
      * @param string       $method the lower-case HTTP method, as a path item keys it
+     * @param bool         $singleton whether the operation belongs to a singleton type, so its path has no `{id}`
      * @param list<string> $tags
      */
     public function __construct(
@@ -28,6 +29,7 @@ final readonly class EnumeratedOperation
         public array $tags,
         public ?RelationMetadataInterface $relation = null,
         public ?ActionMetadataInterface $action = null,
+        public bool $singleton = false,
     ) {}
 
     public function reference(): OperationReference

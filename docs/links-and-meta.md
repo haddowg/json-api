@@ -390,7 +390,9 @@ spec-recommended (SHOULD) and on by default:
   correctly. It is omitted for a resource with an empty id (a not-yet-persisted
   resource has no self), and a `getLinks()` `self` you set by hand wins over it.
   A [related-only type](server.md#related-only-types) renders none, and neither do its
-  relationship objects. An `AbstractResource` opts out by overriding `emitsSelfLink()` to
+  relationship objects. A [singleton type](resources.md#singleton-types) renders
+  `{base}/{uriType}`, its one endpoint, and its relationship links hang off that, while its
+  resource object still carries its `id`. An `AbstractResource` opts out by overriding `emitsSelfLink()` to
   return `false`:
 
   ```php

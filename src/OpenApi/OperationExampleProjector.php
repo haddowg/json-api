@@ -235,12 +235,12 @@ final class OperationExampleProjector
                 ],
                 OperationKind::FetchOne => [
                     'request' => null,
-                    'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), OperationReference::fetchOne($uriType))],
+                    'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference())],
                 ],
                 OperationKind::Update => [
                     'request' => fn(): array => $builder->writeDocument($type, creating: false),
                     'responses' => [
-                        200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), OperationReference::update($uriType)),
+                        200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference()),
                         ...$this->jobResponses($type, OperationType::Update),
                     ],
                 ],

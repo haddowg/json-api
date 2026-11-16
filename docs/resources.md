@@ -102,6 +102,76 @@ $uriType = $server->resourceFor($type)->uriType();
 Every example type uses the default (its `$uriType` equals its `$type`); set it
 only when a type's wire name and its URL segment genuinely diverge.
 
+## Singleton types
+
+Some types have exactly one resource per caller: an inbox, a settings record, a profile.
+Declare such a type a **singleton** and override `resolveSingletonId()` to name the caller's
+resource:
+
+```php
+final class InboxResource extends AbstractResource
+{
+    public static string $type = 'inboxes';
+    public static string $uriType = 'inbox';
+    public static bool $singleton = true;
+
+    public function __construct(private CurrentUser $user) {}
+
+    public function resolveSingletonId(SingletonContext $context): ?string
+    {
+        return $this->user->id();
+    }
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Integer::make('unseen')->readOnly(),
+            Integer::make('unread')->readOnly(),
+            DateTime::make('seenUpTo'),
+        ];
+    }
+}
+```
+
+A singleton is served at `/{uriType}` with no `{id}` segment: `GET /inbox` fetches the
+caller's inbox and `PATCH /inbox` updates it. Its relationship and related endpoints are
+`/inbox/relationships/{rel}` and `/inbox/{rel}`, and its custom actions
+`/inbox/-actions/{name}`. There is no collection, create, delete or `/inbox/{id}`.
+
+The resolver returns the id, or `null` when the caller has none, which answers `404`. An
+adapter resolves it once per request, then runs its ordinary fetch and update with that id,
+so access scopes, query extensions, lifecycle hooks, transactions and the `409` on a
+`PATCH` body whose id isn't the caller's all apply unchanged. A row the data layer doesn't
+find is a `404` as well. `SingletonContext` carries the type, the PSR-7 request when there
+is one, and whatever else the adapter passes as named attributes through `attribute()`.
+Registering a singleton that doesn't override `resolveSingletonId()` throws a
+`\LogicException`.
+
+A singleton keeps a real id. Its resource objects carry it, and other types link to it as
+`{"type": "inboxes", "id": "42"}`, so an inbox item's `inbox` relation includes it as
+usual and `GET /inbox-items?include=inbox` returns the items with the counts. Only the
+links into its own endpoints drop the id: its `self` is `/inbox` and its relationship links
+hang off `/inbox`. Another type's related endpoint, such as `/inbox-items/{id}/inbox`,
+renders it like any other related resource.
+
+Because every one of its links is `/{uriType}`, **a singleton's access scope must expose
+only the caller's row.** That is the author's job. A query extension or security rule that
+lets one caller read another's inbox would render that inbox with a `self` link pointing at
+the reader's own.
+
+A singleton serves fetch and, unless it is read-only, update. Declaring one with a
+collection fetch, a create, a delete or a collection-scope action is a wiring error,
+raised by the adapter when it registers the type and by the OpenAPI projector through
+`Resource\SingletonMisdeclared`. Every action on a singleton is resource-scoped and
+receives the resolved resource. When the same rows also need a collection or a create,
+declare a second type over the same entity; an entity can back several types.
+
+A type composed without `AbstractResource`, such as a bare serializer, implements
+`Resource\SingletonResourceInterface` itself: a static `isSingleton()` returning `true`
+and `resolveSingletonId()`. The registry reads either declaration from the registered
+classes without building them.
+
 ## The overridable-method contract
 
 `AbstractResource` exposes a small set of methods. Only `fields()` is required;

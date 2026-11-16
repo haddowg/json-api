@@ -157,8 +157,9 @@ final class ExampleDocumentBuilder
     public function relatedDocument(TypeMetadataInterface $owner, RelationMetadataInterface $relation): array
     {
         $segment = RelationFacts::uriFieldName($relation);
-        $path = $this->path(PathTemplate::related($owner->uriType(), $segment), $this->id($owner));
-        $operation = OperationReference::fetchRelated($owner->uriType(), $segment);
+        $singleton = OperationEnumerator::isSingleton($owner);
+        $path = $this->path(PathTemplate::related($owner->uriType(), $segment, $singleton), $this->id($owner));
+        $operation = OperationReference::fetchRelated($owner->uriType(), $segment, $singleton);
         $related = $this->relatedType($owner, $relation);
 
         if ($relation->isToMany()) {
@@ -186,8 +187,9 @@ final class ExampleDocumentBuilder
     {
         $id = $this->id($owner);
         $segment = RelationFacts::uriFieldName($relation);
-        $operation = OperationReference::fetchRelationship($owner->uriType(), $segment);
-        $path = $this->path(PathTemplate::relationship($owner->uriType(), $segment), $id);
+        $singleton = OperationEnumerator::isSingleton($owner);
+        $operation = OperationReference::fetchRelationship($owner->uriType(), $segment, $singleton);
+        $path = $this->path(PathTemplate::relationship($owner->uriType(), $segment, $singleton), $id);
 
         $linkage = $this->linkage($owner, $relation, RepresentationContext::Read);
         if ($linkage === false) {
@@ -412,9 +414,10 @@ final class ExampleDocumentBuilder
     private function resourceLinks(TypeMetadataInterface $type, string $id): array
     {
         $uriType = $type->uriType();
+        $singleton = OperationEnumerator::isSingleton($type);
         $links = LinkSchemaProjector::isRelatedOnly($type)
             ? []
-            : ['self' => $this->links->renderedLink($this->path(PathTemplate::resource($uriType), $id), OperationReference::fetchOne($uriType))];
+            : ['self' => $this->links->renderedLink($this->path(PathTemplate::resource($uriType, $singleton), $id), OperationReference::fetchOne($uriType, $singleton))];
 
         foreach (LinkSchemaProjector::declaredLinksOf($type) as $link) {
             $links[$link->name] = $this->declaredLink($type, $link);
@@ -422,8 +425,8 @@ final class ExampleDocumentBuilder
 
         foreach (LinkSchemaProjector::actionLinksOf($type) as $name => ['action' => $action]) {
             $links[$name] = $this->links->renderedLink(
-                $this->path(PathTemplate::action($uriType, $action->path(), ActionScope::Resource), $id),
-                OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0]),
+                $this->path(PathTemplate::action($uriType, $action->path(), ActionScope::Resource, $singleton), $id),
+                OperationReference::action($uriType, $action->path(), ActionScope::Resource, $action->methods()[0], $singleton),
             );
         }
 
@@ -473,17 +476,18 @@ final class ExampleDocumentBuilder
     {
         $uriType = $owner->uriType();
         $segment = RelationFacts::uriFieldName($relation);
+        $singleton = OperationEnumerator::isSingleton($owner);
         $links = [];
         if ($relation->exposesRelationshipEndpoint()) {
             $links['self'] = $this->links->renderedLink(
-                $this->path(PathTemplate::relationship($uriType, $segment), $id),
-                OperationReference::fetchRelationship($uriType, $segment),
+                $this->path(PathTemplate::relationship($uriType, $segment, $singleton), $id),
+                OperationReference::fetchRelationship($uriType, $segment, $singleton),
             );
         }
         if ($relation->exposesRelatedEndpoint() && !RelationFacts::isWriteOnly($relation)) {
             $links['related'] = $this->links->renderedLink(
-                $this->path(PathTemplate::related($uriType, $segment), $id),
-                OperationReference::fetchRelated($uriType, $segment),
+                $this->path(PathTemplate::related($uriType, $segment, $singleton), $id),
+                OperationReference::fetchRelated($uriType, $segment, $singleton),
             );
         }
 

@@ -13,6 +13,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 use haddowg\JsonApi\Transformer\RelatedOnlyType;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
+use haddowg\JsonApi\Transformer\SingletonType;
 
 /**
  * Base for the serialization-side relationships ({@see ToOneRelationship},
@@ -440,6 +441,8 @@ abstract class AbstractRelationship
      * `self`    = {baseUri}/{parentType}/{parentId}/relationships/{uriFieldName}
      * `related` = {baseUri}/{parentType}/{parentId}/{uriFieldName}
      *
+     * A singleton parent's endpoints take no id, so its links drop `/{parentId}`.
+     *
      * The owning resource's type comes from the parent serializer (falling back
      * to the transformation's resolved type) and its id from that serializer's
      * `getId()`. A missing parent serializer or an empty id (e.g. a not-yet-
@@ -467,7 +470,7 @@ abstract class AbstractRelationship
             return null;
         }
 
-        $base = '/' . $parentType . '/' . $parentId;
+        $base = SingletonType::of($parent, $transformation->resourceType) ? '/' . $parentType : '/' . $parentType . '/' . $parentId;
         $selfHref = $base . '/relationships/' . $uriFieldName;
 
         return new RelationshipLinks(
@@ -519,8 +522,9 @@ abstract class AbstractRelationship
         }
 
         $parentType = $this->conventionParentType($transformation);
-        $relationship = OperationReference::fetchRelationship($parentType, $uriFieldName);
-        $related = OperationReference::fetchRelated($parentType, $uriFieldName);
+        $singleton = $transformation->resource !== null && SingletonType::of($transformation->resource, $transformation->resourceType);
+        $relationship = OperationReference::fetchRelationship($parentType, $uriFieldName, $singleton);
+        $related = OperationReference::fetchRelated($parentType, $uriFieldName, $singleton);
 
         foreach ($rendered as $name => $link) {
             $rendered[$name] = $rendering->upgrade($link, $name === 'related' ? $related : $relationship);

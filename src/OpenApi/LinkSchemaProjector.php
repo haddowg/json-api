@@ -688,7 +688,10 @@ final readonly class LinkSchemaProjector
         $root = $this->serverUrl . '/';
         $example = $type === null
             ? ($this->objects ? ['href' => $root] : $root)
-            : $this->renderedLink($this->examplePath(PathTemplate::resource($type->uriType()), $type), OperationReference::fetchOne($type->uriType()));
+            : $this->renderedLink(
+                $this->examplePath(PathTemplate::resource($type->uriType(), OperationEnumerator::isSingleton($type)), $type),
+                OperationReference::fetchOne($type->uriType(), OperationEnumerator::isSingleton($type)),
+            );
 
         return Schema::create()
             ->withDescription('A JSON:API link. `null` marks a link that does not apply, such as `next` on the last page.' . ($this->objects ? '' : self::HREF_NOTE))

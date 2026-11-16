@@ -227,7 +227,7 @@ final class ScopeEnforcer
         $relationship = (string) $target->relationship;
 
         $key = match (true) {
-            $operation instanceof FetchResourceOperation => OperationKey::crud($target->hasId() ? OperationKind::FetchOne : OperationKind::FetchCollection),
+            $operation instanceof FetchResourceOperation => OperationKey::crud($target->addressesResource() ? OperationKind::FetchOne : OperationKind::FetchCollection),
             $operation instanceof CreateResourceOperation => OperationKey::crud(OperationKind::Create),
             $operation instanceof UpdateResourceOperation => OperationKey::crud(OperationKind::Update),
             $operation instanceof DeleteResourceOperation => OperationKey::crud(OperationKind::Delete),
@@ -238,7 +238,7 @@ final class ScopeEnforcer
             $operation instanceof RemoveFromRelationshipOperation => OperationKey::relation(OperationKind::RemoveRelationship, $relationship),
             $operation instanceof CustomActionOperation => OperationKey::action(
                 $operation->action(),
-                $target->hasId() ? ActionScope::Resource : ActionScope::Collection,
+                $target->addressesResource() ? ActionScope::Resource : ActionScope::Collection,
                 $operation->method(),
             ),
             default => throw new \LogicException(\sprintf('Cannot tell which operation %s performs, so its scopes cannot be checked.', $operation::class)),

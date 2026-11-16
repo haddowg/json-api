@@ -157,7 +157,7 @@ final class ResourceTransformer
             $self = $this->conventionSelfLink($transformation);
             if ($self !== null) {
                 $transformed['self'] = $transformation->linkRendering !== null
-                    ? $transformation->linkRendering->render($self, OperationReference::fetchOne($this->conventionUriType($transformation)))
+                    ? $transformation->linkRendering->render($self, OperationReference::fetchOne($this->conventionUriType($transformation), $this->isSingleton($transformation)))
                     : $self;
             }
         }
@@ -200,7 +200,8 @@ final class ResourceTransformer
     }
 
     /**
-     * Builds the by-convention resource `self` URL (`{baseUri}/{uriType}/{id}`),
+     * Builds the by-convention resource `self` URL (`{baseUri}/{uriType}/{id}`, or
+     * `{baseUri}/{uriType}` for a singleton type, whose one endpoint takes no id),
      * or `null` when the resource opted out, its type is related-only, or it has no id. The path segment is the
      * serializer's URI type (so a resource whose JSON:API type differs from its
      * URL segment links correctly); a serializer that is not URI-type-aware falls
@@ -231,7 +232,16 @@ final class ResourceTransformer
             return null;
         }
 
+        if (SingletonType::of($resource, $transformation->resourceType)) {
+            return $transformation->baseUri . '/' . $uriType;
+        }
+
         return $transformation->baseUri . '/' . $uriType . '/' . $id;
+    }
+
+    private function isSingleton(ResourceTransformation $transformation): bool
+    {
+        return $transformation->resource !== null && SingletonType::of($transformation->resource, $transformation->resourceType);
     }
 
     /**
