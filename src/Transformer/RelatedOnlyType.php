@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Transformer;
 
 use haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
@@ -15,17 +16,18 @@ final class RelatedOnlyType
 {
     /**
      * Whether `$type`, rendered by `$serializer`, is related-only according to the
-     * resolver injected into the serializer. A serializer with no resolver, or one
-     * whose resolver doesn't say, renders every link as before.
+     * resolver injected into the serializer or the server's `$resolver`. When neither
+     * says, every link renders as before.
      */
-    public static function of(SerializerInterface $serializer, string $type): bool
+    public static function of(SerializerInterface $serializer, string $type, ?SerializerResolverInterface $resolver = null): bool
     {
-        if (!$serializer instanceof SerializerResolverAwareInterface) {
-            return false;
+        $own = $serializer instanceof SerializerResolverAwareInterface ? $serializer->serializerResolver() : null;
+        foreach ([$own, $resolver] as $candidate) {
+            if ($candidate instanceof DeclaresRelatedOnlyTypesInterface && $candidate->isRelatedOnly($type)) {
+                return true;
+            }
         }
 
-        $resolver = $serializer->serializerResolver();
-
-        return $resolver instanceof DeclaresRelatedOnlyTypesInterface && $resolver->isRelatedOnly($type);
+        return false;
     }
 }

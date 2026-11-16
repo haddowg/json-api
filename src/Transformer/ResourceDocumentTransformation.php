@@ -46,6 +46,7 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
         public ?bool $countableSelfOverride = null,
         public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
         public ?\haddowg\JsonApi\Scope\ScopeEnforcer $scopes = null,
+        public ?\haddowg\JsonApi\Resource\SerializerResolverInterface $resolver = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

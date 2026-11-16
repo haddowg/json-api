@@ -32,22 +32,28 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Resource\SingletonContext;
 use haddowg\JsonApi\Resource\SingletonMisdeclared;
 use haddowg\JsonApi\Resource\SingletonResourceInterface;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Scope\ScopeEnforcer;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
+use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 use haddowg\JsonApi\Server\ResourceRegistry;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Testing\SpecCompliance;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
+use haddowg\JsonApi\Transformer\SingletonType;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
@@ -67,6 +73,8 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(ScopeEnforcer::class)]
 #[CoversClass(SingletonContext::class)]
 #[CoversClass(SingletonMisdeclared::class)]
+#[CoversClass(SingletonType::class)]
+#[CoversClass(IdentifierResponse::class)]
 final class SingletonResourceTest extends TestCase
 {
     protected function setUp(): void
@@ -134,6 +142,54 @@ final class SingletonResourceTest extends TestCase
         self::assertSame('https://api.test/inbox', self::at($this->decode($response), 'data', 'links', 'self', 'href'));
     }
 
+    /**
+     * @param \Closure(SerializerInterface): SerializerInterface $decorate
+     */
+    #[Test]
+    #[DataProvider('decorators')]
+    public function aSerializerDecoratingTheSingletonLinksItsRelationshipEndpointAtItsPath(\Closure $decorate): void
+    {
+        $handler = new SingletonDecoratedHandler($decorate);
+        $document = $this->decode($this->send($handler, 'GET', '/inbox/relationships/owner', Target::singleton('inboxes', relationship: 'owner', isRelationshipEndpoint: true)));
+
+        self::assertSame(['type' => 'people', 'id' => 'ada'], self::at($document, 'data'));
+        self::assertSame('https://api.test/inbox/relationships/owner', self::at($document, 'links', 'self', 'href'));
+        self::assertSame('https://api.test/inbox/owner', self::at($document, 'links', 'related', 'href'));
+    }
+
+    /**
+     * @param \Closure(SerializerInterface): SerializerInterface $decorate
+     */
+    #[Test]
+    #[DataProvider('decorators')]
+    public function aSerializerDecoratingTheSingletonLinksItsResourceAtItsPath(\Closure $decorate): void
+    {
+        $handler = new SingletonDecoratedHandler($decorate);
+        $document = $this->decode($this->send($handler, 'GET', '/inbox', Target::singleton('inboxes')));
+
+        self::assertSame('https://api.test/inbox', self::at($document, 'data', 'links', 'self', 'href'));
+        self::assertSame('https://api.test/inbox/relationships/owner', self::at($document, 'data', 'relationships', 'owner', 'links', 'self', 'href'));
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(SerializerInterface): SerializerInterface}>
+     */
+    public static function decorators(): iterable
+    {
+        yield 'without a resolver' => [static fn(SerializerInterface $inner): SerializerInterface => new SingletonInboxDecorator($inner)];
+        yield 'with the inner resolver' => [static fn(SerializerInterface $inner): SerializerInterface => new SingletonResolverAwareInboxDecorator($inner)];
+    }
+
+    #[Test]
+    public function aParentFieldsetKeepsTheRelationshipEndpointsData(): void
+    {
+        $handler = new SingletonDecoratedHandler(static fn(SerializerInterface $inner): SerializerInterface => $inner);
+        $document = $this->decode($this->send($handler, 'GET', '/inbox/relationships/owner?fields[inboxes]=unseen', Target::singleton('inboxes', relationship: 'owner', isRelationshipEndpoint: true), ['fields' => ['inboxes' => 'unseen']]));
+
+        self::assertSame(['type' => 'people', 'id' => 'ada'], self::at($document, 'data'));
+        self::assertSame('https://api.test/inbox/relationships/owner', self::at($document, 'links', 'self', 'href'));
+    }
+
     #[Test]
     public function aCallerWithNoResourceGets404(): void
     {
@@ -160,7 +216,9 @@ final class SingletonResourceTest extends TestCase
         self::assertSame(200, $response->getStatusCode(), (string) $response->getBody());
         self::assertInstanceOf(UpdateResourceOperation::class, $handler->operation);
         self::assertSame('42', $handler->operation->target()->id);
-        self::assertSame('https://api.test/inbox', self::at($this->decode($response), 'data', 'links', 'self', 'href'));
+        $document = $this->decode($response);
+        self::assertSame('https://api.test/inbox', self::at($document, 'data', 'links', 'self', 'href'));
+        self::assertSame('2026-11-16T10:00:00Z', self::at($document, 'data', 'attributes', 'seenUpTo'));
     }
 
     #[Test]
@@ -172,6 +230,18 @@ final class SingletonResourceTest extends TestCase
         self::assertSame(409, $response->getStatusCode());
         self::assertSame('RESOURCE_ID_CONFLICT', self::at($this->decode($response, 409), 'errors', '0', 'code'));
         self::assertNull($handler->operation);
+    }
+
+    #[Test]
+    public function anUpdateWhoseBodyHasNoIdIsRefused(): void
+    {
+        $handler = new SingletonHandler();
+        $response = $this->send($handler, 'PATCH', '/inbox', Target::singleton('inboxes'), body: ['data' => ['type' => 'inboxes', 'attributes' => ['seenUpTo' => '2026-11-16T10:00:00Z']]]);
+
+        $error = self::at($this->decode($response, 400), 'errors', '0');
+        self::assertSame('RESOURCE_ID_MISSING', self::at($error, 'code'));
+        self::assertSame(['pointer' => '/data'], self::at($error, 'source'));
+        self::assertSame('42', $handler->operation?->target()->id);
     }
 
     #[Test]
@@ -368,7 +438,7 @@ final class SingletonResourceTest extends TestCase
     }
 
     /**
-     * @param array<string, string>     $query
+     * @param array<string, mixed>      $query
      * @param array<string, mixed>|null $body
      */
     private function send(OperationHandlerInterface $handler, string $method, string $uri, Target $target, array $query = [], ?string $user = 'ada', ?array $body = null): ResponseInterface
@@ -436,7 +506,93 @@ final class SingletonHandler implements OperationHandlerInterface
             throw new ResourceNotFound();
         }
 
-        return DataResponse::fromResource($inbox($target->id), $server->serializerFor('inboxes'));
+        $found = $inbox($target->id);
+        if ($operation instanceof UpdateResourceOperation && $server instanceof Server) {
+            $found = $server->resources()->hydratorFor('inboxes')->hydrate($operation->body(), $found);
+        }
+
+        return DataResponse::fromResource($found, $server->serializerFor('inboxes'));
+    }
+}
+
+final class SingletonDecoratedHandler implements OperationHandlerInterface
+{
+    /**
+     * @param \Closure(SerializerInterface): SerializerInterface $decorate
+     */
+    public function __construct(private readonly \Closure $decorate) {}
+
+    public function handle(JsonApiOperationInterface $operation): DataResponse|IdentifierResponse
+    {
+        $server = $operation->context()->server;
+        $inbox = (object) ['id' => '42', 'unseen' => 3, 'unread' => 5, 'seenUpTo' => '2026-11-16T09:30:00Z', 'owner' => (object) ['id' => 'ada', 'name' => 'Ada']];
+        $serializer = ($this->decorate)($server->serializerFor('inboxes'));
+
+        return $operation instanceof FetchRelationshipOperation
+            ? IdentifierResponse::forRelationship($inbox, $serializer, 'owner')
+            : DataResponse::fromResource($inbox, $serializer);
+    }
+}
+
+/**
+ * Renders the inbox through its resource without declaring the singleton or carrying the
+ * resource's resolver, as an adapter's decorating serializer can.
+ */
+class SingletonInboxDecorator implements SerializerInterface, UriTypeAwareInterface
+{
+    public function __construct(protected readonly SerializerInterface $inner) {}
+
+    public function uriType(): string
+    {
+        return $this->inner instanceof UriTypeAwareInterface ? $this->inner->uriType() : '';
+    }
+
+    public function getType(mixed $object): string
+    {
+        return $this->inner->getType($object);
+    }
+
+    public function getId(mixed $object): string
+    {
+        return $this->inner->getId($object);
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return $this->inner->getMeta($object, $request);
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return $this->inner->getLinks($object, $request);
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return $this->inner->getAttributes($object, $request);
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return $this->inner->getDefaultIncludedRelationships($object);
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return $this->inner->getRelationships($object, $request);
+    }
+}
+
+/**
+ * The same decorator, handing on the resource's injected resolver.
+ */
+final class SingletonResolverAwareInboxDecorator extends SingletonInboxDecorator implements SerializerResolverAwareInterface
+{
+    public function setSerializerResolver(SerializerResolverInterface $resolver): void {}
+
+    public function serializerResolver(): ?SerializerResolverInterface
+    {
+        return $this->inner instanceof SerializerResolverAwareInterface ? $this->inner->serializerResolver() : null;
     }
 }
 

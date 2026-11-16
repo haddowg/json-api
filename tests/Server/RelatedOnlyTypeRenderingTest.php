@@ -16,6 +16,7 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Schema\Link\Link;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
+use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Server\ResourceRegistry;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Testing\SpecCompliance;
@@ -70,6 +71,30 @@ final class RelatedOnlyTypeRenderingTest extends TestCase
         $document = $this->fetch(Server::make()->withRelatedOnlyTypes('labels'), labelLinks: true);
 
         self::assertSame(['self' => 'https://labels.example/l1'], self::at($document, 'included', '0', 'links'));
+    }
+
+    #[Test]
+    public function aSerializerWithoutAResolverStillLearnsTheTypeIsRelatedOnly(): void
+    {
+        $psr17 = new Psr17Factory();
+        $response = Server::make()
+            ->withRelatedOnlyTypes('labels')
+            ->withBaseUri('https://api.test')
+            ->withPsr17($psr17, $psr17)
+            ->withHandler(new class implements OperationHandlerInterface {
+                public function handle(JsonApiOperationInterface $operation): DataResponse
+                {
+                    return DataResponse::fromResource((object) ['id' => 'l1', 'name' => 'Island'], new RelatedOnlyBareLabelSerializer());
+                }
+            })
+            ->handle((new ServerRequest('GET', '/albums/1/label'))->withAttribute(Target::class, new Target('albums', '1', 'label')));
+
+        $body = (string) $response->getBody();
+        self::assertSame(200, $response->getStatusCode(), $body);
+        $document = \json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
+
+        self::assertSame('l1', self::at($document, 'data', 'id'));
+        self::assertNull(self::at($document, 'data', 'links'));
     }
 
     #[Test]
@@ -161,5 +186,46 @@ final class RelatedOnlyLinkedLabelResource extends RelatedOnlyLabelResource
         \assert(\is_object($object) && \property_exists($object, 'id') && \is_string($object->id));
 
         return new ResourceLinks('', new Link('https://labels.example/' . $object->id));
+    }
+}
+
+/**
+ * Renders labels with no resolver injected, as an adapter's standalone serializer can.
+ */
+final class RelatedOnlyBareLabelSerializer extends AbstractSerializer
+{
+    public function getType(mixed $object): string
+    {
+        return 'labels';
+    }
+
+    public function getId(mixed $object): string
+    {
+        return \is_object($object) && isset($object->id) && \is_string($object->id) ? $object->id : '';
+    }
+
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
+
+    public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
+    {
+        return null;
+    }
+
+    public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return ['name' => static fn(mixed $label): mixed => \is_object($label) ? ($label->name ?? null) : null];
+    }
+
+    public function getDefaultIncludedRelationships(mixed $object): array
+    {
+        return [];
+    }
+
+    public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
     }
 }

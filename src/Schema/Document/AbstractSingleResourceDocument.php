@@ -45,6 +45,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             $maxIncludeDepth,
             $transformation->linkRendering,
             $transformation->scopes,
+            $transformation->resolver,
         );
         $data = new SingleResourceData();
 
@@ -80,6 +81,7 @@ abstract class AbstractSingleResourceDocument extends AbstractResourceDocument
             $maxIncludeDepth,
             $transformation->linkRendering,
             $transformation->scopes,
+            $transformation->resolver,
         );
 
         return $transformer->transformToRelationshipObject($resourceTransformation, $data);

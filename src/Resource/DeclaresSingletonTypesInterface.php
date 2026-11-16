@@ -7,13 +7,13 @@ namespace haddowg\JsonApi\Resource;
 /**
  * A {@see SerializerResolverInterface} that also says which types are singletons and
  * resolves a singleton's id for the caller. The transformer reads it off a rendered
- * resource's injected resolver to link a singleton's endpoints at `/{uriType}`, and
+ * resource's injected resolver, then off the server the response renders against, to link a
+ * singleton's endpoints at `/{uriType}`, and
  * {@see \haddowg\JsonApi\Operation\OperationFactory} reads it off the server to resolve a
  * singleton target.
  *
  * The {@see \haddowg\JsonApi\Server\Server} and its registry implement it. A resolver that
- * decorates the registry should implement it too and delegate, or the singletons it renders
- * link to `/{uriType}/{id}`, which no route serves.
+ * decorates the registry should implement it too and delegate.
  */
 interface DeclaresSingletonTypesInterface
 {

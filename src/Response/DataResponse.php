@@ -117,6 +117,7 @@ final class DataResponse extends AbstractResponse
             $server->maxIncludeDepth(),
             linkRendering: \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server),
             scopes: \haddowg\JsonApi\Scope\ScopeEnforcer::forServer($server),
+            resolver: $server instanceof \haddowg\JsonApi\Resource\SerializerResolverInterface ? $server : null,
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

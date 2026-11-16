@@ -218,7 +218,7 @@ final class ResourceTransformer
             return null;
         }
 
-        if (RelatedOnlyType::of($resource, $transformation->resourceType)) {
+        if (RelatedOnlyType::of($resource, $transformation->resourceType, $transformation->resolver)) {
             return null;
         }
 
@@ -232,7 +232,7 @@ final class ResourceTransformer
             return null;
         }
 
-        if (SingletonType::of($resource, $transformation->resourceType)) {
+        if (SingletonType::of($resource, $transformation->resourceType, $transformation->resolver)) {
             return $transformation->baseUri . '/' . $uriType;
         }
 
@@ -241,7 +241,7 @@ final class ResourceTransformer
 
     private function isSingleton(ResourceTransformation $transformation): bool
     {
-        return $transformation->resource !== null && SingletonType::of($transformation->resource, $transformation->resourceType);
+        return $transformation->resource !== null && SingletonType::of($transformation->resource, $transformation->resourceType, $transformation->resolver);
     }
 
     /**

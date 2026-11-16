@@ -515,9 +515,11 @@ object left with no links carries its linkage `data` instead. Everything else re
 before, and a `self` returned from `getLinks()` still wins. The server doesn't route, so
 leaving the type's own endpoints out of your routing is the adapter's job.
 
-The transformer reads the set off the resource's resolver through
-`Resource\DeclaresRelatedOnlyTypesInterface`, which the server and its registry implement.
-A resolver that decorates the server's should implement it and delegate. For the generated
+The transformer reads the set through `Resource\DeclaresRelatedOnlyTypesInterface`, which
+the server and its registry implement. It asks the resource's own resolver, then the server
+a response renders against, so a serializer that decorates or overrides the type's
+resource, with no resolver of its own, still renders it related-only. A resolver that
+decorates the server's should implement it and delegate. For the generated
 document, have the type's OpenAPI metadata implement `OpenApi\Metadata\DeclaresRelatedOnly`
 (see [OpenAPI](openapi.md)).
 
@@ -541,11 +543,13 @@ target. A `null` id answers `404`. `dispatch()` builds no operation, so a single
 passed to it must already carry the resolved id.
 
 The transformer renders a singleton's resource `self` link as `{baseUri}/{uriType}` and
-its relationship `self` and `related` links under it. A type is a singleton when its serializer
-declares itself one through `SingletonResourceInterface`, or when the resource's resolver
-says so through `Resource\DeclaresSingletonTypesInterface`, which the server and its
-registry implement. A resolver that decorates the server's should
-implement it and delegate. For the generated document, have the type's OpenAPI metadata
+its relationship `self` and `related` links under it, on a relationship endpoint too. A
+type is a singleton when its serializer declares itself one through
+`SingletonResourceInterface`, or when the resource's resolver or the server a response
+renders against says so through `Resource\DeclaresSingletonTypesInterface`, which the
+server and its registry implement. So a serializer that decorates or overrides a singleton
+resource class, without declaring the singleton itself, still links it at `/{uriType}`. A
+resolver that decorates the server's should implement it and delegate. For the generated document, have the type's OpenAPI metadata
 implement `OpenApi\Metadata\DeclaresSingleton` (see [OpenAPI](openapi.md)).
 
 The server doesn't route, so serving `/{uriType}` in place of the collection and
