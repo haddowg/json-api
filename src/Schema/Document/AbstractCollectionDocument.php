@@ -45,6 +45,7 @@ abstract class AbstractCollectionDocument extends AbstractResourceDocument
             $maxIncludeDepth,
             $transformation->linkRendering,
             $transformation->scopes,
+            $transformation->resolver,
         );
         $data = new CollectionData();
 

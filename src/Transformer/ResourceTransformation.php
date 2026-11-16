@@ -40,5 +40,8 @@ final class ResourceTransformation
         public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
         // Drops an included resource the caller may not read; null includes everything.
         public ?\haddowg\JsonApi\Scope\ScopeEnforcer $scopes = null,
+        // The server's resolver, which says which types are singletons or related-only
+        // when the rendering serializer carries no resolver of its own.
+        public ?\haddowg\JsonApi\Resource\SerializerResolverInterface $resolver = null,
     ) {}
 }

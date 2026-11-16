@@ -459,7 +459,7 @@ abstract class AbstractRelationship
         }
 
         $parent = $transformation->resource;
-        if ($parent === null || RelatedOnlyType::of($parent, $transformation->resourceType)) {
+        if ($parent === null || RelatedOnlyType::of($parent, $this->parentJsonApiType($transformation), $transformation->resolver)) {
             return null;
         }
 
@@ -470,7 +470,7 @@ abstract class AbstractRelationship
             return null;
         }
 
-        $base = SingletonType::of($parent, $transformation->resourceType) ? '/' . $parentType : '/' . $parentType . '/' . $parentId;
+        $base = SingletonType::of($parent, $this->parentJsonApiType($transformation), $transformation->resolver) ? '/' . $parentType : '/' . $parentType . '/' . $parentId;
         $selfHref = $base . '/relationships/' . $uriFieldName;
 
         return new RelationshipLinks(
@@ -501,6 +501,20 @@ abstract class AbstractRelationship
     }
 
     /**
+     * The parent's JSON:API type, which decides whether it is a singleton or related-only.
+     * A relationship endpoint renders its parent without resolving a resource object, so
+     * the transformation can carry no type and the parent serializer names it.
+     */
+    private function parentJsonApiType(ResourceTransformation $transformation): string
+    {
+        if ($transformation->resourceType !== '' || $transformation->resource === null) {
+            return $transformation->resourceType;
+        }
+
+        return $transformation->resource->getType($transformation->object);
+    }
+
+    /**
      * The rendered convention links, in the server's link form: `self` and the
      * pagination links are described by the relationship endpoint's `GET`, `related`
      * by the related endpoint's.
@@ -522,7 +536,7 @@ abstract class AbstractRelationship
         }
 
         $parentType = $this->conventionParentType($transformation);
-        $singleton = $transformation->resource !== null && SingletonType::of($transformation->resource, $transformation->resourceType);
+        $singleton = $transformation->resource !== null && SingletonType::of($transformation->resource, $this->parentJsonApiType($transformation), $transformation->resolver);
         $relationship = OperationReference::fetchRelationship($parentType, $uriFieldName, $singleton);
         $related = OperationReference::fetchRelated($parentType, $uriFieldName, $singleton);
 

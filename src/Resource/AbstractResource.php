@@ -16,6 +16,7 @@ use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\Exception\RelationshipTypeInappropriate;
 use haddowg\JsonApi\Exception\RemovalProhibited;
 use haddowg\JsonApi\Exception\ResourceIdInvalid;
+use haddowg\JsonApi\Exception\ResourceIdMissing;
 use haddowg\JsonApi\Exception\ResourceIdUndecodable;
 use haddowg\JsonApi\Exception\ResourceTypeMissing;
 use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
@@ -990,6 +991,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @throws DataMemberMissing
      * @throws ResourceTypeMissing
      * @throws ResourceTypeUnacceptable
+     * @throws ResourceIdMissing
+     * @throws ResourceIdInvalid
      * @throws AttributeWriteProhibited
      * @throws AttributeMemberUnrecognized
      */
@@ -1002,6 +1005,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
         /** @var array<string, mixed> $data */
         $this->validateType($data);
+        $this->validateUpdateId($data);
 
         $this->rejectUndeclaredAttributeMembers($data);
         $this->rejectReadOnlyAttributes($data, $request, false);
@@ -1011,6 +1015,28 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
 
         // Flattened (`on()`) attributes hydrate LAST (see hydrateForCreate()).
         return $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
+    }
+
+    /**
+     * Refuses an update body whose resource object has no `id`, or one that isn't a
+     * string. The spec requires every update to name the resource it changes, a
+     * singleton's included.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @throws ResourceIdMissing
+     * @throws ResourceIdInvalid
+     */
+    protected function validateUpdateId(array $data): void
+    {
+        $id = $data['id'] ?? null;
+        if ($id === null || $id === '') {
+            throw new ResourceIdMissing();
+        }
+
+        if (!\is_string($id)) {
+            throw new ResourceIdInvalid(\gettype($id));
+        }
     }
 
     /**

@@ -47,6 +47,14 @@ final class UpdateHydratorTraitTest extends TestCase
     }
 
     #[Test]
+    public function aZeroIdIsAnId(): void
+    {
+        $domainObject = $this->createHydrator()->hydrateForUpdate($this->createRequest(['data' => ['type' => 'user', 'id' => '0']]), []);
+
+        self::assertSame(['id' => '0'], $domainObject);
+    }
+
+    #[Test]
     public function hydrateId(): void
     {
         $id = '1';

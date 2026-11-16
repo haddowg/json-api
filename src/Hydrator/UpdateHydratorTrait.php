@@ -165,15 +165,16 @@ trait UpdateHydratorTrait
      */
     protected function hydrateIdForUpdate(mixed $domainObject, array $data): mixed
     {
-        if (empty($data['id'])) {
+        $id = $data['id'] ?? null;
+        if ($id === null || $id === '') {
             throw new ResourceIdMissing();
         }
 
-        if (\is_string($data['id']) === false) {
-            throw new ResourceIdInvalid(\gettype($data['id']));
+        if (\is_string($id) === false) {
+            throw new ResourceIdInvalid(\gettype($id));
         }
 
-        $result = $this->setId($domainObject, $data['id']);
+        $result = $this->setId($domainObject, $id);
         if ($result !== null) {
             $domainObject = $result;
         }
