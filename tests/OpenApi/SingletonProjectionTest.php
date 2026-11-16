@@ -73,6 +73,11 @@ final class SingletonProjectionTest extends TestCase
         self::assertSame('updateRelationship.inboxes.owner', self::at($paths, '/inbox/relationships/owner', 'patch', 'operationId'));
         self::assertSame('action.inboxes.mark-all-read', self::at($paths, '/inbox/-actions/mark-all-read', 'post', 'operationId'));
 
+        self::assertSame('Fetch the caller\'s inbox', self::at($paths, '/inbox', 'get', 'summary'));
+        self::assertSame('Returns the caller\'s inbox.', self::at($paths, '/inbox', 'get', 'description'));
+        self::assertSame('Update the caller\'s inbox', self::at($paths, '/inbox', 'patch', 'summary'));
+        self::assertSame('Returns the `owner` relationship linkage of the caller\'s inbox.', self::at($paths, '/inbox/relationships/owner', 'get', 'description'));
+
         foreach (['/inbox', '/inbox/owner', '/inbox/relationships/owner', '/inbox/-actions/mark-all-read'] as $path) {
             self::assertNull(self::at($paths, $path, 'parameters'), $path);
         }
