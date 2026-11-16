@@ -519,25 +519,31 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     ): void {
         $this->applyConventionLinks($relationship);
 
+        $pagination = $this->resolvePagination($model, $request, $resolver);
+
+        // A counted first page knows the member count, so it renders as `meta.total`
+        // when no count seam supplied one.
         $meta = $this->relationshipMeta($model, $request, $resolver);
+        if ($pagination?->total !== null && !\array_key_exists('total', $meta)) {
+            $meta['total'] = $pagination->total;
+        }
         if ($meta !== []) {
             $relationship->setMeta([...$relationship->getMeta(), ...$meta]);
         }
 
         $this->applyIdentifierMeta($relationship, $model, $request);
 
-        $pagination = $this->resolvePagination($model, $request, $resolver);
         if ($pagination !== null) {
             $relationship->withPagination($pagination);
         }
     }
 
     /**
-     * Resolves the page-1 pagination state for this to-many relation on `$model`
-     * under the Relationship Queries profile — the relationship-object
-     * `first` / `prev` / `next` (+ `last`) links — or `null` when none should be
-     * emitted. The injected resolver owns the page-1 windowing and the plain-form
-     * link translation; core only attaches the result.
+     * Resolves the first-page pagination state for this to-many relation on `$model`
+     * (the relationship-object `first` / `prev` / `next` / `last` links, and the
+     * total of a counted page) or `null` when none should be emitted. The injected
+     * resolver owns the windowing and the plain-form link translation; core only
+     * attaches the result.
      */
     protected function resolvePagination(
         mixed $model,

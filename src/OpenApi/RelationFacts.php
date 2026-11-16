@@ -35,6 +35,11 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
 final class RelationFacts
 {
     /**
+     * How a relationship object of a {@see pagesLinkageData()} relation reads.
+     */
+    public const string FIRST_PAGE_LINKAGE = 'Its `data`, when present, is the first page of the relationship\'s members in the order its related endpoint serves them, its `links` reach the other pages, and its `meta.total` is the member count when that page is counted.';
+
+    /**
      * The segment the relation's related and relationship paths are keyed by.
      */
     public static function uriFieldName(RelationMetadataInterface $relation): string
@@ -307,6 +312,18 @@ final class RelationFacts
             static fn(\haddowg\JsonApi\Resource\Sort\SortDirective $directive): string => ($directive->descending ? '-' : '') . $directive->sort->key(),
             $relation->defaultSort(),
         );
+    }
+
+    /**
+     * Whether a relationship object's linkage `data` is the first page of its members:
+     * a paginated to-many with an endpoint its page links can address. Wherever its
+     * `data` renders, included or declared `withData()`, it holds that page.
+     */
+    public static function pagesLinkageData(RelationMetadataInterface $relation): bool
+    {
+        return $relation->isToMany()
+            && $relation->pageSchema() !== null
+            && ($relation->exposesRelationshipEndpoint() || $relation->exposesRelatedEndpoint());
     }
 
     /**

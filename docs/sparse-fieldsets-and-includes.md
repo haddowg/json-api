@@ -137,6 +137,12 @@ When that relation is *explicitly included*, the include wins: the resources are
 fetched and both the linkage and the `included` entries appear. See
 [relations](relations.md) for the full linkage and `links` policy.
 
+An included to-many is paginated like its related endpoint: the linkage and
+`included` hold the first page of its members, and the relationship object's
+`links` carry `first`, `next` and the rest of its pages. A relation declared
+`withoutPagination()` includes its whole set. See
+[pagination](pagination.md#included-and-rendered-relationships-show-their-first-page).
+
 ## Constraining includes: the safeguards
 
 By default every declared relationship is includable at every path, and nested

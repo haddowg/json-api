@@ -10,9 +10,9 @@ namespace haddowg\JsonApi\Schema\Relationship;
  * {@see \haddowg\JsonApi\Serializer\RelationshipLinkageInterface} seam — rather than
  * core reading it off the parent model's backing property.
  *
- * Its sole consumer is the Relationship Queries profile's per-page window: the host
- * (which owns the data layer) windows a to-many to page 1 of its profile
- * sort/filter and would otherwise have to WRITE that page back onto the parent's
+ * Its motivating consumer is the first-page window: the host (which owns the data
+ * layer) cuts a rendered to-many to its first page, ordered and narrowed by any
+ * Relationship Queries `relatedQuery`, and would otherwise have to WRITE that page back onto the parent's
  * relation property so core reads it as the linkage. That destructive write
  * corrupts any SIBLING relation that shares the same backing property — core reads
  * every relation's linkage off its column, so a bystander renders the windowed

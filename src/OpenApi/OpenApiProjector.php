@@ -2138,7 +2138,11 @@ final class OpenApiProjector
             $schema = $schema->withExample($example);
         }
 
-        return $this->withRelationDescription($schema, $relation);
+        $schema = $this->withRelationDescription($schema, $relation);
+
+        return RelationFacts::pagesLinkageData($relation)
+            ? $schema->withDescription(\trim(($schema->description() ?? '') . ' ' . RelationFacts::FIRST_PAGE_LINKAGE))
+            : $schema;
     }
 
     /**

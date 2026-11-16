@@ -484,7 +484,7 @@ Each link names the operation its target is:
 | Link | `describedby` points at |
 | --- | --- |
 | resource `self` | `GET /{type}/{id}` |
-| relationship `self`, and a relationship's pagination links | `GET /{type}/{id}/relationships/{rel}` |
+| relationship `self`, and a relationship's pagination links | `GET /{type}/{id}/relationships/{rel}` (the pagination links point at `GET /{type}/{id}/{rel}` when only the related endpoint is exposed) |
 | relationship `related` | `GET /{type}/{id}/{rel}` |
 | top-level `self` and pagination links | the operation that produced the document |
 | a contributed `OperationLink` | the operation it names (an action link names the action's method and path) |

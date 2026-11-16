@@ -83,10 +83,9 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Serializer\RelationshipCountInterface $relationshipCount = null;
 
     /**
-     * The storage-aware resolver that supplies a to-many relation's page-1
-     * pagination state (the relationship-object pagination links) under the
-     * Relationship Queries profile, or null when none is injected (standalone core
-     * emits no such links). Threaded down from the {@see Server}, the same way the
+     * The storage-aware resolver that supplies a rendered to-many relation's
+     * first-page pagination state (the relationship-object pagination links), or
+     * null when none is injected (standalone core emits no such links). Threaded down from the {@see Server}, the same way the
      * lazy {@see $resolver} is.
      */
     private ?\haddowg\JsonApi\Serializer\RelationshipPaginationInterface $relationshipPagination = null;
