@@ -12,8 +12,8 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 
 /**
- * Resolves the path of every {@see TraversesPath} filter against the relation graph of
- * the type the filters run against, so each data layer reads what the path ends on
+ * Resolves the path of every {@see TraversesPath} filter, and the relation of every
+ * {@see WhereMorph}, against the relation graph of the type the filters run against, so each data layer reads what the path ends on
  * instead of guessing it.
  *
  * Each segment is matched to a declared relation by its storage name, the relation's
@@ -87,6 +87,12 @@ final class ThroughPathResolver
                 : $filter->withResolvedPath($this->path($filter->key(), $filter->throughPath(), $fields));
         }
 
+        if ($filter instanceof WhereMorph) {
+            return $filter->resolvedTarget() !== null
+                ? $filter
+                : $filter->withResolvedTarget($this->morphTarget($filter, $fields));
+        }
+
         if ($filter instanceof WhereGroup) {
             $children = $this->resolveAll($filter->children, $fields);
 
@@ -96,6 +102,37 @@ final class ThroughPathResolver
         }
 
         return $filter;
+    }
+
+    /**
+     * Resolves a {@see WhereMorph}'s relation against `$fields`: the polymorphic relation
+     * stored under its name, and each declared type's id field.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @throws \LogicException when the type declares no relation under that name, or it is not polymorphic
+     */
+    public function morphTarget(WhereMorph $filter, iterable $fields): MorphTarget
+    {
+        $relation = self::relationStoredAs(self::listed($fields), $filter->relation);
+        if (!$relation instanceof PolymorphicRelationInterface) {
+            throw new \LogicException(\sprintf(
+                $relation === null
+                    ? 'WhereMorph filter "%s" names the relation "%s", which the type it filters does not declare.'
+                    : 'WhereMorph filter "%s" names the relation "%s", which is not polymorphic. It compares a MorphTo or MorphToMany; use WhereThrough or WhereThroughIn for a relation over one type.',
+                $filter->key,
+                $filter->relation,
+            ));
+        }
+
+        $types = $relation->relatedTypes();
+        $ids = [];
+        foreach ($types as $type) {
+            $related = ($this->fieldsOf)($type);
+            $ids[$type] = $related === null ? null : self::idField(self::listed($related));
+        }
+
+        return new MorphTarget($relation, $types, $ids);
     }
 
     /**

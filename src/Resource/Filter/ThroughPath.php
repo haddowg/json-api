@@ -109,8 +109,20 @@ final readonly class ThroughPath
             return [];
         }
 
+        return self::idFormatConstraints($this->relatedId);
+    }
+
+    /**
+     * The constraints a filter value naming one of `$id`'s resources takes: the id's
+     * declared format, so a numeric id validates and documents as an integer and a UUID
+     * id as a UUID. Empty for an id that declares no format.
+     *
+     * @return list<ConstraintInterface>
+     */
+    public static function idFormatConstraints(Id $id): array
+    {
         $constraints = [];
-        foreach ($this->relatedId->constraints() as $constraint) {
+        foreach ($id->constraints() as $constraint) {
             $default = match (true) {
                 $constraint instanceof UuidFormat => new UuidFormat($constraint->version),
                 $constraint instanceof UlidFormat => new UlidFormat(),

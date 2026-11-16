@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Filter\InMemory;
 
 use haddowg\JsonApi\Resource\Field\Accessor;
+use haddowg\JsonApi\Resource\Field\MorphTo;
+use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
@@ -19,9 +21,12 @@ use haddowg\JsonApi\Resource\Filter\WhereHas;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
 use haddowg\JsonApi\Resource\Filter\WhereIdNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
+use haddowg\JsonApi\Resource\Filter\WhereMorph;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotNull;
 use haddowg\JsonApi\Resource\Filter\WhereNull;
+use haddowg\JsonApi\Resource\Filter\WhereSet;
+use haddowg\JsonApi\Resource\Filter\WhereSetMatch;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
 
@@ -85,6 +90,8 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereThrough => $this->whereThrough($filter, $value),
             $filter instanceof WhereThroughIn => $this->whereThroughIn($filter, $value),
             $filter instanceof Range => $this->range($filter, $value),
+            $filter instanceof WhereSet => $this->whereSet($filter, $value),
+            $filter instanceof WhereMorph => $this->whereMorph($filter, $value),
             $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
             $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
             default => $this->armPredicate($filter, $value),
@@ -425,6 +432,67 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private function hasRelation(mixed $row, string $relationship): bool
     {
         return $this->existsThrough($row, [$relationship], null);
+    }
+
+    /**
+     * @return \Closure(mixed): bool
+     */
+    private function whereSet(WhereSet $filter, mixed $value): \Closure
+    {
+        $column = $filter->column;
+
+        return match ($filter->match($value)) {
+            WhereSetMatch::Set => static fn(mixed $row): bool => Accessor::get($row, $column) !== null,
+            WhereSetMatch::NotSet => static fn(mixed $row): bool => Accessor::get($row, $column) === null,
+            WhereSetMatch::Either => static fn(mixed $row): bool => true,
+            WhereSetMatch::Neither => static fn(mixed $row): bool => false,
+        };
+    }
+
+    /**
+     * A {@see WhereMorph} over a `MorphTo` compares the pair its declared
+     * `identifiedByColumns()` read, and over a `MorphToMany` looks for a member among the
+     * link rows its `identifiedByRows()` declare.
+     *
+     * @return \Closure(mixed): bool
+     *
+     * @throws \LogicException when the relation declares neither
+     */
+    private function whereMorph(WhereMorph $filter, mixed $value): \Closure
+    {
+        $selection = $filter->selection($value);
+        $relation = $filter->resolvedTarget()?->relation;
+        $matches = static fn(string $type, mixed $id): bool => $type === $selection->type
+            && ($selection->ids === null || \in_array((string) (\is_scalar($id) ? $id : ''), \array_map(static fn(mixed $wanted): string => \is_scalar($wanted) ? (string) $wanted : '', $selection->ids), true));
+
+        if ($relation instanceof MorphTo && ($columns = $relation->identifierColumns()) !== null) {
+            return static function (mixed $row) use ($columns, $matches): bool {
+                $pair = $columns->pair($row);
+
+                return $pair !== null && $matches($pair[0], $pair[1]);
+            };
+        }
+
+        if ($relation instanceof MorphToMany && ($rows = $relation->linkRowFields()) !== null) {
+            $storage = $relation->column() ?? $relation->name();
+
+            return function (mixed $row) use ($rows, $storage, $matches): bool {
+                foreach ($this->fanOut(Accessor::get($row, $storage)) as $link) {
+                    $member = $rows->member($link);
+                    if ($member !== null && $matches($member->type, $member->id)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
+        }
+
+        throw new \LogicException(\sprintf(
+            'WhereMorph filter "%s" compares the relation "%s", which declares no fields to compare. Declare a MorphTo with identifiedByColumns(), or a MorphToMany with identifiedByRows().',
+            $filter->key,
+            $filter->relation,
+        ));
     }
 
     /**

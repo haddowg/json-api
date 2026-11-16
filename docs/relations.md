@@ -396,6 +396,49 @@ load, so it emits `data` whatever the load-state predicate says. It can't be com
 with [`identifierMeta()`](#identifier-meta--parent-aware-per-relation-meta), whose
 resolver needs the target, and its identifiers carry `type` and `id` only.
 
+#### Declaring the pair's fields with `identifiedByColumns()`
+
+When the parent keeps the pair in two fields of its own, name them instead of writing a
+closure:
+
+```php
+MorphTo::make('subject', ['rfps', 'campaigns'])
+    ->identifiedByColumns(type: 'subjectType', id: 'subjectId'),
+```
+
+Each name is a field of the parent as its model sees it, a Doctrine entity's property or
+an Eloquent model's attribute. The linkage renders from the two fields exactly as it does
+from a closure, and a parent whose type or id field is empty has no target. The stored type
+is the target's JSON:API type unless `typeMap` maps stored values to types, as an Eloquent
+morph map does:
+
+```php
+->identifiedByColumns(type: 'subject_type', id: 'subject_id', typeMap: [
+    'rfp' => 'rfps',
+    'campaign' => 'campaigns',
+]),
+```
+
+A stored type the map doesn't name, or that names no declared type, throws a
+`\LogicException`. Because the fields are declared, a data layer can compare them in a
+query, which a [`WhereMorph`](filters.md#filtering-by-a-polymorphic-relation-wheremorph)
+filter needs: `MorphTo::identifierColumns()` returns them as a `MorphColumns`, or `null`
+for a relation identified by a closure. Like `identifiedBy()` it changes reads only.
+
+The build refuses these declarations:
+
+| Declared | Why |
+|---|---|
+| both `identifiedBy()` and `identifiedByColumns()` | declare one |
+| a field that is empty or a dotted path | name a field of the parent itself |
+| the same field for the type and the id | they are two fields |
+| a `typeMap` value that isn't a declared type | every stored value maps to one of the relation's types |
+| `identifierMeta()` with `identifiedByColumns()` | its resolver needs the target |
+
+Keep `identifiedBy()` for storage two fields can't describe. A data layer can't compare a
+closure in a query, so a `WhereMorph` needs `identifiedByColumns()` on the Doctrine and
+in-memory providers.
+
 A data layer loads included and related targets from the pairs, one query per type.
 `MorphTo::storedIdentifiers($parents, $request)` returns the stored ids of a page of
 parents grouped by type, deduplicated, in declared order, and

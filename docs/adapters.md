@@ -155,6 +155,10 @@ with `toList()`: an array passes through, a string splits on the filter's
 `delimiter` (defaulting to a comma) with each element trimmed. `WhereHas` /
 `WhereDoesntHave` are pure existence tests via `hasRelation()` — a non-empty
 related collection or a non-null to-one — and ignore the request value entirely.
+`WhereSet` compares the column with `null` as `WhereSet::match()` says, and `WhereMorph`
+reads the pair a `MorphTo`'s `identifiedByColumns()` declare, or looks for a member among
+the link rows a `MorphToMany`'s `identifiedByRows()` declare, throwing a `\LogicException`
+for a relation that declares neither.
 
 ### ArraySortHandler — one cascading comparator
 

@@ -21,7 +21,8 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *
  * Declared with {@see MorphToBuilder::identifiedBy()}, the relation reads its
  * target's `[type, id]` off the parent instead, so its linkage never loads the
- * target. {@see storedIdentifiers()} gives a host the pairs of many parents grouped
+ * target, and with {@see MorphToBuilder::identifiedByColumns()} it reads them from two
+ * declared fields a data layer can query. {@see storedIdentifiers()} gives a host the pairs of many parents grouped
  * by type, to load each type's targets in one query.
  */
 final readonly class MorphTo extends AbstractRelationValue implements PolymorphicRelationInterface, StoresIdentifiersInterface
@@ -33,6 +34,7 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
         FieldState $state,
         RelationState $relationState,
         private ?\Closure $identifiedBy = null,
+        private ?MorphColumns $columns = null,
     ) {
         parent::__construct($state, $relationState);
     }
@@ -57,6 +59,17 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
     public function storesIdentifiers(): bool
     {
         return $this->identifiedBy !== null;
+    }
+
+    /**
+     * The parent fields holding the target's stored type and id, when the relation was
+     * declared with {@see MorphToBuilder::identifiedByColumns()}, so a data layer can
+     * compare them in a query. `null` for a relation identified by a closure, or not at
+     * all.
+     */
+    public function identifierColumns(): ?MorphColumns
+    {
+        return $this->columns;
     }
 
     /**
