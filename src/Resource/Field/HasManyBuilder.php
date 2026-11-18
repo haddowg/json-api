@@ -20,6 +20,18 @@ class HasManyBuilder extends AbstractRelationBuilder
 {
     use DeclaresMonomorphicType;
 
+    /**
+     * Starts a to-many relation to `$type`. A `$foreignKey` names the related type's field
+     * or to-one relation that holds the parent's id, and the relation then reads its
+     * members through it on every path.
+     *
+     * @return static
+     */
+    public static function make(string $name, string $type, ?string $foreignKey = null): static
+    {
+        return (new static($name))->withRelatedTypes($type)->readThroughForeignKey($foreignKey);
+    }
+
     protected function buildsToMany(): bool
     {
         return true;

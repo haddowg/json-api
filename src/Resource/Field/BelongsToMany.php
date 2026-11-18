@@ -44,8 +44,15 @@ final readonly class BelongsToMany extends HasMany implements PivotRelationInter
         parent::__construct($state, $relationState);
     }
 
-    public static function make(string $name, string $type): BelongsToManyBuilder
+    /**
+     * Declares a pivot-backed to-many relation to `$type`. Its members live in the pivot
+     * rows, so `$foreignKey` must stay `null`; it is there only because `HasMany::make()`
+     * takes one.
+     *
+     * @throws \InvalidArgumentException when a foreign key is given
+     */
+    public static function make(string $name, string $type, ?string $foreignKey = null): BelongsToManyBuilder
     {
-        return BelongsToManyBuilder::make($name, $type);
+        return BelongsToManyBuilder::make($name, $type, $foreignKey);
     }
 }

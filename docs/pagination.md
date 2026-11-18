@@ -612,6 +612,12 @@ relation through its data layer, supplies the page through the
 The [Relationship Queries profile](profiles/relationship-queries.md) narrows and
 reorders the same first page from the primary request.
 
+Every rendered to-many gets its first page, whatever stores its parent. A relation
+the parent model can't hold, such as a to-many on a singleton served by a custom
+provider, declares a [foreign key](relations.md#reading-through-a-foreign-key), and the
+related type's data layer cuts each parent's first page from one
+`WHERE <foreign key> IN (<parent ids>)` query.
+
 ## Offering a menu of strategies
 
 Sometimes one collection should support more than one pagination strategy and let

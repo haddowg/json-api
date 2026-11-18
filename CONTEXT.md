@@ -29,6 +29,13 @@ A **Field** that links to another resource type (belongs-to, has-many, polymorph
 _Avoid_: association, and bare "relationship", which also names the relationship object a
 **Serializer** emits and the linkage parsed from a request body
 
+**Foreign key** (of a **Relation**):
+The field or to-one **Relation** of the related type that holds the parent's id, named by the
+third argument to `HasMany::make()` or `HasOne::make()`. A **Relation** declared with one is read
+as the related rows whose foreign key is a parent's id, never off the parent model, and written
+by setting or clearing it on those rows.
+_Avoid_: inverse, mappedBy, join column
+
 **Constraint**:
 Validation metadata attached to a **Field** or **Filter**; core never executes it.
 _Avoid_: rule, assertion

@@ -419,6 +419,15 @@ loop of your own. They are the one place that knows exact keys win over
 accepts and rejects the same keys. Validate a list filter's value member by member, the
 members `FilterMatcher::directives()` reads.
 
+A relation declared with a
+[foreign key](relations.md#reading-through-a-foreign-key) is read by the related
+type's data layer, never off the parent. Resolve it with `ForeignKey::of()`, take each
+parent's key from `ForeignKey::parentKey()`, and push the whole page down as one
+`WHERE <column> IN (<parent keys>)` query with the related type's own scope and query
+extensions, then partition the rows by their foreign key and cut each parent's window
+as its related endpoint would. A to-one foreign key's column holds a reference to the
+parent, so compare the referenced id rather than the column itself.
+
 ## Next / see also
 
 - [Filters](filters.md) — the filter value objects and their fields.

@@ -142,6 +142,9 @@ An included to-many is paginated like its related endpoint: the linkage and
 `links` carry `first`, `next` and the rest of its pages. A relation declared
 `withoutPagination()` includes its whole set. See
 [pagination](pagination.md#included-and-rendered-relationships-show-their-first-page).
+A relation declared with a [foreign key](relations.md#reading-through-a-foreign-key)
+includes the related rows whose foreign key holds the parent's id, read for the whole
+page of parents at once.
 
 ## Constraining includes: the safeguards
 
