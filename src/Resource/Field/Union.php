@@ -283,6 +283,28 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
+     * Checks the value against the member its JSON type selects, so a date member's
+     * string is refused in a shape the member does not document.
+     *
+     * @internal
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        $member = $this->memberFor($value);
+        if ($member === null) {
+            return;
+        }
+
+        try {
+            $member->assertWireFormat($value);
+        } catch (AttributeValueInvalid $e) {
+            $below = self::pointerBelow($e, $member);
+
+            throw new AttributeValueInvalid($below === '' ? $this->name() : $this->name() . '/' . $below, $e->reason);
+        }
+    }
+
+    /**
      * @throws AttributeValueInvalid
      */
     private function castAt(mixed $value, bool $nested, ?JsonApiRequestInterface $request, bool $creating): mixed

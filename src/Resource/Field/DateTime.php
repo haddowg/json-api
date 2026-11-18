@@ -302,13 +302,11 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     /**
      * A non-string or empty value passes through unchanged (leniency shared with
      * the other attribute casts — type validity is a constraint/validation
-     * concern, not the cast's). A non-empty string that {@see DateTimeParser}
-     * rejects — calendar-garbage (`1997-13-99`), an impossible day PHP would roll
-     * over (`2026-02-30`) or nonsense (`banana`) —
-     * raises a typed {@see AttributeValueInvalid} (422 at
-     * `/data/attributes/<name>`) rather than letting the raw parse `\Exception`
-     * escape as an uncaught 500: the cast is the last gate before the value is
-     * written onto the domain object.
+     * concern, not the cast's). A non-empty string that {@see parseWire()} refuses,
+     * one in another shape (`last year`, a date-time with no offset), an impossible
+     * day PHP would roll over (`2026-02-30`) or nonsense (`banana`), raises a typed
+     * {@see AttributeValueInvalid} (422 at `/data/attributes/<name>`): the cast is
+     * the last gate before the value is written onto the domain object.
      */
     protected function deserializeValue(mixed $value): mixed
     {
@@ -334,10 +332,62 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     }
 
     /**
-     * The value parsed in the zone it names, or unchanged when it is not a non-empty
+     * Parses a request value written in the shape this field documents: an RFC 3339
+     * `date-time`, `date` or `time` when {@see schemaFormat()} names one, and otherwise
+     * exactly the configured {@see $format}. A date-time or time is read in the offset it
+     * names, a date or a value in a format naming no zone in PHP's default zone.
+     *
+     * An adapter that reads a client date for this field itself, to validate or convert
+     * it, parses it here, so it accepts exactly what the cast does.
+     *
+     * @throws \InvalidArgumentException when the string is in another shape or names an
+     *                                   impossible date or time
+     */
+    public function parseWire(string $value): \DateTimeImmutable
+    {
+        return match ($this->schemaFormat()) {
+            'date-time' => DateTimeParser::parseDateTime($value),
+            'date' => DateTimeParser::parseDate($value),
+            'time' => DateTimeParser::parseTime($value),
+            default => DateTimeParser::parseFormat($value, $this->format),
+        };
+    }
+
+    /**
+     * Like {@see parseWire()}, but answers `null` instead of throwing, and for anything
+     * other than a non-empty string.
+     */
+    public function tryParseWire(mixed $value): ?\DateTimeImmutable
+    {
+        if (!\is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return $this->parseWire($value);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * Refuses a string a `fillUsing()` or `deserializeUsing()` hook would otherwise
+     * receive in a shape the field does not document. The hook still gets the string.
+     *
+     * @internal
+     *
+     * @throws AttributeValueInvalid
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        $this->parseWireValue($value);
+    }
+
+    /**
+     * The value parsed by {@see parseWire()}, or unchanged when it is not a non-empty
      * string.
      *
-     * @throws AttributeValueInvalid when the string is not a valid date, date-time or time
+     * @throws AttributeValueInvalid when the string is not in the shape the field documents
      */
     protected function parseWireValue(mixed $value): mixed
     {
@@ -346,7 +396,7 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
         }
 
         try {
-            return DateTimeParser::parse($value);
+            return $this->parseWire($value);
         } catch (\InvalidArgumentException $e) {
             throw new AttributeValueInvalid($this->name(), $e->getMessage());
         }

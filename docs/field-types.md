@@ -112,13 +112,21 @@ Boolean::make('explicit');
 back to a `\DateTimeImmutable`. The default format is ISO-8601
 (`\DateTimeInterface::ATOM`).
 
-Hydration reads the string with
-[`DateTimeParser`](../src/Resource/DateTimeParser.php). It accepts the strings
-`new \DateTimeImmutable()` accepts, except one that names a day or time that does not
-exist. PHP would quietly roll `2026-02-30` over to 2 March, and `T24:00:00` to the next
-midnight. The parser refuses both, so the client gets a `422`
-`ATTRIBUTE_VALUE_INVALID` at `/data/attributes/<name>` instead of a stored date it never
-sent. `Date` and `Time` share the same cast.
+Hydration accepts a string only in the shape the field is
+[documented](#what-format-does-to-the-generated-schemas) as. A field whose format projects as
+`format: date-time` takes an RFC 3339 date-time with an offset, such as
+`2026-11-05T09:42:00+00:00`, `2026-11-05T09:42:00Z` or `2026-11-05T09:42:00.123Z`. One
+projecting as `format: date` takes a full date, `2026-11-05`, and one projecting as
+`format: time` an RFC 3339 time with an offset, `09:42:00Z`. A field whose format no
+keyword names takes exactly what that format writes, so `Time`'s `H:i:s` default takes
+`09:42:00`. Anything else, such as `last year`, `2026-11-05 09:42` with no offset, or a
+day that does not exist like `2026-02-30`, is a `422` `ATTRIBUTE_VALUE_INVALID` at
+`/data/attributes/<name>`, never a stored date the client did not mean.
+
+The check runs before a `fillUsing()` or `deserializeUsing()` hook too. The hook still
+receives the string as sent, but only once it has passed. An adapter that reads a client
+date for a field itself calls the field's `parseWire()` or `tryParseWire()`, so it accepts
+exactly what the cast does. `Date` and `Time` share the same cast.
 
 | Method | Adds / effect |
 |---|---|

@@ -9,9 +9,8 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
 
 /**
  * A document attribute carried a value the field's cast could not process — e.g.
- * a calendar-garbage or otherwise unparseable string reaching a
- * {@see \haddowg\JsonApi\Resource\Field\DateTime} field's
- * {@see \haddowg\JsonApi\Resource\DateTimeParser} coercion.
+ * a string a {@see \haddowg\JsonApi\Resource\Field\DateTime} field refuses because
+ * it is not in the shape the field documents or names an impossible date.
  *
  * Rendered as a 422 — the field cast is the last gate before the value is written
  * onto the domain object, so an uncoercible value is an unprocessable entity, not
@@ -41,7 +40,7 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
             exampleSource: '/data/attributes/publishedAt',
             feature: ErrorFeature::Writes,
             description: 'The server could not accept the value of the attribute at `source.pointer`, for example a date-time it cannot parse. Correct the value and send the request again.',
-            exampleDetail: 'The value for attribute "publishedAt" is invalid: Failed to parse time string (next blursday) at position 0 (n): The timezone could not be found in the database',
+            exampleDetail: 'The value for attribute "publishedAt" is invalid: "last year" is not an RFC 3339 date-time with an offset, such as 2026-11-05T09:42:00Z',
         );
     }
 

@@ -116,6 +116,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     private function hydrateChildren(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating, bool $nested): mixed
     {
         if ($this->state->fillUsing !== null) {
+            $this->assertWireFormat($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -144,6 +145,20 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
 
             return $model;
         });
+    }
+
+    /**
+     * Checks each child the value carries against the shape it documents.
+     *
+     * @internal
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        if (\is_array($value)) {
+            JsonObject::hydrateChildren($this->name(), function () use ($value): void {
+                Obj::assertChildrenWireFormat($this->children, $value);
+            });
+        }
     }
 
     protected function deserializeValue(mixed $value): mixed

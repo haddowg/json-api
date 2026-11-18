@@ -200,6 +200,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->state->fillUsing !== null) {
+            $this->assertWireFormat($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -317,6 +318,58 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         }
 
         return $nested;
+    }
+
+    /**
+     * Checks each child and undeclared member the value carries against the shape it
+     * documents.
+     *
+     * @internal
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        if (!\is_array($value)) {
+            return;
+        }
+
+        JsonObject::hydrateChildren($this->name(), function () use ($value): void {
+            self::assertChildrenWireFormat($this->children, $value);
+
+            $field = $this->additionalProperties;
+            if (!$field instanceof AbstractFieldValue) {
+                return;
+            }
+
+            foreach ($this->additionalMembersOf($value) as $key => $member) {
+                try {
+                    $field->assertWireFormat($member);
+                } catch (AttributeValueInvalid $e) {
+                    $below = self::pointerBelow($e, $field);
+
+                    throw new AttributeValueInvalid(JsonObject::pointerSegment($key) . ($below === '' ? '' : '/' . $below), $e->reason);
+                }
+            }
+        });
+    }
+
+    /**
+     * Checks each of `$children` the value carries against the shape it documents. The
+     * error's attribute starts with the child's name.
+     *
+     * @internal
+     *
+     * @param list<FieldInterface>    $children
+     * @param array<array-key, mixed> $value
+     *
+     * @throws AttributeValueInvalid
+     */
+    public static function assertChildrenWireFormat(array $children, array $value): void
+    {
+        foreach ($children as $child) {
+            if ($child instanceof AbstractFieldValue && \array_key_exists($child->name(), $value)) {
+                $child->assertWireFormat($value[$child->name()]);
+            }
+        }
     }
 
     protected function deserializeValue(mixed $value): mixed

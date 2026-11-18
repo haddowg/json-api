@@ -83,4 +83,81 @@ final class DateTimeParserTest extends TestCase
         self::assertNull(DateTimeParser::tryParse('2026-02-30'));
         self::assertNotNull(DateTimeParser::tryParse('2026-02-28'));
     }
+
+    /**
+     * @return iterable<string, array{\Closure(string): \DateTimeImmutable, string, non-empty-string}>
+     */
+    public static function strictAccepted(): iterable
+    {
+        $dateTime = DateTimeParser::parseDateTime(...);
+        yield 'date-time Z' => [$dateTime, '2026-11-05T09:42:00Z', '2026-11-05T09:42:00.000000+00:00'];
+        yield 'date-time offset' => [$dateTime, '2026-11-05T09:42:00+01:00', '2026-11-05T09:42:00.000000+01:00'];
+        yield 'date-time fraction' => [$dateTime, '2026-11-05T09:42:00.123Z', '2026-11-05T09:42:00.123000+00:00'];
+
+        $date = static fn(string $value): \DateTimeImmutable => DateTimeParser::parseDate($value, new \DateTimeZone('UTC'));
+        yield 'full-date' => [$date, '2026-11-05', '2026-11-05T00:00:00.000000+00:00'];
+
+        $time = DateTimeParser::parseTime(...);
+        yield 'full-time Z' => [$time, '09:42:00Z', 'T09:42:00.000000+00:00'];
+        yield 'full-time offset and fraction' => [$time, '09:42:00.5-05:00', 'T09:42:00.500000-05:00'];
+
+        $format = static fn(string $value): \DateTimeImmutable => DateTimeParser::parseFormat($value, 'd/m/Y H:i', new \DateTimeZone('UTC'));
+        yield 'format, read as written' => [$format, '03/11/2026 09:42', '2026-11-03T09:42:00.000000+00:00'];
+    }
+
+    /**
+     * @param \Closure(string): \DateTimeImmutable $parse
+     * @param non-empty-string                    $expected
+     */
+    #[Test]
+    #[DataProvider('strictAccepted')]
+    public function aStrictFormParsesItsShape(\Closure $parse, string $value, string $expected): void
+    {
+        self::assertStringEndsWith($expected, $parse($value)->format('Y-m-d\TH:i:s.uP'));
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(string): \DateTimeImmutable, string}>
+     */
+    public static function strictRefused(): iterable
+    {
+        $dateTime = DateTimeParser::parseDateTime(...);
+        yield 'date-time relative' => [$dateTime, 'last year'];
+        yield 'date-time no offset' => [$dateTime, '2026-11-05T09:42:00'];
+        yield 'date-time space, no offset' => [$dateTime, '2026-11-05 09:42'];
+        yield 'date-time date only' => [$dateTime, '2026-11-05'];
+        yield 'date-time impossible' => [$dateTime, '2026-02-30T09:42:00Z'];
+
+        $date = static fn(string $value): \DateTimeImmutable => DateTimeParser::parseDate($value);
+        yield 'full-date with a time' => [$date, '2026-11-05T00:00:00Z'];
+        yield 'full-date relative' => [$date, 'today'];
+        yield 'full-date impossible' => [$date, '2026-02-30'];
+
+        $time = DateTimeParser::parseTime(...);
+        yield 'full-time no offset' => [$time, '09:42:00'];
+        yield 'full-time no seconds' => [$time, '09:42Z'];
+
+        $format = static fn(string $value): \DateTimeImmutable => DateTimeParser::parseFormat($value, 'd/m/Y H:i');
+        yield 'format, another shape' => [$format, '2026-11-03T09:42:00Z'];
+        yield 'format, trailing text' => [$format, '03/11/2026 09:42 tomorrow'];
+        yield 'format, impossible' => [$format, '31/04/2026 09:42'];
+    }
+
+    /**
+     * @param \Closure(string): \DateTimeImmutable $parse
+     */
+    #[Test]
+    #[DataProvider('strictRefused')]
+    public function aStrictFormRefusesAnyOtherShape(\Closure $parse, string $value): void
+    {
+        try {
+            $parse($value);
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString($value, $e->getMessage());
+
+            return;
+        }
+
+        self::fail('The value was accepted.');
+    }
 }
