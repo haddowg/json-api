@@ -15,6 +15,8 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 
@@ -188,6 +190,41 @@ final readonly class DocumentMeta
         }
 
         return [...$this->extract($data, $request), ...$meta];
+    }
+
+    /**
+     * `$response` with each member an `extractUsing()` hook supplies filled into its `meta`,
+     * as {@see fill()} does. The hooks receive the response's primary data: its page of
+     * resources as a list for a collection, else its one resource or `null`. An adapter calls
+     * it once the handler and its After hooks have built the response.
+     *
+     * @template T of DataResponse|RelatedResponse
+     *
+     * @param T $response
+     *
+     * @return T
+     */
+    public function applyTo(DataResponse|RelatedResponse $response, JsonApiRequestInterface $request): DataResponse|RelatedResponse
+    {
+        if (!$this->extractsAny()) {
+            return $response;
+        }
+
+        $resources = $response->primaryResources();
+        $data = $response->isCollection() ? $resources : ($resources[0] ?? null);
+
+        return $response->withMeta($this->fill($response->meta(), $data, $request));
+    }
+
+    private function extractsAny(): bool
+    {
+        foreach ($this->fields as $field) {
+            if ($field instanceof AbstractFieldValue && $field->extractsThroughHook()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

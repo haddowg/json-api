@@ -125,8 +125,8 @@ The declaration is closed. In debug mode an adapter checks every declaring respo
 top-level `meta` against it and throws `DocumentMetaMismatch` for a missing required member,
 an undeclared member or a value of the wrong JSON type. In production nothing is checked.
 `DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()` and
-`forResponse()` read a declaration, `fill()` runs the hooks, and `assertSatisfiedBy()` runs
-the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
+`forResponse()` read a declaration, `applyTo()` fills a `DataResponse` or `RelatedResponse`
+from its primary resources, and `assertSatisfiedBy()` runs the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
 produces.
 
 ## Resource-level: getMeta / getLinks on a serializer

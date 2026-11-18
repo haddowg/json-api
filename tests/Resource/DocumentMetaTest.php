@@ -20,6 +20,8 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -87,6 +89,34 @@ final class DocumentMetaTest extends TestCase
 
         $set = new DocumentMeta([Integer::make('marked')->required()]);
         self::assertSame(['other' => 1], $set->fill(['other' => 1], [], $request), 'a member with no hook is left to the handler');
+    }
+
+    #[Test]
+    public function aResponseIsFilledFromItsPrimaryData(): void
+    {
+        $serializer = new class extends AbstractResource {
+            public static string $type = 'notes';
+
+            public function fields(): array
+            {
+                return [Id::make()];
+            }
+        };
+        $request = self::request();
+        $collection = DocumentMeta::forOperation($this->declarer(), OperationType::FetchCollection, 'notes');
+
+        $filled = $collection->applyTo(DataResponse::fromCollection([['read' => false], ['read' => true]], $serializer)->withMeta(['total' => 2]), $request);
+        self::assertSame(['unread' => 1, 'total' => 2], $filled->meta());
+
+        $related = $collection->applyTo(RelatedResponse::fromCollection(new \ArrayIterator([['read' => false]]), $serializer), $request);
+        self::assertSame(['unread' => 1], $related->meta());
+
+        $single = new DocumentMeta([Str::make('seen')->extractUsing(static fn(mixed $note): string => \is_array($note) ? 'one' : 'none')]);
+        self::assertSame(['seen' => 'one'], $single->applyTo(DataResponse::fromResource(['read' => true], $serializer), $request)->meta());
+        self::assertSame(['seen' => 'none'], $single->applyTo(RelatedResponse::fromResource(null, $serializer), $request)->meta());
+
+        $untouched = DataResponse::fromResource([], $serializer);
+        self::assertSame($untouched, (new DocumentMeta([Str::make('etag')]))->applyTo($untouched, $request));
     }
 
     #[Test]

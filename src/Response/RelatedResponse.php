@@ -77,7 +77,7 @@ final class RelatedResponse extends AbstractResponse
         SerializerInterface $relatedResource,
         ?bool $selfCountable = null,
     ): self {
-        return new self($related, $relatedResource, true, null, $selfCountable);
+        return new self($related instanceof \Iterator ? \iterator_to_array($related, false) : $related, $relatedResource, true, null, $selfCountable);
     }
 
     /**
@@ -102,6 +102,31 @@ final class RelatedResponse extends AbstractResponse
         ?bool $selfCountable = null,
     ): self {
         return new self($page, $relatedSerializer, true, $page, $selfCountable);
+    }
+
+    /**
+     * The related resources the document renders as primary `data`: the one resource, every
+     * member of the collection or page, or none for an empty to-one.
+     *
+     * @return list<mixed>
+     */
+    public function primaryResources(): array
+    {
+        if (!$this->isCollection) {
+            return $this->related === null ? [] : [$this->related];
+        }
+
+        \assert(\is_iterable($this->related));
+
+        return \is_array($this->related) ? \array_values($this->related) : \iterator_to_array($this->related, false);
+    }
+
+    /**
+     * Whether the primary `data` is a collection rather than one resource.
+     */
+    public function isCollection(): bool
+    {
+        return $this->isCollection;
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
