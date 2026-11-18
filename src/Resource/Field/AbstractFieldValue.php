@@ -291,6 +291,10 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      */
     private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested): mixed
     {
+        if ($this->hydratesThroughHook()) {
+            $this->assertWireFormat($value);
+        }
+
         if ($this->state->fillUsing !== null) {
             $result = ($this->state->fillUsing)($model, $nested ? $value : $this->toEnumCase($value), $data, $this->state->name);
 
@@ -309,6 +313,30 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
         };
 
         return Accessor::set($model, $column, $value);
+    }
+
+    /**
+     * Refuses a request value in a shape this field documents but does not hold, such as
+     * a date in a field documented as an RFC 3339 `date-time`. It runs before a
+     * `fillUsing()` or `deserializeUsing()` hook, which still receives the value as sent,
+     * so a hook never sees a value the cast would refuse. The error's attribute starts
+     * with this field's name. Nothing to check by default.
+     *
+     * @internal
+     *
+     * @throws AttributeValueInvalid
+     */
+    public function assertWireFormat(mixed $value): void {}
+
+    /**
+     * The pointer below `$field` that `$e` names, `''` for the field itself, so a
+     * composite can move a member's error under its own name.
+     *
+     * @internal
+     */
+    protected static function pointerBelow(AttributeValueInvalid $e, FieldInterface $field): string
+    {
+        return \ltrim(\str_starts_with($e->attribute, $field->name()) ? \substr($e->attribute, \strlen($field->name())) : '', '/');
     }
 
     public function castWireValue(mixed $value): mixed

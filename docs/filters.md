@@ -234,7 +234,7 @@ defaults its target column to the filter key.
 | `LessThanOrEqual` | at most | `<=`, numeric coercion + `numeric()` |
 | `Boolean` | boolean match | `=`, boolean coercion (`asBoolean()`) + `boolean()` |
 | `Range` | inclusive `min ≤ x ≤ max` | numeric coercion + `numeric()`; **nested** `{min, max}` value |
-| `DateRange` | inclusive date/time range | ISO-8601 → `\DateTimeImmutable` coercion; **nested** `{min, max}` value |
+| `DateRange` | inclusive date/time range | RFC 3339 date-time → `\DateTimeImmutable` coercion, or full dates compared as days over a date column; **nested** `{min, max}` value |
 
 ```php
 use haddowg\JsonApi\Resource\Filter\Contains;
@@ -295,19 +295,27 @@ Either bound may be omitted, so an open-ended range works — `min` alone is a `
 ```
 GET /tracks?filter[duration][min]=120&filter[duration][max]=300   # 120 ≤ duration ≤ 300
 GET /tracks?filter[duration][min]=120                             # duration ≥ 120
-GET /albums?filter[released][min]=1990-01-01&filter[released][max]=1999-12-31
+GET /albums?filter[released][min]=1990-01-01T00:00:00Z&filter[released][max]=1999-12-31T23:59:59Z
 ```
 
 `Range`'s preset deserializer coerces each bound **and the column value** to a
 number before comparing (so the range is numeric, not lexical); `DateRange` is a
-`Range` whose deserializer coerces each ISO-8601 bound to a `\DateTimeImmutable`
+`Range` whose deserializer coerces each bound to a `\DateTimeImmutable`
 (and the column value likewise), so `published before/after` reads as one key and
 the comparison is temporal. Each present bound is validated (numeric for `Range`,
-an ISO-8601 shape for `DateRange`), so a malformed bound is a clean `400` rather
-than a silent non-match. A `DateRange` bound is read with
+for `DateRange` the RFC 3339 date-time with an offset it is documented as), so a
+malformed bound, a bare date such as `1990-01-01` or a time with no offset is a clean
+`400` rather than a silent non-match.
+
+A `DateRange` over a date column compares calendar days instead. When exactly one field
+backs its column and that field writes a full date, as a `Date` does, the resource sets
+`calendarDays()` on it: each bound is then documented as `format: date`, takes only a full
+date such as `2026-10-01`, and matches the rows whose stored day falls in the range,
+whatever zone the request or the server runs in. Declare `->calendarDays()` yourself on a
+range over a date column no field of the type backs, such as a related type's or a pivot's. A `DateRange` bound is read with
 [`DateTimeParser`](../src/Resource/DateTimeParser.php), so an impossible date such as
-`2026-02-30` stays a string instead of rolling over to 2 March, and the adapter answers
-it with the same `400`. Like [`WhereThrough`](#traversing-a-relationship-path)
+`2026-02-30T00:00:00Z` stays a string instead of rolling over to 2 March, and the
+adapter answers it with the same `400`. Like [`WhereThrough`](#traversing-a-relationship-path)
 these are data-layer-specific: core ships the metadata and the reference in-memory
 apply, and a database adapter translates each into two push-down `andWhere`
 predicates.
@@ -336,6 +344,7 @@ use haddowg\JsonApi\Resource\Filter\WhereIn;
 
 Where::make('explicit')->asBoolean();
 Where::make('createdAfter', column: 'created_at', operator: '>')
+    ->pattern('^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$')
     ->deserializeUsing(static fn(mixed $v): mixed => DateTimeParser::tryParse($v) ?? $v);
 WhereIn::make('genres')->delimiter('|');
 ```

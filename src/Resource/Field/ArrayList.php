@@ -203,6 +203,49 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     }
 
     /**
+     * Checks each element of a structured list or a list of unions against the shape it
+     * documents.
+     *
+     * @internal
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        if (!\is_array($value) || !\array_is_list($value) || ($this->element === null && $this->elementUnion === null)) {
+            return;
+        }
+
+        foreach ($value as $index => $item) {
+            $pointer = $this->name() . '/' . $index;
+            if ($this->elementUnion !== null) {
+                try {
+                    $this->elementUnion->assertWireFormat($item);
+                } catch (AttributeValueInvalid $e) {
+                    $below = self::pointerBelow($e, $this->elementUnion);
+
+                    throw new AttributeValueInvalid($below === '' ? $pointer : $pointer . '/' . $below, $e->reason);
+                }
+
+                continue;
+            }
+
+            if (!\is_array($item)) {
+                continue;
+            }
+
+            $element = $this->element;
+            $name = $element instanceof OneOf ? $element->variantNameOf($item) : null;
+            $children = match (true) {
+                $element instanceof Obj => $element->children(),
+                $element instanceof OneOf && $name !== null => $element->variants()[$name]->children(),
+                default => [],
+            };
+            JsonObject::hydrateChildren($pointer, static function () use ($children, $item): void {
+                Obj::assertChildrenWireFormat($children, $item);
+            });
+        }
+    }
+
+    /**
      * @param array<array-key, mixed> $value
      *
      * @throws AttributeValueInvalid

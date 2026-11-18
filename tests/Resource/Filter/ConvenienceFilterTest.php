@@ -571,21 +571,27 @@ final class ConvenienceFilterTest extends TestCase
     }
 
     #[Test]
-    public function dateRangePresetsAnIso8601BoundConstraint(): void
+    public function dateRangePresetsAnRfc3339BoundConstraint(): void
     {
-        // DateRange presets an ISO-8601 Pattern (not the numeric one) so a framework
-        // validator rejects a malformed bound before the filter reaches the data layer.
+        // DateRange presets an RFC 3339 date-time Pattern (not the numeric one) so a
+        // framework validator rejects a malformed bound before the filter reaches the data
+        // layer.
         $filter = DateRange::make('published')->build();
 
         self::assertCount(1, $filter->constraints());
         $constraint = $filter->constraints()[0];
         self::assertInstanceOf(Pattern::class, $constraint);
 
-        // The preset pattern accepts a bare date and a zoned date-time, rejects junk.
+        // The preset pattern accepts the date-time the bound is documented as, and refuses
+        // a bare date, a missing offset, a relative date and junk.
         $regex = '/' . $constraint->regex . '/';
-        self::assertSame(1, \preg_match($regex, '1995-01-01'));
         self::assertSame(1, \preg_match($regex, '1997-05-21T12:30:00Z'));
         self::assertSame(1, \preg_match($regex, '1997-05-21T12:30:00+01:00'));
+        self::assertSame(1, \preg_match($regex, '1997-05-21T12:30:00.123Z'));
+        self::assertSame(0, \preg_match($regex, '1995-01-01'));
+        self::assertSame(0, \preg_match($regex, '1997-05-21 12:30'));
+        self::assertSame(0, \preg_match($regex, '1997-05-21T12:30:00'));
+        self::assertSame(0, \preg_match($regex, 'last year'));
         self::assertSame(0, \preg_match($regex, 'banana'));
         self::assertSame(0, \preg_match($regex, '21/05/1997'));
     }

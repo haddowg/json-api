@@ -36,7 +36,7 @@ final class NestedDateStorageTest extends TestCase
     protected function setUp(): void
     {
         $this->defaultZone = \date_default_timezone_get();
-        // A non-UTC default, so an offset-less input is seen to be read in it.
+        // A non-UTC default, so a value stored without an offset is seen to be read in it.
         \date_default_timezone_set('America/New_York');
     }
 
@@ -55,7 +55,6 @@ final class NestedDateStorageTest extends TestCase
         yield 'a half-hour offset' => ['2026-11-03T21:22:53+05:30', '2026-11-03T15:52:53.000000+00:00'];
         yield 'a UTC designator' => ['2026-11-03T15:52:53Z', '2026-11-03T15:52:53.000000+00:00'];
         yield 'microseconds' => ['2026-11-03T16:52:53.123456+01:00', '2026-11-03T15:52:53.123456+00:00'];
-        yield 'no offset, read in the default zone' => ['2026-11-03 10:52:53', '2026-11-03T15:52:53.000000+00:00'];
     }
 
     #[Test]
@@ -68,19 +67,29 @@ final class NestedDateStorageTest extends TestCase
     }
 
     #[Test]
-    public function anInputTimezoneKeepsTheInstantAnOffsetLessInputNames(): void
+    public function anInputTimezoneKeepsTheInstantTheInputNames(): void
     {
         $nested = Obj::make('window')->fields(DateTime::make('startsAt')->inputTimezone('Europe/Paris'))->build();
         $topLevel = DateTime::make('startsAt')->inputTimezone('Europe/Paris')->build();
 
-        $object = $this->hydrate($topLevel, '2026-11-03 10:52:53')['startsAt'];
+        $object = $this->hydrate($topLevel, '2026-11-03T10:52:53-05:00')['startsAt'];
         self::assertInstanceOf(\DateTimeImmutable::class, $object);
         self::assertSame('Europe/Paris', $object->getTimezone()->getName());
 
         self::assertSame(
             ['window' => ['startsAt' => $object->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.uP')]],
-            $this->hydrate($nested, ['startsAt' => '2026-11-03 10:52:53']),
+            $this->hydrate($nested, ['startsAt' => '2026-11-03T10:52:53-05:00']),
         );
+    }
+
+    #[Test]
+    public function aNestedDateTimeWithNoOffsetIsRefused(): void
+    {
+        $field = Obj::make('window')->fields(DateTime::make('startsAt'))->build();
+
+        $this->expectException(AttributeValueInvalid::class);
+        $this->expectExceptionMessage('"window/startsAt"');
+        $this->hydrate($field, ['startsAt' => '2026-11-03 10:52:53']);
     }
 
     #[Test]
@@ -95,7 +104,7 @@ final class NestedDateStorageTest extends TestCase
 
         self::assertSame(
             ['opening' => ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'closesAt' => '17:30:00', 'ukDay' => '03/11/2026']],
-            $this->hydrate($field, ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'closesAt' => '17:30:00+02:00', 'ukDay' => '2026-11-03']),
+            $this->hydrate($field, ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'closesAt' => '17:30:00', 'ukDay' => '03/11/2026']),
         );
     }
 
@@ -106,7 +115,7 @@ final class NestedDateStorageTest extends TestCase
 
         self::assertSame(
             ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'ukDay' => '03/11/2026'],
-            $this->roundTrip($field, ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'ukDay' => '2026-11-03']),
+            $this->roundTrip($field, ['day' => '2026-11-03', 'opensAt' => '09:15:00', 'ukDay' => '03/11/2026']),
         );
     }
 
@@ -181,20 +190,20 @@ final class NestedDateStorageTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{FieldInterface}>
+     * @return iterable<string, array{FieldInterface, string}>
      */
     public static function topLevelDates(): iterable
     {
-        yield 'DateTime' => [DateTime::make('at')->build()];
-        yield 'Date' => [Date::make('at')->build()];
-        yield 'Time' => [Time::make('at')->build()];
+        yield 'DateTime' => [DateTime::make('at')->build(), '2026-11-03T17:52:53+02:00'];
+        yield 'Date' => [Date::make('at')->build(), '2026-11-03'];
+        yield 'Time' => [Time::make('at')->build(), '17:52:53'];
     }
 
     #[Test]
     #[DataProvider('topLevelDates')]
-    public function aTopLevelDateStillStoresAnObject(FieldInterface $field): void
+    public function aTopLevelDateStillStoresAnObject(FieldInterface $field, string $input): void
     {
-        self::assertInstanceOf(\DateTimeImmutable::class, $this->hydrate($field, '2026-11-03T17:52:53+02:00')['at'] ?? null);
+        self::assertInstanceOf(\DateTimeImmutable::class, $this->hydrate($field, $input)['at'] ?? null);
     }
 
     #[Test]

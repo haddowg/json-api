@@ -10,7 +10,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * {@see build()} freezes the accumulated state into the readonly {@see Range} value
  * object an adapter consumes.
  *
- * Non-final by design: {@see DateRangeBuilder} extends it to preset an ISO-8601
+ * Non-final by design: {@see DateRangeBuilder} extends it to preset an RFC 3339
  * temporal deserializer/constraint and build a {@see DateRange} instead.
  *
  * @phpstan-consistent-constructor

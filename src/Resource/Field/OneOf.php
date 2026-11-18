@@ -318,6 +318,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         if ($this->state->fillUsing !== null) {
+            $this->assertWireFormat($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -402,6 +403,29 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         }
 
         return Obj::hydrateChildrenOnto($this->variants[$name]->children(), $this->discriminator === null ? [] : [$this->discriminator => $name], $value, $data, $request, $creating);
+    }
+
+    /**
+     * Checks the children of the variant the value selects against the shape each
+     * documents.
+     *
+     * @internal
+     */
+    public function assertWireFormat(mixed $value): void
+    {
+        if (!\is_array($value)) {
+            return;
+        }
+
+        $name = $this->variantNameOf($value);
+        if ($name === null) {
+            return;
+        }
+
+        $children = $this->variants[$name]->children();
+        JsonObject::hydrateChildren($this->name(), static function () use ($children, $value): void {
+            Obj::assertChildrenWireFormat($children, $value);
+        });
     }
 
     protected function deserializeValue(mixed $value): mixed

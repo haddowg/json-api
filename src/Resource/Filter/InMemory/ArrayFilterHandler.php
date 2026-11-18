@@ -227,14 +227,15 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * optional `min` and/or `max` bound (the nested
      * `filter[<key>][min]`/`[max]` query, which Symfony parses into an array).
      * Each **present, non-blank** bound and the column value are coerced through
-     * the filter's deserializer (numeric for {@see Range}, ISO-8601 →
-     * `\DateTimeImmutable` for {@see DateRange}), then tested `min <= v <= max`
+     * the filter's deserializer (numeric for {@see Range}, date string →
+     * `\DateTimeImmutable` for {@see DateRange}, reduced to its calendar day when the
+     * range compares days), then tested `min <= v <= max`
      * over whichever bounds are present — `min` alone is a `>=`, `max` alone a
      * `<=`. A value that is not an array, or that supplies neither bound, is a
      * no-op (keeps every row).
      *
-     * A {@see DateRange} bound whose value is shape-valid ISO-8601 but
-     * calendar-invalid (`1997-13-99` — passes the lenient shape `Pattern` but not
+     * A {@see DateRange} bound whose value is shape-valid RFC 3339 but
+     * calendar-invalid (`2026-02-30T00:00:00Z` passes the shape `Pattern` but not
      * `\DateTimeImmutable`) does not coerce to a `\DateTimeInterface`; the
      * framework adapter's pre-provider validation rejects it as a clean `400`, but
      * when that validation is absent this handler **skips** such a bound (treats it
@@ -281,6 +282,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             if ($actual === null) {
                 return false;
             }
+            $actual = self::calendarDayOf($filter, $actual);
 
             if ($min !== null && !($actual >= $min)) {
                 return false;
@@ -295,7 +297,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * or `null` when the bound is absent or blank (so an open-ended range works).
      *
      * For a {@see DateRange} a coercion that did not yield a `\DateTimeInterface`
-     * (a shape-valid but unparseable ISO-8601 string such as `1997-13-99`) is also
+     * (a shape-valid but impossible string such as `2026-02-30T00:00:00Z`) is also
      * treated as absent, so the comparison never crosses a `\DateTimeImmutable`
      * column against a raw string — see {@see range()}.
      *
@@ -318,7 +320,21 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             return null;
         }
 
-        return $value;
+        return self::calendarDayOf($filter, $value);
+    }
+
+    /**
+     * For a {@see DateRange} comparing calendar days, the day a date names in its own
+     * zone, as midnight UTC, so a bound and a stored date compare by day as a database's
+     * date column does rather than by instant. Anything else is returned unchanged.
+     */
+    private static function calendarDayOf(Range $filter, mixed $value): mixed
+    {
+        if (!$filter instanceof DateRange || !$filter->calendarDays || !$value instanceof \DateTimeInterface) {
+            return $value;
+        }
+
+        return new \DateTimeImmutable($value->format('Y-m-d'), new \DateTimeZone('UTC'));
     }
 
     /**
