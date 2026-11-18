@@ -506,9 +506,7 @@ final class OperationProjector
                     'The URL of the created resource.',
                     schema: Schema::ofType('string')->withFormat('uri-reference'),
                 )],
-                content: [MediaType::JSON_API => MediaType::ofSchema(
-                    Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
-                )],
+                content: [MediaType::JSON_API => MediaType::ofSchema($this->typedDocument($type, OperationType::Create, 'Document'))],
             ),
             204 => Response::noContent('The resource was created; no content is returned.'),
             202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
@@ -525,7 +523,7 @@ final class OperationProjector
         return match ($response->status()) {
             200 => Response::ofSchema(
                 'The updated ' . TypeNoun::of($type)->singular . '.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
+                $this->typedDocument($type, OperationType::Update, 'Document'),
             ),
             204 => Response::noContent('The resource was updated; no content is returned.'),
             202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
@@ -543,7 +541,11 @@ final class OperationProjector
             204 => Response::noContent('The resource was deleted.'),
             200 => Response::ofSchema(
                 'The resource was deleted; a meta-only document is returned.',
-                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+                TypedDocumentMeta::reference(
+                    Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+                    TypedDocumentMeta::operationDocument($type->type(), OperationKey::crud(OperationType::Delete)),
+                    TypedDocumentMeta::forDelete($type),
+                ),
             ),
             default => throw $this->unexpectedResponse(OperationType::Delete, $response->status()),
         };
@@ -558,7 +560,7 @@ final class OperationProjector
         return match ($response->status()) {
             200 => Response::ofSchema(
                 'The requested ' . TypeNoun::of($type)->singular . '.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Document')),
+                $this->typedDocument($type, OperationType::FetchOne, 'Document'),
             ),
             303 => $this->seeOtherResponse($response instanceof SeeOther ? $response->description : null),
             default => throw $this->unexpectedResponse(OperationType::FetchOne, $response->status()),
@@ -574,10 +576,23 @@ final class OperationProjector
         return match ($response->status()) {
             200 => Response::ofSchema(
                 'A collection of ' . TypeNoun::of($type)->plural . '.',
-                Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . 'Collection')),
+                $this->typedDocument($type, OperationType::FetchCollection, 'Collection'),
             ),
             default => throw $this->unexpectedResponse(OperationType::FetchCollection, $response->status()),
         };
+    }
+
+    /**
+     * The document a CRUD operation answers with: the type's shared `<Type><suffix>`, or the
+     * operation's own when the type declares its `meta` ({@see TypedDocumentMeta}).
+     */
+    private function typedDocument(TypeMetadataInterface $type, OperationType $operation, string $suffix): Schema
+    {
+        return TypedDocumentMeta::reference(
+            Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . $suffix)),
+            TypedDocumentMeta::operationDocument($type->type(), OperationKey::crud($operation)),
+            TypedDocumentMeta::forOperation($type, $operation),
+        );
     }
 
     /**
@@ -779,8 +794,10 @@ final class OperationProjector
         $includeParameter = $this->includeParameter($relation->relatedIncludablePaths());
         $fieldsParameters = $this->relatedFieldsParameters($relation, $server);
 
+        $document = TypedDocumentMeta::operationDocument($type->type(), OperationKey::relation(OperationKind::FetchRelated, $relation->name()));
+        $meta = TypedDocumentMeta::forRelated($relation, $server);
         if ($relation->isToMany()) {
-            $responseRef = $this->relatedCollectionResponseRef($relBase);
+            $responseRef = TypedDocumentMeta::reference($this->relatedCollectionResponseRef($relBase), $document, $meta);
             $parameters = $this->concatParameters(
                 $this->relatedFilterParameters($relation, $server),
                 [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
@@ -791,7 +808,7 @@ final class OperationProjector
             );
             $successDescription = 'The related ' . $relation->name() . ' collection.';
         } else {
-            $responseRef = Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedDocument'));
+            $responseRef = TypedDocumentMeta::reference(Schema::ref(ComponentNaming::schemaRef($relBase . 'RelatedDocument')), $document, $meta);
             // A MONOMORPHIC to-one related endpoint honours the related resource's
             // `filter[]` vocabulary (a relation filter that excludes the target nulls the
             // linkage), but not `sort`/`page` (a to-one is not a collection; those are
@@ -1027,7 +1044,7 @@ final class OperationProjector
         $byStatus = [];
         foreach ($action->responds() as $response) {
             if (!$response instanceof RawResult) {
-                $byStatus[$response->status()] = $this->actionSuccessResponse($response, $server);
+                $byStatus[$response->status()] = $this->actionSuccessResponse($type, $action, $response, $server);
             }
         }
         $location = ActionResponses::location($action->responds());
@@ -1223,8 +1240,14 @@ final class OperationProjector
      * action produced, beside which {@see actionOperation()} adds the `200` location
      * document.
      */
-    private function actionSuccessResponse(ActionResponse $response, ServerMetadataInterface $server): Response
+    private function actionSuccessResponse(TypeMetadataInterface $type, ActionMetadataInterface $action, ActionResponse $response, ServerMetadataInterface $server): Response
     {
+        $typed = static fn(Schema $shared): Schema => TypedDocumentMeta::reference(
+            $shared,
+            TypedDocumentMeta::actionDocument($type->type(), $action, $response),
+            TypedDocumentMeta::forActionResponse($response, $server),
+        );
+
         return match (true) {
             $response instanceof ActionCreated => new Response(
                 'The resource the action created.',
@@ -1232,15 +1255,15 @@ final class OperationProjector
                     'The URL of the created resource.',
                     schema: Schema::ofType('string')->withFormat('uri-reference'),
                 )],
-                content: [MediaType::JSON_API => MediaType::ofSchema($this->documentSchemaOf($response->bodyType(), $server))],
+                content: [MediaType::JSON_API => MediaType::ofSchema($typed($this->documentSchemaOf($response->bodyType(), $server)))],
             ),
             $response instanceof ActionResource => Response::ofSchema(
                 'The action result.',
-                $this->documentSchemaOf($response->bodyType(), $server),
+                $typed($this->documentSchemaOf($response->bodyType(), $server)),
             ),
             $response instanceof MetaResult => Response::ofSchema(
                 'The action result: a meta-only document.',
-                Schema::ref(ComponentNaming::schemaRef('MetaDocument')),
+                $typed(Schema::ref(ComponentNaming::schemaRef('MetaDocument'))),
             ),
             $response instanceof NoContent => Response::noContent('The action completed with no content.'),
             $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server),

@@ -50,7 +50,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
  * resource emits every non-hidden field and lets the engine narrow.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface
 {
     use RendersRelationsTrait;
 
@@ -369,6 +369,27 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function describeOperation(\haddowg\JsonApi\OpenApi\Metadata\OperationType $op): ?string
     {
         return null;
+    }
+
+    /**
+     * The members of the top-level `meta` of the document `$operation` answers with: none,
+     * unless overridden. Return field builders, for example with a `match` on the operation.
+     * A member's `extractUsing()` hook receives the document's primary data, one resource or
+     * the page of resources, and the request; a member with none is set by the handler or an
+     * After hook through `withMeta()`.
+     *
+     * The OpenAPI projection calls it with no request, so the result must not depend on one.
+     * A delete's members apply when it answers a meta-only `200`, their hooks receiving the
+     * resource it removed. A related endpoint serving this type takes its
+     * `FetchCollection` members for a to-many and its `FetchOne` members for a to-one. A
+     * collection keeps the `page` and `total` members core writes; declaring either there is
+     * refused.
+     *
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function documentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation): iterable
+    {
+        return [];
     }
 
     public function getId(mixed $object): string

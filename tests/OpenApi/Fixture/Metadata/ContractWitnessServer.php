@@ -178,10 +178,13 @@ final class ContractWitnessServer
      *                     which the baseline witness leaves out too
      * @param bool $namedComponents whether articles fields share shapes declared as named
      *                              components, which the baseline witness leaves out too
+     * @param bool $typedDocumentMeta whether the notices type, whose documents declare their
+     *                                top-level meta, is served, which the baseline witness
+     *                                leaves out too
      * @param bool $singletons whether the singleton inboxes type is served, which the
      *                         baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -196,6 +199,7 @@ final class ContractWitnessServer
                 FakeTypeMetadata::standalone('healthcheck', tags: ['Ops']),
                 ...($relatedOnly ? [self::credits()] : []),
                 ...($singletons ? [self::inboxes()] : []),
+                ...($typedDocumentMeta ? [self::notices()] : []),
             ],
             description: 'Every projector branch the witness can reach, in one document.',
             contact: new Contact('API Team', 'https://example.com/support', 'api@example.com'),
@@ -802,6 +806,43 @@ final class ContractWitnessServer
             actions: $relatedOnly ? [
                 new FakeActionMetadata('credit', ['POST'], ActionScope::Resource, ActionInputMode::Document, inputType: 'credits', outputType: 'credits', tags: ['Media']),
             ] : [],
+        );
+    }
+
+    /**
+     * Typed document meta: a collection counting what is unread beside core's page members,
+     * a fetch and update carrying an etag, a related endpoint serving the type, a delete and
+     * actions whose documents declare their members, each with an example.
+     */
+    private static function notices(): FakeTypeMetadata
+    {
+        return FakeTypeMetadata::resource(
+            type: 'notices',
+            fields: [
+                Id::make()->example('n-1')->build(),
+                Str::make('message')->example('Your export is ready.')->build(),
+            ],
+            relations: [new FakeRelationMetadata('replies', ['notices'], true)],
+            tags: ['People'],
+            countable: true,
+            actions: [
+                new FakeActionMetadata('mark-read', ['POST'], ActionScope::Collection, ActionInputMode::None, responds: [
+                    new ActionResource('notices', meta: [Integer::make('marked')->required()->describedAs('How many notices this call marked read.')->example(12)]),
+                ], tags: ['People']),
+                new FakeActionMetadata('snapshot', ['POST'], ActionScope::Resource, ActionInputMode::None, responds: [
+                    new MetaResult(meta: [Boolean::make('unchanged')->required()->example(true)]),
+                    new ActionCreated('notices', meta: [Str::make('snapshotOf')->required()->example('n-1')]),
+                ], tags: ['People']),
+            ],
+            responses: [OperationType::Delete->value => [new MetaResult(meta: [Integer::make('archived')->required()->example(1)])]],
+            documentMeta: [
+                OperationType::FetchCollection->value => [
+                    Integer::make('unread')->required()->describedAs('How many notices are unread.')->example(3),
+                    Str::make('digest')->nullable(),
+                ],
+                OperationType::FetchOne->value => [Str::make('etag')->required()->example('W/"7"')],
+                OperationType::Update->value => [Str::make('etag')->example('W/"8"')],
+            ],
         );
     }
 

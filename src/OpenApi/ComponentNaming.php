@@ -33,6 +33,25 @@ final class ComponentNaming
     }
 
     /**
+     * The name an operation's own components start with: the type's base and the operation
+     * kind (`ArticlesUpdate`), with the relation's base for a related or relationship
+     * operation (`ArticlesAuthorFetchRelated`), the action's path and `Action` for an action
+     * (`ArticlesPublishAction`, followed by the method when `$methodQualified`), and
+     * `AtomicOperations` for the Atomic Operations endpoint. Its error documents add the
+     * status, its document with typed meta adds `Document`.
+     */
+    public static function operation(string $type, Metadata\OperationKey $key, bool $methodQualified = false): string
+    {
+        return match (true) {
+            $key->kind === Metadata\OperationKind::Atomic => 'AtomicOperations',
+            $key->kind === Metadata\OperationKind::Action => self::base($type) . self::base((string) $key->actionPath) . 'Action'
+                . ($methodQualified ? self::base(\strtolower($key->method)) : ''),
+            $key->relation !== null => self::base($type) . self::base($key->relation) . \ucfirst($key->kind->value),
+            default => self::base($type) . \ucfirst($key->kind->value),
+        };
+    }
+
+    /**
      * The `#/components/schemas/<X>` pointer for a schema component.
      */
     public static function schemaRef(string $component): string

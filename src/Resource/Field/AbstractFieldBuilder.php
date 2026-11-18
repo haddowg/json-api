@@ -94,7 +94,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     protected ?\Closure $serializeUsing = null;
 
     /**
-     * @var \Closure(mixed, JsonApiRequestInterface, string): mixed|null
+     * Called with the model, which the callback may type as its own class.
      */
     protected ?\Closure $extractUsing = null;
 
@@ -188,7 +188,10 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * Sugar over {@see computed()} + {@see extractUsing()} + {@see readOnly()}.
      * Mutually exclusive with {@see on()}.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * The callback may type its first parameter as the model it expects, such as
+     * `fn (Album $album): int`.
+     *
+     * @param \Closure(never, JsonApiRequestInterface, string): mixed $callback
      * @return static
      */
     public function computedUsing(\Closure $callback): static
@@ -398,7 +401,11 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * Supplies the read value from `$callback`, called with the model, the request and the
+     * member's name. The callback may type its first parameter as the model it expects,
+     * such as `fn (Album $album): int`; it is only ever called with that model.
+     *
+     * @param \Closure(never, JsonApiRequestInterface, string): mixed $callback
      * @return static
      */
     public function extractUsing(\Closure $callback): static

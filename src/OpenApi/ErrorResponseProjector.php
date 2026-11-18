@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\OpenApi;
 
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
-use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 
 /**
  * Projects the standard error responses every operation advertises into the shared
@@ -128,15 +127,7 @@ final class ErrorResponseProjector
      */
     public static function operationDocument(string $type, OperationKey $key, bool $methodQualified, int $status): string
     {
-        $name = match (true) {
-            $key->kind === OperationKind::Atomic => 'AtomicOperations',
-            $key->kind === OperationKind::Action => ComponentNaming::base($type) . ComponentNaming::base((string) $key->actionPath) . 'Action'
-                . ($methodQualified ? ComponentNaming::base(\strtolower($key->method)) : ''),
-            $key->relation !== null => ComponentNaming::base($type) . ComponentNaming::base($key->relation) . \ucfirst($key->kind->value),
-            default => ComponentNaming::base($type) . \ucfirst($key->kind->value),
-        };
-
-        return $name . $status;
+        return ComponentNaming::operation($type, $key, $methodQualified) . $status;
     }
 
     /**

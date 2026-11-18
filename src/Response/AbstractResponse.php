@@ -271,6 +271,14 @@ abstract class AbstractResponse
     }
 
     /**
+     * The status {@see withStatus()} set, or `null` when the response renders its default.
+     */
+    public function explicitStatus(): ?int
+    {
+        return $this->status;
+    }
+
+    /**
      * Sets the HTTP status unless {@see withStatus()} already set one, so a status a
      * handler chose always wins over a default the server applies.
      *

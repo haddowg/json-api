@@ -93,6 +93,14 @@ final class DataResponse extends AbstractResponse
     }
 
     /**
+     * Whether the primary `data` is a collection rather than one resource.
+     */
+    public function isCollection(): bool
+    {
+        return $this->isCollection;
+    }
+
+    /**
      * The serializer the primary resources render through.
      */
     public function serializer(): SerializerInterface

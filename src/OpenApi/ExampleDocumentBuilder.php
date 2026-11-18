@@ -12,6 +12,7 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Pagination\CursorPaginationProfile;
+use haddowg\JsonApi\Resource\DocumentMeta;
 use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
@@ -285,6 +286,64 @@ final class ExampleDocumentBuilder
         $count = \count($linkage);
 
         return ($min === null || $count >= $min) && ($max === null || $count <= $max);
+    }
+
+    /**
+     * `$document` with the declared members of its top-level `meta` in place, before the
+     * members core writes there. A member with a declared example shows it; a required one
+     * without is a miss, reported against `$type`; an optional one without is left out.
+     *
+     * @param array<string, mixed> $document
+     *
+     * @return array<string, mixed>
+     */
+    public function withDocumentMeta(array $document, DocumentMeta $meta, string $type): array
+    {
+        if ($document === [] || $meta->isEmpty()) {
+            return $document;
+        }
+
+        $members = $this->documentMetaMembers($meta, $type);
+        if ($members === []) {
+            return $document;
+        }
+
+        $existing = $document['meta'] ?? [];
+        $jsonApi = $document['jsonapi'] ?? null;
+        unset($document['meta'], $document['jsonapi']);
+        $document['meta'] = [...$members, ...(\is_array($existing) ? $existing : [])];
+        if ($jsonApi !== null) {
+            $document['jsonapi'] = $jsonApi;
+        }
+
+        return $document;
+    }
+
+    /**
+     * A meta-only document carrying the declared members of its `meta`.
+     *
+     * @return array<string, mixed>
+     */
+    public function metaDocument(DocumentMeta $meta, string $type): array
+    {
+        $members = $this->documentMetaMembers($meta, $type);
+
+        return ['meta' => $members === [] ? new \stdClass() : $members, 'jsonapi' => $this->jsonApi([])];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function documentMetaMembers(DocumentMeta $meta, string $type): array
+    {
+        $members = [];
+        foreach ($meta->fields as $field) {
+            if ($this->appears($field, RepresentationContext::Read) && ($field->hasExample() || $this->schemas->isRequired($field, true))) {
+                $members[$field->name()] = $this->value($field, RepresentationContext::Read, $type, 'meta.' . $field->name());
+            }
+        }
+
+        return $members;
     }
 
     /**

@@ -11,6 +11,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresActionExample;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationExamples;
+use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationExample;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
@@ -219,30 +220,36 @@ final class OperationExampleProjector
         $uriType = $type->uriType();
         $path = $enumerated->path;
         $relation = $enumerated->relation;
+        $typed = static fn(OperationType $operation, array $document): array => $builder->withDocumentMeta($document, TypedDocumentMeta::forOperation($type, $operation), $type->type());
 
         if ($relation === null) {
             return match ($enumerated->key->kind) {
                 OperationKind::FetchCollection => [
                     'request' => null,
-                    'responses' => [200 => fn(): array => $builder->collectionDocument($type, $path, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type)],
+                    'responses' => [200 => fn(): array => $typed(OperationType::FetchCollection, $builder->collectionDocument($type, $path, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type))],
                 ],
                 OperationKind::Create => [
                     'request' => fn(): array => $builder->writeDocument($type, creating: true),
                     'responses' => [
-                        201 => fn(): array => $builder->resourceDocument($type, $path, OperationReference::create($uriType)),
+                        201 => fn(): array => $typed(OperationType::Create, $builder->resourceDocument($type, $path, OperationReference::create($uriType))),
                         ...$this->jobResponses($type, OperationType::Create),
                     ],
                 ],
                 OperationKind::FetchOne => [
                     'request' => null,
-                    'responses' => [200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference())],
+                    'responses' => [200 => fn(): array => $typed(OperationType::FetchOne, $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference()))],
                 ],
                 OperationKind::Update => [
                     'request' => fn(): array => $builder->writeDocument($type, creating: false),
                     'responses' => [
-                        200 => fn(): array => $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference()),
+                        200 => fn(): array => $typed(OperationType::Update, $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference())),
                         ...$this->jobResponses($type, OperationType::Update),
                     ],
+                ],
+                // Only a delete declaring the members of its meta-only document gets one.
+                OperationKind::Delete => TypedDocumentMeta::forDelete($type)->isEmpty() ? ['request' => null, 'responses' => []] : [
+                    'request' => null,
+                    'responses' => [200 => fn(): array => $builder->metaDocument(TypedDocumentMeta::forDelete($type), $type->type())],
                 ],
                 default => ['request' => null, 'responses' => []],
             };
@@ -251,7 +258,11 @@ final class OperationExampleProjector
         return match ($enumerated->key->kind) {
             OperationKind::FetchRelated => [
                 'request' => null,
-                'responses' => [200 => fn(): array => $builder->relatedDocument($type, $relation)],
+                'responses' => [200 => fn(): array => $builder->withDocumentMeta(
+                    $builder->relatedDocument($type, $relation),
+                    TypedDocumentMeta::forRelated($relation, $this->server),
+                    RelationFacts::monomorphicType($relation) ?? $type->type(),
+                )],
             ],
             OperationKind::FetchRelationship => [
                 'request' => null,
@@ -282,12 +293,19 @@ final class OperationExampleProjector
             if ($response instanceof ActionResource || $response instanceof ActionCreated) {
                 $body = $builder->type($response->bodyType());
                 if ($body !== null) {
-                    $responses[$response->status()] = fn(): array => $builder->resourceDocument(
-                        $body,
-                        $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
-                        $reference,
+                    $responses[$response->status()] = fn(): array => $builder->withDocumentMeta(
+                        $builder->resourceDocument(
+                            $body,
+                            $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,
+                            $reference,
+                        ),
+                        TypedDocumentMeta::forActionResponse($response, $this->server),
+                        $type->type(),
                     );
                 }
+            } elseif ($response instanceof MetaResult && $response->meta !== []) {
+                // Only a meta-only result declaring its members gets an example.
+                $responses[200] = fn(): array => $builder->metaDocument(TypedDocumentMeta::forActionResponse($response, $this->server), $type->type());
             } elseif ($response instanceof SeeOther && $response->mediaType !== null) {
                 $responses[200] ??= fn(): array => $builder->locationDocument(
                     $action->scope() === ActionScope::Resource ? $builder->path($path, $builder->id($type)) : $path,

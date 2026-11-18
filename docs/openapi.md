@@ -1262,6 +1262,16 @@ declares the `SINGLETONS` contract tier in its
 [`x-generator`](#the-generator-contract-x-generator) stamp. Metadata that doesn't implement
 it projects every type at `/{uriType}/{id}`.
 
+`DeclaresDocumentMeta` extends `TypeMetadataInterface` with
+`documentMeta(OperationType $operation): iterable`, the members of the top-level `meta` of the
+document that operation answers with. Delegate to the type's own
+[`documentMeta()`](links-and-meta.md#typed-document-meta). Each operation returning members,
+and each related endpoint serving the type, answers with a
+[typed-meta document](#typed-document-meta-x-document-meta). A document with one declares the
+`TYPED_DOCUMENT_META` contract tier in its
+[`x-generator`](#the-generator-contract-x-generator) stamp. Metadata that doesn't implement
+it keeps the shared documents.
+
 Two more sit beside `ActionMetadataInterface`. `DeclaresActionSafety` adds `readOnly()`,
 `destructive()` and `idempotent()`, each `?bool`, which project as
 [`x-safety`](#action-safety-x-safety). `DeclaresActionExtensions` adds `extensions(): array`,
@@ -1309,9 +1319,9 @@ them (a set). They are typed per operation so an illegal combination is unrepres
 | `new NoContent()` | `204` | no body | create, update, delete, actions |
 | `new Accepted(string $jobType)` | `202` | the **job** type's document + `Content-Location` + `Retry-After` | create, update, actions |
 | `new SeeOther(?string $description, ?string $mediaType)` | `303` | `Location` only, no body; on an action with a `mediaType` also a `200` [location document](#actions-that-answer-with-a-url) | fetch-one, actions |
-| `new MetaResult()` | `200` | a meta-only document | delete, actions |
-| `new ActionResource(string $type)` | `200` | the named type's document | actions |
-| `new ActionCreated(string $type)` | `201` | the named type's document + optional `Location` | actions |
+| `new MetaResult(array $meta = [])` | `200` | a meta-only document | delete, actions |
+| `new ActionResource(string $type, array $meta = [])` | `200` | the named type's document | actions |
+| `new ActionCreated(string $type, array $meta = [])` | `201` | the named type's document + optional `Location` | actions |
 | `new RawResult(string $mediaType, …)` | `200` by default | a body that is not JSON:API, beside the JSON:API one | actions |
 
 Each implements a per-operation **marker interface** — `CreateResponse`, `UpdateResponse`,
@@ -1793,6 +1803,48 @@ The value is the path key of its `fetchOne.<type>` and `update.<type>` operation
 related, relationship and action paths are that path followed by `/{rel}`,
 `/relationships/{rel}` and `/-actions/{name}`. A generator calls them without an id, while
 the resource object it reads back still carries one.
+
+### Typed document meta: `x-document-meta`
+
+An operation whose document [declares its top-level `meta`](links-and-meta.md#typed-document-meta)
+answers with a document component of its own. It is an `allOf` of the shared document and an
+object narrowing `meta` to the declared members, marked `x-document-meta: true`:
+
+```json
+"InboxItemsMarkAsReadActionDocument": {
+  "allOf": [
+    { "$ref": "#/components/schemas/InboxesDocument" },
+    {
+      "type": "object",
+      "required": ["meta"],
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["marked"],
+          "properties": { "marked": { "type": "integer", "description": "How many items this call marked read." } }
+        }
+      }
+    }
+  ],
+  "x-document-meta": true
+}
+```
+
+The first `allOf` entry is the shared document: `<Type>Collection` for a collection fetch,
+`<Type>Document` for a fetch, create, update or document action, the relation's
+`RelatedCollection` or `RelatedDocument` for a related endpoint, and `MetaDocument` for a
+meta-only result. The second carries `meta`, closed with `additionalProperties: false` and
+required when any member is. A collection's `meta` also lists `page` and `total`, which core
+writes there.
+
+The component is named for the operation, as its error documents are, followed by
+`Document`: `InboxItemsFetchCollectionDocument`, `InboxItemsFetchOneDocument`,
+`BoardsNotesFetchRelatedDocument`, `InboxItemsDeleteDocument`. An action's is
+`<Type><Path>ActionDocument` for its `200` and `<Type><Path>ActionCreatedDocument` for its
+`201`, one per action whatever methods it answers to. An operation that declares nothing
+keeps the shared component, so its document does not change. A name another component
+already holds throws.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
