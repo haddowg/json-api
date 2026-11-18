@@ -14,34 +14,38 @@ use haddowg\JsonApi\Resource\DateTimeParser;
  */
 final class DateRangeBuilder extends RangeBuilder
 {
-    /**
-     * An RFC 3339 date-time with an offset, the `date-time` each bound is documented as:
-     * `1997-05-21T12:30:00Z`, `1997-05-21T12:30:00.5+01:00`. Each present bound is
-     * validated against this so a malformed bound (`filter[<key>][min]=banana`, a bare
-     * `1997-05-21` or a time with no offset) is a clean `400` rather than a silent
-     * non-match.
-     *
-     * A regex cannot reject a calendar-invalid date (`2026-02-30T00:00:00Z` matches the
-     * shape), so the *temporal* validity a regex can't express is enforced by the
-     * framework adapter's pre-provider filter-value validation, which additionally runs
-     * each present bound through {@see toDateTime()} and rejects a value that does not
-     * coerce to `\DateTimeInterface` as the same clean `400`. When that validation is
-     * absent a handler skips such a bound identically on every provider (see
-     * {@see \haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler::range()}).
-     */
-    private const RFC_3339_DATE_TIME = '^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$';
+    private bool $calendarDays = false;
 
     public static function make(string $key, ?string $column = null): static
     {
         return (new static($key, $column))
             ->deserializeUsing(static fn(mixed $value): mixed => self::toDateTime($value))
-            ->pattern(self::RFC_3339_DATE_TIME)
-            ->presetDescription('Matches values within the given inclusive date-time range.');
+            ->pattern(DateRange::DATE_TIME_PATTERN)
+            ->presetDescription(DateRange::DATE_TIME_DESCRIPTION);
     }
 
     public function build(): DateRange
     {
-        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription);
+        return new DateRange($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription, $this->calendarDays);
+    }
+
+    /**
+     * Compares calendar days rather than instants: each bound is a full date such as
+     * `2026-10-01`, documented as `format: date`. A resource sets this itself on a range
+     * whose column one `Date` field backs; declare it for any other column holding dates,
+     * such as one on a related type or a pivot.
+     *
+     * @return static
+     */
+    public function calendarDays(): static
+    {
+        $this->calendarDays = true;
+        $this->constraints = DateRange::calendarDayConstraints($this->constraints);
+        if ($this->presetDescription && $this->description === DateRange::DATE_TIME_DESCRIPTION) {
+            $this->description = DateRange::DATE_DESCRIPTION;
+        }
+
+        return $this;
     }
 
     /**

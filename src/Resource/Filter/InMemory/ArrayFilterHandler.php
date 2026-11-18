@@ -228,7 +228,8 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * `filter[<key>][min]`/`[max]` query, which Symfony parses into an array).
      * Each **present, non-blank** bound and the column value are coerced through
      * the filter's deserializer (numeric for {@see Range}, date string →
-     * `\DateTimeImmutable` for {@see DateRange}), then tested `min <= v <= max`
+     * `\DateTimeImmutable` for {@see DateRange}, reduced to its calendar day when the
+     * range compares days), then tested `min <= v <= max`
      * over whichever bounds are present — `min` alone is a `>=`, `max` alone a
      * `<=`. A value that is not an array, or that supplies neither bound, is a
      * no-op (keeps every row).
@@ -281,6 +282,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             if ($actual === null) {
                 return false;
             }
+            $actual = self::calendarDayOf($filter, $actual);
 
             if ($min !== null && !($actual >= $min)) {
                 return false;
@@ -318,7 +320,21 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             return null;
         }
 
-        return $value;
+        return self::calendarDayOf($filter, $value);
+    }
+
+    /**
+     * For a {@see DateRange} comparing calendar days, the day a date names in its own
+     * zone, as midnight UTC, so a bound and a stored date compare by day as a database's
+     * date column does rather than by instant. Anything else is returned unchanged.
+     */
+    private static function calendarDayOf(Range $filter, mixed $value): mixed
+    {
+        if (!$filter instanceof DateRange || !$filter->calendarDays || !$value instanceof \DateTimeInterface) {
+            return $value;
+        }
+
+        return new \DateTimeImmutable($value->format('Y-m-d'), new \DateTimeZone('UTC'));
     }
 
     /**

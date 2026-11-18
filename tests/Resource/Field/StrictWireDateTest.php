@@ -96,6 +96,7 @@ final class StrictWireDateTest extends TestCase
         yield 'date-time, a timestamp' => [$dateTime, '@1762335720'];
         yield 'date-time, an impossible day' => [$dateTime, '2026-02-30T00:00:00Z'];
         yield 'date-time, hour 24' => [$dateTime, '2026-02-28T24:00:00Z'];
+        yield 'date-time, a leap second' => [$dateTime, '2026-12-31T23:59:60Z'];
         yield 'date-time, garbage' => [$dateTime, 'banana'];
 
         $date = static fn(): AbstractFieldBuilder => Date::make('at');

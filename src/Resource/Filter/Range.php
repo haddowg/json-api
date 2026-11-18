@@ -26,7 +26,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  * and the reference in-memory apply; database adapters translate it into two
  * push-down `andWhere` predicates.
  *
- * {@see DateRange} is the only subclass and never widens the constructor.
+ * {@see DateRange} is the only subclass; it appends one optional constructor argument.
  */
 readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {

@@ -546,6 +546,8 @@ final class ContractWitnessServer
                 Where::make('archived')->fixed(true)->build(),
                 Range::make('rating')->example(['min' => 1, 'max' => 5])->build(),
                 DateRange::make('publishedAt')->build(),
+                // A range over a date column: full-date bounds, `format: date`.
+                DateRange::make('publishedOn')->calendarDays()->build(),
                 new CommaListFilter('labels'),
                 WhereAny::make('search', Contains::make('title'), Contains::make('summary'))
                     ->describedAs('Search title or summary.')->build(),

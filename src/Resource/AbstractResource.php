@@ -1535,14 +1535,42 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     {
         if ($this->filterCache === null) {
             $this->filterCache = \array_values(\array_map(
-                static fn(\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $filter instanceof \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface
+                fn(\haddowg\JsonApi\Resource\Filter\FilterInterface|\haddowg\JsonApi\Resource\Filter\FilterBuilderInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface => $this->overCalendarDays($filter instanceof \haddowg\JsonApi\Resource\Filter\FilterBuilderInterface
                     ? $filter->build()
-                    : $filter,
+                    : $filter),
                 $this->filters(),
             ));
         }
 
         return $this->filterCache;
+    }
+
+    /**
+     * A {@see \haddowg\JsonApi\Resource\Filter\DateRange} whose column exactly one date
+     * field backs compares calendar days, so its bounds take the full date that field
+     * documents and every data layer compares the day rather than an instant.
+     */
+    private function overCalendarDays(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface
+    {
+        if (!$filter instanceof \haddowg\JsonApi\Resource\Filter\DateRange || $filter->calendarDays) {
+            return $filter;
+        }
+
+        $match = null;
+        foreach ($this->allFields() as $field) {
+            if ($field->column() !== $filter->column || $field->relatedVia() !== null) {
+                continue;
+            }
+            if ($match !== null) {
+                return $filter;
+            }
+            $match = $field;
+        }
+
+        $date = $match instanceof \haddowg\JsonApi\Resource\Field\Date
+            || ($match instanceof \haddowg\JsonApi\Resource\Field\DateTime && $match->schemaFormat() === 'date');
+
+        return $date ? $filter->withCalendarDays() : $filter;
     }
 
     /**
