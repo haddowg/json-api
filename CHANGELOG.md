@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.21.0](https://github.com/haddowg/json-api/compare/v2.20.0...v2.21.0) (2026-11-18)
+
+
+### Features
+
+* declare typed top-level document meta per operation ([#376](https://github.com/haddowg/json-api/issues/376)) ([9cdc221](https://github.com/haddowg/json-api/commit/9cdc221dd8479d888706fc4cf1be0bb256000843))
+* read a has-many or has-one through a foreign key on the related type ([#377](https://github.com/haddowg/json-api/issues/377)) ([81d0786](https://github.com/haddowg/json-api/commit/81d07863d21eb0d56a7109c493000ecd3edae5ee))
+
+
+### Bug Fixes
+
+* accept only the documented RFC 3339 shape for temporal attributes ([#375](https://github.com/haddowg/json-api/issues/375)) ([0fe46b9](https://github.com/haddowg/json-api/commit/0fe46b93f395f5356af78980519255ccf081c0de))
+
 ## [2.20.0](https://github.com/haddowg/json-api/compare/v2.19.0...v2.20.0) (2026-11-16)
 
 
