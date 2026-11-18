@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.1](https://github.com/haddowg/json-api/compare/v2.21.0...v2.21.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* accept a typed model parameter in every model hook ([#379](https://github.com/haddowg/json-api/issues/379)) ([f984821](https://github.com/haddowg/json-api/commit/f9848216da19054e1fda1a86fee4a6f5d78c208a))
+
 ## [2.21.0](https://github.com/haddowg/json-api/compare/v2.20.0...v2.21.0) (2026-11-18)
 
 
