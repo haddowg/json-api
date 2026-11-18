@@ -163,6 +163,18 @@ A data layer resolves the name with `ForeignKey::of($relation, $resolver)`, whic
 returns the member's storage `column` and whether it is a to-one relation, and reads
 each parent's key with `ForeignKey::parentKey($parentSerializer, $parent)`.
 
+A relationship write of such a relation is a write of the related rows, never of the
+parent. A replace sets the foreign key on the rows the linkage names and clears it on the
+members it leaves out, an add sets it, and a remove clears it on the named rows that are
+members. A field takes the parent's id as storage holds it, and a to-one relation takes
+the parent itself. The relation's mutation gates, `readOnly()` and
+`cannotChangeMembership()` apply as on any relation, and a data layer refuses to clear a
+foreign key its storage requires with the `403` of the mutation that drops the member.
+
+Overriding `HasMany::make()` or `HasOne::make()` in a subclass now needs the third
+`?string $foreignKey = null` parameter, since PHP checks a static method's signature
+against its parent's.
+
 ## BelongsToMany — a pivot-backed to-many
 
 A to-many backed by a join table, which can carry its own pivot columns.
