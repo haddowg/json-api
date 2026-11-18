@@ -525,6 +525,14 @@ customise writing — reach for them before dropping to a whole-resource custom
 | `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. |
 | `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
 
+A hook only ever receives the model your provider loaded, so its `$model` parameter
+may take the type you know it has: a class such as `fn(Track $track)`, `array` for a
+model held as a row, a nullable type, or `mixed`. PHPStan accepts each one and checks
+the closure's body against it. The hooks that decide per model whether a member is
+hidden, a relation is guarded, or a declared link renders take a typed model the same
+way. `$value` stays `mixed` in `deserializeUsing` and `fillUsing`, because it comes from
+the client's document.
+
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting
 finish the job, and on an `Obj`, `Map`, `OneOf`, structured `ArrayList` or `Union` the

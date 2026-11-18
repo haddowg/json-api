@@ -88,7 +88,9 @@ final class DeclaredLinkBuilder
      * link out of that resource's `links`, which is how a link is hidden per viewer or per
      * state.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): ?string $href
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): ?string $href
      */
     public function hrefUsing(\Closure $href): self
     {
@@ -101,7 +103,9 @@ final class DeclaredLinkBuilder
      * Sets the closure that returns the meta values, keyed by member name. It runs only
      * when the href is not `null`.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): array<string, mixed> $meta
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): array<string, mixed> $meta
      */
     public function metaUsing(\Closure $meta): self
     {
@@ -116,7 +120,9 @@ final class DeclaredLinkBuilder
      * place of {@see hrefUsing()} and {@see metaUsing()} when both come from one call, such
      * as signing an upload URL.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): (string|array<string, mixed>|null) $link
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): (string|array<string, mixed>|null) $link
      */
     public function linkUsing(\Closure $link): self
     {
