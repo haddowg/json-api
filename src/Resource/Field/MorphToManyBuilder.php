@@ -113,7 +113,9 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
      *     ))
      *     ->fields(Integer::make('position'), DateTime::make('linkedAt')->readOnly())
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): iterable<array{0: string, 1: string|int, 2?: mixed}> $identifiers
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): iterable<array{0: string, 1: string|int, 2?: mixed}> $identifiers
      *
      * @return static
      */

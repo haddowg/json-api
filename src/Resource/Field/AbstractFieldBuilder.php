@@ -191,7 +191,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * The callback may type its first parameter as the model it expects, such as
      * `fn (Album $album): int`.
      *
-     * @param \Closure(never, JsonApiRequestInterface, string): mixed $callback
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface, string): mixed $callback
      * @return static
      */
     public function computedUsing(\Closure $callback): static
@@ -339,7 +341,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * request-aware (hidden **for this request** iff the closure returns `true`,
      * receiving the domain model and the request).
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function hidden(?\Closure $when = null): static
@@ -390,7 +394,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(mixed, JsonApiRequestInterface, string): mixed $callback
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface, string): mixed $callback
      * @return static
      */
     public function serializeUsing(\Closure $callback): static
@@ -405,7 +411,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * member's name. The callback may type its first parameter as the model it expects,
      * such as `fn (Album $album): int`; it is only ever called with that model.
      *
-     * @param \Closure(never, JsonApiRequestInterface, string): mixed $callback
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface, string): mixed $callback
      * @return static
      */
     public function extractUsing(\Closure $callback): static
@@ -436,7 +444,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(mixed, mixed, array<string, mixed>, string): mixed $callback
+     * @template TModel
+     *
+     * @param \Closure(TModel, mixed, array<string, mixed>, string): mixed $callback
      * @return static
      */
     public function fillUsing(\Closure $callback): static

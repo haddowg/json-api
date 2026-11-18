@@ -58,7 +58,9 @@ final class MorphToBuilder extends AbstractRelationBuilder
      * parent: a data layer can compare those in a query, which a
      * {@see \haddowg\JsonApi\Resource\Filter\WhereMorph} filter needs.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): (array{0: string, 1: string|int}|null) $identifier
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): (array{0: string, 1: string|int}|null) $identifier
      *
      * @return static
      */

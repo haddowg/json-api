@@ -303,7 +303,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * prohibition is not *unconditional*, so the superset OpenAPI still exposes the
      * verb.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function cannotReplace(?\Closure $when = null): static
@@ -326,7 +328,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * are allowed by default. Pass a closure to gate the prohibition on the domain
      * model and the request (see {@see cannotReplace()}).
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function cannotRemove(?\Closure $when = null): static
@@ -380,7 +384,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * closure to gate the prohibition on the domain model and the request (see
      * {@see cannotReplace()}).
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function cannotAdd(?\Closure $when = null): static
@@ -408,7 +414,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      *
      * A to-one has no member set, so declaring it there fails {@see build()}.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function cannotChangeMembership(?\Closure $when = null): static
@@ -437,7 +445,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * and the request). A request-aware prohibition is not *unconditional*, so
      * the superset OpenAPI still lists the relation among the includable paths.
      *
-     * @param \Closure(mixed, JsonApiRequestInterface): bool|null $when
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface): bool|null $when
      * @return static
      */
     public function cannotBeIncluded(?\Closure $when = null): static
@@ -557,8 +567,11 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * member named `pivot` is refused, since that key carries a `belongsToMany` relation's
      * pivot fields.
      *
-     * @param \Closure(mixed $parent, mixed $related, JsonApiRequestInterface $request): array<string, mixed> $resolver
-     * @param list<FieldInterface|FieldBuilderInterface>                                                       $fields
+     * @template TParent
+     * @template TRelated
+     *
+     * @param \Closure(TParent $parent, TRelated $related, JsonApiRequestInterface $request): array<string, mixed> $resolver
+     * @param list<FieldInterface|FieldBuilderInterface>                                                             $fields
      *
      * @return static
      */

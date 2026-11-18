@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Tests\StaticAnalysis;
+
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
+use haddowg\JsonApi\Resource\Field\HasMany;
+use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\MorphTo;
+use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Link\DeclaredLink;
+use haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder;
+
+/**
+ * Never executed. phpstan-hooks.neon analyses it with PHPStan's default settings, as a
+ * consuming project would, so a hook declaration that rejects or narrows an author's
+ * closure parameter fails the `composer phpstan` run.
+ */
+final class HookClosureTypes
+{
+    /**
+     * @return list<FieldBuilderInterface|DeclaredLinkBuilder>
+     */
+    public static function declarations(): array
+    {
+        return [
+            Str::make('typed')->extractUsing(static fn(\DateTimeImmutable $model): string => $model->format('c')),
+            Str::make('array')->extractUsing(static fn(array $row): mixed => $row['title'] ?? null),
+            Str::make('documented')->extractUsing(
+                /** @param array{title?: string} $row */
+                static fn(array $row): ?string => $row['title'] ?? null,
+            ),
+            Str::make('mixed')->extractUsing(static fn(mixed $model): mixed => \is_array($model) ? $model['title'] ?? null : null),
+            Str::make('untyped')->extractUsing(static fn($model, $request, $name) => $name),
+            Str::make('nullable')->extractUsing(static fn(?\DateTimeImmutable $model): ?string => $model?->format('c')),
+            Str::make('page')->extractUsing(static fn(array $page, JsonApiRequestInterface $request): int => \count($page)),
+            Str::make('computedArray')->computedUsing(
+                static fn(array $row, JsonApiRequestInterface $request, string $name): mixed => $row[$name] ?? null,
+            ),
+            Str::make('computedNullable')->computedUsing(static fn(?\DateTimeImmutable $model): ?string => $model?->format('c')),
+            Str::make('serialized')->serializeUsing(static fn(string $value): string => \strtoupper($value)),
+            Str::make('serializedNullable')->serializeUsing(static fn(?\DateTimeImmutable $value): ?string => $value?->format('c')),
+            Str::make('filledArray')->fillUsing(
+                static fn(array $row, mixed $value, array $document, string $name): mixed => $row[$name] ?? $value,
+            ),
+            Str::make('filledTyped')->fillUsing(static fn(\ArrayObject $model, mixed $value): int => $model->count()),
+            Str::make('hiddenArray')->hidden(static fn(array $row, JsonApiRequestInterface $request): bool => ($row['secret'] ?? false) === true),
+            Str::make('hiddenNullable')->hidden(static fn(?\DateTimeImmutable $model): bool => $model?->getTimestamp() === 0),
+            Integer::make('hiddenTyped')->hidden(static fn(\DateTimeImmutable $model): bool => $model->getTimestamp() === 0),
+            HasMany::make('items', 'items')
+                ->extractUsing(static fn(array $document): mixed => $document['items'] ?? [])
+                ->cannotAdd(static fn(array $row): bool => ($row['locked'] ?? false) === true)
+                ->cannotRemove(static fn(?\DateTimeImmutable $model): bool => $model?->getTimestamp() === 0)
+                ->cannotReplace(static fn(\DateTimeImmutable $model): bool => $model->getTimestamp() === 0)
+                ->cannotChangeMembership(static fn(mixed $model): bool => $model === null)
+                ->cannotBeIncluded(static fn(array $row): bool => isset($row['private']))
+                ->identifierMeta(static fn(array $parent, \DateTimeImmutable $related): array => [
+                    'role' => $parent['role'] ?? null,
+                    'at' => $related->format('c'),
+                ]),
+            BelongsTo::make('owner', 'people')->extractUsing(static fn(?\DateTimeImmutable $model): mixed => $model?->getTimezone()),
+            MorphTo::make('subject', ['albums', 'artists'])
+                ->identifiedBy(static fn(array $row): ?array => isset($row['type'], $row['id']) ? [(string) $row['type'], 1] : null),
+            MorphToMany::make('subjects', ['albums', 'artists'])
+                ->identifiedBy(static fn(\ArrayObject $model): array => []),
+            DeclaredLink::make('download')
+                ->hrefUsing(static fn(array $row): ?string => isset($row['path']) ? '/files' : null)
+                ->metaUsing(static fn(?\DateTimeImmutable $model): array => ['at' => $model?->format('c')]),
+            DeclaredLink::make('upload')
+                ->linkUsing(static fn(\DateTimeImmutable $model): string => '/upload/' . $model->format('U')),
+        ];
+    }
+}
