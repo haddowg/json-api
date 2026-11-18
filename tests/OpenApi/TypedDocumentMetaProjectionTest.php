@@ -178,6 +178,24 @@ final class TypedDocumentMetaProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aDeleteAnsweringAMetaOnlyDocumentTakesTheTypesDeleteMembers(): void
+    {
+        $type = FakeTypeMetadata::resource(
+            type: 'notes',
+            fields: [Id::make()->example('1')->build()],
+            responses: [OperationType::Delete->value => [new MetaResult()]],
+            documentMeta: [OperationType::Delete->value => [Integer::make('archived')->required()->example(1)]],
+        );
+        $document = $this->project([$type]);
+
+        self::assertSame(['$ref' => '#/components/schemas/MetaDocument'], self::arr(self::arr(self::arr(self::arr($document['components'])['schemas'])['NotesDeleteDocument'])['allOf'])[0]);
+        $delete = self::operation($document, '/notes/{id}', 'delete');
+        $media = self::arr(self::arr(self::arr(self::arr($delete['responses'])['200'])['content'])['application/vnd.api+json']);
+        self::assertSame(['$ref' => '#/components/schemas/NotesDeleteDocument'], $media['schema']);
+        self::assertSame(['meta' => ['archived' => 1], 'jsonapi' => ['version' => '1.1']], $media['example']);
+    }
+
+    #[Test]
     public function aRequiredMemberWithoutAnExampleDropsTheExample(): void
     {
         $type = FakeTypeMetadata::resource(
@@ -244,7 +262,7 @@ final class TypedDocumentMetaProjectionTest extends TestCase
             documentMeta: [
                 OperationType::FetchCollection->value => [Integer::make('unread')->required()->describedAs('How many notes are unread.')->example(3)],
                 OperationType::FetchOne->value => [Str::make('etag')->example('W/"1"')],
-                // A delete is never asked.
+                // A delete answering 204 has no document to type.
                 OperationType::Delete->value => [Integer::make('ignored')->required()],
             ],
         );

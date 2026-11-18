@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi\Metadata;
 
+use haddowg\JsonApi\Resource\DeclaresActionDocumentMetaInterface;
+use haddowg\JsonApi\Resource\DocumentMetaMisdeclared;
+
 /**
  * Validation for a custom action's declared success-response set
  * ({@see ActionMetadataInterface::responds()}), owned by core so every integration
@@ -83,6 +86,42 @@ final class ActionResponses
         }
 
         return $created ? 201 : null;
+    }
+
+    /**
+     * The action's declared responses with the members its handler declares for each
+     * status ({@see DeclaresActionDocumentMetaInterface::documentMeta()}) as the meta of its
+     * {@see ActionResource}, {@see ActionCreated} or {@see MetaResult}. A response that
+     * already declares its own members keeps them; a handler declaring members for it too
+     * is refused.
+     *
+     * @param list<ActionResponse> $responds
+     *
+     * @return list<ActionResponse>
+     *
+     * @throws DocumentMetaMisdeclared when a response and its handler both declare its members
+     */
+    public static function withDocumentMeta(array $responds, DeclaresActionDocumentMetaInterface $handler): array
+    {
+        $out = [];
+        foreach ($responds as $response) {
+            if ($response instanceof ActionResource || $response instanceof ActionCreated || $response instanceof MetaResult) {
+                $declared = \array_values([...$handler->documentMeta($response->status())]);
+                if ($declared !== [] && $response->meta !== []) {
+                    throw new DocumentMetaMisdeclared(\sprintf(
+                        'The %d response of the action handled by %s declares its meta on the response and in documentMeta(); declare it in one place.',
+                        $response->status(),
+                        $handler::class,
+                    ));
+                }
+                if ($declared !== []) {
+                    $response = $response->withMeta($declared);
+                }
+            }
+            $out[] = $response;
+        }
+
+        return $out;
     }
 
     /**

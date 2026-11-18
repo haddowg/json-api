@@ -6,12 +6,14 @@ namespace haddowg\JsonApi\Tests\Resource;
 
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\NoContent;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\DeclaresActionDocumentMetaInterface;
 use haddowg\JsonApi\Resource\DocumentMeta;
 use haddowg\JsonApi\Resource\DocumentMetaMisdeclared;
 use haddowg\JsonApi\Resource\DocumentMetaMismatch;
@@ -21,6 +23,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 use Nyholm\Psr7\ServerRequest;
@@ -65,16 +68,80 @@ final class DocumentMetaTest extends TestCase
     }
 
     #[Test]
-    public function aDeleteIsNeverAsked(): void
+    public function aDeletesMembersApplyOnlyToItsMetaOnly200(): void
     {
         $declarer = new class implements DeclaresDocumentMetaInterface {
             public function documentMeta(OperationType $operation): iterable
             {
-                throw new \LogicException('asked for ' . $operation->value);
+                return $operation === OperationType::Delete ? [Str::make('archivedAs')->extractUsing(static fn(\stdClass $note): string => 'archive-' . $note->id)] : [];
             }
         };
 
-        self::assertTrue(DocumentMeta::forOperation($declarer, OperationType::Delete)->isEmpty());
+        self::assertTrue(DocumentMeta::forDelete($declarer, [new NoContent()], 'notes')->isEmpty());
+
+        $meta = DocumentMeta::forDelete($declarer, [new MetaResult()], 'notes');
+        self::assertSame(['archivedAs'], \array_map(static fn($field): string => $field->name(), $meta->fields));
+
+        $removed = new \stdClass();
+        $removed->id = '7';
+        self::assertSame(['archivedAs' => 'archive-7'], $meta->applyTo(MetaResponse::fromMeta([]), self::request(), $removed)->meta());
+
+        $this->expectException(DocumentMetaMisdeclared::class);
+        $this->expectExceptionMessage('The top-level meta of the "notes" Delete document is declared both in documentMeta() and on its MetaResult');
+        DocumentMeta::forDelete($declarer, [new MetaResult([Integer::make('count')])], 'notes');
+    }
+
+    #[Test]
+    public function anActionsMembersArePickedByStatus(): void
+    {
+        $responds = [
+            new ActionResource('notes', meta: [Integer::make('marked')]),
+            new ActionCreated('notes', meta: [Str::make('batch')]),
+        ];
+
+        self::assertSame(['marked'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forActionStatus($responds, 200)->fields));
+        self::assertSame(['batch'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forActionStatus($responds, 201)->fields));
+        self::assertTrue(DocumentMeta::forActionStatus([new NoContent()], 200)->isEmpty());
+    }
+
+    #[Test]
+    public function aHandlerDeclaresItsActionsMembersPerStatus(): void
+    {
+        $handler = new class implements DeclaresActionDocumentMetaInterface {
+            public function documentMeta(int $status): iterable
+            {
+                return match ($status) {
+                    200 => [Integer::make('marked')->required()->example(12)],
+                    201 => [Str::make('batch')],
+                    default => [],
+                };
+            }
+        };
+
+        $responds = ActionResponses::withDocumentMeta([new ActionResource('notes'), new ActionCreated('notes'), new NoContent()], $handler);
+
+        self::assertInstanceOf(ActionResource::class, $responds[0]);
+        self::assertSame(['marked'], \array_map(static fn($field): string => $field->name(), $responds[0]->meta));
+        self::assertInstanceOf(ActionCreated::class, $responds[1]);
+        self::assertSame(['batch'], \array_map(static fn($field): string => $field->name(), $responds[1]->meta));
+        self::assertInstanceOf(NoContent::class, $responds[2]);
+        self::assertSame([], ActionResponses::withDocumentMeta([new MetaResult()], new class implements DeclaresActionDocumentMetaInterface {
+            public function documentMeta(int $status): iterable
+            {
+                return [];
+            }
+        })[0]->meta ?? null);
+
+        $this->expectException(DocumentMetaMisdeclared::class);
+        $this->expectExceptionMessage('declares its meta on the response and in documentMeta()');
+        ActionResponses::withDocumentMeta([new ActionResource('notes', meta: [Integer::make('other')])], $handler);
+    }
+
+    #[Test]
+    public function anExplicitStatusIsReadable(): void
+    {
+        self::assertNull(MetaResponse::fromMeta([])->explicitStatus());
+        self::assertSame(201, MetaResponse::fromMeta([])->withStatus(201)->explicitStatus());
     }
 
     #[Test]
@@ -202,7 +269,7 @@ final class DocumentMetaTest extends TestCase
         self::assertSame(['count'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forResponse(new MetaResult([Integer::make('count')]))->fields));
         self::assertTrue(DocumentMeta::forResponse(new NoContent())->isEmpty());
         self::assertTrue(DocumentMeta::forResponse(new MetaResult())->isEmpty());
-        self::assertSame(['archived'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forDeleteResponses([new NoContent(), new MetaResult([Integer::make('archived')])])->fields));
+        self::assertSame(['archived'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forDelete(new \stdClass(), [new NoContent(), new MetaResult([Integer::make('archived')])])->fields));
     }
 
     #[Test]
@@ -220,7 +287,7 @@ final class DocumentMetaTest extends TestCase
                 return match ($operation) {
                     OperationType::FetchCollection => [
                         Integer::make('unread')->required()->extractUsing(
-                            static fn(mixed $items): int => \count(\array_filter(\is_array($items) ? $items : [], static fn(mixed $item): bool => \is_array($item) && $item['read'] === false)),
+                            static fn(array $items): int => \count(\array_filter($items, static fn(mixed $item): bool => \is_array($item) && $item['read'] === false)),
                         ),
                     ],
                     OperationType::FetchOne => [Str::make('etag')],

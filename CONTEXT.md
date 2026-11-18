@@ -80,8 +80,8 @@ types link to it by type and id as usual.
 _Avoid_: singular resource, current-user resource, me endpoint
 
 **Typed document meta**:
-The members a type declares for the top-level `meta` of one operation's document, or an action
-declares on its response, with field builders. The generated document types them in a
+The members a type declares for the top-level `meta` of one operation's document, or an action's
+handler declares per response status, with field builders. The generated document types them in a
 document component of the operation's own, and an adapter in debug mode refuses a response
 whose `meta` does not match.
 _Avoid_: document meta schema, response meta

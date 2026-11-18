@@ -35,6 +35,16 @@ final readonly class MetaResult implements DeleteResponse, ActionResponse
         $this->meta = (new DocumentMeta($meta, owner: 'the meta-only response'))->fields;
     }
 
+    /**
+     * The same response with `$meta` as the members of its document's top-level `meta`.
+     *
+     * @param list<FieldInterface|FieldBuilderInterface> $meta
+     */
+    public function withMeta(array $meta): self
+    {
+        return new self($meta);
+    }
+
     public function status(): int
     {
         return 200;

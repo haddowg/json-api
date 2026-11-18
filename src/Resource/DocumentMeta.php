@@ -16,6 +16,7 @@ use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
@@ -78,16 +79,16 @@ final readonly class DocumentMeta
 
     /**
      * The members `$declarer` declares for the document `$operation` answers with. A type
-     * that declares nothing, and a delete, have none. A `FetchCollection` document is a
-     * collection.
+     * that declares nothing has none. A `FetchCollection` document is a collection. A
+     * delete's members apply only to the meta-only `200` it may answer with; see
+     * {@see forDelete()}.
      *
      * @throws DocumentMetaMisdeclared
      */
     public static function forOperation(object $declarer, OperationType $operation, string $type = ''): self
     {
         $owner = \sprintf('the "%s" %s document', $type, $operation->value);
-        if ($operation === OperationType::Delete
-            || !($declarer instanceof DeclaresDocumentMetaInterface || $declarer instanceof DeclaresDocumentMeta)) {
+        if (!($declarer instanceof DeclaresDocumentMetaInterface || $declarer instanceof DeclaresDocumentMeta)) {
             return new self([], $operation === OperationType::FetchCollection, $owner);
         }
 
@@ -119,17 +120,52 @@ final readonly class DocumentMeta
     }
 
     /**
-     * The members of the document a delete's declared responses answer `200` with: its
-     * {@see MetaResult}'s, or none.
+     * The members of the meta-only `200` a delete answers with: the type's `Delete` members,
+     * or the ones its declared {@see MetaResult} carries. None when the delete declares no
+     * `200`, as a `204` has no document.
      *
-     * @param iterable<OperationResponseInterface> $responses
+     * @param object                               $declarer  the type's declarer, or its `Delete` members already read
+     * @param iterable<OperationResponseInterface> $responses the delete's declared success responses
+     *
+     * @throws DocumentMetaMisdeclared when the type and the {@see MetaResult} both declare members
      */
-    public static function forDeleteResponses(iterable $responses, string $type = ''): self
+    public static function forDelete(object $declarer, iterable $responses, string $type = ''): self
     {
         $owner = \sprintf('the "%s" Delete document', $type);
+        $result = null;
         foreach ($responses as $response) {
-            if ($response instanceof MetaResult) {
-                return new self($response->meta, false, $owner);
+            if ($response->status() === 200) {
+                $result = $response;
+            }
+        }
+        if ($result === null) {
+            return new self([], false, $owner);
+        }
+
+        $declared = $declarer instanceof self ? $declarer : self::forOperation($declarer, OperationType::Delete, $type);
+        $own = $result instanceof MetaResult ? $result->meta : [];
+        if (!$declared->isEmpty() && $own !== []) {
+            throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s is declared both in documentMeta() and on its MetaResult; declare it in one place.', $owner));
+        }
+
+        return $own !== [] ? new self($own, false, $owner) : $declared;
+    }
+
+    /**
+     * The members of the document an action answers `$status` with, among its declared
+     * responses: its {@see ActionCreated} for a `201`, else its {@see ActionResource} or
+     * {@see MetaResult}.
+     *
+     * @param iterable<object> $responds the action's declared responses
+     */
+    public static function forActionStatus(iterable $responds, int $status, string $owner = 'the action response'): self
+    {
+        foreach ($responds as $response) {
+            $matches = $status === 201
+                ? $response instanceof ActionCreated
+                : $response instanceof ActionResource || $response instanceof MetaResult;
+            if ($matches) {
+                return self::forResponse($response, $owner);
             }
         }
 
@@ -195,23 +231,30 @@ final readonly class DocumentMeta
     /**
      * `$response` with each member an `extractUsing()` hook supplies filled into its `meta`,
      * as {@see fill()} does. The hooks receive the response's primary data: its page of
-     * resources as a list for a collection, else its one resource or `null`. An adapter calls
-     * it once the handler and its After hooks have built the response.
+     * resources as a list for a collection, else its one resource or `null`. A meta-only
+     * response has none, so its hooks receive `$subject`, such as the resource a delete
+     * removed. A collection answered with one resource, as a singular filter is, hands its
+     * hooks that resource. An adapter calls it once the handler and its After hooks have
+     * built the response.
      *
-     * @template T of DataResponse|RelatedResponse
+     * @template T of DataResponse|RelatedResponse|MetaResponse
      *
      * @param T $response
      *
      * @return T
      */
-    public function applyTo(DataResponse|RelatedResponse $response, JsonApiRequestInterface $request): DataResponse|RelatedResponse
+    public function applyTo(DataResponse|RelatedResponse|MetaResponse $response, JsonApiRequestInterface $request, mixed $subject = null): DataResponse|RelatedResponse|MetaResponse
     {
         if (!$this->extractsAny()) {
             return $response;
         }
 
-        $resources = $response->primaryResources();
-        $data = $response->isCollection() ? $resources : ($resources[0] ?? null);
+        if ($response instanceof MetaResponse) {
+            $data = $subject;
+        } else {
+            $resources = $response->primaryResources();
+            $data = $response->isCollection() ? $resources : ($resources[0] ?? null);
+        }
 
         return $response->withMeta($this->fill($response->meta(), $data, $request));
     }

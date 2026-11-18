@@ -76,10 +76,10 @@ public function documentMeta(OperationType $operation): iterable
     return match ($operation) {
         OperationType::FetchCollection => [
             Integer::make('unread')->required()->example(3)
-                ->extractUsing(fn (mixed $items, JsonApiRequestInterface $request): int => $this->inbox->unreadFor($request)),
+                ->extractUsing(fn (array $items, JsonApiRequestInterface $request): int => $this->inbox->unreadFor($request)),
         ],
         OperationType::FetchOne, OperationType::Update => [
-            Str::make('etag')->extractUsing(fn (mixed $item): string => $item->etag()),
+            Str::make('etag')->extractUsing(fn (InboxItem $item): string => $item->etag()),
         ],
         default => [],
     };
@@ -89,9 +89,10 @@ public function documentMeta(OperationType $operation): iterable
 The rules:
 
 - A member's `extractUsing()` hook supplies its value. It receives the document's primary
-  data, one resource or the page of resources, and the request. A member without one is
-  left for the handler or an After hook to set with `withMeta()`, and a value set that way
-  wins over the hook's.
+  data, one resource or the page of resources as a list, and the request, and may type its
+  first parameter as such. A to-one related endpoint with nothing related hands it `null`, so
+  type it nullable there. A member without a hook is left for the handler or an After hook
+  to set with `withMeta()`, and a value set that way wins over the hook's.
 - A member declared `required()` is in every such document, so `meta` is required; any other
   is optional. Each member's `example()` feeds the operation's example, and a required member
   without one drops it.
@@ -99,7 +100,12 @@ The rules:
   request, so its result must not depend on one.
 - A related endpoint serving the type uses its `FetchCollection` members for a to-many and its
   `FetchOne` members for a to-one. A relationship endpoint serves linkage only and carries
-  none, and a delete is never asked.
+  none.
+- A delete's members apply when it answers a meta-only `200`, and their hooks receive the
+  resource it removed. A `204` has no document. Declaring them both in `documentMeta()` and
+  on the delete's `MetaResult` throws `DocumentMetaMisdeclared`.
+- A collection answered with one resource, as a singular filter is, hands its hooks that one
+  resource rather than a list.
 - A collection keeps the members core writes into its `meta`, `page` and `total`, beside the
   declared ones. Declaring either of them on `FetchCollection` throws
   `DocumentMetaMisdeclared` when the adapter registers the type.
@@ -107,26 +113,34 @@ The rules:
 A type composed without `AbstractResource` implements
 `haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface` on its serializer instead.
 
-A custom action declares the members of its response document on the response object, and
-its handler sets the values with `withMeta()`:
+A custom action's handler declares the members of its response document per status by
+implementing `haddowg\JsonApi\Resource\DeclaresActionDocumentMetaInterface`, and sets the
+values with `withMeta()` or through a member's `extractUsing()`:
 
 ```php
-use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
-
-new ActionResource('inboxes', meta: [
-    Integer::make('marked')->required()->describedAs('How many items this call marked read.')->example(12),
-]);
+public function documentMeta(int $status): iterable
+{
+    return match ($status) {
+        200 => [Integer::make('marked')->required()->describedAs('How many items this call marked read.')->example(12)],
+        default => [],
+    };
+}
 ```
 
-`ActionCreated` and `MetaResult` take the same `meta:` list. A delete answering a meta-only
-`200` declares its members on its `MetaResult`.
+The adapter reads it without a request when it builds the action's metadata, and
+`ActionResponses::withDocumentMeta()` maps each status's members onto the action's declared
+`ActionResource`, `ActionCreated` or `MetaResult`. Where the response objects are built in
+PHP rather than in an attribute, they take the same members directly as `meta:`, as in
+`new ActionResource('inboxes', meta: [...])`. Declaring them in both places throws
+`DocumentMetaMisdeclared`. A delete's `MetaResult` takes `meta:` the same way, as an
+alternative to `documentMeta(OperationType::Delete)`.
 
 The declaration is closed. In debug mode an adapter checks every declaring response's
 top-level `meta` against it and throws `DocumentMetaMismatch` for a missing required member,
 an undeclared member or a value of the wrong JSON type. In production nothing is checked.
-`DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()` and
-`forResponse()` read a declaration, `applyTo()` fills a `DataResponse` or `RelatedResponse`
-from its primary resources, and `assertSatisfiedBy()` runs the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
+`DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()`,
+`forDelete()` and `forActionStatus()` read a declaration, `applyTo()` fills a `DataResponse`,
+`RelatedResponse` or meta-only `MetaResponse`, and `assertSatisfiedBy()` runs the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
 produces.
 
 ## Resource-level: getMeta / getLinks on a serializer

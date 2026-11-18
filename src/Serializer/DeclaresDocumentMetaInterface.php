@@ -25,8 +25,9 @@ interface DeclaresDocumentMetaInterface
      * handler or an After hook through `withMeta()`.
      *
      * The OpenAPI projection calls it once per operation the type exposes, with no request,
-     * so the result must not depend on one. A delete is never asked: it answers `204` or a
-     * meta-only document its `MetaResult` declares. A related endpoint serving the type takes
+     * so the result must not depend on one. A delete's members apply when it answers a
+     * meta-only `200`, and its hooks receive the resource it removed; a `204` has no
+     * document. A related endpoint serving the type takes
      * its `FetchCollection` members for a to-many and its `FetchOne` members for a to-one.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>

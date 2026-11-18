@@ -379,7 +379,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * After hook through `withMeta()`.
      *
      * The OpenAPI projection calls it with no request, so the result must not depend on one.
-     * A delete is never asked. A related endpoint serving this type takes its
+     * A delete's members apply when it answers a meta-only `200`, their hooks receiving the
+     * resource it removed. A related endpoint serving this type takes its
      * `FetchCollection` members for a to-many and its `FetchOne` members for a to-one. A
      * collection keeps the `page` and `total` members core writes; declaring either there is
      * refused.

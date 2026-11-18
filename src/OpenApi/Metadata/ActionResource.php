@@ -42,6 +42,16 @@ final readonly class ActionResource implements ActionResponse
         $this->meta = (new DocumentMeta($meta, owner: \sprintf('the action response of type "%s"', $type)))->fields;
     }
 
+    /**
+     * The same response with `$meta` as the members of its document's top-level `meta`.
+     *
+     * @param list<FieldInterface|FieldBuilderInterface> $meta
+     */
+    public function withMeta(array $meta): self
+    {
+        return new self($this->type, $meta);
+    }
+
     public function status(): int
     {
         return 200;

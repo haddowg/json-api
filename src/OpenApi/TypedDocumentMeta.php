@@ -83,7 +83,7 @@ final class TypedDocumentMeta
      */
     public static function forDelete(TypeMetadataInterface $type): DocumentMeta
     {
-        return DocumentMeta::forDeleteResponses($type->responsesFor(OperationType::Delete), $type->type());
+        return DocumentMeta::forDelete(self::forOperation($type, OperationType::Delete), $type->responsesFor(OperationType::Delete), $type->type());
     }
 
     /**
