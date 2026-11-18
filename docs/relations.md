@@ -31,8 +31,8 @@ allowed related type); the last two are polymorphic (several).
 | Class | Cardinality | Backing | Factory |
 | --- | --- | --- | --- |
 | `BelongsTo` | to-one | FK on the owning model | `make('artist', 'artists')` |
-| `HasOne` | to-one | FK on the related model | `make('featuredAlbum', 'albums')` |
-| `HasMany` | to-many | collection of related models | `make('tracks', 'tracks')` |
+| `HasOne` | to-one | FK on the related model | `make('featuredAlbum', 'albums')`, or `make('featuredAlbum', 'albums', 'artist')` with a [foreign key](#reading-through-a-foreign-key) |
+| `HasMany` | to-many | collection of related models | `make('tracks', 'tracks')`, or `make('tracks', 'tracks', 'album')` with a [foreign key](#reading-through-a-foreign-key) |
 | `BelongsToMany` | to-many | pivot (join) table | `make('playlists', 'playlists')` |
 | `MorphTo` | to-one | polymorphic FK | `make('item', ['tracks', 'albums', 'artists'])` |
 | `MorphToMany` | to-many | polymorphic collection | `make('items', ['tracks', 'albums', 'artists'])` |
@@ -75,7 +75,8 @@ member, which the linkage endpoint requires per the spec.
 
 `HasOne` extends `BelongsTo` and carries identical metadata; the distinction is
 advisory for data-layer adapters (the FK lives on the *related* model, not the
-owning one). [`ArtistResource`](../examples/music-catalog/src/Resource/ArtistResource.php)
+owning one). Name that foreign key as the third argument to read the target through it
+instead of off the parent; see [Reading through a foreign key](#reading-through-a-foreign-key). [`ArtistResource`](../examples/music-catalog/src/Resource/ArtistResource.php)
 declares one:
 
 ```php
@@ -119,6 +120,48 @@ the `Mode` of the request (the `Mode` enum, see
 set, `Mode::Add` appends (idempotently), `Mode::Remove` subtracts. See
 [relationship-mutation](relationship-mutation.md) for the endpoints that drive
 those modes.
+
+## Reading through a foreign key
+
+`HasMany` and `HasOne` take an optional third argument, the foreign key: the field or
+to-one relation of the related type that holds the parent's id. A relation declared
+with one reads its members as the related rows whose foreign key is one of the parents'
+ids, and never off the parent model:
+
+```php
+// An inbox served by its own provider, whose items live in the database.
+HasMany::make('items', 'inbox-items', 'user'),
+
+// A field or a to-one relation of the related type, named either way.
+HasMany::make('notes', 'notes', foreignKey: 'author'),
+HasOne::make('latestReceipt', 'receipts', 'order'),
+```
+
+Use it when the parent can't hold its members. A singleton or a computed type served
+by a custom provider has no association to read, and a database parent may have no
+inverse mapping to the rows that point at it. Once declared, the foreign key decides
+every read of the relation, whatever stores the parent and even when a mapped
+association exists: the related endpoint, the relationship endpoint, `?include`,
+`withData()` linkage, `?withCount`, offset and cursor pages, the
+[Relationship Queries profile](profiles/relationship-queries.md) and the related
+type's filter defaults. The related type's data layer runs each as one query,
+`WHERE <foreign key> IN (<parent ids>)` under its access scope, cut per parent to the
+window it was asked for.
+
+The foreign key must name a member of the related type that holds the parent's id:
+
+- a stored field, compared with the parent's id as storage holds it, that is the
+  parent's wire id decoded through its [id encoder](ids.md) when it declares one;
+- or a to-one relation whose related type is the parent's type.
+
+`RelationForeignKeyValidator` checks that at warm-up, and a host runs it once per
+registered resource. A `BelongsToMany` takes no foreign key, since its members live in
+its pivot rows. The OpenAPI document doesn't change: the foreign key is how storage
+reaches the members, not part of the API.
+
+A data layer resolves the name with `ForeignKey::of($relation, $resolver)`, which
+returns the member's storage `column` and whether it is a to-one relation, and reads
+each parent's key with `ForeignKey::parentKey($parentSerializer, $parent)`.
 
 ## BelongsToMany — a pivot-backed to-many
 

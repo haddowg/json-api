@@ -13,8 +13,14 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class HasOne extends BelongsTo
 {
-    public static function make(string $name, string $type): HasOneBuilder
+    /**
+     * Declares a to-one relation to `$type` held by the related model. `$foreignKey` names
+     * the field or to-one relation of `$type` that holds the parent's id: the relation then
+     * reads its target as the related row whose foreign key is the parent's id. Leave it
+     * out to read the target the parent model holds.
+     */
+    public static function make(string $name, string $type, ?string $foreignKey = null): HasOneBuilder
     {
-        return HasOneBuilder::make($name, $type);
+        return HasOneBuilder::make($name, $type, $foreignKey);
     }
 }

@@ -190,6 +190,12 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     protected ?string $positionField = null;
 
     /**
+     * The related type's field or to-one relation holding the parent's id, set by the
+     * third argument to `HasMany::make()` or `HasOne::make()`.
+     */
+    protected ?string $foreignKey = null;
+
+    /**
      * Freezes the accumulated authoring state into the concrete readonly relation
      * value object the engine consumes. Pure and idempotent.
      */
@@ -726,6 +732,23 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * Records the related type's field or to-one relation that holds the parent's id, so
+     * the relation reads its members through it; `null` keeps the default reader.
+     *
+     * @return static
+     */
+    protected function readThroughForeignKey(?string $foreignKey): static
+    {
+        if ($foreignKey === '') {
+            throw new \InvalidArgumentException(\sprintf('Relation "%s" must name the field or to-one relation its foreign key is held in.', $this->name));
+        }
+
+        $this->foreignKey = $foreignKey;
+
+        return $this;
+    }
+
+    /**
      * Whether this builder builds a to-many relation, which alone may declare a
      * {@see defaultSort()} or {@see cannotChangeMembership()}.
      */
@@ -788,6 +811,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             cannotChangeMembershipWhen: $this->cannotChangeMembershipWhen,
             dropsAllFilterDefaults: $this->dropsAllFilterDefaults,
             droppedFilterDefaults: $this->droppedFilterDefaults,
+            foreignKey: $this->foreignKey,
         );
     }
 }

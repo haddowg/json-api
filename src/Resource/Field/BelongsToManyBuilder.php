@@ -30,6 +30,23 @@ final class BelongsToManyBuilder extends HasManyBuilder
         return $this->positionMembersBy($field);
     }
 
+    /**
+     * A pivot relation's members live in its join rows, so it takes no foreign key.
+     *
+     * @return static
+     */
+    protected function readThroughForeignKey(?string $foreignKey): static
+    {
+        if ($foreignKey !== null) {
+            throw new \InvalidArgumentException(\sprintf(
+                'Relation "%s" is a BelongsToMany, whose members live in its pivot rows, so it takes no foreign key. Use HasMany::make() to read the members through a foreign key on the related type.',
+                $this->name,
+            ));
+        }
+
+        return $this;
+    }
+
     public function build(): BelongsToMany
     {
         return new BelongsToMany($this->fieldState(), $this->relationState(), $this->positionedPivotFields(), $this->pivotThrough);

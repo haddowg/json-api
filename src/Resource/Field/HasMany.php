@@ -18,9 +18,15 @@ use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
  */
 readonly class HasMany extends AbstractRelationValue
 {
-    public static function make(string $name, string $type): HasManyBuilder
+    /**
+     * Declares a to-many relation to `$type`. `$foreignKey` names the field or to-one
+     * relation of `$type` that holds the parent's id: the relation then reads its members
+     * as the related rows whose foreign key is the parent's id, whatever stores the parent.
+     * Leave it out to read the members the parent model holds.
+     */
+    public static function make(string $name, string $type, ?string $foreignKey = null): HasManyBuilder
     {
-        return HasManyBuilder::make($name, $type);
+        return HasManyBuilder::make($name, $type, $foreignKey);
     }
 
     public function isToMany(): bool

@@ -20,6 +20,18 @@ final class HasOneBuilder extends BelongsToBuilder
      */
     protected bool $dataOnlyWhenLoaded = true;
 
+    /**
+     * Starts a to-one relation to `$type` held by the related model. A `$foreignKey`
+     * names the related type's field or to-one relation that holds the parent's id, and
+     * the relation then reads its target through it on every path.
+     *
+     * @return static
+     */
+    public static function make(string $name, string $type, ?string $foreignKey = null): static
+    {
+        return (new static($name))->withRelatedTypes($type)->readThroughForeignKey($foreignKey);
+    }
+
     public function build(): HasOne
     {
         return new HasOne($this->fieldState(), $this->relationState());
