@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresClientIdCollisions;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDefaultSort;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDeprecation;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresHydratorCardinality;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresIncludeSafeguards;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresInclusionUnsupported;
@@ -39,7 +40,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresSingleton, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresSingleton, DeclaresDocumentMeta, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -62,6 +63,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}
      */
     public function __construct(
         private readonly string $type,
@@ -100,7 +102,16 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         private readonly bool $detectsClientIdCollisions = true,
         private readonly bool $checksRelationshipCardinality = true,
         private readonly bool $singleton = false,
+        private readonly array $documentMeta = [],
     ) {}
+
+    /**
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function documentMeta(OperationType $operation): iterable
+    {
+        return $this->documentMeta[$operation->value] ?? [];
+    }
 
     public function allowedIncludePaths(): ?array
     {
@@ -212,6 +223,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample       the type's declared sort example
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards the type's include safeguards, `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn  the operation names refusing every `include`
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}
      */
     public static function resource(
         string $type,
@@ -249,6 +261,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         array $rejectsIncludeOn = [],
         bool $detectsClientIdCollisions = true,
         bool $singleton = false,
+        array $documentMeta = [],
     ): self {
         return new self(
             type: $type,
@@ -292,6 +305,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
             rejectsIncludeOn: $rejectsIncludeOn,
             detectsClientIdCollisions: $detectsClientIdCollisions,
             singleton: $singleton,
+            documentMeta: $documentMeta,
         );
     }
 

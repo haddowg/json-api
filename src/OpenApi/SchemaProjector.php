@@ -731,6 +731,35 @@ final class SchemaProjector
     }
 
     /**
+     * Projects the declared members of a document's top-level `meta`
+     * ({@see \haddowg\JsonApi\Resource\DocumentMeta}) as a closed read object. Unlike
+     * {@see projectReadObject()}, a member is required only when it is declared
+     * `required()`, as an error descriptor's `meta` is.
+     *
+     * @param iterable<FieldInterface> $fields
+     */
+    public function projectDocumentMeta(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    {
+        $properties = [];
+        $required = [];
+
+        foreach ($fields as $field) {
+            if ($field->isHidden() || !$this->appearsInRepresentation($field, RepresentationContext::Read)) {
+                continue;
+            }
+            $properties[$field->name()] = $this->reading(fn(): Schema => $this->projectField($field, false, $collector));
+            if ($this->isRequired($field, true)) {
+                $required[] = $field->name();
+            }
+        }
+
+        return Schema::ofType('object')
+            ->withProperties($properties)
+            ->withRequired($required)
+            ->withAdditionalProperties(false);
+    }
+
+    /**
      * Projects a type's **resource object** schema: `type` const, `id`,
      * `attributes` (inline), a permissive `relationships` placeholder (full
      * relationship schemas are a later slice), and the conventional `links`/`meta`

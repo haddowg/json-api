@@ -79,6 +79,13 @@ paths. The type resolves the caller's id, its resource object still carries it, 
 types link to it by type and id as usual.
 _Avoid_: singular resource, current-user resource, me endpoint
 
+**Typed document meta**:
+The members a type declares for the top-level `meta` of one operation's document, or an action
+declares on its response, with field builders. The generated document types them in a
+document component of the operation's own, and an adapter in debug mode refuses a response
+whose `meta` does not match.
+_Avoid_: document meta schema, response meta
+
 **Serializer**:
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer

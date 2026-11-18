@@ -57,6 +57,78 @@ return MetaResponse::fromMeta(['queued' => true, 'jobId' => 'reindex-7']);
 A `MetaResponse` still accepts `withLinks()`/`withJsonApi()` like any other
 response.
 
+## Typed document meta
+
+Free-form meta is invisible to a client generated from the OpenAPI document: it reads
+`meta` as an open object. When an operation always says the same things in its top-level
+`meta`, declare them, with the field builders an attribute takes. The generated document
+then types them, and a client reads `meta.unread` as an integer.
+
+A resource declares them per operation in `documentMeta()`, which returns nothing by default:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\{Integer, Str};
+
+public function documentMeta(OperationType $operation): iterable
+{
+    return match ($operation) {
+        OperationType::FetchCollection => [
+            Integer::make('unread')->required()->example(3)
+                ->extractUsing(fn (mixed $items, JsonApiRequestInterface $request): int => $this->inbox->unreadFor($request)),
+        ],
+        OperationType::FetchOne, OperationType::Update => [
+            Str::make('etag')->extractUsing(fn (mixed $item): string => $item->etag()),
+        ],
+        default => [],
+    };
+}
+```
+
+The rules:
+
+- A member's `extractUsing()` hook supplies its value. It receives the document's primary
+  data, one resource or the page of resources, and the request. A member without one is
+  left for the handler or an After hook to set with `withMeta()`, and a value set that way
+  wins over the hook's.
+- A member declared `required()` is in every such document, so `meta` is required; any other
+  is optional. Each member's `example()` feeds the operation's example, and a required member
+  without one drops it.
+- The OpenAPI projection calls `documentMeta()` once per operation the type exposes, with no
+  request, so its result must not depend on one.
+- A related endpoint serving the type uses its `FetchCollection` members for a to-many and its
+  `FetchOne` members for a to-one. A relationship endpoint serves linkage only and carries
+  none, and a delete is never asked.
+- A collection keeps the members core writes into its `meta`, `page` and `total`, beside the
+  declared ones. Declaring either of them on `FetchCollection` throws
+  `DocumentMetaMisdeclared` when the adapter registers the type.
+
+A type composed without `AbstractResource` implements
+`haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface` on its serializer instead.
+
+A custom action declares the members of its response document on the response object, and
+its handler sets the values with `withMeta()`:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+
+new ActionResource('inboxes', meta: [
+    Integer::make('marked')->required()->describedAs('How many items this call marked read.')->example(12),
+]);
+```
+
+`ActionCreated` and `MetaResult` take the same `meta:` list. A delete answering a meta-only
+`200` declares its members on its `MetaResult`.
+
+The declaration is closed. In debug mode an adapter checks every declaring response's
+top-level `meta` against it and throws `DocumentMetaMismatch` for a missing required member,
+an undeclared member or a value of the wrong JSON type. In production nothing is checked.
+`DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()` and
+`forResponse()` read a declaration, `fill()` runs the hooks, and `assertSatisfiedBy()` runs
+the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
+produces.
+
 ## Resource-level: getMeta / getLinks on a serializer
 
 Resource-object `meta` and `links` come from the two serializer hooks. On an

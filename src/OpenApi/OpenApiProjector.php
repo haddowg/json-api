@@ -150,6 +150,14 @@ final class OpenApiProjector
         foreach ($server->types() as $type) {
             $this->addTypeComponents($schemas, $type, $collector, $links, $server);
         }
+
+        // The documents of the operations and actions that declare their top-level meta,
+        // built now so their members' enums join the collector, and added last so a name
+        // another component already holds is refused.
+        $typedDocuments = [];
+        foreach (TypedDocumentMeta::documents($server) as $name => $typed) {
+            $typedDocuments[$name] = TypedDocumentMeta::schema($typed['base'], $typed['meta'], $this->schemaProjector, $collector);
+        }
         [$paths, $parameters] = self::adoptFilterEnums($paths, $parameters, $filterEnums, $collector);
 
         // Every relationship object `$ref`s a `<RelatedType>ResourceIdentifier`, and a
@@ -199,6 +207,16 @@ final class OpenApiProjector
         }
         $namedShapes = $collector->shapeComponents() !== [];
         foreach ($collector->shapeComponents() as $name => $schema) {
+            $schemas[$name] = $schema;
+        }
+
+        foreach ($typedDocuments as $name => $schema) {
+            if (isset($schemas[$name])) {
+                throw new \LogicException(\sprintf(
+                    'The document with typed meta "%s" would take the name of another component. Rename the type, relation or action, or the other component.',
+                    $name,
+                ));
+            }
             $schemas[$name] = $schema;
         }
 
@@ -266,7 +284,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, $typedDocuments !== []),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -513,7 +531,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -550,6 +568,7 @@ final class OpenApiProjector
             fixedMembership: RelationFacts::anyFixesMembership($server),
             unions: self::hasUnion($server),
             namedComponents: $namedComponents,
+            typedDocumentMeta: $typedDocumentMeta,
         ));
     }
 

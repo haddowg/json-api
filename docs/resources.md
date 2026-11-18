@@ -188,6 +188,7 @@ the rest carry sensible defaults you override per type.
 | `sorts()` | `list<SortInterface>` | Computed / multi-column [sorts](sorts.md) beyond the field-derived ones (default: none). |
 | `pagination()` | `?PaginatorInterface` | The default [pagination](pagination.md) for this type's collections (default: `null` → the server's). |
 | `getDefaultIncludedRelationships(mixed $object)` | `list<string>` | Relationships included by default when the request carries no `?include` (default: none). |
+| `documentMeta(OperationType $operation)` | `iterable<FieldBuilderInterface>` | The members of the top-level `meta` that operation's document always carries, [typed in the OpenAPI document](links-and-meta.md#typed-document-meta) (default: none). |
 | `allSorts()` | `list<SortInterface>` | **Derived for you** — every `->sortable()` field yields a `SortByField`, merged with `sorts()`. Rarely overridden. |
 
 [`ArtistResource`](../examples/music-catalog/src/Resource/ArtistResource.php) shows
