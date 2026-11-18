@@ -97,7 +97,7 @@ final class ActionResponses
      *
      * @param list<ActionResponse> $responds
      *
-     * @return list<ActionResponse>
+     * @return ($responds is non-empty-list ? non-empty-list<ActionResponse> : list<ActionResponse>)
      *
      * @throws DocumentMetaMisdeclared when a response and its handler both declare its members
      */
