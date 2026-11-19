@@ -33,6 +33,8 @@ final readonly class FieldState
      * @param bool                                                                       $guaranteed           the author asserts every rendered value is non-null
      * @param bool                                                                       $deprecated           documented as deprecated in the OpenAPI document
      * @param string|null                                                                $component            the named schema component the value's shape projects as
+     * @param \Closure(mixed, array<string, mixed>): mixed|null                          $deserializeUsingOnCreate deserialize hook declared inside `onCreate()`
+     * @param \Closure(mixed, array<string, mixed>): mixed|null                          $deserializeUsingOnUpdate deserialize hook declared inside `onUpdate()`
      */
     public function __construct(
         public string $name,
@@ -60,7 +62,28 @@ final readonly class FieldState
         public bool $guaranteed = false,
         public bool $deprecated = false,
         public ?string $component = null,
+        public ?\Closure $deserializeUsingOnCreate = null,
+        public ?\Closure $deserializeUsingOnUpdate = null,
     ) {}
+
+    /**
+     * The deserialize hook a create, or an update, runs: the one declared inside
+     * `onCreate()` or `onUpdate()` for that write, else the one declared on the field.
+     *
+     * @return \Closure(mixed, array<string, mixed>): mixed|null
+     */
+    public function deserializerFor(bool $creating): ?\Closure
+    {
+        return ($creating ? $this->deserializeUsingOnCreate : $this->deserializeUsingOnUpdate) ?? $this->deserializeUsing;
+    }
+
+    /**
+     * Whether any write runs a deserialize hook.
+     */
+    public function deserializes(): bool
+    {
+        return $this->deserializeUsing !== null || $this->deserializeUsingOnCreate !== null || $this->deserializeUsingOnUpdate !== null;
+    }
 
     /**
      * This state read-only on create and on update for every request.
@@ -93,6 +116,8 @@ final readonly class FieldState
             guaranteed: $this->guaranteed,
             deprecated: $this->deprecated,
             component: $this->component,
+            deserializeUsingOnCreate: $this->deserializeUsingOnCreate,
+            deserializeUsingOnUpdate: $this->deserializeUsingOnUpdate,
         );
     }
 }

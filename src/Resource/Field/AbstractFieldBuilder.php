@@ -112,6 +112,16 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     protected ?\Closure $deserializeUsing = null;
 
     /**
+     * @var \Closure(mixed, array<string, mixed>): mixed|null
+     */
+    private ?\Closure $deserializeUsingOnCreate = null;
+
+    /**
+     * @var \Closure(mixed, array<string, mixed>): mixed|null
+     */
+    private ?\Closure $deserializeUsingOnUpdate = null;
+
+    /**
      * @var \Closure(mixed, mixed, array<string, mixed>, string): mixed|null
      */
     protected ?\Closure $fillUsing = null;
@@ -442,7 +452,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Converts the request value before it is stored, called with the value and the
-     * resource object's `data` member. The callback may type the value as `TValue`, the
+     * resource object's `data` member. Declared inside `onCreate()` or `onUpdate()`, it
+     * runs on that write only, in place of one declared on the field. The callback may type the value as `TValue`, the
      * type the field's validation guarantees. After it `TValue` is `mixed`, so a
      * `fillUsing()` declared later takes the value untyped.
      *
@@ -452,7 +463,12 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      */
     public function deserializeUsing(\Closure $callback): static
     {
-        $this->deserializeUsing = $callback;
+        $context = $this->currentContext();
+        match (true) {
+            $context->onCreate && !$context->onUpdate => $this->deserializeUsingOnCreate = $callback,
+            $context->onUpdate && !$context->onCreate => $this->deserializeUsingOnUpdate = $callback,
+            default => $this->deserializeUsing = $callback,
+        };
 
         return $this;
     }
@@ -545,7 +561,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * Restricts the value to the backing scalars of a backed enum's cases. A write
      * hydrates the backing value as the case, so the setter or property takes the enum;
      * a value nested in an {@see Obj}, a {@see OneOf} or a structured {@see ArrayList}
-     * stays the backing value, since a JSON column holds it. A read renders a case as its
+     * stays the backing value, since a JSON column holds it. Declared inside `onCreate()`
+     * or `onUpdate()`, it converts that write's value only. A read renders a case as its
      * backing value. A `deserializeUsing()` hook replaces the conversion.
      *
      * `TValue` takes the enum too: a top-level field's `fillUsing()` receives the case,
@@ -646,11 +663,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Scopes every constraint appended inside `$builder` to create (POST) requests.
-     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * `TValue` takes the type of the builder `$builder` returns, so an arrow function
+     * keeps what its `nullable()`, `enum()` or `deserializeUsing()` adds. PHPStan can't
+     * see what a closure returning nothing declared, so `TValue` is then `mixed`.
      *
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @template TBuilder
+     *
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function onCreate(\Closure $builder): static
@@ -662,11 +682,12 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Scopes every constraint appended inside `$builder` to update (PATCH) requests.
-     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * `TValue` takes the type of the builder `$builder` returns, as for {@see onCreate()}.
      *
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @template TBuilder
+     *
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function onUpdate(\Closure $builder): static
@@ -707,13 +728,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * The condition receives the value first and the request second (nullable), so
      * a `fn($value)` closure keeps binding unchanged while a `fn($value, $request)`
      * closure can also branch on the caller. The condition's value stays `mixed`, since
-     * an adapter's validator asks it before checking the value's JSON type. PHPStan
-     * cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * an adapter's validator asks it before checking the value's JSON type. `TValue`
+     * takes the type of the builder `$builder` returns, as for {@see onCreate()}.
+     *
+     * @template TBuilder
      *
      * @param \Closure(mixed, JsonApiRequestInterface|null): bool $condition
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function when(\Closure $condition, \Closure $builder): static
@@ -799,6 +821,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
             guaranteed: $this->guaranteed,
             deprecated: $this->deprecated,
             component: $this->component,
+            deserializeUsingOnCreate: $this->deserializeUsingOnCreate,
+            deserializeUsingOnUpdate: $this->deserializeUsingOnUpdate,
         );
     }
 
@@ -877,7 +901,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(static): void $builder
+     * @param \Closure(static): mixed $builder
      * @return static
      */
     private function withContext(Context $context, \Closure $builder): static

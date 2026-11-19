@@ -571,17 +571,29 @@ Str::make('note')->nullable()->fillUsing(static fn (Track $track, ?string $value
 
 The value widens with what the declaration lets a write carry:
 
-- `nullable()` adds `null`. So do `onCreate()`, `onUpdate()` and `when()`, since PHPStan
-  can't see whether their closure declares `nullable()`, and `constrain()` with a
-  `Nullable` or `When`.
+- `nullable()` adds `null`, and so does `constrain()` with a `Nullable` or `When`.
 - `enum()`, and `in()` over cases of a backed enum, add the enum. A top-level field's
   `fillUsing()` receives the case and a nested child's the backing value, so the hook takes
   `RunState|string`. An `ArrayList`'s `each()` with such an `In` adds a list of cases.
 - `deserializeUsing()` makes it `mixed` for a `fillUsing()` declared after it.
 
-PHPStan can't see an `enum()`, an enum `in()` or an enum `each()` declared inside an
-`onCreate()` or `onUpdate()` closure, yet the field still converts the value to the case
-on every write. Declare those outside the closure.
+`onCreate()`, `onUpdate()` and `when()` add what their closure declares, read from the
+builder it returns: after `->onCreate(fn (StrBuilder $field) => $field->nullable())` the
+hook takes `?string`. An `enum()`, an enum `in()` or a `deserializeUsing()` declared inside
+`onCreate()` converts only a create's value, and one inside `onUpdate()` only an update's.
+The other write gets the value as sent unless the field declares its own conversion for
+it, so after `->onCreate(fn (StrBuilder $field) => $field->enum(RunState::class))` the hook
+takes `RunState|string`: the case on a create, the string on an update. `when()` scopes
+only validation: an enum declared inside it adds the enum to the type though no write
+converts, and a `deserializeUsing()` inside it runs on every write. PHPStan can't see what
+a closure that returns nothing declared, so after one the value is `mixed`. Return the
+builder from the closure, or take `mixed` in the hook and narrow it there.
+
+These scope types are exact on PHPStan 2.3.2 and later. Earlier 2.x releases report no
+error on them but infer a narrower value in some cases: 2.0.0 to 2.1.2 miss an `enum()` or
+a `deserializeUsing()` returned from the closure, and 2.1.5 to 2.3.1 miss a
+`deserializeUsing()` and a closure that returns nothing. On those releases, type the
+hook's value yourself.
 
 A builder carries its type from left to right, so declare these before the hook: a
 `nullable()` written after `fillUsing()` does not reach the closure PHPStan already

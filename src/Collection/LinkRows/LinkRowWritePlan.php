@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Collection\LinkRows;
 
+use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Internal\StoredPair;
@@ -216,7 +217,7 @@ final readonly class LinkRowWritePlan
         foreach ($relation->writablePivotFields($creating) as $field) {
             \assert($field instanceof FieldInterface);
             if (\array_key_exists($field->name(), $pivot)) {
-                $values[$field->column() ?? $field->name()] = $field->castWireValue($pivot[$field->name()]);
+                $values[$field->column() ?? $field->name()] = $field instanceof AbstractFieldValue ? $field->castWireValueFor($pivot[$field->name()], $creating) : $field->castWireValue($pivot[$field->name()]);
             }
         }
 
