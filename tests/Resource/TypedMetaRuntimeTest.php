@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource;
 
 use haddowg\JsonApi\Atomic\AtomicOperationsParser;
-use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;

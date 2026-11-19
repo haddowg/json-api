@@ -185,7 +185,7 @@ final class TypedRequestMetaProjectionTest extends TestCase
 
         // A type declaring nothing keeps the shared `Meta`.
         self::assertSame(['$ref' => '#/components/schemas/Meta'], self::arr(self::schema($document, 'RoomsResource')['properties'])['meta']);
-        self::assertArrayNotHasKey('meta', self::arr(self::arr(self::schema($document, 'RoomsCreateRequest')['properties'])['data'])['properties']);
+        self::assertArrayNotHasKey('meta', self::arr(self::arr(self::arr(self::schema($document, 'RoomsCreateRequest')['properties'])['data'])['properties']));
     }
 
     #[Test]
