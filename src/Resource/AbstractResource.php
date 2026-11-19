@@ -47,8 +47,9 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  *
  * `getAttributes()`/`getRelationships()` return callables (the contract the
  * transformer consumes); sparse-fieldset filtering and inclusion are handled by
- * the transformer reading {@see \haddowg\JsonApi\Resource\Field\FieldInterface::isSparseField()} and the request, so the
- * resource emits every non-hidden field and lets the engine narrow.
+ * the transformer reading the request, so the resource emits every non-hidden field and
+ * lets the engine narrow. A field declared `notSparseField()` is emitted marked, and the
+ * engine renders it whatever the fieldset lists.
  */
 abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface
 {
@@ -608,18 +609,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // serialize() — any intermediate null short-circuits the whole chain to a
             // null value.
             $relatedVia = $field->relatedVia();
-            if ($relatedVia !== null) {
-                $attributes[$field->name()] = function (mixed $model, JsonApiRequestInterface $request, string $fieldName) use ($field, $relatedVia): mixed {
+            $render = $relatedVia !== null
+                ? function (mixed $model, JsonApiRequestInterface $request, string $fieldName) use ($field, $relatedVia): mixed {
                     $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $model, $request);
 
                     return $owner === null ? null : $field->serialize($owner, $request, $fieldName);
-                };
-
-                continue;
-            }
-
-            $attributes[$field->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
+                }
+            : static fn(mixed $model, JsonApiRequestInterface $request, string $fieldName): mixed
                 => $field->serialize($model, $request, $fieldName);
+
+            $attributes[$field->name()] = $field->isSparseField() ? $render : new Internal\NonSparseMember($render);
         }
 
         return $attributes;

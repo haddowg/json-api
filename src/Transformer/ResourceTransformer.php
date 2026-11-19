@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\OpenApi\OperationReference;
+use haddowg\JsonApi\Resource\Internal\NonSparseMember;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
@@ -272,7 +273,7 @@ final class ResourceTransformer
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
-            if ($transformation->request->isIncludedField($transformation->resourceType, $name)) {
+            if (($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation)) || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
                 $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, $name);
             }
         }
@@ -280,6 +281,15 @@ final class ResourceTransformer
         if ($transformedAttributes !== []) {
             $transformation->result['attributes'] = $transformedAttributes;
         }
+    }
+
+    /**
+     * Whether `fields[type]=` asks for no fields of the type at all, which a
+     * `notSparseField()` member honours too.
+     */
+    private function selectsNoFields(ResourceTransformation $transformation): bool
+    {
+        return \in_array('', $transformation->request->getIncludedFields($transformation->resourceType), true);
     }
 
     private function transformRelationshipsObject(ResourceTransformation $transformation, DataInterface $data): void
@@ -296,6 +306,7 @@ final class ResourceTransformer
         $transformedRelationships = [];
         foreach ($relationships as $relationshipName => $relationshipCallback) {
             $transformation->currentRelationshipName = $relationshipName;
+            $transformation->currentRelationshipNotSparse = $relationshipCallback instanceof NonSparseMember && !$this->selectsNoFields($transformation);
             $relationshipObject = $this->transformRelationshipObject(
                 $transformation,
                 $data,
@@ -313,6 +324,7 @@ final class ResourceTransformer
         }
 
         $transformation->currentRelationshipName = '';
+        $transformation->currentRelationshipNotSparse = false;
     }
 
     /**
@@ -330,6 +342,7 @@ final class ResourceTransformer
         $relationshipName = $transformation->currentRelationshipName;
 
         if (
+            $transformation->currentRelationshipNotSparse === false &&
             $transformation->request->isIncludedField($transformation->resourceType, $relationshipName) === false &&
             $transformation->request->isIncludedRelationship($transformation->basePath, $relationshipName, $defaultRelationships) === false
         ) {
