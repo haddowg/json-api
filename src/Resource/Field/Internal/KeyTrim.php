@@ -17,12 +17,25 @@ final class KeyTrim
 {
     /**
      * The members of `$value` whose keys `$only` holds, each narrowed key trimmed to the
-     * selection inside it. A value that is not an object is returned as it is.
+     * selection inside it. A list selected through {@see KeySelection::ITEMS} keeps every
+     * item, each trimmed to the selection inside the items. Any other value that is not an
+     * object is returned as it is.
      */
     public static function trim(mixed $value, KeySelection $only): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
+        }
+        if ($only->has(KeySelection::ITEMS)) {
+            if ($value instanceof \Traversable) {
+                $value = \iterator_to_array($value, false);
+            }
+            if (!\is_array($value) || !\array_is_list($value)) {
+                return $value;
+            }
+            $items = $only->items();
+
+            return $items === null ? $value : \array_map(static fn(mixed $item): mixed => self::trim($item, $items), $value);
         }
         if (\is_object($value)) {
             $value = \get_object_vars($value);

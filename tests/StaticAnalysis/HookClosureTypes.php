@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\StaticAnalysis;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\HasMany;
@@ -90,6 +91,13 @@ final class HookClosureTypes
                 ->fields(Integer::make('views'))
                 ->selectableKeys(static fn(string $key): bool => $key === 'views')
                 ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $row),
+            ArrayList::make('selectedItems')
+                ->of(Obj::make('line')->fields(Str::make('sku'), Integer::make('qty'))->selectableKeys(pattern: 'sku|qty'))
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => ['paths' => $only?->paths() ?? [], 'items' => $only?->items()->keys ?? []]),
+            ArrayList::make('selectedItemsComputed')
+                ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
+                ->computedUsing(static fn(\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => []),
+            ArrayList::make('scalarItems')->extractUsing(static fn(array $row): array => $row),
             DeclaredLink::make('download')
                 ->hrefUsing(static fn(array $row): ?string => isset($row['path']) ? '/files' : null)
                 ->metaUsing(static fn(?\DateTimeImmutable $model): array => ['at' => $model?->format('c')]),

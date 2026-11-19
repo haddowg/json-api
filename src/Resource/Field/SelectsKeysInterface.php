@@ -10,7 +10,8 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * An object attribute whose keys a request may select one by one with
  * `fields[TYPE]=<attr>.<key>`, once it declares `selectableKeys()`. A key whose field is
  * itself such an object, declaring `selectableKeys()` too, can be narrowed further as
- * `<attr>.<key>.<key>`.
+ * `<attr>.<key>.<key>`. An {@see ArrayList} of such objects is one too, whose only key is
+ * {@see KeySelection::ITEMS}, as `<attr>.*.<key>`.
  */
 interface SelectsKeysInterface extends FieldInterface
 {

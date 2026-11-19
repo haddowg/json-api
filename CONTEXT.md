@@ -96,14 +96,16 @@ _Avoid_: document meta schema, response meta
 **Selectable keys**:
 An `Obj` or a `Map` declaring, by a pattern, a predicate or both, which of its keys a
 `fields[TYPE]=<attribute>.<key>` member may select one at a time. A key whose object
-declares selectable keys too takes a longer path, `<attribute>.<key>.<key>`. A response
-narrowing one applies the Field Selection profile.
-_Avoid_: partial attribute, sub-field, nested fieldset
+declares selectable keys too takes a longer path, `<attribute>.<key>.<key>`. A list whose
+element is such an `Obj` selects keys of every item through `*`, as `<attribute>.*.<key>`,
+and declares nothing itself. A response narrowing one applies the Field Selection profile.
+_Avoid_: partial attribute, sub-field, nested fieldset, list index
 
 **Key selection**:
 The keys a request selected of one attribute with selectable keys, as the `KeySelection`
 value its `extractUsing()` hook receives, holding a nested key selection for each key it
-narrows further. `null` when the request takes the whole attribute.
+narrows further. A list's holds the one key `*`, and its `items()` is the selection inside
+every item. `null` when the request takes the whole attribute.
 _Avoid_: key filter, projection
 
 **Typed request meta**:

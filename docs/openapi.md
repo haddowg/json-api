@@ -373,29 +373,35 @@ sketch:
 A `fields[<type>]` parameter's items are the enum of the type's members. When the type has
 an attribute declaring [selectable keys](field-types.md#selectable-keys), the items become
 an `anyOf` of that enum and one string `pattern` per path a member may select:
-`<attribute>.<key>` for each such attribute, and `<attribute>.<key>.<key>` for each object
-inside it that declares selectable keys too, at any depth:
+`<attribute>.<key>` for each such attribute, `<attribute>.<key>.<key>` for each object
+inside it that declares selectable keys too, at any depth, and `<attribute>.*.<key>` for a
+list whose element declares them:
 
 ```json
 "items": {
   "anyOf": [
-    { "type": "string", "enum": ["name", "address", "totals"] },
+    { "type": "string", "enum": ["name", "address", "totals", "lines"] },
     { "type": "string", "pattern": "^address\\.(?:[a-z]+)$" },
     { "type": "string", "pattern": "^address\\.geo\\.(?:lat|lng)$" },
-    { "type": "string", "pattern": "^totals\\.[^.,]+$" }
+    { "type": "string", "pattern": "^totals\\.[^.,*]+$" },
+    { "type": "string", "pattern": "^lines\\.\\*\\.(?:sku|quantity|price)$" },
+    { "type": "string", "pattern": "^lines\\.\\*\\.price\\.(?:amount|currency)$" }
   ]
 }
 ```
 
 Each pattern wraps the declared key pattern of its last object. A nested object reached
 through a declared child names that child, so `geo` appears literally, and one reached
-through the members of an open object repeats the open object's key pattern. A child the
-parent's pattern doesn't match, or one that never renders, adds no pattern. An object
-declaring only a predicate can't say which keys it takes, so its pattern admits any key up
-to the next `.` or comma, and the server still rejects one the predicate refuses. The
-parameter's description names the attributes and the
-[Field Selection profile](profiles/field-selection.md), which the server applies to a
-narrowed response, and mentions nested keys when the type has any. The `JsonApi` component
+through the members of an open object repeats the open object's key pattern. A list adds
+a literal `\.\*` segment before its element's keys and no pattern of its own, since
+`lines.*` selects the same as `lines`, which the enum already lists. A child the parent's
+pattern doesn't match, or one that never renders, adds no pattern, nor does a list whose
+element declares no selectable keys. An object declaring only a predicate can't say which
+keys it takes, so its pattern admits any key up to the next `.`, comma or `*`, and the
+server still rejects one the predicate refuses. The parameter's description names the
+attributes and the lists and the [Field Selection profile](profiles/field-selection.md),
+which the server applies to a narrowed response, and mentions nested keys and nested
+lists when the type has any. The `JsonApi` component
 lists the profile with the others when the server registers it. The attribute's own schema
 is unchanged. A document with such a parameter declares the `FIELD_SELECTION` contract tier
 in its [`x-generator`](#the-generator-contract-x-generator) stamp.

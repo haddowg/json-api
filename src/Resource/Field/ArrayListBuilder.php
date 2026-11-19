@@ -25,6 +25,7 @@ use haddowg\JsonApi\Resource\Constraint\UniqueItems;
 final class ArrayListBuilder extends AbstractFieldBuilder
 {
     use NamesSchemaComponent;
+    use ReceivesKeySelection;
 
     /**
      * The JSON type of each element, surfaced as the OpenAPI `items` type. Defaults

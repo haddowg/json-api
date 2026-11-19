@@ -532,16 +532,46 @@ Nesting is opt-in per level. A key whose field is itself an `Obj` or a `Map` dec
 an open object the field every undeclared member renders through decides, so with
 `Obj::make('scores')->additionalProperties(Obj::make('*')->fields(...)->selectableKeys(...))`
 a request can select `scores.maths.max`. A key whose object declares no selectable keys is
-selected whole, as is one holding a list, such as a repeating group: a deeper path below
-either is an unknown fieldset member. Listing a key whole beside a path into it renders it
-whole, at every level, so `address.geo,address.geo.lat` renders all of `geo`.
+selected whole: a deeper path below it is an unknown fieldset member. Listing a key whole
+beside a path into it renders it whole, at every level, so `address.geo,address.geo.lat`
+renders all of `geo`.
+
+A list reaches into its items through `*`. When an `ArrayList`'s element is an `Obj`
+declaring `selectableKeys()`, `<attribute>.*.<key>` selects that key from every item, and
+the element's declaration decides which keys:
+
+```php
+ArrayList::make('lines')->of(
+    Obj::make('line')->fields(
+        Str::make('sku'),
+        Integer::make('quantity'),
+        Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))
+            ->selectableKeys(pattern: 'amount|currency'),
+    )->selectableKeys(pattern: 'sku|quantity|price'),
+);
+```
+
+```
+GET /orders?fields[orders]=lines.*.sku,lines.*.price.amount
+```
+
+renders every line, in order, each holding only `sku` and a `price` holding only
+`amount`. The list declares nothing itself, so a list of scalars, or of an element without
+`selectableKeys()`, renders whole and `*` on it is an unknown fieldset member, as is `*` on
+an object. A path keeps going through nested objects and lists, as `lines.*.price.amount`
+or `groups.*.rows.*.label`, and a list inside an object is reached as
+`shipping.parcels.*.weight`. `lines.*` on its own selects every item whole, the same as
+`lines`. There is no index segment: `lines.0` is an unknown member. An item missing a
+selected member renders without it, so an open element's item holding none of the
+selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 
 An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
 fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
 It is `null` when the request takes the whole attribute. `$only->keys` lists the keys at
 the top, `$only->nested('geo')` is the selection inside a narrowed key, `null` for one
 selected whole, and `$only->paths()` lists every selected path, such as `postcode` and
-`geo.lat`:
+`geo.lat`. A list's selection holds the one key `*`, so `$only->items()` is the selection
+inside every item and its paths read `*.sku`:
 
 ```php
 Obj::make('address')
@@ -554,7 +584,8 @@ Obj::make('address')
 The value is trimmed to the selection at every depth whatever the hook returns, so a hook
 that ignores `$only` still renders the right members, as does a field with no hook and a
 `serializeUsing()` hook's value. A nested object with its own hook receives the selection
-inside it. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
+inside it, and a list's `extractUsing()` or `computedUsing()` hook receives the list's
+selection, each item then trimmed to `$only->items()`. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
 covers the request rules and the profile a narrowed response carries.
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =

@@ -43,7 +43,7 @@ final class FieldSelectionProjectionTest extends TestCase
                 'anyOf' => [
                     ['type' => 'string', 'enum' => ['name', 'values', 'totals', 'closed', 'vendor']],
                     ['type' => 'string', 'pattern' => '^values\\.(?:[a-z][a-z0-9_]*)$'],
-                    ['type' => 'string', 'pattern' => '^totals\\.[^.,]+$'],
+                    ['type' => 'string', 'pattern' => '^totals\\.[^.,*]+$'],
                 ],
             ],
         ], $parameter['schema']);
@@ -58,7 +58,7 @@ final class FieldSelectionProjectionTest extends TestCase
         $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[vendors]');
 
         self::assertSame(
-            ['type' => 'string', 'pattern' => '^stats\\.[^.,]+$'],
+            ['type' => 'string', 'pattern' => '^stats\\.[^.,*]+$'],
             $this->arr($this->arr($this->arr($parameter['schema'])['items'])['anyOf'])[1],
         );
     }
@@ -75,8 +75,8 @@ final class FieldSelectionProjectionTest extends TestCase
                     ['type' => 'string', 'enum' => ['name', 'address', 'scores']],
                     ['type' => 'string', 'pattern' => '^address\\.(?:[a-z]+)$'],
                     ['type' => 'string', 'pattern' => '^address\\.geo\\.(?:lat|lng)$'],
-                    ['type' => 'string', 'pattern' => '^scores\\.[^.,]+$'],
-                    ['type' => 'string', 'pattern' => '^scores\\.[^.,]+\\.(?:min|max)$'],
+                    ['type' => 'string', 'pattern' => '^scores\\.[^.,*]+$'],
+                    ['type' => 'string', 'pattern' => '^scores\\.[^.,*]+\\.(?:min|max)$'],
                 ],
             ],
         ], $parameter['schema']);
@@ -97,6 +97,58 @@ final class FieldSelectionProjectionTest extends TestCase
             self::assertStringNotContainsString('Region', $pattern);
             self::assertStringNotContainsString('hidden', $pattern);
             self::assertStringNotContainsString('history', $pattern);
+        }
+    }
+
+    #[Test]
+    public function aListOfSelectableObjectsAddsAWildcardPatternForEachPathIntoItsItems(): void
+    {
+        $parameter = $this->fieldsParameter($this->listDocument(), '/orders', 'fields[orders]');
+
+        self::assertSame([
+            'type' => 'array',
+            'items' => [
+                'anyOf' => [
+                    ['type' => 'string', 'enum' => ['lines', 'notes', 'plainLines', 'shipping']],
+                    ['type' => 'string', 'pattern' => '^lines\\.\\*\\.(?:sku|qty|price|tags)$'],
+                    ['type' => 'string', 'pattern' => '^lines\\.\\*\\.price\\.(?:amount|currency)$'],
+                    ['type' => 'string', 'pattern' => '^lines\\.\\*\\.tags\\.\\*\\.(?:name|colour)$'],
+                    ['type' => 'string', 'pattern' => '^shipping\\.(?:[a-z]+)$'],
+                    ['type' => 'string', 'pattern' => '^shipping\\.parcels\\.\\*\\.(?:weight|label)$'],
+                ],
+            ],
+        ], $parameter['schema']);
+        self::assertIsString($parameter['description']);
+        self::assertStringContainsString('Select single keys of `shipping` as `<attribute>.<key>`', $parameter['description']);
+        self::assertStringContainsString('Select keys of every item of `lines` as `<attribute>.*.<key>`; the list keeps its length and order.', $parameter['description']);
+        self::assertStringContainsString('`<attribute>.<key>.<key>`', $parameter['description']);
+        self::assertStringContainsString('`<attribute>.<key>.*.<key>`', $parameter['description']);
+    }
+
+    #[Test]
+    public function aTypeWhoseOnlySelectableAttributeIsAListLinksTheProfileFromTheListSentence(): void
+    {
+        $document = $this->listDocument(objects: false);
+        $parameter = $this->fieldsParameter($document, '/orders', 'fields[orders]');
+
+        self::assertIsString($parameter['description']);
+        self::assertStringContainsString(
+            'Select keys of every item of `lines` as `<attribute>.*.<key>` under the [Field Selection profile](' . FieldSelectionProfile::URI . '); the list keeps its length and order, and listing the attribute itself selects all of it.',
+            $parameter['description'],
+        );
+        self::assertStringNotContainsString('single keys', $parameter['description']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FIELD_SELECTION)], $this->arr($document['info'])['x-generator']);
+    }
+
+    #[Test]
+    public function aListWhoseElementDeclaresNoSelectableKeysAddsNoPattern(): void
+    {
+        $parameter = $this->fieldsParameter($this->listDocument(), '/orders', 'fields[orders]');
+
+        foreach (\array_column(\array_slice($this->arr($this->arr($this->arr($parameter['schema'])['items'])['anyOf']), 1), 'pattern') as $pattern) {
+            self::assertIsString($pattern);
+            self::assertStringNotContainsString('notes', $pattern);
+            self::assertStringNotContainsString('plainLines', $pattern);
         }
     }
 
@@ -198,6 +250,41 @@ final class FieldSelectionProjectionTest extends TestCase
             version: '1.0.0',
             types: [
                 FakeTypeMetadata::resource(type: 'people', fields: [Id::make()->build(), Str::make('name')->build(), $address->build(), $scores->build()]),
+            ],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function listDocument(bool $objects = true): array
+    {
+        $lines = ArrayList::make('lines')->of(Obj::make('line')->fields(
+            Str::make('sku'),
+            Integer::make('qty'),
+            Obj::make('price')->fields(Integer::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
+            ArrayList::make('tags')->of(Obj::make('tag')->fields(Str::make('name'), Str::make('colour'))->selectableKeys(pattern: 'name|colour')),
+        )->selectableKeys(pattern: 'sku|qty|price|tags'));
+        $shipping = Obj::make('shipping')->fields(
+            Str::make('carrier'),
+            ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->selectableKeys(pattern: 'weight|label')),
+        );
+        if ($objects) {
+            $shipping->selectableKeys(pattern: '[a-z]+');
+        }
+
+        return (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(type: 'orders', fields: [
+                    Id::make()->build(),
+                    $lines->build(),
+                    ArrayList::make('notes')->build(),
+                    ArrayList::make('plainLines')->of(Obj::make('line')->fields(Str::make('sku')))->build(),
+                    $shipping->build(),
+                ]),
             ],
             profiles: [FieldSelectionProfile::URI],
         ))->toArray();

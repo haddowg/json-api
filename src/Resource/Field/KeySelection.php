@@ -13,9 +13,18 @@ namespace haddowg\JsonApi\Resource\Field;
  * A key whose value is itself an object declaring `selectableKeys()` can be narrowed in
  * turn, as `<attr>.<key>.<key>`: {@see nested()} returns the selection inside it, and
  * `null` for a key selected whole.
+ *
+ * The selection of a list whose element declares `selectableKeys()` holds the one key
+ * {@see ITEMS}, and {@see items()} returns the selection inside every item, as
+ * `<attr>.*.<key>` selects it.
  */
 final readonly class KeySelection
 {
+    /**
+     * The key that stands for every item of a list.
+     */
+    public const string ITEMS = '*';
+
     /**
      * @var list<string>
      */
@@ -54,8 +63,17 @@ final readonly class KeySelection
     }
 
     /**
+     * The selection inside every item of a list, or `null` when the request selected the
+     * items whole or this is not a list's selection.
+     */
+    public function items(): ?self
+    {
+        return $this->nested(self::ITEMS);
+    }
+
+    /**
      * Every selected path as the request spells it after the attribute's name, such as
-     * `postcode` and `geo.lat`, a narrowed key giving one path per key selected inside it.
+     * `postcode`, `geo.lat` or `*.sku`, a narrowed key giving one path per key selected inside it.
      *
      * @return list<string>
      */

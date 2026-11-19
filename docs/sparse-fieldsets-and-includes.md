@@ -71,18 +71,31 @@ A key whose own object declares `selectableKeys()` takes a longer path, one key 
 level. `fields[people]=address.geo.lat` renders `address` holding only `geo`, and `geo`
 holding only `lat`.
 
+A list whose element declares `selectableKeys()` takes `*` for every item.
+`fields[orders]=lines.*.sku` renders `lines` with every item kept, in order, each holding
+only `sku`:
+
+```json
+"attributes": { "lines": [{ "sku": "A1" }, { "sku": "B2" }] }
+```
+
 The rules:
 
 - Listing the attribute itself and a key of it, `fields[people]=address,address.postcode`,
   renders the whole attribute. The same holds at each level, so
-  `address.geo,address.geo.lat` renders all of `geo`.
+  `address.geo,address.geo.lat` renders all of `geo`, and `*` counts as a level:
+  `lines,lines.*.sku` and `lines.*,lines.*.sku` both render every item whole.
+- `lines.*` on its own selects the whole list, the same as `lines`.
+- A list keeps its length and order. An item without a selected member renders without
+  it, as `{}` when nothing selected is left, and an empty list renders `[]`.
 - A path selects nothing else of the objects it passes through: `address.geo.lat`
   leaves out the street, the postcode and `geo.lng`.
 - A request without `fields[people]` renders every resource as before.
 - A key the declaration rejects, a dotted member on an attribute that declares no
-  selectable keys, a dotted member on a relationship, an empty key, and a path continuing
-  past a key whose object declares no selectable keys or that holds a list are unknown
-  fieldset members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
+  selectable keys, a dotted member on a relationship, an empty key, a path continuing
+  past a key whose object declares no selectable keys, `*` on anything but a list whose
+  element declares selectable keys, and an index such as `lines.0` are unknown fieldset
+  members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
   validation, and ignored without it.
 - The selection applies to the type wherever it renders: primary data, `included`,
   related endpoints, a write answering with the resource and atomic results.
@@ -335,7 +348,7 @@ that names no declared field with a `400` `FieldsetMemberUnrecognized`. The chec
 covers the types of included resources too, and counts hidden and write-only fields
 as declared, so it gives nothing away about them. An `<attribute>.<key>` member is
 known when the attribute declares [selectable keys](#selecting-keys-of-an-object-attribute)
-that accept the key. It skips a type the server doesn't
+that accept the key, and an `<attribute>.*.<key>` member when the list's element does. It skips a type the server doesn't
 register and a serializer that doesn't declare its field names. With strict
 validation off, an unknown member is ignored.
 
