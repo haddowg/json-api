@@ -10,6 +10,7 @@ use haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 use haddowg\JsonApi\Resource\Through\FiltersThrough;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 use haddowg\JsonApi\Resource\Through\RelationPath;
 use haddowg\JsonApi\Resource\Through\SortsThrough;
 use haddowg\JsonApi\Resource\ThroughReadGateInterface;
@@ -28,6 +29,10 @@ use haddowg\JsonApi\Resource\ThroughReadGateInterface;
  * A segment names the relation stored under it, the one named after it when several
  * share the storage member. When several share it and none is named after the segment,
  * each of them is a hop, so the strictest of their rules applies.
+ *
+ * A `pivot` segment is a hop of the relation whose pivot rows it reaches, so a pivot row,
+ * which has no type, is read under that relation's permission. A relation the pivot row
+ * holds is a hop like any other, under its related type's rules.
  */
 final class ThroughReadAccess
 {
@@ -38,13 +43,14 @@ final class ThroughReadAccess
 
     /**
      * An access resolver over the registered resources, asking the gate the resolver's
-     * relation authorizer implements, if it does.
+     * relation authorizer implements, if it does, and reading the relations a pivot row
+     * holds from `$pivotRows`.
      */
-    public static function forResolver(SerializerResolverInterface $resolver): self
+    public static function forResolver(SerializerResolverInterface $resolver, ?PivotRowRelations $pivotRows = null): self
     {
         $authorizer = $resolver instanceof ProvidesRelationAuthorizerInterface ? $resolver->relationAuthorizer() : null;
 
-        return new self(ThroughPathResolver::forResolver($resolver), $authorizer instanceof ThroughReadGateInterface ? $authorizer : null);
+        return new self(ThroughPathResolver::forResolver($resolver, $pivotRows), $authorizer instanceof ThroughReadGateInterface ? $authorizer : null);
     }
 
     public function gate(): ?ThroughReadGateInterface
@@ -80,16 +86,17 @@ final class ThroughReadAccess
      * The hops `$filter` reaches through from `$rootType`, whose inventory is `$fields`:
      * a traversal's path, a relationship existence filter's relation, and those of every
      * child of a group. Any other filter reaches through none. A filter family resolves
-     * its filter per request, so pass the filter it resolved.
+     * its filter per request, so pass the filter it resolved. `$under` is the relation the
+     * filter runs under, whose pivot row a path starting with `pivot` reaches.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @return list<RelationHop>
      */
-    public function hopsOf(FilterInterface $filter, iterable $fields, string $rootType): array
+    public function hopsOf(FilterInterface $filter, iterable $fields, string $rootType, ?RelationHop $under = null): array
     {
         if ($filter instanceof FiltersThrough) {
-            $filter = $this->resolver->resolve($filter, $fields);
+            $filter = $this->resolver->resolve($filter, $fields, $under);
         }
         if ($filter instanceof FiltersThrough && ($path = $filter->resolvedThrough()) !== null) {
             return self::hopsThrough($path, $rootType);
@@ -98,7 +105,7 @@ final class ThroughReadAccess
         return match (true) {
             $filter instanceof TraversesPath => $this->hopsAlong($filter->throughPath(), $fields, $rootType),
             $filter instanceof WhereHas, $filter instanceof WhereDoesntHave => $this->hopsAlong($filter->relationship, $fields, $rootType),
-            $filter instanceof WhereGroup => \array_merge([], ...\array_map(fn(FilterInterface $child): array => $this->hopsOf($child, $fields, $rootType), $filter->children)),
+            $filter instanceof WhereGroup => \array_merge([], ...\array_map(fn(FilterInterface $child): array => $this->hopsOf($child, $fields, $rootType, $under), $filter->children)),
             default => [],
         };
     }
@@ -106,14 +113,15 @@ final class ThroughReadAccess
     /**
      * The hops `$sort` reaches through from `$rootType`, whose inventory is `$fields`: a
      * sort declared with `->through()` reaches each relation of its path, any other none.
+     * `$under` is the relation the sort runs under.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @return list<RelationHop>
      */
-    public function hopsOfSort(SortInterface $sort, iterable $fields, string $rootType): array
+    public function hopsOfSort(SortInterface $sort, iterable $fields, string $rootType, ?RelationHop $under = null): array
     {
-        $sort = $this->resolver->resolveSort($sort, $fields);
+        $sort = $this->resolver->resolveSort($sort, $fields, $under);
 
         return $sort instanceof SortsThrough && ($path = $sort->resolvedThrough()) !== null ? self::hopsThrough($path, $rootType) : [];
     }
@@ -127,10 +135,13 @@ final class ThroughReadAccess
     private static function hopsThrough(RelationPath $path, string $rootType): array
     {
         $hops = $path->hops;
-        $hops[0] = $hops[0]->on($rootType);
+        // A leading pivot hop is the relation the path runs under, declared on its own parent type.
+        if (!$path->startsWithPivot()) {
+            $hops[0] = $hops[0]->on($rootType);
+        }
         $leaf = $path->leafRelation();
         if ($leaf !== null) {
-            $hops[] = new RelationHop($leaf, $path->leafType(), $hops[\count($hops) - 1]->path . '.' . ($leaf->column() ?? $leaf->name()));
+            $hops[] = new RelationHop($leaf, $path->endsOnPivot() ? '' : $path->leafType(), $hops[\count($hops) - 1]->path . '.' . ($leaf->column() ?? $leaf->name()));
         }
 
         return \array_values($hops);

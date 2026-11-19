@@ -130,7 +130,26 @@ Sorts reaching through relations work in `defaultSort()`, a relation's `withSort
 cursor pages alike: a resolved `SortByField` is a
 [`KeysetSortInterface`](#sorting-a-cursor-page-by-a-custom-sort) whose `keysetValue()` reads
 the reached row's field. Resolve one with
-`ThroughPathResolver::resolveSort($sort, $resource->allFields())`.
+`ThroughPathResolver::resolveSort($sort, $resource->allFields())`, passing the relation it runs
+under as a third argument, a `RelationHop` of the relation and the type declaring it, when it does.
+
+A leading `pivot` reaches the pivot row of the relation the sort runs under, which is one row
+for each member, so a relation's `withSorts()` can order its members by a pivot field or by a
+field of a relation the pivot row holds:
+
+```php
+BelongsToMany::make('playlists', 'playlists')
+    ->fields(DateTime::make('addedAt')->readOnly())
+    ->withSorts(
+        SortByField::make('added', 'addedAt')->through('pivot'),      // ?sort=-added
+        SortByField::make('adder', 'name')->through('pivot.addedBy'),
+    );
+```
+
+It applies on the relation's related and relationship endpoints and in
+`relatedQuery[<relation>][sort]`. A `pivot` anywhere else follows a to-many, so it reaches many
+pivot rows and fails resolution for a sort; filter by it instead. See
+[reaching a pivot row](filters.md#reaching-a-pivot-row).
 
 ## `defaultSort()`: the order with no `?sort`
 

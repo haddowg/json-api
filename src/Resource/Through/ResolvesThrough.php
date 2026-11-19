@@ -96,20 +96,36 @@ trait ResolvesThrough
     private static function checkedLeaf(RelationPath $path, LeafKind $kind, string $key, string $member): RelationPath
     {
         $refuse = static fn(string $why): \LogicException => new \LogicException(\sprintf(
-            '"%s" reaches through "%s" to "%s" on type "%s", %s',
+            '"%s" reaches through "%s" to "%s" on %s, %s',
             $key,
             $path->path,
             $member,
-            $path->leafType(),
+            $path->describeLeaf(),
             $why,
         ));
 
-        if ($kind === LeafKind::Sort && $path->reachesMany()) {
-            throw new \LogicException(\sprintf(
-                'Sort "%s" reaches through "%s", which crosses a to-many relation; a sort reaches through to-one relations only, since a to-many holds no single value to order by.',
-                $key,
-                $path->path,
-            ));
+        if ($kind === LeafKind::Sort) {
+            foreach (\array_keys($path->hops) as $index) {
+                if (!$path->isToManyHop($index)) {
+                    continue;
+                }
+
+                throw new \LogicException($path->hops[$index]->pivot
+                    ? \sprintf(
+                        'Sort "%s" reaches through "%s", whose `pivot` follows a to-many relation and so reaches many pivot rows; a sort reads a pivot row only at the start of its path, the pivot row of the relation it runs under.',
+                        $key,
+                        $path->path,
+                    )
+                    : \sprintf(
+                        'Sort "%s" reaches through "%s", which crosses a to-many relation; a sort reaches through to-one relations only, since a to-many holds no single value to order by.',
+                        $key,
+                        $path->path,
+                    ));
+            }
+        }
+
+        if ($kind === LeafKind::Id && $path->endsOnPivot()) {
+            throw $refuse('which is not an id; a pivot row has none, so compare one of its pivot fields with a value filter.');
         }
 
         $field = $path->field($member) ?? throw $refuse('which declares no such field.');

@@ -11,6 +11,7 @@ use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 use haddowg\JsonApi\Resource\Through\ReachesThrough;
 use haddowg\JsonApi\Resource\Through\RelationPath;
 
@@ -22,7 +23,11 @@ use haddowg\JsonApi\Resource\Through\RelationPath;
  *
  * A `->through()` path names relations by their API names, each relation's `name()`, and
  * the filter's column or the sort's field names a field of the type the path reaches. A
- * {@see TraversesPath} filter's path names them by storage name, as described below.
+ * `pivot` segment names the pivot row of the relation before it, or of the relation the
+ * filter or sort runs under when it leads the path; a path ending there reads a declared
+ * pivot field, and one going on walks a relation the pivot row holds, which the data
+ * layer's {@see PivotRowRelations} names. A {@see TraversesPath} filter's path names
+ * relations by storage name, as described below.
  *
  * Each segment is matched to a declared relation by its storage name, the relation's
  * `column()`, which is the name a data layer traverses. When several relations share
@@ -39,17 +44,20 @@ use haddowg\JsonApi\Resource\Through\RelationPath;
 final class ThroughPathResolver
 {
     /**
-     * @param \Closure(string): (iterable<FieldInterface>|null) $fieldsOf a type's field inventory, or `null` when the type has none
+     * @param \Closure(string): (iterable<FieldInterface>|null) $fieldsOf  a type's field inventory, or `null` when the type has none
+     * @param PivotRowRelations|null                           $pivotRows the relations pivot rows hold, read from the data layer's storage; without it a path can't go on past a `pivot` segment
      */
     public function __construct(
         private readonly \Closure $fieldsOf,
+        private readonly ?PivotRowRelations $pivotRows = null,
     ) {}
 
     /**
      * A resolver over the registered resources, reading each related type's inventory
-     * from its {@see AbstractResource}.
+     * from its {@see AbstractResource}, and the relations a pivot row holds from
+     * `$pivotRows`.
      */
-    public static function forResolver(SerializerResolverInterface $resolver): self
+    public static function forResolver(SerializerResolverInterface $resolver, ?PivotRowRelations $pivotRows = null): self
     {
         return new self(static function (string $type) use ($resolver): ?array {
             if (!$resolver->hasSerializerFor($type)) {
@@ -59,7 +67,15 @@ final class ThroughPathResolver
             $serializer = $resolver->serializerFor($type);
 
             return $serializer instanceof AbstractResource ? $serializer->allFields() : null;
-        });
+        }, $pivotRows);
+    }
+
+    /**
+     * The relations pivot rows hold, as the data layer names them, if it does.
+     */
+    public function pivotRows(): ?PivotRowRelations
+    {
+        return $this->pivotRows;
     }
 
     /**
@@ -68,6 +84,10 @@ final class ThroughPathResolver
      * place; a filter family resolves its filters per request, so resolve what it
      * returns instead.
      *
+     * `$under` is the relation the filters run under, as the type declaring it holds it, on
+     * a relation's related and relationship endpoints and in its `relatedQuery` vocabulary;
+     * a path starting with `pivot` reaches its pivot row. Its `path` is not read.
+     *
      * @param list<FilterInterface>    $filters
      * @param iterable<FieldInterface> $fields
      *
@@ -75,21 +95,22 @@ final class ThroughPathResolver
      *
      * @throws \LogicException when a path ends on a polymorphic relation, its related type is not registered, or the filter cannot compare what the path ends on
      */
-    public function resolveAll(array $filters, iterable $fields): array
+    public function resolveAll(array $filters, iterable $fields, ?RelationHop $under = null): array
     {
         $fields = self::listed($fields);
 
-        return \array_map(fn(FilterInterface $filter): FilterInterface => $this->resolve($filter, $fields), $filters);
+        return \array_map(fn(FilterInterface $filter): FilterInterface => $this->resolve($filter, $fields, $under), $filters);
     }
 
     /**
-     * `$filter` resolved against `$fields`, the inventory of the type it runs against.
+     * `$filter` resolved against `$fields`, the inventory of the type it runs against,
+     * under the relation `$under` when it runs under one.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @throws \LogicException when a path ends on a polymorphic relation, its related type is not registered, or the filter cannot compare what the path ends on
      */
-    public function resolve(FilterInterface $filter, iterable $fields): FilterInterface
+    public function resolve(FilterInterface $filter, iterable $fields, ?RelationHop $under = null): FilterInterface
     {
         if (($filter instanceof WhereIdIn || $filter instanceof WhereIdNotIn) && $filter->throughRelations() === null) {
             $filter = $this->relatedIds($filter, self::listed($fields));
@@ -98,7 +119,7 @@ final class ThroughPathResolver
         if ($filter instanceof ReachesThrough && ($through = $filter->throughRelations()) !== null) {
             return $filter->resolvedThrough() !== null
                 ? $filter
-                : $filter->withResolvedThrough($this->relationPath($filter->key(), $through, $fields));
+                : $filter->withResolvedThrough($this->relationPath($filter->key(), $through, $fields, '', $under));
         }
 
         if ($filter instanceof TraversesPath) {
@@ -114,7 +135,7 @@ final class ThroughPathResolver
         }
 
         if ($filter instanceof WhereGroup) {
-            $children = $this->resolveAll($filter->children, $fields);
+            $children = $this->resolveAll($filter->children, $fields, $under);
 
             return $children === $filter->children
                 ? $filter
@@ -162,65 +183,140 @@ final class ThroughPathResolver
     }
 
     /**
-     * `$sort` resolved against `$fields`, the inventory of the type it orders: a sort
-     * reaching through relations with its path resolved, any other sort unchanged.
+     * `$sort` resolved against `$fields`, the inventory of the type it orders, under the
+     * relation `$under` when it runs under one: a sort reaching through relations with its
+     * path resolved, any other sort unchanged.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @throws \LogicException when the path names no relation, crosses a to-many or a polymorphic relation, or its reached type declares no field the sort can order by
      */
-    public function resolveSort(SortInterface $sort, iterable $fields): SortInterface
+    public function resolveSort(SortInterface $sort, iterable $fields, ?RelationHop $under = null): SortInterface
     {
         if (!$sort instanceof ReachesThrough || ($through = $sort->throughRelations()) === null || $sort->resolvedThrough() !== null) {
             return $sort;
         }
 
-        return $sort->withResolvedThrough($this->relationPath($sort->key(), $through, $fields));
+        return $sort->withResolvedThrough($this->relationPath($sort->key(), $through, $fields, '', $under));
     }
 
     /**
      * Resolves a `->through()` path of API relation names against `$fields`, the
      * inventory of the type it starts from. Every segment must name a monomorphic
-     * relation whose related type is registered.
+     * relation whose related type is registered, or be `pivot`.
      *
      * `$type` names the type the path starts from, the parent type of its first hop.
+     * `$under` is the relation the filter or sort runs under, whose pivot row a leading
+     * `pivot` reaches.
+     *
+     * A `pivot` segment reaches the pivot rows of the relation before it, which must have
+     * them ({@see RelationPath::hasPivotRow()}); that relation may be polymorphic, since
+     * the path goes on from its pivot rows rather than its members. The segment after a
+     * `pivot` names a relation the pivot row holds, through {@see PivotRowRelations}.
      *
      * @param iterable<FieldInterface> $fields
      *
-     * @throws \LogicException when a segment names no relation, a polymorphic one, or one whose related type is not registered
+     * @throws \LogicException when a segment names no relation, a polymorphic one, or one whose related type is not registered, or a `pivot` segment follows no relation with pivot rows
      */
-    public function relationPath(string $key, string $path, iterable $fields, string $type = ''): RelationPath
+    public function relationPath(string $key, string $path, iterable $fields, string $type = '', ?RelationHop $under = null): RelationPath
     {
         $fields = self::listed($fields);
         $hops = [];
         $parent = $type;
         $storage = [];
-        foreach (ThroughPath::split($path) as $segment) {
-            $relation = null;
-            foreach ($fields as $field) {
-                if ($field instanceof RelationInterface && $field->name() === $segment) {
-                    $relation = $field;
+        $pivotOf = null;
+        $pivotParent = '';
+        $segments = ThroughPath::split($path);
+        foreach ($segments as $index => $segment) {
+            if ($segment === RelationPath::PIVOT) {
+                foreach ($fields as $field) {
+                    if ($field instanceof RelationInterface && $field->name() === RelationPath::PIVOT) {
+                        throw new \LogicException(\sprintf('"%s" reaches through "%s", but the type there declares a relation named "pivot", which the segment would hide; a `pivot` segment always names a pivot row, so give the relation another name.', $key, $path));
+                    }
+                }
 
-                    break;
+                $previous = $index === 0 ? null : \array_pop($hops);
+                if ($index > 0 && ($previous === null || $pivotOf !== null || $previous->pivot)) {
+                    throw new \LogicException(\sprintf('"%s" reaches through "%s", but a `pivot` segment follows another pivot row, which has no pivot rows of its own.', $key, $path));
+                }
+                $relation = $previous === null ? $under?->relation : $previous->relation;
+                if ($relation === null) {
+                    throw new \LogicException(\sprintf('"%s" reaches through "%s", which starts at `pivot`, the pivot row of the relation it runs under, but it runs under none; declare it among the filters or sorts of a relation with pivot rows.', $key, $path));
+                }
+                if (!RelationPath::hasPivotRow($relation)) {
+                    throw new \LogicException(\sprintf(
+                        '"%s" reaches through "%s", but `pivot` follows the relation "%s", which has no pivot rows; a `pivot` segment follows a BelongsToMany over an association class or with stored pivot fields, or a MorphToMany with stored pivot fields.',
+                        $key,
+                        $path,
+                        $relation->name(),
+                    ));
+                }
+
+                $pivotParent = $previous === null ? ($under === null ? '' : $under->parentType) : $previous->parentType;
+                $storage[] = RelationPath::PIVOT;
+                $hops[] = new RelationHop($relation, $pivotParent, \implode('.', $storage), true);
+                $pivotOf = $relation;
+                $parent = '';
+                $fields = $relation->pivotFields();
+
+                continue;
+            }
+
+            $nextIsPivot = ($segments[$index + 1] ?? null) === RelationPath::PIVOT;
+            if ($pivotOf !== null) {
+                $relation = $this->pivotRows?->pivotRowRelation($pivotOf, $pivotParent, $segment)
+                    ?? throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is not a relation the pivot rows of "%s" hold; after `pivot`, name a relation of the pivot row, or end the path there to read a pivot field.', $key, $path, $segment, $pivotOf->name()));
+                $pivotOf = null;
+            } else {
+                $relation = null;
+                foreach ($fields as $field) {
+                    if ($field instanceof RelationInterface && $field->name() === $segment) {
+                        $relation = $field;
+
+                        break;
+                    }
+                }
+                if ($relation === null) {
+                    throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is not a relation of the type it reaches; name each relation by its API name.', $key, $path, $segment));
                 }
             }
-            if ($relation === null) {
-                throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is not a relation of the type it reaches; name each relation by its API name.', $key, $path, $segment));
-            }
-            if ($relation instanceof PolymorphicRelationInterface || \count($relation->relatedTypes()) !== 1) {
+            $polymorphic = $relation instanceof PolymorphicRelationInterface || \count($relation->relatedTypes()) !== 1;
+            if ($polymorphic && !$nextIsPivot) {
                 throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is polymorphic; a path reaches one related type at each hop.', $key, $path, $segment));
             }
 
-            $relatedType = $relation->relatedTypes()[0];
-            $next = ($this->fieldsOf)($relatedType)
-                ?? throw new \LogicException(\sprintf('"%s" reaches through "%s", but the type "%s" that "%s" relates to is not a registered resource.', $key, $path, $relatedType, $segment));
             $storage[] = $relation->column() ?? $relation->name();
             $hops[] = new RelationHop($relation, $parent, \implode('.', $storage));
+            if ($polymorphic) {
+                $fields = [];
+
+                continue;
+            }
+
+            $relatedType = $relation->relatedTypes()[0];
+            $next = ($this->fieldsOf)($relatedType);
+            if ($next === null) {
+                if ($nextIsPivot) {
+                    $fields = [];
+
+                    continue;
+                }
+
+                throw new \LogicException(\sprintf('"%s" reaches through "%s", but the type "%s" that "%s" relates to is not a registered resource.', $key, $path, $relatedType, $segment));
+            }
             $parent = $relatedType;
             $fields = self::listed($next);
         }
 
-        return new RelationPath($path, $hops, $fields);
+        $pivotRowRelation = null;
+        if ($pivotOf !== null && $this->pivotRows !== null) {
+            $rows = $this->pivotRows;
+            $owner = $pivotOf;
+            $ownerParent = $pivotParent;
+            $pivotRowRelation = static fn(string $member): ?RelationInterface => $rows->pivotRowRelation($owner, $ownerParent, $member);
+        }
+
+        return new RelationPath($path, $hops, $fields, null, $pivotRowRelation);
     }
 
     /**

@@ -754,6 +754,56 @@ through such a hop. `ThroughReadAccess::hopsOf()` lists a resolved path's hops, 
 existence filter's tested relation as one more, so the gate sees every relation the filter
 reads.
 
+### Reaching a pivot row
+
+A `BelongsToMany` or `MorphToMany` links each parent to its members through pivot rows, and a
+`pivot` segment in the path reaches those rows. It means the pivot row of the relation before
+it, or, when it leads the path, the pivot row of the relation the filter runs under: the
+relation whose related or relationship endpoint, or whose `relatedQuery[<relation>][filter]`
+vocabulary, the filter belongs to.
+
+```php
+// On a track's playlists, declared on the relation:
+BelongsToMany::make('playlists', 'playlists')
+    ->fields(Integer::make('position'), DateTime::make('addedAt')->readOnly())
+    ->withFilters(
+        // filter[addedAt][min]=2026-01-01T00:00:00Z: when the track was added to each playlist
+        DateRange::make('addedAt', 'addedAt')->through('pivot'),
+        // filter[addedBy]=sam: the name of the user the pivot row holds
+        Where::make('addedBy', 'name')->through('pivot.addedBy'),
+    );
+
+// On albums: an album with a track some curator added to a playlist
+Where::make('curator', 'name')->through('tracks.playlists.pivot.addedBy');
+```
+
+Right after `pivot`, the column names one of the relation's declared
+[pivot fields](relations.md#belongstomany--a-pivot-backed-to-many), read from the member it
+stores, so a computed pivot field can't be the leaf. A path can go on from the pivot row
+through a relation the row holds, such as `pivot.addedBy`, and the column then names a field
+of the type it reaches, with that field's `storedAs()`, id encoder and calendar-day rule. A
+pivot row has no type, so core can't read its relations from any declaration: the data layer
+names each one, and the type it reaches, through
+[`PivotRowRelations`](../src/Resource/Through/PivotRowRelations.php), as the Symfony bundle
+does from the association entity's mapping. Pivot segments can repeat, as in
+`pivot.addedBy.playlists.pivot`.
+
+`pivot` follows only a relation with pivot rows: a `BelongsToMany` over an association class
+or with stored pivot fields, or a `MorphToMany` with stored pivot fields. A polymorphic
+relation can lead to its pivot, since the path goes on from the row rather than the member.
+Resolution fails with a `\LogicException`, raised at warm-up, for a `pivot` after any other
+relation or after another pivot row, a leading `pivot` on a filter that runs under no relation,
+a member the pivot row holds no relation under, a leaf naming no stored pivot field, an id
+filter whose leaf is a pivot row, which has no id, and a type that declares a relation named
+`pivot`, which the segment would hide.
+
+A pivot hop is an `EXISTS` like any other, and the [read rules](#read-access-through-a-path)
+apply the same way. A pivot row is read under its relation's permission: the relation's
+`security(read:)` and the related type's gates, as for the relation itself. Rows reached from it
+get the reached type's scope and the same `403`, and a default matches no row through a hop the
+caller may not read. `RelationHop::$pivot` marks the hop, and its relation is the one whose pivot
+rows it reaches.
+
 ### Filtering by a relation's ids
 
 An id filter keyed by one of the type's relations, by its API name, compares the ids of that
@@ -792,8 +842,11 @@ equivalent:
 | `WhereThroughIn::make('templates')` | `WhereIdIn::make('templates')->acceptsList()` |
 | `WhereThrough::make('template', 'templates')` | `WhereIdIn::make('template')->through('templates')`, or `WhereIdIn::make('templates')` to key it by the relation |
 | `WhereThrough::make('x', 'campaign.advertiser')->operator('!=')` | `WhereIdNotIn::make('x')->through('campaign.advertiser')` |
+| `WhereThrough::make('targetName', 'pivot.targets.name')` on a pivot relation | `Where::make('targetName', 'name')->through('pivot.targets')` |
+| `WhereThroughIn::make('target', 'pivot.targets')` on a pivot relation | `WhereIdIn::make('target')->through('pivot.targets')->acceptsList()` |
+| `WhereDoesntHave::make('unused', 'pivot.targets')` on a pivot relation | `WhereDoesntHave::make('unused', 'targets')->through('pivot')` |
 
-Three things differ once migrated:
+Four things differ once migrated:
 
 - A traversal path names relations and its last segment by **storage** name, the `column()`
   each declares. `->through()` names relations by **API** name and the column by **field**
@@ -805,6 +858,10 @@ Three things differ once migrated:
   its encoder once migrated, where a traversal compared the wire value as sent.
 - A `WhereThrough` that ended on a relation compared one id; `WhereIdIn` compares a list, so
   add `->acceptsList()` to document both list forms.
+- A `pivot.`-prefixed path names the pivot row's relations by the storage member the data
+  layer reads, as before, but the type each reaches now applies: its scope, its read gate and
+  its id encoder. A pivot form keeps working only where the relation's pivot query runs, as the
+  prefixed one did.
 
 ## Traversing a relationship path
 

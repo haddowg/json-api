@@ -28,6 +28,7 @@ use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
 use haddowg\JsonApi\Resource\Filter\ThroughReadAccess;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 
 /**
  * Which operations can raise each of core's error codes: the rule every core code follows,
@@ -792,21 +793,24 @@ final class ErrorCoverage
         $filters = OperationFacts::filterVocabulary($type, $operation, $server);
         $sorts = OperationFacts::sortVocabulary($type, $operation, $server);
         $relation = $operation->relation;
-        $root = \in_array($operation->key->kind, [OperationKind::FetchRelated, OperationKind::FetchRelationship], true)
+        $onRelation = \in_array($operation->key->kind, [OperationKind::FetchRelated, OperationKind::FetchRelationship], true);
+        $root = $onRelation
             ? ($relation === null ? null : OperationFacts::relatedType($relation, $server))
             : $type;
+        $under = $onRelation && $relation !== null ? OperationFacts::declaredRelation($type, $relation) : null;
         if ($filters !== null && $root !== null) {
-            $vocabularies[] = [$root, $filters];
+            $vocabularies[] = [$root, $filters, $under];
         }
         if ($sorts !== null && $root !== null) {
-            $sortVocabularies[] = [$root, $sorts];
+            $sortVocabularies[] = [$root, $sorts, $under];
         }
         $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
         foreach ($rendered === null ? [] : OperationFacts::relatedQueryRelations($rendered) as $queried) {
             $related = OperationFacts::relatedType($queried, $server);
-            if ($related !== null) {
-                $vocabularies[] = [$related, OperationFacts::relatedFilterVocabulary($queried, $server)];
-                $sortVocabularies[] = [$related, OperationFacts::relatedSortVocabulary($queried, $server)];
+            if ($related !== null && $rendered !== null) {
+                $queriedUnder = OperationFacts::declaredRelation($rendered, $queried);
+                $vocabularies[] = [$related, OperationFacts::relatedFilterVocabulary($queried, $server), $queriedUnder];
+                $sortVocabularies[] = [$related, OperationFacts::relatedSortVocabulary($queried, $server), $queriedUnder];
             }
         }
         if ($vocabularies === [] && $sortVocabularies === []) {
@@ -821,19 +825,19 @@ final class ErrorCoverage
             }
 
             return null;
-        }));
-        foreach ($vocabularies as [$filtered, $vocabulary]) {
+        }, $server instanceof PivotRowRelations ? $server : null));
+        foreach ($vocabularies as [$filtered, $vocabulary, $filterUnder]) {
             foreach ($vocabulary as $filter) {
-                foreach ($access->hopsOf($filter, $filtered->fields(), $filtered->type()) as $hop) {
+                foreach ($access->hopsOf($filter, $filtered->fields(), $filtered->type(), $filterUnder) as $hop) {
                     if ($server->canRefuseThrough($hop)) {
                         return true;
                     }
                 }
             }
         }
-        foreach ($sortVocabularies as [$sorted, $vocabulary]) {
+        foreach ($sortVocabularies as [$sorted, $vocabulary, $sortUnder]) {
             foreach ($vocabulary as $sort) {
-                foreach ($access->hopsOfSort($sort, $sorted->fields(), $sorted->type()) as $hop) {
+                foreach ($access->hopsOfSort($sort, $sorted->fields(), $sorted->type(), $sortUnder) as $hop) {
                     if ($server->canRefuseThrough($hop)) {
                         return true;
                     }

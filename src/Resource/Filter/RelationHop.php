@@ -10,6 +10,12 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  * One relation a filter or sort reaches through: the relation as `$parentType`
  * declares it, and `$path`, the dotted storage path from the type the filter runs
  * against up to and including this hop. {@see ThroughReadAccess} lists them.
+ *
+ * A `pivot` hop reaches the pivot rows of `$relation`, the rows linking each parent to
+ * its members, rather than the members. It is gated by `$relation`'s read permission.
+ * A path that starts with `pivot` reaches the pivot row of the relation the filter or
+ * sort runs under, one row for each member, so that hop is to-one; anywhere else a
+ * pivot hop follows a to-many and reaches many rows.
  */
 final readonly class RelationHop
 {
@@ -17,10 +23,12 @@ final readonly class RelationHop
         public RelationInterface $relation,
         public string $parentType,
         public string $path,
+        public bool $pivot = false,
     ) {}
 
     /**
-     * The type the relation reaches; a hop of a `->through()` path is monomorphic.
+     * The type the relation reaches; a hop of a `->through()` path is monomorphic, except
+     * a `pivot` hop, which reaches a pivot row and so names its relation's first type.
      */
     public function relatedType(): string
     {
@@ -28,7 +36,8 @@ final readonly class RelationHop
     }
 
     /**
-     * The member of the parent row that holds the related row or rows.
+     * The member of the parent row that holds the related row or rows. For a `pivot` hop
+     * it is the member holding the relation whose pivot rows the hop reaches.
      */
     public function storage(): string
     {
@@ -40,6 +49,6 @@ final readonly class RelationHop
      */
     public function on(string $parentType): self
     {
-        return new self($this->relation, $parentType, $this->path);
+        return new self($this->relation, $parentType, $this->path, $this->pivot);
     }
 }

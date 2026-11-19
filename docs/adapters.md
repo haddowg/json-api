@@ -203,7 +203,8 @@ A filter declared with [`->through()`](filters.md#reaching-through-relations-wit
 implements [`FiltersThrough`](../src/Resource/Through/FiltersThrough.php), and a
 `SortByField` declared with it a [`SortsThrough`](../src/Resource/Through/SortsThrough.php).
 Resolve either against the type it runs against with `ThroughPathResolver::resolve()` or
-`resolveSort()` first; an unresolved one is refused. Then:
+`resolveSort()` first, passing the relation it runs under on a relation's reads as a `RelationHop` of the relation and the type declaring it; an unresolved
+one is refused. Then:
 
 - a filter is one `EXISTS` over `resolvedThrough()->storageSegments()`, whose leaf applies
   `atLeaf()` with `leafValue($value)` through the handler's existing arm for that filter, so
@@ -213,7 +214,18 @@ Resolve either against the type it runs against with `ThroughPathResolver::resol
   leaf's storage column. On a cursor page its level reads the boundary value from the row the
   joins reach.
 
-The reference handlers walk the path with `RelationPath::reach()`. `withRowAdmission()` on
+A path may reach a pivot row. Each `RelationHop` marked `pivot` reaches the pivot rows of its
+relation: from the row before it when it is mid-path, each linking to a member, and the pivot
+row of the relation the filter or sort runs under when `RelationPath::startsWithPivot()`, so
+apply that one from the pivot row the relation's query joins. A hop after it walks a relation
+your [`PivotRowRelations`](../src/Resource/Through/PivotRowRelations.php) named, and
+`endsOnPivot()` says the leaf is a pivot field. Pass your `PivotRowRelations` to
+`ThroughPathResolver` and `ThroughReadAccess`, and implement it on your server metadata so the
+OpenAPI projection resolves the same paths; without it, a path that goes on past `pivot` fails
+resolution. Refuse at warm-up any pivot path your data layer can't run.
+
+The reference handlers walk the path with `RelationPath::reach()`, which refuses a path that
+reaches a pivot row, since an in-memory row holds none. `withRowAdmission()` on
 either handler returns a copy that narrows the rows each hop reaches to the ones the reached
 type's scope admits, given the storage path walked so far, the rows, and the relation the hop
 walks, so a hidden row never matches a filter and sorts as `null`. Before applying one, list
