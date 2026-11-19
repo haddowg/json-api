@@ -53,7 +53,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * lets the engine narrow. A field declared `notSparseField()` is emitted marked, and the
  * engine renders it whatever the fieldset lists.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface, \haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface, \haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface
 {
     use RendersRelationsTrait;
 
@@ -407,6 +407,21 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
      */
     public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
+    {
+        return [];
+    }
+
+    /**
+     * The members of the top-level `meta` of the job document a create's or an update's
+     * `202` answers with, when its persister accepts it for later processing. A member's
+     * `extractUsing()` hook receives the job resource and the request; a member with none is
+     * set by the code returning the response.
+     *
+     * The OpenAPI projection calls it with no request, so the result must not depend on one.
+     *
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function acceptedDocumentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation): iterable
     {
         return [];
     }

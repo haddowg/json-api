@@ -611,10 +611,11 @@ final class OperationProjector
      */
     private function typedAccepted(TypeMetadataInterface $type, OperationType $operation, OperationResponseInterface $response, ServerMetadataInterface $server): ?Schema
     {
-        if (!$response instanceof Accepted) {
+        $jobType = $response->status() === 202 ? $response->jobType() : null;
+        if ($jobType === null || $this->typeNamed($jobType, $server) === null) {
             return null;
         }
-        $meta = TypedDocumentMeta::forActionResponse($response, $server);
+        $meta = TypedDocumentMeta::forAccepted($type, $operation);
 
         return $meta->isEmpty() ? null : Schema::ref(ComponentNaming::schemaRef(TypedDocumentMeta::acceptedDocument($type->type(), OperationKey::crud($operation))));
     }

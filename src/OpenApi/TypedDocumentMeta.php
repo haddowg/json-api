@@ -129,6 +129,28 @@ final class TypedDocumentMeta
     }
 
     /**
+     * The members of the job document a create's or an update's `202` answers with.
+     */
+    public static function forAccepted(TypeMetadataInterface $type, OperationType $operation): DocumentMeta
+    {
+        return DocumentMeta::forAccepted($type, $operation, $type->responsesFor($operation), $type->type());
+    }
+
+    /**
+     * The job type of the `202` a create or an update declares, or `null`.
+     */
+    public static function acceptedJobType(TypeMetadataInterface $type, OperationType $operation): ?string
+    {
+        foreach ($type->responsesFor($operation) as $response) {
+            if ($response->status() === 202) {
+                return $response->jobType();
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The members of the meta-only `200` a relationship write answers with, which the
      * parent type declares. None when it declares none, so the write answers its linkage.
      */
@@ -225,11 +247,11 @@ final class TypedDocumentMeta
                 // A write accepted for later processing answers its job's document, which
                 // its Accepted response may declare the meta of.
                 if ($key->kind === OperationKind::Create || $key->kind === OperationKind::Update) {
-                    foreach ($type->responsesFor($key->kind === OperationKind::Create ? OperationType::Create : OperationType::Update) as $response) {
-                        $accepted = $response instanceof Accepted ? self::forActionResponse($response, $server) : null;
-                        if ($response instanceof Accepted && $accepted !== null && !$accepted->isEmpty()) {
-                            self::add($documents, self::acceptedDocument($type->type(), $key), ComponentNaming::base($response->jobType()) . 'Document', $accepted, $enumerated->operationId);
-                        }
+                    $write = $key->kind === OperationKind::Create ? OperationType::Create : OperationType::Update;
+                    $jobType = self::acceptedJobType($type, $write);
+                    $accepted = $jobType === null || !self::registers($server, $jobType) ? null : self::forAccepted($type, $write);
+                    if ($jobType !== null && $accepted !== null && !$accepted->isEmpty()) {
+                        self::add($documents, self::acceptedDocument($type->type(), $key), ComponentNaming::base($jobType) . 'Document', $accepted, $enumerated->operationId);
                     }
                 }
 

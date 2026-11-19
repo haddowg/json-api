@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Resource;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationshipDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
@@ -21,6 +22,7 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 use haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface;
 
@@ -127,6 +129,34 @@ final readonly class DocumentMeta
     public static function forRelated(object $declarer, bool $toMany, string $relatedType = ''): self
     {
         return self::forOperation($declarer, $toMany ? OperationType::FetchCollection : OperationType::FetchOne, $relatedType);
+    }
+
+    /**
+     * The members of the job document the `202` of `$operation`, a create or an update,
+     * answers with: the ones its declared {@see Accepted} carries, else the ones `$declarer`
+     * declares through `acceptedDocumentMeta()`.
+     *
+     * @param iterable<object> $responses the write's declared success responses
+     *
+     * @throws DocumentMetaMisdeclared when both declare members
+     */
+    public static function forAccepted(object $declarer, OperationType $operation, iterable $responses = [], string $type = ''): self
+    {
+        $owner = \sprintf('the "%s" %s 202 document', $type, $operation->value);
+        $own = [];
+        foreach ($responses as $response) {
+            if ($response instanceof Accepted) {
+                $own = $response->meta;
+            }
+        }
+        $declared = $declarer instanceof DeclaresAcceptedDocumentMetaInterface || $declarer instanceof DeclaresAcceptedDocumentMeta
+            ? new self($declarer->acceptedDocumentMeta($operation), false, $owner)
+            : new self([], false, $owner);
+        if ($own !== [] && !$declared->isEmpty()) {
+            throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s is declared both in acceptedDocumentMeta() and on its Accepted response; declare it in one place.', $owner));
+        }
+
+        return $own !== [] ? new self($own, false, $owner) : $declared;
     }
 
     /**

@@ -384,7 +384,7 @@ final class OperationExampleProjector
             if ($job !== null) {
                 return [202 => fn(): array => $this->builder->withDocumentMeta(
                     $this->builder->resourceDocument($job, '', null, selfLink: false),
-                    $response instanceof Accepted ? TypedDocumentMeta::forActionResponse($response, $this->server) : new \haddowg\JsonApi\Resource\DocumentMeta(),
+                    TypedDocumentMeta::forAccepted($type, $operation),
                     $type->type(),
                 )];
             }
