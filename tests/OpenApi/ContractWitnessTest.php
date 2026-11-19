@@ -68,7 +68,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function aDocumentWithoutRawContentCarriesTheBaselineContract(): void
     {
-        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false, deprecations: false, actionFilters: false, actionCreated: false, relatedOnly: false, filterFamilies: false, listFilters: false, identifierMeta: false, openObjects: false, identifiedPivots: false, fixedMembership: false, unions: false, namedComponents: false, singletons: false, typedDocumentMeta: false, fieldSelection: false))->toArray();
+        $document = (new OpenApiProjector())->project(ContractWitnessServer::build(rawContent: false, examples: false, declaredLinks: false, actionDeclarations: false, scopes: false, singleTargetPolymorphism: false, actionLocations: false, sortFamilies: false, structuredLists: false, deprecations: false, actionFilters: false, actionCreated: false, relatedOnly: false, filterFamilies: false, listFilters: false, identifierMeta: false, openObjects: false, identifiedPivots: false, fixedMembership: false, unions: false, namedComponents: false, singletons: false, typedDocumentMeta: false, fieldSelection: false, typedRequestMeta: false))->toArray();
 
         self::assertIsArray($document['info']);
         self::assertSame(['contract' => GeneratorContract::BASELINE], $document['info']['x-generator']);
