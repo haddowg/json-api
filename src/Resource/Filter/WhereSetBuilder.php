@@ -11,6 +11,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final class WhereSetBuilder implements FilterBuilderInterface
 {
+    use BuildsThrough;
     private string $column;
 
     private mixed $default = null;
@@ -95,6 +96,7 @@ final class WhereSetBuilder implements FilterBuilderInterface
             $this->hasExample,
             $this->hasExample ? $this->booleans('example', $this->example) : null,
             $this->deprecated,
+            through: $this->through,
         );
     }
 

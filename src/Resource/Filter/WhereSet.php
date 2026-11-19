@@ -23,8 +23,9 @@ use haddowg\JsonApi\Resource\Constraint\Pattern;
  * A default is held as a list of booleans, so the OpenAPI document shows `[false]`
  * whether it was declared `false`, `'false'` or `[false]`.
  */
-final readonly class WhereSet implements \haddowg\JsonApi\Resource\Deprecatable, DescribedFilter, ExemplifiedFilter, AcceptsList, HasRemovableDefault, TargetsColumn
+final readonly class WhereSet implements \haddowg\JsonApi\Resource\Through\FiltersThrough, \haddowg\JsonApi\Resource\Deprecatable, DescribedFilter, ExemplifiedFilter, AcceptsList, HasRemovableDefault, TargetsColumn
 {
+    use \haddowg\JsonApi\Resource\Through\ResolvesThrough;
     use ExposesValueMetadata;
 
     /**
@@ -45,6 +46,8 @@ final readonly class WhereSet implements \haddowg\JsonApi\Resource\Deprecatable,
         public bool $hasExample = false,
         public mixed $example = null,
         public bool $deprecated = false,
+        public ?string $through = null,
+        public ?\haddowg\JsonApi\Resource\Through\RelationPath $resolvedThrough = null,
     ) {}
 
     public static function make(string $key, ?string $column = null): WhereSetBuilder
@@ -90,7 +93,7 @@ final readonly class WhereSet implements \haddowg\JsonApi\Resource\Deprecatable,
 
     public function withoutDefault(): static
     {
-        return new self($this->key, $this->column, null, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated);
+        return $this->rebuilt(['default' => null]);
     }
 
     /**
@@ -141,5 +144,15 @@ final readonly class WhereSet implements \haddowg\JsonApi\Resource\Deprecatable,
         }
 
         return \filter_var($member, \FILTER_VALIDATE_BOOLEAN, \FILTER_NULL_ON_FAILURE);
+    }
+
+    protected function throughLeaf(): array
+    {
+        return [\haddowg\JsonApi\Resource\Through\LeafKind::Value, 'column'];
+    }
+
+    public function leafValue(mixed $value): mixed
+    {
+        return $value;
     }
 }

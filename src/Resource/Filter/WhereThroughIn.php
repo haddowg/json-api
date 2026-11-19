@@ -22,6 +22,13 @@ namespace haddowg\JsonApi\Resource\Filter;
  * (`campaign.advertiser`, `templates`), and then compares the related resource's id:
  * {@see storageValues()} decodes each wire id through the related type's encoder, and a
  * filter declaring no constraints takes the related id's format.
+ *
+ * @deprecated Declare the filter on the related type's field with `->through()` instead:
+ *             `WhereThroughIn::make('campaignName', 'campaign.name')` is
+ *             `WhereIn::make('campaignName', 'name')->through('campaign')->acceptsList()`,
+ *             and a path ending on a relation is `WhereIdIn::make($key)->through($path)`.
+ *             The path names relations by API name and the column a field of the reached
+ *             type; see the filters guide for the migration. Removed in the next major version.
  */
 final readonly class WhereThroughIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\TraversesPath
 {

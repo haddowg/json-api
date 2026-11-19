@@ -10,8 +10,9 @@ namespace haddowg\JsonApi\Resource\Filter;
  * already an array, or a comma-delimited string). Authors declare one with
  * {@see make()}, which returns a mutable {@see WhereInBuilder}.
  */
-final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\HasRemovableDefault, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+final readonly class WhereIn implements \haddowg\JsonApi\Resource\Through\FiltersThrough, \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\AcceptsList, \haddowg\JsonApi\Resource\Filter\HasRemovableDefault, \haddowg\JsonApi\Resource\Filter\SupportsSingular, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
+    use \haddowg\JsonApi\Resource\Through\ResolvesThrough;
     use \haddowg\JsonApi\Resource\Filter\DescribesDelimitedList;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
@@ -31,6 +32,8 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, 
         public mixed $example = null,
         public bool $deprecated = false,
         public ?ListValue $list = null,
+        public ?string $through = null,
+        public ?\haddowg\JsonApi\Resource\Through\RelationPath $resolvedThrough = null,
     ) {}
 
     public static function make(string $key, ?string $column = null): WhereInBuilder
@@ -70,19 +73,16 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Deprecatable, 
 
     public function withoutDefault(): static
     {
-        return new self(
-            key: $this->key,
-            column: $this->column,
-            delimiter: $this->delimiter,
-            singular: $this->singular,
-            default: null,
-            hasDefault: false,
-            constraints: $this->constraints,
-            description: $this->description,
-            hasExample: $this->hasExample,
-            example: $this->example,
-            deprecated: $this->deprecated,
-            list: $this->list,
-        );
+        return $this->rebuilt(['default' => null, 'hasDefault' => false]);
+    }
+
+    protected function throughLeaf(): array
+    {
+        return [\haddowg\JsonApi\Resource\Through\LeafKind::Value, 'column'];
+    }
+
+    public function leafValue(mixed $value): mixed
+    {
+        return \haddowg\JsonApi\Resource\Through\FilterLeafValues::members($this->resolvedThrough, $this->key, $value, $this->list, $this->delimiter);
     }
 }

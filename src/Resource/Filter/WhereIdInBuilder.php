@@ -10,6 +10,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final class WhereIdInBuilder implements FilterBuilderInterface
 {
+    use BuildsThrough;
     use BuildsListValue;
     use BuildsValueConstraints;
 
@@ -31,7 +32,7 @@ final class WhereIdInBuilder implements FilterBuilderInterface
 
     public function build(): WhereIdIn
     {
-        return new WhereIdIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter));
+        return new WhereIdIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter), through: $this->through);
     }
 
     public function delimiter(string $delimiter): self

@@ -101,6 +101,37 @@ public function sorts(): array
 }
 ```
 
+### Sorting by a related field: `->through()`
+
+`SortByField::through()` sorts by a field of the type a path of **to-one** relations reaches:
+
+```php
+use haddowg\JsonApi\Resource\Sort\SortByField;
+
+public function sorts(): array
+{
+    return [
+        SortByField::make('campaignStart', 'startDate')->through('campaign'),       // ?sort=-campaignStart
+        SortByField::make('advertiserName', 'name')->through('campaign.advertiser'),
+    ];
+}
+```
+
+The path names relations by their API names and the column names a field of the reached type,
+resolved the way a [filter's path](filters.md#reaching-through-relations-with-through) is: the
+field's `storedAs()` decides the member a data layer orders by, and a column naming no stored
+field of that type fails resolution with a `\LogicException`. A path crossing a to-many has no
+single value to order by and fails resolution too, which adapters raise when they warm up.
+
+A row whose relation holds nothing sorts as a `null` value of a field of the sorted type does:
+by the data layer's own order on an offset page, and as the largest value on a cursor page.
+Sorts reaching through relations work in `defaultSort()`, a relation's `withSorts()` and
+`defaultSort()`, `relatedQuery[<path>][sort]` and a sort family's resolver, and on offset and
+cursor pages alike: a resolved `SortByField` is a
+[`KeysetSortInterface`](#sorting-a-cursor-page-by-a-custom-sort) whose `keysetValue()` reads
+the reached row's field. Resolve one with
+`ThroughPathResolver::resolveSort($sort, $resource->allFields())`.
+
 ## `defaultSort()`: the order with no `?sort`
 
 `allSorts()` only governs which sorts a collection *accepts*. With no `sort`

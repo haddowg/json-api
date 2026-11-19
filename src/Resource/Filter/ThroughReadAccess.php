@@ -8,6 +8,10 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Resource\Sort\SortInterface;
+use haddowg\JsonApi\Resource\Through\FiltersThrough;
+use haddowg\JsonApi\Resource\Through\RelationPath;
+use haddowg\JsonApi\Resource\Through\SortsThrough;
 use haddowg\JsonApi\Resource\ThroughReadGateInterface;
 
 /**
@@ -16,7 +20,9 @@ use haddowg\JsonApi\Resource\ThroughReadGateInterface;
  *
  * {@see hopsOf()} lists the {@see RelationHop}s of a {@see TraversesPath} filter, a
  * {@see WhereHas} or {@see WhereDoesntHave}, and every child of a {@see WhereGroup}.
- * {@see hopsAlong()} does the same for any dotted storage path, such as a sort's.
+ * {@see hopsAlong()} does the same for any dotted storage path. A filter or sort declared
+ * with `->through()` reaches each relation of its resolved path ({@see hopsOfSort()} for
+ * a sort), and an existence filter at the end of one also the relation it tests.
  * {@see refused()} asks the server's {@see ThroughReadGateInterface} about each hop.
  *
  * A segment names the relation stored under it, the one named after it when several
@@ -82,12 +88,52 @@ final class ThroughReadAccess
      */
     public function hopsOf(FilterInterface $filter, iterable $fields, string $rootType): array
     {
+        if ($filter instanceof FiltersThrough) {
+            $filter = $this->resolver->resolve($filter, $fields);
+        }
+        if ($filter instanceof FiltersThrough && ($path = $filter->resolvedThrough()) !== null) {
+            return self::hopsThrough($path, $rootType);
+        }
+
         return match (true) {
             $filter instanceof TraversesPath => $this->hopsAlong($filter->throughPath(), $fields, $rootType),
             $filter instanceof WhereHas, $filter instanceof WhereDoesntHave => $this->hopsAlong($filter->relationship, $fields, $rootType),
             $filter instanceof WhereGroup => \array_merge([], ...\array_map(fn(FilterInterface $child): array => $this->hopsOf($child, $fields, $rootType), $filter->children)),
             default => [],
         };
+    }
+
+    /**
+     * The hops `$sort` reaches through from `$rootType`, whose inventory is `$fields`: a
+     * sort declared with `->through()` reaches each relation of its path, any other none.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<RelationHop>
+     */
+    public function hopsOfSort(SortInterface $sort, iterable $fields, string $rootType): array
+    {
+        $sort = $this->resolver->resolveSort($sort, $fields);
+
+        return $sort instanceof SortsThrough && ($path = $sort->resolvedThrough()) !== null ? self::hopsThrough($path, $rootType) : [];
+    }
+
+    /**
+     * The hops of a resolved `->through()` path from `$rootType`, and the relation an
+     * existence filter tests at its end.
+     *
+     * @return list<RelationHop>
+     */
+    private static function hopsThrough(RelationPath $path, string $rootType): array
+    {
+        $hops = $path->hops;
+        $hops[0] = $hops[0]->on($rootType);
+        $leaf = $path->leafRelation();
+        if ($leaf !== null) {
+            $hops[] = new RelationHop($leaf, $path->leafType(), $hops[\count($hops) - 1]->path . '.' . ($leaf->column() ?? $leaf->name()));
+        }
+
+        return \array_values($hops);
     }
 
     /**

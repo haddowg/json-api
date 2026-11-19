@@ -177,6 +177,12 @@ The last segment of a traversal **Filter**'s dotted path when it names a monomor
 from the wire id through the related type's encoder.
 _Avoid_: relation filter, id path
 
+**Relation path**:
+The relations a **Filter** or **Sort** declared with `->through()` walks, named by their API
+names, to the type whose field it reads. Every hop means a related row exists, so a filter
+matches only through a row the path reaches and a sort reads `null` where it reaches none.
+_Avoid_: traversal path (that is the deprecated `WhereThrough`'s storage-named path), join path
+
 **Sort**:
 Metadata describing a sort key a type accepts.
 

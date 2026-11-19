@@ -7,11 +7,18 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Resource\Filter\Contains;
+use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
+use haddowg\JsonApi\Resource\Filter\WhereIdIn;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
@@ -111,6 +118,54 @@ final class ThroughFilterProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aFilterThroughARelationIsTypedByTheReachedField(): void
+    {
+        self::assertSame(['filter[budget]' => ['schema' => ['type' => 'integer']]], $this->parameters(Where::make('budget')->through('campaign')->build()));
+        self::assertSame(
+            ['type' => 'array', 'items' => ['type' => 'integer']],
+            $this->parameters(WhereIdIn::make('advertiser')->through('campaign.advertiser')->build())['filter[advertiser]']['schema'],
+        );
+        self::assertSame(
+            ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date'], 'max' => ['type' => 'string', 'format' => 'date']]],
+            $this->parameters(DateRange::make('campaignDates', 'startDate')->through('campaign')->build())['filter[campaignDates]']['schema'],
+        );
+    }
+
+    #[Test]
+    public function aGeneratedDescriptionNamesTheRelatedResource(): void
+    {
+        self::assertSame(
+            'Filter the collection by `budget`, on the related `campaign`.',
+            $this->parameter($this->document(Where::make('budget')->through('campaign')->build()), 'filter[budget]')['description'],
+        );
+        self::assertSame(
+            'Matches values containing the given substring, on the related `campaign`.',
+            $this->parameter($this->document(Contains::make('campaignName', 'name')->through('campaign')->build()), 'filter[campaignName]')['description'],
+        );
+        self::assertSame(
+            'Matches values within the given inclusive date range, on the related `campaign`.',
+            $this->parameter($this->document(DateRange::make('campaignDates', 'startDate')->through('campaign')->build()), 'filter[campaignDates]')['description'],
+        );
+        self::assertSame(
+            'Filter the collection by `unadvertised`, on the related `campaign`. Applied when present; value ignored.',
+            $this->parameter($this->document(WhereDoesntHave::make('unadvertised', 'advertiser')->through('campaign')), 'filter[unadvertised]')['description'],
+        );
+        self::assertSame(
+            'Leads in big campaigns.',
+            $this->parameter($this->document(Where::make('budget')->through('campaign')->describedAs('Leads in big campaigns.')->build()), 'filter[budget]')['description'],
+        );
+    }
+
+    #[Test]
+    public function aLeafNamingNoFieldFailsTheProjection(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('declares no such field');
+
+        $this->document(Where::make('cost')->through('campaign')->build());
+    }
+
+    #[Test]
     public function aPolymorphicLeafFailsTheProjection(): void
     {
         $this->expectException(\LogicException::class);
@@ -161,6 +216,8 @@ final class ThroughFilterProjectionTest extends TestCase
                 FakeTypeMetadata::resource(type: 'campaigns', fields: [
                     Id::make()->numeric()->build(),
                     Str::make('name')->build(),
+                    Integer::make('budget')->build(),
+                    Date::make('startDate')->build(),
                     BelongsTo::make('advertiser', 'advertisers')->build(),
                 ]),
                 FakeTypeMetadata::resource(type: 'advertisers', fields: [Id::make()->numeric()->build()]),

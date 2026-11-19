@@ -17,6 +17,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 class RangeBuilder implements FilterBuilderInterface
 {
+    use BuildsThrough;
     use BuildsValueConstraints;
 
     protected string $column;
@@ -43,7 +44,7 @@ class RangeBuilder implements FilterBuilderInterface
 
     public function build(): Range
     {
-        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription);
+        return new Range($this->key, $this->column, $this->deserialize, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->presetDescription, through: $this->through);
     }
 
     /**

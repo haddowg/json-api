@@ -28,6 +28,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\RelationHop;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereIdIn;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -554,6 +555,30 @@ final class CodeErrorScopeProjectionTest extends TestCase
         ]));
         self::assertContains('ACCESS_DENIED', $this->codes($readsOnly, '/comments/{id}', 'get'));
         self::assertNotContains('ACCESS_DENIED', $this->codes($readsOnly, '/operations', 'post'), 'a batch runs no read');
+    }
+
+    #[Test]
+    public function aFilterOrSortReachingThroughARelationTheAdapterCanRefuseOffersTheSecurityCodes(): void
+    {
+        $refusing = [
+            'canDenyAccess' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => false,
+            'canRequireAuthentication' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => false,
+            'canRefuseThrough' => static fn(RelationHop $hop): bool => \in_array($hop->relation->name(), ['comments', 'pinned'], true) && $hop->parentType === 'articles',
+        ];
+        foreach ([
+            'a filter' => ['filters' => [Where::make('commentBody', 'id')->through('comments')->build()]],
+            'a sort' => ['sorts' => [SortByField::make('pinnedBody', 'body')->through('pinned')]],
+            'a relation-keyed id filter' => ['filters' => [WhereIdIn::make('comments')->build()]],
+        ] as $case => $declared) {
+            $articles = [
+                'fields' => [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build(), HasMany::make('comments', 'comments')->build(), BelongsTo::make('pinned', 'comments')->build()],
+                'relations' => [new FakeRelationMetadata('comments', ['comments'], true), new FakeRelationMetadata('pinned', ['comments'], false)],
+                ...$declared,
+            ];
+
+            $document = $this->project($this->server(articles: $articles, server: $refusing));
+            self::assertContains('ACCESS_DENIED', $this->codes($document, '/articles', 'get'), $case);
+        }
     }
 
     #[Test]

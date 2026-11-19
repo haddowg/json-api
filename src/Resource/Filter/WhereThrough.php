@@ -30,6 +30,12 @@ namespace haddowg\JsonApi\Resource\Filter;
  * reference in-memory traversal; database adapters interpret the path as a
  * correlated EXISTS subquery (never a fetch-join, so it neither hydrates the
  * relation nor multiplies rows).
+ *
+ * @deprecated Declare the filter on the related type's field with `->through()` instead:
+ *             `WhereThrough::make('artist.name')` is `Where::make('artist.name', 'name')->through('artist')`,
+ *             and a path ending on a relation is `WhereIdIn::make($key)->through($path)`.
+ *             The path names relations by API name and the column a field of the reached
+ *             type; see the filters guide for the migration. Removed in the next major version.
  */
 final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\TraversesPath
 {

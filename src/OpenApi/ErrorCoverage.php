@@ -776,8 +776,8 @@ final class ErrorCoverage
     }
 
     /**
-     * Whether a filter the operation takes, or a `relatedQuery` filter on a relation it
-     * renders, reaches through a relation the adapter can refuse a caller
+     * Whether a filter or sort the operation takes, or a `relatedQuery` filter or sort on a
+     * relation it renders, reaches through a relation the adapter can refuse a caller
      * ({@see DeclaresThroughReadSecurity}). A filter family resolves its filters per
      * request, so its paths aren't known here.
      */
@@ -788,7 +788,9 @@ final class ErrorCoverage
         }
 
         $vocabularies = [];
+        $sortVocabularies = [];
         $filters = OperationFacts::filterVocabulary($type, $operation, $server);
+        $sorts = OperationFacts::sortVocabulary($type, $operation, $server);
         $relation = $operation->relation;
         $root = \in_array($operation->key->kind, [OperationKind::FetchRelated, OperationKind::FetchRelationship], true)
             ? ($relation === null ? null : OperationFacts::relatedType($relation, $server))
@@ -796,14 +798,18 @@ final class ErrorCoverage
         if ($filters !== null && $root !== null) {
             $vocabularies[] = [$root, $filters];
         }
+        if ($sorts !== null && $root !== null) {
+            $sortVocabularies[] = [$root, $sorts];
+        }
         $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
         foreach ($rendered === null ? [] : OperationFacts::relatedQueryRelations($rendered) as $queried) {
             $related = OperationFacts::relatedType($queried, $server);
             if ($related !== null) {
                 $vocabularies[] = [$related, OperationFacts::relatedFilterVocabulary($queried, $server)];
+                $sortVocabularies[] = [$related, OperationFacts::relatedSortVocabulary($queried, $server)];
             }
         }
-        if ($vocabularies === []) {
+        if ($vocabularies === [] && $sortVocabularies === []) {
             return false;
         }
 
@@ -819,6 +825,15 @@ final class ErrorCoverage
         foreach ($vocabularies as [$filtered, $vocabulary]) {
             foreach ($vocabulary as $filter) {
                 foreach ($access->hopsOf($filter, $filtered->fields(), $filtered->type()) as $hop) {
+                    if ($server->canRefuseThrough($hop)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        foreach ($sortVocabularies as [$sorted, $vocabulary]) {
+            foreach ($vocabulary as $sort) {
+                foreach ($access->hopsOfSort($sort, $sorted->fields(), $sorted->type()) as $hop) {
                     if ($server->canRefuseThrough($hop)) {
                         return true;
                     }

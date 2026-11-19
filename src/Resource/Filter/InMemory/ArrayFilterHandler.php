@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter\InMemory;
 use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
@@ -29,6 +30,7 @@ use haddowg\JsonApi\Resource\Filter\WhereSet;
 use haddowg\JsonApi\Resource\Filter\WhereSetMatch;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
+use haddowg\JsonApi\Resource\Through\FiltersThrough;
 
 /**
  * Reference {@see FilterHandlerInterface} operating on a
@@ -43,6 +45,12 @@ use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
  * {@see UnsupportedFilter} is raised — the in-memory half of the framework's
  * extensible-handler seam.
  *
+ * A filter declared with `->through()` must be resolved first
+ * ({@see \haddowg\JsonApi\Resource\Filter\ThroughPathResolver}). It keeps a row when
+ * some row the path reaches matches the filter at its leaf, so a relation that holds
+ * nothing never matches. {@see withRowAdmission()} narrows the rows each hop reaches to
+ * the ones the reached type's scope admits.
+ *
  * @implements FilterHandlerInterface<list<mixed>>
  */
 final class ArrayFilterHandler implements FilterHandlerInterface
@@ -53,7 +61,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private readonly array $arms;
 
     /**
-     * @var (\Closure(string, list<mixed>): list<mixed>)|null
+     * @var (\Closure(string, list<mixed>, ?RelationInterface=): list<mixed>)|null
      */
     private ?\Closure $admit = null;
 
@@ -71,9 +79,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * receives the dotted storage path walked so far, such as `comments` and then
      * `comments.author`, and the values that hop reached, and returns the ones that
      * exist for the caller. It also sees the last segment of a path that ends on a
-     * field, so it returns a segment that is no relationship unchanged.
+     * field, so it returns a segment that is no relationship unchanged. A filter declared
+     * with `->through()` also passes the relation the hop walks, which decides the hop
+     * when several relations share one storage member.
      *
-     * @param \Closure(string, list<mixed>): list<mixed> $admit
+     * @param \Closure(string, list<mixed>, ?RelationInterface=): list<mixed> $admit
      */
     public function withRowAdmission(\Closure $admit): self
     {
@@ -100,6 +110,10 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      */
     private function predicate(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $value): \Closure
     {
+        if ($filter instanceof FiltersThrough && $filter->throughRelations() !== null) {
+            return $this->through($filter, $value);
+        }
+
         return match (true) {
             $filter instanceof WhereAll => $this->whereAll($filter, $value),
             $filter instanceof WhereAny => $this->whereAny($filter, $value),
@@ -118,6 +132,42 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter instanceof WhereHas => fn(mixed $row): bool => $this->hasRelation($row, $filter->relationship),
             $filter instanceof WhereDoesntHave => fn(mixed $row): bool => !$this->hasRelation($row, $filter->relationship),
             default => $this->armPredicate($filter, $value),
+        };
+    }
+
+    /**
+     * A filter reaching through relations: some row the path reaches, admitted by its
+     * type's scope, matches the filter at its leaf.
+     *
+     * @return \Closure(mixed): bool
+     */
+    private function through(FiltersThrough $filter, mixed $value): \Closure
+    {
+        // atLeaf() refuses a path that was never resolved.
+        $leafFilter = $filter->atLeaf();
+        $path = $filter->resolvedThrough();
+        \assert($path !== null);
+        $admit = $this->admit;
+        $leaf = $this->predicate($leafFilter, $filter->leafValue($value));
+
+        // An existence leaf asks whether the reached row's relation holds a row its type's
+        // scope admits.
+        $relation = $path->leafRelation();
+        if ($admit !== null && $relation !== null && ($leafFilter instanceof WhereHas || $leafFilter instanceof WhereDoesntHave)) {
+            $storage = $relation->column() ?? $relation->name();
+            $walked = \implode('.', [...$path->storageSegments(), $storage]);
+            $holds = fn(mixed $reached): bool => ($members = $this->fanOut(Accessor::get($reached, $storage))) !== [] && $admit($walked, $members, $relation) !== [];
+            $leaf = $leafFilter instanceof WhereHas ? $holds : static fn(mixed $reached): bool => !$holds($reached);
+        }
+
+        return static function (mixed $row) use ($path, $leaf, $admit): bool {
+            foreach ($path->reach($row, $admit) as $reached) {
+                if ($leaf($reached)) {
+                    return true;
+                }
+            }
+
+            return false;
         };
     }
 
