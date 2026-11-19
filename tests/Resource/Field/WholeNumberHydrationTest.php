@@ -20,11 +20,13 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * JSON may write a whole number as `5.0`, which the type check accepts for an integer.
- * Hydration and every write hook receive it as an `int`, at any depth.
+ * JSON may write a whole number as `5.0`, which the type check accepts for an integer,
+ * and `5` for a number. Hydration and every write hook receive an integer's value as an
+ * `int` and a number's as a `float`, at any depth.
  */
 #[CoversClass(AbstractFieldValue::class)]
 #[CoversClass(Integer::class)]
+#[CoversClass(Decimal::class)]
 #[CoversClass(ArrayList::class)]
 #[CoversClass(Obj::class)]
 #[CoversClass(Map::class)]
@@ -57,14 +59,14 @@ final class WholeNumberHydrationTest extends TestCase
     }
 
     #[Test]
-    public function aDecimalKeepsItsFloat(): void
+    public function aDecimalHandsItsHooksAFloat(): void
     {
         $seen = null;
         $this->hydrate(Decimal::make('rating')->fillUsing(static function (mixed $model, mixed $value) use (&$seen): mixed {
             $seen = $value;
 
             return $model;
-        }), 5.0);
+        }), 5);
 
         self::assertSame(5.0, $seen);
     }
@@ -73,7 +75,7 @@ final class WholeNumberHydrationTest extends TestCase
     public function anIntegerListStoresAndHandsOverInts(): void
     {
         self::assertSame(['counts' => [1, 2]], $this->hydrate(ArrayList::make('counts')->of('integer'), [1.0, 2]));
-        self::assertSame(['weights' => [1.0, 2]], $this->hydrate(ArrayList::make('weights')->of('number'), [1.0, 2]));
+        self::assertSame(['weights' => [1.0, 2.0]], $this->hydrate(ArrayList::make('weights')->of('number'), [1.0, 2]));
 
         $seen = null;
         $this->hydrate(ArrayList::make('counts')->of('integer')->fillUsing(static function (mixed $model, mixed $value) use (&$seen): mixed {

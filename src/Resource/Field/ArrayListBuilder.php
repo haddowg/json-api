@@ -70,9 +70,9 @@ final class ArrayListBuilder extends AbstractFieldBuilder
      * `nullable()`; constrain the members instead.
      *
      * The element type sets the list `TValue` a write hook receives, such as `list<int>`
-     * for `integer` and `list<int|float>` for `number`.
+     * for `integer` and `list<float>` for `number`.
      *
-     * @phpstan-self-out ($element is 'string' ? static<list<string>|(TValue&null)> : ($element is 'integer' ? static<list<int>|(TValue&null)> : ($element is 'number' ? static<list<int|float>|(TValue&null)> : ($element is 'boolean' ? static<list<bool>|(TValue&null)> : ($element is Union|UnionBuilder ? static<list<string|int|float|bool|list<mixed>>|(TValue&null)> : ($element is Obj|ObjBuilder|OneOf|OneOfBuilder ? static<list<array<array-key, mixed>>|(TValue&null)> : static<list<mixed>|(TValue&null)>))))))
+     * @phpstan-self-out ($element is 'string' ? static<list<string>|(TValue&null)> : ($element is 'integer' ? static<list<int>|(TValue&null)> : ($element is 'number' ? static<list<float>|(TValue&null)> : ($element is 'boolean' ? static<list<bool>|(TValue&null)> : ($element is Union|UnionBuilder ? static<list<string|int|float|bool|list<mixed>>|(TValue&null)> : ($element is Obj|ObjBuilder|OneOf|OneOfBuilder ? static<list<array<array-key, mixed>>|(TValue&null)> : static<list<mixed>|(TValue&null)>))))))
      * @return $this
      */
     public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder|Union|UnionBuilder $element): static

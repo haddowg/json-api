@@ -61,7 +61,7 @@ final class HookValueTypes
             Date::make('releasedOn')->deserializeUsing(static fn(string $value): string => $value),
             Time::make('opensAt')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             Integer::make('plays')->fillUsing(static fn(\ArrayObject $model, int $value): int => $value),
-            Decimal::make('rating')->fillUsing(static fn(\ArrayObject $model, int|float $value): float => (float) $value),
+            Decimal::make('rating')->fillUsing(static fn(\ArrayObject $model, float $value): float => $value),
             Boolean::make('explicit')->fillUsing(static fn(\ArrayObject $model, bool $value): bool => $value),
             ArrayList::make('tags')->fillUsing(
                 /** @param list<string> $value */
@@ -76,8 +76,8 @@ final class HookValueTypes
                 static fn(\ArrayObject $model, array $value): int => \count($value),
             ),
             ArrayList::make('weights')->of('number')->deserializeUsing(
-                /** @param list<int|float> $value */
-                static fn(array $value): int|float => \array_sum($value),
+                /** @param list<float> $value */
+                static fn(array $value): float => \array_sum($value),
             ),
             ArrayList::make('flags')->of('boolean')->fillUsing(
                 /** @param list<bool> $value */
@@ -211,7 +211,7 @@ final class HookValueTypes
             Str::make('wrongDeserialize')->deserializeUsing(static fn(int $value): int => $value),
             // @phpstan-ignore argument.type (an integer field's value is not a string)
             Integer::make('wrongString')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
-            // @phpstan-ignore argument.type (a number may be a float)
+            // @phpstan-ignore argument.type (a number is a float)
             Decimal::make('wrongNumber')->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
             // @phpstan-ignore argument.type (an enum list's elements are cases)
             ArrayList::make('wrongEnumList')->each(new In(['draft'], enumClass: HookValueStatus::class))->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),

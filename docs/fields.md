@@ -547,8 +547,9 @@ as `null`.
 
 ### Typing the written value
 
-The adapters check each written value's JSON type before hydrating it, so every field
-builder knows what its write hooks receive. A typed `$value` passes PHPStan where the
+The adapters check each written value's JSON type before hydrating it, and core puts a
+number in the type its field documents first, so every field builder knows what its write
+hooks receive. A typed `$value` passes PHPStan where the
 check guarantees that type, and a wrong one fails, such as `int` on a `Str`:
 
 ```php
@@ -561,9 +562,9 @@ Str::make('note')->nullable()->fillUsing(static fn (Track $track, ?string $value
 |---|---|
 | `Str` and its facades (`Email`, `Url`, `Uuid`, `Slug`, `Ip`), `DateTime`, `Date`, `Time` | `string` |
 | `Integer` | `int`, a whole number written as `5.0` included |
-| `Decimal` | `int\|float` |
+| `Decimal` | `float`, an integer written as `5` included |
 | `Boolean` | `bool` |
-| `ArrayList` | `list<string>`, or by `of()`: `list<int>` for `integer`, `list<int\|float>` for `number`, `list<bool>` for `boolean`, `list<array<array-key, mixed>>` for an `Obj` or `OneOf`, and a list of a union's member types for a `Union` |
+| `ArrayList` | `list<string>`, or by `of()`: `list<int>` for `integer`, `list<float>` for `number`, `list<bool>` for `boolean`, `list<array<array-key, mixed>>` for an `Obj` or `OneOf`, and a list of a union's member types for a `Union` |
 | `Obj`, `Map`, `OneOf` | `array<string, mixed>` |
 | `Obj` with `additionalProperties()`, `ArrayHash` | `array<array-key, mixed>`, since PHP decodes a numeric key as an `int` |
 | `Union` | `string\|int\|float\|bool\|list<mixed>` |

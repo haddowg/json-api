@@ -69,6 +69,14 @@ final readonly class CustomActionOperation implements JsonApiOperationInterface
     }
 
     /**
+     * This operation carrying `$body` in place of its own.
+     */
+    public function withBody(?JsonApiRequestInterface $body): self
+    {
+        return new self($this->target, $this->queryParameters, $this->context, $this->action, $this->method, $body, $this->responds);
+    }
+
+    /**
      * The responses the action declares, or `[]` when the integration did not pass them.
      *
      * @return list<\haddowg\JsonApi\OpenApi\Metadata\ActionResponse>

@@ -364,7 +364,8 @@ final class UnionTest extends TestCase
             ->fillUsing(static fn(mixed $model, mixed $value): array => ['raw' => $value])
             ->build();
 
-        self::assertSame(['raw' => 3], $field->hydrate([], 3, [], $this->request(), true));
+        // The hook receives the number member's value as a float, as the member documents it.
+        self::assertSame(['raw' => 3.0], $field->hydrate([], 3, [], $this->request(), true));
     }
 
     #[Test]

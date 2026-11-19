@@ -287,8 +287,9 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     }
 
     /**
-     * Normalizes each element: an `integer` list's whole numbers become `int`s, and a
-     * structured list or a list of unions normalizes each element through its shape.
+     * Normalizes each element: an `integer` list's whole numbers become `int`s, a
+     * `number` list's integers `float`s, and a structured list or a list of unions
+     * normalizes each element through its shape.
      *
      * @internal
      */
@@ -303,11 +304,20 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
             return \array_map(static fn(mixed $item): mixed => $element->normalizeWireValue($item), $value);
         }
 
-        if ($this->elementType !== ValueTypes::INTEGER) {
-            return $value;
-        }
+        return \array_map($this->normalizeNumber(...), $value);
+    }
 
-        return \array_map(static fn(mixed $item): mixed => \is_float($item) && ValueTypes::matches(ValueTypes::INTEGER, $item) ? (int) $item : $item, $value);
+    /**
+     * An element of an `integer` list that is a whole `float` as an `int`, and one of a
+     * `number` list that is an `int` as a `float`.
+     */
+    private function normalizeNumber(mixed $item): mixed
+    {
+        return match (true) {
+            $this->elementType === ValueTypes::INTEGER && \is_float($item) && ValueTypes::matches(ValueTypes::INTEGER, $item) => (int) $item,
+            $this->elementType === ValueTypes::NUMBER && \is_int($item) => (float) $item,
+            default => $item,
+        };
     }
 
     /**
@@ -348,7 +358,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
             return \array_map($this->elementUnion->render(...), \array_values($raw));
         }
 
-        $list = \array_values($raw);
+        $list = \array_map($this->normalizeNumber(...), \array_values($raw));
         if ($this->sorted) {
             \sort($list);
         }

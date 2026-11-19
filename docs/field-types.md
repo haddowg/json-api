@@ -64,9 +64,11 @@ An integer attribute (JSON `type: integer`); casts to `int` on both serialize an
 hydrate. The [`trackNumber`](../examples/music-catalog/src/Resource/TrackResource.php)
 and `durationSeconds` members are integers — the wire value `1` round-trips to a
 PHP `int`. A whole number written as `5.0` is an integer too, and becomes the `int` `5`
-before anything hydrates it, so a `fillUsing()` or `deserializeUsing()` hook receives an
-`int`. The same goes for an `Integer` child of an `Obj`, `Map` or `OneOf` variant, an
-`Integer` member of a `Union`, and each element of an `ArrayList` declared `of('integer')`.
+before validation, so constraints, hooks, setters and storage all see an `int`. The same
+goes for an `Integer` child of an `Obj`, `Map` or `OneOf` variant, an `Integer` member of
+a `Union`, an `Integer` pivot field in a linkage member's `meta.pivot`, and each element
+of an `ArrayList` declared `of('integer')`, which also renders a stored whole `float` as
+an `int`.
 
 | Method | Adds |
 |---|---|
@@ -82,7 +84,9 @@ Integer::make('durationSeconds')->storedAs('length_seconds');
 
 ## `Decimal`
 
-A floating-point attribute (JSON `type: number`); casts to `float`. The bound
+A floating-point attribute (JSON `type: number`); casts to `float`. An integer written
+as `5` becomes the `float` `5.0` before validation, at every position an `Integer` is
+normalized, and each element of an `ArrayList` declared `of('number')` does too. The bound
 helpers accept `int|float`. The album's
 [`averageRating`](../examples/music-catalog/src/Resource/AlbumResource.php) is a
 `Decimal` (a nullable, read-only rating).
