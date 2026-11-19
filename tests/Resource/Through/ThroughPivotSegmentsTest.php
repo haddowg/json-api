@@ -240,6 +240,64 @@ final class ThroughPivotSegmentsTest extends TestCase
         $path->reach((object) ['tracks' => []]);
     }
 
+    #[Test]
+    public function aPivotOnTheFirstRelationAsksForThePivotRowsOfTheTypeThePathStartsFrom(): void
+    {
+        $types = self::types();
+        $rows = new class implements PivotRowRelations {
+            /**
+             * @var list<string>
+             */
+            public array $parentTypes = [];
+
+            public function pivotRowRelation(PivotRelationInterface $relation, string $parentType, string $member): ?RelationInterface
+            {
+                $this->parentTypes[] = $parentType;
+
+                return $parentType === 'tracks' && $member === 'addedBy' ? BelongsTo::make('addedBy', 'users')->build() : null;
+            }
+        };
+        $resolver = new ThroughPathResolver(static fn(string $type): ?array => $types[$type] ?? null, $rows);
+
+        $filter = $resolver->resolve(Where::make('adder', 'name')->through('playlists.pivot.addedBy')->build(), $types['tracks'], type: 'tracks');
+        $path = $this->pathOf($filter);
+        self::assertSame('tracks', $path->hops[0]->parentType);
+        self::assertSame('users', $path->leafType());
+
+        // The access helpers name the type the filter runs against, so they ask the same.
+        $hops = (new ThroughReadAccess($resolver))->hopsOf(Where::make('adder', 'name')->through('playlists.pivot.addedBy')->build(), $types['tracks'], 'tracks');
+        self::assertSame('users', $hops[\count($hops) - 1]->relatedType());
+        self::assertSame(['tracks'], \array_values(\array_unique($rows->parentTypes)));
+    }
+
+    #[Test]
+    public function aPivotOnTheFirstRelationOfARelationsFiltersAsksForItsRelatedType(): void
+    {
+        $types = self::types();
+        $parents = [];
+        $rows = new class ($parents) implements PivotRowRelations {
+            /**
+             * @param list<string> $parents
+             */
+            public function __construct(public array $parents) {}
+
+            public function pivotRowRelation(PivotRelationInterface $relation, string $parentType, string $member): ?RelationInterface
+            {
+                $this->parents[] = $parentType;
+
+                return $member === 'addedBy' ? BelongsTo::make('addedBy', 'users')->build() : null;
+            }
+        };
+        $resolver = new ThroughPathResolver(static fn(string $type): ?array => $types[$type] ?? null, $rows);
+        $album = $types['albums'][1];
+        \assert($album instanceof RelationInterface);
+
+        // An album's tracks filtered by a pivot of the tracks' own playlists: the path starts
+        // from the related type of the relation it runs under.
+        $resolver->resolve(Where::make('adder', 'name')->through('playlists.pivot.addedBy')->build(), $types['tracks'], new RelationHop($album, 'albums', 'tracks'));
+        self::assertSame(['tracks'], $rows->parents);
+    }
+
     private function pathOf(FilterInterface $filter): RelationPath
     {
         self::assertInstanceOf(FiltersThrough::class, $filter);

@@ -346,7 +346,7 @@ final class OperationProjector
     private function fetchCollectionOperation(TypeMetadataInterface $type, ServerMetadataInterface $server, string $operationId, array $tags, array $scopes): Operation
     {
         $parameters = $this->concatParameters(
-            $this->filterParameters($type->filters(), $type->fields(), $server),
+            $this->filterParameters($type->filters(), $type->fields(), $server, type: $type->type()),
             [$this->sortParameter($type->sorts(), [], self::typeSortExample($type))],
             $this->documentShapeParameters($type, $server),
             $this->pageParameters($type->pageSchema(), $server),
@@ -1136,7 +1136,7 @@ final class OperationProjector
                 ? self::singularNoun($type)
                 : 'the ' . TypeNoun::of($type)->plural . ' collection') . '.'),
             parameters: $this->concatParameters(
-                $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields(), $server),
+                $this->filterParameters(ActionDeclarations::filters($type, $action), $type->fields(), $server, type: $type->type()),
                 $this->actionDocumentShapeParameters($action, $server),
                 [$this->withCountParameter(OperationFacts::actionWithCountTokens($action, $server), $server)],
             ),
@@ -1559,15 +1559,16 @@ final class OperationProjector
      *
      * @param list<\haddowg\JsonApi\Resource\Filter\FilterInterface> $filters
      * @param list<\haddowg\JsonApi\Resource\Field\FieldInterface>   $fields  the inventory of the type the filters run against
+     * @param string                                                 $type    the type the filters run against, when known
      *
      * @return list<Parameter>
      */
-    private function filterParameters(array $filters, array $fields, ServerMetadataInterface $server, ?\haddowg\JsonApi\Resource\Filter\RelationHop $under = null): array
+    private function filterParameters(array $filters, array $fields, ServerMetadataInterface $server, ?\haddowg\JsonApi\Resource\Filter\RelationHop $under = null, string $type = ''): array
     {
         $parameters = [];
         $families = [];
         $paths = new ThroughPathResolver(fn(string $type): ?array => $this->typeNamed($type, $server)?->fields(), $server instanceof PivotRowRelations ? $server : null);
-        foreach ($paths->resolveAll($filters, $fields, $under) as $filter) {
+        foreach ($paths->resolveAll($filters, $fields, $under, $type) as $filter) {
             if ($filter instanceof FilterFamilyInterface) {
                 $families[] = $filter;
 
@@ -2241,11 +2242,14 @@ final class OperationProjector
      */
     private function relatedFilterParameters(RelationMetadataInterface $relation, ServerMetadataInterface $server, TypeMetadataInterface $parent): array
     {
+        $related = $this->relatedTypeMetadata($relation, $server);
+
         return $this->filterParameters(
             OperationFacts::relatedFilterVocabulary($relation, $server),
-            $this->relatedTypeMetadata($relation, $server)?->fields() ?? [],
+            $related?->fields() ?? [],
             $server,
             OperationFacts::declaredRelation($parent, $relation),
+            $related?->type() ?? '',
         );
     }
 

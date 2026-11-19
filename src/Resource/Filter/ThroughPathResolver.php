@@ -86,7 +86,10 @@ final class ThroughPathResolver
      *
      * `$under` is the relation the filters run under, as the type declaring it holds it, on
      * a relation's related and relationship endpoints and in its `relatedQuery` vocabulary;
-     * a path starting with `pivot` reaches its pivot row. Its `path` is not read.
+     * a path starting with `pivot` reaches its pivot row. Its `path` is not read. `$type` is
+     * the type the filters run against, the parent type of each path's first hop, which a
+     * `pivot` after that hop asks {@see PivotRowRelations} about; when empty, it is the
+     * related type of `$under`.
      *
      * @param list<FilterInterface>    $filters
      * @param iterable<FieldInterface> $fields
@@ -95,22 +98,22 @@ final class ThroughPathResolver
      *
      * @throws \LogicException when a path ends on a polymorphic relation, its related type is not registered, or the filter cannot compare what the path ends on
      */
-    public function resolveAll(array $filters, iterable $fields, ?RelationHop $under = null): array
+    public function resolveAll(array $filters, iterable $fields, ?RelationHop $under = null, string $type = ''): array
     {
         $fields = self::listed($fields);
 
-        return \array_map(fn(FilterInterface $filter): FilterInterface => $this->resolve($filter, $fields, $under), $filters);
+        return \array_map(fn(FilterInterface $filter): FilterInterface => $this->resolve($filter, $fields, $under, $type), $filters);
     }
 
     /**
-     * `$filter` resolved against `$fields`, the inventory of the type it runs against,
-     * under the relation `$under` when it runs under one.
+     * `$filter` resolved against `$fields`, the inventory of `$type`, the type it runs
+     * against, under the relation `$under` when it runs under one. See {@see resolveAll()}.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @throws \LogicException when a path ends on a polymorphic relation, its related type is not registered, or the filter cannot compare what the path ends on
      */
-    public function resolve(FilterInterface $filter, iterable $fields, ?RelationHop $under = null): FilterInterface
+    public function resolve(FilterInterface $filter, iterable $fields, ?RelationHop $under = null, string $type = ''): FilterInterface
     {
         if (($filter instanceof WhereIdIn || $filter instanceof WhereIdNotIn) && $filter->throughRelations() === null) {
             $filter = $this->relatedIds($filter, self::listed($fields));
@@ -119,7 +122,7 @@ final class ThroughPathResolver
         if ($filter instanceof ReachesThrough && ($through = $filter->throughRelations()) !== null) {
             return $filter->resolvedThrough() !== null
                 ? $filter
-                : $filter->withResolvedThrough($this->relationPath($filter->key(), $through, $fields, '', $under));
+                : $filter->withResolvedThrough($this->relationPath($filter->key(), $through, $fields, self::startType($type, $under), $under));
         }
 
         if ($filter instanceof TraversesPath) {
@@ -135,7 +138,7 @@ final class ThroughPathResolver
         }
 
         if ($filter instanceof WhereGroup) {
-            $children = $this->resolveAll($filter->children, $fields, $under);
+            $children = $this->resolveAll($filter->children, $fields, $under, $type);
 
             return $children === $filter->children
                 ? $filter
@@ -185,19 +188,35 @@ final class ThroughPathResolver
     /**
      * `$sort` resolved against `$fields`, the inventory of the type it orders, under the
      * relation `$under` when it runs under one: a sort reaching through relations with its
-     * path resolved, any other sort unchanged.
+     * path resolved, any other sort unchanged. `$type` names the type it orders, as for
+     * {@see resolveAll()}.
      *
      * @param iterable<FieldInterface> $fields
      *
      * @throws \LogicException when the path names no relation, crosses a to-many or a polymorphic relation, or its reached type declares no field the sort can order by
      */
-    public function resolveSort(SortInterface $sort, iterable $fields, ?RelationHop $under = null): SortInterface
+    public function resolveSort(SortInterface $sort, iterable $fields, ?RelationHop $under = null, string $type = ''): SortInterface
     {
         if (!$sort instanceof ReachesThrough || ($through = $sort->throughRelations()) === null || $sort->resolvedThrough() !== null) {
             return $sort;
         }
 
-        return $sort->withResolvedThrough($this->relationPath($sort->key(), $through, $fields, '', $under));
+        return $sort->withResolvedThrough($this->relationPath($sort->key(), $through, $fields, self::startType($type, $under), $under));
+    }
+
+    /**
+     * The type a path starts from: `$type`, or the related type of the relation the path
+     * runs under, whose inventory the path is resolved against.
+     */
+    private static function startType(string $type, ?RelationHop $under): string
+    {
+        if ($type !== '' || $under === null) {
+            return $type;
+        }
+
+        $related = $under->relation->relatedTypes();
+
+        return \count($related) === 1 ? $related[0] : '';
     }
 
     /**

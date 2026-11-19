@@ -96,7 +96,7 @@ final class ThroughReadAccess
     public function hopsOf(FilterInterface $filter, iterable $fields, string $rootType, ?RelationHop $under = null): array
     {
         if ($filter instanceof FiltersThrough) {
-            $filter = $this->resolver->resolve($filter, $fields, $under);
+            $filter = $this->resolver->resolve($filter, $fields, $under, $rootType);
         }
         if ($filter instanceof FiltersThrough && ($path = $filter->resolvedThrough()) !== null) {
             return self::hopsThrough($path, $rootType);
@@ -121,7 +121,7 @@ final class ThroughReadAccess
      */
     public function hopsOfSort(SortInterface $sort, iterable $fields, string $rootType, ?RelationHop $under = null): array
     {
-        $sort = $this->resolver->resolveSort($sort, $fields, $under);
+        $sort = $this->resolver->resolveSort($sort, $fields, $under, $rootType);
 
         return $sort instanceof SortsThrough && ($path = $sort->resolvedThrough()) !== null ? self::hopsThrough($path, $rootType) : [];
     }

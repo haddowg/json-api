@@ -203,7 +203,7 @@ A filter declared with [`->through()`](filters.md#reaching-through-relations-wit
 implements [`FiltersThrough`](../src/Resource/Through/FiltersThrough.php), and a
 `SortByField` declared with it a [`SortsThrough`](../src/Resource/Through/SortsThrough.php).
 Resolve either against the type it runs against with `ThroughPathResolver::resolve()` or
-`resolveSort()` first, passing the relation it runs under on a relation's reads as a `RelationHop` of the relation and the type declaring it; an unresolved
+`resolveSort()` first, passing the relation it runs under on a relation's reads as a `RelationHop` of the relation and the type declaring it, and the name of the type it runs against as `type:`, which a `pivot` after the path's first relation asks your `PivotRowRelations` about; an unresolved
 one is refused. Then:
 
 - a filter is one `EXISTS` over `resolvedThrough()->storageSegments()`, whose leaf applies
