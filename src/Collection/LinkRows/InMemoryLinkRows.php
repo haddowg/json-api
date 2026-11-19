@@ -159,12 +159,13 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowK
 
             return null;
         };
-        $set = static function (array $rows, LinkRowWrite $write) use ($indexOf): array {
+        $set = static function (array $rows, LinkRowWrite $write) use ($indexOf, $relation): array {
             $index = $indexOf($rows, $write->member);
             if ($index !== null) {
                 foreach ($write->values as $field => $value) {
                     $rows[$index] = Accessor::set($rows[$index], $field, $value);
                 }
+                $rows[$index] = $write->fillAdditional($relation, $rows[$index]);
             }
 
             return $rows;
@@ -192,7 +193,7 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowK
             foreach ($insert->values as $field => $value) {
                 $row = Accessor::set($row, $field, $value);
             }
-            $rows[] = $row;
+            $rows[] = $insert->fillAdditional($relation, $row);
         }
         $this->assertUniquePositions($relation, $rows, $position);
 

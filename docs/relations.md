@@ -797,6 +797,12 @@ value, `LinkRowFields::storedValueFor($type)`, the id field, and any position an
 fields. Set the owner through the row's association on Doctrine, or `associate()` on
 Eloquent.
 
+When the pivot is open, each write also carries the extra members its `AdditionalProperties`
+entry takes, in `additional`, beside the member's written `pivot`. After setting a row's values,
+call `$write->fillAdditional($relation, $row)`, which hands them to the entry's `fillUsing()`
+hook and returns the row it returns. An existing member that sends only extra members is still
+an update.
+
 A replace deletes every current member the linkage leaves out, except a hidden one, and
 inserts the members it adds. An add inserts the members not yet linked. A remove deletes
 the linkage's members, never a hidden one. A member the linkage names again keeps its row

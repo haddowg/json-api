@@ -57,7 +57,9 @@ final readonly class LinkRowWritePlan
      *
      * Pivot values are read off `pivot` for the relation's writable pivot fields, the
      * create-context ones for a new row and the update-context ones for an existing row,
-     * each cast by its field and keyed by its row field.
+     * each cast by its field and keyed by its row field. The members an open pivot's
+     * `AdditionalProperties` entry takes ride each write for its fill hook, which
+     * {@see LinkRowWrite::fillAdditional()} hands them to.
      *
      * @param iterable<array{0: string, 1: string|int, 2?: array<string, mixed>}> $linkage
      * @param iterable<IdentifiedMember>                                          $current
@@ -122,8 +124,9 @@ final readonly class LinkRowWritePlan
             if ($position !== null && isset($final[$key])) {
                 $values[$position] = $final[$key];
             }
-            if ($values !== []) {
-                $updates[] = new LinkRowWrite($member, $values);
+            $additional = $mode === Mode::Remove || !isset($incoming[$key]) ? [] : self::additionalValues($relation, $incoming[$key][2]);
+            if ($values !== [] || $additional !== []) {
+                $updates[] = new LinkRowWrite($member, $values, $additional, $mode === Mode::Remove || !isset($incoming[$key]) ? [] : $incoming[$key][2]);
             }
         }
 
@@ -138,7 +141,7 @@ final readonly class LinkRowWritePlan
             if ($position !== null && isset($final[$key])) {
                 $values[$position] = $final[$key];
             }
-            $inserts[] = new LinkRowWrite(new IdentifiedMember($type, $id), $values);
+            $inserts[] = new LinkRowWrite(new IdentifiedMember($type, $id), $values, self::additionalValues($relation, $pivot), $pivot);
         }
 
         return new self(\array_values($deleted), $temporaryWrites, $updates, $inserts);
@@ -218,6 +221,30 @@ final readonly class LinkRowWritePlan
         }
 
         return $values;
+    }
+
+    /**
+     * The members of `$pivot` the relation's `AdditionalProperties` entry takes, each number
+     * put in the type its value field documents.
+     *
+     * @param array<string, mixed> $pivot
+     *
+     * @return array<string, mixed>
+     */
+    private static function additionalValues(MorphToMany $relation, array $pivot): array
+    {
+        $shape = $relation->pivotMetaShape();
+        $members = $shape->additionalMembers($pivot);
+        if ($members === []) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($shape->normalize($members) as $name => $value) {
+            $normalized[(string) $name] = $value;
+        }
+
+        return $normalized;
     }
 
     private static function key(string $type, string|int $id): string
