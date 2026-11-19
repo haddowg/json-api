@@ -24,7 +24,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * An in-core {@see RelationMetadataInterface} fixture — a plain value carrier so the
  * projector tests need no Symfony.
  */
-final class FakeRelationMetadata implements RelationMetadataInterface, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDetachmentRefusal, \haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkageResolution, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership, DeclaresDroppedFilterDefaults
+final class FakeRelationMetadata implements RelationMetadataInterface, \haddowg\JsonApi\OpenApi\Metadata\DeclaresDetachmentRefusal, \haddowg\JsonApi\OpenApi\Metadata\DeclaresLinkageResolution, DeclaresDeprecatedRelation, DeclaresRelationExampleId, DeclaresAlwaysCounted, DeclaresPolymorphicRelation, DeclaresIdentifiedMembers, DeclaresIdentifierMeta, DeclaresRelationDefaultSort, DeclaresFixedMembership, DeclaresDroppedFilterDefaults, \haddowg\JsonApi\OpenApi\Metadata\DeclaresOpenRelationMeta
 {
     /**
      * @param list<string>          $relatedTypes
@@ -67,7 +67,19 @@ final class FakeRelationMetadata implements RelationMetadataInterface, \haddowg\
         private readonly array $droppedFilterDefaults = [],
         private readonly bool $canRefuseDetachment = true,
         private readonly bool $canMissLinkage = true,
+        private readonly ?\haddowg\JsonApi\Resource\Field\AdditionalProperties $pivotAdditional = null,
+        private readonly ?\haddowg\JsonApi\Resource\Field\AdditionalProperties $identifierMetaAdditional = null,
     ) {}
+
+    public function pivotAdditionalProperties(): ?\haddowg\JsonApi\Resource\Field\AdditionalProperties
+    {
+        return $this->pivotAdditional;
+    }
+
+    public function identifierMetaAdditionalProperties(): ?\haddowg\JsonApi\Resource\Field\AdditionalProperties
+    {
+        return $this->identifierMetaAdditional;
+    }
 
     public function canRefuseDetachment(): bool
     {
