@@ -1,0 +1,158 @@
+<?php
+
+declare(strict_types=1);
+
+namespace haddowg\JsonApi\Tests\OpenApi;
+
+use haddowg\JsonApi\OpenApi\GeneratorContract;
+use haddowg\JsonApi\OpenApi\OpenApiProjector;
+use haddowg\JsonApi\OpenApi\OperationProjector;
+use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\Str;
+use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * A `fields[<type>]` parameter documents the `<attribute>.<key>` members an attribute
+ * declaring selectable keys accepts, beside the member enum, and the document carries the
+ * field-selection contract only then.
+ */
+#[CoversClass(OpenApiProjector::class)]
+#[CoversClass(OperationProjector::class)]
+#[CoversClass(GeneratorContract::class)]
+final class FieldSelectionProjectionTest extends TestCase
+{
+    #[Test]
+    public function theFieldsParameterAcceptsTheMemberEnumOrAKeyOfEachSelectableAttribute(): void
+    {
+        $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[products]');
+
+        self::assertSame([
+            'type' => 'array',
+            'items' => [
+                'anyOf' => [
+                    ['type' => 'string', 'enum' => ['name', 'values', 'totals', 'closed', 'vendor']],
+                    ['type' => 'string', 'pattern' => '^values\\.(?:[a-z][a-z0-9_]*)$'],
+                    ['type' => 'string', 'pattern' => '^totals\\.[^,]+$'],
+                ],
+            ],
+        ], $parameter['schema']);
+        self::assertIsString($parameter['description']);
+        self::assertStringContainsString(FieldSelectionProfile::URI, $parameter['description']);
+        self::assertStringContainsString('`values` or `totals`', $parameter['description']);
+    }
+
+    #[Test]
+    public function anIncludedTypesFieldsParameterAcceptsItsKeysToo(): void
+    {
+        $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[vendors]');
+
+        self::assertSame(
+            ['type' => 'string', 'pattern' => '^stats\\.[^,]+$'],
+            $this->arr($this->arr($this->arr($parameter['schema'])['items'])['anyOf'])[1],
+        );
+    }
+
+    #[Test]
+    public function aTypeWithoutSelectableKeysKeepsThePlainEnum(): void
+    {
+        $document = $this->document(selectable: false);
+
+        self::assertSame(
+            ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['name', 'values', 'totals', 'closed', 'vendor']]],
+            $this->fieldsParameter($document, '/products', 'fields[products]')['schema'],
+        );
+    }
+
+    #[Test]
+    public function onlyADocumentAcceptingKeysCarriesTheFieldSelectionContract(): void
+    {
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FIELD_SELECTION)], $this->arr($this->document()['info'])['x-generator']);
+        self::assertSame(['contract' => GeneratorContract::BASELINE], $this->arr($this->document(selectable: false)['info'])['x-generator']);
+    }
+
+    #[Test]
+    public function theAttributeSchemaIsUnchanged(): void
+    {
+        $with = $this->arr($this->arr($this->document()['components'])['schemas']);
+        $without = $this->arr($this->arr($this->document(selectable: false)['components'])['schemas']);
+
+        self::assertSame($without['ProductsAttributes'], $with['ProductsAttributes']);
+    }
+
+    #[Test]
+    public function theProfileIsListedWithTheOthersWhenTheServerRegistersIt(): void
+    {
+        $schemas = $this->arr($this->arr($this->document()['components'])['schemas']);
+        $jsonApi = \json_encode($schemas['JsonApi'], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES);
+
+        self::assertStringContainsString(FieldSelectionProfile::URI, $jsonApi);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function document(bool $selectable = true): array
+    {
+        $values = Obj::make('values')->additionalProperties(Str::make('*'));
+        $totals = Map::make('totals')->fields(Integer::make('views'));
+        if ($selectable) {
+            $values->selectableKeys(pattern: '[a-z][a-z0-9_]*');
+            $totals->selectableKeys(static fn(string $key): bool => true);
+        }
+        $stats = Obj::make('stats')->additionalProperties(Integer::make('*'));
+        if ($selectable) {
+            $stats->selectableKeys(static fn(string $key): bool => true);
+        }
+
+        return (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(
+                    type: 'products',
+                    fields: [Id::make()->build(), Str::make('name')->build(), $values->build(), $totals->build(), Obj::make('closed')->fields(Str::make('a'))->build()],
+                    relations: [FakeRelationMetadata::toOne('vendor', ['vendors'])],
+                    includablePaths: ['vendor'],
+                ),
+                FakeTypeMetadata::resource(type: 'vendors', fields: [Id::make()->build(), $stats->build()]),
+            ],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+    }
+
+    /**
+     * @param array<array-key, mixed> $document
+     *
+     * @return array<array-key, mixed>
+     */
+    private function fieldsParameter(array $document, string $path, string $name): array
+    {
+        foreach ($this->arr($this->arr($this->arr($this->arr($document['paths'])[$path])['get'])['parameters']) as $parameter) {
+            $parameter = $this->arr($parameter);
+            if (($parameter['name'] ?? null) === $name) {
+                return $parameter;
+            }
+        }
+
+        self::fail('No ' . $name . ' parameter on ' . $path . '.');
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function arr(mixed $value): array
+    {
+        self::assertIsArray($value);
+
+        return $value;
+    }
+}

@@ -572,6 +572,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         $attributes = [];
+        $type = $this->getType($object);
+        $selections = FieldSelection::requestedKeys($request, $type);
         $outputTimezone = $this->serializerResolver instanceof ProvidesOutputTimezoneInterface
             ? $this->serializerResolver->outputTimezone()
             : null;
@@ -592,6 +594,17 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
+            // `fields[type]=<attr>.<key>` narrows an attribute declaring selectable keys
+            // to the keys it accepts. Any other dotted member is unrecognized: the
+            // server rejects it under strict validation and it selects nothing here.
+            $only = null;
+            if (isset($selections[$field->name()])) {
+                $only = FieldSelection::selection($field, $selections[$field->name()], $request);
+                if (!$only instanceof \haddowg\JsonApi\Resource\Field\KeySelection || !$field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface) {
+                    continue;
+                }
+            }
+
             // A sparse-by-default field is omitted from the default response and
             // rendered ONLY when the client explicitly names it in `fields[type]`
             // Skipping it before the value hook is added means its
@@ -599,8 +612,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // not ask for it. `getIncludedFields()` lists the names explicitly
             // requested for this type (empty when the type carries no `fields[type]`
             // member), so an unrequested sparse field is dropped here.
-            if ($field->isSparseByDefault()
-                && !\in_array($field->name(), $request->getIncludedFields($this->getType($object)), true)) {
+            if ($field->isSparseByDefault() && $only === null
+                && !\in_array($field->name(), $request->getIncludedFields($type), true)) {
                 continue;
             }
 
@@ -611,6 +624,18 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // serialize() — any intermediate null short-circuits the whole chain to a
             // null value.
             $relatedVia = $field->relatedVia();
+            if ($only !== null) {
+                $attributes[$field->name()] = new \haddowg\JsonApi\Resource\Internal\SelectedAttribute(
+                    $field,
+                    $only,
+                    $relatedVia === null
+                        ? static fn(mixed $model): mixed => $model
+                        : fn(mixed $model, JsonApiRequestInterface $request): mixed => $this->resolveRelatedChain($field->name(), $relatedVia, $model, $request),
+                );
+
+                continue;
+            }
+
             $render = $relatedVia !== null
                 ? function (mixed $model, JsonApiRequestInterface $request, string $fieldName) use ($field, $relatedVia): mixed {
                     $owner = $this->resolveRelatedChain($field->name(), $relatedVia, $model, $request);

@@ -394,6 +394,7 @@ rather than dropped. [`additionalProperties()`](#open-members) opens it.
 |---|---|
 | `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |
 | `additionalProperties(FieldInterface $value)` | Opens the object: every member no child declares is read, written and validated through `$value`. See [open members](#open-members). |
+| `selectableKeys(?Closure $accepts, ?string $pattern)` | Lets `fields[TYPE]=<attr>.<key>` select the open object's keys one at a time. See [selectable keys](#selectable-keys). |
 | `minProperties(int)` / `maxProperties(int)` | `MinProperties` / `MaxProperties`, counting every member the object carries, declared and additional. |
 | `children()` | The declared children (for adapters and projection). |
 
@@ -491,6 +492,56 @@ object in a write body for it, at any depth.
 In the OpenAPI document the object projects `additionalProperties` as the member field's
 own schema, and `minProperties` / `maxProperties`, as [the OpenAPI guide](openapi.md)
 describes.
+
+### Selectable keys
+
+An open `Obj`, or a `Map`, can let a request select its keys one at a time. A data table
+with one column per key of the same attribute reads a few keys for every row, and has no
+use for the rest:
+
+```php
+Obj::make('values')
+    ->additionalProperties(Str::make('*'))
+    ->selectableKeys(pattern: '[a-z][a-z0-9_]*');
+```
+
+```
+GET /products?fields[products]=name,values.cap,values.countries
+```
+
+Each product renders `name` and a `values` object holding only `cap` and `countries`.
+`selectableKeys()` takes a predicate, a pattern or both, and a key is selectable when the
+pattern matches it whole and the predicate returns `true`:
+
+```php
+Map::make('totals')
+    ->fields(Integer::make('views'), Integer::make('shares'))
+    ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal');
+```
+
+The pattern is a regular expression PHP and ECMA-262 both read, since it is also
+documented in the OpenAPI document. A closed `Obj` throws a `LogicException` when it is
+built, because its keys are already fixed by its children; a `Map`'s keys are its
+children's names. The key is everything after the first `.` of the fieldset member and
+names one member of the object, so a key whose value is a list of objects, a repeating
+group, is selected whole and never by a deeper path.
+
+An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
+fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
+It is `null` when the request takes the whole attribute:
+
+```php
+Obj::make('values')
+    ->additionalProperties(Str::make('*'))
+    ->selectableKeys(pattern: '[a-z][a-z0-9_]*')
+    ->extractUsing(static fn(Product $product, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array
+        => $product->loadValues($only?->keys));
+```
+
+The value is trimmed to the selected keys whatever the hook returns, so a hook that
+ignores `$only` still renders the right members, as does a field with no hook and a
+`serializeUsing()` hook's value. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
+covers the request rules and the profile a narrowed response carries.
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
 declared keys, one value, optionally open to typed undeclared ones. `ArrayHash` (below) =

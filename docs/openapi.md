@@ -366,6 +366,32 @@ sketch:
   `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
   reject values the server accepts.
 
+### Selecting keys of an attribute
+
+A `fields[<type>]` parameter's items are the enum of the type's members. When the type has
+an attribute declaring [selectable keys](field-types.md#selectable-keys), the items become
+an `anyOf` of that enum and one string `pattern` per such attribute, matching
+`<attribute>.<key>`:
+
+```json
+"items": {
+  "anyOf": [
+    { "type": "string", "enum": ["name", "values", "totals"] },
+    { "type": "string", "pattern": "^values\\.(?:[a-z][a-z0-9_]*)$" },
+    { "type": "string", "pattern": "^totals\\.[^,]+$" }
+  ]
+}
+```
+
+The pattern wraps the declared key pattern. An attribute declaring only a predicate can't
+say which keys it takes, so its pattern admits any key up to the next comma, and the server
+still rejects one the predicate refuses. The parameter's description names the attributes
+and the [Field Selection profile](profiles/field-selection.md), which the server applies to
+a narrowed response, and the `JsonApi` component lists the profile with the others when the
+server registers it. The attribute's own schema is unchanged. A document with such a
+parameter declares the `FIELD_SELECTION` contract tier in its
+[`x-generator`](#the-generator-contract-x-generator) stamp.
+
 ### Polymorphic relations with one type
 
 A `MorphTo` or `MorphToMany` is projected as a union of its member types even when it

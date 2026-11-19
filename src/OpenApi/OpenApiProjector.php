@@ -284,7 +284,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, $typedDocuments !== []),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, $typedDocuments !== [], self::acceptsSelectedKeys($paths)),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -531,7 +531,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $fieldSelection): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -569,6 +569,7 @@ final class OpenApiProjector
             unions: self::hasUnion($server),
             namedComponents: $namedComponents,
             typedDocumentMeta: $typedDocumentMeta,
+            fieldSelection: $fieldSelection,
         ));
     }
 
@@ -798,6 +799,29 @@ final class OpenApiProjector
         foreach ($members as $member) {
             if (self::declaresOpenObject($member)) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether some `fields[<type>]` parameter accepts single keys of an attribute
+     * ({@see GeneratorContract::FIELD_SELECTION}).
+     */
+    private static function acceptsSelectedKeys(Paths $paths): bool
+    {
+        foreach ($paths->items as $pathItem) {
+            foreach ($pathItem->operations as $operation) {
+                foreach ($operation->parameters as $parameter) {
+                    if ($parameter instanceof Parameter
+                        && \str_starts_with($parameter->name, 'fields[')
+                        && $parameter->schema instanceof Schema
+                        && $parameter->schema->get('items') instanceof Schema
+                        && $parameter->schema->get('items')->get('anyOf') !== null) {
+                        return true;
+                    }
+                }
             }
         }
 

@@ -145,6 +145,6 @@ final class DataResponse extends AbstractResponse
      */
     protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
     {
-        return $this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page);
+        return $this->withFieldSelectionProfile($this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page), $server, $request);
     }
 }

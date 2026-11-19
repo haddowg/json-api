@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
 
 /**
  * Exposes a nested JSON object in the resource attributes while spreading its
@@ -18,9 +19,10 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * Top-level constraints are limited to presence (`required()` / `nullable()`);
  * structural constraints belong on the child fields. `Map::on($relation)`
  * (related-model column spread) is out of scope for core — see the Symfony
- * bundle.
+ * bundle. A map that declares {@see selectableKeys()} lets a request select its children
+ * one by one.
  */
-final readonly class Map extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface
+final readonly class Map extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -28,8 +30,14 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     public function __construct(
         FieldState $state,
         private array $children = [],
+        private ?SelectableKeys $selectableKeys = null,
     ) {
         parent::__construct($state);
+    }
+
+    public function selectableKeys(): ?SelectableKeys
+    {
+        return $this->selectableKeys;
     }
 
     /**
@@ -61,7 +69,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
             $this->children,
         );
 
-        return $children === $this->children ? $this : new self($this->state, $children);
+        return $children === $this->children ? $this : new self($this->state, $children, $this->selectableKeys);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -70,11 +78,25 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
             return ($this->state->serializeUsing)($model, $request, $name);
         }
 
+        return $this->serializeChildren($model, $request, $name, null);
+    }
+
+    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        if ($this->state->serializeUsing !== null) {
+            return KeyTrim::trim(($this->state->serializeUsing)($model, $request, $name), $only);
+        }
+
+        return $this->serializeChildren($model, $request, $name, $only);
+    }
+
+    private function serializeChildren(mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
+    {
         // A computed map spreads its children over the computed value instead of the
         // domain object, so each child still serializes through its own cast.
         $source = $model;
         if ($this->state->extractUsing !== null) {
-            $source = ($this->state->extractUsing)($model, $request, $name);
+            $source = KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only);
             if ($source instanceof \JsonSerializable) {
                 $source = $source->jsonSerialize();
             }
@@ -85,6 +107,10 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
 
         $nested = [];
         foreach ($this->children as $child) {
+            if ($only !== null && !$only->has($child->name())) {
+                continue;
+            }
+
             // Skip a hidden or write-only child the same way the resource skips such a
             // top-level field, including one whose rule is a per-request predicate.
             if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $source)) {

@@ -93,6 +93,17 @@ document component of the operation's own, and an adapter in debug mode refuses 
 whose `meta` does not match.
 _Avoid_: document meta schema, response meta
 
+**Selectable keys**:
+An open `Obj` or a `Map` declaring, by a pattern, a predicate or both, which of its keys a
+`fields[TYPE]=<attribute>.<key>` member may select one at a time. A response narrowing one
+applies the Field Selection profile.
+_Avoid_: partial attribute, sub-field, nested fieldset
+
+**Key selection**:
+The keys a request selected of one attribute with selectable keys, as the `KeySelection`
+value its `extractUsing()` hook receives. `null` when the request takes the whole attribute.
+_Avoid_: key filter, projection
+
 **Serializer**:
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer

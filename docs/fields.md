@@ -521,7 +521,7 @@ customise writing — reach for them before dropping to a whole-resource custom
 | Hook | Closure signature | Replaces |
 |---|---|---|
 | `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
-| `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. |
+| `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. On an `Obj` or `Map` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
 | `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. |
 | `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
 

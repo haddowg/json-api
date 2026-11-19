@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\OpenApi\OperationReference;
 use haddowg\JsonApi\Resource\Internal\NonSparseMember;
+use haddowg\JsonApi\Resource\Internal\SelectedAttribute;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
@@ -273,7 +274,9 @@ final class ResourceTransformer
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
-            if (($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation)) || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
+            if ($attribute instanceof SelectedAttribute
+                || ($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation))
+                || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
                 $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, $name);
             }
         }
