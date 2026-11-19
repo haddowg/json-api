@@ -23,7 +23,9 @@ use haddowg\JsonApi\Exception\ResourceTypeUnacceptable;
 use haddowg\JsonApi\Hydrator\HydratorInterface;
 use haddowg\JsonApi\Hydrator\UpdateRelationshipHydratorInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
 use haddowg\JsonApi\Resource\Field\Accessor;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
@@ -1218,10 +1220,25 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
-            $domainObject = $field->hydrate($domainObject, $attributes[$field->name()], $data, $request, $creating);
+            $domainObject = $this->hydrateField($field, $domainObject, $attributes[$field->name()], $data, $request, $creating);
         }
 
         return $domainObject;
+    }
+
+    /**
+     * Hydrates one attribute, through the server's storage cast when it has one.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function hydrateField(FieldInterface $field, mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $cast = $this->serializerResolver instanceof ProvidesStorageCastInterface ? $this->serializerResolver->storageCast() : null;
+        if ($cast !== null && $field instanceof AbstractFieldValue) {
+            return $field->hydrateForStorage($model, $value, $data, $request, $creating, $cast);
+        }
+
+        return $field->hydrate($model, $value, $data, $request, $creating);
     }
 
     /**
@@ -1284,7 +1301,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // final related model and returns it; the parent's association to that
             // related model is unchanged, so we keep $domainObject (only $owner is
             // mutated).
-            $field->hydrate($owner, $attributes[$field->name()], $data, $request, $creating);
+            $this->hydrateField($field, $owner, $attributes[$field->name()], $data, $request, $creating);
         }
 
         return $domainObject;

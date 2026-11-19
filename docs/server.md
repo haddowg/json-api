@@ -484,6 +484,39 @@ With no authorizer, the default, core renders and writes without asking. A resol
 that decorates the server's should implement `ProvidesRelationAuthorizerInterface` and
 delegate, or the relationships it builds skip the authorizer.
 
+## Casting values for storage
+
+Core assigns each attribute it hydrates to the model's member through a setter or the
+property. When the data layer stores a member in another PHP type than the field
+hydrates, such as a decimal column a mapper reads as a string, `withStorageCast()`
+lets the host convert the value just before the assignment. Implement
+`StorageCastInterface`:
+
+```php
+use haddowg\JsonApi\Resource\Field\FieldInterface;
+use haddowg\JsonApi\Resource\StorageCastInterface;
+
+final class DecimalColumns implements StorageCastInterface
+{
+    public function forStorage(object $model, string $member, mixed $value, FieldInterface $field): mixed
+    {
+        $scale = $this->decimalScale($model::class, $member);
+
+        return $scale !== null && \is_float($value) ? \number_format($value, $scale, '.', '') : $value;
+    }
+}
+
+$server = $server->withStorageCast(new DecimalColumns(/* … */));
+```
+
+`forStorage()` gets the model, the member about to be written, the hydrated value and
+the field. Whatever it returns is assigned. It runs for each attribute core writes,
+including a flattened `on()` attribute, which it gets with the related model. A
+`fillUsing()` hook writes its own value, and a composite such as an `Obj` writes its
+whole value, so neither is cast. With no cast, the default, each value is assigned as
+its field hydrated it. A resolver that decorates the server's should implement
+`ProvidesStorageCastInterface` and delegate.
+
 ## Rejecting read-only attributes
 
 A create or update body can send an attribute the client cannot write in that request:

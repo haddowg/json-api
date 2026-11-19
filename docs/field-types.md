@@ -102,6 +102,22 @@ helpers accept `int|float`. The album's
 Decimal::make('averageRating')->readOnly()->nullable();
 ```
 
+A `Decimal` reaches PHP as a `float`, since the request body is decoded as JSON, so a
+number with more significant digits than a `float` holds, such as
+`1.10000000000000001`, arrives as `1.1`. Use a `Decimal` for values a `float`
+represents exactly enough.
+
+A `float` can't be assigned to a property or setter typed `string`. A data layer that
+reads a decimal column as a string converts it with a
+[storage cast](server.md#casting-values-for-storage). For a plain object, type the property `float`, or convert
+the value in the field:
+
+```php
+Decimal::make('price')->deserializeUsing(
+    static fn(mixed $value): mixed => \is_float($value) ? \number_format($value, 2, '.', '') : $value,
+);
+```
+
 ## `Boolean`
 
 A boolean attribute; casts to `bool`. No type-specific constraint helpers — its

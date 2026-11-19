@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
 {
     private ResourceRegistry $resources;
 
@@ -158,6 +158,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     private ?\haddowg\JsonApi\Serializer\ResourceLinkContributorInterface $resourceLinkContributor = null;
 
     private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
+
+    private ?\haddowg\JsonApi\Resource\StorageCastInterface $storageCast = null;
 
     private bool $rejectsReadOnlyAttributes = false;
 
@@ -601,6 +603,26 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
     public function relationAuthorizer(): ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface
     {
         return $this->relationAuthorizer;
+    }
+
+    /**
+     * Sets the host's storage cast, which puts each attribute value core writes to a
+     * model in the form the data layer stores, such as a decimal column's string.
+     * Passing `null` (the default) writes each value as its field hydrated it.
+     */
+    public function withStorageCast(?\haddowg\JsonApi\Resource\StorageCastInterface $storageCast): self
+    {
+        $self = clone $this;
+        $self->storageCast = $storageCast;
+        $self->resources = clone $this->resources;
+        $self->resources->setStorageCast($storageCast);
+
+        return $self;
+    }
+
+    public function storageCast(): ?\haddowg\JsonApi\Resource\StorageCastInterface
+    {
+        return $this->storageCast;
     }
 
     /**
