@@ -69,6 +69,15 @@ final class AcceptedResponse extends AbstractResponse
      * `Content-Location` header — where the client polls for completion. The JSON:API
      * async recommendation says the `202` SHOULD carry this.
      */
+    /**
+     * The job resource the document renders, or `null` for a meta-only one: what the
+     * `extractUsing()` hooks of the document's declared `meta` receive.
+     */
+    public function job(): mixed
+    {
+        return $this->resource === null ? null : $this->data;
+    }
+
     public function withContentLocation(string $uri): static
     {
         return $this->withHeader('Content-Location', $uri);
