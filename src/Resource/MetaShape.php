@@ -142,6 +142,32 @@ final readonly class MetaShape
     }
 
     /**
+     * A written object with each number put in the PHP type its declared member, or the
+     * entry's value field, documents, as {@see WireNumbers} does for attributes: a whole
+     * `5.0` where an `Integer` is declared becomes `5`. An adapter validates the normalized
+     * object; {@see values()} and {@see fill()} normalize it themselves. A value of the
+     * wrong JSON type is left for validation to refuse.
+     *
+     * @return ($values is array ? array<array-key, mixed> : mixed)
+     */
+    public function normalize(mixed $values): mixed
+    {
+        if ($this->isEmpty() || !\is_array($values)) {
+            return $values;
+        }
+
+        $of = $this->additional?->of();
+        foreach ($values as $name => $value) {
+            $field = $this->field((string) $name) ?? $of;
+            if ($field !== null) {
+                $values[$name] = WireNumbers::value($field, $value);
+            }
+        }
+
+        return $values;
+    }
+
+    /**
      * The JSON Pointer of every member of a written object the declaration does not name,
      * at any depth a declared member's shape reaches. `$pointer` locates the object, such as
      * `/meta` or `/data/meta`. A declared member read-only for the write is not undeclared:
@@ -236,6 +262,7 @@ final readonly class MetaShape
      */
     public function values(array $values, bool $creating, ?JsonApiRequestInterface $request = null): array
     {
+        $values = $this->normalize($values);
         if ($this->isEmpty()) {
             $sent = [];
             foreach ($values as $name => $value) {
@@ -270,6 +297,7 @@ final readonly class MetaShape
      */
     public function fill(mixed $model, array $values, bool $creating, JsonApiRequestInterface $request): mixed
     {
+        $values = $this->normalize($values);
         $data = [];
         foreach ($values as $name => $value) {
             $data[(string) $name] = $value;
