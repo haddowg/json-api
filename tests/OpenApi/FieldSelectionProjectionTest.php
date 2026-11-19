@@ -110,10 +110,13 @@ final class FieldSelectionProjectionTest extends TestCase
             'items' => [
                 'anyOf' => [
                     ['type' => 'string', 'enum' => ['lines', 'notes', 'plainLines', 'shipping']],
+                    ['type' => 'string', 'pattern' => '^lines\\.\\*$'],
                     ['type' => 'string', 'pattern' => '^lines\\.\\*\\.(?:sku|qty|price|tags)$'],
                     ['type' => 'string', 'pattern' => '^lines\\.\\*\\.price\\.(?:amount|currency)$'],
+                    ['type' => 'string', 'pattern' => '^lines\\.\\*\\.tags\\.\\*$'],
                     ['type' => 'string', 'pattern' => '^lines\\.\\*\\.tags\\.\\*\\.(?:name|colour)$'],
                     ['type' => 'string', 'pattern' => '^shipping\\.(?:[a-z]+)$'],
+                    ['type' => 'string', 'pattern' => '^shipping\\.parcels\\.\\*$'],
                     ['type' => 'string', 'pattern' => '^shipping\\.parcels\\.\\*\\.(?:weight|label)$'],
                 ],
             ],

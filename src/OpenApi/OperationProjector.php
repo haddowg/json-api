@@ -2240,8 +2240,8 @@ final class OperationProjector
      * The pattern of every path below `$prefix` a member may select: the object's own keys,
      * then each nested object or list declaring selectable keys, reached through a declared
      * child whose name the object accepts or through the field of its undeclared members. A
-     * list adds no path of its own, since `<attribute>.*` selects the same as the attribute,
-     * and continues into its element after `.*`.
+     * list's own path is `.*`, which selects every item whole, and its element's paths follow
+     * it.
      *
      * @param array{object: bool, list: bool} $nested set when a path reaches below the top level
      *
@@ -2259,7 +2259,7 @@ final class OperationProjector
                 $nested['list'] = true;
             }
 
-            return self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true);
+            return [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
         }
         if (!$top) {
             $nested['object'] = true;

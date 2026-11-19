@@ -374,8 +374,8 @@ A `fields[<type>]` parameter's items are the enum of the type's members. When th
 an attribute declaring [selectable keys](field-types.md#selectable-keys), the items become
 an `anyOf` of that enum and one string `pattern` per path a member may select:
 `<attribute>.<key>` for each such attribute, `<attribute>.<key>.<key>` for each object
-inside it that declares selectable keys too, at any depth, and `<attribute>.*.<key>` for a
-list whose element declares them:
+inside it that declares selectable keys too, at any depth, and `<attribute>.*` and
+`<attribute>.*.<key>` for a list whose element declares them:
 
 ```json
 "items": {
@@ -384,6 +384,7 @@ list whose element declares them:
     { "type": "string", "pattern": "^address\\.(?:[a-z]+)$" },
     { "type": "string", "pattern": "^address\\.geo\\.(?:lat|lng)$" },
     { "type": "string", "pattern": "^totals\\.[^.,*]+$" },
+    { "type": "string", "pattern": "^lines\\.\\*$" },
     { "type": "string", "pattern": "^lines\\.\\*\\.(?:sku|quantity|price)$" },
     { "type": "string", "pattern": "^lines\\.\\*\\.price\\.(?:amount|currency)$" }
   ]
@@ -392,9 +393,9 @@ list whose element declares them:
 
 Each pattern wraps the declared key pattern of its last object. A nested object reached
 through a declared child names that child, so `geo` appears literally, and one reached
-through the members of an open object repeats the open object's key pattern. A list adds
-a literal `\.\*` segment before its element's keys and no pattern of its own, since
-`lines.*` selects the same as `lines`, which the enum already lists. A child the parent's
+through the members of an open object repeats the open object's key pattern. A list's own
+pattern ends in a literal `\.\*`, as a key pattern does for an object, and selects every
+item whole, the same as listing the list; its element's paths follow that segment. A child the parent's
 pattern doesn't match, or one that never renders, adds no pattern, nor does a list whose
 element declares no selectable keys. An object declaring only a predicate can't say which
 keys it takes, so its pattern admits any key up to the next `.`, comma or `*`, and the
