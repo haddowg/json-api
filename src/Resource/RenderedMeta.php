@@ -89,7 +89,9 @@ final class RenderedMeta
         $violations = [];
         if ($serializer instanceof DeclaresResourceMetaInterface) {
             $meta = $object['meta'] ?? [];
-            foreach (ResourceMeta::readShapeOf($serializer, $type)->violations(\is_array($meta) ? $meta : []) as $violation) {
+            // A member a pivot relation's related endpoint renders carries its link's `pivot`
+            // beside the declared members.
+            foreach (ResourceMeta::readShapeOf($serializer, $type)->violations(\is_array($meta) ? $meta : [], ['pivot']) as $violation) {
                 $violations[] = \sprintf('the meta of %s: %s', $label, $violation);
             }
         }
