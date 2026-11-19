@@ -31,6 +31,8 @@ use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\Field\Url;
 use haddowg\JsonApi\Resource\Field\Uuid;
 
+use function PHPStan\Testing\assertType;
+
 enum HookValueStatus: string
 {
     case Draft = 'draft';
@@ -173,24 +175,60 @@ final class HookValueTypes
             Str::make('state2')->enum(HookValueStatus::class)->nullable()->fillUsing(
                 static fn(\ArrayObject $model, HookValueStatus|string|null $value): mixed => $value,
             ),
-            Str::make('createOnlyNull')->onCreate(static function (StrBuilder $field): void {
-                $field->nullable();
-            })->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
-            Str::make('updateOnlyNull')->onUpdate(static function (StrBuilder $field): void {
-                $field->nullable();
-            })->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
+            Str::make('createOnlyNull')->onCreate(static fn(StrBuilder $field) => $field->nullable())
+                ->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
+            Str::make('updateOnlyNull')->onUpdate(static fn(StrBuilder $field) => $field->nullable())
+                ->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
             Str::make('conditionalNull')->when(
                 static fn(mixed $value, ?JsonApiRequestInterface $request): bool => $request === null,
-                static function (StrBuilder $field): void {
-                    $field->nullable();
-                },
+                static fn(StrBuilder $field) => $field->nullable(),
             )->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
+            Str::make('returnedNull')->onCreate(static function (StrBuilder $field): StrBuilder {
+                $field->nullable();
+
+                return $field;
+            })->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
             Str::make('constrainedNull')->constrain(new Nullable(Context::onlyCreate()))->fillUsing(
                 static fn(\ArrayObject $model, ?string $value): mixed => $value,
             ),
-            Str::make('nullableThenScoped')->nullable()->onCreate(static function (StrBuilder $field): void {
-                $field->maxLength(3);
-            })->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
+            Str::make('nullableThenScoped')->nullable()->onCreate(static fn(StrBuilder $field) => $field->maxLength(3))
+                ->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
+            Str::make('scopedLength')->onCreate(static fn(StrBuilder $field) => $field->maxLength(3))
+                ->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+        ];
+    }
+
+    /**
+     * @return list<FieldBuilderInterface>
+     */
+    public static function scoped(): array
+    {
+        return [
+            Str::make('createOnlyEnum')->onCreate(static fn($field) => $field->enum(HookValueStatus::class))
+                ->fillUsing(static fn(\ArrayObject $model, HookValueStatus|string $value): mixed => $value),
+            Str::make('updateOnlyCases')->onUpdate(static fn($field) => $field->in([HookValueStatus::Draft]))
+                ->fillUsing(static fn(\ArrayObject $model, HookValueStatus|string $value): mixed => $value),
+            Str::make('conditionalEnum')->when(static fn(mixed $value): bool => true, static fn($field) => $field->enum(HookValueStatus::class))
+                ->fillUsing(static fn(\ArrayObject $model, HookValueStatus|string $value): mixed => $value),
+            Str::make('createOnlyEnumAsserted')->onCreate(static fn($field) => $field->enum(HookValueStatus::class))
+                ->fillUsing(static function (\ArrayObject $model, $value): mixed {
+                    assertType('haddowg\JsonApi\Tests\StaticAnalysis\HookValueStatus|string', $value);
+
+                    return $value;
+                }),
+            Str::make('createOnlyDeserialized')->onCreate(static fn($field) => $field->deserializeUsing(static fn(string $value): int => \strlen($value)))
+                ->fillUsing(static function (\ArrayObject $model, $value): mixed {
+                    assertType('mixed', $value);
+
+                    return $value;
+                }),
+            Str::make('voidScope')->onCreate(static function (StrBuilder $field): void {
+                $field->enum(HookValueStatus::class);
+            })->fillUsing(static function (\ArrayObject $model, $value): mixed {
+                assertType('mixed', $value);
+
+                return $value;
+            }),
         ];
     }
 
@@ -236,9 +274,15 @@ final class HookValueTypes
             Boolean::make('wrongBool')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             // @phpstan-ignore argument.type (a nullable field's value may be null)
             Str::make('wrongNullable')->nullable()->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
-            Str::make('wrongScoped')->onCreate(static function (StrBuilder $field): void {
-                $field->nullable();
-                // @phpstan-ignore argument.type (a field nullable on create may receive null)
+            // @phpstan-ignore argument.type (a field nullable on create may receive null)
+            Str::make('wrongScoped')->onCreate(static fn(StrBuilder $field) => $field->nullable())->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+            // @phpstan-ignore argument.type (a field converting to an enum on create receives the case)
+            Str::make('wrongScopedEnum')->onCreate(static fn(StrBuilder $field) => $field->enum(HookValueStatus::class))->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+            // @phpstan-ignore argument.type (a deserializeUsing() in a scope makes the value mixed)
+            Str::make('wrongScopedDeserialize')->onUpdate(static fn(StrBuilder $field) => $field->deserializeUsing(static fn(string $value): string => $value))->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+            Str::make('wrongVoidScope')->onCreate(static function (StrBuilder $field): void {
+                $field->maxLength(3);
+                // @phpstan-ignore argument.type (PHPStan can't see what a closure returning nothing declared)
             })->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             // @phpstan-ignore argument.type (an enum field's fillUsing receives the case)
             Str::make('wrongEnum')->enum(HookValueStatus::class)->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),

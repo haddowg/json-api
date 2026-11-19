@@ -646,11 +646,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Scopes every constraint appended inside `$builder` to create (POST) requests.
-     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * `TValue` takes the type of the builder `$builder` returns, so an arrow function
+     * keeps what its `nullable()`, `enum()` or `deserializeUsing()` adds. PHPStan can't
+     * see what a closure returning nothing declared, so `TValue` is then `mixed`.
      *
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @template TBuilder
+     *
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function onCreate(\Closure $builder): static
@@ -662,11 +665,12 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Scopes every constraint appended inside `$builder` to update (PATCH) requests.
-     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * `TValue` takes the type of the builder `$builder` returns, as for {@see onCreate()}.
      *
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @template TBuilder
+     *
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function onUpdate(\Closure $builder): static
@@ -707,13 +711,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * The condition receives the value first and the request second (nullable), so
      * a `fn($value)` closure keeps binding unchanged while a `fn($value, $request)`
      * closure can also branch on the caller. The condition's value stays `mixed`, since
-     * an adapter's validator asks it before checking the value's JSON type. PHPStan
-     * cannot see inside `$builder`, so `TValue` takes `null` in case it declares
-     * `nullable()`.
+     * an adapter's validator asks it before checking the value's JSON type. `TValue`
+     * takes the type of the builder `$builder` returns, as for {@see onCreate()}.
+     *
+     * @template TBuilder
      *
      * @param \Closure(mixed, JsonApiRequestInterface|null): bool $condition
-     * @param \Closure(static): void $builder
-     * @phpstan-self-out static<TValue|null>
+     * @param \Closure(static): TBuilder $builder
+     * @phpstan-self-out (TBuilder is AbstractFieldBuilder ? static<TValue|template-type<TBuilder, AbstractFieldBuilder, 'TValue'>> : static<mixed>)
      * @return $this
      */
     public function when(\Closure $condition, \Closure $builder): static
@@ -877,7 +882,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(static): void $builder
+     * @param \Closure(static): mixed $builder
      * @return static
      */
     private function withContext(Context $context, \Closure $builder): static
