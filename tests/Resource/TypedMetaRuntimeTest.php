@@ -139,7 +139,7 @@ final class TypedMetaRuntimeTest extends TestCase
         ]]];
 
         self::assertSame([
-            'the linkage of "bookings" "1" relationship "rooms": pivot the member "view" is not declared',
+            'the linkage of "bookings" "1" relationship "rooms": in its pivot, the member "view" is not declared',
             'the linkage of "bookings" "1" relationship "agent": the member "other" is not declared',
         ], RenderedMeta::violations($document, static fn(string $type): ?object => $type === 'bookings' ? $bookings : null));
 
