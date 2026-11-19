@@ -93,11 +93,16 @@ final class TypedRequestMetaTypes
     }
 
     /**
-     * The related type, declaring nothing.
+     * The related type, declaring nothing, or declaring its read resource meta, which as a
+     * pivot target also offers its link's `pivot`.
      */
-    public static function rooms(): FakeTypeMetadata
+    public static function rooms(bool $declaresResourceMeta = false): FakeTypeMetadata
     {
-        return FakeTypeMetadata::resource(type: 'rooms', fields: [Id::make()->example('rm-1')->build()]);
+        return FakeTypeMetadata::resource(
+            type: 'rooms',
+            fields: [Id::make()->example('rm-1')->build()],
+            resourceMeta: $declaresResourceMeta ? static fn(): array => [Integer::make('floor')->readOnly()->example(2)] : null,
+        );
     }
 
     /**

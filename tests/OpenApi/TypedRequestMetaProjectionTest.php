@@ -295,6 +295,25 @@ final class TypedRequestMetaProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aPivotTargetsResourceMetaOffersItsLinksPivot(): void
+    {
+        $rooms = FakeTypeMetadata::resource(
+            type: 'rooms',
+            fields: [Id::make()->example('rm-1')->build()],
+            resourceMeta: static fn(): array => [Integer::make('floor')->readOnly()],
+        );
+        $document = (new OpenApiProjector())->project(new FakeServerMetadata('API', '1', [TypedRequestMetaTypes::bookings(), $rooms, TypedRequestMetaTypes::jobs()]))->toArray();
+
+        $meta = self::schema($document, 'RoomsResourceMeta');
+        self::assertSame(['floor', 'pivot'], \array_keys(self::arr($meta['properties'])));
+        self::assertSame('object', self::arr(self::arr($meta['properties'])['pivot'])['type']);
+        self::assertFalse($meta['additionalProperties']);
+
+        // The bookings type is no pivot target, so its declared object has no `pivot`.
+        self::assertArrayNotHasKey('pivot', self::arr(self::schema($document, 'BookingsResourceMeta')['properties']));
+    }
+
+    #[Test]
     public function typesDeclaringNothingCarryNoTypedMeta(): void
     {
         $document = (new OpenApiProjector())->project(new FakeServerMetadata('API', '1', [TypedRequestMetaTypes::rooms(), TypedRequestMetaTypes::jobs()], atomicOperations: new FakeAtomicOperationsMetadata()))->toArray();

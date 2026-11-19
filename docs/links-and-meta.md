@@ -291,6 +291,9 @@ The rules:
   rendered resource object of the type shares, or for a create or update, and whether the write
   is an atomic operation. It carries no request.
 - A type declaring nothing keeps an open `meta` in both directions.
+- A resource a pivot-backed relation's related endpoint renders carries its link's `pivot`
+  beside the declared members. The read object lists `pivot` as an optional open member when
+  the type is the target of such a relation, and the debug check allows it.
 
 A type composed without `AbstractResource` implements
 `haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface` on its serializer, and on its

@@ -148,6 +148,24 @@ final class TypedMetaRuntimeTest extends TestCase
     }
 
     #[Test]
+    public function aResourceReachedThroughAPivotRelationMayCarryItsLinksPivot(): void
+    {
+        $bookings = self::bookings();
+        $document = ['data' => [['type' => 'bookings', 'id' => '1', 'meta' => ['nights' => 1, 'pivot' => ['position' => 2]]]]];
+
+        self::assertSame([], RenderedMeta::violations($document, static fn(): object => $bookings));
+    }
+
+    #[Test]
+    public function anAcceptedResponseExposesItsJob(): void
+    {
+        $job = ['id' => 'job-1'];
+
+        self::assertSame($job, \haddowg\JsonApi\Response\AcceptedResponse::forResource($job, self::bookings())->job());
+        self::assertNull(\haddowg\JsonApi\Response\AcceptedResponse::fromMeta(['queued' => true])->job());
+    }
+
+    #[Test]
     public function hydrationHandsDataMetaToItsFillHooksOnCreateAndUpdate(): void
     {
         $resource = self::bookings();

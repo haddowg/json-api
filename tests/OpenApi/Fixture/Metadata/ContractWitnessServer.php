@@ -209,7 +209,7 @@ final class ContractWitnessServer
                 ...($relatedOnly ? [self::credits()] : []),
                 ...($singletons ? [self::inboxes()] : []),
                 ...($typedDocumentMeta ? [self::notices()] : []),
-                ...($typedRequestMeta ? [TypedRequestMetaTypes::bookings(), TypedRequestMetaTypes::rooms(), TypedRequestMetaTypes::jobs()] : []),
+                ...($typedRequestMeta ? [TypedRequestMetaTypes::bookings(), TypedRequestMetaTypes::rooms(declaresResourceMeta: true), TypedRequestMetaTypes::jobs()] : []),
             ],
             description: 'Every projector branch the witness can reach, in one document.',
             contact: new Contact('API Team', 'https://example.com/support', 'api@example.com'),

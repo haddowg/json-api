@@ -1931,7 +1931,9 @@ response renders, and `<Type>Resource` references it in place of the shared `Met
 `<Type>CreateResourceMeta` and `<Type>UpdateResourceMeta` are what a write may send, and the
 `data` of `<Type>CreateRequest` and `<Type>UpdateRequest` references them. The atomic
 `<Type>AtomicAdd` and `<Type>AtomicUpdate` carry the atomic declaration inline. Each is closed
-unless an `AdditionalProperties` entry opens it. A type declaring nothing keeps the shared
+unless an `AdditionalProperties` entry opens it. A type some pivot-backed relation points at
+lists an optional, open `pivot` in `<Type>ResourceMeta`, which its related endpoint renders
+beside the declared members. A type declaring nothing keeps the shared
 `Meta`.
 
 ### Atomic operations of a declaring type
