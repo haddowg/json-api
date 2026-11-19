@@ -32,6 +32,9 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
         parent::__construct($state);
     }
 
+    /**
+     * @return MapBuilder<array<string, mixed>>
+     */
     public static function make(string $name): MapBuilder
     {
         return new MapBuilder($name);

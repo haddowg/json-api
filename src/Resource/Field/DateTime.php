@@ -90,6 +90,9 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
         }
     }
 
+    /**
+     * @return DateTimeBuilder<string>
+     */
     public static function make(string $name = ''): DateTimeBuilder
     {
         return new DateTimeBuilder($name);

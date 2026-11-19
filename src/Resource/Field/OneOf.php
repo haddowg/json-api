@@ -66,6 +66,9 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         $this->signatures = $discriminator === null ? self::signaturesOf($state->name, $variants) : [];
     }
 
+    /**
+     * @return OneOfBuilder<array<string, mixed>>
+     */
     public static function make(string $name): OneOfBuilder
     {
         return new OneOfBuilder($name);

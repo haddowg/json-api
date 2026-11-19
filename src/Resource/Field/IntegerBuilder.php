@@ -14,6 +14,10 @@ use haddowg\JsonApi\Resource\Constraint\MultipleOf;
  * The mutable **field builder** for an integer attribute. Adds the numeric
  * bound / multiple-of helpers on top of the common {@see AbstractFieldBuilder}
  * surface; {@see build()} freezes it into a readonly {@see Integer} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class IntegerBuilder extends AbstractFieldBuilder
 {
@@ -67,11 +71,16 @@ final class IntegerBuilder extends AbstractFieldBuilder
      * integers or **int-backed-enum cases** (normalized to their backing value),
      * matching {@see AbstractFieldBuilder::in()}.
      *
-     * @param list<int|\BackedEnum> $values
-     * @return static
+     * @template TIn of int|\BackedEnum
+     *
+     * @param list<TIn> $values
+     * @phpstan-self-out (TIn is \BackedEnum ? static<TValue|TIn> : static<TValue>)
+     * @return $this
      */
     public function in(array $values): static
     {
-        return parent::in($values);
+        parent::in($values);
+
+        return $this;
     }
 }

@@ -12,6 +12,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Boolean extends AbstractFieldValue
 {
+    /**
+     * @return BooleanBuilder<bool>
+     */
     public static function make(string $name = ''): BooleanBuilder
     {
         return new BooleanBuilder($name);

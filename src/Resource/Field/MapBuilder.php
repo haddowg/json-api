@@ -8,6 +8,10 @@ namespace haddowg\JsonApi\Resource\Field;
  * The mutable **field builder** for a {@see Map} attribute. Collects the child
  * fields (each a builder or an already-built field) and, at {@see build()}, freezes
  * them into a readonly {@see Map} value object carrying the built children.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class MapBuilder extends AbstractFieldBuilder
 {

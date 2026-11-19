@@ -12,6 +12,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Decimal extends AbstractFieldValue
 {
+    /**
+     * @return DecimalBuilder<int|float>
+     */
     public static function make(string $name = ''): DecimalBuilder
     {
         return new DecimalBuilder($name);

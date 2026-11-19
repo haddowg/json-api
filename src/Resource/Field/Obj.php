@@ -48,6 +48,9 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         parent::__construct($state);
     }
 
+    /**
+     * @return ObjBuilder<array<string, mixed>>
+     */
     public static function make(string $name): ObjBuilder
     {
         return new ObjBuilder($name);

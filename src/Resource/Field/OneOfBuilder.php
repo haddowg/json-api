@@ -9,6 +9,10 @@ namespace haddowg\JsonApi\Resource\Field;
  * optional discriminator property and the named variant shapes (each built into
  * an {@see Obj} value object from its child fields) and, at {@see build()}, freezes
  * them into a readonly {@see OneOf} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class OneOfBuilder extends AbstractFieldBuilder
 {

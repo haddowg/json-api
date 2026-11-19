@@ -12,6 +12,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Integer extends AbstractFieldValue
 {
+    /**
+     * @return IntegerBuilder<int|float>
+     */
     public static function make(string $name = ''): IntegerBuilder
     {
         return new IntegerBuilder($name);

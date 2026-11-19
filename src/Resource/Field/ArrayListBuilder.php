@@ -17,6 +17,10 @@ use haddowg\JsonApi\Resource\Constraint\UniqueItems;
  * element-type / item-count / uniqueness / per-item helpers on top of the common
  * {@see AbstractFieldBuilder} surface; {@see build()} freezes it into a readonly
  * {@see ArrayList} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class ArrayListBuilder extends AbstractFieldBuilder
 {
@@ -65,7 +69,11 @@ final class ArrayListBuilder extends AbstractFieldBuilder
      * members, picked by the element's JSON type. It takes no `each()`, no `sorted()` and no
      * `nullable()`; constrain the members instead.
      *
-     * @return static
+     * The element type sets the list `TValue` a write hook receives, such as
+     * `list<int|float>` for `integer`, since JSON writes a whole number as `1.0` too.
+     *
+     * @phpstan-self-out ($element is 'string' ? static<list<string>|(TValue&null)> : ($element is 'integer'|'number' ? static<list<int|float>|(TValue&null)> : ($element is 'boolean' ? static<list<bool>|(TValue&null)> : ($element is Union|UnionBuilder ? static<list<string|int|float|bool|list<mixed>>|(TValue&null)> : ($element is Obj|ObjBuilder|OneOf|OneOfBuilder ? static<list<array<array-key, mixed>>|(TValue&null)> : static<list<mixed>|(TValue&null)>)))))
+     * @return $this
      */
     public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder|Union|UnionBuilder $element): static
     {

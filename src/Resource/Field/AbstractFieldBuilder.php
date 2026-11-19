@@ -31,6 +31,14 @@ use haddowg\JsonApi\Resource\Constraint\When;
  * cast is done by overriding {@see AbstractFieldValue::serializeValue()} /
  * {@see AbstractFieldValue::deserializeValue()} on the mirror value object.
  *
+ * `TValue` is the request value the write hooks receive, `fillUsing()`'s and
+ * `deserializeUsing()`'s value. Each
+ * concrete `make()` sets it to the JSON type the adapter's validation guarantees before
+ * hydration, and the calls that widen what a write may carry widen it, such as
+ * `nullable()`, `enum()` and `deserializeUsing()`. It is static typing only.
+ *
+ * @template-covariant TValue = mixed
+ *
  * @phpstan-consistent-constructor
  */
 abstract class AbstractFieldBuilder implements FieldBuilderInterface
@@ -433,8 +441,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @param \Closure(mixed, array<string, mixed>): mixed $callback
-     * @return static
+     * Converts the request value before it is stored, called with the value and the
+     * resource object's `data` member. The callback may type the value as `TValue`, the
+     * type the field's validation guarantees. After it `TValue` is `mixed`, so a
+     * `fillUsing()` declared later takes the value untyped.
+     *
+     * @param \Closure(TValue, array<string, mixed>): mixed $callback
+     * @phpstan-self-out static<mixed>
+     * @return $this
      */
     public function deserializeUsing(\Closure $callback): static
     {
@@ -444,9 +458,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
+     * Writes the request value onto the model in place of the default write, called with
+     * the model, the value, the resource object's `data` member and the member's name.
+     * The callback may type the model as the class it expects and the value as `TValue`,
+     * the type the field's validation guarantees, such as `string` for a {@see Str}.
+     *
      * @template TModel
      *
-     * @param \Closure(TModel, mixed, array<string, mixed>, string): mixed $callback
+     * @param \Closure(TModel, TValue, array<string, mixed>, string): mixed $callback
      * @return static
      */
     public function fillUsing(\Closure $callback): static
@@ -485,11 +504,16 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     }
 
     /**
-     * @return static
+     * Lets a write send `null`, so `TValue` takes `null` too.
+     *
+     * @phpstan-self-out static<TValue|null>
+     * @return $this
      */
     public function nullable(): static
     {
-        return $this->addConstraint(new Nullable($this->currentContext()));
+        $this->addConstraint(new Nullable($this->currentContext()));
+
+        return $this;
     }
 
     /**
@@ -499,14 +523,22 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * retained on the {@see In} for richer OpenAPI enum metadata, and a write hydrates
      * the value as the case, as {@see enum()} does.
      *
-     * @param list<mixed> $values
-     * @return static
+     * A list of backed-enum cases adds the enum to `TValue`, since a write then
+     * receives the case.
+     *
+     * @template TIn
+     *
+     * @param list<TIn> $values
+     * @phpstan-self-out (TIn is \BackedEnum ? static<TValue|TIn> : static<TValue>)
+     * @return $this
      */
     public function in(array $values): static
     {
         [$scalars, $enumClass] = self::normalizeEnumValues($values);
 
-        return $this->addConstraint(new In($scalars, $this->currentContext(), $enumClass));
+        $this->addConstraint(new In($scalars, $this->currentContext(), $enumClass));
+
+        return $this;
     }
 
     /**
@@ -516,8 +548,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * stays the backing value, since a JSON column holds it. A read renders a case as its
      * backing value. A `deserializeUsing()` hook replaces the conversion.
      *
-     * @param class-string<\BackedEnum> $enum
-     * @return static
+     * `TValue` takes the enum too: a top-level field's `fillUsing()` receives the case,
+     * and a nested one's the backing value.
+     *
+     * @template TEnum of \BackedEnum
+     *
+     * @param class-string<TEnum> $enum
+     * @phpstan-self-out static<TValue|TEnum>
+     * @return $this
      *
      * @throws \InvalidArgumentException when `$enum` is not a backed enum, since a pure enum has no wire value
      */
@@ -533,7 +571,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
         $values = \array_map(static fn(\BackedEnum $case): int|string => $case->value, $enum::cases());
 
-        return $this->addConstraint(new In(\array_values($values), $this->currentContext(), $enum));
+        $this->addConstraint(new In(\array_values($values), $this->currentContext(), $enum));
+
+        return $this;
     }
 
     /**
@@ -606,24 +646,34 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
 
     /**
      * Scopes every constraint appended inside `$builder` to create (POST) requests.
+     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
+     * `nullable()`.
      *
      * @param \Closure(static): void $builder
-     * @return static
+     * @phpstan-self-out static<TValue|null>
+     * @return $this
      */
     public function onCreate(\Closure $builder): static
     {
-        return $this->withContext(Context::onlyCreate(), $builder);
+        $this->withContext(Context::onlyCreate(), $builder);
+
+        return $this;
     }
 
     /**
      * Scopes every constraint appended inside `$builder` to update (PATCH) requests.
+     * PHPStan cannot see inside `$builder`, so `TValue` takes `null` in case it declares
+     * `nullable()`.
      *
      * @param \Closure(static): void $builder
-     * @return static
+     * @phpstan-self-out static<TValue|null>
+     * @return $this
      */
     public function onUpdate(\Closure $builder): static
     {
-        return $this->withContext(Context::onlyUpdate(), $builder);
+        $this->withContext(Context::onlyUpdate(), $builder);
+
+        return $this;
     }
 
     /**
@@ -631,8 +681,14 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      * rules the built-in helpers don't cover. Each constraint carries its own
      * {@see Context}; unlike the built-in helpers, `constrain()` does not re-stamp
      * it. Constraints added inside a `when()` builder are captured into that `When`.
+     * A {@see Nullable} or {@see When} adds `null` to `TValue`, and an {@see In} a backed
+     * enum, as `nullable()` and `enum()` do.
      *
-     * @return static
+     * @template TConstraint of \haddowg\JsonApi\Resource\Constraint\ConstraintInterface
+     *
+     * @param TConstraint ...$constraints
+     * @phpstan-self-out (TConstraint is Nullable|When ? static<TValue|null> : (TConstraint is In<mixed> ? static<TValue|\BackedEnum> : static<TValue>))
+     * @return $this
      */
     public function constrain(\haddowg\JsonApi\Resource\Constraint\ConstraintInterface ...$constraints): static
     {
@@ -650,11 +706,15 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
      *
      * The condition receives the value first and the request second (nullable), so
      * a `fn($value)` closure keeps binding unchanged while a `fn($value, $request)`
-     * closure can also branch on the caller.
+     * closure can also branch on the caller. The condition's value stays `mixed`, since
+     * an adapter's validator asks it before checking the value's JSON type. PHPStan
+     * cannot see inside `$builder`, so `TValue` takes `null` in case it declares
+     * `nullable()`.
      *
      * @param \Closure(mixed, JsonApiRequestInterface|null): bool $condition
      * @param \Closure(static): void $builder
-     * @return static
+     * @phpstan-self-out static<TValue|null>
+     * @return $this
      */
     public function when(\Closure $condition, \Closure $builder): static
     {
@@ -668,7 +728,9 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
             $this->constraintBuffer = $previous;
         }
 
-        return $this->addConstraint(new When($condition, $collected, $this->currentContext()));
+        $this->addConstraint(new When($condition, $collected, $this->currentContext()));
+
+        return $this;
     }
 
     /**

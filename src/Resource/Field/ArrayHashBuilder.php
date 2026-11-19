@@ -12,6 +12,10 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  * associative array. Adds the property-count / sort helpers on top of the common
  * {@see AbstractFieldBuilder} surface; {@see build()} freezes it into a readonly
  * {@see ArrayHash} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class ArrayHashBuilder extends AbstractFieldBuilder
 {

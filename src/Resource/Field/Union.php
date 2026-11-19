@@ -63,6 +63,9 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         $this->members = self::keyed($state->name, $members);
     }
 
+    /**
+     * @return UnionBuilder<string|int|float|bool|list<mixed>>
+     */
     public static function make(string $name): UnionBuilder
     {
         return new UnionBuilder($name);
@@ -71,6 +74,8 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     /**
      * An unnamed union of `$members`, for a list's elements:
      * `ArrayList::make('values')->of(Union::of(Str::make(), Decimal::make()))`.
+     *
+     * @return UnionBuilder<string|int|float|bool|list<mixed>>
      */
     public static function of(FieldInterface|FieldBuilderInterface ...$members): UnionBuilder
     {

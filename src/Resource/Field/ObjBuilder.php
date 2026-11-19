@@ -11,6 +11,10 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  * The mutable **field builder** for an {@see Obj} attribute. Collects the child
  * fields (each a builder or an already-built field) and, at {@see build()}, freezes
  * them into a readonly {@see Obj} value object carrying the built children.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class ObjBuilder extends AbstractFieldBuilder
 {
@@ -52,7 +56,11 @@ final class ObjBuilder extends AbstractFieldBuilder
      * `'*'` by convention. A declared child always takes its own key, so the two can
      * be mixed.
      *
-     * @return static
+     * An open object's value may carry any key, a numeric one as an `int`, so `TValue`
+     * becomes `array<array-key, mixed>`.
+     *
+     * @phpstan-self-out static<array<array-key, mixed>|(TValue&null)>
+     * @return $this
      */
     public function additionalProperties(FieldInterface|FieldBuilderInterface $value): static
     {

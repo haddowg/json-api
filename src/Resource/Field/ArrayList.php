@@ -35,6 +35,8 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     /**
      * `$name` may be left out for a {@see Union} member, whose name is never used.
+     *
+     * @return ArrayListBuilder<list<string>>
      */
     public static function make(string $name = ''): ArrayListBuilder
     {

@@ -530,8 +530,8 @@ may take the type you know it has: a class such as `fn(Track $track)`, `array` f
 model held as a row, a nullable type, or `mixed`. PHPStan accepts each one and checks
 the closure's body against it. The hooks that decide per model whether a member is
 hidden, a relation is guarded, or a declared link renders take a typed model the same
-way. `$value` stays `mixed` in `deserializeUsing` and `fillUsing`, because it comes from
-the client's document.
+way. `$value` in `deserializeUsing` and `fillUsing` may take the type the field's
+validation guarantees, as the next section lists.
 
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting
@@ -543,6 +543,46 @@ does). To suppress a
 *stored* member from output entirely, prefer
 [`writeOnly()`](#write-only-members) — it drops the member rather than rendering it
 as `null`.
+
+
+### Typing the written value
+
+The adapters check each written value's JSON type before hydrating it, so every field
+builder knows what its write hooks receive. A typed `$value` passes PHPStan where the
+check guarantees that type, and a wrong one fails, such as `int` on a `Str`:
+
+```php
+Str::make('title')->fillUsing(static fn (Track $track, string $value): Track => $track->retitle($value)),
+Integer::make('plays')->deserializeUsing(static fn (int|float $value): int => (int) $value),
+Str::make('note')->nullable()->fillUsing(static fn (Track $track, ?string $value): Track => $track->annotate($value)),
+```
+
+| Field | `$value` |
+|---|---|
+| `Str` and its facades (`Email`, `Url`, `Uuid`, `Slug`, `Ip`), `DateTime`, `Date`, `Time` | `string` |
+| `Integer`, `Decimal` | `int\|float`, since JSON may write a whole number as `1.0` |
+| `Boolean` | `bool` |
+| `ArrayList` | `list<string>`, or by `of()`: `list<int\|float>` for `integer` and `number`, `list<bool>` for `boolean`, `list<array<array-key, mixed>>` for an `Obj` or `OneOf`, and a list of a union's member types for a `Union` |
+| `Obj`, `Map`, `OneOf` | `array<string, mixed>` |
+| `Obj` with `additionalProperties()`, `ArrayHash` | `array<array-key, mixed>`, since PHP decodes a numeric key as an `int` |
+| `Union` | `string\|int\|float\|bool\|list<mixed>` |
+
+The value widens with what the declaration lets a write carry:
+
+- `nullable()` adds `null`. So do `onCreate()`, `onUpdate()` and `when()`, since PHPStan
+  can't see whether their closure declares `nullable()`, and `constrain()` with a
+  `Nullable` or `When`.
+- `enum()`, and `in()` over cases of a backed enum, add the enum. A top-level field's
+  `fillUsing()` receives the case and a nested child's the backing value, so the hook takes
+  `RunState|string`.
+- `deserializeUsing()` makes it `mixed` for a `fillUsing()` declared after it.
+
+A builder carries its type from left to right, so declare these before the hook: a
+`nullable()` written after `fillUsing()` does not reach the closure PHPStan already
+checked. A `when()` condition's value stays `mixed`, since a validator asks it before
+the type check runs. A relation's hooks, an `Id`, and a builder you construct yourself
+or subclass without forwarding its template take `mixed`. It is static typing only:
+nothing changes at runtime.
 
 ### Worked example: a computed read and a renamed column
 

@@ -8,6 +8,10 @@ namespace haddowg\JsonApi\Resource\Field;
  * The mutable **field builder** for a calendar-date attribute (`YYYY-MM-DD`). A
  * {@see DateTimeBuilder} specialised to a date-only serialization format;
  * {@see build()} freezes it into a readonly {@see Date} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends DateTimeBuilder<TValue>
  */
 final class DateBuilder extends DateTimeBuilder
 {
