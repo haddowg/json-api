@@ -344,11 +344,12 @@ The library also ships `Schema\Profile\FieldSelectionProfile`, whose canonical U
 [`https://haddowg.github.io/json-api/profiles/field-selection/`](profiles/field-selection.md),
 which resolves to the profile's specification (see the
 [Field Selection profile spec](profiles/field-selection.md)). The profile lets a
-`fields[TYPE]` member select one key of an object attribute as `<attribute>.<key>`, where
-JSON:API 1.1 lists only field names:
+`fields[TYPE]` member select one key of an object attribute as `<attribute>.<key>`, or a
+key of an object nested in it as `<attribute>.<key>.<key>`, where JSON:API 1.1 lists only
+field names:
 
 ```
-fields[products]=name,values.cap,values.countries
+fields[people]=name,address.postcode,address.geo.lat
 ```
 
 Unlike the others it is never negotiated. A client sends plain

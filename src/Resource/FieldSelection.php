@@ -19,13 +19,17 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * adapter that needs the same answers asks here rather than parsing the members itself.
  *
  * A member is `<attr>.<key>`: the attribute name up to the first `.` and the key after
- * it, taken whole. An attribute the parameter also lists whole renders whole.
+ * it. A key holds no `.`, so a longer path such as `<attr>.<key>.<key>` names a key of a
+ * nested object, and is accepted only when every object along it declares
+ * `selectableKeys()` accepting the next key. An attribute or key the parameter also lists
+ * whole renders whole.
  */
 final class FieldSelection
 {
     /**
      * The keys `fields[$type]` requests per attribute it narrows rather than lists whole,
-     * before any declaration has accepted them. Empty when the request has no
+     * before any declaration has accepted them, each the rest of its member after the
+     * attribute's name, such as `postcode` or `geo.lat`. Empty when the request has no
      * `fields[$type]`, or one selecting no fields.
      *
      * @return array<string, list<string>>
@@ -52,20 +56,64 @@ final class FieldSelection
 
     /**
      * The `$keys` the field's declaration accepts, or `null` when the field declares no
-     * selectable keys or accepts none of them.
+     * selectable keys or accepts none of them. A dotted key is a path into a nested
+     * object: it is accepted when each object along it declares `selectableKeys()` and
+     * accepts the next key, and a key also selected whole is not narrowed.
      *
      * @param list<string> $keys
      */
     public static function selection(FieldInterface $field, array $keys, JsonApiRequestInterface $request): ?KeySelection
     {
+        return self::select($field, \array_map(static fn(string $key): array => \explode('.', $key), $keys), $request);
+    }
+
+    /**
+     * @param list<list<string>> $paths
+     */
+    private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): ?KeySelection
+    {
         $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
-        if ($declared === null) {
+        if ($declared === null || !$field instanceof SelectsKeysInterface) {
             return null;
         }
 
-        $accepted = \array_values(\array_filter($keys, static fn(string $key): bool => $declared->accepts($key, $request)));
+        $selected = [];
+        $whole = [];
+        $deeper = [];
+        foreach ($paths as $segments) {
+            $key = $segments[0];
+            if (!$declared->accepts($key, $request)) {
+                continue;
+            }
+            $rest = \array_slice($segments, 1);
+            if ($rest === []) {
+                $selected[$key] = true;
+                $whole[$key] = true;
 
-        return $accepted === [] ? null : new KeySelection($accepted);
+                continue;
+            }
+            $child = $field->keyField($key);
+            if ($child === null || self::select($child, [$rest], $request) === null) {
+                continue;
+            }
+            $selected[$key] = true;
+            $deeper[$key][] = $rest;
+        }
+
+        if ($selected === []) {
+            return null;
+        }
+
+        $nested = [];
+        foreach (\array_diff_key($deeper, $whole) as $key => $rests) {
+            $child = $field->keyField((string) $key);
+            $inner = $child === null ? null : self::select($child, $rests, $request);
+            if ($inner !== null) {
+                $nested[(string) $key] = $inner;
+            }
+        }
+
+        return new KeySelection(\array_map(\strval(...), \array_keys($selected)), $nested);
     }
 
     /**

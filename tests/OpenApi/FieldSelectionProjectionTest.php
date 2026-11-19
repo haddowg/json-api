@@ -7,6 +7,8 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 use haddowg\JsonApi\OpenApi\GeneratorContract;
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
+use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -41,7 +43,7 @@ final class FieldSelectionProjectionTest extends TestCase
                 'anyOf' => [
                     ['type' => 'string', 'enum' => ['name', 'values', 'totals', 'closed', 'vendor']],
                     ['type' => 'string', 'pattern' => '^values\\.(?:[a-z][a-z0-9_]*)$'],
-                    ['type' => 'string', 'pattern' => '^totals\\.[^,]+$'],
+                    ['type' => 'string', 'pattern' => '^totals\\.[^.,]+$'],
                 ],
             ],
         ], $parameter['schema']);
@@ -56,9 +58,55 @@ final class FieldSelectionProjectionTest extends TestCase
         $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[vendors]');
 
         self::assertSame(
-            ['type' => 'string', 'pattern' => '^stats\\.[^,]+$'],
+            ['type' => 'string', 'pattern' => '^stats\\.[^.,]+$'],
             $this->arr($this->arr($this->arr($parameter['schema'])['items'])['anyOf'])[1],
         );
+    }
+
+    #[Test]
+    public function eachNestedObjectDeclaringSelectableKeysAddsAPatternForItsPath(): void
+    {
+        $parameter = $this->fieldsParameter($this->nestedDocument(), '/people', 'fields[people]');
+
+        self::assertSame([
+            'type' => 'array',
+            'items' => [
+                'anyOf' => [
+                    ['type' => 'string', 'enum' => ['name', 'address', 'scores']],
+                    ['type' => 'string', 'pattern' => '^address\\.(?:[a-z]+)$'],
+                    ['type' => 'string', 'pattern' => '^address\\.geo\\.(?:lat|lng)$'],
+                    ['type' => 'string', 'pattern' => '^scores\\.[^.,]+$'],
+                    ['type' => 'string', 'pattern' => '^scores\\.[^.,]+\\.(?:min|max)$'],
+                ],
+            ],
+        ], $parameter['schema']);
+        self::assertIsString($parameter['description']);
+        self::assertStringContainsString('`address` or `scores`', $parameter['description']);
+        self::assertStringContainsString('`<attribute>.<key>.<key>`', $parameter['description']);
+    }
+
+    #[Test]
+    public function aNestedObjectTheParentCannotReachAddsNoPattern(): void
+    {
+        $parameter = $this->fieldsParameter($this->nestedDocument(), '/people', 'fields[people]');
+        $patterns = \array_column(\array_slice($this->arr($this->arr($this->arr($parameter['schema'])['items'])['anyOf']), 1), 'pattern');
+
+        // `Region` fails the parent's pattern, `hidden` never renders and `history` is a list.
+        foreach ($patterns as $pattern) {
+            self::assertIsString($pattern);
+            self::assertStringNotContainsString('Region', $pattern);
+            self::assertStringNotContainsString('hidden', $pattern);
+            self::assertStringNotContainsString('history', $pattern);
+        }
+    }
+
+    #[Test]
+    public function aDocumentWithOnlyTopLevelKeysKeepsItsDescription(): void
+    {
+        $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[products]');
+
+        self::assertIsString($parameter['description']);
+        self::assertStringNotContainsString('nested', $parameter['description']);
     }
 
     #[Test]
@@ -124,6 +172,32 @@ final class FieldSelectionProjectionTest extends TestCase
                     includablePaths: ['vendor'],
                 ),
                 FakeTypeMetadata::resource(type: 'vendors', fields: [Id::make()->build(), $stats->build()]),
+            ],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function nestedDocument(): array
+    {
+        $address = Obj::make('address')->fields(
+            Str::make('postcode'),
+            Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'),
+            Obj::make('Region')->fields(Str::make('code'))->selectableKeys(pattern: '[a-z]+'),
+            Obj::make('hidden')->fields(Str::make('code'))->selectableKeys(pattern: '[a-z]+')->hidden(),
+            ArrayList::make('history')->of(Obj::make('entry')->fields(Str::make('street'))),
+        )->selectableKeys(pattern: '[a-z]+');
+        $scores = Obj::make('scores')
+            ->additionalProperties(Obj::make('*')->fields(Integer::make('min'), Integer::make('max'))->selectableKeys(pattern: 'min|max'))
+            ->selectableKeys(static fn(string $key): bool => true);
+
+        return (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(type: 'people', fields: [Id::make()->build(), Str::make('name')->build(), $address->build(), $scores->build()]),
             ],
             profiles: [FieldSelectionProfile::URI],
         ))->toArray();

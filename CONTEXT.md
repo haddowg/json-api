@@ -94,14 +94,16 @@ whose `meta` does not match.
 _Avoid_: document meta schema, response meta
 
 **Selectable keys**:
-An open `Obj` or a `Map` declaring, by a pattern, a predicate or both, which of its keys a
-`fields[TYPE]=<attribute>.<key>` member may select one at a time. A response narrowing one
-applies the Field Selection profile.
+An `Obj` or a `Map` declaring, by a pattern, a predicate or both, which of its keys a
+`fields[TYPE]=<attribute>.<key>` member may select one at a time. A key whose object
+declares selectable keys too takes a longer path, `<attribute>.<key>.<key>`. A response
+narrowing one applies the Field Selection profile.
 _Avoid_: partial attribute, sub-field, nested fieldset
 
 **Key selection**:
 The keys a request selected of one attribute with selectable keys, as the `KeySelection`
-value its `extractUsing()` hook receives. `null` when the request takes the whole attribute.
+value its `extractUsing()` hook receives, holding a nested key selection for each key it
+narrows further. `null` when the request takes the whole attribute.
 _Avoid_: key filter, projection
 
 **Typed request meta**:

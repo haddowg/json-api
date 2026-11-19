@@ -18,7 +18,8 @@ trait DeclaresSelectableKeys
      * Lets a request select this attribute's keys one by one with
      * `fields[TYPE]=<attr>.<key>`, for each key `$pattern` matches whole and `$accepts`
      * returns `true` for. Give either or both. A key the declaration rejects is an
-     * unrecognized fieldset member.
+     * unrecognized fieldset member. When this object is a key of another that declares
+     * selectable keys, a request can reach its keys as `<attr>.<key>.<key>`.
      *
      * @param (\Closure(string, JsonApiRequestInterface): bool)|null $accepts
      * @param string|null                                           $pattern an ECMA-262 and PCRE regular expression a whole key must match

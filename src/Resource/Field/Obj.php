@@ -34,9 +34,8 @@ use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
  *
  * The object is closed unless it declares {@see additionalProperties()}: an open object
  * also takes members it does not declare, each value read and written through that one
- * field, and kept beside the declared children in the same associative array. An open
- * object may also declare {@see selectableKeys()}, so a request can select its keys one
- * by one.
+ * field, and kept beside the declared children in the same associative array. An object
+ * may also declare {@see selectableKeys()}, so a request can select its keys one by one.
  */
 final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
@@ -55,6 +54,17 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     public function selectableKeys(): ?SelectableKeys
     {
         return $this->selectableKeys;
+    }
+
+    public function keyField(string $key): ?FieldInterface
+    {
+        foreach ($this->children as $child) {
+            if ($child->name() === $key) {
+                return $child;
+            }
+        }
+
+        return $this->additionalProperties;
     }
 
     /**
@@ -174,15 +184,18 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         $nested = [];
         foreach ($this->children as $child) {
             if (($only === null || $only->has($child->name())) && $this->rendersChild($child, $value, $request)) {
-                $nested[$child->name()] = $child->serialize($value, $request, $child->name());
+                $inner = $only?->nested($child->name());
+                $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
+                    ? $child->serializeSelection($value, $request, $child->name(), $inner)
+                    : $child->serialize($value, $request, $child->name());
             }
         }
 
         $field = $this->additionalProperties;
         if ($field !== null && $this->rendersChild($field, $value, $request) && (\is_array($value) || \is_object($value))) {
             foreach ($this->additionalMembersOf(\is_array($value) ? $value : \get_object_vars($value)) as $key => $member) {
-                if ($only === null || $only->has($key)) {
-                    $nested[$key] = self::serializeMember($field, $member, $request);
+                if ($only === null || $only->has((string) $key)) {
+                    $nested[$key] = self::serializeMember($field, $member, $request, $only?->nested((string) $key));
                 }
             }
         }
@@ -220,9 +233,13 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
      * Renders one undeclared member's value through the member field, which reads it
      * from a one-member object under its own key.
      */
-    private static function serializeMember(FieldInterface $field, mixed $member, JsonApiRequestInterface $request): mixed
+    private static function serializeMember(FieldInterface $field, mixed $member, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
     {
-        return $field->serialize([$field->column() ?? $field->name() => $member], $request, $field->name());
+        $holder = [$field->column() ?? $field->name() => $member];
+
+        return $only !== null && $field instanceof SelectsKeysInterface
+            ? $field->serializeSelection($holder, $request, $field->name(), $only)
+            : $field->serialize($holder, $request, $field->name());
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed

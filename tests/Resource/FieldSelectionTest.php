@@ -10,6 +10,7 @@ use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\KeySelection;
@@ -44,6 +45,7 @@ final class FieldSelectionTest extends TestCase
     protected function setUp(): void
     {
         SelectionProductResource::$extracted = [];
+        SelectionPersonResource::$extracted = [];
     }
 
     #[Test]
@@ -205,9 +207,11 @@ final class FieldSelectionTest extends TestCase
     {
         $this->assertUnrecognized('values.rows.a', ['values.rows.a']);
 
-        // A pattern admitting dots takes `rows.a` whole as one key, which no member has.
+        // A key holds no full stop, so `rows.a` is a path into `rows`, a list, even where the
+        // declared pattern admits dots.
+        $this->assertUnrecognized('groups.rows.a', ['groups.rows.a']);
         $body = $this->body($this->render('name,groups.rows.a'));
-        self::assertSame(['name' => 'Widget', 'groups' => []], $this->attributes($body));
+        self::assertSame(['name' => 'Widget'], $this->attributes($body));
     }
 
     #[Test]
@@ -258,12 +262,146 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
-    public function aClosedObjectCannotDeclareSelectableKeys(): void
+    public function aClosedObjectSelectsItsDeclaredChildren(): void
     {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('selectableKeys()');
+        self::assertSame(['address' => ['postcode' => 'AB1 2CD']], $this->personAttributes('address.postcode'));
+    }
 
-        Obj::make('closed')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z]+')->build();
+    #[Test]
+    public function aNestedKeyMemberRendersOnlyThatPathAndNothingElseOfItsAncestors(): void
+    {
+        self::assertSame(['address' => ['geo' => ['lat' => 51.5]]], $this->personAttributes('address.geo.lat'));
+    }
+
+    #[Test]
+    public function keysAtSeveralDepthsRenderSideBySide(): void
+    {
+        self::assertSame(
+            ['name' => 'Ada', 'address' => ['postcode' => 'AB1 2CD', 'geo' => ['lat' => 51.5, 'lng' => -0.1]]],
+            $this->personAttributes('name,address.postcode,address.geo.lat,address.geo.lng'),
+        );
+    }
+
+    #[Test]
+    public function aKeyListedWholeBesideAPathIntoItRendersWholeAtEveryDepth(): void
+    {
+        self::assertSame(['address' => ['geo' => ['lat' => 51.5, 'lng' => -0.1, 'accuracy' => 'rooftop']]], $this->personAttributes('address.geo,address.geo.lat'));
+        self::assertSame(['address' => ['geo' => ['lat' => 51.5, 'lng' => -0.1, 'accuracy' => 'rooftop']]], $this->personAttributes('address.geo.lat,address.geo'));
+        self::assertSame(
+            ['address' => ['street' => '1 High Street', 'postcode' => 'AB1 2CD', 'geo' => ['lat' => 51.5, 'lng' => -0.1, 'accuracy' => 'rooftop'], 'Region' => null, 'plain' => null, 'history' => [['street' => '9 Low Road']]]],
+            $this->personAttributes('address,address.geo.lat'),
+        );
+    }
+
+    #[Test]
+    public function anOpenObjectsMembersAreNarrowedThroughTheirMemberField(): void
+    {
+        self::assertSame(['scores' => ['maths' => ['max' => 9], 'art' => ['min' => 2]]], $this->personAttributes('scores.maths.max,scores.art.min'));
+        self::assertSame(['scores' => ['maths' => ['min' => 4, 'max' => 9]]], $this->personAttributes('scores.maths'));
+    }
+
+    #[Test]
+    public function aMapsChildIsNarrowedInTurn(): void
+    {
+        self::assertSame(['contact' => ['phone' => ['work' => '0200']]], $this->personAttributes('contact.phone.work'));
+    }
+
+    #[Test]
+    public function anExtractHookReceivesTheNestedSelection(): void
+    {
+        self::assertSame(['office' => ['geo' => ['lng' => -0.2]]], $this->personAttributes('office.geo.lng'));
+        self::assertSame([['paths' => ['geo.lng'], 'keys' => ['geo'], 'geo' => ['lng']]], SelectionPersonResource::$extracted);
+    }
+
+    #[Test]
+    public function aSerializeHooksValueIsTrimmedAtEveryDepth(): void
+    {
+        self::assertSame(['badge' => ['colour' => ['fg' => 'black']]], $this->personAttributes('badge.colour.fg'));
+    }
+
+    #[Test]
+    public function aNestedSelectionAppliesToAnIncludedResource(): void
+    {
+        $body = $this->body($this->render('name,vendor', include: 'vendor', vendorFields: 'office.geo.lat'));
+
+        self::assertIsArray($body['included']);
+        self::assertIsArray($body['included'][0]);
+        self::assertSame(['office' => ['geo' => ['lat' => 48.8]]], $body['included'][0]['attributes']);
+        self::assertSame(['version' => '1.1', 'profile' => [FieldSelectionProfile::URI]], $body['jsonapi']);
+    }
+
+    #[Test]
+    public function aNestedKeyTheObjectRejectsIsThe400(): void
+    {
+        $this->assertUnrecognized('address.geo.alt', ['address.geo.alt'], 'people');
+        $this->assertUnrecognized('address.Region.code', ['address.Region.code'], 'people');
+    }
+
+    #[Test]
+    public function aPathBelowAKeyWhoseObjectDeclaresNoSelectableKeysIsThe400(): void
+    {
+        $this->assertUnrecognized('address.postcode.x', ['address.postcode.x'], 'people');
+        $this->assertUnrecognized('address.plain.code', ['address.plain.code'], 'people');
+        $this->assertUnrecognized('address.history.street', ['address.history.street'], 'people');
+        $this->assertUnrecognized('address.missing.x', ['address.missing.x'], 'people');
+    }
+
+    #[Test]
+    public function anEmptyNestedKeyIsThe400(): void
+    {
+        $this->assertUnrecognized('address.geo.', ['address.geo.'], 'people');
+        $this->assertUnrecognized('address..lat', ['address..lat'], 'people');
+    }
+
+    #[Test]
+    public function acceptedNestedPathsPassStrictValidation(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = $this->server()->withHandler($handler);
+
+        $operation = new SelectionOperation($this->personRequest('address.geo.lat,scores.maths.max,contact.phone.work'), 'people');
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    public function withoutStrictValidationARejectedNestedPathSelectsNothing(): void
+    {
+        self::assertSame(['name' => 'Ada'], $this->personAttributes('name,address.geo.alt'));
+        self::assertSame(['address' => ['postcode' => 'AB1 2CD']], $this->personAttributes('address.postcode,address.history.street'));
+    }
+
+    #[Test]
+    public function narrowsReadsNestedPathsAgainstEachLevelsDeclaration(): void
+    {
+        $server = $this->server();
+
+        self::assertTrue(FieldSelection::narrows($server, $this->personRequest('address.geo.lat')));
+        self::assertFalse(FieldSelection::narrows($server, $this->personRequest('address.geo.alt')));
+        self::assertFalse(FieldSelection::narrows($server, $this->personRequest('address,address.geo.lat')));
+    }
+
+    #[Test]
+    public function theSelectionHoldsANestedSelectionPerNarrowedKey(): void
+    {
+        $address = SelectionPersonResource::address();
+        $request = $this->personRequest(null);
+
+        $selection = FieldSelection::selection($address, ['postcode', 'geo.lat', 'geo.lng', 'geo.alt'], $request);
+
+        self::assertNotNull($selection);
+        self::assertSame(['postcode', 'geo'], $selection->keys);
+        self::assertNull($selection->nested('postcode'));
+        self::assertSame(['lat', 'lng'], $selection->nested('geo')?->keys);
+        self::assertSame(['postcode', 'geo.lat', 'geo.lng'], $selection->paths());
+
+        $whole = FieldSelection::selection($address, ['geo.lat', 'geo'], $request);
+        self::assertNotNull($whole);
+        self::assertSame(['geo'], $whole->keys);
+        self::assertNull($whole->nested('geo'));
+
+        self::assertNull(FieldSelection::selection($address, ['geo.alt', 'postcode.x'], $request));
     }
 
     #[Test]
@@ -294,6 +432,16 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aKeySelectionKeepsANestedSelectionOnlyForAKeyItHolds(): void
+    {
+        $selection = new KeySelection(['geo'], ['geo' => new KeySelection(['lat']), 'other' => new KeySelection(['x'])]);
+
+        self::assertSame(['lat'], $selection->nested('geo')?->keys);
+        self::assertNull($selection->nested('other'));
+        self::assertSame(['geo.lat'], $selection->paths());
+    }
+
+    #[Test]
     public function aKeySelectionHoldsEachKeyOnce(): void
     {
         $selection = new KeySelection(['cap', 'cap', 'region']);
@@ -310,7 +458,8 @@ final class FieldSelectionTest extends TestCase
             ->withPsr17($psr17, $psr17)
             ->register(SelectionProductResource::class)
             ->register(SelectionVendorResource::class)
-            ->register(SelectionShelfResource::class);
+            ->register(SelectionShelfResource::class)
+            ->register(SelectionPersonResource::class);
 
         return $withProfile ? $server->withProfile(new FieldSelectionProfile()) : $server;
     }
@@ -339,15 +488,33 @@ final class FieldSelectionTest extends TestCase
             ->toPsrResponse($server, $this->request($fields, $include, $vendorFields));
     }
 
+    private function personRequest(?string $fields): JsonApiRequestInterface
+    {
+        return new JsonApiRequest((new ServerRequest('GET', '/people/1'))->withQueryParams($fields === null ? [] : ['fields' => ['people' => $fields]]));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function personAttributes(string $fields): array
+    {
+        $server = $this->server();
+
+        return $this->attributes($this->body(
+            DataResponse::fromResource(SelectionPersonResource::model(), $server->serializerFor('people'))
+                ->toPsrResponse($server, $this->personRequest($fields)),
+        ));
+    }
+
     /**
      * @param list<string> $members
      */
-    private function assertUnrecognized(string $fields, array $members): void
+    private function assertUnrecognized(string $fields, array $members, string $type = 'products'): void
     {
         $server = $this->server()->withHandler(new RecordingOperationHandler(MetaResponse::fromMeta([])));
 
         try {
-            $server->dispatch(new SelectionOperation($this->request($fields)));
+            $server->dispatch(new SelectionOperation($type === 'people' ? $this->personRequest($fields) : $this->request($fields), $type));
             self::fail('Expected the member to be rejected.');
         } catch (FieldsetMemberUnrecognized $e) {
             self::assertSame(400, $e->getStatusCode());
@@ -406,7 +573,7 @@ final class SelectionProductResource extends AbstractResource
             'views' => 4,
             'shares' => 7,
             'hiddenUntilAsked' => ['x' => 1, 'y' => 2],
-            'vendor' => ['id' => '9', 'stats' => ['rating' => 5, 'reviews' => 12]],
+            'vendor' => ['id' => '9', 'stats' => ['rating' => 5, 'reviews' => 12], 'office' => ['city' => 'Paris', 'geo' => ['lat' => 48.8, 'lng' => 2.3]]],
         ];
     }
 
@@ -452,6 +619,78 @@ final class SelectionVendorResource extends AbstractResource
             Obj::make('stats')
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => \in_array($key, ['rating', 'reviews'], true)),
+            Obj::make('office')
+                ->fields(Str::make('city'), Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'))
+                ->selectableKeys(pattern: '[a-z]+'),
+        ];
+    }
+}
+
+final class SelectionPersonResource extends AbstractResource
+{
+    public static string $type = 'people';
+
+    /**
+     * @var list<array{paths: list<string>|null, keys: list<string>|null, geo: list<string>|null}>
+     */
+    public static array $extracted = [];
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function model(): array
+    {
+        return [
+            'id' => '1',
+            'name' => 'Ada',
+            'address' => [
+                'street' => '1 High Street',
+                'postcode' => 'AB1 2CD',
+                'geo' => ['lat' => 51.5, 'lng' => -0.1, 'accuracy' => 'rooftop'],
+                'history' => [['street' => '9 Low Road']],
+            ],
+            'scores' => ['maths' => ['min' => 4, 'max' => 9], 'art' => ['min' => 2, 'max' => 7]],
+            'phone' => ['home' => '0100', 'work' => '0200'],
+            'email' => 'ada@example.com',
+        ];
+    }
+
+    public static function address(): Obj
+    {
+        return Obj::make('address')->fields(
+            Str::make('street'),
+            Str::make('postcode'),
+            Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'), Str::make('accuracy'))->selectableKeys(pattern: 'lat|lng|accuracy'),
+            Obj::make('Region')->fields(Str::make('code'))->selectableKeys(pattern: '[a-z]+'),
+            Obj::make('plain')->fields(Str::make('code')),
+            \haddowg\JsonApi\Resource\Field\ArrayList::make('history')->of(Obj::make('entry')->fields(Str::make('street'))),
+        )->selectableKeys(pattern: '[a-z]+')->build();
+    }
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('name'),
+            self::address(),
+            Obj::make('scores')
+                ->additionalProperties(Obj::make('*')->fields(Integer::make('min'), Integer::make('max'))->selectableKeys(pattern: 'min|max'))
+                ->selectableKeys(pattern: '[a-z]+'),
+            Map::make('contact')
+                ->fields(Str::make('email'), Obj::make('phone')->fields(Str::make('home'), Str::make('work'))->selectableKeys(pattern: 'home|work'))
+                ->selectableKeys(pattern: '[a-z]+'),
+            Obj::make('office')
+                ->fields(Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->computedUsing(static function (array $person, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                    self::$extracted[] = ['paths' => $only?->paths(), 'keys' => $only?->keys, 'geo' => $only?->nested('geo')?->keys];
+
+                    return ['geo' => ['lat' => 51.4, 'lng' => -0.2]];
+                }),
+            Obj::make('badge')
+                ->fields(Obj::make('colour')->fields(Str::make('fg'), Str::make('bg'))->selectableKeys(pattern: '[a-z]+'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->serializeUsing(static fn(): array => ['colour' => ['fg' => 'black', 'bg' => 'white'], 'shape' => 'round']),
         ];
     }
 }
@@ -475,11 +714,11 @@ final class SelectionShelfResource extends AbstractResource
 
 final readonly class SelectionOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
-    public function __construct(private JsonApiRequestInterface $request) {}
+    public function __construct(private JsonApiRequestInterface $request, private string $type = 'products') {}
 
     public function target(): \haddowg\JsonApi\Operation\Target
     {
-        return new \haddowg\JsonApi\Operation\Target('products');
+        return new \haddowg\JsonApi\Operation\Target($this->type);
     }
 
     public function queryParameters(): \haddowg\JsonApi\Operation\QueryParameters

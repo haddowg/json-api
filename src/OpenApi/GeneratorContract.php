@@ -364,8 +364,9 @@ final class GeneratorContract
     /**
      * The contract that introduced field selection: a `fields[<type>]` parameter whose
      * items are an `anyOf` of the member enum and one `pattern` per attribute declaring
-     * selectable keys, matching `<attribute>.<key>`. A document carries it only when some
-     * `fields[<type>]` parameter accepts such keys.
+     * selectable keys, matching `<attribute>.<key>`, and one per object nested in it that
+     * declares selectable keys too, matching `<attribute>.<key>.<key>`. A document carries
+     * it only when some `fields[<type>]` parameter accepts such keys.
      */
     public const FIELD_SELECTION = 42;
 

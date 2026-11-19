@@ -48,36 +48,42 @@ for the assertions that pin this behaviour.
 
 ### Selecting keys of an object attribute
 
-An attribute declared with [`selectableKeys()`](field-types.md#selectable-keys), an open
-`Obj` or a `Map`, also accepts `<attribute>.<key>` members, each selecting one key of
-its object:
+An attribute declared with [`selectableKeys()`](field-types.md#selectable-keys), an `Obj`
+or a `Map`, also accepts `<attribute>.<key>` members, each selecting one key of its
+object:
 
 ```
-GET /products?fields[products]=name,values.cap,values.countries
+GET /people?fields[people]=name,address.postcode
 ```
 
 ```json
 {
   "data": [{
-    "type": "products",
+    "type": "people",
     "id": "1",
-    "attributes": { "name": "Widget", "values": { "cap": "10", "countries": "GB,FR" } }
+    "attributes": { "name": "Ada Lovelace", "address": { "postcode": "SW1A 1AA" } }
   }],
   "jsonapi": { "version": "1.1", "profile": ["https://haddowg.github.io/json-api/profiles/field-selection/"] }
 }
 ```
 
+A key whose own object declares `selectableKeys()` takes a longer path, one key per
+level. `fields[people]=address.geo.lat` renders `address` holding only `geo`, and `geo`
+holding only `lat`.
+
 The rules:
 
-- Listing the attribute itself and a key of it, `fields[products]=values,values.cap`,
-  renders the whole attribute.
-- A request without `fields[products]` renders every resource as before.
+- Listing the attribute itself and a key of it, `fields[people]=address,address.postcode`,
+  renders the whole attribute. The same holds at each level, so
+  `address.geo,address.geo.lat` renders all of `geo`.
+- A path selects nothing else of the objects it passes through: `address.geo.lat`
+  leaves out the street, the postcode and `geo.lng`.
+- A request without `fields[people]` renders every resource as before.
 - A key the declaration rejects, a dotted member on an attribute that declares no
-  selectable keys, a dotted member on a relationship and an empty key are unknown
+  selectable keys, a dotted member on a relationship, an empty key, and a path continuing
+  past a key whose object declares no selectable keys or that holds a list are unknown
   fieldset members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
   validation, and ignored without it.
-- A key names one member of the object, everything after the first `.`, so a member
-  holding a list of objects is selected whole, with no deeper paths.
 - The selection applies to the type wherever it renders: primary data, `included`,
   related endpoints, a write answering with the resource and atomic results.
 - Request bodies are unchanged; a selection shapes only what renders.

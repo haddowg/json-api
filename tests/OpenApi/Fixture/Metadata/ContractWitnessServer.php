@@ -433,11 +433,16 @@ final class ContractWitnessServer
                     Obj::make('metrics')->additionalProperties(Integer::make('*')->readOnly()->min(0))->build(),
                 ] : []),
                 // Objects whose keys a fieldset member selects one by one: one whose keys
-                // match a declared pattern and a map whose predicate alone decides.
+                // match a declared pattern, a map whose predicate alone decides, and a
+                // closed object with a nested object whose keys are selectable in turn.
                 ...($fieldSelection ? [
                     Obj::make('scores')->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z][a-z0-9_]*')->build(),
                     Map::make('totals')->fields(Integer::make('views'), Integer::make('shares'))
                         ->selectableKeys(static fn(string $key): bool => $key !== 'internal')->build(),
+                    Obj::make('location')->fields(
+                        Str::make('postcode'),
+                        Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'),
+                    )->selectableKeys(pattern: '[a-z]+')->build(),
                 ] : []),
                 // Values of several primitive types: one schema listing the members' types
                 // with their keywords merged, and a oneOf of the members once one carries

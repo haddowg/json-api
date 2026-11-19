@@ -10,15 +10,17 @@ use haddowg\JsonApi\Resource\Internal\KeyFamilyMatcher;
 /**
  * Which keys of an object attribute a client may select one by one with
  * `fields[TYPE]=<attr>.<key>`: those the pattern matches and the predicate accepts. A
- * declaration with only a predicate documents every key as selectable.
+ * declaration with only a predicate documents every key as selectable. A key never holds
+ * a `.`, which separates the keys of a path into nested objects.
  */
 final readonly class SelectableKeys
 {
     /**
      * The schema pattern of a key when only a predicate decides: anything up to the next
-     * comma, since `fields[TYPE]` is a comma-separated list.
+     * comma, since `fields[TYPE]` is a comma-separated list, or the next full stop, which
+     * starts a key of a nested object.
      */
-    public const string ANY_KEY_PATTERN = '[^,]+';
+    public const string ANY_KEY_PATTERN = '[^.,]+';
 
     /**
      * @param (\Closure(string, JsonApiRequestInterface): bool)|null $accepts
