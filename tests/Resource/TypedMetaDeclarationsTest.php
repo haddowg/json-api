@@ -401,6 +401,25 @@ final class TypedMetaDeclarationsTest extends TestCase
     }
 
     #[Test]
+    public function aWritesStatus202ReadsTheTypesDeclarationOrItsAccepted(): void
+    {
+        $declarer = new class implements \haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface {
+            public function acceptedDocumentMeta(OperationType $operation): iterable
+            {
+                return $operation === OperationType::Create ? [Integer::make('queuePosition')] : [];
+            }
+        };
+
+        self::assertSame(['queuePosition'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forAccepted($declarer, OperationType::Create, [new Accepted('jobs')], 'bookings')->fields));
+        self::assertTrue(DocumentMeta::forAccepted($declarer, OperationType::Update, [new Accepted('jobs')])->isEmpty());
+        self::assertSame(['eta'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forAccepted(new \stdClass(), OperationType::Update, [new Accepted('jobs', [Str::make('eta')])])->fields));
+        self::assertTrue(DocumentMeta::forAccepted(self::resource(), OperationType::Create)->isEmpty());
+
+        $this->expectException(DocumentMetaMisdeclared::class);
+        DocumentMeta::forAccepted($declarer, OperationType::Create, [new Accepted('jobs', [Str::make('eta')])]);
+    }
+
+    #[Test]
     public function aHandlerMapsItsDocumentMetaOntoAnAccepted(): void
     {
         $handler = new class implements DeclaresActionDocumentMetaInterface {
