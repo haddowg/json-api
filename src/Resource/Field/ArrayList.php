@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\ValueTypes;
 
 /**
  * A zero-indexed array attribute (JSON `type: array`) — the built, readonly value
@@ -35,6 +36,8 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     /**
      * `$name` may be left out for a {@see Union} member, whose name is never used.
+     *
+     * @return ArrayListBuilder<list<string>>
      */
     public static function make(string $name = ''): ArrayListBuilder
     {
@@ -284,6 +287,40 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     }
 
     /**
+     * Normalizes each element: an `integer` list's whole numbers become `int`s, a
+     * `number` list's integers `float`s, and a structured list or a list of unions
+     * normalizes each element through its shape.
+     *
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        if (!\is_array($value) || !\array_is_list($value)) {
+            return $value;
+        }
+
+        $element = $this->element ?? $this->elementUnion;
+        if ($element !== null) {
+            return \array_map(static fn(mixed $item): mixed => $element->normalizeWireValue($item), $value);
+        }
+
+        return \array_map($this->normalizeNumber(...), $value);
+    }
+
+    /**
+     * An element of an `integer` list that is a whole `float` as an `int`, and one of a
+     * `number` list that is an `int` as a `float`.
+     */
+    private function normalizeNumber(mixed $item): mixed
+    {
+        return match (true) {
+            $this->elementType === ValueTypes::INTEGER && \is_float($item) && ValueTypes::matches(ValueTypes::INTEGER, $item) => (int) $item,
+            $this->elementType === ValueTypes::NUMBER && \is_int($item) => (float) $item,
+            default => $item,
+        };
+    }
+
+    /**
      * Each element of a list of scalars declaring a backed enum in its `each()` becomes
      * that enum's case.
      *
@@ -321,7 +358,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
             return \array_map($this->elementUnion->render(...), \array_values($raw));
         }
 
-        $list = \array_values($raw);
+        $list = \array_map($this->normalizeNumber(...), \array_values($raw));
         if ($this->sorted) {
             \sort($list);
         }

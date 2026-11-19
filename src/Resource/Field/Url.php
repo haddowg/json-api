@@ -7,17 +7,19 @@ namespace haddowg\JsonApi\Resource\Field;
 /**
  * A **field builder** facade for a URL string: presets a `UrlFormat` constraint
  * and builds a plain {@see Str}. Equivalent to `Str::make($name)->url()`.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends StrBuilder<TValue>
  */
 final class Url extends StrBuilder
 {
     /**
-     * @return static
+     * @return self<string>
      */
-    public static function make(string $name = ''): static
+    public static function make(string $name = ''): self
     {
-        $field = new static($name);
-
-        return $field->url();
+        return (new self($name))->url();
     }
 
     /**

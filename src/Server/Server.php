@@ -949,7 +949,8 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
 
     /**
      * Invokes the configured {@see OperationHandler} directly, without the PSR-15
-     * chain. The operation is assumed pre-constructed and complete, so a singleton
+     * chain. A resource or relationship write's numbers are first put in the type their
+     * fields document, as {@see \haddowg\JsonApi\Resource\WireNumbers} describes. The operation is assumed pre-constructed and complete, so a singleton
      * target must already carry the caller's resolved id; only
      * {@see \haddowg\JsonApi\Operation\OperationFactory} resolves one.
      *
@@ -970,6 +971,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             throw new \LogicException('Server::dispatch() requires an OperationHandler; call withHandler().');
         }
 
+        $operation = \haddowg\JsonApi\Resource\WireNumbers::operation($operation, $this);
         $this->validateQueryParameters($operation);
         $this->scopeEnforcer?->enforce($operation, $this->resources);
         $this->fireServing($operation);

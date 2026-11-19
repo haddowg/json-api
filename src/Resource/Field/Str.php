@@ -17,6 +17,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Str extends AbstractFieldValue
 {
+    /**
+     * @return StrBuilder<string>
+     */
     public static function make(string $name = ''): StrBuilder
     {
         return new StrBuilder($name);

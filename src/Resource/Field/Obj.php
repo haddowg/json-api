@@ -48,6 +48,9 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         parent::__construct($state);
     }
 
+    /**
+     * @return ObjBuilder<array<string, mixed>>
+     */
     public static function make(string $name): ObjBuilder
     {
         return new ObjBuilder($name);
@@ -201,6 +204,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     {
         if ($this->state->fillUsing !== null) {
             $this->assertWireFormat($value);
+            $value = $this->normalizeWireValue($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -237,6 +241,46 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         return $this->hydrate($nested, $value, $data, $request, $creating);
+    }
+
+    /**
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        if (!\is_array($value)) {
+            return $value;
+        }
+
+        $value = self::normalizeChildren($this->children, $value);
+        if ($this->additionalProperties !== null) {
+            foreach ($this->additionalMembersOf($value) as $key => $member) {
+                $value[$key] = self::normalizeMember($this->additionalProperties, $member);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Normalizes the value of each child the object carries.
+     *
+     * @internal
+     *
+     * @param iterable<FieldInterface>  $children
+     * @param array<array-key, mixed>   $value
+     *
+     * @return array<array-key, mixed>
+     */
+    public static function normalizeChildren(iterable $children, array $value): array
+    {
+        foreach ($children as $child) {
+            if (\array_key_exists($child->name(), $value)) {
+                $value[$child->name()] = self::normalizeMember($child, $value[$child->name()]);
+            }
+        }
+
+        return $value;
     }
 
     /**

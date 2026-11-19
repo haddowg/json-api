@@ -22,6 +22,9 @@ final readonly class ArrayHash extends AbstractFieldValue
         parent::__construct($state);
     }
 
+    /**
+     * @return ArrayHashBuilder<array<array-key, mixed>>
+     */
     public static function make(string $name): ArrayHashBuilder
     {
         return new ArrayHashBuilder($name);

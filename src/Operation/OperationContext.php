@@ -34,4 +34,12 @@ final readonly class OperationContext
     {
         return $this->httpRequest;
     }
+
+    /**
+     * This context backed by `$httpRequest` in place of its own.
+     */
+    public function withHttpRequest(?ServerRequestInterface $httpRequest): self
+    {
+        return new self($this->server, $httpRequest);
+    }
 }

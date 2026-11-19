@@ -8,6 +8,10 @@ namespace haddowg\JsonApi\Resource\Field;
  * The mutable **field builder** for a {@see Union} attribute. Collects the members,
  * each a builder or an already-built field, and at {@see build()} freezes them into a
  * readonly {@see Union}.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class UnionBuilder extends AbstractFieldBuilder
 {

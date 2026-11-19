@@ -38,4 +38,12 @@ final readonly class AddToRelationshipOperation implements \haddowg\JsonApi\Oper
     {
         return $this->body;
     }
+
+    /**
+     * This operation carrying `$body` in place of its own, and `$context` when given.
+     */
+    public function withBody(JsonApiRequestInterface $body, ?OperationContext $context = null): self
+    {
+        return new self($this->target, $this->queryParameters, $context ?? $this->context, $body);
+    }
 }

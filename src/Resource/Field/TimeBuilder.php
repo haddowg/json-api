@@ -8,6 +8,10 @@ namespace haddowg\JsonApi\Resource\Field;
  * The mutable **field builder** for a wall-clock time attribute (`HH:MM:SS`). A
  * {@see DateTimeBuilder} specialised to a time-only serialization format;
  * {@see build()} freezes it into a readonly {@see Time} value object.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends DateTimeBuilder<TValue>
  */
 final class TimeBuilder extends DateTimeBuilder
 {

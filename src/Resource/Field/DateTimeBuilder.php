@@ -21,6 +21,10 @@ use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
  *
  * Non-final by design: {@see DateBuilder} and {@see TimeBuilder} extend it to
  * preset a date-only / time-only serialization format.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 class DateTimeBuilder extends AbstractFieldBuilder
 {

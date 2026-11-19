@@ -291,6 +291,8 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      */
     private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested): mixed
     {
+        $value = $this->normalizeWireValue($value);
+
         if ($this->hydratesThroughHook()) {
             $this->assertWireFormat($value);
         }
@@ -337,6 +339,28 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
     protected static function pointerBelow(AttributeValueInvalid $e, FieldInterface $field): string
     {
         return \ltrim(\str_starts_with($e->attribute, $field->name()) ? \substr($e->attribute, \strlen($field->name())) : '', '/');
+    }
+
+    /**
+     * The validated request value in the PHP type the field documents, before any hydration
+     * or write hook sees it: an {@see Integer} turns a whole number sent as `1.0` into an
+     * `int`, and a composite does so for each member it declares. Unchanged by default.
+     *
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        return $value;
+    }
+
+    /**
+     * Normalizes a member's value through its field, when the field is one of core's.
+     *
+     * @internal
+     */
+    protected static function normalizeMember(FieldInterface $field, mixed $value): mixed
+    {
+        return $field instanceof self ? $field->normalizeWireValue($value) : $value;
     }
 
     public function castWireValue(mixed $value): mixed

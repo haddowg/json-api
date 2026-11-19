@@ -8,17 +8,19 @@ namespace haddowg\JsonApi\Resource\Field;
  * A **field builder** facade for an IP-address string. Accepts both IPv4 and IPv6
  * by default; narrow with {@see v4()} / {@see v6()}. Presets an `IpFormat`
  * constraint and builds a plain {@see Str}. Equivalent to `Str::make($name)->ip()`.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends StrBuilder<TValue>
  */
 final class Ip extends StrBuilder
 {
     /**
-     * @return static
+     * @return self<string>
      */
-    public static function make(string $name = ''): static
+    public static function make(string $name = ''): self
     {
-        $field = new static($name);
-
-        return $field->ip();
+        return (new self($name))->ip();
     }
 
     /**

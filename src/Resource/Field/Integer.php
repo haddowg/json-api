@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field;
 
+use haddowg\JsonApi\Resource\ValueTypes;
+
 /**
  * An integer attribute (JSON `type: integer`) — the built, readonly value object
  * the engine walks. Authors declare one with {@see make()}, which returns a
@@ -12,6 +14,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Integer extends AbstractFieldValue
 {
+    /**
+     * @return IntegerBuilder<int>
+     */
     public static function make(string $name = ''): IntegerBuilder
     {
         return new IntegerBuilder($name);
@@ -20,6 +25,17 @@ final readonly class Integer extends AbstractFieldValue
     protected function serializeValue(mixed $raw): mixed
     {
         return $raw === null ? null : (\is_numeric($raw) ? (int) $raw : $raw);
+    }
+
+    /**
+     * A whole number sent as `1.0`, which the type check accepts as an integer, becomes
+     * an `int`.
+     *
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        return \is_float($value) && ValueTypes::matches(ValueTypes::INTEGER, $value) ? (int) $value : $value;
     }
 
     protected function deserializeValue(mixed $value): mixed

@@ -12,6 +12,9 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final readonly class Decimal extends AbstractFieldValue
 {
+    /**
+     * @return DecimalBuilder<float>
+     */
     public static function make(string $name = ''): DecimalBuilder
     {
         return new DecimalBuilder($name);
@@ -20,6 +23,16 @@ final readonly class Decimal extends AbstractFieldValue
     protected function serializeValue(mixed $raw): mixed
     {
         return $raw === null ? null : (\is_numeric($raw) ? (float) $raw : $raw);
+    }
+
+    /**
+     * An integer written to a number becomes a `float`.
+     *
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        return \is_int($value) ? (float) $value : $value;
     }
 
     protected function deserializeValue(mixed $value): mixed

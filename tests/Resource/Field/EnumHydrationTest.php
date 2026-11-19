@@ -358,7 +358,7 @@ final class EnumHydrationTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('enum() takes a backed enum');
 
-        // @phpstan-ignore argument.type (a pure enum is what is refused)
+        // @phpstan-ignore argument.type, argument.templateType (a pure enum is what is refused)
         Str::make('state')->enum(EnumHydrationPure::class);
     }
 

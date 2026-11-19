@@ -7,17 +7,19 @@ namespace haddowg\JsonApi\Resource\Field;
 /**
  * A **field builder** facade for a UUID string: presets a `UuidFormat` constraint
  * and builds a plain {@see Str}. Equivalent to `Str::make($name)->uuid()`.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends StrBuilder<TValue>
  */
 final class Uuid extends StrBuilder
 {
     /**
-     * @return static
+     * @return self<string>
      */
-    public static function make(string $name = ''): static
+    public static function make(string $name = ''): self
     {
-        $field = new static($name);
-
-        return $field->uuid();
+        return (new self($name))->uuid();
     }
 
     /**

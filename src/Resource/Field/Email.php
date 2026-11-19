@@ -10,17 +10,19 @@ use haddowg\JsonApi\Resource\Constraint\EmailFormat;
 /**
  * A **field builder** facade for an email string: presets an {@see EmailFormat}
  * constraint and builds a plain {@see Str}. Equivalent to `Str::make($name)->email()`.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends StrBuilder<TValue>
  */
 final class Email extends StrBuilder
 {
     /**
-     * @return static
+     * @return self<string>
      */
-    public static function make(string $name = ''): static
+    public static function make(string $name = ''): self
     {
-        $field = new static($name);
-
-        return $field->email();
+        return (new self($name))->email();
     }
 
     /**

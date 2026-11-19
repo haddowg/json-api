@@ -21,6 +21,10 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  * Non-final by design: the format-preset facades ({@see Email}, {@see Url},
  * {@see Uuid}, {@see Slug}, {@see Ip}) extend it to preset a format constraint and
  * add a type-named authoring shortcut — they build the same base {@see Str}.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 class StrBuilder extends AbstractFieldBuilder
 {
