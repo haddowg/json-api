@@ -120,6 +120,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     {
         if ($this->state->fillUsing !== null) {
             $this->assertWireFormat($value);
+            $value = $this->normalizeWireValue($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -162,6 +163,14 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
                 Obj::assertChildrenWireFormat($this->children, $value);
             });
         }
+    }
+
+    /**
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        return \is_array($value) ? Obj::normalizeChildren($this->children, $value) : $value;
     }
 
     protected function deserializeValue(mixed $value): mixed

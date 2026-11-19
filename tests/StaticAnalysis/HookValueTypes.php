@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Tests\StaticAnalysis;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Context;
+use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
@@ -59,7 +60,7 @@ final class HookValueTypes
             DateTime::make('publishedAt')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             Date::make('releasedOn')->deserializeUsing(static fn(string $value): string => $value),
             Time::make('opensAt')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
-            Integer::make('plays')->fillUsing(static fn(\ArrayObject $model, int|float $value): int => (int) $value),
+            Integer::make('plays')->fillUsing(static fn(\ArrayObject $model, int $value): int => $value),
             Decimal::make('rating')->fillUsing(static fn(\ArrayObject $model, int|float $value): float => (float) $value),
             Boolean::make('explicit')->fillUsing(static fn(\ArrayObject $model, bool $value): bool => $value),
             ArrayList::make('tags')->fillUsing(
@@ -67,8 +68,12 @@ final class HookValueTypes
                 static fn(\ArrayObject $model, array $value): string => \implode(',', $value),
             ),
             ArrayList::make('counts')->of('integer')->fillUsing(
-                /** @param list<int|float> $value */
-                static fn(\ArrayObject $model, array $value): int|float => \array_sum($value),
+                /** @param list<int> $value */
+                static fn(\ArrayObject $model, array $value): int => \array_sum($value),
+            ),
+            ArrayList::make('states')->each(new In(['draft', 'live'], enumClass: HookValueStatus::class))->fillUsing(
+                /** @param list<string|HookValueStatus> $value */
+                static fn(\ArrayObject $model, array $value): int => \count($value),
             ),
             ArrayList::make('weights')->of('number')->deserializeUsing(
                 /** @param list<int|float> $value */
@@ -136,12 +141,12 @@ final class HookValueTypes
         return [
             Str::make('note')->nullable()->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
             Str::make('remark')->nullable()->deserializeUsing(static fn(?string $value): ?string => $value),
-            Integer::make('rank')->nullable()->fillUsing(static fn(\ArrayObject $model, int|float|null $value): mixed => $value),
+            Integer::make('rank')->nullable()->fillUsing(static fn(\ArrayObject $model, ?int $value): mixed => $value),
             Boolean::make('featured')->nullable()->fillUsing(static fn(\ArrayObject $model, ?bool $value): mixed => $value),
             Email::make('backupEmail')->nullable()->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
             DateTime::make('archivedAt')->nullable()->fillUsing(static fn(\ArrayObject $model, ?string $value): mixed => $value),
             ArrayList::make('aliases')->nullable()->of('integer')->fillUsing(
-                /** @param list<int|float>|null $value */
+                /** @param list<int>|null $value */
                 static fn(\ArrayObject $model, ?array $value): mixed => $value,
             ),
             Obj::make('meta')->nullable()->fields(Str::make('a'))->fillUsing(
@@ -204,8 +209,12 @@ final class HookValueTypes
             Str::make('wrongInt')->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
             // @phpstan-ignore argument.type (a string field's value is not an int)
             Str::make('wrongDeserialize')->deserializeUsing(static fn(int $value): int => $value),
-            // @phpstan-ignore argument.type (a whole number may arrive as 1.0)
-            Integer::make('wrongFloat')->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
+            // @phpstan-ignore argument.type (an integer field's value is not a string)
+            Integer::make('wrongString')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+            // @phpstan-ignore argument.type (a number may be a float)
+            Decimal::make('wrongNumber')->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
+            // @phpstan-ignore argument.type (an enum list's elements are cases)
+            ArrayList::make('wrongEnumList')->each(new In(['draft'], enumClass: HookValueStatus::class))->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
             // @phpstan-ignore argument.type (a boolean is not a string)
             Boolean::make('wrongBool')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             // @phpstan-ignore argument.type (a nullable field's value may be null)

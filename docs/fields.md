@@ -553,16 +553,17 @@ check guarantees that type, and a wrong one fails, such as `int` on a `Str`:
 
 ```php
 Str::make('title')->fillUsing(static fn (Track $track, string $value): Track => $track->retitle($value)),
-Integer::make('plays')->deserializeUsing(static fn (int|float $value): int => (int) $value),
+Integer::make('plays')->deserializeUsing(static fn (int $value): int => \max(0, $value)),
 Str::make('note')->nullable()->fillUsing(static fn (Track $track, ?string $value): Track => $track->annotate($value)),
 ```
 
 | Field | `$value` |
 |---|---|
 | `Str` and its facades (`Email`, `Url`, `Uuid`, `Slug`, `Ip`), `DateTime`, `Date`, `Time` | `string` |
-| `Integer`, `Decimal` | `int\|float`, since JSON may write a whole number as `1.0` |
+| `Integer` | `int`, a whole number written as `5.0` included |
+| `Decimal` | `int\|float` |
 | `Boolean` | `bool` |
-| `ArrayList` | `list<string>`, or by `of()`: `list<int\|float>` for `integer` and `number`, `list<bool>` for `boolean`, `list<array<array-key, mixed>>` for an `Obj` or `OneOf`, and a list of a union's member types for a `Union` |
+| `ArrayList` | `list<string>`, or by `of()`: `list<int>` for `integer`, `list<int\|float>` for `number`, `list<bool>` for `boolean`, `list<array<array-key, mixed>>` for an `Obj` or `OneOf`, and a list of a union's member types for a `Union` |
 | `Obj`, `Map`, `OneOf` | `array<string, mixed>` |
 | `Obj` with `additionalProperties()`, `ArrayHash` | `array<array-key, mixed>`, since PHP decodes a numeric key as an `int` |
 | `Union` | `string\|int\|float\|bool\|list<mixed>` |
@@ -574,8 +575,12 @@ The value widens with what the declaration lets a write carry:
   `Nullable` or `When`.
 - `enum()`, and `in()` over cases of a backed enum, add the enum. A top-level field's
   `fillUsing()` receives the case and a nested child's the backing value, so the hook takes
-  `RunState|string`.
+  `RunState|string`. An `ArrayList`'s `each()` with such an `In` adds a list of cases.
 - `deserializeUsing()` makes it `mixed` for a `fillUsing()` declared after it.
+
+PHPStan can't see an `enum()`, an enum `in()` or an enum `each()` declared inside an
+`onCreate()` or `onUpdate()` closure, yet the field still converts the value to the case
+on every write. Declare those outside the closure.
 
 A builder carries its type from left to right, so declare these before the hook: a
 `nullable()` written after `fillUsing()` does not reach the closure PHPStan already

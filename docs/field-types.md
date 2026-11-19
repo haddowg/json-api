@@ -63,7 +63,10 @@ format. (This equivalence is stated once, here.)
 An integer attribute (JSON `type: integer`); casts to `int` on both serialize and
 hydrate. The [`trackNumber`](../examples/music-catalog/src/Resource/TrackResource.php)
 and `durationSeconds` members are integers — the wire value `1` round-trips to a
-PHP `int`.
+PHP `int`. A whole number written as `5.0` is an integer too, and becomes the `int` `5`
+before anything hydrates it, so a `fillUsing()` or `deserializeUsing()` hook receives an
+`int`. The same goes for an `Integer` child of an `Obj`, `Map` or `OneOf` variant, an
+`Integer` member of a `Union`, and each element of an `ArrayList` declared `of('integer')`.
 
 | Method | Adds |
 |---|---|

@@ -69,10 +69,10 @@ final class ArrayListBuilder extends AbstractFieldBuilder
      * members, picked by the element's JSON type. It takes no `each()`, no `sorted()` and no
      * `nullable()`; constrain the members instead.
      *
-     * The element type sets the list `TValue` a write hook receives, such as
-     * `list<int|float>` for `integer`, since JSON writes a whole number as `1.0` too.
+     * The element type sets the list `TValue` a write hook receives, such as `list<int>`
+     * for `integer` and `list<int|float>` for `number`.
      *
-     * @phpstan-self-out ($element is 'string' ? static<list<string>|(TValue&null)> : ($element is 'integer'|'number' ? static<list<int|float>|(TValue&null)> : ($element is 'boolean' ? static<list<bool>|(TValue&null)> : ($element is Union|UnionBuilder ? static<list<string|int|float|bool|list<mixed>>|(TValue&null)> : ($element is Obj|ObjBuilder|OneOf|OneOfBuilder ? static<list<array<array-key, mixed>>|(TValue&null)> : static<list<mixed>|(TValue&null)>)))))
+     * @phpstan-self-out ($element is 'string' ? static<list<string>|(TValue&null)> : ($element is 'integer' ? static<list<int>|(TValue&null)> : ($element is 'number' ? static<list<int|float>|(TValue&null)> : ($element is 'boolean' ? static<list<bool>|(TValue&null)> : ($element is Union|UnionBuilder ? static<list<string|int|float|bool|list<mixed>>|(TValue&null)> : ($element is Obj|ObjBuilder|OneOf|OneOfBuilder ? static<list<array<array-key, mixed>>|(TValue&null)> : static<list<mixed>|(TValue&null)>))))))
      * @return $this
      */
     public function of(string|Obj|ObjBuilder|OneOf|OneOfBuilder|Union|UnionBuilder $element): static
@@ -137,11 +137,20 @@ final class ArrayListBuilder extends AbstractFieldBuilder
     /**
      * Applies the given constraints to every item.
      *
-     * @return static
+     * An {@see \haddowg\JsonApi\Resource\Constraint\In} over a backed enum's cases makes
+     * each element of a top-level list the case, so `TValue` takes a list of cases too.
+     *
+     * @template TConstraint of ConstraintInterface
+     *
+     * @param TConstraint ...$constraints
+     * @phpstan-self-out (TConstraint is \haddowg\JsonApi\Resource\Constraint\In<mixed> ? static<TValue|list<\BackedEnum>> : static<TValue>)
+     * @return $this
      */
     public function each(ConstraintInterface ...$constraints): static
     {
-        return $this->addConstraint(new Each(\array_values($constraints), $this->currentContext()));
+        $this->addConstraint(new Each(\array_values($constraints), $this->currentContext()));
+
+        return $this;
     }
 
     /**

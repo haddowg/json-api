@@ -322,6 +322,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     {
         if ($this->state->fillUsing !== null) {
             $this->assertWireFormat($value);
+            $value = $this->normalizeWireValue($value);
             $result = ($this->state->fillUsing)($model, $value, $data, $this->state->name);
 
             return $result ?? $model;
@@ -386,6 +387,16 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         return $this->hydrate($nested, $value, $data, $request, $creating);
+    }
+
+    /**
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        $variant = \is_array($value) ? $this->variantOf($value) : null;
+
+        return $variant === null || !\is_array($value) ? $value : Obj::normalizeChildren($variant->children(), $value);
     }
 
     /**

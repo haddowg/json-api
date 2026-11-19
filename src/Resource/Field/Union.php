@@ -247,6 +247,16 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         return Accessor::set($nested, $column, $this->castAt($value, true, $request, $creating));
     }
 
+    /**
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        $member = $this->memberFor($value);
+
+        return $member === null ? $value : $member->normalizeWireValue($value);
+    }
+
     protected function deserializeValue(mixed $value): mixed
     {
         return $this->castAt($value, false, null, true);

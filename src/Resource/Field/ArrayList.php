@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\ValueTypes;
 
 /**
  * A zero-indexed array attribute (JSON `type: array`) — the built, readonly value
@@ -283,6 +284,30 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
         }
 
         return null;
+    }
+
+    /**
+     * Normalizes each element: an `integer` list's whole numbers become `int`s, and a
+     * structured list or a list of unions normalizes each element through its shape.
+     *
+     * @internal
+     */
+    public function normalizeWireValue(mixed $value): mixed
+    {
+        if (!\is_array($value) || !\array_is_list($value)) {
+            return $value;
+        }
+
+        $element = $this->element ?? $this->elementUnion;
+        if ($element !== null) {
+            return \array_map(static fn(mixed $item): mixed => $element->normalizeWireValue($item), $value);
+        }
+
+        if ($this->elementType !== ValueTypes::INTEGER) {
+            return $value;
+        }
+
+        return \array_map(static fn(mixed $item): mixed => \is_float($item) && ValueTypes::matches(ValueTypes::INTEGER, $item) ? (int) $item : $item, $value);
     }
 
     /**
