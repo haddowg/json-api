@@ -8,8 +8,9 @@ specification. The URL for this profile is
 `https://haddowg.github.io/json-api/profiles/field-selection/`.
 
 A [sparse fieldset](https://jsonapi.org/format/1.1/#fetching-sparse-fieldsets)
-selects whole fields. A person's `address` attribute holds a street, a postcode and a
-location, so a client that shows only the postcode still receives the whole address.
+selects whole fields. A `person` resource has an `address` attribute that is an object
+containing multiple address fields like street, county, postcode etc. A client needing only
+the postcode has to request the whole address object.
 
 This profile lets a `fields[TYPE]` member name one member of an attribute's object as
 `<attribute>.<key>`:
