@@ -64,8 +64,10 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
         bool $deprecated = false,
         bool $presetDescription = false,
         public bool $calendarDays = false,
+        ?string $through = null,
+        ?\haddowg\JsonApi\Resource\Through\RelationPath $resolvedThrough = null,
     ) {
-        parent::__construct($key, $column, $deserialize, $constraints, $description, $hasExample, $example, $deprecated, $presetDescription);
+        parent::__construct($key, $column, $deserialize, $constraints, $description, $hasExample, $example, $deprecated, $presetDescription, $through, $resolvedThrough);
     }
 
     public static function make(string $key, ?string $column = null): DateRangeBuilder
@@ -86,18 +88,25 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
 
         $preset = $this->presetDescription && $this->description === self::DATE_TIME_DESCRIPTION;
 
-        return new self(
-            $this->key,
-            $this->column,
-            $this->deserialize,
-            self::calendarDayConstraints($this->constraints),
-            $preset ? self::DATE_DESCRIPTION : $this->description,
-            $this->hasExample,
-            $this->example,
-            $this->deprecated,
-            $this->presetDescription,
-            true,
-        );
+        return $this->rebuilt([
+            'constraints' => self::calendarDayConstraints($this->constraints),
+            'description' => $preset ? self::DATE_DESCRIPTION : $this->description,
+            'calendarDays' => true,
+        ]);
+    }
+
+    /**
+     * Resolved through relations, a range whose leaf is a `Date` field compares calendar
+     * days, as one over its own type's `Date` column does.
+     */
+    public function withResolvedThrough(\haddowg\JsonApi\Resource\Through\RelationPath $path): static
+    {
+        $resolved = parent::withResolvedThrough($path);
+        $leaf = $resolved->resolvedThrough?->leaf;
+        $date = $leaf instanceof \haddowg\JsonApi\Resource\Field\Date
+            || ($leaf instanceof \haddowg\JsonApi\Resource\Field\DateTime && $leaf->schemaFormat() === 'date');
+
+        return $date ? $resolved->withCalendarDays() : $resolved;
     }
 
     /**

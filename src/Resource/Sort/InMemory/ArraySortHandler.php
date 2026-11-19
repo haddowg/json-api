@@ -33,11 +33,31 @@ final class ArraySortHandler implements SortHandlerInterface
     private readonly array $arms;
 
     /**
+     * @var (\Closure(string, list<mixed>, ?\haddowg\JsonApi\Resource\Field\RelationInterface=): list<mixed>)|null
+     */
+    private ?\Closure $admit = null;
+
+    /**
      * @param iterable<ArraySortArmInterface> $arms author arms for custom sort types, consulted in order
      */
     public function __construct(iterable $arms = [])
     {
         $this->arms = \is_array($arms) ? \array_values($arms) : \iterator_to_array($arms, false);
+    }
+
+    /**
+     * A copy that narrows the row each hop of a `->through()` sort reaches to the ones the
+     * reached type's scope admits, so a row its scope hides sorts as `null`. `$admit` takes
+     * the same arguments as {@see \haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler::withRowAdmission()}'s.
+     *
+     * @param \Closure(string, list<mixed>, ?\haddowg\JsonApi\Resource\Field\RelationInterface=): list<mixed> $admit
+     */
+    public function withRowAdmission(\Closure $admit): self
+    {
+        $copy = clone $this;
+        $copy->admit = $admit;
+
+        return $copy;
     }
 
     public function apply(array $sorts, mixed $query): mixed
@@ -81,6 +101,12 @@ final class ArraySortHandler implements SortHandlerInterface
      */
     private function keyExtractor(SortInterface $sort): \Closure
     {
+        if ($sort instanceof SortByField && $sort->through !== null) {
+            $admit = $this->admit;
+
+            return static fn(mixed $row): mixed => $sort->valueOf($row, $admit);
+        }
+
         if ($sort instanceof SortByField) {
             $column = $sort->column;
 

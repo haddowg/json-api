@@ -72,7 +72,7 @@ final class KeysetResolver
         $sawPk = false;
         foreach ($directives as $directive) {
             $sort = $directive->sort;
-            if ($sort instanceof SortByField) {
+            if ($sort instanceof SortByField && $sort->through === null) {
                 $columns[] = new KeysetColumn($sort->column, $directive->descending);
                 if ($sort->column === $pkColumn) {
                     $sawPk = true;

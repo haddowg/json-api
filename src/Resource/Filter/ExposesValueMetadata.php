@@ -33,6 +33,15 @@ trait ExposesValueMetadata
      */
     public function constraints(): array
     {
+        if ($this->constraints === [] && $this instanceof \haddowg\JsonApi\Resource\Through\FiltersThrough && !($this instanceof PresenceTriggeredFilter && $this->isPresenceTriggered())) {
+            // A filter reaching through relations to an id compares wire ids, so with no
+            // declared constraints it takes the reached id's format.
+            $id = $this->resolvedThrough()?->leafId();
+            if ($id !== null) {
+                return ThroughPath::idFormatConstraints($id);
+            }
+        }
+
         return $this->constraints;
     }
 

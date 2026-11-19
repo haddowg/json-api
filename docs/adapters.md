@@ -197,6 +197,30 @@ It understands only `SortByField` — the value object every `->sortable()` fiel
 auto-derives — and throws `UnsupportedSort` for anything else, which is exactly
 the seam a computed sort hooks into (below).
 
+### Filters and sorts that reach through relations
+
+A filter declared with [`->through()`](filters.md#reaching-through-relations-with-through)
+implements [`FiltersThrough`](../src/Resource/Through/FiltersThrough.php), and a
+`SortByField` declared with it a [`SortsThrough`](../src/Resource/Through/SortsThrough.php).
+Resolve either against the type it runs against with `ThroughPathResolver::resolve()` or
+`resolveSort()` first; an unresolved one is refused. Then:
+
+- a filter is one `EXISTS` over `resolvedThrough()->storageSegments()`, whose leaf applies
+  `atLeaf()` with `leafValue($value)` through the handler's existing arm for that filter, so
+  the leaf needs no arm of its own. The value is already decoded, so the leaf must not decode
+  ids again;
+- a sort joins each to-one hop, keeping a row whose relation holds nothing, and orders by the
+  leaf's storage column. On a cursor page its level reads the boundary value from the row the
+  joins reach.
+
+The reference handlers walk the path with `RelationPath::reach()`. `withRowAdmission()` on
+either handler returns a copy that narrows the rows each hop reaches to the ones the reached
+type's scope admits, given the storage path walked so far, the rows, and the relation the hop
+walks, so a hidden row never matches a filter and sorts as `null`. Before applying one, list
+its hops with `ThroughReadAccess::hopsOf()` or `hopsOfSort()` and ask the gate, as for any
+filter that reaches through a relation; see
+[read access through a path](filters.md#read-access-through-a-path).
+
 ## Folding the request over the query
 
 An adapter ties the metadata to the request: read the requested `filter[…]`

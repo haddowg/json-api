@@ -26,10 +26,11 @@ namespace haddowg\JsonApi\Resource\Filter;
  * and the reference in-memory apply; database adapters translate it into two
  * push-down `andWhere` predicates.
  *
- * {@see DateRange} is the only subclass; it appends one optional constructor argument.
+ * {@see DateRange} is the only subclass; it adds `$calendarDays` before the path arguments.
  */
-readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
+readonly class Range implements \haddowg\JsonApi\Resource\Through\FiltersThrough, \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
 {
+    use \haddowg\JsonApi\Resource\Through\ResolvesThrough;
     use \haddowg\JsonApi\Resource\Filter\ExposesValueMetadata;
 
     /**
@@ -47,6 +48,8 @@ readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg
         public mixed $example = null,
         public bool $deprecated = false,
         public bool $presetDescription = false,
+        public ?string $through = null,
+        public ?\haddowg\JsonApi\Resource\Through\RelationPath $resolvedThrough = null,
     ) {}
 
     public static function make(string $key, ?string $column = null): RangeBuilder
@@ -85,5 +88,15 @@ readonly class Range implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg
     protected function boundSchema(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\Schema
     {
         return $valueSchema;
+    }
+
+    protected function throughLeaf(): array
+    {
+        return [\haddowg\JsonApi\Resource\Through\LeafKind::Value, 'column'];
+    }
+
+    public function leafValue(mixed $value): mixed
+    {
+        return $value;
     }
 }

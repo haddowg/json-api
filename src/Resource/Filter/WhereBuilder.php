@@ -20,6 +20,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 class WhereBuilder implements FilterBuilderInterface
 {
+    use BuildsThrough;
     use BuildsEnumValue;
     use BuildsValueConstraints;
 
@@ -71,6 +72,7 @@ class WhereBuilder implements FilterBuilderInterface
             $this->hasFixed,
             $this->deprecated,
             $this->presetDescription,
+            through: $this->through,
         );
     }
 

@@ -18,4 +18,28 @@ final readonly class RelationHop
         public string $parentType,
         public string $path,
     ) {}
+
+    /**
+     * The type the relation reaches; a hop of a `->through()` path is monomorphic.
+     */
+    public function relatedType(): string
+    {
+        return $this->relation->relatedTypes()[0] ?? '';
+    }
+
+    /**
+     * The member of the parent row that holds the related row or rows.
+     */
+    public function storage(): string
+    {
+        return $this->relation->column() ?? $this->relation->name();
+    }
+
+    /**
+     * This hop declared on `$parentType`.
+     */
+    public function on(string $parentType): self
+    {
+        return new self($this->relation, $parentType, $this->path);
+    }
 }

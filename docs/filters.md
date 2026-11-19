@@ -192,14 +192,14 @@ its target column (or relationship) to the filter key when you omit it.
 | `Where` | `make(string $key, ?string $column = null, string $operator = '=')` | a column | comparison; `singular()`, `deserializeUsing()`/`asBoolean()`, `default()` |
 | `WhereIn` | `make(string $key, ?string $column = null)` | a column | value in a set; `singular()`, `delimiter()`, `default()` |
 | `WhereNotIn` | `make(string $key, ?string $column = null)` | a column | negation of `WhereIn`; `singular()`, `delimiter()`, `default()` |
-| `WhereIdIn` | `make(string $key = 'id', string $column = 'id')` | the id | id in a set; `delimiter()`, `default()` |
-| `WhereIdNotIn` | `make(string $key = 'id', string $column = 'id')` | the id | negation of `WhereIdIn`; `delimiter()`, `default()` |
+| `WhereIdIn` | `make(string $key = 'id', string $column = 'id')` | the id, or a relation's related ids when the key names the relation | id in a set; `delimiter()`, `default()` (see [Filtering by a relation's ids](#filtering-by-a-relations-ids)) |
+| `WhereIdNotIn` | `make(string $key = 'id', string $column = 'id')` | the id, or a relation's related ids when the key names the relation | negation of `WhereIdIn`; `delimiter()`, `default()` |
 | `WhereNull` | `make(string $key, ?string $column = null)` | a column | column is null (presence-only) |
 | `WhereNotNull` | `make(string $key, ?string $column = null)` | a column | column is not null (presence-only) |
 | `WhereHas` | `make(string $key, ?string $relationship = null)` | a relationship | has a related record (presence-only) |
 | `WhereDoesntHave` | `make(string $key, ?string $relationship = null)` | a relationship | negation of `WhereHas` (presence-only) |
-| `WhereThrough` | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
-| `WhereThroughIn` | `make(string $key, ?string $path = null)` | a relationship path | the value reached through a dotted path is any of a list; always a list, `acceptsList(delimited: false)`, `constrain(...)` and the shortcuts (see [Matching a list through a path](#matching-a-list-through-a-path-wherethroughin)) |
+| `WhereThrough` (deprecated) | `make(string $key, ?string $path = null)` | a relationship path | compares a value reached through a dotted path; `operator()`, `deserializeUsing()`, `constrain(...)` and the value-constraint shortcuts (see [Traversing a relationship path](#traversing-a-relationship-path)) |
+| `WhereThroughIn` (deprecated) | `make(string $key, ?string $path = null)` | a relationship path | the value reached through a dotted path is any of a list; always a list, `acceptsList(delimited: false)`, `constrain(...)` and the shortcuts (see [Matching a list through a path](#matching-a-list-through-a-path-wherethroughin)) |
 | `WhereSet` | `make(string $key, ?string $column = null)` | a nullable column | whether the column holds a value, `true` or `false`; always a list of booleans, `default()` (see [Whether a column is set](#whether-a-column-is-set-whereset)) |
 | `WhereMorph` | `make(string $key, ?string $relation = null)` | a polymorphic relation | the relation's stored type and, optionally, ids (see [Filtering by a polymorphic relation](#filtering-by-a-polymorphic-relation-wheremorph)) |
 
@@ -335,6 +335,7 @@ the filters that carry the helper expose it:
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
 | `constrain(...)`, `numeric()`, `integer()`, `uuid(?int)`, `boolean()`, `pattern(string)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereThrough`, `WhereThroughIn` | declares value constraints validated before the filter runs (see [Validating filter values](#validating-filter-values)) |
 | `enum(string $enum)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough`, `WhereThroughIn` | restricts the value, or each member of a list, to a backed enum's backing values (see [Backed enums](#backed-enums)) |
+| `through(string $path)` | `Where` and its convenience filters, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `Range`, `DateRange`, `WhereSet`, `WhereNull`, `WhereNotNull`, `WhereHas`, `WhereDoesntHave` | reads the column on the type a path of relations reaches (see [Reaching through relations](#reaching-through-relations-with-through)) |
 | `deprecated()` | every built-in filter | marks the `filter[<key>]` parameter `deprecated: true` in the [OpenAPI document](openapi.md#deprecation); the filter still applies as before |
 
 ```php
@@ -654,7 +655,161 @@ alone decides), and a Doctrine adapter renders an `EXISTS` / `NOT EXISTS`
 subquery over the same relationship. See [Adapters](adapters.md#the-reference-handlers) for the
 handler side.
 
+## Reaching through relations with `through()`
+
+Every value filter, the id filters and the existence filters can read a field of a related
+type instead of the type being filtered. Declare the filter as you would on the related type
+and add `->through()` with the path of relations to it:
+
+```php
+use haddowg\JsonApi\Resource\Filter\DateRange;
+use haddowg\JsonApi\Resource\Filter\Contains;
+use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
+use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+
+public function filters(): array
+{
+    return [
+        // filter[campaignDates][min]=2026-03-01: the campaign's startDate, a Date field
+        DateRange::make('campaignDates', 'startDate')->through('campaign'),
+        // filter[advertiserName]=acme: two hops
+        Contains::make('advertiserName', 'name')->through('campaign.advertiser'),
+        // filter[advertiser]=4,7: the advertiser's id, decoded through its encoder
+        WhereIdIn::make('advertiser')->through('campaign.advertiser'),
+        // filter[unadvertised]: leads whose campaign has no advertiser
+        WhereDoesntHave::make('unadvertised', 'advertiser')->through('campaign'),
+    ];
+}
+```
+
+The path names relations by their API names, the names a client sees under
+`relationships`, so `campaign.advertiser` walks the type's `campaign` relation and then the
+campaign type's `advertiser`. The column argument names a **field of the type the path
+reaches**, resolved on that type, so everything that field declares applies:
+
+- a `DateRange` over a `Date` field compares calendar days, as it does on the field's own type;
+- a filter whose column is the reached type's `id` compares wire ids, decoded through that
+  type's [id encoder](ids.md#encoding-when-the-wire-id-differs-from-the-storage-key), and with
+  no declared constraints validates and documents as that id's format;
+- the field's `storedAs()` decides the member the data layer compares.
+
+`->through()` is on `Where` and its convenience filters, `WhereIn`, `WhereNotIn`, `Range`,
+`DateRange` and `WhereSet` builders, on the `WhereIdIn` and `WhereIdNotIn` builders, and on
+`WhereNull`, `WhereNotNull`, `WhereHas` and `WhereDoesntHave` as a wither returning a copy. A
+group's children take it one by one, so a `WhereAny` can search a related field and one of its
+own. It works wherever a filter does: the primary `filter`, a relation's filters,
+`relatedQuery[<path>][filter]`, a collection action's filters, defaults and
+`withoutFilterDefaults()`, and a filter family's resolver may return a filter declared with it.
+
+### What a path matches
+
+Every hop, to-one or to-many, means a related row exists and matches. A row matches when some
+row the path reaches satisfies the filter, as one correlated `EXISTS`, so a to-many hop matches
+when **any** member does and never multiplies rows. A relation that holds nothing never
+matches, whatever the filter: `WhereNull::make('archived', 'archivedAt')->through('campaign')`
+keeps the leads whose campaign exists and is not archived, and leaves out a lead with no
+campaign. The same holds for `WhereSet` sent `false`. Through a to-many, `WhereNotIn` keeps a
+row with any member outside the list, not one with no member in it.
+
+Finding rows a relation leaves empty is the existence filters' job, and they take a path too:
+
+```php
+WhereDoesntHave::make('unassigned', 'campaign');                       // no campaign at all
+WhereDoesntHave::make('unadvertised', 'advertiser')->through('campaign'); // a campaign, with no advertiser
+```
+
+A through filter can't ask that **no** member of a to-many matches a value. `WhereNotIn`
+through `templates` keeps a lead with any template outside the list, and `WhereDoesntHave`
+only asks whether the relation holds any member at all. "No template named `welcome`" is a
+`NOT EXISTS` over a predicate, which needs a [custom filter](#writing-a-custom-filter) for now.
+
+### Resolving the path
+
+A filter declaration has no relation graph, so a data layer resolves each path against the
+type the filter runs against with the same
+[`ThroughPathResolver`](../src/Resource/Filter/ThroughPathResolver.php) the
+[traversal filters](#traversing-a-relationship-path) use. Resolution fails with a
+`\LogicException`, which adapters raise when they warm up, when:
+
+- a segment names no relation of the type it reaches, or a polymorphic one;
+- a relation's related type is not registered;
+- the column names no field of the reached type, or a field that stores nothing, such as a
+  `computed()` one or one flattened with `on()`;
+- a value filter's column names a relation (reach through it and use `WhereIdIn`), an id
+  filter's column is not the id, or an existence filter's is not a relation.
+
+A resolved filter implements
+[`FiltersThrough`](../src/Resource/Through/FiltersThrough.php). Its `resolvedThrough()` is a
+[`RelationPath`](../src/Resource/Through/RelationPath.php) with each hop's relation and
+reached type, `storageSegments()` for the members a data layer traverses, and the leaf field.
+`atLeaf()` is the filter as it applies to each reached row, with its column swapped for the
+leaf's storage column, and `leafValue($value)` is the requested value as the leaf compares
+it, ids decoded. A data layer runs the leaf filter through its existing arm inside one
+`EXISTS`; see [Adapters](adapters.md#filters-and-sorts-that-reach-through-relations).
+
+A path follows the rules of [read access through a path](#read-access-through-a-path):
+rows a reached type's scope hides don't exist for matching, a filter the client asked for is
+refused with a `403` when a hop is one the caller may not read, and a default matches no row
+through such a hop. `ThroughReadAccess::hopsOf()` lists a resolved path's hops, and an
+existence filter's tested relation as one more, so the gate sees every relation the filter
+reads.
+
+### Filtering by a relation's ids
+
+An id filter keyed by one of the type's relations, by its API name, compares the ids of that
+relation's related rows, as if it reached through it. No path is needed for one hop. On a
+`leads` type with `template` and `campaign` relations:
+
+```php
+WhereIdIn::make('template');                                   // filter[template]=tpl-9: leads using template tpl-9
+WhereIdNotIn::make('campaign');                                // leads not in these campaigns
+WhereIdIn::make('advertiser')->through('campaign.advertiser'); // two hops still name the path
+WhereIdIn::make();                                             // filter[id]: the type's own ids
+```
+
+Keyed `id`, or by a name no relation has, an id filter compares the type's own ids, as it
+always has. Each value is a wire id of the related type, decoded through its encoder and
+validated against its format. A key that names a relation with a column other than `id`, such
+as `WhereIdIn::make('template', 'templateKey')`, could mean either, so resolving it throws a
+`\LogicException` that adapters raise at warm-up; key a filter of the type's own ids by
+another name.
+
+This rule moves an existing declaration: an id filter keyed by a relation's name compared the
+type's own ids before and compares the relation's ids now.
+
+### Moving from `WhereThrough` and `WhereThroughIn`
+
+`WhereThrough` and `WhereThroughIn` are deprecated and are removed in the next major version.
+They keep working exactly as described below until then. Each declaration has a `->through()`
+equivalent:
+
+| Deprecated | With `->through()` |
+|---|---|
+| `WhereThrough::make('artist.name')` | `Where::make('artist.name', 'name')->through('artist')` |
+| `WhereThrough::make('topArtist', 'artist.name')->operator('>=')` | `Where::make('topArtist', 'name', '>=')->through('artist')` |
+| `WhereThroughIn::make('campaignName', 'campaign.name')` | `WhereIn::make('campaignName', 'name')->through('campaign')->acceptsList()` |
+| `WhereThroughIn::make('advertiser', 'campaign.advertiser')` | `WhereIdIn::make('advertiser')->through('campaign.advertiser')->acceptsList()` |
+| `WhereThroughIn::make('templates')` | `WhereIdIn::make('templates')->acceptsList()` |
+| `WhereThrough::make('template', 'templates')` | `WhereIdIn::make('template')->through('templates')`, or `WhereIdIn::make('templates')` to key it by the relation |
+| `WhereThrough::make('x', 'campaign.advertiser')->operator('!=')` | `WhereIdNotIn::make('x')->through('campaign.advertiser')` |
+
+Three things differ once migrated:
+
+- A traversal path names relations and its last segment by **storage** name, the `column()`
+  each declares. `->through()` names relations by **API** name and the column by **field**
+  name. Where a relation or a field is declared with `storedAs()`, write its API name in the
+  new declaration.
+- The leaf is read as the reached type's field. A traversal leaf whose name is a field whose
+  `storedAs()` names another member compared that member name as written; the migrated filter
+  compares the field's stored column. A leaf that is the reached type's id is decoded through
+  its encoder once migrated, where a traversal compared the wire value as sent.
+- A `WhereThrough` that ended on a relation compared one id; `WhereIdIn` compares a list, so
+  add `->acceptsList()` to document both list forms.
+
 ## Traversing a relationship path
+
+> `WhereThrough` is deprecated in favour of [`->through()`](#reaching-through-relations-with-through)
+> and is removed in the next major version. This section describes how it behaves until then.
 
 `WhereThrough` filters on a value reached by walking a **dotted relationship
 path** — `artist.name` keeps a row whose artist's name matches, `comments.body`
@@ -728,6 +883,9 @@ adapter renders all three as the same `EXISTS` shape. The
 `artist.name` traversal narrowing albums to each artist's catalogue.
 
 ## Matching a list through a path: `WhereThroughIn`
+
+> `WhereThroughIn` is deprecated in favour of [`->through()`](#reaching-through-relations-with-through)
+> and is removed in the next major version. This section describes how it behaves until then.
 
 `WhereThroughIn` is `WhereThrough` with `WhereIn` at the leaf: the row matches when the
 value reached through the path is any of the requested values. It takes the same key and

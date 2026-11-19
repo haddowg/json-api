@@ -10,11 +10,19 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Resource\Sort\SortInterface;
+use haddowg\JsonApi\Resource\Through\ReachesThrough;
+use haddowg\JsonApi\Resource\Through\RelationPath;
 
 /**
- * Resolves the path of every {@see TraversesPath} filter, and the relation of every
- * {@see WhereMorph}, against the relation graph of the type the filters run against, so each data layer reads what the path ends on
- * instead of guessing it.
+ * Resolves the path of every {@see TraversesPath} filter, the relation of every
+ * {@see WhereMorph}, and the `->through()` path of every filter and sort reaching through
+ * relations ({@see ReachesThrough}), against the relation graph of the type they run
+ * against, so each data layer reads what the path ends on instead of guessing it.
+ *
+ * A `->through()` path names relations by their API names, each relation's `name()`, and
+ * the filter's column or the sort's field names a field of the type the path reaches. A
+ * {@see TraversesPath} filter's path names them by storage name, as described below.
  *
  * Each segment is matched to a declared relation by its storage name, the relation's
  * `column()`, which is the name a data layer traverses. When several relations share
@@ -83,6 +91,16 @@ final class ThroughPathResolver
      */
     public function resolve(FilterInterface $filter, iterable $fields): FilterInterface
     {
+        if (($filter instanceof WhereIdIn || $filter instanceof WhereIdNotIn) && $filter->throughRelations() === null) {
+            $filter = $this->relatedIds($filter, self::listed($fields));
+        }
+
+        if ($filter instanceof ReachesThrough && ($through = $filter->throughRelations()) !== null) {
+            return $filter->resolvedThrough() !== null
+                ? $filter
+                : $filter->withResolvedThrough($this->relationPath($filter->key(), $through, $fields));
+        }
+
         if ($filter instanceof TraversesPath) {
             return $filter->resolvedPath() !== null
                 ? $filter
@@ -104,6 +122,105 @@ final class ThroughPathResolver
         }
 
         return $filter;
+    }
+
+    /**
+     * An id filter keyed by one of the type's relations, by its API name, compares that
+     * relation's related ids, as if it reached through it: `WhereIdIn::make('template')`
+     * on a type with a `template` relation filters by the template's id. Keyed `id`, or by
+     * a name no relation has, it compares the type's own ids.
+     *
+     * @param list<FieldInterface> $fields
+     *
+     * @throws \LogicException when the key names a relation but the column is not `id`, which could mean either
+     */
+    private function relatedIds(WhereIdIn|WhereIdNotIn $filter, array $fields): WhereIdIn|WhereIdNotIn
+    {
+        if ($filter->key === 'id') {
+            return $filter;
+        }
+
+        foreach ($fields as $field) {
+            if (!$field instanceof RelationInterface || $field->name() !== $filter->key) {
+                continue;
+            }
+
+            if ($filter->column !== 'id') {
+                throw new \LogicException(\sprintf(
+                    '%s filter "%s" is keyed by the relation "%s" but compares the column "%s", so it could mean the relation\'s ids or the type\'s own. Key a filter of the type\'s own ids by another name, or drop the column to compare the relation\'s ids.',
+                    (new \ReflectionClass($filter))->getShortName(),
+                    $filter->key,
+                    $field->name(),
+                    $filter->column,
+                ));
+            }
+
+            return $filter->withThroughPath($filter->key);
+        }
+
+        return $filter;
+    }
+
+    /**
+     * `$sort` resolved against `$fields`, the inventory of the type it orders: a sort
+     * reaching through relations with its path resolved, any other sort unchanged.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @throws \LogicException when the path names no relation, crosses a to-many or a polymorphic relation, or its reached type declares no field the sort can order by
+     */
+    public function resolveSort(SortInterface $sort, iterable $fields): SortInterface
+    {
+        if (!$sort instanceof ReachesThrough || ($through = $sort->throughRelations()) === null || $sort->resolvedThrough() !== null) {
+            return $sort;
+        }
+
+        return $sort->withResolvedThrough($this->relationPath($sort->key(), $through, $fields));
+    }
+
+    /**
+     * Resolves a `->through()` path of API relation names against `$fields`, the
+     * inventory of the type it starts from. Every segment must name a monomorphic
+     * relation whose related type is registered.
+     *
+     * `$type` names the type the path starts from, the parent type of its first hop.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @throws \LogicException when a segment names no relation, a polymorphic one, or one whose related type is not registered
+     */
+    public function relationPath(string $key, string $path, iterable $fields, string $type = ''): RelationPath
+    {
+        $fields = self::listed($fields);
+        $hops = [];
+        $parent = $type;
+        $storage = [];
+        foreach (ThroughPath::split($path) as $segment) {
+            $relation = null;
+            foreach ($fields as $field) {
+                if ($field instanceof RelationInterface && $field->name() === $segment) {
+                    $relation = $field;
+
+                    break;
+                }
+            }
+            if ($relation === null) {
+                throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is not a relation of the type it reaches; name each relation by its API name.', $key, $path, $segment));
+            }
+            if ($relation instanceof PolymorphicRelationInterface || \count($relation->relatedTypes()) !== 1) {
+                throw new \LogicException(\sprintf('"%s" reaches through "%s", but "%s" is polymorphic; a path reaches one related type at each hop.', $key, $path, $segment));
+            }
+
+            $relatedType = $relation->relatedTypes()[0];
+            $next = ($this->fieldsOf)($relatedType)
+                ?? throw new \LogicException(\sprintf('"%s" reaches through "%s", but the type "%s" that "%s" relates to is not a registered resource.', $key, $path, $relatedType, $segment));
+            $storage[] = $relation->column() ?? $relation->name();
+            $hops[] = new RelationHop($relation, $parent, \implode('.', $storage));
+            $parent = $relatedType;
+            $fields = self::listed($next);
+        }
+
+        return new RelationPath($path, $hops, $fields);
     }
 
     /**

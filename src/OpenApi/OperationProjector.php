@@ -1721,6 +1721,14 @@ final class OperationProjector
             return null;
         }
 
+        // A filter reaching through relations compares a field of the type its path
+        // reaches, which resolution has already found.
+        if ($filter instanceof \haddowg\JsonApi\Resource\Through\FiltersThrough && $filter->throughRelations() !== null) {
+            $leaf = $filter->resolvedThrough()?->leaf;
+
+            return $leaf === null ? null : $this->schemaProjector->scalarValueType($leaf);
+        }
+
         $column = $filter->targetColumn();
         $match = null;
         foreach ($fields as $field) {
@@ -1751,11 +1759,19 @@ final class OperationProjector
     private function filterDescription(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): string
     {
         $description = 'Filter the collection by `' . $filter->key() . '`.';
+        $authored = false;
         if ($filter instanceof \haddowg\JsonApi\Resource\Filter\DescribedFilter) {
             $declared = $filter->getDescription();
             if ($declared !== null && $declared !== '') {
                 $description = $declared;
+                $authored = !(($filter instanceof \haddowg\JsonApi\Resource\Filter\Where || $filter instanceof \haddowg\JsonApi\Resource\Filter\Range) && $filter->presetDescription);
             }
+        }
+
+        // A generated description says which related resource the filter compares; an
+        // author's own is left as written.
+        if (!$authored && $filter instanceof \haddowg\JsonApi\Resource\Through\FiltersThrough && ($through = $filter->throughRelations()) !== null) {
+            $description = \rtrim($description, '.') . ', on the related `' . $through . '`.';
         }
 
         if (self::isPresenceTriggered($filter)) {

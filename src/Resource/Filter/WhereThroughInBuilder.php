@@ -8,6 +8,13 @@ namespace haddowg\JsonApi\Resource\Filter;
  * The mutable **filter builder** for a {@see WhereThroughIn} filter. Its value is a
  * delimited list unless {@see acceptsList()} says `delimited: false`. {@see build()}
  * freezes the accumulated state into the readonly {@see WhereThroughIn} value object.
+ *
+ * @deprecated Declare the filter on the related type's field with `->through()` instead:
+ *             `WhereThroughIn::make('campaignName', 'campaign.name')` is
+ *             `WhereIn::make('campaignName', 'name')->through('campaign')->acceptsList()`,
+ *             and a path ending on a relation is `WhereIdIn::make($key)->through($path)`.
+ *             The path names relations by API name and the column a field of the reached
+ *             type; see the filters guide for the migration. Removed in the next major version.
  */
 final class WhereThroughInBuilder implements FilterBuilderInterface
 {

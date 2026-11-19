@@ -1614,7 +1614,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      */
     private function overCalendarDays(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter): \haddowg\JsonApi\Resource\Filter\FilterInterface
     {
-        if (!$filter instanceof \haddowg\JsonApi\Resource\Filter\DateRange || $filter->calendarDays) {
+        // A range reaching through relations reads the reached type's field, which
+        // decides calendar days when the path is resolved.
+        if (!$filter instanceof \haddowg\JsonApi\Resource\Filter\DateRange || $filter->calendarDays || $filter->through !== null) {
             return $filter;
         }
 

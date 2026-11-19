@@ -11,6 +11,7 @@ namespace haddowg\JsonApi\Resource\Filter;
  */
 final class WhereIdNotInBuilder implements FilterBuilderInterface
 {
+    use BuildsThrough;
     use BuildsListValue;
     use BuildsValueConstraints;
 
@@ -32,7 +33,7 @@ final class WhereIdNotInBuilder implements FilterBuilderInterface
 
     public function build(): WhereIdNotIn
     {
-        return new WhereIdNotIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter));
+        return new WhereIdNotIn($this->key, $this->column, $this->delimiter, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter), through: $this->through);
     }
 
     public function delimiter(string $delimiter): self
