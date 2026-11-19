@@ -6,14 +6,18 @@ namespace haddowg\JsonApi\Tests\OpenApi;
 
 use haddowg\JsonApi\OpenApi\OpenApiProjector;
 use haddowg\JsonApi\OpenApi\OperationProjector;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -23,7 +27,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A relation's filter whose path starts with `pivot` is resolved under that relation on its
- * related and relationship endpoints, so it is typed by the pivot field it reads.
+ * related and relationship endpoints, so it is typed by the pivot field it reads. A path
+ * that pivots on a type's first relation and goes on past the pivot row is typed by the
+ * field of the type the pivot row reaches.
  */
 #[CoversClass(OperationProjector::class)]
 final class ThroughPivotProjectionTest extends TestCase
@@ -49,6 +55,38 @@ final class ThroughPivotProjectionTest extends TestCase
             ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date-time'], 'max' => ['type' => 'string', 'format' => 'date-time']]],
             $this->parameter($document, '/playlists/{id}/tracks', 'filter[addedAt]')['schema'],
         );
+    }
+
+    #[Test]
+    public function aCollectionFilterPivotingOnItsFirstRelationIsTypedByTheTypeThePivotRowReaches(): void
+    {
+        $relation = BelongsToMany::make('tracks', 'tracks')->fields(Integer::make('position'))->build();
+        $filter = Where::make('curator', 'name')->through('tracks.pivot.addedBy')->build();
+        $rows = new class implements PivotRowRelations {
+            public function pivotRowRelation(PivotRelationInterface $relation, string $parentType, string $member): ?RelationInterface
+            {
+                return $parentType === 'playlists' && $member === 'addedBy' ? BelongsTo::make('addedBy', 'users')->build() : null;
+            }
+        };
+        $server = new FakeServerMetadata(
+            title: 'Playlists',
+            version: '1.0.0',
+            types: [
+                FakeTypeMetadata::resource(
+                    type: 'playlists',
+                    fields: [Id::make()->build(), $relation],
+                    filters: [$filter],
+                    relations: [new FakeRelationMetadata('tracks', ['tracks'], true, pivotFields: $relation->pivotFields())],
+                ),
+                FakeTypeMetadata::resource(type: 'tracks', fields: [Id::make()->build(), Str::make('title')->build()]),
+                FakeTypeMetadata::resource(type: 'users', fields: [Id::make()->build(), Integer::make('name')->build()]),
+            ],
+            pivotRows: $rows,
+        );
+
+        $document = (new OpenApiProjector())->project($server)->toArray();
+
+        self::assertSame(['type' => 'integer'], $this->parameter($document, '/playlists', 'filter[curator]')['schema']);
     }
 
     /**

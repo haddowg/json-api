@@ -21,7 +21,10 @@ use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\Tag;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\RelationHop;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 
 /**
  * An in-core {@see ServerMetadataInterface} fixture — a plain value carrier so the
@@ -32,7 +35,7 @@ use haddowg\JsonApi\Resource\Filter\RelationHop;
  * access and require authentication, query parameters are strict, every document is
  * validated, and a server maximum include depth is set.
  */
-final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration, DeclaresOperationSecurity, DeclaresThroughReadSecurity, DeclaresStrictQueryParameters, DeclaresDocumentValidation, DeclaresMaxIncludeDepth
+final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration, DeclaresOperationSecurity, DeclaresThroughReadSecurity, DeclaresStrictQueryParameters, DeclaresDocumentValidation, DeclaresMaxIncludeDepth, PivotRowRelations
 {
     /**
      * @param list<TypeMetadataInterface>      $types
@@ -69,7 +72,13 @@ final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExamp
         private readonly bool $validatesResponseDocuments = true,
         private readonly ?int $maxIncludeDepth = 1,
         private readonly ?\Closure $canRefuseThrough = null,
+        private readonly ?PivotRowRelations $pivotRows = null,
     ) {}
+
+    public function pivotRowRelation(PivotRelationInterface $relation, string $parentType, string $member): ?RelationInterface
+    {
+        return $this->pivotRows?->pivotRowRelation($relation, $parentType, $member);
+    }
 
     public function canRefuseThrough(RelationHop $hop): bool
     {
