@@ -17,7 +17,9 @@ use haddowg\JsonApi\Resource\SerializerResolverInterface;
  * instead of guessing it.
  *
  * Each segment is matched to a declared relation by its storage name, the relation's
- * `column()`, which is the name a data layer traverses. When every segment matches a
+ * `column()`, which is the name a data layer traverses. When several relations share
+ * that storage member, the one whose name is the segment is the relation the segment
+ * names. When every segment matches a
  * relation, the path ends on that last relation and the filter compares the related
  * resource's id. When the walk reaches a segment that is not a relation, or an
  * intermediate polymorphic relation it cannot follow, the path ends on a field and the
@@ -204,17 +206,73 @@ final class ThroughPathResolver
     }
 
     /**
+     * The declared relations each leading segment of the dotted storage path `$path`
+     * walks from `$fields`, the inventory of the type the path starts on. Each entry is
+     * the relation the segment names, the one named after it among those stored under
+     * it, or each relation stored under it when none is named so. The walk stops after the first segment that is not a relation, or whose
+     * relation is polymorphic or relates to a type with no inventory, so a path ending
+     * on a field has one entry fewer than it has segments.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<non-empty-list<RelationInterface>>
+     */
+    public function relationsAlong(string $path, iterable $fields): array
+    {
+        $walked = [];
+        $fields = self::listed($fields);
+        foreach (ThroughPath::split($path) as $segment) {
+            $stored = self::relationsStoredAs($fields, $segment);
+            if ($stored === []) {
+                break;
+            }
+
+            $walked[] = $stored;
+            $related = $stored[0]->relatedTypes();
+            $next = !$stored[0] instanceof PolymorphicRelationInterface && \count($related) === 1 ? ($this->fieldsOf)($related[0]) : null;
+            if ($next === null) {
+                break;
+            }
+            $fields = self::listed($next);
+        }
+
+        return $walked;
+    }
+
+    /**
+     * The relation stored under `$segment`: the one named `$segment` when several share
+     * the storage member, else the first declared.
+     *
      * @param iterable<FieldInterface> $fields
      */
     private static function relationStoredAs(iterable $fields, string $segment): ?RelationInterface
     {
+        return self::relationsStoredAs($fields, $segment)[0] ?? null;
+    }
+
+    /**
+     * The relations a segment names: the one named `$segment` among those stored under
+     * it, or every relation stored under it when none is named so.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<RelationInterface>
+     */
+    private static function relationsStoredAs(iterable $fields, string $segment): array
+    {
+        $named = [];
+        $others = [];
         foreach ($fields as $field) {
             if ($field instanceof RelationInterface && $field->column() === $segment) {
-                return $field;
+                if ($field->name() === $segment) {
+                    $named[] = $field;
+                } else {
+                    $others[] = $field;
+                }
             }
         }
 
-        return null;
+        return $named !== [] ? [$named[0]] : $others;
     }
 
     /**
