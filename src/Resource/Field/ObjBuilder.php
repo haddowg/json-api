@@ -18,6 +18,7 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  */
 final class ObjBuilder extends AbstractFieldBuilder
 {
+    use DeclaresSelectableKeys;
     use NamesSchemaComponent;
 
     /**
@@ -33,8 +34,11 @@ final class ObjBuilder extends AbstractFieldBuilder
         if ($additional !== null) {
             $this->assertMemberValueField($additional);
         }
+        if ($this->selectableKeys !== null && $additional === null) {
+            throw new \LogicException(\sprintf('Obj "%s" declares selectableKeys() but takes only the members it declares; open it with additionalProperties().', $this->name()));
+        }
 
-        return new Obj($this->fieldState(), $this->children, $additional);
+        return new Obj($this->fieldState(), $this->children, $additional, $this->selectableKeys);
     }
 
     /**

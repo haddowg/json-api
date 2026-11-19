@@ -15,6 +15,7 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class MapBuilder extends AbstractFieldBuilder
 {
+    use DeclaresSelectableKeys;
     use NamesSchemaComponent;
 
     /**
@@ -24,7 +25,7 @@ final class MapBuilder extends AbstractFieldBuilder
 
     public function build(): Map
     {
-        return new Map($this->fieldState(), $this->children);
+        return new Map($this->fieldState(), $this->children, $this->selectableKeys);
     }
 
     /**

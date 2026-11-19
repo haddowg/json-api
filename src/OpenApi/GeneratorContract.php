@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-seven scoped
+ * is warned only by the documents that contain it. There are twenty-eight scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -72,8 +72,9 @@ namespace haddowg\JsonApi\OpenApi;
  * identified by stored pairs ({@see IDENTIFIED_PIVOTS}), the error code of a relation
  * whose members are fixed ({@see FIXED_MEMBERSHIP}), a value of several primitive
  * types ({@see UNIONS}), a field's shape declared as a named component
- * ({@see NAMED_COMPONENTS}), a singleton type ({@see SINGLETONS}) and a document
- * declaring its top-level `meta` ({@see TYPED_DOCUMENT_META}).
+ * ({@see NAMED_COMPONENTS}), a singleton type ({@see SINGLETONS}), a document
+ * declaring its top-level `meta` ({@see TYPED_DOCUMENT_META}) and a `fields[<type>]`
+ * parameter accepting single keys of an attribute ({@see FIELD_SELECTION}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -88,7 +89,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 41;
+    public const CONTRACT = 42;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -357,6 +358,14 @@ final class GeneratorContract
     public const TYPED_DOCUMENT_META = 41;
 
     /**
+     * The contract that introduced field selection: a `fields[<type>]` parameter whose
+     * items are an `anyOf` of the member enum and one `pattern` per attribute declaring
+     * selectable keys, matching `<attribute>.<key>`. A document carries it only when some
+     * `fields[<type>]` parameter accepts such keys.
+     */
+    public const FIELD_SELECTION = 42;
+
+    /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
      *
      * @return array{contract: int}
@@ -389,6 +398,7 @@ final class GeneratorContract
         bool $namedComponents = false,
         bool $singletons = false,
         bool $typedDocumentMeta = false,
+        bool $fieldSelection = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -419,6 +429,7 @@ final class GeneratorContract
             $namedComponents ? self::NAMED_COMPONENTS : self::BASELINE,
             $singletons ? self::SINGLETONS : self::BASELINE,
             $typedDocumentMeta ? self::TYPED_DOCUMENT_META : self::BASELINE,
+            $fieldSelection ? self::FIELD_SELECTION : self::BASELINE,
         )];
     }
 }

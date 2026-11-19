@@ -1306,7 +1306,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
                     continue;
                 }
 
-                if (!isset($declared[$member])) {
+                if (!isset($declared[$member]) && !\haddowg\JsonApi\Resource\FieldSelection::recognizes($serializer, $member, $request)) {
                     $unrecognized[] = $member;
                 }
             }

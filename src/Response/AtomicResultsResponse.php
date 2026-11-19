@@ -8,6 +8,7 @@ use haddowg\JsonApi\Atomic\AtomicExtension;
 use haddowg\JsonApi\Atomic\AtomicResult;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
+use haddowg\JsonApi\Schema\Profile\ProfileInterface;
 use haddowg\JsonApi\Server\ServerInterface;
 
 /**
@@ -70,6 +71,17 @@ final class AtomicResultsResponse extends AbstractResponse
         }
 
         return new RenderedDocument($body, 200);
+    }
+
+    /**
+     * The negotiated profiles, plus the field-selection profile when the request narrows
+     * an attribute the results render.
+     *
+     * @return list<ProfileInterface>
+     */
+    protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        return $this->withFieldSelectionProfile(parent::appliedProfiles($server, $request), $server, $request);
     }
 
     /**

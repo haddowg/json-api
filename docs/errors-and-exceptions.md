@@ -615,7 +615,7 @@ off the descriptor with `FilterParamUnrecognized::describe()->description`.
 | `InclusionDepthExceeded` | 400 | `INCLUSION_DEPTH_EXCEEDED` | parameter | An `include` path is deeper than the effective maximum include depth. |
 | `SortingUnsupported` | 400 | `SORTING_UNSUPPORTED` | parameter | The endpoint does not support `sort`. |
 | `SortParamUnrecognized` | 400 | `SORTING_UNRECOGNIZED` | parameter | A `sort` field is not recognized, including a key a [sort family](sorts.md#sort-families-keys-matched-by-prefix) declines or the bare prefix of a family. |
-| `FieldsetMemberUnrecognized` | 400 | `FIELDSET_MEMBER_UNRECOGNIZED` | parameter | A `fields[TYPE]` member names no field of that type, under [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default). |
+| `FieldsetMemberUnrecognized` | 400 | `FIELDSET_MEMBER_UNRECOGNIZED` | parameter | A `fields[TYPE]` member names no field of that type, or a key of an attribute it can't [select](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute), under [strict query-parameter validation](content-negotiation.md#strict-query-parameter-validation-on-by-default). |
 | `FilterValueInvalid` | 400 | `FILTER_VALUE_INVALID` | parameter | A `filter[...]` value fails the [value constraints](filters.md#validating-filter-values) its filter declares; one error per failed constraint. |
 | `PaginationKindUnknown` | 400 | `PAGINATION_KIND_UNKNOWN` | parameter (`page[kind]`) | `page[kind]` names a strategy the type's [pagination menu](pagination.md#offering-a-menu-of-strategies) does not offer. |
 | `CursorMalformed` | 400 | `CURSOR_MALFORMED` | parameter | A `page[after]`/`page[before]` cursor cannot be decoded. |

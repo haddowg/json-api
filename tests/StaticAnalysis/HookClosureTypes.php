@@ -9,8 +9,11 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder;
@@ -67,6 +70,22 @@ final class HookClosureTypes
                 ->identifiedBy(static fn(array $row): ?array => isset($row['type'], $row['id']) ? [(string) $row['type'], 1] : null),
             MorphToMany::make('subjects', ['albums', 'artists'])
                 ->identifiedBy(static fn(\ArrayObject $model): array => []),
+            Obj::make('selected')
+                ->additionalProperties(Integer::make('*'))
+                ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? $row : \array_intersect_key($row, \array_flip($only->keys))),
+            Obj::make('selectedTyped')
+                ->additionalProperties(Integer::make('*'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->extractUsing(static fn(\ArrayObject $model): array => $model->getArrayCopy()),
+            Obj::make('selectedComputed')
+                ->additionalProperties(Integer::make('*'))
+                ->selectableKeys(static fn(string $key): bool => true)
+                ->computedUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? [] : $only->keys),
+            Map::make('selectedMap')
+                ->fields(Integer::make('views'))
+                ->selectableKeys(static fn(string $key): bool => $key === 'views')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $row),
             DeclaredLink::make('download')
                 ->hrefUsing(static fn(array $row): ?string => isset($row['path']) ? '/files' : null)
                 ->metaUsing(static fn(?\DateTimeImmutable $model): array => ['at' => $model?->format('c')]),

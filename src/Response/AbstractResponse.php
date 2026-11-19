@@ -403,6 +403,26 @@ abstract class AbstractResponse
     }
 
     /**
+     * Adds the field-selection profile when the request narrows an attribute to some of
+     * its keys and the server recognizes the profile. A response rendering resources
+     * calls it from {@see appliedProfiles()}.
+     *
+     * @param list<ProfileInterface> $profiles
+     *
+     * @return list<ProfileInterface>
+     */
+    protected function withFieldSelectionProfile(array $profiles, ServerInterface $server, JsonApiRequestInterface $request): array
+    {
+        if (!$server instanceof \haddowg\JsonApi\Resource\SerializerResolverInterface
+            || !$server->profiles()->has(\haddowg\JsonApi\Schema\Profile\FieldSelectionProfile::URI)
+            || !\haddowg\JsonApi\Resource\FieldSelection::narrows($server, $request)) {
+            return $profiles;
+        }
+
+        return $this->mergeAppliedProfile($profiles, $server, $server->profiles()->get(\haddowg\JsonApi\Schema\Profile\FieldSelectionProfile::URI));
+    }
+
+    /**
      * Merges one profile into the applied set, but only when the server
      * **recognises** it — the advisory rule shared by the page-profile path
      * ({@see AppliesPaginationTrait::appliedPageProfiles()}) and the activated-profile

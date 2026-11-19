@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\Schema;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
 
 /**
  * A typed nested object attribute stored in a **single** backing value (one JSON
@@ -33,9 +34,11 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  *
  * The object is closed unless it declares {@see additionalProperties()}: an open object
  * also takes members it does not declare, each value read and written through that one
- * field, and kept beside the declared children in the same associative array.
+ * field, and kept beside the declared children in the same associative array. An open
+ * object may also declare {@see selectableKeys()}, so a request can select its keys one
+ * by one.
  */
-final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
+final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -44,8 +47,14 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         FieldState $state,
         private array $children = [],
         private ?FieldInterface $additionalProperties = null,
+        private ?SelectableKeys $selectableKeys = null,
     ) {
         parent::__construct($state);
+    }
+
+    public function selectableKeys(): ?SelectableKeys
+    {
+        return $this->selectableKeys;
     }
 
     /**
@@ -118,7 +127,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             ? $this->additionalProperties->withDefaultOutputTimezone($timezone)
             : $this->additionalProperties;
 
-        return $children === $this->children && $additional === $this->additionalProperties ? $this : new self($this->state, $children, $additional);
+        return $children === $this->children && $additional === $this->additionalProperties ? $this : new self($this->state, $children, $additional, $this->selectableKeys);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -128,19 +137,33 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         }
 
         if ($this->state->extractUsing !== null) {
-            return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, null), $request);
         }
 
         return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request);
     }
 
+    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        if ($this->state->serializeUsing !== null) {
+            return KeyTrim::trim(($this->state->serializeUsing)($model, $request, $name), $only);
+        }
+
+        if ($this->state->extractUsing !== null) {
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only), $request, $only);
+        }
+
+        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request, $only);
+    }
+
     /**
-     * Runs the declared children over a stored object value. {@see ArrayList} renders
-     * each element of a structured list through it.
+     * Runs the declared children over a stored object value, keeping only the `$only`
+     * keys when a request selected some. {@see ArrayList} renders each element of a
+     * structured list through it.
      *
      * @internal
      */
-    public function serializeStored(mixed $value, JsonApiRequestInterface $request): mixed
+    public function serializeStored(mixed $value, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
     {
         if ($value === null) {
             return null;
@@ -150,7 +173,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         // — not the domain object — is what each child serializes against.
         $nested = [];
         foreach ($this->children as $child) {
-            if ($this->rendersChild($child, $value, $request)) {
+            if (($only === null || $only->has($child->name())) && $this->rendersChild($child, $value, $request)) {
                 $nested[$child->name()] = $child->serialize($value, $request, $child->name());
             }
         }
@@ -158,7 +181,9 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         $field = $this->additionalProperties;
         if ($field !== null && $this->rendersChild($field, $value, $request) && (\is_array($value) || \is_object($value))) {
             foreach ($this->additionalMembersOf(\is_array($value) ? $value : \get_object_vars($value)) as $key => $member) {
-                $nested[$key] = self::serializeMember($field, $member, $request);
+                if ($only === null || $only->has($key)) {
+                    $nested[$key] = self::serializeMember($field, $member, $request);
+                }
             }
         }
 
@@ -174,7 +199,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
      *
      * @internal
      */
-    public function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    public function serializeComputed(mixed $value, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
@@ -183,7 +208,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             return $value;
         }
 
-        return $this->serializeStored($value, $request);
+        return $this->serializeStored($value, $request, $only);
     }
 
     private function rendersChild(FieldInterface $child, mixed $value, JsonApiRequestInterface $request): bool

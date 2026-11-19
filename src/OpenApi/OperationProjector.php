@@ -35,6 +35,8 @@ use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
+use haddowg\JsonApi\Resource\Field\SelectableKeys;
+use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
 use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
@@ -43,6 +45,7 @@ use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
 use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
@@ -2051,13 +2054,55 @@ final class OperationProjector
             $items = $items->withEnum($members);
         }
 
+        $description = 'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).';
+        $selectable = $this->selectableKeyPatterns($reachable);
+        if ($selectable !== []) {
+            $items = Schema::create()->withAnyOf([$items, ...\array_values($selectable)]);
+            $names = \array_map(static fn(string $name): string => '`' . $name . '`', \array_keys($selectable));
+            $last = \array_pop($names);
+            $description .= ' Select single keys of ' . ($names === [] ? $last : \implode(', ', $names) . ' or ' . $last)
+                . ' as `<attribute>.<key>` under the [Field Selection profile](' . FieldSelectionProfile::URI . '); listing the attribute itself selects all of it.';
+        }
+
         return Parameter::query(
             'fields[' . $reachable->type() . ']',
             Schema::ofType('array')->withItems($items),
-            'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).',
+            $description,
             style: ParameterStyle::Form,
             explode: false,
         );
+    }
+
+    /**
+     * One `<attribute>.<key>` string schema per read attribute of the type declaring
+     * selectable keys, keyed by the attribute's name.
+     *
+     * @return array<string, Schema>
+     */
+    private function selectableKeyPatterns(TypeMetadataInterface $reachable): array
+    {
+        $readable = \array_flip($this->schemaProjector->readAttributeNames($reachable->fields()));
+        $patterns = [];
+        foreach ($reachable->fields() as $field) {
+            $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
+            if ($declared === null || !isset($readable[$field->name()])) {
+                continue;
+            }
+            $patterns[$field->name()] = Schema::ofType('string')->withPattern(self::selectableKeyPattern($field->name(), $declared));
+        }
+
+        return $patterns;
+    }
+
+    /**
+     * The pattern of an `<attribute>.<key>` fieldset member: the declared key pattern, or
+     * anything up to the next comma when only a predicate decides.
+     */
+    public static function selectableKeyPattern(string $attribute, SelectableKeys $declared): string
+    {
+        $key = $declared->pattern === null ? SelectableKeys::ANY_KEY_PATTERN : '(?:' . $declared->pattern . ')';
+
+        return '^' . self::escapeEcmaPattern($attribute) . '\\.' . $key . '$';
     }
 
     /**

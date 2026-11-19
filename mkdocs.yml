@@ -106,6 +106,7 @@ nav:
       - profiles.md
       - Relationship Queries profile: profiles/relationship-queries.md
       - Countable profile: profiles/countable.md
+      - Field Selection profile: profiles/field-selection.md
   - Server & lifecycle:
       - server.md
       - operations.md

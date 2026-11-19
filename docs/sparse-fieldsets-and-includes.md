@@ -46,6 +46,54 @@ including `tracks`. See
 [`SparseFieldsetsAndIncludesTest`](../examples/music-catalog/tests/SparseFieldsetsAndIncludesTest.php)
 for the assertions that pin this behaviour.
 
+### Selecting keys of an object attribute
+
+An attribute declared with [`selectableKeys()`](field-types.md#selectable-keys), an open
+`Obj` or a `Map`, also accepts `<attribute>.<key>` members, each selecting one key of
+its object:
+
+```
+GET /products?fields[products]=name,values.cap,values.countries
+```
+
+```json
+{
+  "data": [{
+    "type": "products",
+    "id": "1",
+    "attributes": { "name": "Widget", "values": { "cap": "10", "countries": "GB,FR" } }
+  }],
+  "jsonapi": { "version": "1.1", "profile": ["https://haddowg.github.io/json-api/profiles/field-selection/"] }
+}
+```
+
+The rules:
+
+- Listing the attribute itself and a key of it, `fields[products]=values,values.cap`,
+  renders the whole attribute.
+- A request without `fields[products]` renders every resource as before.
+- A key the declaration rejects, a dotted member on an attribute that declares no
+  selectable keys, a dotted member on a relationship and an empty key are unknown
+  fieldset members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
+  validation, and ignored without it.
+- A key names one member of the object, everything after the first `.`, so a member
+  holding a list of objects is selected whole, with no deeper paths.
+- The selection applies to the type wherever it renders: primary data, `included`,
+  related endpoints, a write answering with the resource and atomic results.
+- Request bodies are unchanged; a selection shapes only what renders.
+
+JSON:API 1.1 says a `fields[TYPE]` member is a field name, so a response that narrows an
+attribute this way applies the
+[Field Selection profile](profiles/field-selection.md), which a client never has to ask
+for. When the request narrows an attribute of a type the server serializes, and the server
+registers `Schema\Profile\FieldSelectionProfile`, the response's `Content-Type` carries
+`profile="https://haddowg.github.io/json-api/profiles/field-selection/"` and its
+`jsonapi.profile` lists the URI. A request narrowing nothing gets an unchanged response. A
+server that doesn't register the profile still narrows, without advertising it.
+
+`Resource\FieldSelection` holds the parsing and acceptance rules the resource, the server
+and the responses share, for an adapter that needs the same answers.
+
 ### Exempting a member: `notSparseField()`
 
 Sometimes a member must always render — say a checksum or a status flag a client
@@ -279,7 +327,9 @@ is on, as it is by default. Before the handler runs, `Server` checks every membe
 of every `fields[type]` against that type's declared field names and rejects one
 that names no declared field with a `400` `FieldsetMemberUnrecognized`. The check
 covers the types of included resources too, and counts hidden and write-only fields
-as declared, so it gives nothing away about them. It skips a type the server doesn't
+as declared, so it gives nothing away about them. An `<attribute>.<key>` member is
+known when the attribute declares [selectable keys](#selecting-keys-of-an-object-attribute)
+that accept the key. It skips a type the server doesn't
 register and a serializer that doesn't declare its field names. With strict
 validation off, an unknown member is ignored.
 
@@ -329,7 +379,7 @@ up front.
 | `InclusionNotAllowed` | `400` | An `include` path names a relationship marked `cannotBeIncluded()`, a path outside the root resource's `getAllowedIncludePaths()` whitelist, or a path at or below one of its `getExcludedIncludePaths()`. Lists the offending paths. |
 | `InclusionDepthExceeded` | `400` | An `include` path is deeper than the effective maximum include depth. Lists the offending paths and the cap. |
 | `InclusionUnsupported` | `400` | The endpoint does not support inclusion at all. |
-| `FieldsetMemberUnrecognized` | `400` | Under strict query-parameter validation, a `fields[type]` member names no declared field of that type. Its `source.parameter` is `fields`. |
+| `FieldsetMemberUnrecognized` | `400` | Under strict query-parameter validation, a `fields[type]` member names no declared field of that type, or an `<attribute>.<key>` member names a key the attribute doesn't let a request select. Its `source.parameter` is `fields`. |
 
 The `Inclusion…` errors render as JSON:API errors with `source.parameter` set to `include`. See
 [errors and exceptions](errors-and-exceptions.md) for the propagation model and the

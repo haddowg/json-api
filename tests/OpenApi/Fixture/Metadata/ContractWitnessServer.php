@@ -183,14 +183,17 @@ final class ContractWitnessServer
      *                                leaves out too
      * @param bool $singletons whether the singleton inboxes type is served, which the
      *                         baseline witness leaves out too
+     * @param bool $fieldSelection whether the articles carry objects whose keys a
+     *                             `fields[articles]` member selects one by one, which the
+     *                             baseline witness leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true, bool $fieldSelection = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions, $namedComponents),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions, $namedComponents, $fieldSelection),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -319,7 +322,7 @@ final class ContractWitnessServer
         )->component('Reviewer');
     }
 
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions, bool $namedComponents): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions, bool $namedComponents, bool $fieldSelection): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -421,6 +424,13 @@ final class ContractWitnessServer
                         ->minProperties(1)
                         ->maxProperties(50))->maxItems(1000)->build(),
                     Obj::make('metrics')->additionalProperties(Integer::make('*')->readOnly()->min(0))->build(),
+                ] : []),
+                // Objects whose keys a fieldset member selects one by one: one whose keys
+                // match a declared pattern and a map whose predicate alone decides.
+                ...($fieldSelection ? [
+                    Obj::make('scores')->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z][a-z0-9_]*')->build(),
+                    Map::make('totals')->fields(Integer::make('views'), Integer::make('shares'))
+                        ->selectableKeys(static fn(string $key): bool => $key !== 'internal')->build(),
                 ] : []),
                 // Values of several primitive types: one schema listing the members' types
                 // with their keywords merged, and a oneOf of the members once one carries

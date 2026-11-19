@@ -338,6 +338,27 @@ The reserved `_self_` token is a definition in **this profile's own specificatio
 "profiles" — like the relationship-queries vocabulary above, it is part of *this*
 profile's contract.
 
+## The bundled field-selection profile
+
+The library also ships `Schema\Profile\FieldSelectionProfile`, whose canonical URI is
+[`https://haddowg.github.io/json-api/profiles/field-selection/`](profiles/field-selection.md),
+which resolves to the profile's specification (see the
+[Field Selection profile spec](profiles/field-selection.md)). The profile lets a
+`fields[TYPE]` member select one key of an object attribute as `<attribute>.<key>`, where
+JSON:API 1.1 lists only field names:
+
+```
+fields[products]=name,values.cap,values.countries
+```
+
+Unlike the others it is never negotiated. A client sends plain
+`Accept: application/vnd.api+json`, and a response whose request narrows an attribute of a
+[selectable](field-types.md#selectable-keys) object applies the profile and advertises it,
+through `jsonapi.profile`, the `Content-Type` `profile` parameter and `Vary: Accept`, when
+the server registers it. A request narrowing nothing gets an unchanged response. The
+profile reserves no query parameter, so `keywords()` is empty. The rules a request follows
+are on [sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute).
+
 ## Registering profiles
 
 A profile becomes active once registered on a [`Server`](server.md). "Recognising" a
