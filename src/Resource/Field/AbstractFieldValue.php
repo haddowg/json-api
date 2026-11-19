@@ -221,7 +221,18 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      */
     public function hydratesThroughHook(): bool
     {
-        return $this->state->fillUsing !== null || $this->state->deserializeUsing !== null;
+        return $this->state->fillUsing !== null || $this->state->deserializes();
+    }
+
+    /**
+     * Whether a `fillUsing()` hook, or a `deserializeUsing()` hook that applies to this
+     * write, takes over hydration on a create or an update.
+     *
+     * @internal
+     */
+    public function hydratesThroughHookFor(bool $creating): bool
+    {
+        return $this->state->fillUsing !== null || $this->state->deserializerFor($creating) !== null;
     }
 
     /**
@@ -278,7 +289,7 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        return $this->hydrateValue($model, $value, $data, false);
+        return $this->hydrateValue($model, $value, $data, false, $creating);
     }
 
     /**
@@ -296,7 +307,7 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
             return $this->hydrate($model, $value, $data, $request, $creating);
         }
 
-        return $this->hydrateValue($model, $value, $data, false, $cast);
+        return $this->hydrateValue($model, $value, $data, false, $creating, $cast);
     }
 
     /**
@@ -311,22 +322,22 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      */
     public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        return $this->hydrateValue($nested, $value, $data, true);
+        return $this->hydrateValue($nested, $value, $data, true, $creating);
     }
 
     /**
      * @param array<string, mixed> $data
      */
-    private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested, ?\haddowg\JsonApi\Resource\StorageCastInterface $cast = null): mixed
+    private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested, bool $creating, ?\haddowg\JsonApi\Resource\StorageCastInterface $cast = null): mixed
     {
         $value = $this->normalizeWireValue($value);
 
-        if ($this->hydratesThroughHook()) {
+        if ($this->hydratesThroughHookFor($creating)) {
             $this->assertWireFormat($value);
         }
 
         if ($this->state->fillUsing !== null) {
-            $result = ($this->state->fillUsing)($model, $nested ? $value : $this->toEnumCase($value), $data, $this->state->name);
+            $result = ($this->state->fillUsing)($model, $nested ? $value : $this->toWrittenCase($value, $creating), $data, $this->state->name);
 
             return $result ?? $model;
         }
@@ -336,10 +347,11 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
             return $model;
         }
 
+        $deserializer = $this->state->deserializerFor($creating);
         $value = match (true) {
-            $this->state->deserializeUsing !== null => ($this->state->deserializeUsing)($value, $data),
+            $deserializer !== null => $deserializer($value, $data),
             $nested => $this->deserializeValue($value),
-            default => $this->toEnumCase($this->deserializeValue($value)),
+            default => $this->toWrittenCase($this->deserializeValue($value), $creating),
         };
 
         if ($cast !== null && \is_object($model)) {
@@ -395,9 +407,25 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
         return $field instanceof self ? $field->normalizeWireValue($value) : $value;
     }
 
+    /**
+     * The type's value cast, and the conversion to a case of an enum the field declares
+     * for every write. One declared inside `onCreate()` or `onUpdate()` applies only
+     * through {@see castWireValueFor()}, which knows the write.
+     */
     public function castWireValue(mixed $value): mixed
     {
-        return $this->toEnumCase($this->deserializeValue($value));
+        return $this->toWrittenCase($this->deserializeValue($value), null);
+    }
+
+    /**
+     * {@see castWireValue()} for a create or an update, converting to a case of an enum
+     * declared for that write, inside `onCreate()` or `onUpdate()` included.
+     *
+     * @internal
+     */
+    public function castWireValueFor(mixed $value, bool $creating): mixed
+    {
+        return $this->toWrittenCase($this->deserializeValue($value), $creating);
     }
 
     /**
@@ -421,7 +449,19 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      */
     protected function toEnumCase(mixed $value): mixed
     {
-        $enum = $this->declaredEnum();
+        return $this->toWrittenCase($value, null);
+    }
+
+    /**
+     * Converts a written backing value to the case of the backed enum the field declares
+     * for this write, as {@see toEnumCase()} does. `$creating` names the write; `null`
+     * takes only an enum declared for every write.
+     *
+     * @throws AttributeValueInvalid when the value is not one of the enum's backing values
+     */
+    protected function toWrittenCase(mixed $value, ?bool $creating): mixed
+    {
+        $enum = $this->writtenEnum($creating);
 
         return $enum === null ? $value : $this->caseOf($enum, $value, $this->state->name);
     }
@@ -456,15 +496,39 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
      *
      * @return class-string<\BackedEnum>|null
      */
-    protected static function enumClassIn(array $constraints): ?string
+    protected static function enumClassIn(array $constraints, ?bool $creating = null, bool $anyWrite = true): ?string
     {
         foreach ($constraints as $constraint) {
-            if ($constraint instanceof In && $constraint->enumClass !== null) {
+            if ($constraint instanceof In && $constraint->enumClass !== null && self::appliesToWrite($constraint->context(), $creating, $anyWrite)) {
                 return $constraint->enumClass;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Whether a constraint in `$context` applies to the write: to `$creating` when it is
+     * given, else to any write when `$anyWrite`, else to every write.
+     */
+    protected static function appliesToWrite(\haddowg\JsonApi\Resource\Constraint\Context $context, ?bool $creating, bool $anyWrite): bool
+    {
+        return match (true) {
+            $creating !== null => $context->appliesTo($creating),
+            $anyWrite => true,
+            default => $context->onCreate && $context->onUpdate,
+        };
+    }
+
+    /**
+     * The backed enum a write converts to: the one this field declares for that write,
+     * or for a `null` write the one it declares for every write.
+     *
+     * @return class-string<\BackedEnum>|null
+     */
+    protected function writtenEnum(?bool $creating): ?string
+    {
+        return self::enumClassIn($this->state->constraints, $creating, anyWrite: false);
     }
 
     /**

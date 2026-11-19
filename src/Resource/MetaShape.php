@@ -276,7 +276,7 @@ final readonly class MetaShape
         foreach ($this->writableFields($creating, $request) as $field) {
             $name = $field->name();
             if (\array_key_exists($name, $values)) {
-                $typed[$name] = $values[$name] === null ? null : $field->castWireValue($values[$name]);
+                $typed[$name] = $values[$name] === null ? null : ($field instanceof AbstractFieldValue ? $field->castWireValueFor($values[$name], $creating) : $field->castWireValue($values[$name]));
             }
         }
 

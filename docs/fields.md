@@ -579,10 +579,21 @@ The value widens with what the declaration lets a write carry:
 
 `onCreate()`, `onUpdate()` and `when()` add what their closure declares, read from the
 builder it returns: after `->onCreate(fn (StrBuilder $field) => $field->nullable())` the
-hook takes `?string`. An `enum()` or a `deserializeUsing()` declared inside one still
-changes the value on every write, so the hook has to see it. PHPStan can't see what a
-closure that returns nothing declared, so after one the value is `mixed`. Return the
+hook takes `?string`. An `enum()`, an enum `in()` or a `deserializeUsing()` declared inside
+`onCreate()` converts only a create's value, and one inside `onUpdate()` only an update's.
+The other write gets the value as sent unless the field declares its own conversion for
+it, so after `->onCreate(fn (StrBuilder $field) => $field->enum(RunState::class))` the hook
+takes `RunState|string`: the case on a create, the string on an update. `when()` scopes
+only validation: an enum declared inside it adds the enum to the type though no write
+converts, and a `deserializeUsing()` inside it runs on every write. PHPStan can't see what
+a closure that returns nothing declared, so after one the value is `mixed`. Return the
 builder from the closure, or take `mixed` in the hook and narrow it there.
+
+These scope types are exact on PHPStan 2.3.2 and later. Earlier 2.x releases report no
+error on them but infer a narrower value in some cases: 2.0.0 to 2.1.2 miss an `enum()` or
+a `deserializeUsing()` returned from the closure, and 2.1.5 to 2.3.1 miss a
+`deserializeUsing()` and a closure that returns nothing. On those releases, type the
+hook's value yourself.
 
 A builder carries its type from left to right, so declare these before the hook: a
 `nullable()` written after `fillUsing()` does not reach the closure PHPStan already

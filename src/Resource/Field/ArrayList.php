@@ -123,13 +123,13 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        if ($this->elementUnion !== null && !$this->hydratesThroughHook()) {
+        if ($this->elementUnion !== null && !$this->hydratesThroughHookFor($creating)) {
             $column = $this->state->column;
 
             return $column === null || !\is_array($value) ? parent::hydrate($model, $value, $data, $request, $creating) : Accessor::set($model, $column, $this->castElementsAt($value, $request, $creating));
         }
 
-        if ($this->element === null || $this->state->fillUsing !== null || $this->state->deserializeUsing !== null) {
+        if ($this->element === null || $this->hydratesThroughHookFor($creating)) {
             return parent::hydrate($model, $value, $data, $request, $creating);
         }
 
@@ -190,7 +190,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     {
         $union = $this->elementUnion;
         if ($union === null) {
-            return $nested ? $this->castNestedWireValue($value) : $this->castWireValue($value);
+            return $nested ? $this->castNestedWireValue($value) : $this->castWireValueFor($value, $creating);
         }
 
         $list = [];
@@ -273,12 +273,30 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
      */
     protected function declaredEnum(): ?string
     {
+        return $this->eachEnum(null, anyWrite: true);
+    }
+
+    /**
+     * The backed enum an `In` in this list's `each()` declares for the write, for a list
+     * of scalars, or `null`.
+     */
+    protected function writtenEnum(?bool $creating): ?string
+    {
+        return $this->eachEnum($creating, anyWrite: false);
+    }
+
+    /**
+     * @return class-string<\BackedEnum>|null
+     */
+    private function eachEnum(?bool $creating, bool $anyWrite): ?string
+    {
         if ($this->element !== null || $this->elementUnion !== null) {
             return null;
         }
 
         foreach ($this->state->constraints as $constraint) {
-            if ($constraint instanceof Each && ($enum = self::enumClassIn($constraint->constraints)) !== null) {
+            if ($constraint instanceof Each && self::appliesToWrite($constraint->context(), $creating, $anyWrite)
+                && ($enum = self::enumClassIn($constraint->constraints, $creating, $anyWrite)) !== null) {
                 return $enum;
             }
         }
@@ -326,9 +344,9 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
      *
      * @throws AttributeValueInvalid
      */
-    protected function toEnumCase(mixed $value): mixed
+    protected function toWrittenCase(mixed $value, ?bool $creating): mixed
     {
-        $enum = $this->declaredEnum();
+        $enum = $this->writtenEnum($creating);
         if ($enum === null || !\is_array($value)) {
             return $value;
         }

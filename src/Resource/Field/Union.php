@@ -217,7 +217,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
-        if ($this->hydratesThroughHook()) {
+        if ($this->hydratesThroughHookFor($creating)) {
             return parent::hydrate($model, $value, $data, $request, $creating);
         }
 
@@ -240,7 +240,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         $column = $this->state->column;
-        if ($this->hydratesThroughHook() || $column === null) {
+        if ($this->hydratesThroughHookFor($creating) || $column === null) {
             return $this->hydrate($nested, $value, $data, $request, $creating);
         }
 
@@ -289,7 +289,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
                 return Accessor::get($member->hydrateNested([], $value, [], $request, $creating), self::slot($member));
             }
 
-            return $nested ? $member->castNestedWireValue($value) : $member->castWireValue($value);
+            return $nested ? $member->castNestedWireValue($value) : $member->castWireValueFor($value, $creating);
         } catch (AttributeValueInvalid $e) {
             $below = \str_starts_with($e->attribute, $member->name()) ? \substr($e->attribute, \strlen($member->name())) : '';
 

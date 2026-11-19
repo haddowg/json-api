@@ -177,7 +177,7 @@ final class ValueTypes
             return;
         }
 
-        $hooked = $hooked || ($field instanceof AbstractFieldValue && $field->hydratesThroughHook());
+        $hooked = $hooked || ($field instanceof AbstractFieldValue && $field->hydratesThroughHookFor($creating));
         if (!self::matches($type, $value)) {
             if ($hooked || !self::refusedByHydration($field, $type, $value)) {
                 $found[] = new ValueTypeMismatch($pointer, $field, $type, $value);

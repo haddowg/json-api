@@ -295,7 +295,7 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     public function hydrateNested(mixed $nested, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed
     {
         $column = $this->state->column;
-        if ($this->hydratesThroughHook() || $column === null) {
+        if ($this->hydratesThroughHookFor($creating) || $column === null) {
             return $this->hydrate($nested, $value, $data, $request, $creating);
         }
 
