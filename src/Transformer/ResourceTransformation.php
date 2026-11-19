@@ -25,6 +25,12 @@ final class ResourceTransformation
      */
     public ?array $result = null;
 
+    /**
+     * Whether the relationship being rendered is declared `notSparseField()`, so a
+     * `fields[type]` leaving it out does not drop it.
+     */
+    public bool $currentRelationshipNotSparse = false;
+
     public function __construct(
         public ?SerializerInterface $resource,
         public mixed $object,

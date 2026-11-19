@@ -381,7 +381,8 @@ abstract class AbstractRelationship
         $basePath = $transformation->basePath;
 
         $isCurrentRelationship = $requestedRelationshipName !== '' && $currentRelationshipName === $requestedRelationshipName;
-        $isIncludedField = $transformation->request->isIncludedField($transformation->resourceType, $currentRelationshipName);
+        $isIncludedField = $transformation->currentRelationshipNotSparse
+            || $transformation->request->isIncludedField($transformation->resourceType, $currentRelationshipName);
         $isIncludedRelationship = $transformation->request->isIncludedRelationship($basePath, $currentRelationshipName, $defaultRelationships);
 
         // The relationship is not needed at all

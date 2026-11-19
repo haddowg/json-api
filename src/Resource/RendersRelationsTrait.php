@@ -31,8 +31,9 @@ trait RendersRelationsTrait
     {
         $map = [];
         foreach ($relations as $relation) {
-            $map[$relation->name()] = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
+            $build = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
                 => $relation->buildRelationship($model, $request, $resolver);
+            $map[$relation->name()] = $relation->isSparseField() ? $build : new Internal\NonSparseMember($build);
         }
 
         return $map;
