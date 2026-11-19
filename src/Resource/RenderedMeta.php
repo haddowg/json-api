@@ -123,7 +123,8 @@ final class RenderedMeta
     /**
      * What is wrong with one linkage identifier's `meta`: a member the declared identifier
      * meta does not name, beside `pivot`, and inside `pivot` a member the pivot fields do
-     * not name. Each object is checked only when the relation declares it.
+     * not name. Each object is checked only when the relation declares it, and the pivot only
+     * when the identifier renders one, since a provider storing no pivot renders none.
      *
      * @param array<array-key, mixed> $identifier
      *
@@ -132,15 +133,15 @@ final class RenderedMeta
     public static function identifierViolations(Field\RelationInterface $relation, array $identifier): array
     {
         $declared = $relation instanceof AbstractRelationValue ? $relation->identifierMetaShape() : MetaShape::none();
-        $pivot = $relation instanceof PivotRelationInterface && ($relation->pivotFields() !== [] || $relation->pivotAdditionalProperties() !== null)
+        $meta = $identifier['meta'] ?? [];
+        $meta = \is_array($meta) ? $meta : [];
+        $pivot = $relation instanceof PivotRelationInterface && \array_key_exists('pivot', $meta) && ($relation->pivotFields() !== [] || $relation->pivotAdditionalProperties() !== null)
             ? $relation->pivotMetaShape()
             : null;
         if ($declared->isEmpty() && $pivot === null) {
             return [];
         }
 
-        $meta = $identifier['meta'] ?? [];
-        $meta = \is_array($meta) ? $meta : [];
         $violations = [];
         $outer = $meta;
         if ($pivot !== null) {

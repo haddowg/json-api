@@ -431,7 +431,9 @@ entry is present. An adapter executes it:
   number in the type its member documents as `WireNumbers` does for attributes, so a whole
   `5.0` written to an `Integer` validates as `5`. `Server::dispatch()` already normalizes a
   dispatched write's top-level `meta` and `data.meta` through `WireNumbers::operation()`, and
-  an adapter dispatching an atomic operation itself passes `atomic: true` to it.
+  an adapter dispatching an atomic operation itself passes `atomic: true` to it. It also sets
+  `MetaContext::ATOMIC_ATTRIBUTE` to `true` on each atomic operation's request, so a resource
+  hydrating that operation's `data.meta` fills it through the atomic declaration.
   `undeclared($values, $pointer)` lists the pointers of members the shape
   does not name, at any depth; `mismatches($values, $pointer, $creating, $request)` the values
   of the wrong JSON type. Report both as the adapter's validation `422`, beside each writable
