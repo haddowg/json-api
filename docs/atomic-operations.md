@@ -46,7 +46,18 @@ batch (the spec's `POST /operations`), distinct from the per-type CRUD endpoints
   of resource-identifiers (a to-many relationship operation). A `remove` of a
   resource carries no `data`. The resource object of an `update` names its resource
   by `id` as a `PATCH` body does, and one without is refused with
-  `400 RESOURCE_ID_MISSING` at `/atomic:operations/<i>/data`.
+  `400 RESOURCE_ID_MISSING` at `/atomic:operations/<i>/data`;
+- an optional **`meta`**, carried on the parsed
+  [`OperationDescriptor`](../src/Atomic/OperationDescriptor.php) as `$meta`.
+
+An operation's `meta` is validated against what its target type's
+[`requestDocumentMeta()`](links-and-meta.md#typed-request-meta) declares for that write, with
+the context's atomic flag set, so a type can ask a batch for something a single write does not.
+An `add` or `update`'s `data.meta` is validated against the type's
+[`resourceMeta()`](links-and-meta.md#typed-resource-meta) for that write, atomic too. A member
+either declaration does not name is a `422` at `/atomic:operations/<i>/meta/<member>` or
+`/atomic:operations/<i>/data/meta/<member>`. The batch's own top-level `meta` stays free-form.
+In the OpenAPI document a declaring operation takes [a kind of its own](openapi.md#atomic-operations-of-a-declaring-type).
 
 ### The response
 
@@ -56,7 +67,9 @@ request order. Per the spec a result object carries only **`data`** and/or
 **`meta`** (the created/updated resource or identifier); it is **never** allowed
 `links` or `included`. An operation with nothing to return — a `remove`, or an
 `update` the server fully applied with no body — contributes an **empty result
-object** `{}`
+object** `{}`. A relationship operation whose type declares a
+[meta-only document](links-and-meta.md#a-relationship-writes-meta-only-document) for it
+contributes a result carrying only that `meta`
 ([`AtomicResult`](../src/Atomic/AtomicResult.php),
 [`AtomicResultsResponse`](../src/Response/AtomicResultsResponse.php)). The response
 advertises the extension on its `Content-Type` `ext` parameter and in the document's

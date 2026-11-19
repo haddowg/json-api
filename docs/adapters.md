@@ -413,6 +413,38 @@ is true of `When`, which gates a constraint set on a closure the JSON Schema
 vocabulary cannot express. See [validation](constraints.md) for the constraint
 contexts and the structural subset the compiler covers.
 
+## Declared meta follows the same split
+
+A type's declared `meta` objects, [request, resource object and document
+meta](links-and-meta.md#typed-request-meta), are metadata too. Core reads each declaration
+into a [`MetaShape`](../src/Resource/MetaShape.php), the one rule every `meta` object follows,
+pivots and identifier meta included: closed by default, open when an `AdditionalProperties`
+entry is present. An adapter executes it:
+
+- **Read the declaration.** `RequestMeta::forOperation($hydrator, $context, $type)` for a
+  write's top-level `meta`, `RequestMeta::forAction($handler, $context)` for an action's,
+  `ResourceMeta::forType($serializer, MetaContext::write(...))` for `data.meta`, and a relation's
+  `pivotMetaShape()` for `meta.pivot`. Each answers an empty shape when nothing is declared, and
+  throws `MetaMisdeclared` for a member declared twice or a second entry, so an adapter reads
+  every declaration when it warms up.
+- **Validate a write.** `undeclared($values, $pointer)` lists the pointers of members the shape
+  does not name, at any depth; `mismatches($values, $pointer, $creating, $request)` the values
+  of the wrong JSON type. Report both as the adapter's validation `422`, beside each writable
+  member's constraints, run as the adapter runs an attribute's. An atomic operation's `meta` is
+  on its [`OperationDescriptor`](../src/Atomic/OperationDescriptor.php) as `$meta`.
+- **Hand the values on.** `values($values, $creating, $request)` gives the typed values;
+  carry them, the top-level and the `data.meta` ones, as a
+  [`WrittenMeta`](../src/Resource/WrittenMeta.php) on the request the hydrator and the write's
+  hooks receive (`$written->on($request)`). `AbstractResource` applies `data.meta`'s
+  `fillUsing()` hooks itself during hydration; a composed hydrator calls `fill()`.
+- **Render.** The engine renders a resource object's declared members through
+  [`ResourceMeta::render()`](../src/Resource/ResourceMeta.php). A serializer that wraps or picks
+  another implements `RendersResourceMetaInterface` and forwards to it, as
+  `PolymorphicSerializer` does.
+- **Check in debug.** [`RenderedMeta::assertConforms()`](../src/Resource/RenderedMeta.php) walks
+  a rendered document's resource objects and linkage identifiers and throws
+  `ResourceMetaMismatch` for a member the declarations do not allow. Run it in debug only.
+
 ## ORM-backed adapters live outside the core
 
 The core ships only the in-memory reference handlers; production handlers for an

@@ -99,8 +99,8 @@ The rules:
 - The OpenAPI projection calls `documentMeta()` once per operation the type exposes, with no
   request, so its result must not depend on one.
 - A related endpoint serving the type uses its `FetchCollection` members for a to-many and its
-  `FetchOne` members for a to-one. A relationship endpoint serves linkage only and carries
-  none.
+  `FetchOne` members for a to-one. A relationship write declares its own, in
+  [`relationshipDocumentMeta()`](#a-relationship-writes-meta-only-document).
 - A delete's members apply when it answers a meta-only `200`, and their hooks receive the
   resource it removed. A `204` has no document. Declaring them both in `documentMeta()` and
   on the delete's `MetaResult` throws `DocumentMetaMisdeclared`.
@@ -139,9 +139,199 @@ The declaration is closed. In debug mode an adapter checks every declaring respo
 top-level `meta` against it and throws `DocumentMetaMismatch` for a missing required member,
 an undeclared member or a value of the wrong JSON type. In production nothing is checked.
 `DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()`,
-`forDelete()` and `forActionStatus()` read a declaration, `applyTo()` fills a `DataResponse`,
+`forDelete()`, `forRelationship()`, `forAccepted()` and `forActionStatus()` read a declaration, `applyTo()` fills a `DataResponse`,
 `RelatedResponse` or meta-only `MetaResponse`, and `assertSatisfiedBy()` runs the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
 produces.
+
+### A relationship write's meta-only document
+
+A relationship write, `PATCH`, `POST` or `DELETE` on `/{type}/{id}/relationships/{name}`,
+answers its linkage by default. A type can make one answer a meta-only `200` instead, by
+declaring that document's members in `relationshipDocumentMeta()`. It takes a
+`RelationshipMetaContext` naming the relation and the mutation, a `Mode`, and whether the write
+is an operation in an Atomic Operations batch:
+
+```php
+use haddowg\JsonApi\Resource\Field\Mode;
+use haddowg\JsonApi\Resource\RelationshipMetaContext;
+
+public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
+{
+    return $context->isRelationship('tracks', Mode::Add)
+        ? [Integer::make('moved')->required()->extractUsing(fn (Playlist $playlist): int => $playlist->lastMoveCount())]
+        : [];
+}
+```
+
+A member's `extractUsing()` hook receives the parent resource and the request. A write the
+type declares nothing for still answers its linkage. This is a separate method rather than a
+relationship case of `documentMeta()`, because widening `documentMeta()`'s parameter would
+break every resource that overrides it. A type composed without `AbstractResource` implements
+`haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface` on its serializer.
+
+### The meta of a `202`
+
+A write accepted for asynchronous processing answers its job's document. That document's
+`meta` is declared like any other. An `Accepted` response takes `meta:`, as `ActionResource`
+does:
+
+```php
+new Accepted('import-jobs', meta: [Integer::make('queuePosition')->example(4)]);
+```
+
+A resource whose create or update answers a `202` may declare the members in
+`acceptedDocumentMeta(OperationType $operation)` instead, and an action's handler through its
+`documentMeta(202)`. Declaring them in two places throws `DocumentMetaMisdeclared`. A
+member's `extractUsing()` hook supplies its value from the job resource, and the code returning
+the `AcceptedResponse` may set any member with `withMeta()`.
+
+### What stays untyped
+
+Two kinds of `meta` have no declaration, by design:
+
+- An After hook that replaces an operation's data document with a meta-only response. The
+  operation's documented shape is its data document, so that `meta` is free-form.
+- The `jsonapi` object's `meta`. It belongs to the server, not to an operation, and stays an
+  open object.
+
+## Typed request meta
+
+A write request may carry a top-level `meta` too: an idempotency key on a create, a reason on
+a cancellation. A resource declares those members per write in `requestDocumentMeta()`, which
+takes a `RequestMetaContext` and returns nothing by default:
+
+```php
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
+use haddowg\JsonApi\Resource\Field\{Boolean, Str};
+use haddowg\JsonApi\Resource\RequestMetaContext;
+
+public function requestDocumentMeta(RequestMetaContext $context): iterable
+{
+    return match (true) {
+        $context->is(OperationType::Create) => [Str::make('idempotencyKey')->required()],
+        $context->isRelationship('tracks') => [Str::make('reason')],
+        default => [],
+    };
+}
+```
+
+The context names a create, an update or a delete with `is()`, or a replace, add or remove on
+one relationship with `isRelationship($relation, $mode)`, and says with `isAtomic()` whether
+the write is an operation inside an Atomic Operations batch. It carries no request. The
+OpenAPI projection asks for every write's declaration with none, so a declaration may depend
+only on the context.
+
+An adapter validates a declared `meta` the way it validates attributes. A value must have its
+member's JSON type, meet its constraints, and, for a date or time, the strict format its
+schema documents. A member declared `required()` must be sent. A member the declaration does
+not name is a `422` pointing at it, `/meta/colour`. A type that declares nothing for a write
+leaves that write's `meta` open and unchecked, as before.
+
+A custom action's handler declares its request `meta` by implementing
+`haddowg\JsonApi\Resource\DeclaresActionRequestMetaInterface`. Its
+`requestDocumentMeta()` takes an `ActionRequestMetaContext` carrying the HTTP method, so an
+action mounted for several methods can declare each its own members:
+
+```php
+public function requestDocumentMeta(ActionRequestMetaContext $context): iterable
+{
+    return $context->is('POST') ? [Boolean::make('silent')] : [];
+}
+```
+
+A type composed without `AbstractResource` implements
+`haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface` on its hydrator.
+
+### Reading the written values
+
+Once an adapter has validated a write, it puts the typed values on the request it hands the
+hydrator and the write's hooks, as a `WrittenMeta`. A date member arrives as a
+`DateTimeImmutable` and an `enum()` member as its case:
+
+```php
+use haddowg\JsonApi\Resource\WrittenMeta;
+
+$key = WrittenMeta::of($request)->document('idempotencyKey');
+$source = WrittenMeta::of($request)->resource('source', 'web');
+```
+
+`document()` reads the top-level `meta`, `resource()` the resource object's `data.meta`. An
+object its type declares nothing for is carried as sent. Adapters also hand the values to an
+action's context and to the write's lifecycle events; see your adapter's documentation.
+
+## Typed resource meta
+
+A resource object's own `meta` is declared once for the type, in `resourceMeta()`, and is
+typed in both directions:
+
+```php
+use haddowg\JsonApi\Resource\Field\{AdditionalProperties, DateTime, Integer, Str};
+use haddowg\JsonApi\Resource\MetaContext;
+
+public function resourceMeta(MetaContext $context): iterable
+{
+    return [
+        Integer::make('playCount')->readOnly()->extractUsing(fn (Album $album): int => $album->plays),
+        DateTime::make('cachedAt')->readOnly(),
+        Str::make('importedFrom')->writeOnly()->fillUsing(fn (Album $album, ?string $value) => $album->recordSource($value)),
+    ];
+}
+```
+
+The rules:
+
+- A read renders each member whose `extractUsing()` hook supplies it, from the model, beside
+  what `getMeta()` returns. A value `getMeta()` returns wins on a clash.
+- A create or update validates `data.meta` as it validates attributes, a member the
+  declaration does not name being a `422` at `/data/meta/<member>`. Each member sent is handed
+  to its `fillUsing()` hook. A member with no hook never reaches the model; its value waits on
+  the `WrittenMeta` for the write's hooks.
+- `readOnly()` and `writeOnly()` split one list between the directions, so most declarations
+  ignore the context. `MetaContext` says whether the declaration is for a read, which every
+  rendered resource object of the type shares, or for a create or update, and whether the write
+  is an atomic operation. It carries no request.
+- A type declaring nothing keeps an open `meta` in both directions.
+
+A type composed without `AbstractResource` implements
+`haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface` on its serializer, and on its
+hydrator too when its writes take `data.meta`. A custom action whose input is a type's document
+validates and hydrates its `data.meta` exactly as a create of that type does.
+
+In debug mode an adapter checks every rendered resource object's `meta` against its type's
+declaration, and every linkage identifier's `meta` against its relation's declared identifier
+meta and pivot fields, and throws `ResourceMetaMismatch` for a missing required member, an
+undeclared member or a value of the wrong JSON type. In production nothing is checked.
+
+## Opening a declared object: `AdditionalProperties`
+
+Every declared `meta` object is closed: request and resource meta, a document's top-level
+`meta`, a pivot's fields and an `identifierMeta()` list. One `AdditionalProperties` entry
+among the declared members opens it, as the JSON Schema keyword and `Obj::additionalProperties()`
+do:
+
+```php
+public function resourceMeta(MetaContext $context): iterable
+{
+    return [
+        Integer::make('unread')->readOnly()->extractUsing(fn (Inbox $inbox): int => $inbox->unread()),
+        AdditionalProperties::make()
+            ->of(Str::make('*'))
+            ->extractUsing(fn (Inbox $inbox, JsonApiRequestInterface $request): array => $this->labels($inbox)),
+    ];
+}
+```
+
+- The projected object takes `additionalProperties: true`, or the value field's schema when
+  `of()` gives one. Declared members keep their own types either way.
+- On a read, the entry's `extractUsing()` returns the extra members, merged after the declared
+  ones. An extra member never replaces a declared one.
+- On a write, members the declaration does not name are allowed, validated against `of()` when
+  it is given, and handed together to the entry's `fillUsing()`, which receives the model and
+  the members by name. Without a hook they stay readable through `WrittenMeta`.
+- A declaration holds at most one entry. A second one, or a member named `*`, throws
+  `MetaMisdeclared` when the adapter registers the type.
+- In `identifierMeta()` the resolver supplies every value, so the entry only opens the shape
+  and takes no hook.
 
 ## Resource-level: getMeta / getLinks on a serializer
 
@@ -170,7 +360,25 @@ public function getLinks(mixed $object, JsonApiRequestInterface $request): ?Reso
 ```
 
 Override them to enrich a resource. Both are request-aware, so the meta or links
-you emit can depend on the incoming request:
+you emit can depend on the incoming request.
+
+`getMeta()` is deprecated, and goes in the next major release. It still works unchanged on
+its own. Declare the members in [`resourceMeta()`](#typed-resource-meta) instead. To keep
+exactly what `getMeta()` returned today, return one `AdditionalProperties` entry whose hook
+returns it. The rendered `meta` is identical, and the OpenAPI document describes the object as
+open:
+
+```php
+public function resourceMeta(MetaContext $context): iterable
+{
+    return [AdditionalProperties::make()->extractUsing(fn (Album $album, JsonApiRequestInterface $request): array => ['ratingCount' => $album->ratingCount])];
+}
+```
+
+An adapter refuses a type that both declares `resourceMeta()` and overrides `getMeta()` to
+return members, when it registers the type.
+
+The deprecated form:
 
 ```php
 public function getMeta(mixed $object, JsonApiRequestInterface $request): array

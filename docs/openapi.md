@@ -231,12 +231,14 @@ sketch:
   linkage reaches the first through `<Type><Rel>Relationship` and
   `<Type><Rel>RelationshipDocument`; the create, update and atomic bodies reach the second
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
-  bodies through `<Type><Rel>RelationshipRequest`.
+  bodies through `<Type><Rel>RelationshipRequest`. Both are closed with
+  `additionalProperties: false`, unless an `AdditionalProperties` entry among the pivot
+  fields opens them, to any value or to the schema of its `of()` field.
 - **Declared identifier meta.** A relation whose `identifierMeta()` declares its members
   (`fields:`) gets a `<Type><Rel>IdentifierMeta` component, projected under the read rules
   `<Type><Rel>Pivot` follows, and each response linkage identifier's `meta` references it.
-  With a pivot too, `meta` is the `allOf` of `<Type><Rel>IdentifierMeta` and the
-  `pivot` object, so the declared members and `pivot` sit side by side. A polymorphic
+  The object is closed unless an `AdditionalProperties` entry opens it. With a pivot too,
+  `pivot` is one of its properties, referencing `<Type><Rel>Pivot`. A polymorphic
   relation narrows its whole identifier union the same way. Requests never carry these
   members: they are read-only. A relation that declares none keeps an open `meta`.
 - **Links, per context.** Each place a link renders has one shared component listing the
@@ -1871,6 +1873,79 @@ The component is named for the operation, as its error documents are, followed b
 `201`, one per action whatever methods it answers to. An operation that declares nothing
 keeps the shared component, so its document does not change. A name another component
 already holds throws.
+
+A relationship write declaring its [meta-only document](links-and-meta.md#a-relationship-writes-meta-only-document)
+answers `200` with `<Type><Rel><Kind>Document`, such as `PlaylistsTracksAddRelationshipDocument`,
+narrowing `MetaDocument`, in place of its linkage. A `202` whose job document declares its
+`meta` answers `<Type><Operation>AcceptedDocument`, such as `ImportsCreateAcceptedDocument`, or
+`<Type><Path>ActionAcceptedDocument` for an action, narrowing the job type's `<Job>Document`.
+An `AdditionalProperties` entry in any of these declarations opens `meta`, to any value or to
+its `of()` field's schema.
+
+### Typed request meta: `x-request-meta`
+
+A write whose request [declares its top-level `meta`](links-and-meta.md#typed-request-meta)
+takes a request document of its own, named for the operation and followed by
+`RequestDocument`: `ImportsCreateRequestDocument`, `ImportsUpdateRequestDocument`,
+`ImportsDeleteRequestDocument`, `PlaylistsTracksAddRelationshipRequestDocument`, and
+`<Type><Path>ActionRequestDocument` for an action, with the method too,
+`<Type><Path>ActionPostRequestDocument`, for an action mounted on several methods. It is an
+`allOf` of the shared request document and an object narrowing `meta` to the declared object,
+marked `x-request-meta: true`:
+
+```json
+"ImportsCreateRequestDocument": {
+  "allOf": [
+    { "$ref": "#/components/schemas/ImportsCreateRequest" },
+    {
+      "type": "object",
+      "properties": {
+        "meta": {
+          "type": "object",
+          "properties": { "idempotencyKey": { "type": "string", "minLength": 1 } },
+          "required": ["idempotencyKey"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["meta"]
+    }
+  ],
+  "x-request-meta": true
+}
+```
+
+The shared request document is `<Type>CreateRequest` or `<Type>UpdateRequest`, the relation's
+`RelationshipRequest` for a pivot-backed relation or its `RelationshipDocument` otherwise, and
+for an action the request document its input mode takes. A write with no shared document, a
+delete or an action taking no input, takes a meta-only object instead, with `meta` and
+`jsonapi`; a delete declaring request meta takes a request body, and advertises `415` and
+`422`. `meta` is required when a member is. The shared `<Type>CreateRequest` keeps its
+open top-level `meta`, so an action taking the type's document is unaffected by its create's
+declaration.
+
+### Typed resource meta: `x-resource-meta`
+
+A type declaring its [resource objects' `meta`](links-and-meta.md#typed-resource-meta) gets one
+object per direction, each marked `x-resource-meta: true`. `<Type>ResourceMeta` is what a
+response renders, and `<Type>Resource` references it in place of the shared `Meta`.
+`<Type>CreateResourceMeta` and `<Type>UpdateResourceMeta` are what a write may send, and the
+`data` of `<Type>CreateRequest` and `<Type>UpdateRequest` references them. The atomic
+`<Type>AtomicAdd` and `<Type>AtomicUpdate` carry the atomic declaration inline. Each is closed
+unless an `AdditionalProperties` entry opens it. A type declaring nothing keeps the shared
+`Meta`.
+
+### Atomic operations of a declaring type
+
+When a type declares the `meta` of an atomic operation, that operation takes a kind of its
+own beside the shared ones in the `AtomicOperation` union, marked `x-request-meta: true`. An
+`add` or `update` is `<Type>AtomicAddOperation` or `<Type>AtomicUpdateOperation`, its `data`
+the type's resource object, and the shared kind's `data` union leaves the type out. A `remove`
+is `<Type>AtomicRemoveOperation` and a relationship operation
+`<Type><Rel>AtomicRelationshipAddOperation` and its update and remove siblings. These name
+their target by a `ref` whose `type`, and `relationship`, are `const`, and the shared kind
+refuses such a `ref` with a `not`. A declaring operation addressed by `href` matches the
+shared kind, so its `meta` is typed only when addressed by `ref`. The batch's own top-level
+`meta` stays open, and so does each `AtomicResult`'s.
 
 ### Backed enums: `x-enum-varnames` / `x-enum-descriptions`
 
