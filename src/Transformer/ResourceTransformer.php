@@ -41,7 +41,7 @@ final class ResourceTransformer
             return null;
         }
 
-        $this->transformResourceIdentifier($transformation);
+        $this->transformResourceIdentifier($transformation, object: true);
         $this->transformLinksObject($transformation);
         $this->transformAttributesObject($transformation);
         $this->transformRelationshipsObject($transformation, $data);
@@ -93,7 +93,12 @@ final class ResourceTransformer
         return $transformation->result;
     }
 
-    private function transformResourceIdentifier(ResourceTransformation $transformation): void
+    /**
+     * The `type`, `id` and `meta` of the resource. A resource object's `meta` adds the
+     * members its type declares in `resourceMeta()`; a linkage identifier carries only what
+     * `getMeta()` returns, as its own declared meta is the relation's `identifierMeta()`.
+     */
+    private function transformResourceIdentifier(ResourceTransformation $transformation, bool $object = false): void
     {
         if ($transformation->object === null || $transformation->resource === null) {
             return;
@@ -108,9 +113,11 @@ final class ResourceTransformer
             'id' => $id,
         ];
 
-        $meta = $transformation->resource instanceof \haddowg\JsonApi\Serializer\RendersResourceMetaInterface
-            ? $transformation->resource->renderResourceMeta($transformation->object, $transformation->request)
-            : \haddowg\JsonApi\Resource\ResourceMeta::render($transformation->resource, $transformation->object, $transformation->request);
+        $meta = match (true) {
+            !$object => $transformation->resource->getMeta($transformation->object, $transformation->request),
+            $transformation->resource instanceof \haddowg\JsonApi\Serializer\RendersResourceMetaInterface => $transformation->resource->renderResourceMeta($transformation->object, $transformation->request),
+            default => \haddowg\JsonApi\Resource\ResourceMeta::render($transformation->resource, $transformation->object, $transformation->request),
+        };
         if ($meta !== []) {
             $transformation->result['meta'] = $meta;
         }
