@@ -394,7 +394,7 @@ rather than dropped. [`additionalProperties()`](#open-members) opens it.
 |---|---|
 | `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |
 | `additionalProperties(FieldInterface $value)` | Opens the object: every member no child declares is read, written and validated through `$value`. See [open members](#open-members). |
-| `selectableKeys(?Closure $accepts, ?string $pattern)` | Lets `fields[TYPE]=<attr>.<key>` select the open object's keys one at a time. See [selectable keys](#selectable-keys). |
+| `selectableKeys(?Closure $accepts, ?string $pattern)` | Lets `fields[TYPE]=<attr>.<key>` select the object's keys one at a time. See [selectable keys](#selectable-keys). |
 | `minProperties(int)` / `maxProperties(int)` | `MinProperties` / `MaxProperties`, counting every member the object carries, declared and additional. |
 | `children()` | The declared children (for adapters and projection). |
 
@@ -495,21 +495,23 @@ describes.
 
 ### Selectable keys
 
-An open `Obj`, or a `Map`, can let a request select its keys one at a time. A data table
-with one column per key of the same attribute reads a few keys for every row, and has no
-use for the rest:
+An `Obj` or a `Map` can let a request select its keys one at a time. A person's address
+renders whole by default, and a client showing only the postcode has no use for the rest:
 
 ```php
-Obj::make('values')
-    ->additionalProperties(Str::make('*'))
-    ->selectableKeys(pattern: '[a-z][a-z0-9_]*');
+Obj::make('address')->fields(
+    Str::make('street'),
+    Str::make('postcode'),
+    Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))
+        ->selectableKeys(pattern: 'lat|lng'),
+)->selectableKeys(pattern: '[a-z]+');
 ```
 
 ```
-GET /products?fields[products]=name,values.cap,values.countries
+GET /people?fields[people]=name,address.postcode
 ```
 
-Each product renders `name` and a `values` object holding only `cap` and `countries`.
+Each person renders `name` and an `address` object holding only `postcode`.
 `selectableKeys()` takes a predicate, a pattern or both, and a key is selectable when the
 pattern matches it whole and the predicate returns `true`:
 
@@ -520,27 +522,39 @@ Map::make('totals')
 ```
 
 The pattern is a regular expression PHP and ECMA-262 both read, since it is also
-documented in the OpenAPI document. A closed `Obj` throws a `LogicException` when it is
-built, because its keys are already fixed by its children; a `Map`'s keys are its
-children's names. The key is everything after the first `.` of the fieldset member and
-names one member of the object, so a key whose value is a list of objects, a repeating
-group, is selected whole and never by a deeper path.
+documented in the OpenAPI document. A key never holds a `.`, since the full stop separates
+the keys of a nested path.
+
+Nesting is opt-in per level. A key whose field is itself an `Obj` or a `Map` declaring
+`selectableKeys()` can be narrowed in turn, so `fields[people]=address.geo.lat` renders
+`address` holding only `geo`, and `geo` holding only `lat`. The street, the postcode and
+`lng` are left out, since a path selects nothing of the objects it passes through. Through
+an open object the field every undeclared member renders through decides, so with
+`Obj::make('scores')->additionalProperties(Obj::make('*')->fields(...)->selectableKeys(...))`
+a request can select `scores.maths.max`. A key whose object declares no selectable keys is
+selected whole, as is one holding a list, such as a repeating group: a deeper path below
+either is an unknown fieldset member. Listing a key whole beside a path into it renders it
+whole, at every level, so `address.geo,address.geo.lat` renders all of `geo`.
 
 An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
 fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
-It is `null` when the request takes the whole attribute:
+It is `null` when the request takes the whole attribute. `$only->keys` lists the keys at
+the top, `$only->nested('geo')` is the selection inside a narrowed key, `null` for one
+selected whole, and `$only->paths()` lists every selected path, such as `postcode` and
+`geo.lat`:
 
 ```php
-Obj::make('values')
-    ->additionalProperties(Str::make('*'))
-    ->selectableKeys(pattern: '[a-z][a-z0-9_]*')
-    ->extractUsing(static fn(Product $product, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array
-        => $product->loadValues($only?->keys));
+Obj::make('address')
+    ->fields(/* ... */)
+    ->selectableKeys(pattern: '[a-z]+')
+    ->extractUsing(static fn(Person $person, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array
+        => $person->loadAddress($only?->paths()));
 ```
 
-The value is trimmed to the selected keys whatever the hook returns, so a hook that
-ignores `$only` still renders the right members, as does a field with no hook and a
-`serializeUsing()` hook's value. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
+The value is trimmed to the selection at every depth whatever the hook returns, so a hook
+that ignores `$only` still renders the right members, as does a field with no hook and a
+`serializeUsing()` hook's value. A nested object with its own hook receives the selection
+inside it. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
 covers the request rules and the profile a narrowed response carries.
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =

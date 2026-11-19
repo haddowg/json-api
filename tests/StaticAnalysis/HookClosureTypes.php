@@ -82,6 +82,10 @@ final class HookClosureTypes
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(static fn(string $key): bool => true)
                 ->computedUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? [] : $only->keys),
+            Obj::make('selectedNested')
+                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->selectableKeys(pattern: 'lat'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => ['paths' => $only?->paths() ?? [], 'geo' => $only?->nested('geo')->keys ?? []]),
             Map::make('selectedMap')
                 ->fields(Integer::make('views'))
                 ->selectableKeys(static fn(string $key): bool => $key === 'views')

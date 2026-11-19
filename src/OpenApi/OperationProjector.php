@@ -35,6 +35,8 @@ use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
+use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\SelectableKeys;
 use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
@@ -42,6 +44,7 @@ use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
 use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+use haddowg\JsonApi\Resource\Internal\KeyFamilyMatcher;
 use haddowg\JsonApi\Resource\RequestMetaContext;
 use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
@@ -2170,13 +2173,16 @@ final class OperationProjector
         }
 
         $description = 'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).';
-        $selectable = $this->selectableKeyPatterns($reachable);
+        [$attributes, $selectable] = $this->selectableKeyPatterns($reachable);
         if ($selectable !== []) {
-            $items = Schema::create()->withAnyOf([$items, ...\array_values($selectable)]);
-            $names = \array_map(static fn(string $name): string => '`' . $name . '`', \array_keys($selectable));
+            $items = Schema::create()->withAnyOf([$items, ...$selectable]);
+            $names = \array_map(static fn(string $name): string => '`' . $name . '`', $attributes);
             $last = \array_pop($names);
             $description .= ' Select single keys of ' . ($names === [] ? $last : \implode(', ', $names) . ' or ' . $last)
                 . ' as `<attribute>.<key>` under the [Field Selection profile](' . FieldSelectionProfile::URI . '); listing the attribute itself selects all of it.';
+            if (\count($selectable) > \count($attributes)) {
+                $description .= ' A key of a nested object is selected as `<attribute>.<key>.<key>`, and listing the key itself selects all of it.';
+            }
         }
 
         return Parameter::query(
@@ -2189,35 +2195,78 @@ final class OperationProjector
     }
 
     /**
-     * One `<attribute>.<key>` string schema per read attribute of the type declaring
-     * selectable keys, keyed by the attribute's name.
+     * The read attributes of the type declaring selectable keys, and one string schema per
+     * path a fieldset member may select: `<attribute>.<key>` for each such attribute, then
+     * one `<attribute>.<key>.<key>` per key whose object declares selectable keys in turn,
+     * at any depth.
      *
-     * @return array<string, Schema>
+     * @return array{list<string>, list<Schema>}
      */
     private function selectableKeyPatterns(TypeMetadataInterface $reachable): array
     {
         $readable = \array_flip($this->schemaProjector->readAttributeNames($reachable->fields()));
+        $attributes = [];
         $patterns = [];
         foreach ($reachable->fields() as $field) {
             $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
-            if ($declared === null || !isset($readable[$field->name()])) {
+            if ($declared === null || !$field instanceof SelectsKeysInterface || !isset($readable[$field->name()])) {
                 continue;
             }
-            $patterns[$field->name()] = Schema::ofType('string')->withPattern(self::selectableKeyPattern($field->name(), $declared));
+            $attributes[] = $field->name();
+            foreach (self::selectablePaths($field, $declared, self::escapeEcmaPattern($field->name())) as $path) {
+                $patterns[] = Schema::ofType('string')->withPattern('^' . $path . '$');
+            }
         }
 
-        return $patterns;
+        return [$attributes, $patterns];
+    }
+
+    /**
+     * The pattern of every path below `$prefix` a member may select: the object's own keys,
+     * then each nested object declaring selectable keys, reached through a declared child
+     * whose name the object accepts or through the field of its undeclared members.
+     *
+     * @return list<string>
+     */
+    private static function selectablePaths(SelectsKeysInterface $field, SelectableKeys $declared, string $prefix): array
+    {
+        $paths = [$prefix . '\\.' . self::selectableKeySegment($declared)];
+
+        $children = match (true) {
+            $field instanceof Obj => [...$field->children(), ...($field->additionalProperties() !== null ? [$field->additionalProperties()] : [])],
+            $field instanceof Map => $field->children(),
+            default => [],
+        };
+        foreach ($children as $child) {
+            $inner = $child instanceof SelectsKeysInterface ? $child->selectableKeys() : null;
+            if ($inner === null || !$child instanceof SelectsKeysInterface || $child->isWriteOnly() || $child->isHidden()) {
+                continue;
+            }
+            if ($field instanceof Obj && $child === $field->additionalProperties()) {
+                $segment = self::selectableKeySegment($declared);
+            } elseif ($declared->pattern === null || \preg_match(KeyFamilyMatcher::suffixRegex($declared->pattern), $child->name()) === 1) {
+                $segment = self::escapeEcmaPattern($child->name());
+            } else {
+                continue;
+            }
+            \array_push($paths, ...self::selectablePaths($child, $inner, $prefix . '\\.' . $segment));
+        }
+
+        return $paths;
     }
 
     /**
      * The pattern of an `<attribute>.<key>` fieldset member: the declared key pattern, or
-     * anything up to the next comma when only a predicate decides.
+     * any key up to the next `.` or comma when only a predicate decides.
      */
     public static function selectableKeyPattern(string $attribute, SelectableKeys $declared): string
     {
-        $key = $declared->pattern === null ? SelectableKeys::ANY_KEY_PATTERN : '(?:' . $declared->pattern . ')';
+        return '^' . self::escapeEcmaPattern($attribute) . '\\.' . self::selectableKeySegment($declared) . '$';
+    }
 
-        return '^' . self::escapeEcmaPattern($attribute) . '\\.' . $key . '$';
+    private static function selectableKeySegment(SelectableKeys $declared): string
+    {
+        return $declared->pattern === null ? SelectableKeys::ANY_KEY_PATTERN : '(?:' . $declared->pattern . ')';
     }
 
     /**

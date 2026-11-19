@@ -40,6 +40,17 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
         return $this->selectableKeys;
     }
 
+    public function keyField(string $key): ?FieldInterface
+    {
+        foreach ($this->children as $child) {
+            if ($child->name() === $key) {
+                return $child;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return MapBuilder<array<string, mixed>>
      */
@@ -117,7 +128,10 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
                 continue;
             }
 
-            $nested[$child->name()] = $child->serialize($source, $request, $child->name());
+            $inner = $only?->nested($child->name());
+            $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
+                ? $child->serializeSelection($source, $request, $child->name(), $inner)
+                : $child->serialize($source, $request, $child->name());
         }
 
         return JsonObject::of($nested);

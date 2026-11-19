@@ -8,7 +8,9 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
  * An object attribute whose keys a request may select one by one with
- * `fields[TYPE]=<attr>.<key>`, once it declares `selectableKeys()`.
+ * `fields[TYPE]=<attr>.<key>`, once it declares `selectableKeys()`. A key whose field is
+ * itself such an object, declaring `selectableKeys()` too, can be narrowed further as
+ * `<attr>.<key>.<key>`.
  */
 interface SelectsKeysInterface extends FieldInterface
 {
@@ -18,9 +20,16 @@ interface SelectsKeysInterface extends FieldInterface
     public function selectableKeys(): ?SelectableKeys;
 
     /**
-     * The field's read value holding only the `$only` keys. An `extractUsing()` hook
-     * receives `$only` as its fourth argument, and whatever it returns is still trimmed
-     * to those keys.
+     * The field that renders the member `$key` of the object: the child of that name, or,
+     * for an open object, the field every undeclared member renders through. `null` when no
+     * field would render it.
+     */
+    public function keyField(string $key): ?FieldInterface;
+
+    /**
+     * The field's read value holding only the `$only` keys, each narrowed key holding only
+     * the keys selected inside it. An `extractUsing()` hook receives `$only` as its fourth
+     * argument, and whatever it returns is still trimmed to the selection.
      */
     public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed;
 }

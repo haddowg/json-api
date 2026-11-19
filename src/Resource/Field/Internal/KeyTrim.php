@@ -16,8 +16,8 @@ use haddowg\JsonApi\Resource\Field\KeySelection;
 final class KeyTrim
 {
     /**
-     * The members of `$value` whose keys `$only` holds. A value that is not an object is
-     * returned as it is.
+     * The members of `$value` whose keys `$only` holds, each narrowed key trimmed to the
+     * selection inside it. A value that is not an object is returned as it is.
      */
     public static function trim(mixed $value, KeySelection $only): mixed
     {
@@ -34,7 +34,8 @@ final class KeyTrim
         $kept = [];
         foreach ($value as $key => $member) {
             if ($only->has((string) $key)) {
-                $kept[$key] = $member;
+                $inner = $only->nested((string) $key);
+                $kept[$key] = $inner === null ? $member : self::trim($member, $inner);
             }
         }
 

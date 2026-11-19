@@ -8,22 +8,25 @@ specification. The URL for this profile is
 `https://haddowg.github.io/json-api/profiles/field-selection/`.
 
 A [sparse fieldset](https://jsonapi.org/format/1.1/#fetching-sparse-fieldsets)
-selects whole fields. An attribute whose value is an object with many members, such
-as a set of named measures, comes back whole even when the client shows three of
-them. A data table with one column per member is the usual case: each column is one
-member of the same object attribute, and the table reads a handful of them for every
-row.
+selects whole fields. A person's `address` attribute holds a street, a postcode and a
+location, so a client that shows only the postcode still receives the whole address.
 
-This profile lets a `fields[TYPE]` parameter name one member of an object attribute
-as `<attribute>.<key>`. For example:
+This profile lets a `fields[TYPE]` member name one member of an attribute's object as
+`<attribute>.<key>`:
 
 ```http
-GET /products?fields[products]=name,values.cap,values.countries
+GET /people?fields[people]=name,address.postcode
 Accept: application/vnd.api+json
 ```
 
-returns each product's `name`, and a `values` object holding only its `cap` and
-`countries` members.
+returns each person's `name`, and an `address` object holding only `postcode`:
+
+```json
+"attributes": {
+  "name": "Ada Lovelace",
+  "address": { "postcode": "SW1A 1AA" }
+}
+```
 
 ## Conventions
 
@@ -48,12 +51,15 @@ attributes are selectable, and which member names of each a client may select.
 
 A **key member** is a `fields[TYPE]` member of the form `<attribute>.<key>`: the
 name of a selectable attribute, a full stop (U+002E), and the name of one member of
-that attribute's object, taken whole up to the next comma. JSON:API member names
-contain no full stop, so a key member never collides with a field name.
+that attribute's object. JSON:API member names contain no full stop, so a key member
+never collides with a field name, and a key never contains one.
 
-A key member selects one member of the object. It never addresses anything deeper:
-when the member's value is itself an object or a list of objects, such as a
-repeating group of rows, the key member selects that value whole.
+A server **MAY** let a key member address a member of a nested object, as
+`<attribute>.<key>.<key>` and so on, one key per level, where the value at each level
+is an object whose members the server lets a client select. `address.geo.lat` selects
+the `lat` member of the `geo` object inside `address`. A key whose value is a list,
+such as a repeating group of rows, has no deeper key members: the key member naming it
+selects the list whole.
 
 ### Query Parameters
 
@@ -62,7 +68,7 @@ specification's `fields[TYPE]` parameter accepts:
 
 ```
 fields[TYPE] = <member>,<member>,...
-<member>     = <field-name> | <attribute>.<key>
+<member>     = <field-name> | <attribute>.<key> | <attribute>.<key>.<key> ...
 ```
 
 ### Processing
@@ -85,6 +91,27 @@ For each resource of type `TYPE` the response renders:
 - Every other field follows the base specification: a field `fields[TYPE]` does not
   list is left out.
 
+A key member addressing a nested object selects only the members along its path. Each
+object on the path **MUST** be rendered holding only the members key members select
+from it, and nothing else of it:
+
+```http
+GET /people?fields[people]=address.postcode,address.geo.lat
+```
+
+```json
+"attributes": {
+  "address": { "postcode": "SW1A 1AA", "geo": { "lat": 51.501 } }
+}
+```
+
+The street is left out of `address`, and every member of `geo` but `lat` is left out
+of `geo`. The rule for an attribute listed whole applies at every level: a key member
+naming a nested object whole, such as `address.geo`, renders all of that object,
+whatever key members also address members inside it, so
+`fields[people]=address.geo,address.geo.lat` renders `address` holding the whole of
+`geo` and nothing else.
+
 A request with no `fields[TYPE]` parameter is processed as the base specification
 describes. The selection applies to every resource of type `TYPE` the response
 renders, in primary data and in `included` alike.
@@ -106,7 +133,8 @@ NOT** add the profile to a response the client did not negotiate it for.
 ### Document Structure
 
 This profile reserves no document members. A selected attribute keeps the shape
-its whole value has, with fewer members.
+its whole value has, with fewer members, and so does each nested object a key member
+selects from.
 
 ### Error Cases
 
@@ -119,7 +147,9 @@ it. A key member is not accepted when:
 
 - its attribute does not exist, is not an attribute, or is not selectable;
 - the server does not allow that key of the attribute;
-- its key is empty.
+- it continues past a key whose value the server does not let a client select from,
+  such as a string, a list or an object the server returns only whole;
+- one of its keys is empty.
 
 ## Notes
 
