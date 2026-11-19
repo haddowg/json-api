@@ -69,11 +69,11 @@ final readonly class CustomActionOperation implements JsonApiOperationInterface
     }
 
     /**
-     * This operation carrying `$body` in place of its own.
+     * This operation carrying `$body` in place of its own, and `$context` when given.
      */
-    public function withBody(?JsonApiRequestInterface $body): self
+    public function withBody(?JsonApiRequestInterface $body, ?OperationContext $context = null): self
     {
-        return new self($this->target, $this->queryParameters, $this->context, $this->action, $this->method, $body, $this->responds);
+        return new self($this->target, $this->queryParameters, $context ?? $this->context, $this->action, $this->method, $body, $this->responds);
     }
 
     /**

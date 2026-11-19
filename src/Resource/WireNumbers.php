@@ -51,23 +51,29 @@ final class WireNumbers
         $resource = $server->resourceFor($type);
 
         if ($operation instanceof CreateResourceOperation || $operation instanceof UpdateResourceOperation) {
-            $body = self::resourceDocument($resource, $operation->body());
-
-            return $body === $operation->body() ? $operation : $operation->withBody($body);
-        }
-
-        if ($operation instanceof UpdateRelationshipOperation || $operation instanceof AddToRelationshipOperation || $operation instanceof RemoveFromRelationshipOperation) {
+            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::resourceDocument($resource, $request);
+        } elseif ($operation instanceof UpdateRelationshipOperation || $operation instanceof AddToRelationshipOperation || $operation instanceof RemoveFromRelationshipOperation) {
             $name = $operation->target()->relationship;
             $relation = $name === null ? null : $resource->relationNamedIncludingHidden($name);
             if ($relation === null) {
                 return $operation;
             }
-            $body = self::linkageDocument($relation, $operation->body());
-
-            return $body === $operation->body() ? $operation : $operation->withBody($body);
+            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::linkageDocument($relation, $request);
+        } else {
+            return $operation;
         }
 
-        return $operation;
+        // The context's request is normalized too, for a handler that reads the body
+        // through it.
+        $body = $normalize($operation->body());
+        $context = $operation->context();
+        $httpRequest = $context->httpRequest();
+        $normalizedHttp = $httpRequest instanceof JsonApiRequestInterface ? $normalize($httpRequest) : $httpRequest;
+        if ($body === $operation->body() && $normalizedHttp === $httpRequest) {
+            return $operation;
+        }
+
+        return $operation->withBody($body, $normalizedHttp === $httpRequest ? null : $context->withHttpRequest($normalizedHttp));
     }
 
     /**

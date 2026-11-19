@@ -102,6 +102,17 @@ final class WireNumbersTest extends TestCase
         self::assertInstanceOf(CreateResourceOperation::class, $create);
         self::assertSame(['plays' => 5], $create->body()->getResourceAttributes());
 
+        $request = $this->request(['data' => ['type' => 'tracks', 'attributes' => ['plays' => 6.0]]]);
+        $backed = WireNumbers::operation(new CreateResourceOperation(
+            new Target('tracks'),
+            new QueryParameters([], [], [], [], []),
+            new OperationContext($server, $request),
+            $request,
+        ), $server);
+        $httpRequest = $backed->context()->httpRequest();
+        self::assertInstanceOf(JsonApiRequest::class, $httpRequest);
+        self::assertSame(['plays' => 6], $httpRequest->getResourceAttributes());
+
         $linkage = WireNumbers::operation(new UpdateRelationshipOperation(
             new Target('tracks', '1', 'tags', true),
             new QueryParameters([], [], [], [], []),

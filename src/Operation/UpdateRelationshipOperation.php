@@ -40,10 +40,10 @@ final readonly class UpdateRelationshipOperation implements \haddowg\JsonApi\Ope
     }
 
     /**
-     * This operation carrying `$body` in place of its own.
+     * This operation carrying `$body` in place of its own, and `$context` when given.
      */
-    public function withBody(JsonApiRequestInterface $body): self
+    public function withBody(JsonApiRequestInterface $body, ?OperationContext $context = null): self
     {
-        return new self($this->target, $this->queryParameters, $this->context, $body);
+        return new self($this->target, $this->queryParameters, $context ?? $this->context, $body);
     }
 }
