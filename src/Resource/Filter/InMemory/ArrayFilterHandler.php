@@ -53,11 +53,34 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private readonly array $arms;
 
     /**
+     * @var (\Closure(string, list<mixed>): list<mixed>)|null
+     */
+    private ?\Closure $admit = null;
+
+    /**
      * @param iterable<ArrayFilterArmInterface> $arms author arms for custom filter types, consulted in order
      */
     public function __construct(iterable $arms = [])
     {
         $this->arms = \is_array($arms) ? \array_values($arms) : \iterator_to_array($arms, false);
+    }
+
+    /**
+     * A copy that narrows the rows each relationship hop reaches before it matches them,
+     * so a row the related type's scope hides is never matched through. `$admit`
+     * receives the dotted storage path walked so far, such as `comments` and then
+     * `comments.author`, and the values that hop reached, and returns the ones that
+     * exist for the caller. It also sees the last segment of a path that ends on a
+     * field, so it returns a segment that is no relationship unchanged.
+     *
+     * @param \Closure(string, list<mixed>): list<mixed> $admit
+     */
+    public function withRowAdmission(\Closure $admit): self
+    {
+        $copy = clone $this;
+        $copy->admit = $admit;
+
+        return $copy;
     }
 
     public function apply(FilterInterface $filter, mixed $query, mixed $value): mixed
@@ -387,13 +410,19 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * @param list<string>            $segments
      * @param (\Closure(mixed): bool)|null $leaf
      */
-    private function existsThrough(mixed $row, array $segments, ?\Closure $leaf): bool
+    private function existsThrough(mixed $row, array $segments, ?\Closure $leaf, string $walked = ''): bool
     {
         $segment = $segments[0];
         $rest = \array_slice($segments, 1);
         $isLeafHop = $rest === [];
+        $path = $walked === '' ? $segment : $walked . '.' . $segment;
 
-        foreach ($this->fanOut(Accessor::get($row, $segment)) as $next) {
+        $reached = $this->fanOut(Accessor::get($row, $segment));
+        if ($this->admit !== null && $reached !== []) {
+            $reached = ($this->admit)($path, $reached);
+        }
+
+        foreach ($reached as $next) {
             if ($isLeafHop) {
                 if ($leaf === null || $leaf($next)) {
                     return true;
@@ -402,7 +431,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
                 continue;
             }
 
-            if ($this->existsThrough($next, $rest, $leaf)) {
+            if ($this->existsThrough($next, $rest, $leaf, $path)) {
                 return true;
             }
         }

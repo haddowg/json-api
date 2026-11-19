@@ -16,6 +16,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresInclusionUnsupported;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresThroughReadSecurity;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -25,6 +26,8 @@ use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+use haddowg\JsonApi\Resource\Filter\ThroughReadAccess;
 
 /**
  * Which operations can raise each of core's error codes: the rule every core code follows,
@@ -740,7 +743,8 @@ final class ErrorCoverage
 
     /**
      * `ACCESS_DENIED` or `AUTHENTICATION_REQUIRED`: the operations the adapter's security layer
-     * can refuse ({@see DeclaresOperationSecurity}), and the batch when it can be refused or
+     * can refuse ({@see DeclaresOperationSecurity}), those whose filters reach through a
+     * relation it can refuse ({@see DeclaresThroughReadSecurity}), and the batch when it can be refused or
      * runs a write that can; in the shared shapes when that is every operation or the
      * metadata does not say.
      *
@@ -757,7 +761,8 @@ final class ErrorCoverage
 
         $operations = self::operations(
             $server,
-            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $ask($type, $operation->key->withType($type->type())),
+            static fn(TypeMetadataInterface $type, EnumeratedOperation $operation): bool => $ask($type, $operation->key->withType($type->type()))
+                || self::filtersReachRefusableRelation($type, $operation, $server),
             // A batch entry runs a write the security layer can refuse.
             static fn(ServerMetadataInterface $server, bool $viaWrites): bool => $viaWrites || $ask(null, OperationKey::atomic()),
         );
@@ -768,6 +773,60 @@ final class ErrorCoverage
         );
 
         return $operations === $every ? null : $operations;
+    }
+
+    /**
+     * Whether a filter the operation takes, or a `relatedQuery` filter on a relation it
+     * renders, reaches through a relation the adapter can refuse a caller
+     * ({@see DeclaresThroughReadSecurity}). A filter family resolves its filters per
+     * request, so its paths aren't known here.
+     */
+    private static function filtersReachRefusableRelation(TypeMetadataInterface $type, EnumeratedOperation $operation, ServerMetadataInterface $server): bool
+    {
+        if (!$server instanceof DeclaresThroughReadSecurity) {
+            return false;
+        }
+
+        $vocabularies = [];
+        $filters = OperationFacts::filterVocabulary($type, $operation, $server);
+        $relation = $operation->relation;
+        $root = \in_array($operation->key->kind, [OperationKind::FetchRelated, OperationKind::FetchRelationship], true)
+            ? ($relation === null ? null : OperationFacts::relatedType($relation, $server))
+            : $type;
+        if ($filters !== null && $root !== null) {
+            $vocabularies[] = [$root, $filters];
+        }
+        $rendered = OperationFacts::relatedQueryType($type, $operation, $server);
+        foreach ($rendered === null ? [] : OperationFacts::relatedQueryRelations($rendered) as $queried) {
+            $related = OperationFacts::relatedType($queried, $server);
+            if ($related !== null) {
+                $vocabularies[] = [$related, OperationFacts::relatedFilterVocabulary($queried, $server)];
+            }
+        }
+        if ($vocabularies === []) {
+            return false;
+        }
+
+        $access = new ThroughReadAccess(new ThroughPathResolver(static function (string $name) use ($server): ?array {
+            foreach ($server->types() as $described) {
+                if ($described->type() === $name) {
+                    return $described->fields();
+                }
+            }
+
+            return null;
+        }));
+        foreach ($vocabularies as [$filtered, $vocabulary]) {
+            foreach ($vocabulary as $filter) {
+                foreach ($access->hopsOf($filter, $filtered->fields(), $filtered->type()) as $hop) {
+                    if ($server->canRefuseThrough($hop)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

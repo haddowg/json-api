@@ -910,7 +910,8 @@ Telling a relationship from a field needs the relation graph, which a filter dec
 does not have, so the data layer resolves each path against the type the filter runs
 against with a [`ThroughPathResolver`](../src/Resource/Filter/ThroughPathResolver.php).
 Each segment matches a declared relation by its storage name, its `column()`, which is the
-name the data layer traverses. When every segment matches, the path ends on a
+name the data layer traverses. When several relations share that storage member, the
+segment names the one whose name it is. When every segment matches, the path ends on a
 relationship. When one does not, the path ends on a field and behaves exactly as it always
 has. The OpenAPI projection resolves the same way, and adapters resolve after matching the
 requested keys and may resolve the declared filters at warm-up to fail fast:
@@ -929,6 +930,48 @@ The resolved filter tells the data layer everything it needs.
 `WhereThroughIn::storageValues()` and `WhereThrough::storageValue()` return the decoded
 storage keys to compare, and `constraints()` returns what each member validates against,
 the related id's format included. A group's children are resolved with it.
+
+## Read access through a path
+
+A filter that reaches through a relation shows, row by row, something about the rows at
+the other end. So the rows a caller may not read never take part. Every adapter applies
+two rules to `WhereThrough`, `WhereThroughIn`, `WhereHas` and `WhereDoesntHave`, inside
+groups and families too, wherever a filter runs: a collection, a related or relationship
+endpoint, a `relatedQuery` window, a collection action's filters and a filter default.
+
+- A row the related type's scope hides, at any hop, does not exist for matching. A Doctrine
+  query extension, an Eloquent global scope or a scoping provider narrows what the walk
+  reaches exactly as it narrows the related endpoint.
+- When the caller may not read a hop at all, a filter the client asked for is refused with
+  a `403` `ACCESS_DENIED`. A filter default the client did not ask for is never refused;
+  it matches no row through that hop instead, as if every row there were hidden.
+
+Whether a hop is readable is the adapter's decision, asked through the
+[`ThroughReadGateInterface`](../src/Resource/ThroughReadGateInterface.php) the server's
+relation authorizer implements. Core lists the hops with
+[`ThroughReadAccess`](../src/Resource/Filter/ThroughReadAccess.php), which a custom filter
+or sort that walks a dotted path can use as well:
+
+```php
+use haddowg\JsonApi\Resource\Filter\ThroughReadAccess;
+
+$access = ThroughReadAccess::forResolver($server);
+$hops = $access->hopsAlong('comments.author.name', $resource->allFields(), 'articles');
+$refused = $access->refused($hops, $request);
+```
+
+Each [`RelationHop`](../src/Resource/Filter/RelationHop.php) names the relation, the type
+that declares it, and the storage path up to it. When several relations share a storage
+member and none is named after the segment, each of them is a hop, so the strictest rule
+applies. The reference `ArrayFilterHandler` takes the scope through
+`withRowAdmission()`, which narrows the rows each hop reaches before it matches them.
+
+Server metadata that implements
+[`DeclaresThroughReadSecurity`](../src/OpenApi/Metadata/DeclaresThroughReadSecurity.php)
+says which hops some caller can be refused, and the OpenAPI document then offers
+`ACCESS_DENIED` and `AUTHENTICATION_REQUIRED` on each operation whose filters, or whose
+`relatedQuery` filters, reach through one. A filter family's paths are only known per
+request, so they add nothing there.
 
 ## List and set values
 

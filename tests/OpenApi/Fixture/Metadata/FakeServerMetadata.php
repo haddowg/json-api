@@ -13,6 +13,7 @@ use haddowg\JsonApi\OpenApi\Metadata\DeclaresExampleGeneration;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresMaxIncludeDepth;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresOperationSecurity;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresStrictQueryParameters;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresThroughReadSecurity;
 use haddowg\JsonApi\OpenApi\Metadata\OperationKey;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -20,6 +21,7 @@ use haddowg\JsonApi\OpenApi\SecurityRequirement;
 use haddowg\JsonApi\OpenApi\SecurityScheme;
 use haddowg\JsonApi\OpenApi\Server;
 use haddowg\JsonApi\OpenApi\Tag;
+use haddowg\JsonApi\Resource\Filter\RelationHop;
 
 /**
  * An in-core {@see ServerMetadataInterface} fixture — a plain value carrier so the
@@ -30,7 +32,7 @@ use haddowg\JsonApi\OpenApi\Tag;
  * access and require authentication, query parameters are strict, every document is
  * validated, and a server maximum include depth is set.
  */
-final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration, DeclaresOperationSecurity, DeclaresStrictQueryParameters, DeclaresDocumentValidation, DeclaresMaxIncludeDepth
+final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExampleGeneration, DeclaresOperationSecurity, DeclaresThroughReadSecurity, DeclaresStrictQueryParameters, DeclaresDocumentValidation, DeclaresMaxIncludeDepth
 {
     /**
      * @param list<TypeMetadataInterface>      $types
@@ -41,6 +43,7 @@ final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExamp
      * @param list<string>                     $profiles
      * @param (\Closure(?TypeMetadataInterface, OperationKey): bool)|null $canDenyAccess            `null` for every operation
      * @param (\Closure(?TypeMetadataInterface, OperationKey): bool)|null $canRequireAuthentication `null` for every operation
+     * @param (\Closure(RelationHop): bool)|null                          $canRefuseThrough         `null` for no relation
      */
     public function __construct(
         private readonly string $title,
@@ -65,7 +68,13 @@ final class FakeServerMetadata implements ServerMetadataInterface, DeclaresExamp
         private readonly bool $checksResourceObjectMembers = true,
         private readonly bool $validatesResponseDocuments = true,
         private readonly ?int $maxIncludeDepth = 1,
+        private readonly ?\Closure $canRefuseThrough = null,
     ) {}
+
+    public function canRefuseThrough(RelationHop $hop): bool
+    {
+        return $this->canRefuseThrough !== null && ($this->canRefuseThrough)($hop) === true;
+    }
 
     public function canDenyAccess(?TypeMetadataInterface $type, OperationKey $operation): bool
     {
