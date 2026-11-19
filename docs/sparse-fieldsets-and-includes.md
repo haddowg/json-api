@@ -60,8 +60,8 @@ Str::make('status')->notSparseField();
 
 `isSparseField()` on the field reports whether it participates; a field that opts
 out is excluded from the narrowing pass entirely. A relation declared
-`notSparseField()` keeps its relationship object the same way, including under an empty
-`fields[type]=`. A field that is hidden or write-only for the request still never
+`notSparseField()` keeps its relationship object the same way. An empty `fields[type]=`
+still renders no fields of the type, these included. A field that is hidden or write-only for the request still never
 renders. This is the one member-level
 override — every other field follows the fieldset. See
 [fields](fields.md) for the rest of the shared field surface.

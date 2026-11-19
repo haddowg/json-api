@@ -41,13 +41,12 @@ final class NotSparseFieldTest extends TestCase
     }
 
     #[Test]
-    public function aNonSparseRelationshipRendersWhenTheFieldsetIsEmpty(): void
+    public function anEmptyFieldsetRendersNoFieldsAtAll(): void
     {
         $data = $this->render(['fields' => ['notes' => '']]);
 
-        self::assertSame(['slug' => 'hello'], $data['attributes'] ?? null);
-        self::assertIsArray($data['relationships'] ?? null);
-        self::assertSame(['owner'], \array_keys($data['relationships']));
+        self::assertArrayNotHasKey('attributes', $data);
+        self::assertArrayNotHasKey('relationships', $data);
     }
 
     #[Test]

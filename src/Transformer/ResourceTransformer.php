@@ -273,7 +273,7 @@ final class ResourceTransformer
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
-            if ($attribute instanceof NonSparseMember || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
+            if (($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation)) || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
                 $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, $name);
             }
         }
@@ -281,6 +281,15 @@ final class ResourceTransformer
         if ($transformedAttributes !== []) {
             $transformation->result['attributes'] = $transformedAttributes;
         }
+    }
+
+    /**
+     * Whether `fields[type]=` asks for no fields of the type at all, which a
+     * `notSparseField()` member honours too.
+     */
+    private function selectsNoFields(ResourceTransformation $transformation): bool
+    {
+        return \in_array('', $transformation->request->getIncludedFields($transformation->resourceType), true);
     }
 
     private function transformRelationshipsObject(ResourceTransformation $transformation, DataInterface $data): void
@@ -297,7 +306,7 @@ final class ResourceTransformer
         $transformedRelationships = [];
         foreach ($relationships as $relationshipName => $relationshipCallback) {
             $transformation->currentRelationshipName = $relationshipName;
-            $transformation->currentRelationshipNotSparse = $relationshipCallback instanceof NonSparseMember;
+            $transformation->currentRelationshipNotSparse = $relationshipCallback instanceof NonSparseMember && !$this->selectsNoFields($transformation);
             $relationshipObject = $this->transformRelationshipObject(
                 $transformation,
                 $data,
