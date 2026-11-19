@@ -147,7 +147,7 @@ final class RenderedMeta
             unset($outer['pivot']);
             $values = $meta['pivot'] ?? [];
             foreach ($pivot->violations(\is_array($values) ? $values : []) as $violation) {
-                $violations[] = 'pivot ' . $violation;
+                $violations[] = 'in its pivot, ' . $violation;
             }
         }
         // Identifier meta a relation's resolver supplies with no declared members stays open.
