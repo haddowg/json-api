@@ -368,6 +368,8 @@ final class GeneratorContract
      * `fields[<type>]` parameter accepts such keys.
      */
     public const FIELD_SELECTION = 42;
+
+    /**
      * The contract that introduced declared request and resource object `meta`: a write's
      * own request document narrowing its top-level `meta`, marked `x-request-meta`; a
      * type's `<Type>ResourceMeta`, `<Type>CreateResourceMeta` and `<Type>UpdateResourceMeta`

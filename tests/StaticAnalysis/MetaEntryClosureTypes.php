@@ -10,6 +10,7 @@ use haddowg\JsonApi\Resource\Field\AdditionalPropertiesBuilder;
 use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\KeySelection;
 use haddowg\JsonApi\Resource\Field\PivotEdge;
 use haddowg\JsonApi\Resource\Field\Str;
 
@@ -33,6 +34,8 @@ final class MetaEntryClosureTypes
                 ->extractUsing(static fn(array $row): array => \is_array($row['labels'] ?? null) ? $row['labels'] : []),
             AdditionalProperties::make()
                 ->extractUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name): array => [$name => $model?->format('c')]),
+            AdditionalProperties::make()
+                ->extractUsing(static fn(\ArrayObject $inbox, JsonApiRequestInterface $request, string $name, ?KeySelection $keys): array => $keys === null ? $inbox->getArrayCopy() : []),
             AdditionalProperties::make()
                 ->of(Integer::make('*'))
                 ->fillUsing(static function (\ArrayObject $inbox, array $members): void {

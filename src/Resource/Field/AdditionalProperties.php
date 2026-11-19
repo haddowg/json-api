@@ -58,7 +58,9 @@ final readonly class AdditionalProperties extends AbstractFieldValue
             return [];
         }
 
-        $members = $hook($model, $request, self::NAME);
+        // The hook takes the arguments every extractUsing() hook takes; a meta object is
+        // never narrowed by `fields`, so it selects no keys.
+        $members = Internal\KeyTrim::extract($hook, $model, $request, self::NAME, null);
         if (!\is_array($members)) {
             return [];
         }

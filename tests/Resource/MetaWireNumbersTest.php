@@ -31,6 +31,16 @@ final class MetaWireNumbersTest extends TestCase
     }
 
     #[Test]
+    public function anEntrysExtractHookTakesTheFourArgumentsEveryExtractHookTakes(): void
+    {
+        $entry = AdditionalProperties::make()
+            ->extractUsing(static fn(array $row, \haddowg\JsonApi\Request\JsonApiRequestInterface $request, string $name, ?\haddowg\JsonApi\Resource\Field\KeySelection $keys): array => ['keys' => $keys === null ? 'none' : 'some', 'name' => $name])
+            ->build();
+
+        self::assertSame(['keys' => 'none', 'name' => '*'], $entry->extract([], new JsonApiRequest(new ServerRequest('GET', '/notes'))));
+    }
+
+    #[Test]
     public function anOpenObjectsMembersFollowTheEntrysValueField(): void
     {
         $shape = MetaShape::of([AdditionalProperties::make()->of(Integer::make('*'))]);
