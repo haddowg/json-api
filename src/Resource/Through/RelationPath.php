@@ -6,10 +6,13 @@ namespace haddowg\JsonApi\Resource\Through;
 
 use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Resource\Field\Accessor;
+use haddowg\JsonApi\Resource\Field\BelongsToMany;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\RelationHop;
+use haddowg\JsonApi\Resource\Filter\ThroughPath;
 
 /**
  * A `->through()` path resolved against the relation graph by
@@ -19,19 +22,89 @@ use haddowg\JsonApi\Resource\Filter\RelationHop;
  * Every hop means a related row exists, so a filter matches a row only when some row
  * the path reaches satisfies it, and a sort reads `null` for a row whose to-one reaches
  * nothing.
+ *
+ * A `pivot` segment reaches the pivot rows of the relation before it, or of the relation
+ * the filter or sort runs under when it leads the path, as a {@see RelationHop} marked
+ * `pivot`. A path that ends there reads one of that relation's declared pivot fields; one
+ * that goes on walks a relation the pivot row holds, which the data layer names through
+ * {@see PivotRowRelations}.
  */
 final readonly class RelationPath
 {
     /**
-     * @param non-empty-list<RelationHop> $hops each relation walked, its `path` the dotted storage path up to and including it
-     * @param list<FieldInterface>        $leafFields the field inventory of the type the path reaches
+     * The segment naming the pivot row of the relation before it.
+     */
+    public const string PIVOT = 'pivot';
+
+    /**
+     * @param non-empty-list<RelationHop>                    $hops             each relation walked, its `path` the dotted storage path up to and including it
+     * @param list<FieldInterface>                           $leafFields       the field inventory of the type the path reaches, or the pivot fields when it ends on a pivot row
+     * @param (\Closure(string): ?RelationInterface)|null    $pivotRowRelation the relation the pivot row the path ends on holds under a member, when it ends on one
      */
     public function __construct(
         public string $path,
         public array $hops,
         public array $leafFields,
         public ?FieldInterface $leaf = null,
+        public ?\Closure $pivotRowRelation = null,
     ) {}
+
+    /**
+     * Whether `$relation` has pivot rows a `pivot` segment can reach: a {@see BelongsToMany}
+     * over an association class or with stored pivot fields, or another
+     * {@see PivotRelationInterface} with stored pivot fields.
+     *
+     * @phpstan-assert-if-true PivotRelationInterface $relation
+     */
+    public static function hasPivotRow(?RelationInterface $relation): bool
+    {
+        if (!$relation instanceof PivotRelationInterface) {
+            return false;
+        }
+
+        return $relation->storedPivotFields() !== [] || ($relation instanceof BelongsToMany && $relation->pivotThrough() !== null);
+    }
+
+    /**
+     * Whether the path starts at the pivot row of the relation it runs under.
+     */
+    public function startsWithPivot(): bool
+    {
+        return $this->hops[0]->pivot && ThroughPath::split($this->path)[0] === self::PIVOT;
+    }
+
+    /**
+     * Whether the path ends on a pivot row, so its leaf is a pivot field.
+     */
+    public function endsOnPivot(): bool
+    {
+        return $this->hops[\count($this->hops) - 1]->pivot;
+    }
+
+    /**
+     * Whether any hop reaches a pivot row.
+     */
+    public function reachesPivot(): bool
+    {
+        foreach ($this->hops as $hop) {
+            if ($hop->pivot) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether `$hop` reaches many rows from each row before it: a to-many relation, or a
+     * pivot hop anywhere but at the start of the path.
+     */
+    public function isToManyHop(int $index): bool
+    {
+        $hop = $this->hops[$index];
+
+        return $hop->pivot ? !($index === 0 && $this->startsWithPivot()) : $hop->relation->isToMany();
+    }
 
     /**
      * The type the last hop reaches.
@@ -56,8 +129,8 @@ final readonly class RelationPath
      */
     public function reachesMany(): bool
     {
-        foreach ($this->hops as $hop) {
-            if ($hop->relation->isToMany()) {
+        foreach (\array_keys($this->hops) as $index) {
+            if ($this->isToManyHop($index)) {
                 return true;
             }
         }
@@ -76,7 +149,7 @@ final readonly class RelationPath
             }
         }
 
-        return null;
+        return $this->pivotRowRelation !== null ? ($this->pivotRowRelation)($name) : null;
     }
 
     /**
@@ -84,7 +157,20 @@ final readonly class RelationPath
      */
     public function withLeaf(FieldInterface $leaf): self
     {
-        return new self($this->path, $this->hops, $this->leafFields, $leaf);
+        return new self($this->path, $this->hops, $this->leafFields, $leaf, $this->pivotRowRelation);
+    }
+
+    /**
+     * What the path reaches, for a message: the type it reaches, or the pivot of the
+     * relation whose pivot row it ends on.
+     */
+    public function describeLeaf(): string
+    {
+        $last = $this->hops[\count($this->hops) - 1];
+
+        return $last->pivot
+            ? \sprintf('the pivot of relation "%s"', $last->relation->name())
+            : \sprintf('type "%s"', $last->relatedType());
     }
 
     /**
@@ -149,9 +235,15 @@ final readonly class RelationPath
      * @param (\Closure(string, list<mixed>, ?RelationInterface=): list<mixed>)|null $admit
      *
      * @return list<mixed>
+     *
+     * @throws \LogicException when the path reaches a pivot row
      */
     public function reach(mixed $row, ?\Closure $admit = null): array
     {
+        if ($this->reachesPivot()) {
+            throw new \LogicException(\sprintf('The path "%s" reaches a pivot row, which an in-memory row holds no member for; only a data layer that reads pivot rows can follow it.', $this->path));
+        }
+
         $rows = [$row];
         foreach ($this->hops as $hop) {
             $next = [];

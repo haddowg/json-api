@@ -45,6 +45,7 @@ use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
 use haddowg\JsonApi\Resource\RequestMetaContext;
 use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
+use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -838,7 +839,7 @@ final class OperationProjector
         if ($relation->isToMany()) {
             $responseRef = TypedDocumentMeta::reference($this->relatedCollectionResponseRef($relBase), $document, $meta);
             $parameters = $this->concatParameters(
-                $this->relatedFilterParameters($relation, $server),
+                $this->relatedFilterParameters($relation, $server, $type),
                 [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 [$includeParameter],
                 $fieldsParameters,
@@ -855,7 +856,7 @@ final class OperationProjector
             // vocabulary — any filter `400`s — so it advertises none, even over one type.
             $parameters = $this->concatParameters(
                 RelationFacts::monomorphicType($relation) !== null
-                    ? $this->relatedFilterParameters($relation, $server)
+                    ? $this->relatedFilterParameters($relation, $server, $type)
                     : [],
                 [$includeParameter],
                 $fieldsParameters,
@@ -916,18 +917,18 @@ final class OperationProjector
         // rows by the relation's own pivot vocabulary, the one its related endpoint takes.
         if (!$relation->isToMany()) {
             $getParameters = RelationFacts::monomorphicType($relation) !== null
-                ? $this->relatedFilterParameters($relation, $server)
+                ? $this->relatedFilterParameters($relation, $server, $type)
                 : [];
         } elseif (RelationFacts::monomorphicType($relation) !== null) {
             $getParameters = $this->concatParameters(
-                $this->relatedFilterParameters($relation, $server),
+                $this->relatedFilterParameters($relation, $server, $type),
                 [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
             );
         } elseif (RelationFacts::identifiesMembers($relation)) {
             $getParameters = $this->concatParameters(
-                $this->relatedFilterParameters($relation, $server),
+                $this->relatedFilterParameters($relation, $server, $type),
                 [$this->sortParameter(OperationFacts::relatedSortVocabulary($relation, $server), RelationFacts::defaultSort($relation), $this->relationSortExample($relation, $server))],
                 $this->pageParameters($relation->pageSchema(), $server),
                 [$this->withCountParameter(OperationFacts::relationshipWithCountTokens($relation), $server)],
@@ -1561,12 +1562,12 @@ final class OperationProjector
      *
      * @return list<Parameter>
      */
-    private function filterParameters(array $filters, array $fields, ServerMetadataInterface $server): array
+    private function filterParameters(array $filters, array $fields, ServerMetadataInterface $server, ?\haddowg\JsonApi\Resource\Filter\RelationHop $under = null): array
     {
         $parameters = [];
         $families = [];
-        $paths = new ThroughPathResolver(fn(string $type): ?array => $this->typeNamed($type, $server)?->fields());
-        foreach ($paths->resolveAll($filters, $fields) as $filter) {
+        $paths = new ThroughPathResolver(fn(string $type): ?array => $this->typeNamed($type, $server)?->fields(), $server instanceof PivotRowRelations ? $server : null);
+        foreach ($paths->resolveAll($filters, $fields, $under) as $filter) {
             if ($filter instanceof FilterFamilyInterface) {
                 $families[] = $filter;
 
@@ -1868,7 +1869,7 @@ final class OperationProjector
         // A generated description says which related resource the filter compares; an
         // author's own is left as written.
         if (!$authored && $filter instanceof \haddowg\JsonApi\Resource\Through\FiltersThrough && ($through = $filter->throughRelations()) !== null) {
-            $description = \rtrim($description, '.') . ', on the related `' . $through . '`.';
+            $description = \rtrim($description, '.') . ($through === \haddowg\JsonApi\Resource\Through\RelationPath::PIVOT ? ', on the pivot row.' : ', on the related `' . $through . '`.');
         }
 
         if (self::isPresenceTriggered($filter)) {
@@ -2233,16 +2234,18 @@ final class OperationProjector
      * the merged vocabulary run against the **related** type's rows, so its inventory
      * — not the parent's — is what a filter's column resolves against. A polymorphic
      * relation has no single related type, hence no inventory: its (own) filters
-     * document untyped.
+     * document untyped. A path starting with `pivot` reaches the pivot row of the
+     * relation as `$parent` declares it.
      *
      * @return list<Parameter>
      */
-    private function relatedFilterParameters(RelationMetadataInterface $relation, ServerMetadataInterface $server): array
+    private function relatedFilterParameters(RelationMetadataInterface $relation, ServerMetadataInterface $server, TypeMetadataInterface $parent): array
     {
         return $this->filterParameters(
             OperationFacts::relatedFilterVocabulary($relation, $server),
             $this->relatedTypeMetadata($relation, $server)?->fields() ?? [],
             $server,
+            OperationFacts::declaredRelation($parent, $relation),
         );
     }
 
@@ -2458,7 +2461,7 @@ final class OperationProjector
                     $entry = $entry->withProperty('sort', $sort);
                 }
             }
-            $filter = $this->relatedQueryFilterSchema($relation, $server);
+            $filter = $this->relatedQueryFilterSchema($relation, $server, $type);
             if ($filter !== null) {
                 $entry = $entry->withProperty('filter', $filter);
             }
@@ -2523,11 +2526,11 @@ final class OperationProjector
      * their prefixed keys. Closed to any other key. `null` when the relation filters by
      * nothing.
      */
-    private function relatedQueryFilterSchema(RelationMetadataInterface $relation, ServerMetadataInterface $server): ?Schema
+    private function relatedQueryFilterSchema(RelationMetadataInterface $relation, ServerMetadataInterface $server, TypeMetadataInterface $type): ?Schema
     {
         $properties = [];
         $patterns = [];
-        foreach ($this->relatedFilterParameters($relation, $server) as $parameter) {
+        foreach ($this->relatedFilterParameters($relation, $server, $type) as $parameter) {
             $schema = $parameter->schema;
             if (!$schema instanceof Schema) {
                 continue;

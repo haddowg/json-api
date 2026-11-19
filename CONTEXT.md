@@ -204,6 +204,13 @@ names, to the type whose field it reads. Every hop means a related row exists, s
 matches only through a row the path reaches and a sort reads `null` where it reaches none.
 _Avoid_: traversal path (that is the deprecated `WhereThrough`'s storage-named path), join path
 
+**Pivot segment**:
+A `pivot` in a **Relation path**, reaching the pivot rows of the relation before it, or of the
+relation the **Filter** or **Sort** runs under when it leads the path. The leaf after it is a
+pivot field, or the path goes on through a relation the pivot row holds, which the data layer
+names.
+_Avoid_: pivot prefix (that is the bundle's `pivot.` column convention)
+
 **Sort**:
 Metadata describing a sort key a type accepts.
 

@@ -310,6 +310,22 @@ final class OperationFacts
     }
 
     /**
+     * The relation `$relation` describes, as `$parent` declares it among its fields, or
+     * `null` when it declares none by that name. A filter or sort starting with `pivot`
+     * reaches this relation's pivot row.
+     */
+    public static function declaredRelation(TypeMetadataInterface $parent, RelationMetadataInterface $relation): ?\haddowg\JsonApi\Resource\Filter\RelationHop
+    {
+        foreach ($parent->fields() as $field) {
+            if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface && $field->name() === $relation->name()) {
+                return new \haddowg\JsonApi\Resource\Filter\RelationHop($field, $parent->type(), $field->column() ?? $field->name());
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The metadata of a monomorphic relation's related type, or `null` for a polymorphic
      * relation or a type the server does not describe.
      */
