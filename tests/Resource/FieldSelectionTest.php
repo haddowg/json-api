@@ -244,6 +244,20 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aNonSparseAttributeRendersWholeUnlessKeysOfItAreSelected(): void
+    {
+        $server = $this->server();
+        $shelf = ['id' => '3', 'label' => 'Top', 'pinned' => ['a' => 1, 'b' => 2]];
+        $render = fn(string $fields): array => $this->attributes($this->body(
+            DataResponse::fromResource($shelf, $server->serializerFor('shelves'))
+                ->toPsrResponse($server, new JsonApiRequest((new ServerRequest('GET', '/shelves/3'))->withQueryParams(['fields' => ['shelves' => $fields]]))),
+        ));
+
+        self::assertSame(['label' => 'Top', 'pinned' => ['a' => 1, 'b' => 2]], $render('label'));
+        self::assertSame(['label' => 'Top', 'pinned' => ['b' => 2]], $render('label,pinned.b'));
+    }
+
+    #[Test]
     public function aClosedObjectCannotDeclareSelectableKeys(): void
     {
         $this->expectException(\LogicException::class);
@@ -295,7 +309,8 @@ final class FieldSelectionTest extends TestCase
         $server = Server::make()
             ->withPsr17($psr17, $psr17)
             ->register(SelectionProductResource::class)
-            ->register(SelectionVendorResource::class);
+            ->register(SelectionVendorResource::class)
+            ->register(SelectionShelfResource::class);
 
         return $withProfile ? $server->withProfile(new FieldSelectionProfile()) : $server;
     }
@@ -437,6 +452,23 @@ final class SelectionVendorResource extends AbstractResource
             Obj::make('stats')
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => \in_array($key, ['rating', 'reviews'], true)),
+        ];
+    }
+}
+
+final class SelectionShelfResource extends AbstractResource
+{
+    public static string $type = 'shelves';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('label'),
+            Obj::make('pinned')
+                ->additionalProperties(Integer::make('*'))
+                ->selectableKeys(pattern: '[a-z]')
+                ->notSparseField(),
         ];
     }
 }
