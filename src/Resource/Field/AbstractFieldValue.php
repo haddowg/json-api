@@ -272,6 +272,24 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
     }
 
     /**
+     * Hydrates as {@see hydrate()} does, passing the value through `$cast` before it is
+     * assigned to an object's member. A field that writes its own way, by overriding
+     * `hydrate()`, hydrates through that override with no cast.
+     *
+     * @internal
+     *
+     * @param array<string, mixed> $data
+     */
+    public function hydrateForStorage(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating, \haddowg\JsonApi\Resource\StorageCastInterface $cast): mixed
+    {
+        if ((new \ReflectionMethod($this, 'hydrate'))->getDeclaringClass()->getName() !== self::class) {
+            return $this->hydrate($model, $value, $data, $request, $creating);
+        }
+
+        return $this->hydrateValue($model, $value, $data, false, $cast);
+    }
+
+    /**
      * Hydrates the value into a nested value: a key of an {@see Obj}, a {@see OneOf}
      * variant or a structured {@see ArrayList} element, which a data layer keeps in a
      * JSON column. A value declared with `enum()` stays its backing scalar here rather
@@ -289,7 +307,7 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
     /**
      * @param array<string, mixed> $data
      */
-    private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested): mixed
+    private function hydrateValue(mixed $model, mixed $value, array $data, bool $nested, ?\haddowg\JsonApi\Resource\StorageCastInterface $cast = null): mixed
     {
         $value = $this->normalizeWireValue($value);
 
@@ -313,6 +331,10 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
             $nested => $this->deserializeValue($value),
             default => $this->toEnumCase($this->deserializeValue($value)),
         };
+
+        if ($cast !== null && \is_object($model)) {
+            $value = $cast->forStorage($model, $column, $value, $this);
+        }
 
         return Accessor::set($model, $column, $value);
     }

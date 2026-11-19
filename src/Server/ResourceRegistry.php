@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
 {
     /**
      * @var array<string, Entry>
@@ -122,6 +122,12 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     private ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface $relationAuthorizer = null;
 
     /**
+     * The host's storage cast, or null for none. Threaded down from the
+     * {@see Server} like the relation authorizer.
+     */
+    private ?\haddowg\JsonApi\Resource\StorageCastInterface $storageCast = null;
+
+    /**
      * Whether a read-only attribute in a write body is rejected rather than ignored.
      * Threaded down from the {@see Server} like the relation authorizer.
      */
@@ -165,6 +171,16 @@ final class ResourceRegistry implements SerializerResolverInterface, HydratorRes
     public function relationAuthorizer(): ?\haddowg\JsonApi\Resource\RelationAuthorizerInterface
     {
         return $this->relationAuthorizer;
+    }
+
+    public function setStorageCast(?\haddowg\JsonApi\Resource\StorageCastInterface $storageCast): void
+    {
+        $this->storageCast = $storageCast;
+    }
+
+    public function storageCast(): ?\haddowg\JsonApi\Resource\StorageCastInterface
+    {
+        return $this->storageCast;
     }
 
     public function setRejectsReadOnlyAttributes(bool $reject): void
