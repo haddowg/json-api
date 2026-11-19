@@ -9,6 +9,7 @@ use haddowg\JsonApi\Collection\LinkRows\LinkRowWrite;
 use haddowg\JsonApi\Collection\LinkRows\LinkRowWritePlan;
 use haddowg\JsonApi\Hydrator\Relationship\ToManyRelationship;
 use haddowg\JsonApi\Request\JsonApiRequest;
+use haddowg\JsonApi\Resource\Field\AdditionalProperties;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\LinkRowFields;
 use haddowg\JsonApi\Resource\Field\Mode;
@@ -226,6 +227,43 @@ final class MorphToManyLinkRowWritesTest extends TestCase
         $this->expectExceptionMessage('declares both identifiedByRows() and fillUsing()');
 
         self::builder()->fillUsing(static fn(mixed $owner): mixed => $owner)->build();
+    }
+
+    #[Test]
+    public function anOpenPivotsExtraMembersReachItsEntryOnEveryRowItWrites(): void
+    {
+        $relation = MorphToMany::make('companies', ['agencies', 'advertisers', 'publishers'])
+            ->storedAs('links')
+            ->through(\stdClass::class)
+            ->identifiedByRows(owner: 'owner', type: 'kind', id: 'key', typeMap: ['agency' => 'agencies', 'advertiser' => 'advertisers', 'publisher' => 'publishers'])
+            ->fields(
+                Integer::make('position'),
+                AdditionalProperties::make()->of(Integer::make('*'))->fillUsing(static function (\stdClass $row, array $members, array $pivot): \stdClass {
+                    $row->extras = $members;
+                    $row->sent = $pivot;
+
+                    return $row;
+                }),
+            )
+            ->build();
+        $owner = self::owner();
+
+        $plan = self::plan($relation, $owner, Mode::Add, [['publishers', 9, ['floor' => 3.0]], ['agencies', 7, ['floor' => 1]], ['agencies', 2]]);
+
+        // An existing member sending only extra members is still written.
+        self::assertSame([['agencies', 7, ['floor' => 1]]], \array_map(static fn(LinkRowWrite $write): array => [$write->member->type, $write->member->id, $write->additional], $plan->updates));
+        self::assertSame(['floor' => 3], $plan->inserts[0]->additional, 'a whole 3.0 is normalised to the value field\'s integer');
+
+        (new InMemoryLinkRows())->write($relation, $owner, $plan);
+
+        $extras = [];
+        foreach (\is_array($owner->links) ? $owner->links : [] as $row) {
+            self::assertInstanceOf(\stdClass::class, $row);
+            $extras[$row->kind . ':' . $row->key] = [$row->extras ?? null, $row->sent ?? null];
+        }
+        self::assertSame([['floor' => 1], ['floor' => 1]], $extras['agency:7']);
+        self::assertSame([null, null], $extras['agency:2']);
+        self::assertSame([['floor' => 3], ['floor' => 3.0]], $extras['publisher:9']);
     }
 
     private static function builder(): MorphToManyBuilder

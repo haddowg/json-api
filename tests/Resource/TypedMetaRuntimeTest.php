@@ -181,6 +181,63 @@ final class TypedMetaRuntimeTest extends TestCase
     }
 
     #[Test]
+    public function hydrationFillsThroughTheAtomicDeclarationInsideABatch(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'stays';
+
+            public function fields(): array
+            {
+                return [Id::make(), Str::make('title')];
+            }
+
+            public function resourceMeta(MetaContext $context): iterable
+            {
+                $target = $context->isAtomic() ? 'batchSource' : 'source';
+
+                return [Str::make('source')->writeOnly()->fillUsing(static function (array $stay, mixed $value) use ($target): array {
+                    $stay[$target] = $value;
+
+                    return $stay;
+                })];
+            }
+        };
+        $data = ['type' => 'stays', 'attributes' => ['title' => 'Stay'], 'meta' => ['source' => 'import']];
+
+        self::assertSame(['title' => 'Stay', 'source' => 'import'], $resource->hydrate(self::write('POST', $data), []));
+
+        $atomic = self::write('POST', $data)->withAttribute(MetaContext::ATOMIC_ATTRIBUTE, true);
+        self::assertInstanceOf(JsonApiRequestInterface::class, $atomic);
+        self::assertTrue(MetaContext::inAtomicOperation($atomic));
+        self::assertSame(['title' => 'Stay', 'batchSource' => 'import'], $resource->hydrate($atomic, []));
+    }
+
+    #[Test]
+    public function theRenderedCheckLeavesALinkageThatRendersNoPivotAlone(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'lists';
+
+            public function fields(): array
+            {
+                return [Id::make(), BelongsToMany::make('entries', 'entries')->fields(Integer::make('position')->required())];
+            }
+        };
+        $document = static fn(array $identifier): array => ['data' => ['type' => 'lists', 'id' => '1', 'relationships' => [
+            'entries' => ['data' => [['type' => 'entries', 'id' => '1', ...$identifier]]],
+        ]]];
+        $serializers = static fn(): object => $resource;
+
+        // A provider that stores no pivot renders the linkage without one, which the schema allows.
+        self::assertSame([], RenderedMeta::violations($document([]), $serializers));
+        self::assertSame([], RenderedMeta::violations($document(['meta' => ['other' => 1]]), $serializers));
+        self::assertSame(
+            ['the linkage of "lists" "1" relationship "entries": in its pivot, the required member "position" is missing'],
+            RenderedMeta::violations($document(['meta' => ['pivot' => []]]), $serializers),
+        );
+    }
+
+    #[Test]
     public function theAtomicParserCarriesEachOperationsMeta(): void
     {
         $descriptors = (new AtomicOperationsParser())->parse(['atomic:operations' => [

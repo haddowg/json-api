@@ -1149,7 +1149,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     /**
      * Hands the members of `data.meta` this type's {@see resourceMeta()} declares to their
      * `fillUsing()` hooks. A member with no hook never reaches the model; an adapter puts its
-     * value on the {@see WrittenMeta}. The adapter has validated `data.meta` already.
+     * value on the {@see WrittenMeta}. The adapter has validated `data.meta` already. A request
+     * its adapter marks as an operation of an Atomic Operations batch
+     * ({@see MetaContext::ATOMIC_ATTRIBUTE}) fills through the atomic declaration.
      *
      * @param array<string, mixed> $data
      */
@@ -1160,7 +1162,11 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             return $domainObject;
         }
 
-        $shape = ResourceMeta::forType($this, MetaContext::write($creating ? \haddowg\JsonApi\OpenApi\Metadata\OperationType::Create : \haddowg\JsonApi\OpenApi\Metadata\OperationType::Update), static::$type);
+        $shape = ResourceMeta::forType(
+            $this,
+            MetaContext::write($creating ? \haddowg\JsonApi\OpenApi\Metadata\OperationType::Create : \haddowg\JsonApi\OpenApi\Metadata\OperationType::Update, MetaContext::inAtomicOperation($request)),
+            static::$type,
+        );
 
         return $shape->isEmpty() ? $domainObject : $shape->fill($domainObject, $meta, $creating, $request);
     }

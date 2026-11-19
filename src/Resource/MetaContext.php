@@ -22,6 +22,13 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
  */
 final readonly class MetaContext
 {
+    /**
+     * The request attribute an adapter sets on the request of each operation it runs inside
+     * an Atomic Operations batch, so what reads the request, such as a resource hydrating
+     * `data.meta`, takes the atomic declaration.
+     */
+    public const string ATOMIC_ATTRIBUTE = 'haddowg.json-api.atomic-operation';
+
     private function __construct(
         public ?OperationType $operation,
         public bool $atomic,
@@ -45,6 +52,15 @@ final readonly class MetaContext
         }
 
         return new self($operation, $atomic);
+    }
+
+    /**
+     * Whether `$request` is the request of an operation inside an Atomic Operations batch,
+     * which its adapter marks with {@see ATOMIC_ATTRIBUTE}.
+     */
+    public static function inAtomicOperation(\Psr\Http\Message\ServerRequestInterface $request): bool
+    {
+        return $request->getAttribute(self::ATOMIC_ATTRIBUTE) === true;
     }
 
     public function isRead(): bool
