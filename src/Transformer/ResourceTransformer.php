@@ -108,7 +108,9 @@ final class ResourceTransformer
             'id' => $id,
         ];
 
-        $meta = $transformation->resource->getMeta($transformation->object, $transformation->request);
+        $meta = $transformation->resource instanceof \haddowg\JsonApi\Serializer\RendersResourceMetaInterface
+            ? $transformation->resource->renderResourceMeta($transformation->object, $transformation->request)
+            : \haddowg\JsonApi\Resource\ResourceMeta::render($transformation->resource, $transformation->object, $transformation->request);
         if ($meta !== []) {
             $transformation->result['meta'] = $meta;
         }

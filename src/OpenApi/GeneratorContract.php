@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-eight scoped
+ * is warned only by the documents that contain it. There are twenty-nine scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -73,8 +73,9 @@ namespace haddowg\JsonApi\OpenApi;
  * whose members are fixed ({@see FIXED_MEMBERSHIP}), a value of several primitive
  * types ({@see UNIONS}), a field's shape declared as a named component
  * ({@see NAMED_COMPONENTS}), a singleton type ({@see SINGLETONS}), a document
- * declaring its top-level `meta` ({@see TYPED_DOCUMENT_META}) and a `fields[<type>]`
- * parameter accepting single keys of an attribute ({@see FIELD_SELECTION}).
+ * declaring its top-level `meta` ({@see TYPED_DOCUMENT_META}), a `fields[<type>]`
+ * parameter accepting single keys of an attribute ({@see FIELD_SELECTION}) and a declared
+ * request, resource object, pivot or identifier `meta` object ({@see TYPED_REQUEST_META}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
  * `contract-witness-baseline.json`, and the CI guard hold `BASELINE` to that.
@@ -89,7 +90,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 42;
+    public const CONTRACT = 43;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -128,9 +129,12 @@ final class GeneratorContract
      * the reference carries the `type` the inline schema would. Contract 39 did again,
      * giving the `filter` members of each `relatedQuery` parameter component the schemas
      * of the related endpoint's `filter[<key>]` parameters, so a backed enum there is a
-     * typed reference to its component rather than an inline copy.
+     * typed reference to its component rather than an inline copy. Contract 43 did again,
+     * closing a relation's request and response `meta.pivot` objects with
+     * `additionalProperties: false`, and its identifier meta object, which now lists
+     * `pivot` among its own properties.
      */
-    public const BASELINE = 39;
+    public const BASELINE = 43;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API
@@ -364,6 +368,17 @@ final class GeneratorContract
      * `fields[<type>]` parameter accepts such keys.
      */
     public const FIELD_SELECTION = 42;
+     * The contract that introduced declared request and resource object `meta`: a write's
+     * own request document narrowing its top-level `meta`, marked `x-request-meta`; a
+     * type's `<Type>ResourceMeta`, `<Type>CreateResourceMeta` and `<Type>UpdateResourceMeta`
+     * objects, marked `x-resource-meta`; an atomic operation kind of a type's own carrying
+     * its declared `meta`; a relationship write answering a meta-only document; a `202`
+     * document declaring its `meta`; every declared `meta` object closed, pivot and
+     * identifier meta included, unless an `additionalProperties` entry opens it, to any
+     * value or to its value field's schema. A document carries it only when one of those
+     * appears.
+     */
+    public const TYPED_REQUEST_META = 43;
 
     /**
      * The `info.x-generator` value for a document, given the scoped structures it uses.
@@ -399,6 +414,7 @@ final class GeneratorContract
         bool $singletons = false,
         bool $typedDocumentMeta = false,
         bool $fieldSelection = false,
+        bool $typedRequestMeta = false,
     ): array {
         return ['contract' => \max(
             self::BASELINE,
@@ -430,6 +446,7 @@ final class GeneratorContract
             $singletons ? self::SINGLETONS : self::BASELINE,
             $typedDocumentMeta ? self::TYPED_DOCUMENT_META : self::BASELINE,
             $fieldSelection ? self::FIELD_SELECTION : self::BASELINE,
+            $typedRequestMeta ? self::TYPED_REQUEST_META : self::BASELINE,
         )];
     }
 }

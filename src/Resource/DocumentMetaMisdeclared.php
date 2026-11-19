@@ -9,4 +9,4 @@ namespace haddowg\JsonApi\Resource;
  * member core writes into it. A wiring error, raised when an adapter registers the type and
  * when the OpenAPI projector reads its metadata, never an error document.
  */
-final class DocumentMetaMisdeclared extends \LogicException {}
+final class DocumentMetaMisdeclared extends MetaMisdeclared {}

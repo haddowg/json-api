@@ -77,7 +77,7 @@ final class TypedDocumentMetaProjectionTest extends TestCase
         $media = self::arr(self::arr(self::arr(self::arr($get['responses'])['200'])['content'])['application/vnd.api+json']);
         self::assertSame(['$ref' => '#/components/schemas/NotesFetchCollectionDocument'], $media['schema']);
         self::assertSame(['unread' => 3, 'page' => ['currentPage' => 2, 'perPage' => 15, 'from' => 16, 'to' => 30]], self::arr($media['example'])['meta']);
-        self::assertSame(['contract' => GeneratorContract::TYPED_DOCUMENT_META], self::arr($document['info'])['x-generator']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::TYPED_DOCUMENT_META)], self::arr($document['info'])['x-generator']);
     }
 
     #[Test]

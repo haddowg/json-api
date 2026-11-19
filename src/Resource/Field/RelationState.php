@@ -70,5 +70,7 @@ final readonly class RelationState
         public bool $dropsAllFilterDefaults = false,
         public array $droppedFilterDefaults = [],
         public ?string $foreignKey = null,
+        public ?AdditionalProperties $identifierMetaAdditional = null,
+        public ?AdditionalProperties $pivotAdditional = null,
     ) {}
 }

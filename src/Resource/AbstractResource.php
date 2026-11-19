@@ -53,7 +53,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * lets the engine narrow. A field declared `notSparseField()` is emitted marked, and the
  * engine renders it whatever the fieldset lists.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface, \haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface
 {
     use RendersRelationsTrait;
 
@@ -395,6 +395,63 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return [];
     }
 
+    /**
+     * The members of the top-level `meta` of the meta-only `200` a relationship write
+     * answers with, per relationship and mutation, typically through a `match` on the
+     * context. Declaring any makes that write answer the meta-only document instead of its
+     * linkage. A member's `extractUsing()` hook receives the parent resource and the request;
+     * a member with none is set by a hook through `withMeta()`.
+     *
+     * The OpenAPI projection calls it with no request, so the result must not depend on one.
+     *
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
+    {
+        return [];
+    }
+
+    /**
+     * The members a write request's top-level `meta` may carry, per write, typically
+     * through a `match` on the context:
+     *
+     *     return match (true) {
+     *         $context->is(OperationType::Create) => [Str::make('idempotencyKey')->required()],
+     *         $context->isRelationship('items') => [Str::make('reason')],
+     *         default => [],
+     *     };
+     *
+     * Values are validated as attributes are, a member the declaration does not name is a
+     * `422` unless an `AdditionalProperties` entry opens the object, and the typed values
+     * reach the write's hooks through {@see WrittenMeta}. Declaring nothing leaves `meta`
+     * open and unchecked.
+     *
+     * The OpenAPI projection calls it with no request, so the result must not depend on one.
+     *
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function requestDocumentMeta(RequestMetaContext $context): iterable
+    {
+        return [];
+    }
+
+    /**
+     * The members of this type's resource object `meta`, read and written. A read renders
+     * each member whose `extractUsing()` hook supplies it; a create or update validates
+     * `data.meta` as attributes are validated and hands each member to its `fillUsing()`
+     * hook, or leaves it on the {@see WrittenMeta} for the write's hooks when it has none.
+     * `readOnly()` and `writeOnly()` split one list between the directions. Declaring
+     * nothing leaves `meta` open in both directions.
+     *
+     * The OpenAPI projection calls it with no request, so the result must not depend on one.
+     *
+     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
+     */
+    public function resourceMeta(MetaContext $context): iterable
+    {
+        return [];
+    }
+
     public function getId(mixed $object): string
     {
         $idField = $this->idField();
@@ -448,6 +505,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         return $paths;
     }
 
+    /**
+     * @deprecated to be removed in the next major. Declare the members in
+     *             {@see resourceMeta()} instead; an `AdditionalProperties` entry whose
+     *             `extractUsing()` returns what this method returned renders the same `meta`
+     *             and documents the object as open.
+     */
     public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return [];
@@ -1028,7 +1091,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         // Flattened (`on()`) attributes hydrate LAST: a relation associated in this
         // same request body must be visible so the value can be written onto the
         // freshly resolved related model.
-        return $this->hydrateRelatedAttributes($domainObject, $data, $request, true);
+        $domainObject = $this->hydrateRelatedAttributes($domainObject, $data, $request, true);
+
+        return $this->hydrateResourceMeta($domainObject, $data, $request, true);
     }
 
     /**
@@ -1061,7 +1126,28 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         $domainObject = $this->hydrateRelationships($domainObject, $request, false);
 
         // Flattened (`on()`) attributes hydrate LAST (see hydrateForCreate()).
-        return $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
+        $domainObject = $this->hydrateRelatedAttributes($domainObject, $data, $request, false);
+
+        return $this->hydrateResourceMeta($domainObject, $data, $request, false);
+    }
+
+    /**
+     * Hands the members of `data.meta` this type's {@see resourceMeta()} declares to their
+     * `fillUsing()` hooks. A member with no hook never reaches the model; an adapter puts its
+     * value on the {@see WrittenMeta}. The adapter has validated `data.meta` already.
+     *
+     * @param array<string, mixed> $data
+     */
+    protected function hydrateResourceMeta(mixed $domainObject, array $data, JsonApiRequestInterface $request, bool $creating): mixed
+    {
+        $meta = $data['meta'] ?? null;
+        if (!\is_array($meta) || $meta === []) {
+            return $domainObject;
+        }
+
+        $shape = ResourceMeta::forType($this, MetaContext::write($creating ? \haddowg\JsonApi\OpenApi\Metadata\OperationType::Create : \haddowg\JsonApi\OpenApi\Metadata\OperationType::Update), static::$type);
+
+        return $shape->isEmpty() ? $domainObject : $shape->fill($domainObject, $meta, $creating, $request);
     }
 
     /**

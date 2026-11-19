@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\OpenApi;
 
+use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
@@ -16,6 +17,7 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\DocumentMeta;
+use haddowg\JsonApi\Resource\RelationshipMetaContext;
 
 /**
  * Which success documents declare their top-level `meta`, what each is named, and the
@@ -45,6 +47,13 @@ final class TypedDocumentMeta
      * @var \WeakMap<TypeMetadataInterface, array<string, DocumentMeta>>|null
      */
     private static ?\WeakMap $declared = null;
+
+    /**
+     * Each type's relationship write declarations, read once.
+     *
+     * @var \WeakMap<TypeMetadataInterface, array<string, DocumentMeta>>|null
+     */
+    private static ?\WeakMap $relationships = null;
 
     /**
      * The members `$type` declares for the document `$operation` answers with.
@@ -96,6 +105,9 @@ final class TypedDocumentMeta
         if (($response instanceof ActionResource || $response instanceof ActionCreated) && !self::registers($server, $response->bodyType())) {
             return new DocumentMeta();
         }
+        if ($response instanceof Accepted && !self::registers($server, $response->jobType())) {
+            return new DocumentMeta();
+        }
 
         return DocumentMeta::forResponse($response);
     }
@@ -109,13 +121,42 @@ final class TypedDocumentMeta
     }
 
     /**
+     * The `202` document of a CRUD write whose {@see Accepted} declares `meta`.
+     */
+    public static function acceptedDocument(string $type, OperationKey $key): string
+    {
+        return ComponentNaming::operation($type, $key) . 'AcceptedDocument';
+    }
+
+    /**
+     * The members of the meta-only `200` a relationship write answers with, which the
+     * parent type declares. None when it declares none, so the write answers its linkage.
+     */
+    public static function forRelationshipWrite(TypeMetadataInterface $type, RelationMetadataInterface $relation, OperationKind $kind): DocumentMeta
+    {
+        self::$relationships ??= new \WeakMap();
+        $memo = self::$relationships[$type] ?? [];
+        $key = $relation->name() . ':' . $kind->value;
+        if (!isset($memo[$key])) {
+            $memo[$key] = DocumentMeta::forRelationship($type, new RelationshipMetaContext($relation->name(), TypedRequestMeta::mode($kind)), $type->type());
+            self::$relationships[$type] = $memo;
+        }
+
+        return $memo[$key];
+    }
+
+    /**
      * The document component of an action response that declares `meta`: one per action,
      * whatever methods it answers to, and its `201` apart from its `200`.
      */
     public static function actionDocument(string $type, ActionMetadataInterface $action, ActionResponse $response): string
     {
         return ComponentNaming::base($type) . ComponentNaming::base($action->path()) . 'Action'
-            . ($response instanceof ActionCreated ? 'Created' : '') . 'Document';
+            . match (true) {
+                $response instanceof ActionCreated => 'Created',
+                $response instanceof Accepted => 'Accepted',
+                default => '',
+            } . 'Document';
     }
 
     /**
@@ -149,6 +190,7 @@ final class TypedDocumentMeta
                         $shared = match (true) {
                             $response instanceof MetaResult => 'MetaDocument',
                             $response instanceof ActionResource, $response instanceof ActionCreated => ComponentNaming::base($response->bodyType()) . 'Document',
+                            $response instanceof Accepted => ComponentNaming::base($response->jobType()) . 'Document',
                             default => null,
                         };
                         $meta = self::forActionResponse($response, $server);
@@ -179,6 +221,26 @@ final class TypedDocumentMeta
                 if ($shared !== null && $meta !== null && !$meta->isEmpty()) {
                     self::add($documents, self::operationDocument($type->type(), $key), $shared, $meta, $enumerated->operationId);
                 }
+
+                // A write accepted for later processing answers its job's document, which
+                // its Accepted response may declare the meta of.
+                if ($key->kind === OperationKind::Create || $key->kind === OperationKind::Update) {
+                    foreach ($type->responsesFor($key->kind === OperationKind::Create ? OperationType::Create : OperationType::Update) as $response) {
+                        $accepted = $response instanceof Accepted ? self::forActionResponse($response, $server) : null;
+                        if ($response instanceof Accepted && $accepted !== null && !$accepted->isEmpty()) {
+                            self::add($documents, self::acceptedDocument($type->type(), $key), ComponentNaming::base($response->jobType()) . 'Document', $accepted, $enumerated->operationId);
+                        }
+                    }
+                }
+
+                // A relationship write the parent type declares document meta for answers a
+                // meta-only document.
+                if ($enumerated->relation !== null && \in_array($key->kind, [OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship], true)) {
+                    $relationshipMeta = self::forRelationshipWrite($type, $enumerated->relation, $key->kind);
+                    if (!$relationshipMeta->isEmpty()) {
+                        self::add($documents, self::operationDocument($type->type(), $key), 'MetaDocument', $relationshipMeta, $enumerated->operationId);
+                    }
+                }
             }
         }
 
@@ -201,7 +263,7 @@ final class TypedDocumentMeta
      */
     public static function schema(Schema $shared, DocumentMeta $meta, SchemaProjector $schemas, ?EnumComponentCollector $collector = null): Schema
     {
-        $object = $schemas->projectDocumentMeta($meta->fields, $collector);
+        $object = $schemas->projectMetaObject($meta->shape(), collector: $collector);
         if ($meta->collection) {
             $object = $object
                 ->withProperty('page', Schema::ofType('object')->withDescription('The members of the current page, written by the server.'))

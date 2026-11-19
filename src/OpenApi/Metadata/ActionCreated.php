@@ -44,7 +44,7 @@ final readonly class ActionCreated implements ActionResponse
         if ($type === '') {
             throw new \InvalidArgumentException('An action created response requires a non-empty type.');
         }
-        $this->meta = (new DocumentMeta($meta, owner: \sprintf('the action response of type "%s"', $type)))->fields;
+        $this->meta = (new DocumentMeta($meta, owner: \sprintf('the action response of type "%s"', $type)))->declaration();
     }
 
     /**

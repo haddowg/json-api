@@ -55,11 +55,12 @@ final class IdentifierMetaProjectionTest extends TestCase
                 'primary' => ['type' => ['boolean', 'null']],
             ],
             'required' => ['role', 'primary'],
+            'additionalProperties' => false,
         ], $this->arrAt($schemas, 'ArticlesAuthorIdentifierMeta'));
     }
 
     #[Test]
-    public function aPivotAndDeclaredMetaAreSiblingsAndOnlyTheReadShapeCarriesTheDeclaredMeta(): void
+    public function aPivotIsAPropertyOfTheClosedDeclaredMetaAndOnlyTheReadShapeCarriesTheDeclaredMeta(): void
     {
         $schemas = $this->arrAt($this->document(new FakeRelationMetadata(
             'tags',
@@ -70,12 +71,15 @@ final class IdentifierMetaProjectionTest extends TestCase
         )), 'components', 'schemas');
 
         self::assertSame(
-            ['allOf' => [
-                ['$ref' => '#/components/schemas/ArticlesTagsIdentifierMeta'],
-                ['type' => 'object', 'properties' => ['pivot' => ['$ref' => '#/components/schemas/ArticlesTagsPivot']]],
-            ]],
+            ['$ref' => '#/components/schemas/ArticlesTagsIdentifierMeta'],
             $this->arrAt($schemas, 'ArticlesTagsRelationship', 'properties', 'data', 'items', 'allOf', '1', 'properties', 'meta'),
         );
+        // The declared object is closed, so `pivot` is one of its own properties.
+        self::assertSame(
+            ['addedVia' => ['type' => ['string', 'null']], 'pivot' => ['$ref' => '#/components/schemas/ArticlesTagsPivot']],
+            $this->arrAt($schemas, 'ArticlesTagsIdentifierMeta', 'properties'),
+        );
+        self::assertFalse($this->arrAt($schemas, 'ArticlesTagsIdentifierMeta')['additionalProperties']);
 
         // A write never sends the read-only identifier meta: only the request pivot.
         foreach (['ArticlesTagsWriteRelationship', 'ArticlesTagsRelationshipRequest'] as $component) {

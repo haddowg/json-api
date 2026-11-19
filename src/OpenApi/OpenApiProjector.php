@@ -35,6 +35,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Union;
+use haddowg\JsonApi\Resource\MetaContext;
 
 /**
  * Projects a server's worth of JSON:API metadata (a {@see ServerMetadataInterface})
@@ -157,6 +158,11 @@ final class OpenApiProjector
         $typedDocuments = [];
         foreach (TypedDocumentMeta::documents($server) as $name => $typed) {
             $typedDocuments[$name] = TypedDocumentMeta::schema($typed['base'], $typed['meta'], $this->schemaProjector, $collector);
+        }
+        // Likewise the request documents of the writes that declare their request meta.
+        $typedRequests = TypedRequestMeta::documents($server, fn(TypeMetadataInterface $type, Metadata\ActionMetadataInterface $action): ?Schema => $this->operationProjector->actionRequestDocument($action, $server));
+        foreach ($typedRequests as $name => $typed) {
+            $typedDocuments[$name] = TypedRequestMeta::schema($typed['base'], $typed['meta'], $this->schemaProjector, $collector);
         }
         [$paths, $parameters] = self::adoptFilterEnums($paths, $parameters, $filterEnums, $collector);
 
@@ -284,7 +290,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, $typedDocuments !== [], self::acceptsSelectedKeys($paths)),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, TypedDocumentMeta::documents($server) !== [], self::acceptsSelectedKeys($paths), self::declaresTypedRequestMeta($server)),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -531,7 +537,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $fieldSelection): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $fieldSelection, bool $typedRequestMeta): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -570,7 +576,35 @@ final class OpenApiProjector
             namedComponents: $namedComponents,
             typedDocumentMeta: $typedDocumentMeta,
             fieldSelection: $fieldSelection,
+            typedRequestMeta: $typedRequestMeta,
         ));
+    }
+
+    /**
+     * Whether the document carries a structure {@see GeneratorContract::TYPED_REQUEST_META}
+     * introduced: a typed request document or resource object `meta`, a relationship write's
+     * or a `202`'s typed document, an object an `additionalProperties` entry opens, or a
+     * closed pivot or identifier meta object.
+     */
+    private static function declaresTypedRequestMeta(ServerMetadataInterface $server): bool
+    {
+        if (TypedRequestMeta::any($server)) {
+            return true;
+        }
+        foreach (TypedDocumentMeta::documents($server) as $name => $typed) {
+            if ($typed['meta']->additional !== null || \str_ends_with($name, 'AcceptedDocument') || \str_ends_with($name, 'RelationshipDocument')) {
+                return true;
+            }
+        }
+        foreach ($server->types() as $type) {
+            foreach ($type->relations() as $relation) {
+                if (RelationFacts::hasPivot($relation) || RelationFacts::hasIdentifierMeta($relation)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1107,6 +1141,13 @@ final class OpenApiProjector
             }
         }
 
+        // A relationship write the parent type declares document meta for answers one.
+        foreach (TypedDocumentMeta::documents($server) as $typed) {
+            if ($typed['base']->toArray() === ['$ref' => ComponentNaming::schemaRef('MetaDocument')]) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -1246,6 +1287,18 @@ final class OpenApiProjector
             // the type without a collection or create endpoint to start from.
             $resource = $resource->withExtension('singleton', PathTemplate::resource($type->uriType(), true));
         }
+        // A type declaring its resource objects' `meta` types it in each direction.
+        $readMeta = TypedRequestMeta::forResource($type, MetaContext::read());
+        if (!$readMeta->isEmpty()) {
+            $schemas[TypedRequestMeta::resourceMetaComponent($type->type())] = TypedRequestMeta::resourceMetaSchema($readMeta, null, $this->schemaProjector, $collector);
+            $resource = $resource->withProperty('meta', Schema::ref(ComponentNaming::schemaRef(TypedRequestMeta::resourceMetaComponent($type->type()))));
+        }
+        foreach ([[OperationType::Create, $allowsCreate], [OperationType::Update, $allowsUpdate]] as [$write, $allowed]) {
+            $writeMeta = TypedRequestMeta::forResource($type, MetaContext::write($write));
+            if ($allowed && !$writeMeta->isEmpty()) {
+                $schemas[TypedRequestMeta::resourceMetaComponent($type->type(), $write)] = TypedRequestMeta::resourceMetaSchema($writeMeta, $write, $this->schemaProjector, $collector);
+            }
+        }
         $schemas[$name . 'Resource'] = $resource;
 
         $schemas[$name . 'ResourceIdentifier'] = $this->resourceIdentifierSchema($type->type());
@@ -1280,11 +1333,12 @@ final class OpenApiProjector
             // request carries only what a write may set), so its linkage gets a response
             // and a request shape, and the writes $ref the request ones.
             if (RelationFacts::hasPivot($relation)) {
-                $schemas[$relBase . 'Pivot'] = $this->schemaProjector->projectReadPivotObject($relation->pivotFields(), $collector);
+                $schemas[$relBase . 'Pivot'] = $this->schemaProjector->projectReadPivotObject($relation->pivotFields(), $collector, RelationFacts::pivotAdditional($relation));
                 // A computed pivot field is never written, so the request shape leaves it out.
                 $schemas[$relBase . 'WritePivot'] = $this->schemaProjector->projectPivotObject(
                     \array_filter($relation->pivotFields(), static fn(FieldInterface $field): bool => !BelongsToMany::isComputedPivotField($field)),
                     $collector,
+                    RelationFacts::pivotAdditional($relation),
                 );
                 $schemas[$relBase . 'WriteRelationship'] = $this->writeRelationshipObjectSchema($relation, $relBase);
                 if ($relation->exposesRelationshipEndpoint()) {
@@ -1294,8 +1348,15 @@ final class OpenApiProjector
 
             // The members a relation declares its identifier meta resolver adds, typed
             // under each response linkage identifier's `meta` beside any `pivot`.
+            // The object is closed, so a pivot-backed relation's `pivot` is one of its
+            // properties rather than a sibling `allOf` branch, which the closed branch would refuse.
             if (RelationFacts::hasIdentifierMeta($relation)) {
-                $schemas[$relBase . 'IdentifierMeta'] = $this->schemaProjector->projectReadObject(RelationFacts::identifierMetaFields($relation), $collector);
+                $identifierMeta = $this->schemaProjector->projectReadObject(RelationFacts::identifierMetaFields($relation), $collector)
+                    ->withAdditionalProperties($this->schemaProjector->additionalMembers(RelationFacts::identifierMetaAdditional($relation), false, true, $collector));
+                if (RelationFacts::hasPivot($relation)) {
+                    $identifierMeta = $identifierMeta->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . 'Pivot'));
+                }
+                $schemas[$relBase . 'IdentifierMeta'] = $identifierMeta;
             }
 
             // The to-one related endpoint renders `data: <Resource> | null` (an empty
@@ -1537,13 +1598,21 @@ final class OpenApiProjector
         $adds = $this->typesAllowing($server, OperationType::Create);
         $updates = $this->typesAllowing($server, OperationType::Update);
         $kinds = [];
-        if ($adds !== []) {
-            $kinds['AtomicAddOperation'] = $this->atomicKindSchema('add', false, 'Adds a resource.', $this->discriminatedUnion($adds, 'AtomicAdd'), true);
+        // A type declaring an operation's `meta` takes a kind of its own, which types that
+        // `meta` and is told apart from the shared kind by its `data` or its `ref`.
+        $typedKinds = $this->typedAtomicKinds($server);
+        $untypedAdds = \array_values(\array_diff($adds, $typedKinds['add']));
+        $untypedUpdates = \array_values(\array_diff($updates, $typedKinds['update']));
+        if ($untypedAdds !== []) {
+            $kinds['AtomicAddOperation'] = $this->atomicKindSchema('add', false, 'Adds a resource.', $this->discriminatedUnion($untypedAdds, 'AtomicAdd'), true);
         }
-        if ($updates !== []) {
-            $kinds['AtomicUpdateOperation'] = $this->atomicKindSchema('update', false, 'Updates a resource.', $this->discriminatedUnion($updates, 'AtomicUpdate'), true);
+        if ($untypedUpdates !== []) {
+            $kinds['AtomicUpdateOperation'] = $this->atomicKindSchema('update', false, 'Updates a resource.', $this->discriminatedUnion($untypedUpdates, 'AtomicUpdate'), true);
         }
-        $kinds['AtomicRemoveOperation'] = $this->atomicKindSchema('remove', false, 'Removes a resource.', null, false);
+        $kinds['AtomicRemoveOperation'] = self::excludingRefs(
+            $this->atomicKindSchema('remove', false, 'Removes a resource.', null, false),
+            \array_map(static fn(string $type): array => [$type, null], $typedKinds['remove']),
+        );
         if ($linkageTypes !== []) {
             // The linkage union and its array are components, so a type joining the server
             // adds a branch to one named `oneOf` rather than reshaping three inline lists.
@@ -1553,9 +1622,25 @@ final class OpenApiProjector
                 ->withItems(Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIER)));
             $identifier = Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIER));
             $toMany = Schema::ref(ComponentNaming::schemaRef(self::ATOMIC_IDENTIFIERS));
-            $kinds['AtomicRelationshipAddOperation'] = $this->atomicKindSchema('add', true, 'Adds members to a to-many relationship.', $toMany, true);
-            $kinds['AtomicRelationshipUpdateOperation'] = $this->atomicKindSchema('update', true, 'Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many.', Schema::create()->withOneOf([$identifier, Schema::ofType('null'), $toMany]), true);
-            $kinds['AtomicRelationshipRemoveOperation'] = $this->atomicKindSchema('remove', true, 'Removes members from a to-many relationship.', $toMany, true);
+            $relationshipData = [
+                'add' => $toMany,
+                'update' => Schema::create()->withOneOf([$identifier, Schema::ofType('null'), $toMany]),
+                'remove' => $toMany,
+            ];
+            $kinds['AtomicRelationshipAddOperation'] = self::excludingRefs($this->atomicKindSchema('add', true, 'Adds members to a to-many relationship.', $toMany, true), $typedKinds['relationship']['add']);
+            $kinds['AtomicRelationshipUpdateOperation'] = self::excludingRefs($this->atomicKindSchema('update', true, 'Replaces a relationship: an identifier or `null` for a to-one, an array of identifiers for a to-many.', $relationshipData['update'], true), $typedKinds['relationship']['update']);
+            $kinds['AtomicRelationshipRemoveOperation'] = self::excludingRefs($this->atomicKindSchema('remove', true, 'Removes members from a to-many relationship.', $toMany, true), $typedKinds['relationship']['remove']);
+        }
+        foreach ($typedKinds['schemas'] as $name => [$op, $type, $relation, $meta]) {
+            $base = $this->componentBase($type);
+            $data = match (true) {
+                $relation !== null => $relationshipData[$op] ?? null,
+                $op === 'add' => Schema::ref(ComponentNaming::schemaRef($base . 'AtomicAdd')),
+                $op === 'update' => Schema::ref(ComponentNaming::schemaRef($base . 'AtomicUpdate')),
+                default => null,
+            };
+            $kind = $this->atomicKindSchema($op, $relation !== null, \sprintf('%s, carrying the `meta` the "%s" type declares for it.', ucfirst($op) . ($relation === null ? 's a resource' : 's on the "' . $relation . '" relationship'), $type), $data, $data !== null);
+            $kinds[$name] = $this->withTypedAtomicMeta($kind, $type, $relation, $op, $meta);
         }
 
         $branches = [];
@@ -1570,6 +1655,105 @@ final class OpenApiProjector
         $schemas['AtomicOperationsRequest'] = $this->atomicOperationsRequestSchema();
         $schemas['AtomicResult'] = $this->atomicResultSchema(\array_values(\array_unique([...$adds, ...$updates])), $linkageTypes);
         $schemas['AtomicResultsResponse'] = $this->atomicResultsResponseSchema();
+    }
+
+    /**
+     * The atomic operations whose target type declares their `meta`: the types whose `add`,
+     * `update` or `remove` does, the type and relation pairs whose relationship operations
+     * do, and one kind component per declaring operation, keyed by name.
+     *
+     * @return array{add: list<string>, update: list<string>, remove: list<string>, relationship: array{add: list<array{string, string}>, update: list<array{string, string}>, remove: list<array{string, string}>}, schemas: array<string, array{string, string, ?string, \haddowg\JsonApi\Resource\MetaShape}>}
+     */
+    private function typedAtomicKinds(ServerMetadataInterface $server): array
+    {
+        $kinds = ['add' => [], 'update' => [], 'remove' => [], 'relationship' => ['add' => [], 'update' => [], 'remove' => []], 'schemas' => []];
+        foreach ($server->types() as $type) {
+            $base = $this->componentBase($type->type());
+            foreach (['add' => OperationType::Create, 'update' => OperationType::Update, 'remove' => OperationType::Delete] as $op => $operation) {
+                if (!$this->allowsOperation($type, $operation)) {
+                    continue;
+                }
+                $meta = TypedRequestMeta::forOperation($type, \haddowg\JsonApi\Resource\RequestMetaContext::forOperation($operation, true));
+                if (!$meta->isEmpty()) {
+                    $kinds[$op][] = $type->type();
+                    $kinds['schemas'][$base . 'Atomic' . \ucfirst($op) . 'Operation'] = [$op, $type->type(), null, $meta];
+                }
+            }
+            if (!$this->allowsOperation($type, OperationType::Update)) {
+                continue;
+            }
+            foreach ($type->relations() as $relation) {
+                if (!$relation->exposesRelationshipEndpoint()) {
+                    continue;
+                }
+                $modes = $relation->isToMany()
+                    ? ['update' => \haddowg\JsonApi\OpenApi\Metadata\OperationKind::UpdateRelationship, 'add' => \haddowg\JsonApi\OpenApi\Metadata\OperationKind::AddRelationship, 'remove' => \haddowg\JsonApi\OpenApi\Metadata\OperationKind::RemoveRelationship]
+                    : ['update' => \haddowg\JsonApi\OpenApi\Metadata\OperationKind::UpdateRelationship];
+                foreach ($modes as $op => $kind) {
+                    $meta = TypedRequestMeta::forOperation($type, TypedRequestMeta::relationshipContext($relation, $kind, true));
+                    if (!$meta->isEmpty()) {
+                        $kinds['relationship'][$op][] = [$type->type(), $relation->name()];
+                        $kinds['schemas'][$base . $this->componentBase($relation->name()) . 'AtomicRelationship' . \ucfirst($op) . 'Operation'] = [$op, $type->type(), $relation->name(), $meta];
+                    }
+                }
+            }
+        }
+
+        return $kinds;
+    }
+
+    /**
+     * A kind of its own for one declaring operation: its target named by a `ref` whose
+     * `type`, and `relationship` for a relationship operation, are the declaring ones, and
+     * its `meta` the declared object.
+     */
+    private function withTypedAtomicMeta(Schema $kind, string $type, ?string $relation, string $op, \haddowg\JsonApi\Resource\MetaShape $meta): Schema
+    {
+        $target = Schema::create()->withProperty('type', Schema::ofType('string')->withConst($type))->withRequired(['type']);
+        if ($relation !== null) {
+            $target = $target->withProperty('relationship', Schema::ofType('string')->withConst($relation))->withRequired(['type', 'relationship']);
+        }
+        $required = $kind->get('required');
+        $required = \is_array($required) ? \array_values(\array_filter($required, \is_string(...))) : [];
+        // An `add` of a resource is told apart by its `data`; every other kind by its `ref`.
+        if ($relation !== null || $op === 'remove') {
+            $kind = $kind
+                ->withProperty('ref', Schema::create()->withAllOf([Schema::ref('#/components/schemas/AtomicRef'), $target]))
+                ->withProperty('href', Schema::never());
+            $required[] = 'ref';
+        }
+        $kind = $kind->withProperty('meta', $this->schemaProjector->projectMetaObject($meta, true, true));
+        if (TypedRequestMeta::hasRequired($meta, $this->schemaProjector)) {
+            $required[] = 'meta';
+        }
+
+        return $kind->withRequired(\array_values(\array_unique($required)))->withExtension(TypedRequestMeta::EXTENSION, true);
+    }
+
+    /**
+     * A shared kind that no longer matches an operation whose `ref` names one of
+     * `$targets`, each a type and, for a relationship operation, its relation, since those
+     * take a kind of their own.
+     *
+     * @param list<array{string, ?string}> $targets
+     */
+    private static function excludingRefs(Schema $kind, array $targets): Schema
+    {
+        if ($targets === []) {
+            return $kind;
+        }
+        $branches = [];
+        foreach ($targets as [$type, $relation]) {
+            $branch = Schema::create()->withProperty('type', Schema::ofType('string')->withConst($type));
+            $branches[] = $relation === null
+                ? $branch->withRequired(['type'])
+                : $branch->withProperty('relationship', Schema::ofType('string')->withConst($relation))->withRequired(['type', 'relationship']);
+        }
+        $ref = $kind->get('properties');
+        $ref = \is_array($ref) ? ($ref['ref'] ?? null) : null;
+        $excluded = Schema::create()->withNot(\count($branches) === 1 ? $branches[0] : Schema::create()->withAnyOf($branches));
+
+        return $kind->withProperty('ref', $ref instanceof Schema ? Schema::create()->withAllOf([$ref, $excluded]) : $excluded);
     }
 
     /**
@@ -1733,6 +1917,7 @@ final class OpenApiProjector
             ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true, atomic: true) ?? Schema::ofType('object'))
             ->withRequired(['type'])
             ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
+        $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create, atomic: true);
 
         if ($type->allowsClientId()) {
             // A client `id` is permitted: `id`, `lid`, or neither (server-assigned),
@@ -1766,7 +1951,7 @@ final class OpenApiProjector
     {
         $base = $this->componentBase($type->type());
 
-        return Schema::ofType('object')
+        return $this->withWrittenResourceMeta(Schema::ofType('object'), $type, OperationType::Update, atomic: true)
             ->withProperty('type', Schema::ofType('string')->withConst($type->type()))
             ->withProperty('id', Schema::ofType('string'))
             ->withProperty('lid', Schema::ofType('string')->withDescription('The local id of a resource created earlier in the batch.'))
@@ -2119,6 +2304,7 @@ final class OpenApiProjector
             $resource = $resource->withProperty('relationships', $relationships);
         }
         $resource = $resource->withRequired($required);
+        $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create);
 
         return $this->writeDocumentEnvelope($resource);
     }
@@ -2137,8 +2323,31 @@ final class OpenApiProjector
             $resource = $resource->withProperty('relationships', $relationships);
         }
         $resource = $resource->withRequired(['type', 'id']);
+        $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Update);
 
         return $this->writeDocumentEnvelope($resource);
+    }
+
+    /**
+     * A write resource object with its `meta` typed by the type's declared resource meta
+     * for the write, and unchanged when it declares none. A required member makes `meta`
+     * required.
+     */
+    private function withWrittenResourceMeta(Schema $resource, TypeMetadataInterface $type, OperationType $write, bool $atomic = false): Schema
+    {
+        $meta = TypedRequestMeta::forResource($type, MetaContext::write($write, $atomic));
+        if ($meta->isEmpty()) {
+            return $resource;
+        }
+
+        $resource = $resource->withProperty('meta', $atomic
+            ? TypedRequestMeta::resourceMetaSchema($meta, $write, $this->schemaProjector)
+            : Schema::ref(ComponentNaming::schemaRef(TypedRequestMeta::resourceMetaComponent($type->type(), $write))));
+        $required = $resource->get('required');
+
+        return $write === OperationType::Create && TypedRequestMeta::hasRequired($meta, $this->schemaProjector)
+            ? $resource->withRequired([...(\is_array($required) ? \array_values(\array_filter($required, \is_string(...))) : []), 'meta'])
+            : $resource;
     }
 
     /**
@@ -2382,8 +2591,8 @@ final class OpenApiProjector
      * `meta.pivot` `$ref`s its response (`<Type><Rel>Pivot`) or request
      * (`<Type><Rel>WritePivot`) pivot component. On a response, the members an
      * `identifierMeta()` resolver declares `$ref` the relation's `<Type><Rel>IdentifierMeta`
-     * component; with a pivot too, `meta` is the `allOf` of both, so the declared members
-     * and `pivot` are siblings. A request never carries them, as they are read-only.
+     * component, a closed object which lists `pivot` among its properties when the relation
+     * has a pivot too. A request never carries them, as they are read-only.
      */
     private function linkageMetaNarrowing(RelationMetadataInterface $relation, string $relBase, bool $writing): ?Schema
     {
@@ -2395,9 +2604,8 @@ final class OpenApiProjector
             : null;
 
         $meta = match (true) {
-            $pivot !== null && $declared !== null => Schema::create()->withAllOf([$declared, $pivot]),
-            $pivot !== null => $pivot,
             $declared !== null => $declared,
+            $pivot !== null => $pivot,
             default => null,
         };
 

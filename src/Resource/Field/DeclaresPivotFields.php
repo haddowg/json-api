@@ -29,16 +29,28 @@ trait DeclaresPivotFields
      * may be a field builder or an already-built field; any builder is **built**
      * here, so an author need not call `->build()` on a pivot child by hand. A pivot
      * field is **writable by default** (settable from the linkage `meta`); opt a
-     * server-owned column out with `->readOnly()`. Replaces any previously declared
-     * set.
+     * server-owned column out with `->readOnly()`. `meta.pivot` is closed to members no
+     * field names unless one entry is an `AdditionalProperties::make()`, whose
+     * `extractUsing()` hook receives the {@see PivotEdge} and returns extra members to
+     * render, and whose `fillUsing()` hook receives the pivot row and the undeclared
+     * members written. Replaces any previously declared set.
      *
      * @return static
      */
     public function fields(FieldInterface|FieldBuilderInterface ...$fields): static
     {
         $this->pivotFields = [];
+        $this->pivotAdditional = null;
         foreach ($fields as $field) {
             $built = $field instanceof FieldBuilderInterface ? $field->build() : $field;
+            if ($built instanceof AdditionalProperties) {
+                if ($this->pivotAdditional !== null) {
+                    throw new \LogicException(\sprintf('Relation "%s" declares more than one additionalProperties entry among its pivot fields; declare at most one.', $this->name));
+                }
+                $this->pivotAdditional = $built;
+
+                continue;
+            }
             $this->pivotFields[$built->name()] = $built;
         }
 

@@ -85,4 +85,17 @@ interface PivotRelationInterface extends RelationInterface
      * `null` when it named none.
      */
     public function pivotThrough(): ?string;
+
+    /**
+     * The entry that opens `meta.pivot` to members the pivot fields do not name, or `null`
+     * when it is closed.
+     */
+    public function pivotAdditionalProperties(): ?AdditionalProperties;
+
+    /**
+     * The pivot fields and the entry as one declared object, which a host validates a
+     * written `meta.pivot` against: a member it does not name is refused unless the entry
+     * opens it.
+     */
+    public function pivotMetaShape(): \haddowg\JsonApi\Resource\MetaShape;
 }
