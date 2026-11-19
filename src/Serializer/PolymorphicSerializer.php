@@ -24,7 +24,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * counts it, so `?withCount` validates against their union and each member renders
  * its own `meta.total`. Without them nothing is countable.
  */
-final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface, RendersResourceMetaInterface
 {
     /**
      * @var list<SerializerInterface>
@@ -104,6 +104,15 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
     public function getMeta(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->for($object)->getMeta($object, $request);
+    }
+
+    public function renderResourceMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        $serializer = $this->for($object);
+
+        return $serializer instanceof RendersResourceMetaInterface
+            ? $serializer->renderResourceMeta($object, $request)
+            : \haddowg\JsonApi\Resource\ResourceMeta::render($serializer, $object, $request);
     }
 
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks

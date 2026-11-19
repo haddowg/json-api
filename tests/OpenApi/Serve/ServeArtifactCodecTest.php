@@ -37,7 +37,9 @@ final class ServeArtifactCodecTest extends TestCase
         $decoded = $codec->decode($codec->encode($artifact));
 
         self::assertNotNull($decoded);
-        self::assertEquals($artifact->document->toJson(), $decoded->document->toJson());
+        // Compared as encoded strings: a deep object comparison of the whole witness runs out
+        // of the default memory limit.
+        self::assertSame(\json_encode($artifact->document->toJson(), \JSON_THROW_ON_ERROR), \json_encode($decoded->document->toJson(), \JSON_THROW_ON_ERROR));
         self::assertEquals($artifact->baseline, $decoded->baseline);
     }
 

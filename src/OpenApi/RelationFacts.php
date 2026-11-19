@@ -292,7 +292,23 @@ final class RelationFacts
      */
     public static function hasIdentifierMeta(RelationMetadataInterface $relation): bool
     {
-        return self::identifierMetaFields($relation) !== [];
+        return self::identifierMetaFields($relation) !== [] || self::identifierMetaAdditional($relation) !== null;
+    }
+
+    /**
+     * The entry that opens the relation's identifier meta, or `null` when it is closed.
+     */
+    public static function identifierMetaAdditional(RelationMetadataInterface $relation): ?\haddowg\JsonApi\Resource\Field\AdditionalProperties
+    {
+        return $relation instanceof Metadata\DeclaresOpenRelationMeta ? $relation->identifierMetaAdditionalProperties() : null;
+    }
+
+    /**
+     * The entry that opens the relation's `meta.pivot`, or `null` when it is closed.
+     */
+    public static function pivotAdditional(RelationMetadataInterface $relation): ?\haddowg\JsonApi\Resource\Field\AdditionalProperties
+    {
+        return $relation instanceof Metadata\DeclaresOpenRelationMeta ? $relation->pivotAdditionalProperties() : null;
     }
 
     /**

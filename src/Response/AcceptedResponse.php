@@ -65,6 +65,15 @@ final class AcceptedResponse extends AbstractResponse
     }
 
     /**
+     * The job resource the document renders, or `null` for a meta-only one: what the
+     * `extractUsing()` hooks of the document's declared `meta` receive.
+     */
+    public function job(): mixed
+    {
+        return $this->resource === null ? null : $this->data;
+    }
+
+    /**
      * Advertises the URL of the accepted operation's job resource in the
      * `Content-Location` header — where the client polls for completion. The JSON:API
      * async recommendation says the `202` SHOULD carry this.

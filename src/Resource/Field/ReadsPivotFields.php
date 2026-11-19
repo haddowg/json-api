@@ -112,7 +112,40 @@ trait ReadsPivotFields
             $values[$field->name()] = $field->serialize($edge, $request, $field->name());
         }
 
+        $entry = $this->pivotAdditionalProperties();
+        if ($entry !== null && !$entry->isWriteOnly()) {
+            foreach ($entry->extract($edge, $request) as $name => $value) {
+                if (!isset($this->pivotFields[$name])) {
+                    $values[$name] = $value;
+                }
+            }
+        }
+
         return $values;
+    }
+
+    /**
+     * The entry that opens `meta.pivot` to members the pivot fields do not name, or `null`
+     * when it is closed.
+     */
+    public function pivotAdditionalProperties(): ?AdditionalProperties
+    {
+        return $this->relationState->pivotAdditional;
+    }
+
+    /**
+     * The pivot fields and the entry as one {@see \haddowg\JsonApi\Resource\MetaShape},
+     * the declaration `meta.pivot` is validated against.
+     */
+    public function pivotMetaShape(): \haddowg\JsonApi\Resource\MetaShape
+    {
+        $entry = $this->relationState->pivotAdditional;
+        $fields = \array_values($this->pivotFields);
+
+        return \haddowg\JsonApi\Resource\MetaShape::of(
+            $entry === null ? $fields : [...$fields, $entry],
+            \sprintf('the pivot of relation "%s"', $this->name()),
+        );
     }
 
     /**

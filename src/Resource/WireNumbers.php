@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource;
 
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\Operation\AddToRelationshipOperation;
 use haddowg\JsonApi\Operation\CreateResourceOperation;
+use haddowg\JsonApi\Operation\DeleteResourceOperation;
 use haddowg\JsonApi\Operation\JsonApiOperationInterface;
 use haddowg\JsonApi\Operation\RemoveFromRelationshipOperation;
 use haddowg\JsonApi\Operation\UpdateRelationshipOperation;
@@ -28,8 +30,11 @@ use haddowg\JsonApi\Server\Server;
  *
  * It reaches every position a field declares: an attribute, a child of an `Obj`, `Map`
  * or `OneOf` variant, an open object's undeclared members, a list's elements, the member
- * a `Union` value selects, and the pivot values in a linkage member's `meta.pivot`. A
- * value of the wrong JSON type is left as it is, for validation to refuse.
+ * a `Union` value selects, the pivot values in a linkage member's `meta.pivot`, and the
+ * members of a write's declared request `meta` and resource object `data.meta`. A value
+ * of the wrong JSON type is left as it is, for validation to refuse. An operation of an
+ * Atomic Operations batch passes `$atomic`, so its meta is normalized against what its
+ * type declares for an atomic operation.
  * {@see Server::dispatch()} normalizes each resource and relationship write; an adapter
  * normalizes an operation it handles without dispatching, such as one of an atomic
  * request, through {@see operation()}, and an action's input document through
@@ -42,7 +47,7 @@ final class WireNumbers
      * or the operation unchanged when it carries no write body or the server has no
      * resource for the type.
      */
-    public static function operation(JsonApiOperationInterface $operation, Server $server): JsonApiOperationInterface
+    public static function operation(JsonApiOperationInterface $operation, Server $server, bool $atomic = false): JsonApiOperationInterface
     {
         $type = $operation->target()->type;
         if (!$server->hasResourceFor($type)) {
@@ -51,14 +56,34 @@ final class WireNumbers
         $resource = $server->resourceFor($type);
 
         if ($operation instanceof CreateResourceOperation || $operation instanceof UpdateResourceOperation) {
-            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::resourceDocument($resource, $request);
+            $write = $operation instanceof CreateResourceOperation ? OperationType::Create : OperationType::Update;
+            $meta = RequestMeta::forOperation($resource, RequestMetaContext::forOperation($write, $atomic), $type);
+            $resourceMeta = ResourceMeta::forType($resource, MetaContext::write($write, $atomic), $type);
+            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::meta(self::resourceDocument($resource, $request), $meta, $resourceMeta);
         } elseif ($operation instanceof UpdateRelationshipOperation || $operation instanceof AddToRelationshipOperation || $operation instanceof RemoveFromRelationshipOperation) {
             $name = $operation->target()->relationship;
             $relation = $name === null ? null : $resource->relationNamedIncludingHidden($name);
             if ($relation === null) {
                 return $operation;
             }
-            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::linkageDocument($relation, $request);
+            $mode = match (true) {
+                $operation instanceof AddToRelationshipOperation => Field\Mode::Add,
+                $operation instanceof RemoveFromRelationshipOperation => Field\Mode::Remove,
+                default => Field\Mode::Replace,
+            };
+            $meta = RequestMeta::forOperation($resource, RequestMetaContext::forRelationship($relation->name(), $mode, $atomic), $type);
+            $normalize = static fn(JsonApiRequestInterface $request): JsonApiRequestInterface => self::meta(self::linkageDocument($relation, $request), $meta);
+        } elseif ($operation instanceof DeleteResourceOperation) {
+            // A delete has no write body, but its request may carry a meta-only one.
+            $meta = RequestMeta::forOperation($resource, RequestMetaContext::forOperation(OperationType::Delete, $atomic), $type);
+            $context = $operation->context();
+            $httpRequest = $context->httpRequest();
+            if ($meta->isEmpty() || !$httpRequest instanceof JsonApiRequestInterface || (string) $httpRequest->getBody() === '') {
+                return $operation;
+            }
+            $normalizedHttp = self::meta($httpRequest, $meta);
+
+            return $normalizedHttp === $httpRequest ? $operation : new DeleteResourceOperation($operation->target(), $operation->queryParameters(), $context->withHttpRequest($normalizedHttp));
         } else {
             return $operation;
         }
@@ -173,6 +198,29 @@ final class WireNumbers
     }
 
     /**
+     * A request whose top-level `meta` is normalized against `$meta`, a write's declared
+     * request meta, and whose `data.meta`, when `$resourceMeta` is given, against the
+     * type's declared resource object meta for the write. The request itself when nothing
+     * changes.
+     */
+    public static function meta(JsonApiRequestInterface $request, MetaShape $meta, ?MetaShape $resourceMeta = null): JsonApiRequestInterface
+    {
+        $body = $request->getParsedBody();
+        if (!\is_array($body)) {
+            return $request;
+        }
+        $normalized = $body;
+        if (\array_key_exists('meta', $body)) {
+            $normalized['meta'] = $meta->normalize($body['meta']);
+        }
+        if ($resourceMeta !== null && \is_array($body['data'] ?? null) && \array_key_exists('meta', $body['data'])) {
+            $normalized['data']['meta'] = $resourceMeta->normalize($body['data']['meta']);
+        }
+
+        return $normalized === $body ? $request : $request->withParsedBody($normalized);
+    }
+
+    /**
      * One value normalized against the field that declares it.
      */
     public static function value(FieldInterface $field, mixed $value): mixed
@@ -193,12 +241,7 @@ final class WireNumbers
             return $member;
         }
 
-        foreach ($relation->pivotFields() as $field) {
-            if (\array_key_exists($field->name(), $pivot)) {
-                $pivot[$field->name()] = self::value($field, $pivot[$field->name()]);
-            }
-        }
-        $meta['pivot'] = $pivot;
+        $meta['pivot'] = $relation->pivotMetaShape()->normalize($pivot);
         $member['meta'] = $meta;
 
         return $member;

@@ -19,6 +19,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
+use haddowg\JsonApi\Resource\RequestMetaContext;
 
 /**
  * Puts an `example` on the JSON:API media type of every projected operation's request
@@ -221,6 +222,7 @@ final class OperationExampleProjector
         $path = $enumerated->path;
         $relation = $enumerated->relation;
         $typed = static fn(OperationType $operation, array $document): array => $builder->withDocumentMeta($document, TypedDocumentMeta::forOperation($type, $operation), $type->type());
+        $request = static fn(?array $document, RequestMetaContext $context): ?array => $builder->withRequestMeta($document, TypedRequestMeta::forOperation($type, $context), $type->type());
 
         if ($relation === null) {
             return match ($enumerated->key->kind) {
@@ -229,7 +231,7 @@ final class OperationExampleProjector
                     'responses' => [200 => fn(): array => $typed(OperationType::FetchCollection, $builder->collectionDocument($type, $path, OperationReference::fetchCollection($uriType), $type->pageSchema(), $type))],
                 ],
                 OperationKind::Create => [
-                    'request' => fn(): array => $builder->writeDocument($type, creating: true),
+                    'request' => fn(): ?array => $request($builder->writeDocument($type, creating: true), RequestMetaContext::forOperation(OperationType::Create)),
                     'responses' => [
                         201 => fn(): array => $typed(OperationType::Create, $builder->resourceDocument($type, $path, OperationReference::create($uriType))),
                         ...$this->jobResponses($type, OperationType::Create),
@@ -240,15 +242,15 @@ final class OperationExampleProjector
                     'responses' => [200 => fn(): array => $typed(OperationType::FetchOne, $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference()))],
                 ],
                 OperationKind::Update => [
-                    'request' => fn(): array => $builder->writeDocument($type, creating: false),
+                    'request' => fn(): ?array => $request($builder->writeDocument($type, creating: false), RequestMetaContext::forOperation(OperationType::Update)),
                     'responses' => [
                         200 => fn(): array => $typed(OperationType::Update, $builder->resourceDocument($type, $builder->path($path, $builder->id($type)), $enumerated->reference())),
                         ...$this->jobResponses($type, OperationType::Update),
                     ],
                 ],
                 // Only a delete declaring the members of its meta-only document gets one.
-                OperationKind::Delete => TypedDocumentMeta::forDelete($type)->isEmpty() ? ['request' => null, 'responses' => []] : [
-                    'request' => null,
+                OperationKind::Delete => TypedDocumentMeta::forDelete($type)->isEmpty() ? ['request' => $this->deleteRequest($type), 'responses' => []] : [
+                    'request' => $this->deleteRequest($type),
                     'responses' => [200 => fn(): array => $builder->metaDocument(TypedDocumentMeta::forDelete($type), $type->type())],
                 ],
                 default => ['request' => null, 'responses' => []],
@@ -269,10 +271,31 @@ final class OperationExampleProjector
                 'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: true)],
             ],
             default => [
-                'request' => fn(): array => $builder->relationshipRequest($type, $relation, replacing: $enumerated->key->kind === OperationKind::UpdateRelationship),
-                'responses' => [200 => fn(): array => $builder->relationshipDocument($type, $relation, reading: false)],
+                'request' => fn(): ?array => $request(
+                    $builder->relationshipRequest($type, $relation, replacing: $enumerated->key->kind === OperationKind::UpdateRelationship),
+                    TypedRequestMeta::relationshipContext($relation, $enumerated->key->kind),
+                ),
+                'responses' => [200 => TypedDocumentMeta::forRelationshipWrite($type, $relation, $enumerated->key->kind)->isEmpty()
+                    ? fn(): array => $builder->relationshipDocument($type, $relation, reading: false)
+                    : fn(): array => $builder->metaDocument(TypedDocumentMeta::forRelationshipWrite($type, $relation, $enumerated->key->kind), $type->type())],
             ],
         };
+    }
+
+    /**
+     * The request example of a delete declaring its request `meta`: a meta-only document.
+     *
+     * @return (\Closure(): ?array<string, mixed>)|null
+     */
+    private function deleteRequest(TypeMetadataInterface $type): ?\Closure
+    {
+        $meta = TypedRequestMeta::forOperation($type, RequestMetaContext::forOperation(OperationType::Delete));
+        if ($meta->isEmpty()) {
+            return null;
+        }
+        $builder = $this->builder;
+
+        return static fn(): ?array => $builder->withRequestMeta(null, $meta, $type->type());
     }
 
     private function action(TypeMetadataInterface $type, EnumeratedOperation $enumerated, Paths $paths): Paths
@@ -315,11 +338,17 @@ final class OperationExampleProjector
             } elseif ($response instanceof Accepted) {
                 $job = $builder->type($response->jobType());
                 if ($job !== null) {
-                    $responses[202] = fn(): array => $builder->resourceDocument($job, '', $reference, selfLink: false);
+                    $responses[202] = fn(): array => $builder->withDocumentMeta(
+                        $builder->resourceDocument($job, '', $reference, selfLink: false),
+                        TypedDocumentMeta::forActionResponse($response, $this->server),
+                        $type->type(),
+                    );
                 }
             }
         }
-        $generate = ['request' => $this->actionRequest($action), 'responses' => $responses];
+        $input = $this->actionRequest($action);
+        $meta = TypedRequestMeta::forAction($action, $enumerated->method);
+        $generate = ['request' => $meta->isEmpty() ? $input : static fn(): ?array => $builder->withRequestMeta($input?->__invoke(), $meta, $type->type()), 'responses' => $responses];
 
         return $paths->with($path, $item->withOperation($enumerated->method, $this->operation($operation, $generate, $override, 'action.' . $action->path())));
     }
@@ -353,7 +382,11 @@ final class OperationExampleProjector
             $jobType = $response->status() === 202 ? $response->jobType() : null;
             $job = $jobType === null ? null : $this->builder->type($jobType);
             if ($job !== null) {
-                return [202 => fn(): array => $this->builder->resourceDocument($job, '', null, selfLink: false)];
+                return [202 => fn(): array => $this->builder->withDocumentMeta(
+                    $this->builder->resourceDocument($job, '', null, selfLink: false),
+                    TypedDocumentMeta::forAccepted($type, $operation),
+                    $type->type(),
+                )];
             }
         }
 

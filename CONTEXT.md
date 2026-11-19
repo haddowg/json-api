@@ -104,6 +104,27 @@ The keys a request selected of one attribute with selectable keys, as the `KeySe
 value its `extractUsing()` hook receives. `null` when the request takes the whole attribute.
 _Avoid_: key filter, projection
 
+**Typed request meta**:
+The members a type declares for the top-level `meta` of one write's request, a create, update,
+delete or relationship write, atomic or not, or an action's handler declares per HTTP method.
+Adapters validate them as attributes and refuse a member the declaration does not name.
+_Avoid_: request meta schema, command meta
+
+**Resource meta**:
+The members a type declares for its resource objects' own `meta`, read and written, split
+between the directions by `readOnly()` and `writeOnly()`. Replaces the free-form `getMeta()`.
+_Avoid_: resource object meta schema, entity meta
+
+**Declared meta object**:
+Any `meta` object a declaration types: typed document, request or resource meta, a pivot's
+fields, an `identifierMeta()` list. Closed unless an `AdditionalProperties` entry opens it.
+_Avoid_: meta schema, open meta
+
+**Written meta**:
+The typed values a validated write sent, its top-level `meta` and its `data.meta`, carried on the
+request its hydrator and hooks receive.
+_Avoid_: request meta values, parsed meta
+
 **Serializer**:
 The output direction: maps a domain value to a resource object.
 _Avoid_: transformer, normalizer

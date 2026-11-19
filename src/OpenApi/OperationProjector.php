@@ -42,6 +42,7 @@ use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
 use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+use haddowg\JsonApi\Resource\RequestMetaContext;
 use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -323,7 +324,7 @@ final class OperationProjector
             $operation->key->kind === OperationKind::FetchOne => $this->fetchOneOperation($type, $server, $id, $tags, $scopes),
             $operation->key->kind === OperationKind::Update => $this->updateOperation($type, $server, $id, $tags, $scopes),
             $operation->key->kind === OperationKind::Delete => $this->deleteOperation($type, $server, $id, $tags, $scopes),
-            $action !== null => $this->actionOperation($type, $action, $server, $scopes)->withOperationId($id),
+            $action !== null => $this->actionOperation($type, $action, $server, $scopes, $operation)->withOperationId($id),
             $relation === null => throw new \LogicException(\sprintf('The "%s" operation names no relation.', $operation->key->name())),
             $operation->key->kind === OperationKind::FetchRelated => $this->relatedOperation($type, $relation, $server, $id, $tags, $scopes),
             $operation->key->kind === OperationKind::FetchRelationship => $this->relationshipFetchOperation($type, $relation, $server, $id, $tags, $scopes),
@@ -412,7 +413,7 @@ final class OperationProjector
     {
         $base = ComponentNaming::base($type->type());
 
-        $requestSchema = Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'));
+        $requestSchema = $this->typedRequest($type, OperationType::Create, Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest')));
 
         $declared = $type->responsesFor(OperationType::Create);
 
@@ -431,7 +432,7 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::Create),
             operationId: $operationId,
             parameters: OperationFacts::declaresStatus($declared, 201) ? $this->resourceDocumentParameters($type, $server) : [],
-            requestBody: RequestBody::ofSchema($requestSchema),
+            requestBody: RequestBody::ofSchema($requestSchema ?? Schema::ref(ComponentNaming::schemaRef($base . 'CreateRequest'))),
             security: $security,
         );
     }
@@ -444,7 +445,7 @@ final class OperationProjector
     {
         $base = ComponentNaming::base($type->type());
 
-        $requestSchema = Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'));
+        $requestSchema = $this->typedRequest($type, OperationType::Update, Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest')));
 
         $declared = $type->responsesFor(OperationType::Update);
 
@@ -463,7 +464,7 @@ final class OperationProjector
             description: $this->crudOperationDescription($type, OperationType::Update),
             operationId: $operationId,
             parameters: OperationFacts::declaresStatus($declared, 200) ? $this->resourceDocumentParameters($type, $server) : [],
-            requestBody: RequestBody::ofSchema($requestSchema),
+            requestBody: RequestBody::ofSchema($requestSchema ?? Schema::ref(ComponentNaming::schemaRef($base . 'UpdateRequest'))),
             security: $security,
         );
     }
@@ -481,7 +482,12 @@ final class OperationProjector
         foreach ($type->responsesFor(OperationType::Delete) as $response) {
             $responses = $responses->with((string) $response->status(), $this->deleteSuccessResponse($type, $response));
         }
-        $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '500'], $security, $server->defaultSecurity()));
+        // A delete declaring its request `meta` takes a body, so it negotiates the
+        // `Content-Type` and validates the body.
+        $meta = TypedRequestMeta::forOperation($type, RequestMetaContext::forOperation(OperationType::Delete));
+        $statuses = $meta->isEmpty() ? ['400', '403', '404', '406', '500'] : ['400', '403', '404', '406', '415', '422', '500'];
+        $responses = $this->withErrorResponses($responses, $this->authStatuses($statuses, $security, $server->defaultSecurity()));
+        $requestSchema = $this->typedRequest($type, OperationType::Delete, null);
 
         return new Operation(
             responses: $responses,
@@ -489,6 +495,7 @@ final class OperationProjector
             summary: 'Delete ' . TypeNoun::of($type)->withArticle(),
             description: $this->crudOperationDescription($type, OperationType::Delete),
             operationId: $operationId,
+            requestBody: $requestSchema === null ? null : RequestBody::ofSchema($requestSchema, required: TypedRequestMeta::hasRequired($meta, $this->schemaProjector)),
             security: $security,
         );
     }
@@ -512,7 +519,7 @@ final class OperationProjector
                 content: [MediaType::JSON_API => MediaType::ofSchema($this->typedDocument($type, OperationType::Create, 'Document'))],
             ),
             204 => Response::noContent('The resource was created; no content is returned.'),
-            202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
+            202 => $this->acceptedResponse($this->jobTypeOf($response), $server, $this->typedAccepted($type, OperationType::Create, $response, $server)),
             default => throw $this->unexpectedResponse(OperationType::Create, $response->status()),
         };
     }
@@ -529,7 +536,7 @@ final class OperationProjector
                 $this->typedDocument($type, OperationType::Update, 'Document'),
             ),
             204 => Response::noContent('The resource was updated; no content is returned.'),
-            202 => $this->acceptedResponse($this->jobTypeOf($response), $server),
+            202 => $this->acceptedResponse($this->jobTypeOf($response), $server, $this->typedAccepted($type, OperationType::Update, $response, $server)),
             default => throw $this->unexpectedResponse(OperationType::Update, $response->status()),
         };
     }
@@ -599,10 +606,39 @@ final class OperationProjector
     }
 
     /**
+     * The `202` document of a CRUD write whose {@see Accepted} declares its `meta`, or
+     * `null` for the shared job document.
+     */
+    private function typedAccepted(TypeMetadataInterface $type, OperationType $operation, OperationResponseInterface $response, ServerMetadataInterface $server): ?Schema
+    {
+        $jobType = $response->status() === 202 ? $response->jobType() : null;
+        if ($jobType === null || $this->typeNamed($jobType, $server) === null) {
+            return null;
+        }
+        $meta = TypedDocumentMeta::forAccepted($type, $operation);
+
+        return $meta->isEmpty() ? null : Schema::ref(ComponentNaming::schemaRef(TypedDocumentMeta::acceptedDocument($type->type(), OperationKey::crud($operation))));
+    }
+
+    /**
+     * The request document a CRUD write takes: the type's shared one, or the write's own
+     * when the type declares its request `meta` ({@see TypedRequestMeta}). `null` for a
+     * write that takes no body and declares nothing.
+     */
+    private function typedRequest(TypeMetadataInterface $type, OperationType $operation, ?Schema $shared): ?Schema
+    {
+        return TypedRequestMeta::reference(
+            $shared,
+            TypedRequestMeta::requestDocument($type->type(), OperationKey::crud($operation)),
+            TypedRequestMeta::forOperation($type, RequestMetaContext::forOperation($operation)),
+        );
+    }
+
+    /**
      * The `202 Accepted` async-accept response: the pollable `$jobType` job document,
      * with `Content-Location` (the poll URL) and `Retry-After` (the poll hint) headers.
      */
-    private function acceptedResponse(string $jobType, ServerMetadataInterface $server): Response
+    private function acceptedResponse(string $jobType, ServerMetadataInterface $server, ?Schema $document = null): Response
     {
         return new Response(
             'The request was accepted for asynchronous processing.',
@@ -616,7 +652,7 @@ final class OperationProjector
                     schema: Schema::ofType('integer'),
                 ),
             ],
-            content: [MediaType::JSON_API => MediaType::ofSchema($this->documentSchemaOf($jobType, $server))],
+            content: [MediaType::JSON_API => MediaType::ofSchema($document ?? $this->documentSchemaOf($jobType, $server))],
         );
     }
 
@@ -968,10 +1004,17 @@ final class OperationProjector
         $security = $this->scoped($security, $scopes, $server);
 
         // The handler echoes the linkage (`200`), except for a write-only relation, whose
-        // linkage is never rendered: that mutation answers `204`.
-        $responses = self::isWriteOnly($relation)
-            ? (new Responses())->with('204', Response::noContent('The ' . $relation->name() . ' relationship was updated.'))
-            : (new Responses())->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef));
+        // linkage is never rendered: that mutation answers `204`. A type declaring the
+        // write's document `meta` answers a meta-only `200` instead.
+        $documentMeta = TypedDocumentMeta::forRelationshipWrite($type, $relation, $kind);
+        $responses = match (true) {
+            !$documentMeta->isEmpty() => (new Responses())->with('200', Response::ofSchema(
+                'The ' . $relation->name() . ' relationship was updated; a meta-only document is returned.',
+                Schema::ref(ComponentNaming::schemaRef(TypedDocumentMeta::operationDocument($type->type(), OperationKey::relation($kind, $relation->name())))),
+            )),
+            self::isWriteOnly($relation) => (new Responses())->with('204', Response::noContent('The ' . $relation->name() . ' relationship was updated.')),
+            default => (new Responses())->with('200', Response::ofSchema('The updated ' . $relation->name() . ' relationship linkage.', $documentRef)),
+        };
         $responses = $this->withErrorResponses($responses, $this->authStatuses(['400', '403', '404', '406', '409', '415', '422', '500'], $security, $server->defaultSecurity()));
 
         return new Operation(
@@ -997,6 +1040,11 @@ final class OperationProjector
         $body = RelationFacts::hasPivot($relation)
             ? Schema::ref(ComponentNaming::schemaRef(ComponentNaming::base($type->type()) . ComponentNaming::base($relation->name()) . 'RelationshipRequest'))
             : $documentRef;
+        $body = TypedRequestMeta::reference(
+            $body,
+            TypedRequestMeta::requestDocument($type->type(), OperationKey::relation($kind, $relation->name())),
+            TypedRequestMeta::forOperation($type, TypedRequestMeta::relationshipContext($relation, $kind)),
+        ) ?? $body;
         if ($kind !== OperationKind::UpdateRelationship) {
             return $body;
         }
@@ -1042,7 +1090,7 @@ final class OperationProjector
      *
      * @param list<string> $scopes the scopes this method of the action needs
      */
-    private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server, array $scopes): Operation
+    private function actionOperation(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server, array $scopes, EnumeratedOperation $operation): Operation
     {
         $byStatus = [];
         foreach ($action->responds() as $response) {
@@ -1091,10 +1139,57 @@ final class OperationProjector
                 $this->actionDocumentShapeParameters($action, $server),
                 [$this->withCountParameter(OperationFacts::actionWithCountTokens($action, $server), $server)],
             ),
-            requestBody: $this->actionRequestBody($action, $server),
+            requestBody: $this->typedActionRequestBody($type, $action, $server, $operation),
             security: $security,
             extensions: self::actionExtensions($action),
         );
+    }
+
+    /**
+     * The action's request body, its JSON:API document narrowed to the request `meta` the
+     * action declares for the method, when it declares any ({@see TypedRequestMeta}). An
+     * action taking no document then takes a meta-only one.
+     */
+    private function typedActionRequestBody(TypeMetadataInterface $type, ActionMetadataInterface $action, ServerMetadataInterface $server, EnumeratedOperation $operation): ?RequestBody
+    {
+        $body = $this->actionRequestBody($action, $server);
+        $meta = $action->inputMode() === ActionInputMode::Raw ? null : TypedRequestMeta::forAction($action, $operation->method);
+        if ($meta === null || $meta->isEmpty()) {
+            return $body;
+        }
+
+        $typed = Schema::ref(ComponentNaming::schemaRef(TypedRequestMeta::requestDocument($type->type(), $operation->key, TypedRequestMeta::methodQualified($action))));
+        $required = TypedRequestMeta::hasRequired($meta, $this->schemaProjector) || $action->inputMode() === ActionInputMode::Document;
+        if ($body === null) {
+            return RequestBody::ofSchema($typed, required: $required);
+        }
+
+        $content = [];
+        foreach ($body->content as $mediaType => $entry) {
+            $content[$mediaType] = $mediaType === MediaType::JSON_API ? MediaType::ofSchema($typed) : $entry;
+        }
+
+        return $body->withContent($content);
+    }
+
+    /**
+     * The shared request document an action takes under the JSON:API media type, which its
+     * typed request document narrows: the input type's `<Type>CreateRequest` for a document
+     * input, an open object for one naming no registered type, and `null` for an action
+     * taking no document.
+     */
+    public function actionRequestDocument(ActionMetadataInterface $action, ServerMetadataInterface $server): ?Schema
+    {
+        if ($action->inputMode() === ActionInputMode::Document) {
+            return $this->actionDocumentSchema($action, $server);
+        }
+        foreach (AcceptedBody::of($action) as $accepted) {
+            if ($accepted->document) {
+                return $this->actionDocumentSchema($action, $server);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1269,7 +1364,9 @@ final class OperationProjector
                 $typed(Schema::ref(ComponentNaming::schemaRef('MetaDocument'))),
             ),
             $response instanceof NoContent => Response::noContent('The action completed with no content.'),
-            $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server),
+            $response instanceof Accepted => $this->acceptedResponse($response->jobType(), $server, TypedDocumentMeta::forActionResponse($response, $server)->isEmpty()
+                ? null
+                : Schema::ref(ComponentNaming::schemaRef(TypedDocumentMeta::actionDocument($type->type(), $action, $response)))),
             $response instanceof SeeOther => $response->mediaType === null
                 ? $this->seeOtherResponse($response->description)
                 : $this->actionSeeOtherResponse($response),

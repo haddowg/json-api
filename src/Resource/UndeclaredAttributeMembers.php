@@ -38,8 +38,25 @@ final class UndeclaredAttributeMembers
      */
     public static function in(iterable $attributeFields, array $attributes): array
     {
+        return self::under($attributeFields, $attributes, '/data/attributes');
+    }
+
+    /**
+     * The JSON Pointer of every undeclared member of an object holding `$fields`, such as a
+     * declared `meta` object, found under `$pointer`. When `$memberField` is given the object
+     * is open: each member no field names is declared by it, and its value is walked as that
+     * field's.
+     *
+     * @param iterable<FieldInterface> $fields the object's declared members, hidden ones excluded
+     * @param array<array-key, mixed>  $value  the object as sent
+     *
+     * @return list<string>
+     */
+    public static function under(iterable $fields, array $value, string $pointer, ?FieldInterface $memberField = null): array
+    {
+        $declared = self::byName($fields);
         $pointers = [];
-        self::walk(self::byName($attributeFields), $attributes, '/data/attributes', $pointers, []);
+        self::walk($declared, $value, $pointer, $pointers, [], $memberField === null ? [] : \array_diff_key($value, $declared), $memberField);
 
         return $pointers;
     }

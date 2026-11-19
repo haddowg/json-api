@@ -105,7 +105,7 @@ final class ActionResponses
     {
         $out = [];
         foreach ($responds as $response) {
-            if ($response instanceof ActionResource || $response instanceof ActionCreated || $response instanceof MetaResult) {
+            if ($response instanceof ActionResource || $response instanceof ActionCreated || $response instanceof MetaResult || $response instanceof Accepted) {
                 $declared = \array_values([...$handler->documentMeta($response->status())]);
                 if ($declared !== [] && $response->meta !== []) {
                     throw new DocumentMetaMisdeclared(\sprintf(

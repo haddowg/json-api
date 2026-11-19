@@ -138,6 +138,17 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      */
     protected array $identifierMetaFields = [];
 
+    /**
+     * The entry that opens the identifier `meta` to members {@see $identifierMetaFields}
+     * does not name, if any.
+     */
+    protected ?AdditionalProperties $identifierMetaAdditional = null;
+
+    /**
+     * The entry that opens `meta.pivot` to members the pivot fields do not name, if any.
+     */
+    protected ?AdditionalProperties $pivotAdditional = null;
+
     protected ?\haddowg\JsonApi\Pagination\PaginatorInterface $relationPaginator = null;
 
     /**
@@ -565,7 +576,9 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      * projection types the identifier's `meta` instead of leaving it open. They describe
      * the shape only: the resolver still produces the values, already in wire form. A
      * member named `pivot` is refused, since that key carries a `belongsToMany` relation's
-     * pivot fields.
+     * pivot fields. The declared object is closed; an `AdditionalProperties` entry among
+     * `$fields` opens it, and since the resolver supplies every value the entry takes no
+     * hook.
      *
      * @template TParent
      * @template TRelated
@@ -578,8 +591,20 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     public function identifierMeta(\Closure $resolver, array $fields = []): static
     {
         $declared = [];
+        $additional = null;
         foreach ($fields as $field) {
             $built = $field instanceof FieldBuilderInterface ? $field->build() : $field;
+            if ($built instanceof AdditionalProperties) {
+                if ($additional !== null) {
+                    throw new \LogicException(\sprintf('Relation "%s" declares more than one additionalProperties entry in its identifier meta; declare at most one.', $this->name));
+                }
+                if ($built->extractsThroughHook() || $built->fillsThroughHook()) {
+                    throw new \LogicException(\sprintf('Relation "%s" gives its identifier meta additionalProperties entry a hook; the identifierMeta() resolver supplies every value, so the entry only opens the shape.', $this->name));
+                }
+                $additional = $built;
+
+                continue;
+            }
             if ($built->name() === 'pivot') {
                 throw new \LogicException(\sprintf(
                     'Relation "%s" cannot declare an identifier meta member named "pivot": that key carries a belongsToMany relation\'s pivot fields.',
@@ -591,6 +616,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 
         $this->identifierMetaResolver = $resolver;
         $this->identifierMetaFields = $declared;
+        $this->identifierMetaAdditional = $additional;
 
         return $this;
     }
@@ -825,6 +851,8 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             dropsAllFilterDefaults: $this->dropsAllFilterDefaults,
             droppedFilterDefaults: $this->droppedFilterDefaults,
             foreignKey: $this->foreignKey,
+            identifierMetaAdditional: $this->identifierMetaAdditional,
+            pivotAdditional: $this->pivotAdditional,
         );
     }
 }

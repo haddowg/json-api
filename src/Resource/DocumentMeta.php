@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource;
 
+use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentMeta;
+use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationshipDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\AbstractFieldValue;
+use haddowg\JsonApi\Resource\Field\AdditionalProperties;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
+use haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
+use haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface;
 
 /**
  * The declared members of one document's top-level `meta`: what a type's
@@ -43,38 +48,57 @@ final readonly class DocumentMeta
     public const array COLLECTION_MEMBERS = ['page', CountableProfile::META_MEMBER];
 
     /**
-     * The declared members, built.
+     * The declared members, built, without the {@see AdditionalProperties} entry.
      *
      * @var list<FieldInterface>
      */
     public array $fields;
 
     /**
-     * @param iterable<FieldInterface|FieldBuilderInterface> $fields     the declared members
+     * The entry that opens the object, if any.
+     */
+    public ?AdditionalProperties $additional;
+
+    /**
+     * @param iterable<FieldInterface|FieldBuilderInterface> $fields     the declared members, at most one of them an {@see AdditionalProperties} entry
      * @param bool                                           $collection whether the document is a collection, which keeps core's own members
      * @param string                                         $owner      what declares them, for the messages, such as `the "articles" FetchCollection document`
      *
-     * @throws DocumentMetaMisdeclared when two members share a name, or a collection declares a member core owns
+     * @throws DocumentMetaMisdeclared when two members share a name, a collection declares a member core owns, or two entries are declared
      */
     public function __construct(iterable $fields = [], public bool $collection = false, public string $owner = 'the document')
     {
-        $built = [];
-        foreach ($fields as $field) {
-            $field = $field instanceof FieldBuilderInterface ? $field->build() : $field;
-            $name = $field->name();
-            if (isset($built[$name])) {
-                throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s declares the member "%s" twice.', $owner, $name));
-            }
-            if ($collection && \in_array($name, self::COLLECTION_MEMBERS, true)) {
+        $shape = MetaShape::of($fields, $owner, DocumentMetaMisdeclared::class);
+        foreach ($shape->fields as $field) {
+            if ($collection && \in_array($field->name(), self::COLLECTION_MEMBERS, true)) {
                 throw new DocumentMetaMisdeclared(\sprintf(
                     'The top-level meta of %s declares the member "%s", which core writes into every collection document. Rename the member.',
                     $owner,
-                    $name,
+                    $field->name(),
                 ));
             }
-            $built[$name] = $field;
         }
-        $this->fields = \array_values($built);
+        $this->fields = $shape->fields;
+        $this->additional = $shape->additional;
+    }
+
+    /**
+     * The declaration as a {@see MetaShape}.
+     */
+    public function shape(): MetaShape
+    {
+        return MetaShape::of($this->additional === null ? $this->fields : [...$this->fields, $this->additional], $this->owner);
+    }
+
+    /**
+     * Every declared entry, the members and the {@see AdditionalProperties} entry, as a
+     * response's metadata keeps them.
+     *
+     * @return list<FieldInterface>
+     */
+    public function declaration(): array
+    {
+        return $this->additional === null ? $this->fields : [...$this->fields, $this->additional];
     }
 
     /**
@@ -108,13 +132,58 @@ final readonly class DocumentMeta
     }
 
     /**
+     * The members of the job document the `202` of `$operation`, a create or an update,
+     * answers with: the ones its declared {@see Accepted} carries, else the ones `$declarer`
+     * declares through `acceptedDocumentMeta()`.
+     *
+     * @param iterable<object> $responses the write's declared success responses
+     *
+     * @throws DocumentMetaMisdeclared when both declare members
+     */
+    public static function forAccepted(object $declarer, OperationType $operation, iterable $responses = [], string $type = ''): self
+    {
+        $owner = \sprintf('the "%s" %s 202 document', $type, $operation->value);
+        $own = [];
+        foreach ($responses as $response) {
+            if ($response instanceof Accepted) {
+                $own = $response->meta;
+            }
+        }
+        $declared = $declarer instanceof DeclaresAcceptedDocumentMetaInterface || $declarer instanceof DeclaresAcceptedDocumentMeta
+            ? new self($declarer->acceptedDocumentMeta($operation), false, $owner)
+            : new self([], false, $owner);
+        if ($own !== [] && !$declared->isEmpty()) {
+            throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s is declared both in acceptedDocumentMeta() and on its Accepted response; declare it in one place.', $owner));
+        }
+
+        return $own !== [] ? new self($own, false, $owner) : $declared;
+    }
+
+    /**
+     * The members of the meta-only `200` the relationship write `$context` describes answers
+     * with, which `$declarer`, the parent type, declares. A type that declares none answers
+     * that write with its linkage.
+     *
+     * @throws DocumentMetaMisdeclared
+     */
+    public static function forRelationship(object $declarer, RelationshipMetaContext $context, string $type = ''): self
+    {
+        $owner = \sprintf('the "%s" %s document', $type, $context->describe());
+        if (!($declarer instanceof DeclaresRelationshipDocumentMetaInterface || $declarer instanceof DeclaresRelationshipDocumentMeta)) {
+            return new self([], false, $owner);
+        }
+
+        return new self($declarer->relationshipDocumentMeta($context), false, $owner);
+    }
+
+    /**
      * The members a declared response's document carries: an {@see ActionResource},
      * {@see ActionCreated} or {@see MetaResult}'s own, and none for anything else.
      */
     public static function forResponse(object $response, string $owner = 'the action response'): self
     {
         return match (true) {
-            $response instanceof ActionResource, $response instanceof ActionCreated, $response instanceof MetaResult => new self($response->meta, false, $owner),
+            $response instanceof ActionResource, $response instanceof ActionCreated, $response instanceof MetaResult, $response instanceof Accepted => new self($response->meta, false, $owner),
             default => new self([], false, $owner),
         };
     }
@@ -153,17 +222,19 @@ final readonly class DocumentMeta
 
     /**
      * The members of the document an action answers `$status` with, among its declared
-     * responses: its {@see ActionCreated} for a `201`, else its {@see ActionResource} or
-     * {@see MetaResult}.
+     * responses: its {@see ActionCreated} for a `201`, its {@see Accepted} for a `202`, else
+     * its {@see ActionResource} or {@see MetaResult}.
      *
      * @param iterable<object> $responds the action's declared responses
      */
     public static function forActionStatus(iterable $responds, int $status, string $owner = 'the action response'): self
     {
         foreach ($responds as $response) {
-            $matches = $status === 201
-                ? $response instanceof ActionCreated
-                : $response instanceof ActionResource || $response instanceof MetaResult;
+            $matches = match ($status) {
+                201 => $response instanceof ActionCreated,
+                202 => $response instanceof Accepted,
+                default => $response instanceof ActionResource || $response instanceof MetaResult,
+            };
             if ($matches) {
                 return self::forResponse($response, $owner);
             }
@@ -174,7 +245,7 @@ final readonly class DocumentMeta
 
     public function isEmpty(): bool
     {
-        return $this->fields === [];
+        return $this->fields === [] && $this->additional === null;
     }
 
     /**
@@ -201,14 +272,7 @@ final readonly class DocumentMeta
      */
     public function extract(mixed $data, JsonApiRequestInterface $request): array
     {
-        $values = [];
-        foreach ($this->fields as $field) {
-            if ($field instanceof AbstractFieldValue && $field->extractsThroughHook()) {
-                $values[$field->name()] = $field->serialize($data, $request, $field->name());
-            }
-        }
-
-        return $values;
+        return $this->shape()->extract($data, $request);
     }
 
     /**
@@ -221,7 +285,7 @@ final readonly class DocumentMeta
      */
     public function fill(array $meta, mixed $data, JsonApiRequestInterface $request): array
     {
-        if ($this->fields === []) {
+        if ($this->isEmpty()) {
             return $meta;
         }
 
@@ -261,13 +325,7 @@ final readonly class DocumentMeta
 
     private function extractsAny(): bool
     {
-        foreach ($this->fields as $field) {
-            if ($field instanceof AbstractFieldValue && $field->extractsThroughHook()) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->shape()->extractsAny();
     }
 
     /**
@@ -282,42 +340,7 @@ final readonly class DocumentMeta
      */
     public function violations(array $meta): array
     {
-        if ($this->fields === []) {
-            return [];
-        }
-
-        $schemas = new SchemaProjector();
-        $properties = $schemas->projectDocumentMeta($this->fields)->get('properties');
-        $properties = \is_array($properties) ? $properties : [];
-
-        $violations = [];
-        $declared = [];
-        foreach ($this->fields as $field) {
-            $name = $field->name();
-            $declared[$name] = true;
-            if (!\array_key_exists($name, $meta)) {
-                if ($schemas->isRequired($field, true)) {
-                    $violations[] = \sprintf('the required member "%s" is missing', $name);
-                }
-                continue;
-            }
-
-            $schema = $properties[$name] ?? null;
-            $expected = $schema instanceof \haddowg\JsonApi\OpenApi\Schema ? self::jsonTypes($schema->toArray()) : null;
-            $actual = self::jsonType($meta[$name]);
-            if ($expected !== null && !self::matches($actual, $expected)) {
-                $violations[] = \sprintf('the member "%s" is %s, not %s', $name, $actual === 'empty' ? 'an empty array' : $actual, \implode(' or ', $expected));
-            }
-        }
-
-        foreach (\array_keys($meta) as $name) {
-            $name = (string) $name;
-            if (!isset($declared[$name]) && !($this->collection && \in_array($name, self::COLLECTION_MEMBERS, true))) {
-                $violations[] = \sprintf('the member "%s" is not declared', $name);
-            }
-        }
-
-        return $violations;
+        return $this->shape()->violations($meta, $this->collection ? self::COLLECTION_MEMBERS : []);
     }
 
     /**
@@ -338,67 +361,5 @@ final readonly class DocumentMeta
                 \implode('; ', $violations),
             ));
         }
-    }
-
-    /**
-     * The JSON types a projected schema allows, or `null` when it does not say.
-     *
-     * @param array<array-key, mixed> $schema
-     *
-     * @return list<string>|null
-     */
-    private static function jsonTypes(array $schema): ?array
-    {
-        $type = $schema['type'] ?? null;
-        if (\is_string($type)) {
-            return [$type];
-        }
-        if (\is_array($type)) {
-            return \array_values(\array_filter($type, \is_string(...)));
-        }
-
-        $branches = $schema['anyOf'] ?? $schema['oneOf'] ?? null;
-        if (!\is_array($branches)) {
-            return null;
-        }
-        $types = [];
-        foreach ($branches as $branch) {
-            $branchTypes = \is_array($branch) ? self::jsonTypes($branch) : null;
-            if ($branchTypes === null) {
-                return null;
-            }
-            $types = [...$types, ...$branchTypes];
-        }
-
-        return \array_values(\array_unique($types));
-    }
-
-    private static function jsonType(mixed $value): string
-    {
-        if ($value instanceof \JsonSerializable) {
-            $value = $value->jsonSerialize();
-        }
-
-        return match (true) {
-            $value === null => 'null',
-            \is_bool($value) => 'boolean',
-            \is_int($value) => 'integer',
-            \is_float($value) => 'number',
-            \is_string($value) => 'string',
-            \is_array($value) => $value === [] ? 'empty' : (\array_is_list($value) ? 'array' : 'object'),
-            default => 'object',
-        };
-    }
-
-    /**
-     * @param list<string> $expected
-     */
-    private static function matches(string $actual, array $expected): bool
-    {
-        return match ($actual) {
-            'empty' => \in_array('array', $expected, true) || \in_array('object', $expected, true),
-            'integer' => \in_array('integer', $expected, true) || \in_array('number', $expected, true),
-            default => \in_array($actual, $expected, true),
-        };
     }
 }

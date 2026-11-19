@@ -310,6 +310,24 @@ place, create a missing one, and on a full replace remove rows whose member is n
 longer present). A read-only pivot field supplied in `meta` is never written. See
 the bundle's relationships / Doctrine docs for the persistence details.
 
+`meta.pivot` is a closed object. A member no pivot field names is a `422` pointing at it,
+`/data/0/meta/pivot/colour`, where it used to be ignored. One `AdditionalProperties` entry
+among the fields opens it:
+
+```php
+BelongsToMany::make('tracks', 'tracks')->fields(
+    Integer::make('position'),
+    AdditionalProperties::make()
+        ->of(Str::make('*'))
+        ->extractUsing(fn (PivotEdge $edge): array => $edge->pivot['labels'] ?? []),
+);
+```
+
+Its `extractUsing()` hook receives the `PivotEdge` and returns extra members to render beside
+the declared ones. A write's undeclared members are validated against `of()` when it is given,
+and handed together to the entry's `fillUsing()` hook. See
+[links and meta](links-and-meta.md#opening-a-declared-object-additionalproperties).
+
 ### Computed pivot fields
 
 A pivot field can be computed rather than stored: declare it with `computed()` or
@@ -888,7 +906,14 @@ under the read rules a pivot follows: every member not hidden or write-only is l
 present, and `null` is admitted unless the field is `guaranteed()`. On a `belongsToMany`
 relation the declared members sit beside `pivot` in the same `meta`, so a member named
 `pivot` is refused when the relation is declared. They are read-only, so no request
-carries them. `MorphTo` and `MorphToMany` accept them too, unless declared with
+carries them.
+
+Declared members close the identifier's `meta`: the projection gives the object
+`additionalProperties: false`, listing `pivot` among its properties on a pivot-backed
+relation, and an adapter's debug check flags a member the resolver returns that the fields do
+not name. An `AdditionalProperties::make()` entry among `fields:` opens it, typed by its
+`of()` field when one is given. Since the resolver supplies every value, the entry takes no
+hook. A relation that passes no `fields:` keeps an open `meta`. `MorphTo` and `MorphToMany` accept them too, unless declared with
 `identifiedBy()`, which cannot take `identifierMeta()` at all.
 
 This is distinct from the relationship object's own `meta` (the `meta` sibling of

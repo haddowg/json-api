@@ -98,6 +98,7 @@ use haddowg\JsonApi\Tests\OpenApi\Fixture\ArticleSummary;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\CommaListFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Priority;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Status;
+use haddowg\JsonApi\Tests\OpenApi\Fixture\TypedRequestMetaTypes;
 
 /**
  * The server behind the **contract witness** — the one document
@@ -186,8 +187,13 @@ final class ContractWitnessServer
      * @param bool $fieldSelection whether the articles carry objects whose keys a
      *                             `fields[articles]` member selects one by one, which the
      *                             baseline witness leaves out too
+     * @param bool $typedRequestMeta whether the bookings type, whose writes declare their
+     *                               request meta and whose resource objects, relationship
+     *                               writes and 202s declare theirs, is served with the rooms
+     *                               and jobs types it needs, which the baseline witness
+     *                               leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true, bool $fieldSelection = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true, bool $fieldSelection = true, bool $typedRequestMeta = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
@@ -203,6 +209,7 @@ final class ContractWitnessServer
                 ...($relatedOnly ? [self::credits()] : []),
                 ...($singletons ? [self::inboxes()] : []),
                 ...($typedDocumentMeta ? [self::notices()] : []),
+                ...($typedRequestMeta ? [TypedRequestMetaTypes::bookings(), TypedRequestMetaTypes::rooms(declaresResourceMeta: true), TypedRequestMetaTypes::jobs()] : []),
             ],
             description: 'Every projector branch the witness can reach, in one document.',
             contact: new Contact('API Team', 'https://example.com/support', 'api@example.com'),

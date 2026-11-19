@@ -17,6 +17,10 @@ namespace haddowg\JsonApi\Atomic;
  * resolved target is the executor's job; the parser only validates that the shape
  * is appropriate for the code.
  *
+ * The {@see $meta} member is the operation's own `meta` verbatim, or `null` when it carries
+ * none. An adapter validates it against what the target type's `requestDocumentMeta()`
+ * declares for the operation, as it does a standalone write's top-level `meta`.
+ *
  * The {@see $index} carries the operation's position so the all-or-nothing loop can
  * prefix a failing operation's error pointers with `/atomic:operations/<index>`.
  *
@@ -30,6 +34,7 @@ final readonly class OperationDescriptor
         public ?string $href,
         public mixed $data,
         public int $index,
+        public mixed $meta = null,
     ) {}
 
     /**

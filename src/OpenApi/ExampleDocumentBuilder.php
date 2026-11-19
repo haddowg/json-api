@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\ErrorDescriptor;
 use haddowg\JsonApi\OpenApi\Metadata\ActionScope;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresAlwaysCounted;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationExampleId;
+use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
@@ -24,6 +25,8 @@ use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\Union;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
+use haddowg\JsonApi\Resource\MetaContext;
+use haddowg\JsonApi\Resource\MetaShape;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
 
 /**
@@ -268,7 +271,56 @@ final class ExampleDocumentBuilder
             $resource['relationships'] = $relationships;
         }
 
+        $meta = $this->metaMembers(TypedRequestMeta::forResource($type, MetaContext::write($creating ? OperationType::Create : OperationType::Update)), true, $creating, $type->type(), 'data.meta');
+        if ($meta !== []) {
+            $resource['meta'] = $meta;
+        }
+
         return ['data' => $resource];
+    }
+
+    /**
+     * A request document carrying the declared members of its top-level `meta`: `$document`
+     * with them added, or a meta-only document when the write takes none.
+     *
+     * @param array<string, mixed>|null $document
+     *
+     * @return array<string, mixed>|null
+     */
+    public function withRequestMeta(?array $document, MetaShape $meta, string $type): ?array
+    {
+        if ($meta->isEmpty()) {
+            return $document;
+        }
+        $members = $this->metaMembers($meta, true, true, $type, 'meta');
+        if ($members === []) {
+            return $document;
+        }
+
+        return [...($document ?? []), 'meta' => $members];
+    }
+
+    /**
+     * The example members of a declared `meta` object: each member the direction shows that
+     * declares an example, and each required one, which records a miss when it declares none.
+     *
+     * @return array<string, mixed>
+     */
+    private function metaMembers(MetaShape $meta, bool $writing, bool $creating, string $type, string $path): array
+    {
+        $members = [];
+        $fields = $writing ? $meta->writableFields($creating) : $meta->fields;
+        foreach ($fields as $field) {
+            $context = $writing ? ($creating ? RepresentationContext::Create : RepresentationContext::Update) : RepresentationContext::Read;
+            if (!$this->appears($field, $context)) {
+                continue;
+            }
+            if ($field->hasExample() || $this->schemas->isRequired($field, $writing ? $creating : true)) {
+                $members[$field->name()] = $this->value($field, $context, $type, $path . '.' . $field->name());
+            }
+        }
+
+        return $members;
     }
 
     /**
@@ -424,6 +476,11 @@ final class ExampleDocumentBuilder
         }
         if ($relationships !== []) {
             $resource['relationships'] = $relationships;
+        }
+
+        $meta = $this->metaMembers(TypedRequestMeta::forResource($type, MetaContext::read()), false, true, $type->type(), 'meta');
+        if ($meta !== []) {
+            $resource['meta'] = $meta;
         }
 
         return $resource;

@@ -668,7 +668,7 @@ final class SchemaProjector
      *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectPivotObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    public function projectPivotObject(iterable $fields, ?EnumComponentCollector $collector = null, ?\haddowg\JsonApi\Resource\Field\AdditionalProperties $additional = null): Schema
     {
         $properties = [];
         $required = [];
@@ -686,7 +686,8 @@ final class SchemaProjector
 
         return Schema::ofType('object')
             ->withProperties($properties)
-            ->withRequired($required);
+            ->withRequired($required)
+            ->withAdditionalProperties($this->additionalMembers($additional, true, false, $collector));
     }
 
     /**
@@ -698,9 +699,10 @@ final class SchemaProjector
      *
      * @param iterable<FieldInterface> $fields
      */
-    public function projectReadPivotObject(iterable $fields, ?EnumComponentCollector $collector = null): Schema
+    public function projectReadPivotObject(iterable $fields, ?EnumComponentCollector $collector = null, ?\haddowg\JsonApi\Resource\Field\AdditionalProperties $additional = null): Schema
     {
-        return $this->projectReadObject($fields, $collector);
+        return $this->projectReadObject($fields, $collector)
+            ->withAdditionalProperties($this->additionalMembers($additional, false, true, $collector));
     }
 
     /**
@@ -728,6 +730,57 @@ final class SchemaProjector
         return Schema::ofType('object')
             ->withProperties($properties)
             ->withRequired($required);
+    }
+
+    /**
+     * Projects a declared `meta` object ({@see \haddowg\JsonApi\Resource\MetaShape}). A read
+     * lists every member a response may render, a write the members the write may set in
+     * its context. Either way a member is required only when it is declared `required()` in
+     * that context, and the object is closed unless the declaration's `additionalProperties`
+     * entry opens it, to any value or to the value its field describes.
+     */
+    public function projectMetaObject(\haddowg\JsonApi\Resource\MetaShape $shape, bool $writing = false, bool $creating = true, ?EnumComponentCollector $collector = null): Schema
+    {
+        $properties = [];
+        $required = [];
+        foreach ($shape->fields as $field) {
+            if ($writing) {
+                if ($field->isHidden() || $field->isReadOnly($creating)) {
+                    continue;
+                }
+                $properties[$field->name()] = $this->projectField($field, $creating, $collector);
+            } else {
+                if ($field->isHidden() || !$this->appearsInRepresentation($field, RepresentationContext::Read)) {
+                    continue;
+                }
+                $properties[$field->name()] = $this->reading(fn(): Schema => $this->projectField($field, false, $collector));
+            }
+            if ($this->isRequired($field, $writing ? $creating : true)) {
+                $required[] = $field->name();
+            }
+        }
+
+        return Schema::ofType('object')
+            ->withProperties($properties)
+            ->withRequired($required)
+            ->withAdditionalProperties($this->additionalMembers($shape->additional, $writing, $creating, $collector));
+    }
+
+    /**
+     * The `additionalProperties` keyword of a declared object: `false` when no entry opens
+     * it, `true` for an entry with no value field, and that field's schema otherwise.
+     */
+    public function additionalMembers(?\haddowg\JsonApi\Resource\Field\AdditionalProperties $entry, bool $writing = false, bool $creating = true, ?EnumComponentCollector $collector = null): Schema|bool
+    {
+        if ($entry === null) {
+            return false;
+        }
+        $of = $entry->of();
+        if ($of === null) {
+            return true;
+        }
+
+        return $writing ? $this->projectField($of, $creating, $collector) : $this->reading(fn(): Schema => $this->projectField($of, false, $collector));
     }
 
     /**

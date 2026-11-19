@@ -32,7 +32,7 @@ final readonly class MetaResult implements DeleteResponse, ActionResponse
      */
     public function __construct(array $meta = [])
     {
-        $this->meta = (new DocumentMeta($meta, owner: 'the meta-only response'))->fields;
+        $this->meta = (new DocumentMeta($meta, owner: 'the meta-only response'))->declaration();
     }
 
     /**

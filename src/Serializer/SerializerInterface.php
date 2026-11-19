@@ -43,6 +43,11 @@ interface SerializerInterface
     /**
      * The resource `meta` member, or an empty array to omit it.
      *
+     * @deprecated to be removed in the next major, in favour of declared resource meta
+     *             ({@see DeclaresResourceMetaInterface}). An `AdditionalProperties` entry
+     *             whose `extractUsing()` returns what this method returns renders the same
+     *             `meta` and documents the object as open.
+     *
      * @return array<string, mixed>
      */
     public function getMeta(mixed $object, JsonApiRequestInterface $request): array;

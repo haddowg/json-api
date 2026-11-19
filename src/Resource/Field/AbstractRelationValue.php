@@ -289,6 +289,29 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     }
 
     /**
+     * The entry that opens the identifier `meta` to members {@see identifierMetaFields()}
+     * does not name, or `null` when the declared object is closed.
+     */
+    public function identifierMetaAdditionalProperties(): ?AdditionalProperties
+    {
+        return $this->relationState->identifierMetaAdditional;
+    }
+
+    /**
+     * The declared identifier `meta`, the members and the entry, as one {@see \haddowg\JsonApi\Resource\MetaShape}.
+     * Empty when the relation declares none.
+     */
+    public function identifierMetaShape(): \haddowg\JsonApi\Resource\MetaShape
+    {
+        $entry = $this->relationState->identifierMetaAdditional;
+
+        return \haddowg\JsonApi\Resource\MetaShape::of(
+            $entry === null ? $this->relationState->identifierMetaFields : [...$this->relationState->identifierMetaFields, $entry],
+            \sprintf('the identifier meta of relation "%s"', $this->state->name),
+        );
+    }
+
+    /**
      * The URI segment for this relationship.
      */
     public function exampleId(): ?string

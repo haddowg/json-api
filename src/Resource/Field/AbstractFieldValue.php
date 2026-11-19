@@ -224,6 +224,16 @@ abstract readonly class AbstractFieldValue implements FieldInterface, Conditiona
         return $this->state->fillUsing !== null || $this->state->deserializeUsing !== null;
     }
 
+    /**
+     * Whether a `fillUsing()` hook takes the written value.
+     *
+     * @internal
+     */
+    public function fillsThroughHook(): bool
+    {
+        return $this->state->fillUsing !== null;
+    }
+
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {

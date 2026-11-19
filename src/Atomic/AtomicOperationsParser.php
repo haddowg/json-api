@@ -99,7 +99,7 @@ final class AtomicOperationsParser
 
         $data = $this->parseData($operation, $opCode, $ref, $pointer);
 
-        return new OperationDescriptor($opCode, $ref, $href, $data, $index);
+        return new OperationDescriptor($opCode, $ref, $href, $data, $index, $operation['meta'] ?? null);
     }
 
     /**
