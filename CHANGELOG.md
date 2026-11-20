@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.22.0](https://github.com/haddowg/json-api/compare/v2.21.1...v2.22.0) (2026-11-20)
+
+
+### Features
+
+* declare every response document's meta in documentMeta ([#402](https://github.com/haddowg/json-api/issues/402)) ([a1cd83e](https://github.com/haddowg/json-api/commit/a1cd83eadf962329e5a852449371cfd9351bd1a1))
+* declare typed request and resource object meta ([0137c19](https://github.com/haddowg/json-api/commit/0137c19673674ee26b3330ea67deae41eb20d63e))
+* let a host cast a hydrated value for storage before it is assigned ([77ece43](https://github.com/haddowg/json-api/commit/77ece43a6cf148dbf6691ec8fb0867e236f45a4f))
+* let a self-contained filter declare enum like the filter builders ([#413](https://github.com/haddowg/json-api/issues/413)) ([3122985](https://github.com/haddowg/json-api/commit/31229854b199948a298aaefd0b086b846f8c0ffa))
+* let a union hold an Integer and a Decimal member ([#411](https://github.com/haddowg/json-api/issues/411)) ([57fde70](https://github.com/haddowg/json-api/commit/57fde706fd27789d2ccb5bcdbdc56e9705a40997))
+* let WhereIn and WhereNotIn map the requested list before comparing ([#412](https://github.com/haddowg/json-api/issues/412)) ([f51ed93](https://github.com/haddowg/json-api/commit/f51ed93837e6b9a25c7a3aa621cc67968d930e76))
+* name the relation to a relationship write's documentMeta ([#415](https://github.com/haddowg/json-api/issues/415)) ([13a4e0b](https://github.com/haddowg/json-api/commit/13a4e0b7298ab896797e5a49c7ad07feec617cda))
+* narrow a serializer override's attributes by selected keys ([#399](https://github.com/haddowg/json-api/issues/399)) ([f89639b](https://github.com/haddowg/json-api/commit/f89639beffaba50b3f4fe970160f29797365d76c))
+* pass the key selection to a selectable field's serializeUsing hook ([#401](https://github.com/haddowg/json-api/issues/401)) ([233b82b](https://github.com/haddowg/json-api/commit/233b82b2fc536a95d546dd8cffbfeccfd16a3fbd))
+* reach pivot rows from a filter or sort declared with through ([#391](https://github.com/haddowg/json-api/issues/391)) ([b20e07f](https://github.com/haddowg/json-api/commit/b20e07f70fb9f7fbe0c6d375cfd64d86ccc0cfa0))
+* reach through relations from any filter or sort ([#388](https://github.com/haddowg/json-api/issues/388)) ([2862957](https://github.com/haddowg/json-api/commit/2862957d10ef34eedd4bff2eae785a582f009883))
+* refuse an extra meta member clashing with a declared one in debug ([#405](https://github.com/haddowg/json-api/issues/405)) ([d3a9240](https://github.com/haddowg/json-api/commit/d3a92405beda7b93b1d4d11883ba4a5e476e8dc6))
+* select keys of a one-of wherever it appears and bind its discriminator to an enum ([#416](https://github.com/haddowg/json-api/issues/416)) ([2f93dba](https://github.com/haddowg/json-api/commit/2f93dba6163c248fc2d35627eb1c3972c2846d4b))
+* select keys of every item of a list through fields ([#396](https://github.com/haddowg/json-api/issues/396)) ([7e2b475](https://github.com/haddowg/json-api/commit/7e2b475c90671f6979d4d5b991c5569b40bc9ae3))
+* select keys of nested objects through fields ([#394](https://github.com/haddowg/json-api/issues/394)) ([eb68211](https://github.com/haddowg/json-api/commit/eb68211bd778b068fc6093ea5e0496910486671e))
+* select single keys of an object attribute through fields ([#383](https://github.com/haddowg/json-api/issues/383)) ([4fec4a6](https://github.com/haddowg/json-api/commit/4fec4a6ffafe09f911371929906198ef3470bea0))
+* type meta in a type's standalone resource object schema ([#407](https://github.com/haddowg/json-api/issues/407)) ([61d840a](https://github.com/haddowg/json-api/commit/61d840aea4e653f92fdf45dbc4b3910fc1531952))
+* type the value a field's write hooks receive ([523241a](https://github.com/haddowg/json-api/commit/523241adbcd3c4dee0f37db7df27f5b1832818ad))
+
+
+### Bug Fixes
+
+* a custom PivotRelationInterface implementation must add pivotAdditionalProperties and pivotMetaShape ([0137c19](https://github.com/haddowg/json-api/commit/0137c19673674ee26b3330ea67deae41eb20d63e))
+* a documentMeta override must declare the optional relation parameter ([259b0ef](https://github.com/haddowg/json-api/commit/259b0eff274641178ee756f430cae965e6045d84))
+* accept the members to remove on a remove addressed by relationship href ([#406](https://github.com/haddowg/json-api/issues/406)) ([3688528](https://github.com/haddowg/json-api/commit/3688528a33c0191d3991cc6847476afa3293b8b4))
+* ask for the pivot rows of the type a through path starts from ([#392](https://github.com/haddowg/json-api/issues/392)) ([3cac46c](https://github.com/haddowg/json-api/commit/3cac46c26e127f4a98b2ce2af85f0c4aa49b0210))
+* close typed meta gaps for pivots, atomic fills and link rows ([#390](https://github.com/haddowg/json-api/issues/390)) ([c52db27](https://github.com/haddowg/json-api/commit/c52db27c2087349d8b3d2906ef757682d5847a6e))
+* declare the relation parameter on documentMeta() ([259b0ef](https://github.com/haddowg/json-api/commit/259b0eff274641178ee756f430cae965e6045d84))
+* drop the deserialize hook a relation and a meta entry never ran ([#410](https://github.com/haddowg/json-api/issues/410)) ([7d62959](https://github.com/haddowg/json-api/commit/7d629593f0b42484c8cebbc816ba4681d0701f5a))
+* drop the write hooks an object, a map, a one-of and the id never ran ([#403](https://github.com/haddowg/json-api/issues/403)) ([f4b172e](https://github.com/haddowg/json-api/commit/f4b172e321d3d9e35f579eb5132403c635876c1d))
+* gate a deprecated pivot path like its through form ([#400](https://github.com/haddowg/json-api/issues/400)) ([920596d](https://github.com/haddowg/json-api/commit/920596d8e365ee717378c89af91b9c4b621d51c1))
+* keep the fraction of every whole float in a generated document ([#418](https://github.com/haddowg/json-api/issues/418)) ([8b4dd31](https://github.com/haddowg/json-api/commit/8b4dd315bcbcf8baba517dcf7ea96e56c5d9b6e6))
+* put each written number in its field's type before validation ([523241a](https://github.com/haddowg/json-api/commit/523241adbcd3c4dee0f37db7df27f5b1832818ad))
+* read a list named through a wildcard alone as the whole list ([#414](https://github.com/haddowg/json-api/issues/414)) ([1081334](https://github.com/haddowg/json-api/commit/1081334ecdf1310e75b6d334d6126e0b50189fdb))
+* refuse a name declared twice among the attributes or the relationships ([#426](https://github.com/haddowg/json-api/issues/426)) ([155b9b3](https://github.com/haddowg/json-api/commit/155b9b39ef5174f4de4d73c0dd8e69eb724f4d00))
+* refuse a name shared by an attribute and a relationship ([#424](https://github.com/haddowg/json-api/issues/424)) ([f7a3f13](https://github.com/haddowg/json-api/commit/f7a3f13d43df4d8339c7aab32fa37d21fcc00531))
+* refuse a selectable key pattern that can match a comma or an asterisk ([#420](https://github.com/haddowg/json-api/issues/420)) ([c4bd5f9](https://github.com/haddowg/json-api/commit/c4bd5f91fdf49ab02a51740689cce51e01614413))
+* refuse a selectable key pattern that can match a full stop ([#417](https://github.com/haddowg/json-api/issues/417)) ([f3c4bfd](https://github.com/haddowg/json-api/commit/f3c4bfd34472f2fc9eedaae230ff70e43b76b784))
+* refuse a WhereMorph naming a type the caller cannot read ([#398](https://github.com/haddowg/json-api/issues/398)) ([387c2b2](https://github.com/haddowg/json-api/commit/387c2b2f534392a299e641854c802c7634f5a197))
+* refuse filters that reach through relations the caller cannot read ([#386](https://github.com/haddowg/json-api/issues/386)) ([231e35b](https://github.com/haddowg/json-api/commit/231e35b3ad1f55986d83aaacf40d08167dab4880))
+* refuse to install beside an adapter older than 2.22 ([#422](https://github.com/haddowg/json-api/issues/422)) ([4fcece3](https://github.com/haddowg/json-api/commit/4fcece3133a3a695c052f393e97a32f3e0a16227))
+* render a notSparseField member whatever the fieldset lists ([#384](https://github.com/haddowg/json-api/issues/384)) ([dc8a635](https://github.com/haddowg/json-api/commit/dc8a635e9d3eddbae08df0b8a8e8493c0da9fca7))
+* require a one-of's discriminator in its update branches ([#425](https://github.com/haddowg/json-api/issues/425)) ([45f49b9](https://github.com/haddowg/json-api/commit/45f49b9ffeb90b83893d4958d4f1eed19064ce49))
+* send a whole Decimal with its fraction ([#397](https://github.com/haddowg/json-api/issues/397)) ([f33f5d3](https://github.com/haddowg/json-api/commit/f33f5d3811edb055cff25b8ea6398439aad782ab))
+* type a hook's value from what a scope closure declares ([#393](https://github.com/haddowg/json-api/issues/393)) ([4e208f1](https://github.com/haddowg/json-api/commit/4e208f1d7773b4a484151d91c336eba432a21e88))
+
 ## [2.21.1](https://github.com/haddowg/json-api/compare/v2.21.0...v2.21.1) (2026-11-18)
 
 
