@@ -98,7 +98,8 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     protected mixed $example = null;
 
     /**
-     * @var \Closure(mixed, JsonApiRequestInterface, string): mixed|null
+     * Called with the model, the request and the member's name, and the key selection on a
+     * field whose keys a request can select.
      */
     protected ?\Closure $serializeUsing = null;
 

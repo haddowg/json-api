@@ -7,11 +7,30 @@ namespace haddowg\JsonApi\Resource\Field;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
- * The `extractUsing()` / `computedUsing()` hooks of a builder whose field a request can
- * narrow, each receiving the selection as its fourth argument.
+ * The `extractUsing()` / `computedUsing()` / `serializeUsing()` hooks of a builder whose
+ * field a request can narrow, each receiving the selection as its fourth argument.
  */
 trait ReceivesKeySelection
 {
+    /**
+     * Renders the read value from `$callback`, called with the model, the request, the
+     * member's name and the keys a request selected, `null` when it selected the whole
+     * attribute. The callback owns the value's shape, and the value is still trimmed to
+     * the selected keys whatever it returns, so it may skip the keys it was not asked for.
+     *
+     * @template TModel
+     *
+     * @param \Closure(TModel, JsonApiRequestInterface, string, ?KeySelection): mixed $callback
+     *
+     * @return static
+     */
+    public function serializeUsing(\Closure $callback): static
+    {
+        $this->serializeUsing = $callback;
+
+        return $this;
+    }
+
     /**
      * Supplies the read value from `$callback`, called with the model, the request, the
      * member's name and the keys a request selected, `null` when it selected the whole
