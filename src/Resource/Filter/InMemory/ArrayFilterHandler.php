@@ -661,11 +661,16 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     }
 
     /**
+     * The values a set filter compares against: the requested members, passed through a
+     * `WhereIn` or `WhereNotIn` deserializer.
+     *
      * @return list<mixed>
      */
     private function members(WhereIn|WhereNotIn|WhereIdIn|WhereIdNotIn $filter, mixed $value): array
     {
-        return $filter->list?->members($value) ?? $this->toList($value, $filter->delimiter);
+        $members = $filter->list?->members($value) ?? $this->toList($value, $filter->delimiter);
+
+        return $filter instanceof WhereIn || $filter instanceof WhereNotIn ? $filter->comparedValues($members) : $members;
     }
 
     /**

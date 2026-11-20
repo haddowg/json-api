@@ -48,7 +48,7 @@ final class TypedDocumentMeta
     private static ?\WeakMap $declared = null;
 
     /**
-     * Each type's relationship write declarations, read once.
+     * Each type's relationship write declarations, per write and relation, read once.
      *
      * @var \WeakMap<TypeMetadataInterface, array<string, DocumentMeta>>|null
      */
@@ -150,21 +150,22 @@ final class TypedDocumentMeta
     }
 
     /**
-     * The members of the meta-only `200` a relationship write answers with, which the
-     * parent type declares for the write's kind. None when it declares none, so the write
-     * answers its linkage.
+     * The members of the meta-only `200` a write of the relationship `$relation` answers
+     * with, which the parent type declares for the write's kind and that relation. None when
+     * it declares none, so the write answers its linkage.
      */
-    public static function forRelationshipWrite(TypeMetadataInterface $type, OperationKind $kind): DocumentMeta
+    public static function forRelationshipWrite(TypeMetadataInterface $type, OperationKind $kind, string $relation): DocumentMeta
     {
         $operation = $kind->relationshipDocument() ?? throw new \InvalidArgumentException(\sprintf('%s is not a relationship write.', $kind->value));
         self::$relationships ??= new \WeakMap();
         $memo = self::$relationships[$type] ?? [];
-        if (!isset($memo[$operation->value])) {
-            $memo[$operation->value] = DocumentMeta::forOperation($type, $operation, $type->type());
+        $key = $operation->value . "\0" . $relation;
+        if (!isset($memo[$key])) {
+            $memo[$key] = DocumentMeta::forOperation($type, $operation, $type->type(), $relation);
             self::$relationships[$type] = $memo;
         }
 
-        return $memo[$operation->value];
+        return $memo[$key];
     }
 
     /**
@@ -258,7 +259,7 @@ final class TypedDocumentMeta
                 // A relationship write the parent type declares document meta for answers a
                 // meta-only document.
                 if ($enumerated->relation !== null && \in_array($key->kind, [OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship], true)) {
-                    $relationshipMeta = self::forRelationshipWrite($type, $key->kind);
+                    $relationshipMeta = self::forRelationshipWrite($type, $key->kind, $enumerated->relation->name());
                     if (!$relationshipMeta->isEmpty()) {
                         self::add($documents, self::operationDocument($type->type(), $key), 'MetaDocument', $relationshipMeta, $enumerated->operationId);
                     }

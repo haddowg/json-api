@@ -275,9 +275,9 @@ final class OperationExampleProjector
                     $builder->relationshipRequest($type, $relation, replacing: $enumerated->key->kind === OperationKind::UpdateRelationship),
                     TypedRequestMeta::relationshipContext($relation, $enumerated->key->kind),
                 ),
-                'responses' => [200 => TypedDocumentMeta::forRelationshipWrite($type, $enumerated->key->kind)->isEmpty()
+                'responses' => [200 => TypedDocumentMeta::forRelationshipWrite($type, $enumerated->key->kind, $relation->name())->isEmpty()
                     ? fn(): array => $builder->relationshipDocument($type, $relation, reading: false)
-                    : fn(): array => $builder->metaDocument(TypedDocumentMeta::forRelationshipWrite($type, $enumerated->key->kind), $type->type())],
+                    : fn(): array => $builder->metaDocument(TypedDocumentMeta::forRelationshipWrite($type, $enumerated->key->kind, $relation->name()), $type->type())],
             ],
         };
     }

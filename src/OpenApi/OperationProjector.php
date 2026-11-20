@@ -1011,8 +1011,8 @@ final class OperationProjector
 
         // The handler echoes the linkage (`200`), except for a write-only relation, whose
         // linkage is never rendered: that mutation answers `204`. A type declaring the
-        // write's document `meta` answers a meta-only `200` instead.
-        $documentMeta = TypedDocumentMeta::forRelationshipWrite($type, $kind);
+        // write's document `meta` for the relation answers a meta-only `200` instead.
+        $documentMeta = TypedDocumentMeta::forRelationshipWrite($type, $kind, $relation->name());
         $responses = match (true) {
             !$documentMeta->isEmpty() => (new Responses())->with('200', Response::ofSchema(
                 'The ' . $relation->name() . ' relationship was updated; a meta-only document is returned.',

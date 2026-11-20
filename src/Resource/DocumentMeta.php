@@ -104,26 +104,37 @@ final readonly class DocumentMeta
      * {@see forDelete()}. A relationship write's case, such as
      * {@see OperationType::AddRelationship}, gives the members of the meta-only `200` it
      * answers with in place of its linkage, which none means it does not; a `202`'s are read
-     * through {@see forAccepted()}.
+     * through {@see forAccepted()}. `$relation` names the relation a relationship write
+     * case is for, and is ignored for any other case.
      *
      * @throws DocumentMetaMisdeclared
      */
-    public static function forOperation(object $declarer, OperationType $operation, string $type = ''): self
+    public static function forOperation(object $declarer, OperationType $operation, string $type = '', ?string $relation = null): self
     {
-        return new self(self::declared($declarer, $operation), $operation === OperationType::FetchCollection, \sprintf('the "%s" %s document', $type, $operation->value));
+        $relation = $operation->isRelationshipWrite() ? $relation : null;
+        $owner = $relation === null
+            ? \sprintf('the "%s" %s document', $type, $operation->value)
+            : \sprintf('the "%s" %s document of "%s"', $type, $operation->value, $relation);
+
+        return new self(self::declared($declarer, $operation, $relation), $operation === OperationType::FetchCollection, $owner);
     }
 
     /**
      * What `$declarer` returns from `documentMeta()` for `$operation`, or nothing when it
-     * declares no document meta.
+     * declares no document meta. The relation's name is passed as a second argument the
+     * interface does not declare, so an implementation with one parameter stays valid and
+     * one that declares `?string $relation = null` receives it.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */
-    private static function declared(object $declarer, OperationType $operation): iterable
+    private static function declared(object $declarer, OperationType $operation, ?string $relation = null): iterable
     {
-        return $declarer instanceof DeclaresDocumentMetaInterface || $declarer instanceof DeclaresDocumentMeta
-            ? $declarer->documentMeta($operation)
-            : [];
+        if (!$declarer instanceof DeclaresDocumentMetaInterface && !$declarer instanceof DeclaresDocumentMeta) {
+            return [];
+        }
+
+        // @phpstan-ignore arguments.count
+        return $declarer->documentMeta($operation, $relation);
     }
 
     /**
