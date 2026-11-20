@@ -795,6 +795,7 @@ final class OperationProjector
             OperationType::Create => 'Creates a new ' . $noun->singular . ' from the supplied attributes and relationships.',
             OperationType::Update => 'Updates an existing ' . $noun->singular . ', applying the supplied attributes and relationships.',
             OperationType::Delete => 'Deletes the ' . $noun->singular . ' identified by its `id`.',
+            default => throw new \LogicException(\sprintf('%s is not a resource operation.', $operation->value)),
         };
     }
 
@@ -1011,7 +1012,7 @@ final class OperationProjector
         // The handler echoes the linkage (`200`), except for a write-only relation, whose
         // linkage is never rendered: that mutation answers `204`. A type declaring the
         // write's document `meta` answers a meta-only `200` instead.
-        $documentMeta = TypedDocumentMeta::forRelationshipWrite($type, $relation, $kind);
+        $documentMeta = TypedDocumentMeta::forRelationshipWrite($type, $kind);
         $responses = match (true) {
             !$documentMeta->isEmpty() => (new Responses())->with('200', Response::ofSchema(
                 'The ' . $relation->name() . ' relationship was updated; a meta-only document is returned.',

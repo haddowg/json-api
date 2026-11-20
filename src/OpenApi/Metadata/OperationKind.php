@@ -51,14 +51,20 @@ enum OperationKind: string
     /** `POST` to the Atomic Operations endpoint. */
     case Atomic = 'atomic';
 
+    /**
+     * The kind of `$operation`. A `202` job document is its write's.
+     */
     public static function fromOperationType(OperationType $operation): self
     {
         return match ($operation) {
             OperationType::FetchCollection => self::FetchCollection,
             OperationType::FetchOne => self::FetchOne,
-            OperationType::Create => self::Create,
-            OperationType::Update => self::Update,
+            OperationType::Create, OperationType::CreateAccepted => self::Create,
+            OperationType::Update, OperationType::UpdateAccepted => self::Update,
             OperationType::Delete => self::Delete,
+            OperationType::UpdateRelationship => self::UpdateRelationship,
+            OperationType::AddRelationship => self::AddRelationship,
+            OperationType::RemoveRelationship => self::RemoveRelationship,
         };
     }
 
@@ -73,6 +79,20 @@ enum OperationKind: string
             self::Create => OperationType::Create,
             self::Update => OperationType::Update,
             self::Delete => OperationType::Delete,
+            default => null,
+        };
+    }
+
+    /**
+     * The {@see OperationType} a relationship write's meta-only `200` is declared under in
+     * `documentMeta()`, or `null` for any other kind.
+     */
+    public function relationshipDocument(): ?OperationType
+    {
+        return match ($this) {
+            self::UpdateRelationship => OperationType::UpdateRelationship,
+            self::AddRelationship => OperationType::AddRelationship,
+            self::RemoveRelationship => OperationType::RemoveRelationship,
             default => null,
         };
     }

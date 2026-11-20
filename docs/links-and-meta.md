@@ -99,8 +99,9 @@ The rules:
 - The OpenAPI projection calls `documentMeta()` once per operation the type exposes, with no
   request, so its result must not depend on one.
 - A related endpoint serving the type uses its `FetchCollection` members for a to-many and its
-  `FetchOne` members for a to-one. A relationship write declares its own, in
-  [`relationshipDocumentMeta()`](#a-relationship-writes-meta-only-document).
+  `FetchOne` members for a to-one. A relationship write declares its own under
+  [its relationship case](#a-relationship-writes-meta-only-document), and a write accepted for
+  later processing under [`CreateAccepted` or `UpdateAccepted`](#the-meta-of-a-202).
 - A delete's members apply when it answers a meta-only `200`, and their hooks receive the
   resource it removed. A `204` has no document. Declaring them both in `documentMeta()` and
   on the delete's `MetaResult` throws `DocumentMetaMisdeclared`.
@@ -139,7 +140,7 @@ The declaration is closed. In debug mode an adapter checks every declaring respo
 top-level `meta` against it and throws `DocumentMetaMismatch` for a missing required member,
 an undeclared member or a value of the wrong JSON type. In production nothing is checked.
 `DocumentMeta` is what adapters share for all of this: `forOperation()`, `forRelated()`,
-`forDelete()`, `forRelationship()`, `forAccepted()` and `forActionStatus()` read a declaration, `applyTo()` fills a `DataResponse`,
+`forDelete()`, `forAccepted()` and `forActionStatus()` read a declaration, `applyTo()` fills a `DataResponse`,
 `RelatedResponse` or meta-only `MetaResponse`, and `assertSatisfiedBy()` runs the check. [OpenAPI](openapi.md#typed-document-meta-x-document-meta) shows the documents it
 produces.
 
@@ -147,27 +148,24 @@ produces.
 
 A relationship write, `PATCH`, `POST` or `DELETE` on `/{type}/{id}/relationships/{name}`,
 answers its linkage by default. A type can make one answer a meta-only `200` instead, by
-declaring that document's members in `relationshipDocumentMeta()`. It takes a
-`RelationshipMetaContext` naming the relation and the mutation, a `Mode`, and whether the write
-is an operation in an Atomic Operations batch:
+declaring that document's members in `documentMeta()` under the write's case:
+`OperationType::UpdateRelationship`, `AddRelationship` or `RemoveRelationship`.
 
 ```php
-use haddowg\JsonApi\Resource\Field\Mode;
-use haddowg\JsonApi\Resource\RelationshipMetaContext;
-
-public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
+public function documentMeta(OperationType $operation): iterable
 {
-    return $context->isRelationship('tracks', Mode::Add)
-        ? [Integer::make('moved')->required()->extractUsing(fn (Playlist $playlist): int => $playlist->lastMoveCount())]
-        : [];
+    return match ($operation) {
+        OperationType::AddRelationship => [
+            Integer::make('moved')->required()->extractUsing(fn (Playlist $playlist): int => $playlist->lastMoveCount()),
+        ],
+        default => [],
+    };
 }
 ```
 
-A member's `extractUsing()` hook receives the parent resource and the request. A write the
-type declares nothing for still answers its linkage. This is a separate method rather than a
-relationship case of `documentMeta()`, because widening `documentMeta()`'s parameter would
-break every resource that overrides it. A type composed without `AbstractResource` implements
-`haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface` on its serializer.
+The case covers that write on every relationship of the type, standalone or inside an
+Atomic Operations batch. A member's `extractUsing()` hook receives the parent resource and
+the request. A write the type declares nothing for still answers its linkage.
 
 ### The meta of a `202`
 
@@ -180,8 +178,8 @@ new Accepted('import-jobs', meta: [Integer::make('queuePosition')->example(4)]);
 ```
 
 A resource whose create or update answers a `202` may declare the members in
-`acceptedDocumentMeta(OperationType $operation)` instead, and an action's handler through its
-`documentMeta(202)`. Declaring them in two places throws `DocumentMetaMisdeclared`. A
+`documentMeta()` under `OperationType::CreateAccepted` or `UpdateAccepted` instead, and an
+action's handler through its `documentMeta(202)`. Declaring them in two places throws `DocumentMetaMisdeclared`. A
 member's `extractUsing()` hook supplies its value from the job resource, and the code returning
 the `AcceptedResponse` may set any member with `withMeta()`.
 
