@@ -525,6 +525,28 @@ final class SchemaProjectorTest extends TestCase
     }
 
     #[Test]
+    public function oneOfUpdateBranchesRequireTheDiscriminatorButNotTheVariantsChildren(): void
+    {
+        $field = OneOf::make('block')->nullable()->discriminator('kind')
+            ->variant('heading', Str::make('text')->required()->build())
+            ->variant('image', Str::make('src')->build())->build();
+
+        $nested = Obj::make('layout')->fields(OneOf::make('block')->discriminator('kind')
+            ->variant('heading', Str::make('text')->required()->build())
+            ->variant('image', Str::make('src')->build()))->build();
+
+        foreach ([$this->listAt($this->project($field), 'oneOf'), $this->listAt($this->project($nested), 'properties', 'block', 'oneOf')] as $branches) {
+            $objects = \array_values(\array_filter($branches, static fn(mixed $branch): bool => \is_array($branch) && ($branch['type'] ?? null) === 'object'));
+            self::assertCount(2, $objects);
+            foreach ($objects as $branch) {
+                self::assertIsArray($branch);
+                // A partial PATCH merges onto the stored variant, so only the discriminator is required.
+                self::assertSame(['kind'], $this->listAt($branch, 'required'));
+            }
+        }
+    }
+
+    #[Test]
     public function oneOfNullableAppendsANullBranch(): void
     {
         $field = OneOf::make('block')->nullable()->discriminator('kind')
