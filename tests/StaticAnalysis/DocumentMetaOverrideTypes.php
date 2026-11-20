@@ -13,8 +13,9 @@ use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 
 /**
  * Never executed. phpstan-hooks.neon analyses it with PHPStan's default settings, as a
- * consuming project would, so a `documentMeta()` override with or without the relation's
- * name that the declaration rejects fails the `composer phpstan` run.
+ * consuming project would, so a `documentMeta()` override, or an implementation of the
+ * interface that ignores the relation's name, that the declaration rejects fails the
+ * `composer phpstan` run.
  */
 final class DocumentMetaOverrideTypes extends AbstractResource
 {
@@ -34,10 +35,10 @@ final class DocumentMetaOverrideTypes extends AbstractResource
         };
     }
 
-    public static function oneArgument(): DeclaresDocumentMetaInterface
+    public static function ignoringTheRelation(): DeclaresDocumentMetaInterface
     {
         return new class implements DeclaresDocumentMetaInterface {
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return $operation === OperationType::AddRelationship ? [Integer::make('added')] : [];
             }

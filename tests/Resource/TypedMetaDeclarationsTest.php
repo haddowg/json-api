@@ -379,7 +379,7 @@ final class TypedMetaDeclarationsTest extends TestCase
     public function aRelationshipWriteDeclaresItsMetaOnlyDocument(): void
     {
         $declarer = new class implements DeclaresDocumentMetaInterface {
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return match ($operation) {
                     OperationType::AddRelationship => [Integer::make('moved')->required()],
@@ -411,7 +411,7 @@ final class TypedMetaDeclarationsTest extends TestCase
     public function aWritesStatus202ReadsTheTypesDeclarationOrItsAccepted(): void
     {
         $declarer = new class implements DeclaresDocumentMetaInterface {
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return match ($operation) {
                     OperationType::CreateAccepted => [Integer::make('queuePosition')],

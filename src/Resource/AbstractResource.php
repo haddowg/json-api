@@ -390,17 +390,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      *
      * The relationship write cases, `UpdateRelationship`, `AddRelationship` and
      * `RemoveRelationship`, declare the meta-only `200` that write answers with in place of
-     * its linkage, their hooks receiving the parent resource. To declare it for one
-     * relationship only, add a trailing `?string $relation = null` parameter to the
-     * override: core passes the name of the relation written for those cases and `null`
-     * for the others. An override without it declares the same members on every
-     * relationship. `CreateAccepted` and `UpdateAccepted` declare the job document a `202`
-     * answers with, their hooks receiving the job resource. Any other case falls through a
-     * `default` arm to none.
+     * its linkage, their hooks receiving the parent resource. `$relation` is the name of
+     * the relation written for those cases and `null` for the others, so an override can
+     * declare the document for one relationship only. An override that ignores it declares
+     * the same members on every relationship. `CreateAccepted` and `UpdateAccepted`
+     * declare the job document a `202` answers with, their hooks receiving the job
+     * resource. Any other case falls through a `default` arm to none.
      *
      * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
      */
-    public function documentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation): iterable
+    public function documentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation, ?string $relation = null): iterable
     {
         return [];
     }
