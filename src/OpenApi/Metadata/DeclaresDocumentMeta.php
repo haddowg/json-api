@@ -23,12 +23,10 @@ interface DeclaresDocumentMeta
      * including a relationship write's meta-only `200` and a write's `202` job document. It
      * is called without a request, so the result must not depend on one.
      *
-     * Like {@see \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface::documentMeta()}
-     * it is called with a second argument, the relation's name for a relationship write case
-     * and `null` otherwise, which an implementation delegating to the type declares as a
-     * trailing `?string $relation = null` parameter and passes on.
+     * As in {@see \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface::documentMeta()},
+     * `$relation` is the relation's name for a relationship write case and `null` otherwise.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */
-    public function documentMeta(OperationType $operation): iterable;
+    public function documentMeta(OperationType $operation, ?string $relation = null): iterable;
 }
