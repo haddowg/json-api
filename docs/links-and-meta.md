@@ -187,12 +187,15 @@ the `AcceptedResponse` may set any member with `withMeta()`.
 
 ### What stays untyped
 
-Two kinds of `meta` have no declaration, by design:
+Some `meta` has no declaration, by design:
 
 - An After hook that replaces an operation's data document with a meta-only response. The
   operation's documented shape is its data document, so that `meta` is free-form.
 - The `jsonapi` object's `meta`. It belongs to the server, not to an operation, and stays an
   open object.
+- Each result's `meta` in an Atomic Operations response. A batch answers one
+  `atomic:results` list whatever its operations are, so a result's `meta` stays an open
+  object, as the batch's own top-level `meta` does.
 
 ## Typed request meta
 
@@ -255,8 +258,10 @@ $key = WrittenMeta::of($request)->document('idempotencyKey');
 $source = WrittenMeta::of($request)->resource('source', 'web');
 ```
 
-`document()` reads the top-level `meta`, `resource()` the resource object's `data.meta`. An
-object its type declares nothing for is carried as sent. Adapters also hand the values to an
+`document()` reads the top-level `meta`, `resource()` the resource object's `data.meta`. A
+top-level `meta` the write declares no members for reads as empty, as an action's request meta
+does; the meta as sent stays on the request's parsed body. A `data.meta` its type declares
+nothing for is carried as sent. Adapters also hand the values to an
 action's context and to the write's lifecycle events; see your adapter's documentation.
 
 ## Typed resource meta
@@ -339,6 +344,13 @@ public function resourceMeta(MetaContext $context): iterable
   `MetaMisdeclared` when the adapter registers the type.
 - In `identifierMeta()` the resolver supplies every value, so the entry only opens the shape
   and takes no hook.
+- A value under an extra member is typed only by `of()`. Without `of()` it may be any JSON
+  value, and with it the value is checked and projected as that one field describes: an
+  extra member never takes the shape of a declared member, nor of another extra one.
+- Stored pivot fields, and an entry's extra members, are read and written where the adapter
+  stores pivot rows: Doctrine in the Symfony bundle and Eloquent in the Laravel adapter. The
+  in-memory stores keep no pivot rows, so a relation served by one renders only its computed
+  pivot fields and stores none of a write's `meta.pivot`, though the document still types it.
 
 ## Resource-level: getMeta / getLinks on a serializer
 
