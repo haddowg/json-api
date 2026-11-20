@@ -25,11 +25,11 @@ trait DeclaresSelectableKeys
      * is the element of a list, as `<attr>.*.<key>` in every item.
      *
      * @param (\Closure(string, JsonApiRequestInterface): bool)|null $accepts
-     * @param string|null                                           $pattern an ECMA-262 and PCRE regular expression a whole key must match, which can match no `.`
+     * @param string|null                                           $pattern an ECMA-262 and PCRE regular expression a whole key must match, which can match no `.`, `,` or `*`
      *
      * @return static
      *
-     * @throws \InvalidArgumentException when neither is given, or the pattern is not valid or can match a `.`
+     * @throws \InvalidArgumentException when neither is given, or the pattern is not valid or can match a `.`, `,` or `*`
      */
     public function selectableKeys(?\Closure $accepts = null, ?string $pattern = null): static
     {
@@ -38,10 +38,13 @@ trait DeclaresSelectableKeys
         }
         if ($pattern !== null) {
             \haddowg\JsonApi\Resource\Internal\KeyFamilyMatcher::assertValidSuffixPattern($pattern, 'selectable key of the', $this->name());
-            // A request splits its members at every full stop, so a key holding one is never
-            // asked for, yet the OpenAPI document would offer it.
-            if (Internal\PatternCharacters::canMatch($pattern, '.')) {
-                throw new \InvalidArgumentException(\sprintf('Field "%s" declares selectableKeys() with the pattern "%s", which can match a full stop. A request splits its fields members at every full stop, so no key holds one: exclude "." from the pattern, as [^.]+ does.', $this->name(), $pattern));
+            // A request splits its members at every comma and its paths at every full stop,
+            // and `*` stands for every item of a list, so a key holding one is never asked
+            // for, yet the OpenAPI document would offer it.
+            foreach (['.', ',', '*'] as $character) {
+                if (Internal\PatternCharacters::canMatch($pattern, $character)) {
+                    throw new \InvalidArgumentException(\sprintf('Field "%s" declares selectableKeys() with the pattern "%s", which can match "%s". A request splits its fields members at every comma and its paths at every full stop, and "*" stands for every item of a list, so no key holds any of them: exclude them from the pattern, as [^.,*]+ does.', $this->name(), $pattern, $character));
+                }
             }
         }
 

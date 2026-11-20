@@ -34,6 +34,19 @@ final class PatternCharactersTest extends TestCase
     }
 
     #[Test]
+    public function aQuantifierIsNotTheCharacterItSpells(): void
+    {
+        self::assertFalse(PatternCharacters::canMatch('[a-z]*', '*'));
+        self::assertFalse(PatternCharacters::canMatch('a+b?', '+'));
+        self::assertTrue(PatternCharacters::canMatch('a\*', '*'));
+        self::assertTrue(PatternCharacters::canMatch('[*]', '*'));
+        self::assertTrue(PatternCharacters::canMatch('a,b', ','));
+        self::assertTrue(PatternCharacters::canMatch('[^a-z]+', ','));
+        self::assertFalse(PatternCharacters::canMatch('[^.,*]+', ','));
+        self::assertFalse(PatternCharacters::canMatch('[^.,*]+', '*'));
+    }
+
+    #[Test]
     #[DataProvider('patternsMatchingAFullStop')]
     public function aPatternWithAnAtomMatchingTheCharacterCanMatchIt(string $pattern): void
     {
