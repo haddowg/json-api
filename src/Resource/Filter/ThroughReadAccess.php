@@ -33,6 +33,11 @@ use haddowg\JsonApi\Resource\ThroughReadGateInterface;
  * A `pivot` segment is a hop of the relation whose pivot rows it reaches, so a pivot row,
  * which has no type, is read under that relation's permission. A relation the pivot row
  * holds is a hop like any other, under its related type's rules.
+ *
+ * A {@see WhereMorph} reaches through its polymorphic relation to the type a request
+ * names, so each of its hops names one type as its target: {@see hopsOf()} lists one for
+ * every type the relation declares, the hops some request can reach, and
+ * {@see hopsOfRequested()} the one a requested value names.
  */
 final class ThroughReadAccess
 {
@@ -102,12 +107,65 @@ final class ThroughReadAccess
             return self::hopsThrough($path, $rootType);
         }
 
+        if ($filter instanceof WhereMorph) {
+            return $this->morphHops($filter, $fields, $rootType, null);
+        }
+
         return match (true) {
             $filter instanceof TraversesPath => $this->hopsAlong($filter->throughPath(), $fields, $rootType),
             $filter instanceof WhereHas, $filter instanceof WhereDoesntHave => $this->hopsAlong($filter->relationship, $fields, $rootType),
             $filter instanceof WhereGroup => \array_merge([], ...\array_map(fn(FilterInterface $child): array => $this->hopsOf($child, $fields, $rootType, $under), $filter->children)),
             default => [],
         };
+    }
+
+    /**
+     * The hops `$filter` reaches through for the requested `$value`, as {@see hopsOf()}
+     * lists them, except that a {@see WhereMorph}, alone or inside a group, reaches only
+     * the type the value names. Ask the gate about these before applying a filter the
+     * client sent.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<RelationHop>
+     *
+     * @throws \haddowg\JsonApi\Exception\FilterValueInvalid when a WhereMorph's value names no type the relation declares
+     */
+    public function hopsOfRequested(FilterInterface $filter, mixed $value, iterable $fields, string $rootType, ?RelationHop $under = null): array
+    {
+        if ($filter instanceof WhereMorph) {
+            return $this->morphHops($filter, $fields, $rootType, $value);
+        }
+
+        if ($filter instanceof WhereGroup) {
+            return \array_merge([], ...\array_map(fn(FilterInterface $child): array => $this->hopsOfRequested($child, $value, $fields, $rootType, $under), $filter->children));
+        }
+
+        return $this->hopsOf($filter, $fields, $rootType, $under);
+    }
+
+    /**
+     * The hops of a {@see WhereMorph}: its relation, once for each type it declares, or
+     * once for the type `$value` names when it is not `null`.
+     *
+     * @param iterable<FieldInterface> $fields
+     *
+     * @return list<RelationHop>
+     */
+    private function morphHops(WhereMorph $filter, iterable $fields, string $rootType, mixed $value): array
+    {
+        $filter = $this->resolver->resolve($filter, $fields);
+        \assert($filter instanceof WhereMorph);
+        $target = $filter->resolvedTarget();
+        if ($target === null) {
+            return [];
+        }
+
+        $relation = $target->relation;
+        $storage = $relation->column() ?? $relation->name();
+        $types = $value === null ? $target->types : [$filter->requested($value)['type']];
+
+        return \array_map(static fn(string $type): RelationHop => new RelationHop($relation, $rootType, $storage, target: $type), $types);
     }
 
     /**

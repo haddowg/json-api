@@ -1,0 +1,3 @@
+# A WhereMorph reaches through its relation to the type it names
+
+`WhereMorph` answers yes or no about the target a polymorphic relation stores, so it leaks a hidden target one probe at a time just as a path through a relation does. It therefore follows the through-read rule of ADR 0136 for the one type the request names: a target that type's scope hides never matches, and a type the caller may not read through the relation refuses the client's filter with a `403`. The gate is asked about that type alone, through a hop naming it as its target, so a relation over a readable and an unreadable type still filters by the readable one, while the OpenAPI document lists a hop per declared type because any of them can be requested.

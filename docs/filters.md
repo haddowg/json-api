@@ -1076,6 +1076,13 @@ row with at least one member of that type, or of that type and one of those ids,
 that ends on a relationship. It reads only the stored identifier, so it works on a relation
 with no related endpoint that can't be included.
 
+It follows the rules of [read access through a path](#read-access-through-a-path) for the
+type the request names. A target that type's scope hides never matches, and when the caller
+may not read that type through the relation, the filter is refused with a `403`
+`ACCESS_DENIED`. Naming another type the relation declares is unaffected, so
+`filter[subject][type]=rfps` can be allowed while `filter[subject][type]=invoices` is
+refused.
+
 The relation must say where its identifier is stored. A `MorphTo` declares
 [`identifiedByColumns()`](relations.md#declaring-the-pairs-fields-with-identifiedbycolumns)
 and a `MorphToMany` declares
@@ -1150,8 +1157,9 @@ the related id's format included. A group's children are resolved with it.
 
 A filter that reaches through a relation shows, row by row, something about the rows at
 the other end. So the rows a caller may not read never take part. Every adapter applies
-two rules to `WhereThrough`, `WhereThroughIn`, `WhereHas` and `WhereDoesntHave`, inside
-groups and families too, wherever a filter runs: a collection, a related or relationship
+two rules to `WhereThrough`, `WhereThroughIn`, `WhereHas`, `WhereDoesntHave`, `WhereMorph`
+and every filter declared with `->through()`, inside groups and families too, wherever a
+filter runs: a collection, a related or relationship
 endpoint, a `relatedQuery` window, a collection action's filters and a filter default.
 
 - A row the related type's scope hides, at any hop, does not exist for matching. A Doctrine
@@ -1176,10 +1184,16 @@ $refused = $access->refused($hops, $request);
 ```
 
 Each [`RelationHop`](../src/Resource/Filter/RelationHop.php) names the relation, the type
-that declares it, and the storage path up to it. When several relations share a storage
+that declares it, and the storage path up to it. A `WhereMorph` hop also names the one type
+it reaches as its `target`, and `relatedTypes()` lists the types a gate decides the hop by:
+`hopsOf()` lists a hop for every type the relation declares, the hops some request can
+reach, and `hopsOfRequested($filter, $value, ...)` only the type the requested value
+names, which is the list to ask the gate about before applying a client's filter. When several relations share a storage
 member and none is named after the segment, each of them is a hop, so the strictest rule
 applies. The reference `ArrayFilterHandler` takes the scope through
-`withRowAdmission()`, which narrows the rows each hop reaches before it matches them.
+`withRowAdmission()`, which narrows the rows each hop reaches before it matches them, and
+through `withMorphAdmission()`, which narrows a `WhereMorph`'s targets to the storage keys
+the requested type's scope admits.
 
 Server metadata that implements
 [`DeclaresThroughReadSecurity`](../src/OpenApi/Metadata/DeclaresThroughReadSecurity.php)
