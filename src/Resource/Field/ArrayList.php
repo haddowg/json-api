@@ -125,7 +125,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     /**
      * The list with every item trimmed to the selection inside {@see KeySelection::ITEMS},
-     * or every item whole when the request selected them whole. Its length and order are
+     * or every item whole when the selection holds none inside them. Its length and order are
      * kept, and an item holding none of the selected keys renders as an empty object.
      */
     public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
