@@ -65,7 +65,8 @@ final class PatternCharacters
 
                 continue;
             }
-            if ($lookarounds === 0 && ($char === '.' || $char === $character)) {
+            // Outside a class `*`, `+`, `?` and the rest are syntax, never the character itself.
+            if ($lookarounds === 0 && ($char === '.' || ($char === $character && !\str_contains('*+?{}|^$', $char)))) {
                 return true;
             }
             ++$i;

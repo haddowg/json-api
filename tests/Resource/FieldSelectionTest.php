@@ -643,18 +643,25 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
-    public function aPatternThatCanMatchAFullStopIsRefused(): void
+    public function aPatternThatCanMatchAFullStopACommaOrAnAsteriskIsRefused(): void
     {
-        foreach ([static fn() => Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z.]+'), static fn() => Map::make('totals')->selectableKeys(pattern: '.+')] as $declare) {
+        $refused = [
+            '.' => static fn() => Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z.]+'),
+            ',' => static fn() => Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[^.]+'),
+            '*' => static fn() => Map::make('totals')->selectableKeys(pattern: '[a-z*]+'),
+        ];
+        foreach ($refused as $character => $declare) {
             try {
                 $declare();
                 self::fail('Expected the pattern to be refused.');
             } catch (\InvalidArgumentException $e) {
-                self::assertStringContainsString('which can match a full stop', $e->getMessage());
+                self::assertStringContainsString('which can match "' . $character . '"', $e->getMessage());
+                self::assertStringContainsString('as [^.,*]+ does', $e->getMessage());
             }
         }
 
-        Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[^.,]+');
+        Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[^.,*]+');
+        Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z]*');
         $this->addToAssertionCount(1);
     }
 
