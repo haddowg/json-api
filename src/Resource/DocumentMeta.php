@@ -121,9 +121,7 @@ final readonly class DocumentMeta
 
     /**
      * What `$declarer` returns from `documentMeta()` for `$operation`, or nothing when it
-     * declares no document meta. The relation's name is passed as a second argument the
-     * interface does not declare, so an implementation with one parameter stays valid and
-     * one that declares `?string $relation = null` receives it.
+     * declares no document meta.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */
@@ -133,7 +131,6 @@ final readonly class DocumentMeta
             return [];
         }
 
-        // @phpstan-ignore arguments.count
         return $declarer->documentMeta($operation, $relation);
     }
 

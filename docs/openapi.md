@@ -1305,8 +1305,8 @@ declares the `SINGLETONS` contract tier in its
 it projects every type at `/{uriType}/{id}`.
 
 `DeclaresDocumentMeta` extends `TypeMetadataInterface` with
-`documentMeta(OperationType $operation): iterable`, the members of the top-level `meta` of the
-document that operation answers with. Delegate to the type's own
+`documentMeta(OperationType $operation, ?string $relation = null): iterable`, the members of
+the top-level `meta` of the document that operation answers with. Delegate to the type's own
 [`documentMeta()`](links-and-meta.md#typed-document-meta). Each operation returning members,
 and each related endpoint serving the type, answers with a
 [typed-meta document](#typed-document-meta-x-document-meta). A document with one declares the

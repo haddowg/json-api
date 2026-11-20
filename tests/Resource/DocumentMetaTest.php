@@ -102,7 +102,7 @@ final class DocumentMetaTest extends TestCase
     }
 
     #[Test]
-    public function aOneArgumentOverrideDeclaresTheSameMembersOnEveryRelationship(): void
+    public function anOverrideIgnoringTheRelationDeclaresTheSameMembersOnEveryRelationship(): void
     {
         $resource = new class extends AbstractResource {
             public static string $type = 'notes';
@@ -112,7 +112,7 @@ final class DocumentMetaTest extends TestCase
                 return [Id::make()];
             }
 
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return $operation === OperationType::AddRelationship ? [Integer::make('added')] : [];
             }
@@ -127,7 +127,7 @@ final class DocumentMetaTest extends TestCase
     public function aDeletesMembersApplyOnlyToItsMetaOnly200(): void
     {
         $declarer = new class implements DeclaresDocumentMetaInterface {
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return $operation === OperationType::Delete ? [Str::make('archivedAs')->extractUsing(static fn(\stdClass $note): string => 'archive-' . $note->id)] : [];
             }
@@ -338,7 +338,7 @@ final class DocumentMetaTest extends TestCase
     private function declarer(): DeclaresDocumentMetaInterface
     {
         return new class implements DeclaresDocumentMetaInterface {
-            public function documentMeta(OperationType $operation): iterable
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
             {
                 return match ($operation) {
                     OperationType::FetchCollection => [

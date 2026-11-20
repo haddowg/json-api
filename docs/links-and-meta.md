@@ -71,7 +71,7 @@ use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\{Integer, Str};
 
-public function documentMeta(OperationType $operation): iterable
+public function documentMeta(OperationType $operation, ?string $relation = null): iterable
 {
     return match ($operation) {
         OperationType::FetchCollection => [
@@ -152,7 +152,7 @@ declaring that document's members in `documentMeta()` under the write's case:
 `OperationType::UpdateRelationship`, `AddRelationship` or `RemoveRelationship`.
 
 ```php
-public function documentMeta(OperationType $operation): iterable
+public function documentMeta(OperationType $operation, ?string $relation = null): iterable
 {
     return match ($operation) {
         OperationType::AddRelationship => [
@@ -167,7 +167,7 @@ The case covers that write on every relationship of the type, standalone or insi
 Atomic Operations batch. A member's `extractUsing()` hook receives the parent resource and
 the request. A write the type declares nothing for still answers its linkage.
 
-To declare it for one relationship only, add a second parameter. Core passes the name of the
+To declare it for one relationship only, read `$relation`. Core passes the name of the
 relation written for the three relationship cases, and `null` for every other case:
 
 ```php
@@ -183,11 +183,9 @@ public function documentMeta(OperationType $operation, ?string $relation = null)
 ```
 
 Here only a `POST` to `tracks` answers a meta-only document, and the OpenAPI document types
-it on that relationship's operation alone. The parameter is optional. The interface and
-`AbstractResource` declare `documentMeta()` with one parameter, because adding a second to
-them would make every existing one-parameter override a fatal error, while an override may
-add a trailing optional parameter of its own. An override without it declares the same
-members on every relationship.
+it on that relationship's operation alone. An override that ignores `$relation` declares the
+same members on every relationship. Every override declares the parameter, since the
+interface and `AbstractResource` do.
 
 ### The meta of a `202`
 

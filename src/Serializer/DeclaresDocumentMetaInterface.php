@@ -31,16 +31,14 @@ interface DeclaresDocumentMetaInterface
      * its `FetchCollection` members for a to-many and its `FetchOne` members for a to-one.
      *
      * The relationship write cases declare the meta-only `200` that write answers with in
-     * place of its linkage; their hooks receive the parent resource. Core calls this with a
-     * second argument, the name of the relation written for a relationship write case and
-     * `null` for every other case. An implementation reads it by declaring a trailing
-     * `?string $relation = null` parameter, so it can declare members for one relationship
-     * only; one that doesn't declares the same members for every relationship of the type.
-     * The parameter stays off this signature because adding it would break every existing
-     * one-argument implementation. `CreateAccepted` and `UpdateAccepted` declare the job
-     * document a `202` answers with; their hooks receive the job resource.
+     * place of its linkage; their hooks receive the parent resource. `$relation` is the name
+     * of the relation written for a relationship write case and `null` for every other
+     * case, so an implementation can declare members for one relationship only. One that
+     * ignores it declares the same members for every relationship of the type.
+     * `CreateAccepted` and `UpdateAccepted` declare the job document a `202` answers with;
+     * their hooks receive the job resource.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */
-    public function documentMeta(OperationType $operation): iterable;
+    public function documentMeta(OperationType $operation, ?string $relation = null): iterable;
 }
