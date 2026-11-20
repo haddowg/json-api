@@ -23,8 +23,10 @@ use haddowg\JsonApi\Resource\ValueTypes;
  * and its facades, {@see DateTime}, {@see Date} or {@see Time}), a number ({@see Integer}
  * or {@see Decimal}), a {@see Boolean}, or an {@see ArrayList} of scalars or of a nested
  * union. A union holds at most one member per JSON type, so the type of a value always
- * names the one member whose rules apply and whose PHP type comes back. There is no
- * discriminator.
+ * names the one member whose rules apply and whose PHP type comes back. The one exception is
+ * a number: a union may hold both an {@see Integer} and a {@see Decimal}, and then the form
+ * the number arrived in picks between them, an `int` the `Integer` and a `float` the
+ * `Decimal`, so `500` and `500.0` each keep their form. There is no discriminator.
  *
  * A written value's JSON type picks its member, which casts it and whose constraints
  * apply at the union's own pointer. A stored value's PHP type picks the member that
@@ -45,8 +47,8 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     ];
 
     /**
-     * The members, keyed by the JSON type each takes, with `number` standing for both
-     * {@see Integer} and {@see Decimal}, in the order string, number, boolean, array.
+     * The members, keyed by the JSON type each takes, `integer` for an {@see Integer} and
+     * `number` for a {@see Decimal}, in the order string, integer, number, boolean, array.
      *
      * @var array<string, AbstractFieldValue>
      */
@@ -83,7 +85,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
-     * The members, in the order string, number, boolean, array.
+     * The members, in the order string, integer, number, boolean, array.
      *
      * @return list<AbstractFieldValue>
      */
@@ -94,12 +96,19 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
 
     /**
      * The member a written value's JSON type selects, or `null` when no member takes that
-     * type, which a write refuses. `null` selects no member.
+     * type, which a write refuses. `null` selects no member. With both an {@see Integer}
+     * and a {@see Decimal} member, an `int` selects the `Integer` and a `float` the
+     * `Decimal`, whole or not. With one of them, it takes every number it accepts.
      */
     public function memberFor(mixed $value): ?AbstractFieldValue
     {
         if ($value === null) {
             return null;
+        }
+
+        $numeric = $this->numericMemberFor($value);
+        if ($numeric !== null) {
+            return $numeric;
         }
 
         foreach ($this->members as $member) {
@@ -114,8 +123,10 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     /**
      * The member that renders a stored value, chosen by its PHP type: a string, or a
      * `\DateTimeInterface` for a date member, to the string member, an int or float to the
-     * number member, a bool to the boolean member and a list to the array member. A backed
-     * enum goes by its value. `null` when no member takes the value.
+     * number member, a bool to the boolean member and a list to the array member. With both
+     * an {@see Integer} and a {@see Decimal} member, an int goes to the `Integer` and a
+     * float to the `Decimal`. A backed enum goes by its value. `null` when no member takes
+     * the value.
      */
     public function memberForStored(mixed $value): ?AbstractFieldValue
     {
@@ -123,16 +134,37 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
             $value = $value->value;
         }
 
+        if (\is_int($value) || \is_float($value)) {
+            return $this->numericMemberFor($value) ?? $this->members[ValueTypes::INTEGER] ?? $this->members[ValueTypes::NUMBER] ?? null;
+        }
+
         $slot = match (true) {
             \is_string($value) => ValueTypes::STRING,
             $value instanceof \DateTimeInterface => ($this->members[ValueTypes::STRING] ?? null) instanceof DateTime ? ValueTypes::STRING : null,
-            \is_int($value), \is_float($value) => ValueTypes::NUMBER,
             \is_bool($value) => ValueTypes::BOOLEAN,
             \is_array($value) && \array_is_list($value) => ValueTypes::ARRAY,
             default => null,
         };
 
         return $slot === null ? null : ($this->members[$slot] ?? null);
+    }
+
+    /**
+     * The numeric member a number's PHP type names when the union holds both an
+     * {@see Integer} and a {@see Decimal}: the `Integer` for an `int`, the `Decimal` for a
+     * `float`. `null` for anything else, or when the union holds at most one of them.
+     */
+    private function numericMemberFor(mixed $value): ?AbstractFieldValue
+    {
+        if (!isset($this->members[ValueTypes::INTEGER], $this->members[ValueTypes::NUMBER])) {
+            return null;
+        }
+
+        return match (true) {
+            \is_int($value) => $this->members[ValueTypes::INTEGER],
+            \is_float($value) => $this->members[ValueTypes::NUMBER],
+            default => null,
+        };
     }
 
     /**
@@ -335,21 +367,32 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     {
         $schemas = \array_map(
             static fn(AbstractFieldValue $member): Schema => $projector->projectUnionMember($member, $creating, $collector),
-            $this->members(),
+            $this->members,
         );
 
-        return self::compact($schemas) ?? Schema::create()->withOneOf($schemas);
+        return self::compact($schemas) ?? Schema::create()->withOneOf(self::branches($schemas));
     }
 
     /**
      * One schema carrying every member's type and keywords, or `null` when a member
      * carries a keyword that is not scoped to its own type, such as `enum`, `const` or a
-     * `$ref`, which would then constrain the other members' values too.
+     * `$ref`, which would then constrain the other members' values too. An `Integer` and a
+     * `Decimal` member list `number` once, since JSON Schema counts every integer as a
+     * number, and only when they carry the same keywords, which then hold for both.
      *
-     * @param list<Schema> $schemas
+     * @param array<string, Schema> $schemas the members' schemas, keyed as the members are
      */
     private static function compact(array $schemas): ?Schema
     {
+        $integer = $schemas[ValueTypes::INTEGER] ?? null;
+        $number = $schemas[ValueTypes::NUMBER] ?? null;
+        if ($integer !== null && $number !== null) {
+            if ($integer->extensions() !== [] || self::numericKeywords($integer) !== self::numericKeywords($number)) {
+                return null;
+            }
+            unset($schemas[ValueTypes::INTEGER]);
+        }
+
         $types = [];
         $keywords = [];
         foreach ($schemas as $schema) {
@@ -369,6 +412,43 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         }
 
         return Schema::fromArray(['type' => $types, ...$keywords]);
+    }
+
+    /**
+     * A numeric member's keywords less its `type`, sorted, each whole bound as a `float`,
+     * so an `Integer`'s `minimum: 0` equals a `Decimal`'s `minimum: 0.0`.
+     *
+     * @return array<string, mixed>
+     */
+    private static function numericKeywords(Schema $schema): array
+    {
+        $keywords = \array_map(static fn(mixed $value): mixed => \is_int($value) ? (float) $value : $value, $schema->keywords());
+        unset($keywords['type']);
+        \ksort($keywords);
+
+        return $keywords;
+    }
+
+    /**
+     * The `oneOf` branches: one per member, except that an `Integer` and a `Decimal`
+     * member share one `anyOf` branch. A whole number is both an `integer` and a `number`
+     * to JSON Schema, which can't tell `500` from `500.0`, so two `oneOf` branches would
+     * refuse it as matching both.
+     *
+     * @param array<string, Schema> $schemas
+     *
+     * @return list<Schema>
+     */
+    private static function branches(array $schemas): array
+    {
+        $integer = $schemas[ValueTypes::INTEGER] ?? null;
+        $number = $schemas[ValueTypes::NUMBER] ?? null;
+        if ($integer !== null && $number !== null) {
+            $schemas[ValueTypes::NUMBER] = Schema::create()->withAnyOf([$integer, $number]);
+            unset($schemas[ValueTypes::INTEGER]);
+        }
+
+        return \array_values($schemas);
     }
 
     /**
@@ -410,7 +490,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
             }
             if (isset($keyed[$slot])) {
                 throw new \LogicException(\sprintf(
-                    '%s already has a %s member, so it cannot take a second one: a union holds one member per JSON type, so each value has one member whose rules apply.',
+                    '%s already has a member of JSON type %s, so it cannot take a second one: a union holds one member per JSON type, with an Integer and a Decimal the only pair, so each value has one member whose rules apply.',
                     $label,
                     $slot,
                 ));
@@ -423,7 +503,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         }
 
         $ordered = [];
-        foreach ([ValueTypes::STRING, ValueTypes::NUMBER, ValueTypes::BOOLEAN, ValueTypes::ARRAY] as $slot) {
+        foreach ([ValueTypes::STRING, ValueTypes::INTEGER, ValueTypes::NUMBER, ValueTypes::BOOLEAN, ValueTypes::ARRAY] as $slot) {
             if (isset($keyed[$slot])) {
                 $ordered[$slot] = $keyed[$slot];
             }
@@ -433,14 +513,15 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
-     * The JSON type a member takes, `number` for both numeric fields, or `null` for a field
-     * that cannot be a member.
+     * The JSON type a member takes, `integer` for an {@see Integer} and `number` for a
+     * {@see Decimal}, or `null` for a field that cannot be a member.
      */
     private static function slotOf(FieldInterface $member): ?string
     {
         return match (true) {
             $member instanceof Str, $member instanceof DateTime => ValueTypes::STRING,
-            $member instanceof Integer, $member instanceof Decimal => ValueTypes::NUMBER,
+            $member instanceof Integer => ValueTypes::INTEGER,
+            $member instanceof Decimal => ValueTypes::NUMBER,
             $member instanceof Boolean => ValueTypes::BOOLEAN,
             $member instanceof ArrayList && $member->element() === null => ValueTypes::ARRAY,
             default => null,

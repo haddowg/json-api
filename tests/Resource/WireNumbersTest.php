@@ -79,6 +79,16 @@ final class WireNumbersTest extends TestCase
     }
 
     #[Test]
+    public function aUnionWithBothNumericMembersKeepsEachNumbersForm(): void
+    {
+        foreach ([500, 500.0, 2.5] as $sent) {
+            $data = WireNumbers::resource((new WireNumbersTrackResource())->allFields(), ['attributes' => ['amount' => $sent, 'amounts' => [$sent]]]);
+
+            self::assertSame(['amount' => $sent, 'amounts' => [$sent]], $data['attributes'], \var_export($sent, true));
+        }
+    }
+
+    #[Test]
     public function aWrongTypeIsLeftForValidation(): void
     {
         $data = WireNumbers::resource((new WireNumbersTrackResource())->allFields(), [
@@ -159,6 +169,8 @@ final class WireNumbersTrackResource extends AbstractResource
             ArrayList::make('counts')->of('integer'),
             ArrayList::make('weights')->of('number'),
             Union::make('size')->of(Str::make(), Integer::make()),
+            Union::make('amount')->of(Str::make(), Integer::make(), Decimal::make()),
+            ArrayList::make('amounts')->of(Union::of(Integer::make(), Decimal::make())),
             ArrayList::make('rows')->of(Obj::make('row')->fields(Integer::make('n'))),
             BelongsToMany::make('tags', 'tags')->fields(Integer::make('rank'), Decimal::make('weight')),
         ];

@@ -60,6 +60,19 @@ final class UnionValuesTest extends TestCase
     }
 
     #[Test]
+    public function aNumbersFormSelectsBetweenAnIntegerAndADecimalMember(): void
+    {
+        $field = Union::make('amount')->of(Str::make(), Integer::make(), Decimal::make())->build();
+
+        foreach ([[500, 'integer'], [500.0, 'number'], [2.5, 'number']] as [$value, $type]) {
+            $found = $this->found([$field], ['amount' => $value]);
+
+            self::assertCount(1, $found);
+            self::assertSame($type, ValueTypes::of($found[0]->member), \var_export($value, true));
+        }
+    }
+
+    #[Test]
     public function aListMemberYieldsItselfThenEachElementThroughTheElementUnion(): void
     {
         $field = $this->value()->build();

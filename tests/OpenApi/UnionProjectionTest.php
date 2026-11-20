@@ -120,6 +120,45 @@ final class UnionProjectionTest extends TestCase
     }
 
     #[Test]
+    public function anIntegerAndADecimalMemberListNumberOnce(): void
+    {
+        $plain = Union::make('amount')->of(Str::make()->maxLength(20), Integer::make(), Decimal::make(), Boolean::make())->build();
+        $bounded = Union::make('amount')->of(Integer::make()->min(0)->max(10), Decimal::make()->min(0)->max(10))->nullable()->build();
+
+        self::assertSame(['type' => ['string', 'number', 'boolean'], 'maxLength' => 20], $this->attribute($plain, RepresentationContext::Create));
+        self::assertSame(['type' => ['number', 'null'], 'minimum' => 0, 'maximum' => 10], $this->attribute($bounded, RepresentationContext::Read));
+    }
+
+    #[Test]
+    public function differentNumericKeywordsShareOneAnyOfBranch(): void
+    {
+        $field = Union::make('amount')->of(Str::make(), Integer::make()->min(100), Decimal::make()->max(10.0), Boolean::make())->nullable()->build();
+
+        self::assertSame(['oneOf' => [
+            ['type' => 'string'],
+            ['anyOf' => [['type' => 'integer', 'minimum' => 100], ['type' => 'number', 'maximum' => 10.0]]],
+            ['type' => 'boolean'],
+            ['type' => 'null'],
+        ]], $this->attribute($field, RepresentationContext::Create));
+    }
+
+    #[Test]
+    public function theNumericAnyOfAcceptsEveryNumberAMemberAccepts(): void
+    {
+        $field = Union::make('amount')->of(Str::make(), Integer::make()->min(100), Decimal::make()->max(10.0))->required()->build();
+        $schema = (new SchemaProjector())->projectField($field, true)->toJson();
+
+        // A whole number meets either member's keywords, since JSON Schema can't tell 5
+        // from 5.0. The server applies the member the sent form picks.
+        foreach (['gold', 500, 2.5, 5] as $value) {
+            self::assertTrue($this->validates($schema, $value), \json_encode($value, \JSON_THROW_ON_ERROR));
+        }
+        foreach (['', 50, 50.5, true] as $value) {
+            self::assertFalse($this->validates($schema, $value), \json_encode($value, \JSON_THROW_ON_ERROR));
+        }
+    }
+
+    #[Test]
     public function aListOfUnionsProjectsTheElementUnionAsItsItems(): void
     {
         $field = ArrayList::make('values')->of(Union::of(Str::make()->maxLength(3), Integer::make()))->maxItems(4)->build();

@@ -35,9 +35,10 @@ final class UnionBuilder extends AbstractFieldBuilder
     }
 
     /**
-     * Declares the members, at most one per JSON type: a string-family field, an `Integer`
-     * or a `Decimal`, a `Boolean`, and an `ArrayList` of scalars or of a nested
-     * {@see Union::of()}. Their names are never used, so declare them unnamed
+     * Declares the members, at most one per JSON type: a string-family field, an `Integer`,
+     * a `Decimal` or both, a `Boolean`, and an `ArrayList` of scalars or of a nested
+     * {@see Union::of()}. With both numeric members, a number's form picks one: an `int`
+     * the `Integer`, a `float` the `Decimal`. Their names are never used, so declare them unnamed
      * (`Str::make()`). Presence, visibility and hooks belong on the union.
      *
      * @return static

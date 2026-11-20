@@ -68,7 +68,9 @@ before validation, so constraints, hooks, setters and storage all see an `int`. 
 goes for an `Integer` child of an `Obj`, `Map` or `OneOf` variant, an `Integer` member of
 a `Union`, an `Integer` pivot field in a linkage member's `meta.pivot`, and each element
 of an `ArrayList` declared `of('integer')`, which also renders a stored whole `float` as
-an `int`.
+an `int`. A `Union` holding both an `Integer` and a `Decimal` is the exception: there
+`5.0` goes to the `Decimal` and stays a `float`, as
+[below](#integers-and-decimals-together).
 
 | Method | Adds |
 |---|---|
@@ -773,9 +775,9 @@ are objects, and an untyped field throws away what you do know.
 
 | Method | Effect |
 |---|---|
-| `of(FieldInterface ...$members)` | Declares the members, at most one per JSON type. |
+| `of(FieldInterface ...$members)` | Declares the members, at most one per JSON type, or an `Integer` and a `Decimal`. |
 | `Union::of(...$members)` | An unnamed union, for a list's elements. |
-| `members()` | The built members, ordered string, number, boolean, array. |
+| `members()` | The built members, ordered string, integer, number, boolean, array. |
 | `memberFor(mixed $value)` | The member a written value's JSON type selects, or `null`. |
 | `memberForStored(mixed $value)` | The member a stored value's PHP type selects, or `null`. |
 
@@ -804,15 +806,41 @@ member directly. There is no discriminator.
 
 ### One member per JSON type
 
-A union takes at most one string member, one number member, one boolean and one list. An
-`Integer` and a `Decimal` count as the same type, so a union can't hold both. A second
-member of a type throws a `LogicException` when the union is built.
+A union takes at most one string member, one boolean and one list, and either one number
+member or both an `Integer` and a `Decimal`. A second member of a type throws a
+`LogicException` when the union is built.
 
 The rule is what keeps a union simple to reason about. A value's JSON type names exactly
 one member, so there is never doubt over whose rules apply: a string meets the string
 member's `maxLength`, a list the list member's `maxItems`. It also fixes the PHP type a
 write stores, a `float` from a `Decimal` member or a `\DateTimeImmutable` from a `Date`.
 And it keeps the projected schema exact, as [below](#the-generated-schema).
+
+### Integers and decimals together
+
+JSON has one number type, but a client can still send `500` or `500.0`, and PHP decodes
+the first as an `int` and the second as a `float`. A union holding both an `Integer` and a
+`Decimal` uses that form to pick the member. An `int` goes to the `Integer` and a `float`
+to the `Decimal`, whole or not, so each keeps its form through the write, the store and
+the read:
+
+```php
+Union::make('amount')->of(Str::make(), Integer::make()->min(0), Decimal::make()->max(1.0), Boolean::make());
+```
+
+stores `500` as the `int` `500` and renders it as `500`, and stores `500.0` and `0.5` as
+floats that render as `500.0` and `0.5`. The `Integer`'s `min(0)` applies only to a number
+sent without a fraction, and the `Decimal`'s `max(1.0)` only to one sent with it, so
+`500.0` is a `422`. A write hook on the union receives `int|float` for a number.
+
+With only one numeric member, that member takes every number it accepts. An `Integer`
+alone turns `500.0` into `500` and refuses `2.5`, and a `Decimal` alone turns `500` into
+`500.0`.
+
+The form has to survive the trip. A response keeps a whole float's fraction, but a store
+that encodes JSON without `JSON_PRESERVE_ZERO_FRACTION` writes `500.0` as `500`, and it
+reads back as an `int` that renders through the `Integer`. So does a client whose own
+encoder drops the fraction, as JavaScript's `JSON.stringify` does.
 
 Presence, visibility and hooks belong on the union, not on a member. A member declaring
 `required()`, `nullable()`, `readOnly()`, `hidden()`, `writeOnly()`, `on()` or one of the
@@ -821,14 +849,14 @@ four hooks throws a `LogicException` when the union is built.
 ### Reads and writes
 
 A write picks the member by the value's JSON type. That member casts it, so `3` sent to a
-union with a `Decimal` member stores `3.0`, and a `Date` member parses its string to a
+union whose only number member is a `Decimal` stores `3.0`, and a `Date` member parses its string to a
 `\DateTimeImmutable`. Inside an `Obj`, a `OneOf` variant or a list, a date member stores a
 string instead, as a [nested date](#nested-dates-are-stored-as-strings) does. A cast that
 fails, such as an impossible date, is a `422` at the union's pointer, or at the element's
 inside a list member (`/data/attributes/value/2`).
 
 A value no member takes is a type mismatch: `{}` for a union with no object member, `1.5`
-for one whose number member is an `Integer`, or `null` for one that isn't nullable.
+for one whose only number member is an `Integer`, or `null` for one that isn't nullable.
 `ValueTypes::mismatchesIn()` returns each as one mismatch at its pointer whose `expected`
 joins the union's types with `|` (`string|number|boolean|array`), and `expectedTypes()`
 lists them. A value of a member's type then meets that member's own constraints at the
@@ -836,7 +864,8 @@ same pointer, and a list member's elements at their own.
 
 A read picks the member by the stored value's PHP type. A string goes to the string
 member, as does a `\DateTimeInterface` when the string member is a date. An `int` or
-`float` goes to the number member, a `bool` to the boolean member and a list to the list
+`float` goes to the number member, or with both numeric members an `int` to the `Integer`
+and a `float` to the `Decimal`. A `bool` goes to the boolean member and a list to the list
 member. A backed enum goes by its value. That member renders the value, so a `Decimal`
 member renders a stored `3` as `3.0` and a `Date` member formats its instant. A stored value
 no member takes renders unchanged, as a `OneOf` value naming no variant does. That keeps a
@@ -928,7 +957,31 @@ Union::make('threshold')->of(Str::make()->in(['auto', 'off']), Integer::make()->
 }
 ```
 
-The branches are exclusive because their types are. A required union refuses an empty
+The branches are exclusive because their types are, with one exception. JSON Schema counts
+every whole number as an `integer`, so it can't tell `500` from `500.0`, and an `Integer`
+and a `Decimal` member overlap. The compact schema lists `number` once for the two, and
+holds only when both carry the same keywords. When their keywords differ, the two share
+one `anyOf` branch of the `oneOf`:
+
+```php
+Union::make('amount')->of(Str::make(), Integer::make()->min(0), Decimal::make()->max(1.0));
+```
+
+```json
+{
+  "oneOf": [
+    { "type": "string" },
+    { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "number", "maximum": 1 }] }
+  ]
+}
+```
+
+That branch accepts a whole number if either member's keywords do, so `5` passes the
+schema while the server, which sends `5` to the `Integer`, applies only `minimum: 0`. It
+is looser than the server for whole numbers and exact for the rest. A generated client
+types both members as `number`.
+
+A required union refuses an empty
 string or list, not `false` or `0`, so the schema carries `minLength: 1` and `minItems: 1`
 for its string and list members only. The union's own description and example sit on the
 schema itself. An operation example uses the union's example, or failing that the first
