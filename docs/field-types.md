@@ -581,30 +581,35 @@ whole list, narrows nothing and passes the hook below a `null` selection. There 
 selected member renders without it, so an open element's item holding none of the
 selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 
-A list of a `OneOf` takes `*` too, once a variant opts in. Each variant declares its own
-selectable keys on the union's builder, by name, and a variant that declares none takes no
-part:
+A `OneOf` takes keys too, wherever it sits: as an attribute, as a child of an object and
+as the element of a list. Each variant opts in on its own `Obj`, and a variant that
+declares no selectable keys takes no part:
 
 ```php
 ArrayList::make('blocks')->of(
-    OneOf::make('block')->discriminator('type')
-        ->variant('text', Str::make('title'), Str::make('body'))
-        ->variant('image', Str::make('title'), Str::make('url'))
-        ->variant('divider', Str::make('style'))
-        ->selectableKeys('text', pattern: 'title|body')
-        ->selectableKeys('image', pattern: 'url'),
+    OneOf::make('block')->discriminator('type', BlockType::class)
+        ->variants(fn(BlockType $type): ?Obj => match ($type) {
+            BlockType::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))
+                ->selectableKeys(pattern: 'title|body')->build(),
+            BlockType::Image => Obj::make('image')->fields(Str::make('title'), Str::make('url'))
+                ->selectableKeys(pattern: 'url')->build(),
+            BlockType::Divider => Obj::make('divider')->fields(Str::make('style'))->build(),
+        }),
 );
 ```
 
-A key after `*` is accepted when one variant accepts it, and a path keeps going inside the
-variants that accept it, so `blocks.*.meta.lang` needs a variant whose `meta` declares
-`lang` selectable. Every item renders its discriminator and the selected keys its own
-variant accepts, nothing else. `fields[pages]=blocks.*.title` renders
+A key is accepted when one variant accepts it, and a path keeps going inside the variants
+that accept it, so `blocks.*.meta.lang` needs a variant whose `meta` declares `lang`
+selectable. Every value renders its discriminator and the selected keys its own variant
+accepts, nothing else. `fields[pages]=blocks.*.title` renders
 `[{"type":"text","title":"Intro"},{"type":"image"},{"type":"divider"}]`: the image has a
 title, but its variant doesn't let a request select it, so it renders without it, as an
-`Obj` item missing a selected member does. An undiscriminated item whose variant accepts
-none of the keys renders as `{}`. `blocks.*.style` is an unknown member, since no variant
-that opted in accepts it.
+`Obj` item missing a selected member does. An attribute works the same way:
+`fields[articles]=hero.src` renders `{"type":"image","src":"/h.png"}`, or
+`{"type":"video"}` for a video hero. An undiscriminated value whose variant accepts none of
+the keys renders as `{}`. `blocks.*.style` is an unknown member, since no variant that
+opted in accepts it. A hook on the union receives a selection that holds the
+discriminator beside the selected keys.
 
 An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
 fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
@@ -643,14 +648,50 @@ members the value carries say which variant it is.
 
 | Method | Effect |
 |---|---|
-| `discriminator(string $property)` | Names the property whose value selects the variant. Leave it out for an undiscriminated union. |
-| `variant(string $name, FieldInterface ...$children)` | Declares a variant: its name (the discriminator value that selects it, when there is one) and its child fields. |
+| `discriminator(string $property, ?string $enum = null)` | Names the property whose value selects the variant, bound to a string-backed enum when you pass one. Leave it out for an undiscriminated union. |
+| `variants(Closure $shape)` | With an enum-bound discriminator, declares every variant at once: `$shape` receives each case and returns its `Obj`, or `null` for a variant with no members. |
+| `variant(string\|BackedEnum $name, FieldInterface ...$children)` | Declares one variant: its name, or its case when the discriminator is bound to an enum, and its child fields, or one `Obj` named for the variant. |
+
+When the variants are the cases of an enum, bind the discriminator to it and declare them
+with a `match`:
+
+```php
+enum BlockKind: string
+{
+    case Heading = 'heading';
+    case Image = 'image';
+    case Divider = 'divider';
+}
+
+OneOf::make('block')->nullable()->discriminator('kind', BlockKind::class)
+    ->variants(fn(BlockKind $kind): ?Obj => match ($kind) {
+        BlockKind::Heading => Obj::make('heading')->fields(Str::make('text')->required(), Integer::make('level')->min(1)->max(6))->build(),
+        BlockKind::Image => Obj::make('image')->fields(Url::make('src')->required(), Str::make('alt'))->build(),
+        BlockKind::Divider => null,
+    });
+```
+
+Each case's backing value is the discriminator value on the wire. `variants()` calls the
+closure once per case, so a case the `match` leaves out is an `UnhandledMatchError` when
+the resource builds, and PHPStan reports the unhandled case before that. `variant()` on an
+enum-bound union takes only that enum's cases, PHPStan included, and building fails when a
+case has no variant. A `fillUsing()` hook and the hydrated value hold the case, not the
+string, and the OpenAPI document references the enum's component from the discriminator
+property. The enum must be string-backed.
+
+Without an enum, name each variant by its discriminator value:
 
 ```php
 OneOf::make('block')->nullable()->discriminator('kind')
     ->variant('heading', Str::make('text')->required(), Integer::make('level')->min(1)->max(6))
     ->variant('image', Url::make('src')->required(), Str::make('alt'));
 ```
+
+A variant given as one `Obj` named for it, such as
+`->variant('image', Obj::make('image')->fields(...))`, is that variant, so it can also
+declare `selectableKeys()`. Any other single `Obj` is a child of the variant. No variant
+may declare a member named like the discriminator, since the union renders and writes the
+discriminator itself.
 
 Only the **selected** variant's children run: a `heading` block validates and
 hydrates `text`/`level`, an `image` block `src`/`alt`. On a partial `PATCH` the

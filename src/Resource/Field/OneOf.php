@@ -10,6 +10,7 @@ use haddowg\JsonApi\OpenApi\SchemaProjector;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
 
 /**
  * A union attribute: the value is exactly **one of** a set of named object shapes
@@ -34,8 +35,12 @@ use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
  * The construction path ({@see Obj}) covers the common case; a looser "one of these
  * shapes" whose members you only want documented and validated (not hydrated per
  * variant) is a schema-bearing constraint on a pass-through field instead.
+ *
+ * A request can select keys of the union wherever it appears, once a variant's {@see Obj}
+ * declares `selectableKeys()`: a key is accepted when one variant accepts it, and a value
+ * renders its discriminator and the selected keys its own variant accepts.
  */
-final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface
+final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
     /**
      * Each undiscriminated variant's signature: the members it alone declares that every
@@ -46,7 +51,8 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     private array $signatures;
 
     /**
-     * @param array<string, Obj> $variants
+     * @param array<string, Obj>              $variants
+     * @param class-string<\BackedEnum>|null $discriminatorEnum the string-backed enum the discriminator's values are the cases of
      *
      * @throws \LogicException when the union is undiscriminated and a variant has no signature, or a variant is open
      */
@@ -54,6 +60,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         FieldState $state,
         private ?string $discriminator = null,
         private array $variants = [],
+        private ?string $discriminatorEnum = null,
     ) {
         parent::__construct($state);
         foreach ($variants as $name => $variant) {
@@ -120,6 +127,93 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
+     * Accepts a key when a variant declaring `selectableKeys()` accepts it, or `null` when
+     * none declares them. Its pattern joins the variants' patterns when each has one.
+     */
+    public function selectableKeys(): ?SelectableKeys
+    {
+        $variants = $this->selectableVariants();
+        if ($variants === []) {
+            return null;
+        }
+
+        $patterns = [];
+        foreach ($variants as $variant) {
+            $pattern = $variant->selectableKeys()?->pattern;
+            if ($pattern === null) {
+                $patterns = null;
+
+                break;
+            }
+            $patterns[] = '(?:' . $pattern . ')';
+        }
+
+        return new SelectableKeys(
+            static function (string $key, JsonApiRequestInterface $request) use ($variants): bool {
+                foreach ($variants as $variant) {
+                    if ($variant->selectableKeys()?->accepts($key, $request) === true) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+            $patterns === null ? null : \implode('|', $patterns),
+        );
+    }
+
+    /**
+     * Always `null`: a key of the union renders through the field of whichever variant
+     * the value takes, so each variant's {@see Obj} answers for its own keys.
+     */
+    public function keyField(string $key): ?FieldInterface
+    {
+        return null;
+    }
+
+    /**
+     * The value rendered through its variant, holding the discriminator and the keys of
+     * `$only` that variant accepts. A `serializeUsing()` hook's value is trimmed the same
+     * way.
+     */
+    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        $selections = $this->variantSelections($only, $request);
+        if ($this->state->serializeUsing !== null) {
+            return $this->trimToVariant(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $selections);
+        }
+        if ($this->state->extractUsing !== null) {
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only), $request, $selections);
+        }
+
+        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request, $selections);
+    }
+
+    /**
+     * A value a `serializeUsing()` hook built, keeping the discriminator and what its
+     * variant's share of the selection holds.
+     *
+     * @param array<string, KeySelection> $selections
+     */
+    private function trimToVariant(mixed $value, array $selections): mixed
+    {
+        if ($value instanceof \JsonSerializable) {
+            $value = $value->jsonSerialize();
+        }
+        $name = $this->variantNameOf($value);
+        if ($name === null || (!\is_array($value) && !\is_object($value))) {
+            return $value;
+        }
+
+        $trimmed = KeyTrim::trim($value, $selections[$name] ?? new KeySelection([]));
+        if ($this->discriminator === null) {
+            return $trimmed;
+        }
+
+        return JsonObject::of([$this->discriminator => $name, ...(array) $trimmed]);
+    }
+
+    /**
      * The share of `$only` each selectable variant accepts, by variant name, leaving out a
      * variant that accepts none of it. {@see ArrayList} works it out once per list and
      * renders every item through its variant's share.
@@ -152,7 +246,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             $this->variants,
         );
 
-        return $variants === $this->variants ? $this : new self($this->state, $this->discriminator, $variants);
+        return $variants === $this->variants ? $this : new self($this->state, $this->discriminator, $variants, $this->discriminatorEnum);
     }
 
     /**
@@ -161,7 +255,38 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
      */
     public function variantFor(mixed $discriminatorValue): ?Obj
     {
-        return $this->discriminator !== null && \is_string($discriminatorValue) ? ($this->variants[$discriminatorValue] ?? null) : null;
+        $name = self::discriminatorString($discriminatorValue);
+
+        return $this->discriminator !== null && $name !== null ? ($this->variants[$name] ?? null) : null;
+    }
+
+    /**
+     * The enum the discriminator's values are the cases of, or `null` when they are plain
+     * strings.
+     *
+     * @return class-string<\BackedEnum>|null
+     */
+    public function discriminatorEnum(): ?string
+    {
+        return $this->discriminatorEnum;
+    }
+
+    /**
+     * The value a hook and the hydrated value hold for the variant `$name`: the enum case
+     * whose backing value it is when the discriminator is bound to an enum, else the name.
+     */
+    private function discriminatorValue(string $name): string|\BackedEnum
+    {
+        return $this->discriminatorEnum === null ? $name : ($this->discriminatorEnum::tryFrom($name) ?? $name);
+    }
+
+    private static function discriminatorString(mixed $value): ?string
+    {
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+
+        return \is_string($value) ? $value : null;
     }
 
     /**
@@ -177,9 +302,9 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         }
 
         if ($this->discriminator !== null) {
-            $name = Accessor::get($value, $this->discriminator);
+            $name = self::discriminatorString(Accessor::get($value, $this->discriminator));
 
-            return \is_string($name) && isset($this->variants[$name]) ? $name : null;
+            return $name !== null && isset($this->variants[$name]) ? $name : null;
         }
 
         $selected = null;
@@ -283,11 +408,11 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return ($this->state->serializeUsing)($model, $request, $name);
+            return KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, null);
         }
 
         if ($this->state->extractUsing !== null) {
-            return $this->serializeComputed(($this->state->extractUsing)($model, $request, $name), $request);
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, null), $request);
         }
 
         return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request);
@@ -405,13 +530,13 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
 
         $existing = Accessor::get($model, $column);
         $existing = \is_array($existing) ? $existing : [];
-        $existingDiscriminator = $existing[$this->discriminator] ?? null;
+        $existingDiscriminator = self::discriminatorString($existing[$this->discriminator] ?? null);
 
         // The incoming discriminator, falling back to the stored one on a partial PATCH
         // that does not restate it.
-        $discriminatorValue = $value[$this->discriminator] ?? $existingDiscriminator;
+        $discriminatorValue = self::discriminatorString($value[$this->discriminator] ?? null) ?? $existingDiscriminator;
         $variant = $this->variantFor($discriminatorValue);
-        if ($variant === null) {
+        if ($variant === null || $discriminatorValue === null) {
             // No variant to hydrate against; store the raw value so the validator can
             // reject the unknown/missing discriminator (hydration does not validate).
             return Accessor::set($model, $column, $value);
@@ -420,7 +545,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         // Merge onto the stored object only when the variant is unchanged; a variant
         // switch starts fresh so stale keys of the previous shape do not linger.
         $nested = $existingDiscriminator === $discriminatorValue ? $existing : [];
-        $nested[$this->discriminator] = $discriminatorValue;
+        $nested[$this->discriminator] = $this->discriminatorValue($discriminatorValue);
 
         $nested = JsonObject::hydrateChildren($this->name(), static fn(): mixed => Obj::hydrateChildrenOnto($variant->children(), $nested, $value, $data, $request, $creating));
 
@@ -443,9 +568,17 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
      */
     public function normalizeWireValue(mixed $value): mixed
     {
-        $variant = \is_array($value) ? $this->variantOf($value) : null;
+        $name = \is_array($value) ? $this->variantNameOf($value) : null;
+        if ($name === null || !\is_array($value)) {
+            return $value;
+        }
 
-        return $variant === null || !\is_array($value) ? $value : Obj::normalizeChildren($variant->children(), $value);
+        $value = Obj::normalizeChildren($this->variants[$name]->children(), $value);
+        if ($this->discriminator !== null) {
+            $value[$this->discriminator] = $this->discriminatorValue($name);
+        }
+
+        return $value;
     }
 
     /**
@@ -465,7 +598,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             return $value;
         }
 
-        return Obj::hydrateChildrenOnto($this->variants[$name]->children(), $this->discriminator === null ? [] : [$this->discriminator => $name], $value, $data, $request, $creating);
+        return Obj::hydrateChildrenOnto($this->variants[$name]->children(), $this->discriminator === null ? [] : [$this->discriminator => $this->discriminatorValue($name)], $value, $data, $request, $creating);
     }
 
     /**
@@ -536,7 +669,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             // `required`) so a consumer can match the value to its variant.
             /** @var array<string, Schema> $properties */
             $properties = \is_array($schema->get('properties')) ? $schema->get('properties') : [];
-            $properties[$this->discriminator] = Schema::ofType('string')->withConst($variantName);
+            $properties[$this->discriminator] = ($this->discriminatorEnum === null ? Schema::ofType('string') : $projector->enumSchema($this->discriminatorEnum, $collector))->withConst($variantName);
             $schema = $schema->withProperties($properties);
 
             if ($creating || $projector->writesWholeValue() || ($projector->isReading() && !$shapedByHook)) {

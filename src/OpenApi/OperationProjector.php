@@ -2260,12 +2260,17 @@ final class OperationProjector
                 $nested['list'] = true;
             }
 
-            // The items of a list of a one-of take every path one of its variants declares.
-            $paths = [$prefix . '\\.\\*'];
-            foreach ($element instanceof OneOf ? $element->selectableVariants() : [$element] as $variant) {
+            $inner = $element->selectableKeys();
+
+            return $inner === null ? [] : [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
+        }
+        if ($field instanceof OneOf) {
+            // A one-of takes every path one of its variants declares, at the level it sits.
+            $paths = [];
+            foreach ($field->selectableVariants() as $variant) {
                 $inner = $variant->selectableKeys();
                 if ($inner !== null) {
-                    \array_push($paths, ...self::selectablePaths($variant, $inner, $prefix . '\\.\\*', $nested, true));
+                    \array_push($paths, ...self::selectablePaths($variant, $inner, $prefix, $nested, $top));
                 }
             }
 

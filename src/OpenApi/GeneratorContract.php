@@ -366,8 +366,8 @@ final class GeneratorContract
      * items are an `anyOf` of the member enum and one `pattern` per attribute declaring
      * selectable keys, matching `<attribute>.<key>`, one per object nested in it that
      * declares selectable keys too, matching `<attribute>.<key>.<key>`, and one per path
-     * into the items of a list through `*`, which for a list of a one-of are the paths of
-     * every variant declaring selectable keys. A document carries it only when some
+     * into the items of a list through `*`, a one-of anywhere giving the paths of every
+     * variant declaring selectable keys. A document carries it only when some
      * `fields[<type>]` parameter accepts such keys.
      */
     public const FIELD_SELECTION = 42;

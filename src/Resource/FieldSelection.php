@@ -24,9 +24,9 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * it. A key holds no `.`, so a longer path such as `<attr>.<key>.<key>` names a key of a
  * nested object, and is accepted only when every object along it declares
  * `selectableKeys()` accepting the next key. The key `*` stands for every item of a list
- * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. The
- * items of a list of a {@see OneOf} take every key one of its variants accepts, each item
- * keeping the keys its own variant accepts. An
+ * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. A
+ * {@see OneOf}, wherever it appears, takes every key one of its variants accepts, each value
+ * keeping its discriminator and the keys its own variant accepts. An
  * attribute or key the parameter also lists whole renders whole. A path ending in `*` names
  * the list itself, so `<attr>.*` lists the attribute whole exactly as `<attr>` does, and
  * narrows nothing.
@@ -106,6 +106,9 @@ final class FieldSelection
      */
     private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
     {
+        if ($field instanceof OneOf) {
+            return self::selectVariants($field, $paths, $request);
+        }
         $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
         if ($declared === null || !$field instanceof SelectsKeysInterface) {
             return null;
@@ -160,26 +163,38 @@ final class FieldSelection
 
     /**
      * The selection the paths make of the field rendering `$key`. The items of a list of a
-     * {@see OneOf} accept what any of its variants accepts.
+     * {@see OneOf} accepts what any of its variants accepts.
      *
      * @param list<list<string>> $paths
      */
     private static function selectChild(SelectsKeysInterface $field, string $key, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
     {
         $child = $field->keyField($key);
-        if (!$child instanceof OneOf || !$field instanceof ArrayList) {
-            return $child === null ? null : self::select($child, $paths, $request);
-        }
 
+        return $child === null ? null : self::select($child, $paths, $request);
+    }
+
+    /**
+     * What any variant of the union accepts of the paths, holding the discriminator too,
+     * since every narrowed value renders it.
+     *
+     * @param list<list<string>> $paths
+     */
+    private static function selectVariants(OneOf $field, array $paths, JsonApiRequestInterface $request): ?KeySelection
+    {
         $merged = null;
-        foreach ($child->selectableVariants() as $variant) {
+        foreach ($field->selectableVariants() as $variant) {
             $selection = self::select($variant, $paths, $request);
             if ($selection instanceof KeySelection) {
                 $merged = $merged === null ? $selection : self::merge($merged, $selection);
             }
         }
+        $discriminator = $field->discriminatorName();
+        if ($merged === null || $discriminator === null || $merged->has($discriminator)) {
+            return $merged;
+        }
 
-        return $merged;
+        return self::merge(new KeySelection([$discriminator]), $merged);
     }
 
     /**

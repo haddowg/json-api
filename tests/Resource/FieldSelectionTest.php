@@ -608,7 +608,7 @@ final class FieldSelectionTest extends TestCase
             ['computedBlocks' => [['type' => 'text', 'title' => 'Intro'], ['type' => 'image', 'url' => '/a.png'], ['type' => 'divider']]],
             $this->orderAttributes('computedBlocks.*.title,computedBlocks.*.url'),
         );
-        self::assertSame([['*.title', '*.url']], OrderSelectionResource::$computedBlocks);
+        self::assertSame([['*.type', '*.title', '*.url']], OrderSelectionResource::$computedBlocks);
     }
 
     #[Test]
@@ -629,21 +629,49 @@ final class FieldSelectionTest extends TestCase
         $selection = FieldSelection::selection(OrderSelectionResource::blocks(), ['*.title', '*.meta.lang', '*.url', '*.style'], $request);
 
         self::assertNotNull($selection);
-        self::assertSame(['*.title', '*.meta.lang', '*.url'], $selection->paths());
+        self::assertSame(['*.type', '*.title', '*.meta.lang', '*.url'], $selection->paths());
 
         $merged = FieldSelection::selection(OrderSelectionResource::blocks(), ['*.meta.lang', '*.meta'], $request);
-        self::assertSame(['*.meta'], $merged?->paths());
+        self::assertSame(['*.type', '*.meta'], $merged?->paths());
         self::assertTrue(FieldSelection::narrows($this->server(), $this->orderRequest('blocks.*.url')));
         self::assertFalse(FieldSelection::narrows($this->server(), $this->orderRequest('blocks.*')));
     }
 
     #[Test]
-    public function aVariantsKeysAreDeclaredOnlyOnAVariantItHas(): void
+    public function aOneOfAttributeRendersItsDiscriminatorAndTheKeysItsVariantAccepts(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('OneOf "block" declares selectableKeys() for the variant "video", which it does not declare.');
+        $response = $this->renderOrder('hero.src');
 
-        OneOf::make('block')->discriminator('type')->variant('text', Str::make('title'))->selectableKeys('video', pattern: 'title');
+        self::assertSame(['hero' => ['type' => 'image', 'src' => '/h.png']], $this->attributes($this->body($response)));
+        self::assertSame(['version' => '1.1', 'profile' => [FieldSelectionProfile::URI]], $this->body($response)['jsonapi']);
+        self::assertStringContainsString('"attributes":{"hero":{"type":"video"}}', (string) $this->renderOrder('hero.src', ['hero' => ['type' => 'video', 'url' => '/v.mp4']])->getBody());
+        self::assertSame(['hero' => ['type' => 'image', 'src' => '/h.png', 'alt' => 'Hero']], $this->orderAttributes('hero,hero.src'));
+        self::assertSame(['hero' => null], $this->attributes($this->body($this->renderOrder('hero.src', ['hero' => null]))));
+    }
+
+    #[Test]
+    public function aOneOfChildOfAnObjectIsNarrowedThroughItsVariants(): void
+    {
+        self::assertSame(['layout' => ['banner' => ['type' => 'text', 'copy' => 'Hi']]], $this->orderAttributes('layout.banner.copy'));
+        self::assertSame(['layout' => ['theme' => 'dark', 'banner' => ['type' => 'text', 'copy' => 'Hi', 'tone' => 'warm']]], $this->orderAttributes('layout.theme,layout.banner'));
+    }
+
+    #[Test]
+    public function aOneOfsSerializeHookReceivesTheSelectionAndIsTrimmedToItsVariant(): void
+    {
+        OrderSelectionResource::$promoSelections = [];
+
+        self::assertSame(['promo' => ['type' => 'image', 'src' => '/p.png']], $this->orderAttributes('promo.src'));
+        self::assertSame([['type', 'src']], OrderSelectionResource::$promoSelections);
+    }
+
+    #[Test]
+    public function aOneOfKeyNoVariantAcceptsIsThe400(): void
+    {
+        $this->assertUnrecognized('hero.url', ['hero.url'], 'orders');
+        $this->assertUnrecognized('hero.src.x', ['hero.src.x'], 'orders');
+        $this->assertUnrecognized('layout.banner.nope', ['layout.banner.nope'], 'orders');
+        $this->assertUnrecognized('plainHero.x', ['plainHero.x'], 'orders');
     }
 
     #[Test]
@@ -1094,6 +1122,11 @@ final class OrderSelectionResource extends AbstractResource
     public static array $computedBlocks = [];
 
     /**
+     * @var list<list<string>|null>
+     */
+    public static array $promoSelections = [];
+
+    /**
      * @var list<array{keys: list<string>|null, items: list<string>|null, paths: list<string>|null}>
      */
     public static array $extracted = [];
@@ -1120,6 +1153,8 @@ final class OrderSelectionResource extends AbstractResource
             'blocks' => self::blockValues(),
             'plainBlocks' => [['type' => 'a', 'style' => 'x']],
             'cards' => [['quote' => 'Be brief', 'by' => 'Ada'], ['href' => '/x', 'label' => 'X']],
+            'hero' => ['type' => 'image', 'src' => '/h.png', 'alt' => 'Hero'],
+            'layout' => ['theme' => 'dark', 'banner' => ['type' => 'text', 'copy' => 'Hi', 'tone' => 'warm']],
         ];
     }
 
@@ -1144,11 +1179,9 @@ final class OrderSelectionResource extends AbstractResource
     {
         return ArrayList::make($name)->of(
             OneOf::make('block')->discriminator('type')
-                ->variant('text', Str::make('title'), Str::make('body'), Obj::make('meta')->fields(Str::make('lang'), Str::make('tone'))->selectableKeys(pattern: 'lang|tone'))
-                ->variant('image', Str::make('title'), Str::make('url'), Str::make('caption'), Str::make('meta'))
-                ->variant('divider', Str::make('style'))
-                ->selectableKeys('text', pattern: 'title|body|meta')
-                ->selectableKeys('image', pattern: 'url|caption|meta'),
+                ->variant('text', Obj::make('text')->fields(Str::make('title'), Str::make('body'), Obj::make('meta')->fields(Str::make('lang'), Str::make('tone'))->selectableKeys(pattern: 'lang|tone'))->selectableKeys(pattern: 'title|body|meta'))
+                ->variant('image', Obj::make('image')->fields(Str::make('title'), Str::make('url'), Str::make('caption'), Str::make('meta'))->selectableKeys(pattern: 'url|caption|meta'))
+                ->variant('divider', Str::make('style')),
         );
     }
 
@@ -1187,13 +1220,28 @@ final class OrderSelectionResource extends AbstractResource
             self::shipping(),
             ArrayList::make('archived')->of($line)->sparseByDefault(),
             self::blocks(),
+            OneOf::make('plainHero')->nullable()->discriminator('type')->variant('a', Str::make('x')),
             ArrayList::make('plainBlocks')->of(OneOf::make('block')->discriminator('type')->variant('a', Str::make('style'))),
             ArrayList::make('cards')->of(
                 OneOf::make('card')
-                    ->variant('quote', Str::make('quote')->required(), Str::make('by'))
-                    ->variant('link', Str::make('href')->required(), Str::make('label'))
-                    ->selectableKeys('quote', pattern: 'by'),
+                    ->variant('quote', Obj::make('quote')->fields(Str::make('quote')->required(), Str::make('by'))->selectableKeys(pattern: 'by'))
+                    ->variant('link', Str::make('href')->required(), Str::make('label')),
             ),
+            OneOf::make('hero')->nullable()->discriminator('type')
+                ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+                ->variant('video', Str::make('url')),
+            Obj::make('layout')->fields(
+                Str::make('theme'),
+                OneOf::make('banner')->discriminator('type')
+                    ->variant('text', Obj::make('text')->fields(Str::make('copy'), Str::make('tone'))->selectableKeys(pattern: 'copy|tone')),
+            )->selectableKeys(pattern: '[a-z]+'),
+            OneOf::make('promo')->discriminator('type')
+                ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+                ->serializeUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                    self::$promoSelections[] = $only?->paths();
+
+                    return ['type' => 'image', 'src' => '/p.png', 'alt' => 'Promo', 'extra' => 'x'];
+                }),
             self::blocksBuilder('computedBlocks')->computedUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
                 self::$computedBlocks[] = $only?->paths();
 

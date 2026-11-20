@@ -101,10 +101,8 @@ final class HookClosureTypes
             ArrayList::make('selectedBlocks')
                 ->of(
                     OneOf::make('block')->discriminator('type')
-                        ->variant('text', Str::make('title'), Str::make('body'))
-                        ->variant('image', Str::make('url'))
-                        ->selectableKeys('text', static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'body')
-                        ->selectableKeys('image', pattern: 'url'),
+                        ->variant('text', Obj::make('text')->fields(Str::make('title'), Str::make('body'))->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'body'))
+                        ->variant('image', Obj::make('image')->fields(Str::make('url'))->selectableKeys(pattern: 'url')),
                 )
                 ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only?->items()->keys ?? []),
             ArrayList::make('scalarItems')->extractUsing(static fn(array $row): array => $row),

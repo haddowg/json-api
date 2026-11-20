@@ -435,8 +435,9 @@ final class ContractWitnessServer
                 // Objects whose keys a fieldset member selects one by one: one whose keys
                 // match a declared pattern, a map whose predicate alone decides, a closed
                 // object with a nested object whose keys are selectable in turn, a list
-                // whose items' keys are selected through `*`, one of them an object too, and
-                // a list of a union whose variants each declare their own keys, or none.
+                // whose items' keys are selected through `*`, one of them an object too, a
+                // list of a union bound to an enum whose variants each declare their own keys,
+                // or none, and a union attribute only one of whose variants declares them.
                 ...($fieldSelection ? [
                     Obj::make('scores')->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z][a-z0-9_]*')->build(),
                     Map::make('totals')->fields(Integer::make('views'), Integer::make('shares'))
@@ -451,12 +452,18 @@ final class ContractWitnessServer
                         Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
                     )->selectableKeys(pattern: 'sku|quantity|price'))->build(),
                     ArrayList::make('sections')->of(OneOf::make('section')
+                        ->discriminator('kind', \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::class)
+                        ->variants(static fn(\haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind $kind): ?Obj => match ($kind) {
+                            \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Heading => Obj::make('heading')->fields(Str::make('text'), Integer::make('level'))->selectableKeys(pattern: 'text|level')->build(),
+                            \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Figure => Obj::make('figure')
+                                ->fields(Str::make('src'), Obj::make('size')->fields(Integer::make('width'), Integer::make('height'))->selectableKeys(pattern: 'width|height'))
+                                ->selectableKeys(pattern: 'src|size')->build(),
+                            \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Rule => null,
+                        }))->build(),
+                    OneOf::make('cover')->nullable()
                         ->discriminator('kind')
-                        ->variant('heading', Str::make('text'), Integer::make('level'))
-                        ->variant('figure', Str::make('src'), Obj::make('size')->fields(Integer::make('width'), Integer::make('height'))->selectableKeys(pattern: 'width|height'))
-                        ->variant('rule')
-                        ->selectableKeys('heading', pattern: 'text|level')
-                        ->selectableKeys('figure', pattern: 'src|size'))->build(),
+                        ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+                        ->variant('video', Str::make('url'))->build(),
                 ] : []),
                 // Values of several primitive types: one schema listing the members' types
                 // with their keywords merged, and a oneOf of the members once one carries

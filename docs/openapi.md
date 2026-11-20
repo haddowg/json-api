@@ -375,8 +375,8 @@ an attribute declaring [selectable keys](field-types.md#selectable-keys), the it
 an `anyOf` of that enum and one string `pattern` per path a member may select:
 `<attribute>.<key>` for each such attribute, `<attribute>.<key>.<key>` for each object
 inside it that declares selectable keys too, at any depth, and `<attribute>.*` and
-`<attribute>.*.<key>` for a list whose element declares them, and for a list of a `OneOf`
-the paths of every variant that declares them:
+`<attribute>.*.<key>` for a list whose element declares them, and for a `OneOf`, wherever
+it sits, the paths of every variant that declares them:
 
 ```json
 "items": {
