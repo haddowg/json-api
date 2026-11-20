@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\KeySelection;
@@ -21,8 +22,10 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * A member is `<attr>.<key>`: the attribute name up to the first `.` and the key after
  * it. A key holds no `.`, so a longer path such as `<attr>.<key>.<key>` names a key of a
  * nested object, and is accepted only when every object along it declares
- * `selectableKeys()` accepting the next key. An attribute or key the parameter also lists
- * whole renders whole.
+ * `selectableKeys()` accepting the next key. The key `*` stands for every item of a list
+ * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. An
+ * attribute or key the parameter also lists whole renders whole, and so does a list whose
+ * items it lists whole as `<attr>.*`.
  */
 final class FieldSelection
 {
@@ -58,7 +61,8 @@ final class FieldSelection
      * The `$keys` the field's declaration accepts, or `null` when the field declares no
      * selectable keys or accepts none of them. A dotted key is a path into a nested
      * object: it is accepted when each object along it declares `selectableKeys()` and
-     * accepts the next key, and a key also selected whole is not narrowed.
+     * accepts the next key, or is a list whose element does and the key is `*`. A key also
+     * selected whole is not narrowed.
      *
      * @param list<string> $keys
      */
@@ -82,7 +86,7 @@ final class FieldSelection
         $deeper = [];
         foreach ($paths as $segments) {
             $key = $segments[0];
-            if (!$declared->accepts($key, $request)) {
+            if (($key === KeySelection::ITEMS) !== $field instanceof ArrayList || !$declared->accepts($key, $request)) {
                 continue;
             }
             $rest = \array_slice($segments, 1);

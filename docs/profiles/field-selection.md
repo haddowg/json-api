@@ -45,8 +45,9 @@ interpretation the JSON:API specification applies to these key words; see its
 #### Selectable attribute
 
 An attribute whose value is an object, and whose members the server lets a client
-select one at a time, is a **selectable attribute**. The server decides which
-attributes are selectable, and which member names of each a client may select.
+select one at a time, is a **selectable attribute**, and so is a list of such objects
+when the server supports the item wildcard below. The server decides which attributes
+are selectable, and which member names of each a client may select.
 
 #### Key member
 
@@ -58,9 +59,20 @@ never collides with a field name, and a key never contains one.
 A server **MAY** let a key member address a member of a nested object, as
 `<attribute>.<key>.<key>` and so on, one key per level, where the value at each level
 is an object whose members the server lets a client select. `address.geo.lat` selects
-the `lat` member of the `geo` object inside `address`. A key whose value is a list,
-such as a repeating group of rows, has no deeper key members: the key member naming it
-selects the list whole.
+the `lat` member of the `geo` object inside `address`.
+
+A server **MAY** let a key member address the items of a list with an **item wildcard**,
+the segment `*` (U+002A) after the name of a list whose items are objects the server lets
+a client select from. `lines.*.sku` selects the `sku` member of every item of the `lines`
+list. A path continues through nested objects and lists the same way, so
+`lines.*.price.amount` and `groups.*.rows.*.label` are key members too, and a list inside
+an object is reached as `shipping.parcels.*.weight`. `lines.*` with nothing after it selects every item whole,
+the same as `lines`. A list the server does not let a client select from, such as a list
+of strings, is selected whole by its name. JSON:API member names contain no asterisk, so
+`*` never collides with a key.
+
+A key member addresses no single item. A segment after a list that is not `*`, such as
+the index in `lines.0`, is not part of this profile.
 
 ### Query Parameters
 
@@ -69,8 +81,12 @@ specification's `fields[TYPE]` parameter accepts:
 
 ```
 fields[TYPE] = <member>,<member>,...
-<member>     = <field-name> | <attribute>.<key> | <attribute>.<key>.<key> ...
+<member>     = <field-name> | <attribute>.<segment> | <attribute>.<segment>.<segment> ...
+<segment>    = <key> | *
 ```
+
+A `*` segment follows only the name of a list. The segments after it address members of
+each item.
 
 ### Processing
 
@@ -113,6 +129,26 @@ whatever key members also address members inside it, so
 `fields[people]=address.geo,address.geo.lat` renders `address` holding the whole of
 `geo` and nothing else.
 
+A key member with an item wildcard selects from every item of the list. The list **MUST**
+be rendered with all of its items, in the order the whole list renders them, each item
+rendered as an object holding only the members the key members select from it, by the
+rules above. An item that does not have a selected member, as the whole list would render
+it, is rendered without it, so an item holding none of them is rendered as an empty
+object, and an empty list is rendered as an empty list:
+
+```http
+GET /orders?fields[orders]=lines.*.sku
+```
+
+```json
+"attributes": {
+  "lines": [{ "sku": "A1" }, { "sku": "B2" }, {}]
+}
+```
+
+The rule for a field listed whole applies to the items as well: `lines,lines.*.sku` and
+`lines.*,lines.*.sku` both render every item of `lines` whole.
+
 A request with no `fields[TYPE]` parameter is processed as the base specification
 describes. The selection applies to every resource of type `TYPE` the response
 renders, in primary data and in `included` alike.
@@ -135,7 +171,8 @@ NOT** add the profile to a response the client did not negotiate it for.
 
 This profile reserves no document members. A selected attribute keeps the shape
 its whole value has, with fewer members, and so does each nested object a key member
-selects from.
+selects from. A list selected through an item wildcard keeps its length, and each item
+keeps the shape it has whole, with fewer members.
 
 ### Error Cases
 
@@ -149,7 +186,11 @@ it. A key member is not accepted when:
 - its attribute does not exist, is not an attribute, or is not selectable;
 - the server does not allow that key of the attribute;
 - it continues past a key whose value the server does not let a client select from,
-  such as a string, a list or an object the server returns only whole;
+  such as a string, or an object or a list the server returns only whole;
+- it uses `*` on a member that is not a list whose items the server lets a client
+  select from: a scalar, an object, a list of scalars, or a list of objects the server
+  returns only whole;
+- it addresses an item of a list by anything but `*`, such as an index;
 - one of its keys is empty.
 
 ## Notes

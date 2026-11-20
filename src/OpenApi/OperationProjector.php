@@ -35,6 +35,7 @@ use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\SelectableKeys;
@@ -2173,15 +2174,22 @@ final class OperationProjector
         }
 
         $description = 'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).';
-        [$attributes, $selectable] = $this->selectableKeyPatterns($reachable);
+        [$attributes, $lists, $selectable, $nested] = $this->selectableKeyPatterns($reachable);
         if ($selectable !== []) {
             $items = Schema::create()->withAnyOf([$items, ...$selectable]);
-            $names = \array_map(static fn(string $name): string => '`' . $name . '`', $attributes);
-            $last = \array_pop($names);
-            $description .= ' Select single keys of ' . ($names === [] ? $last : \implode(', ', $names) . ' or ' . $last)
-                . ' as `<attribute>.<key>` under the [Field Selection profile](' . FieldSelectionProfile::URI . '); listing the attribute itself selects all of it.';
-            if (\count($selectable) > \count($attributes)) {
+            $profile = ' under the [Field Selection profile](' . FieldSelectionProfile::URI . ')';
+            if ($attributes !== []) {
+                $description .= ' Select single keys of ' . self::codeNames($attributes) . ' as `<attribute>.<key>`' . $profile . '; listing the attribute itself selects all of it.';
+            }
+            if ($lists !== []) {
+                $description .= ' Select keys of every item of ' . self::codeNames($lists) . ' as `<attribute>.*.<key>`' . ($attributes === [] ? $profile : '') . '; the list keeps its length and order'
+                    . ($attributes === [] ? ', and listing the attribute itself selects all of it.' : '.');
+            }
+            if ($nested['object']) {
                 $description .= ' A key of a nested object is selected as `<attribute>.<key>.<key>`, and listing the key itself selects all of it.';
+            }
+            if ($nested['list']) {
+                $description .= ' Every item of a list inside an object is reached as `<attribute>.<key>.*.<key>`.';
             }
         }
 
@@ -2195,41 +2203,68 @@ final class OperationProjector
     }
 
     /**
-     * The read attributes of the type declaring selectable keys, and one string schema per
-     * path a fieldset member may select: `<attribute>.<key>` for each such attribute, then
-     * one `<attribute>.<key>.<key>` per key whose object declares selectable keys in turn,
-     * at any depth.
+     * The read object attributes of the type declaring selectable keys, the read list
+     * attributes whose element does, one string schema per path a fieldset member may
+     * select, and whether any path reaches into a nested object or a nested list. An object
+     * gives `<attribute>.<key>` and a list `<attribute>.*.<key>`, then each nested object
+     * or list declaring selectable keys gives its paths in turn, at any depth.
      *
-     * @return array{list<string>, list<Schema>}
+     * @return array{list<string>, list<string>, list<Schema>, array{object: bool, list: bool}}
      */
     private function selectableKeyPatterns(TypeMetadataInterface $reachable): array
     {
         $readable = \array_flip($this->schemaProjector->readAttributeNames($reachable->fields()));
         $attributes = [];
+        $lists = [];
         $patterns = [];
+        $nested = ['object' => false, 'list' => false];
         foreach ($reachable->fields() as $field) {
             $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
             if ($declared === null || !$field instanceof SelectsKeysInterface || !isset($readable[$field->name()])) {
                 continue;
             }
-            $attributes[] = $field->name();
-            foreach (self::selectablePaths($field, $declared, self::escapeEcmaPattern($field->name())) as $path) {
+            if ($field instanceof ArrayList) {
+                $lists[] = $field->name();
+            } else {
+                $attributes[] = $field->name();
+            }
+            foreach (self::selectablePaths($field, $declared, self::escapeEcmaPattern($field->name()), $nested, true) as $path) {
                 $patterns[] = Schema::ofType('string')->withPattern('^' . $path . '$');
             }
         }
 
-        return [$attributes, $patterns];
+        return [$attributes, $lists, $patterns, $nested];
     }
 
     /**
      * The pattern of every path below `$prefix` a member may select: the object's own keys,
-     * then each nested object declaring selectable keys, reached through a declared child
-     * whose name the object accepts or through the field of its undeclared members.
+     * then each nested object or list declaring selectable keys, reached through a declared
+     * child whose name the object accepts or through the field of its undeclared members. A
+     * list's own path is `.*`, which selects every item whole, and its element's paths follow
+     * it.
+     *
+     * @param array{object: bool, list: bool} $nested set when a path reaches below the top level
      *
      * @return list<string>
      */
-    private static function selectablePaths(SelectsKeysInterface $field, SelectableKeys $declared, string $prefix): array
+    private static function selectablePaths(SelectsKeysInterface $field, SelectableKeys $declared, string $prefix, array &$nested, bool $top = false): array
     {
+        if ($field instanceof ArrayList) {
+            $element = $field->selectableElement();
+            $inner = $element?->selectableKeys();
+            if ($element === null || $inner === null) {
+                return [];
+            }
+            if (!$top) {
+                $nested['list'] = true;
+            }
+
+            return [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
+        }
+        if (!$top) {
+            $nested['object'] = true;
+        }
+
         $paths = [$prefix . '\\.' . self::selectableKeySegment($declared)];
 
         $children = match (true) {
@@ -2249,10 +2284,21 @@ final class OperationProjector
             } else {
                 continue;
             }
-            \array_push($paths, ...self::selectablePaths($child, $inner, $prefix . '\\.' . $segment));
+            \array_push($paths, ...self::selectablePaths($child, $inner, $prefix . '\\.' . $segment, $nested));
         }
 
         return $paths;
+    }
+
+    /**
+     * @param non-empty-list<string> $names
+     */
+    private static function codeNames(array $names): string
+    {
+        $names = \array_map(static fn(string $name): string => '`' . $name . '`', $names);
+        $last = \array_pop($names);
+
+        return $names === [] ? $last : \implode(', ', $names) . ' or ' . $last;
     }
 
     /**

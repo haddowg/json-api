@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Each;
 use haddowg\JsonApi\Resource\Field\Internal\JsonObject;
+use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
 use haddowg\JsonApi\Resource\ValueTypes;
 
 /**
@@ -21,8 +22,12 @@ use haddowg\JsonApi\Resource\ValueTypes;
  * keys inside that element, or each one of several primitive types, a {@see Union}
  * ({@see elementUnion()}). A write replaces the whole list, building every element
  * fresh from the request.
+ *
+ * A structured list whose element is an {@see Obj} declaring `selectableKeys()` lets a
+ * request select keys of every item as `<attr>.*.<key>`: its one selectable key is
+ * {@see KeySelection::ITEMS}, and each item renders trimmed to the selection inside it.
  */
-final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface
+final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
     public function __construct(
         FieldState $state,
@@ -75,6 +80,29 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
         return $this->elementUnion;
     }
 
+    /**
+     * The element whose keys a request may select in every item, or `null` when the list
+     * is not of an {@see Obj} declaring `selectableKeys()`.
+     */
+    public function selectableElement(): ?Obj
+    {
+        return $this->element instanceof Obj && $this->element->selectableKeys() !== null ? $this->element : null;
+    }
+
+    /**
+     * Accepts only {@see KeySelection::ITEMS}, and only when the list has a
+     * {@see selectableElement()}. A list declares nothing itself: its element does.
+     */
+    public function selectableKeys(): ?SelectableKeys
+    {
+        return $this->selectableElement() === null ? null : new SelectableKeys(pattern: '\\*');
+    }
+
+    public function keyField(string $key): ?FieldInterface
+    {
+        return $key === KeySelection::ITEMS ? $this->selectableElement() : null;
+    }
+
     public function withDefaultOutputTimezone(string $timezone): static
     {
         $element = $this->element?->withDefaultOutputTimezone($timezone);
@@ -85,24 +113,45 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
+        if ($this->state->serializeUsing === null && $this->state->extractUsing !== null && $this->element === null) {
+            return $this->serializeComputedValue($this->backingValue(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, null)));
+        }
+
+        return $this->serializeItems($model, $request, $name, null);
+    }
+
+    /**
+     * The list with every item trimmed to the selection inside {@see KeySelection::ITEMS},
+     * or every item whole when the request selected them whole. Its length and order are
+     * kept, and an item holding none of the selected keys renders as an empty object.
+     */
+    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        if ($this->state->serializeUsing !== null || $this->element === null) {
+            return KeyTrim::trim($this->serialize($model, $request, $name), $only);
+        }
+
+        return $this->serializeItems($model, $request, $name, $only);
+    }
+
+    private function serializeItems(mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
+    {
         if ($this->element === null || $this->state->serializeUsing !== null) {
             return parent::serialize($model, $request, $name);
         }
 
-        if ($this->state->extractUsing !== null) {
-            $element = $this->element;
-
-            return $this->mapElements(
-                ($this->state->extractUsing)($model, $request, $name),
-                static fn(mixed $item): mixed => $element->serializeComputed($item, $request),
-            );
-        }
-
         $element = $this->element;
+        $items = $only?->items();
+        $computed = $this->state->extractUsing !== null;
+        $render = $element instanceof Obj
+            ? static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $items) : $element->serializeStored($item, $request, $items)
+            : static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request) : $element->serializeStored($item, $request);
 
         return $this->mapElements(
-            Accessor::get($model, $this->state->column ?? $name),
-            static fn(mixed $item): mixed => $element->serializeStored($item, $request),
+            $this->state->extractUsing !== null
+                ? KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only)
+                : Accessor::get($model, $this->state->column ?? $name),
+            $render,
         );
     }
 

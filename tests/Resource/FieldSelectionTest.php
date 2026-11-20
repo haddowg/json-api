@@ -9,6 +9,7 @@ use haddowg\JsonApi\Exception\FieldsetMemberUnrecognized;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -46,6 +47,7 @@ final class FieldSelectionTest extends TestCase
     {
         SelectionProductResource::$extracted = [];
         SelectionPersonResource::$extracted = [];
+        OrderSelectionResource::$extracted = [];
     }
 
     #[Test]
@@ -405,6 +407,165 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aWildcardSelectsTheKeyFromEveryItemKeepingTheListsLengthAndOrder(): void
+    {
+        $response = $this->renderOrder('lines.*.sku');
+
+        self::assertSame(['lines' => [['sku' => 'A1'], ['sku' => 'B2'], ['sku' => null]]], $this->attributes($this->body($response)));
+        self::assertSame(['version' => '1.1', 'profile' => [FieldSelectionProfile::URI]], $this->body($response)['jsonapi']);
+    }
+
+    #[Test]
+    public function anItemLackingTheSelectedMemberRendersAsAnEmptyObject(): void
+    {
+        $response = $this->renderOrder('cells.*.a');
+
+        self::assertStringContainsString('"attributes":{"cells":[{"a":"1"},{}]}', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function aWildcardKeepsAnEmptyListEmpty(): void
+    {
+        $response = $this->renderOrder('lines.*.sku', ['lines' => []]);
+
+        self::assertStringContainsString('"attributes":{"lines":[]}', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function aWildcardWithNothingAfterItSelectsTheWholeList(): void
+    {
+        self::assertSame($this->orderAttributes('lines'), $this->orderAttributes('lines.*'));
+        $lines = $this->orderAttributes('lines.*')['lines'] ?? null;
+        self::assertIsArray($lines);
+        self::assertCount(3, $lines);
+    }
+
+    #[Test]
+    public function aListListedWholeBesideAWildcardPathRendersWhole(): void
+    {
+        $whole = $this->orderAttributes('lines');
+
+        self::assertSame($whole, $this->orderAttributes('lines,lines.*.sku'));
+        self::assertSame($whole, $this->orderAttributes('lines.*.sku,lines.*'));
+        self::assertSame(
+            ['lines' => [['price' => ['amount' => 950, 'currency' => 'GBP']], ['price' => ['amount' => 300, 'currency' => 'EUR']], ['price' => null]]],
+            $this->orderAttributes('lines.*.price,lines.*.price.amount'),
+        );
+    }
+
+    #[Test]
+    public function aWildcardPathContinuesIntoNestedObjectsAndLists(): void
+    {
+        self::assertSame(
+            ['lines' => [['sku' => 'A1', 'price' => ['amount' => 950]], ['sku' => 'B2', 'price' => ['amount' => 300]], ['sku' => null, 'price' => null]]],
+            $this->orderAttributes('lines.*.sku,lines.*.price.amount'),
+        );
+        self::assertSame(
+            ['lines' => [['tags' => [['name' => 'red'], ['name' => 'sale']]], ['tags' => []], ['tags' => null]]],
+            $this->orderAttributes('lines.*.tags.*.name'),
+        );
+    }
+
+    #[Test]
+    public function aWildcardReachesAListInsideAnObject(): void
+    {
+        self::assertSame(
+            ['shipping' => ['parcels' => [['weight' => 2], ['weight' => 5]]]],
+            $this->orderAttributes('shipping.parcels.*.weight'),
+        );
+    }
+
+    #[Test]
+    public function aListsExtractHookReceivesTheSelectionOfEveryItem(): void
+    {
+        self::assertSame(['bundles' => [['sku' => 'K1'], ['sku' => 'K2']]], $this->orderAttributes('bundles.*.sku'));
+        self::assertSame([['keys' => ['*'], 'items' => ['sku'], 'paths' => ['*.sku']]], OrderSelectionResource::$extracted);
+
+        OrderSelectionResource::$extracted = [];
+        $this->orderAttributes('bundles');
+        self::assertSame([['keys' => null, 'items' => null, 'paths' => null]], OrderSelectionResource::$extracted);
+    }
+
+    #[Test]
+    public function aListsSerializeHookIsTrimmedItemByItem(): void
+    {
+        self::assertSame(['stamped' => [['code' => 'X'], ['code' => 'Y']]], $this->orderAttributes('stamped.*.code'));
+    }
+
+    #[Test]
+    public function aWildcardOnAnythingButAListOfSelectableObjectsIsThe400(): void
+    {
+        $this->assertUnrecognized('reference.*', ['reference.*'], 'orders');
+        $this->assertUnrecognized('notes.*', ['notes.*'], 'orders');
+        $this->assertUnrecognized('extras.*', ['extras.*'], 'orders');
+        $this->assertUnrecognized('extras.*.x', ['extras.*.x'], 'orders');
+        $this->assertUnrecognized('plainLines.*', ['plainLines.*'], 'orders');
+        $this->assertUnrecognized('plainLines.*.sku', ['plainLines.*.sku'], 'orders');
+        $this->assertUnrecognized('lines.*.price.*', ['lines.*.price.*'], 'orders');
+    }
+
+    #[Test]
+    public function anIndexSegmentIsThe400(): void
+    {
+        $this->assertUnrecognized('lines.0', ['lines.0'], 'orders');
+        $this->assertUnrecognized('lines.0.sku', ['lines.0.sku'], 'orders');
+        $this->assertUnrecognized('lines.*.tags.1.name', ['lines.*.tags.1.name'], 'orders');
+    }
+
+    #[Test]
+    public function aWildcardKeyTheElementRejectsIsThe400(): void
+    {
+        $this->assertUnrecognized('lines.*.secret', ['lines.*.secret'], 'orders');
+        $this->assertUnrecognized('lines.*.', ['lines.*.'], 'orders');
+    }
+
+    #[Test]
+    public function acceptedWildcardPathsPassStrictValidation(): void
+    {
+        $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
+        $server = $this->server()->withHandler($handler);
+
+        $operation = new SelectionOperation($this->orderRequest('lines.*,lines.*.sku,lines.*.tags.*.name,shipping.parcels.*.weight'), 'orders');
+        $server->dispatch($operation);
+
+        self::assertSame($operation, $handler->received);
+    }
+
+    #[Test]
+    public function narrowsReadsWildcardPaths(): void
+    {
+        $server = $this->server();
+
+        self::assertTrue(FieldSelection::narrows($server, $this->orderRequest('lines.*.sku')));
+        self::assertTrue(FieldSelection::narrows($server, $this->orderRequest('lines.*')));
+        self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('lines,lines.*.sku')));
+        self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('notes.*')));
+    }
+
+    #[Test]
+    public function theSelectionOfAListHoldsTheSelectionOfEveryItem(): void
+    {
+        $lines = OrderSelectionResource::lines();
+        $request = $this->orderRequest(null);
+
+        $selection = FieldSelection::selection($lines, ['*.sku', '*.price.amount', '*.secret', '0.sku'], $request);
+
+        self::assertNotNull($selection);
+        self::assertSame([KeySelection::ITEMS], $selection->keys);
+        self::assertSame(['sku', 'price'], $selection->items()?->keys);
+        self::assertSame(['amount'], $selection->items()->nested('price')?->keys);
+        self::assertSame(['*.sku', '*.price.amount'], $selection->paths());
+
+        $whole = FieldSelection::selection($lines, ['*.sku', '*'], $request);
+        self::assertNotNull($whole);
+        self::assertSame(['*'], $whole->keys);
+        self::assertNull($whole->items());
+
+        self::assertNull(FieldSelection::selection($lines, ['0', 'sku'], $request));
+        self::assertNull((new KeySelection(['sku']))->items());
+    }
+
+    #[Test]
     public function aDeclarationNeedsAPredicateOrAPattern(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -459,7 +620,8 @@ final class FieldSelectionTest extends TestCase
             ->register(SelectionProductResource::class)
             ->register(SelectionVendorResource::class)
             ->register(SelectionShelfResource::class)
-            ->register(SelectionPersonResource::class);
+            ->register(SelectionPersonResource::class)
+            ->register(OrderSelectionResource::class);
 
         return $withProfile ? $server->withProfile(new FieldSelectionProfile()) : $server;
     }
@@ -506,6 +668,30 @@ final class FieldSelectionTest extends TestCase
         ));
     }
 
+    private function orderRequest(?string $fields): JsonApiRequestInterface
+    {
+        return new JsonApiRequest((new ServerRequest('GET', '/orders/1'))->withQueryParams($fields === null ? [] : ['fields' => ['orders' => $fields]]));
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     */
+    private function renderOrder(string $fields, array $overrides = []): ResponseInterface
+    {
+        $server = $this->server();
+
+        return DataResponse::fromResource([...OrderSelectionResource::model(), ...$overrides], $server->serializerFor('orders'))
+            ->toPsrResponse($server, $this->orderRequest($fields));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function orderAttributes(string $fields): array
+    {
+        return $this->attributes($this->body($this->renderOrder($fields)));
+    }
+
     /**
      * @param list<string> $members
      */
@@ -514,7 +700,12 @@ final class FieldSelectionTest extends TestCase
         $server = $this->server()->withHandler(new RecordingOperationHandler(MetaResponse::fromMeta([])));
 
         try {
-            $server->dispatch(new SelectionOperation($type === 'people' ? $this->personRequest($fields) : $this->request($fields), $type));
+            $request = match ($type) {
+                'people' => $this->personRequest($fields),
+                'orders' => $this->orderRequest($fields),
+                default => $this->request($fields),
+            };
+            $server->dispatch(new SelectionOperation($request, $type));
             self::fail('Expected the member to be rejected.');
         } catch (FieldsetMemberUnrecognized $e) {
             self::assertSame(400, $e->getStatusCode());
@@ -691,6 +882,75 @@ final class SelectionPersonResource extends AbstractResource
                 ->fields(Obj::make('colour')->fields(Str::make('fg'), Str::make('bg'))->selectableKeys(pattern: '[a-z]+'))
                 ->selectableKeys(pattern: '[a-z]+')
                 ->serializeUsing(static fn(): array => ['colour' => ['fg' => 'black', 'bg' => 'white'], 'shape' => 'round']),
+        ];
+    }
+}
+
+final class OrderSelectionResource extends AbstractResource
+{
+    public static string $type = 'orders';
+
+    /**
+     * @var list<array{keys: list<string>|null, items: list<string>|null, paths: list<string>|null}>
+     */
+    public static array $extracted = [];
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function model(): array
+    {
+        return [
+            'id' => '1',
+            'reference' => 'ORD-1',
+            'lines' => [
+                ['sku' => 'A1', 'qty' => 2, 'price' => ['amount' => 950, 'currency' => 'GBP'], 'tags' => [['name' => 'red', 'colour' => 'f00'], ['name' => 'sale', 'colour' => '0f0']]],
+                ['sku' => 'B2', 'qty' => 1, 'price' => ['amount' => 300, 'currency' => 'EUR'], 'tags' => []],
+                ['qty' => 5],
+            ],
+            'plainLines' => [['sku' => 'P1']],
+            'notes' => ['fragile'],
+            'extras' => ['gift' => 'yes'],
+            'cells' => [['a' => '1', 'b' => '2'], ['b' => '3']],
+            'shipping' => ['carrier' => 'post', 'parcels' => [['weight' => 2, 'label' => 'a'], ['weight' => 5, 'label' => 'b']]],
+        ];
+    }
+
+    public static function lines(): ArrayList
+    {
+        return ArrayList::make('lines')->of(
+            Obj::make('line')->fields(
+                Str::make('sku'),
+                Integer::make('qty'),
+                Obj::make('price')->fields(Integer::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
+                ArrayList::make('tags')->of(Obj::make('tag')->fields(Str::make('name'), Str::make('colour'))->selectableKeys(pattern: 'name|colour')),
+            )->selectableKeys(pattern: 'sku|qty|price|tags'),
+        )->build();
+    }
+
+    public function fields(): array
+    {
+        $line = Obj::make('line')->fields(Str::make('sku'), Integer::make('qty'))->selectableKeys(pattern: '[a-z]+');
+
+        return [
+            Id::make(),
+            Str::make('reference'),
+            self::lines(),
+            ArrayList::make('plainLines')->of(Obj::make('line')->fields(Str::make('sku'))),
+            ArrayList::make('notes'),
+            Obj::make('extras')->additionalProperties(Str::make('*'))->selectableKeys(static fn(string $key): bool => true),
+            ArrayList::make('cells')->of(Obj::make('cell')->additionalProperties(Str::make('*'))->selectableKeys(pattern: '[a-z]+')),
+            Obj::make('shipping')->fields(
+                Str::make('carrier'),
+                ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->selectableKeys(pattern: 'weight|label')),
+            )->selectableKeys(pattern: '[a-z]+'),
+            ArrayList::make('bundles')->of($line)->computedUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                self::$extracted[] = ['keys' => $only?->keys, 'items' => $only?->items()?->keys, 'paths' => $only?->paths()];
+
+                return [['sku' => 'K1', 'qty' => 1], ['sku' => 'K2', 'qty' => 2]];
+            }),
+            ArrayList::make('stamped')->of(Obj::make('stamp')->fields(Str::make('code'), Str::make('by'))->selectableKeys(pattern: '[a-z]+'))
+                ->serializeUsing(static fn(): array => [['code' => 'X', 'by' => 'ann'], ['code' => 'Y', 'by' => 'bob']]),
         ];
     }
 }
