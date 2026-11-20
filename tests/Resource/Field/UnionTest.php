@@ -79,7 +79,8 @@ final class UnionTest extends TestCase
     {
         foreach ([
             'two strings' => [Str::make(), Date::make()],
-            'integer and decimal' => [Integer::make(), Decimal::make()],
+            'two integers' => [Integer::make(), Integer::make()],
+            'two decimals' => [Decimal::make(), Decimal::make()],
             'two booleans' => [Boolean::make(), Boolean::make()],
             'two lists' => [ArrayList::make()->of('string'), ArrayList::make()->of('integer')],
         ] as $case => $members) {
@@ -90,6 +91,40 @@ final class UnionTest extends TestCase
                 self::assertStringContainsString('one member per JSON type', $e->getMessage(), $case);
             }
         }
+    }
+
+    #[Test]
+    public function anIntegerAndADecimalAreTheOnePairAUnionHolds(): void
+    {
+        $field = Union::make('amount')->of(Boolean::make(), Decimal::make(), Str::make(), Integer::make())->build();
+
+        self::assertSame(['string', 'integer', 'number', 'boolean'], $field->types());
+        self::assertSame('string|integer|number|boolean', $field->valueType());
+    }
+
+    #[Test]
+    public function aNumbersFormPicksBetweenAnIntegerAndADecimalMember(): void
+    {
+        $field = $this->amount()->build();
+
+        self::assertInstanceOf(Integer::class, $field->memberFor(500));
+        self::assertInstanceOf(Decimal::class, $field->memberFor(500.0));
+        self::assertInstanceOf(Decimal::class, $field->memberFor(2.5));
+        self::assertInstanceOf(Integer::class, $field->memberForStored(500));
+        self::assertInstanceOf(Decimal::class, $field->memberForStored(500.0));
+    }
+
+    #[Test]
+    public function oneNumericMemberTakesEveryNumberItAccepts(): void
+    {
+        $integer = Union::make('v')->of(Str::make(), Integer::make())->build();
+        $decimal = Union::make('v')->of(Str::make(), Decimal::make())->build();
+
+        self::assertInstanceOf(Integer::class, $integer->memberFor(500.0));
+        self::assertNull($integer->memberFor(2.5));
+        self::assertInstanceOf(Decimal::class, $decimal->memberFor(500));
+        self::assertInstanceOf(Integer::class, $integer->memberForStored(2.5));
+        self::assertInstanceOf(Decimal::class, $decimal->memberForStored(500));
     }
 
     #[Test]
@@ -213,6 +248,20 @@ final class UnionTest extends TestCase
     }
 
     #[Test]
+    public function aStoredNumberKeepsItsFormWithBothNumericMembers(): void
+    {
+        $field = $this->amount()->build();
+
+        foreach ([[500, 500], [500.0, 500.0], [2.5, 2.5], ['gold', 'gold'], [true, true]] as [$stored, $rendered]) {
+            self::assertSame($rendered, $field->serialize(['amount' => $stored], $this->request(), 'amount'));
+        }
+        self::assertSame('{"a":500,"b":500.0}', \json_encode([
+            'a' => $field->serialize(['amount' => 500], $this->request(), 'amount'),
+            'b' => $field->serialize(['amount' => 500.0], $this->request(), 'amount'),
+        ], \JSON_PRESERVE_ZERO_FRACTION));
+    }
+
+    #[Test]
     public function aDateMemberRendersFromTheObjectItHydratesTo(): void
     {
         $field = Union::make('when')->of(DateTime::make()->outputTimezone('UTC'), Boolean::make())->build();
@@ -270,6 +319,19 @@ final class UnionTest extends TestCase
             'null' => [null, null],
         ] as $case => [$written, $stored]) {
             self::assertSame(['value' => $stored], $field->hydrate([], $written, [], $this->request(), true), $case);
+        }
+    }
+
+    #[Test]
+    public function aWrittenNumberKeepsItsFormWithBothNumericMembers(): void
+    {
+        $field = $this->amount()->build();
+
+        foreach ([[500, 500], [500.0, 500.0], [2.5, 2.5]] as [$written, $stored]) {
+            self::assertSame(['amount' => $stored], $field->hydrate([], $written, [], $this->request(), true));
+            self::assertSame($stored, $field->normalizeWireValue($written));
+            self::assertSame($stored, $field->toStoredForm($written));
+            self::assertSame($stored, $field->fromStoredForm($stored));
         }
     }
 
@@ -424,6 +486,14 @@ final class UnionTest extends TestCase
             Boolean::make(),
             ArrayList::make()->maxItems(5)->of(Union::of(Str::make(), Decimal::make(), Boolean::make())),
         )->nullable();
+    }
+
+    /**
+     * @return UnionBuilder<string|int|float|bool|list<mixed>>
+     */
+    private function amount(): UnionBuilder
+    {
+        return Union::make('amount')->of(Str::make(), Integer::make()->min(100), Decimal::make()->max(10.0), Boolean::make());
     }
 
     private function request(): StubJsonApiRequest

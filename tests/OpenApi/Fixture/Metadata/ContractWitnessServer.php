@@ -462,6 +462,10 @@ final class ContractWitnessServer
                     )->nullable()->build(),
                     Union::make('threshold')->of(Str::make()->in(['auto', 'off']), Integer::make()->min(0))->build(),
                     Union::make('level')->of(Str::make()->enum(Status::class), Integer::make()->min(0))->build(),
+                    // An Integer and a Decimal member list `number` once, and share one
+                    // anyOf branch once their keywords differ.
+                    Union::make('amount')->of(Str::make(), Integer::make(), Decimal::make(), Boolean::make())->build(),
+                    Union::make('reading')->of(Str::make(), Integer::make()->min(0), Decimal::make()->max(1.0))->build(),
                 ] : []),
                 // Shapes declared once and shared as named components: a union both fields
                 // reference, and an object whose read-only member makes its write shapes

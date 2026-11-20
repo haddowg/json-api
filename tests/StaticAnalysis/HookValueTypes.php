@@ -141,6 +141,9 @@ final class HookValueTypes
             Union::make('dimension')->of(Str::make(), Integer::make())->fillUsing(
                 static fn(\ArrayObject $model, string|int|float|bool|array $value): mixed => $value,
             ),
+            Union::make('amount')->of(Str::make(), Integer::make(), Decimal::make(), Boolean::make())->fillUsing(
+                static fn(\ArrayObject $model, string|int|float|bool|array $value): mixed => $value,
+            ),
             Str::make('state')->enum(HookValueStatus::class)->fillUsing(
                 static fn(\ArrayObject $model, HookValueStatus|string $value): mixed => $value,
             ),

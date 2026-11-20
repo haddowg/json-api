@@ -1,0 +1,7 @@
+# A union may hold an Integer and a Decimal, picked by the number's form
+
+ADR 0109 counted an `Integer` and a `Decimal` as one JSON type, so a union for "any number" had to take a `Decimal`, and since a `Decimal` turns a written `500` into `500.0` and every response now keeps a whole float's fraction (ADR 0148), an integer sent to it came back as `500.0`. A union may now hold both, and the PHP type the number decoded to picks between them: an `int` goes to the `Integer` and a `float` to the `Decimal`, whole or not, so `500` and `500.0` each keep their form through the write, the store and the read, and each member's constraints apply only to numbers of its own form. Every other JSON type still takes one member, and a union with one numeric member behaves as before, its member taking every number it accepts.
+
+## Consequences
+
+The form is only as good as what carries it. A client or a store that drops a whole float's fraction, such as a JSON encoder without `JSON_PRESERVE_ZERO_FRACTION`, hands back an `int`, which then renders through the `Integer`. JSON Schema counts every whole number as an `integer`, so it can't tell `500` from `500.0`: the compact schema lists `number` once and holds only when both members carry the same keywords, and otherwise the two share one `anyOf` branch of the union's `oneOf`, because two `oneOf` branches would refuse a whole number as matching both. That branch accepts a whole number either member's keywords accept, so the schema is looser than the server there, which applies the member the sent form picks.

@@ -47,8 +47,9 @@ _Avoid_: cast type, coercion
 
 **Union**:
 A **Field** whose value is one of several JSON primitive types, or a list of them, each type
-taken by one unnamed member field. The value's JSON type picks the member on a write and its
-PHP type on a read.
+taken by one unnamed member field, except that an `Integer` and a `Decimal` may share numbers.
+The value's JSON type picks the member on a write and its PHP type on a read, and with both
+numeric members a number's PHP type, `int` or `float`, picks between them on both.
 _Avoid_: variant (that is a `OneOf` shape), mixed field, any-type field
 
 **Enum field**:
