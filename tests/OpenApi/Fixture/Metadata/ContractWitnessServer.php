@@ -460,7 +460,7 @@ final class ContractWitnessServer
                                 ->selectableKeys(pattern: 'src|size')->build(),
                             \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Rule => null,
                         }))->build(),
-                    OneOf::make('cover')->nullable()
+                    OneOf::make('hero')->nullable()
                         ->discriminator('kind')
                         ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
                         ->variant('video', Str::make('url'))->build(),
