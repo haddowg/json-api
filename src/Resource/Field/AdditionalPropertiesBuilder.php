@@ -14,9 +14,6 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class AdditionalPropertiesBuilder extends AbstractFieldBuilder
 {
-    /** @use DeclaresDeserializeHook<TValue> */
-    use DeclaresDeserializeHook;
-
     private FieldInterface|FieldBuilderInterface|null $of = null;
 
     public function build(): AdditionalProperties

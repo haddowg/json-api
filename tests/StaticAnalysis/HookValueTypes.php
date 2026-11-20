@@ -9,14 +9,17 @@ use haddowg\JsonApi\Resource\Constraint\Context;
 use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Constraint\MaxLength;
 use haddowg\JsonApi\Resource\Constraint\Nullable;
+use haddowg\JsonApi\Resource\Field\AdditionalProperties;
 use haddowg\JsonApi\Resource\Field\ArrayHash;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
+use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
@@ -319,5 +322,11 @@ final class HookValueTypes
         Id::make()->deserializeUsing(static fn(mixed $value): mixed => $value);
         // @phpstan-ignore method.notFound (the id has no fillUsing())
         Id::make()->fillUsing(static fn(mixed $model, mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (a relation has no deserializeUsing())
+        BelongsTo::make('author', 'people')->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (a to-many relation has no deserializeUsing())
+        HasMany::make('comments', 'comments')->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (an additionalProperties entry has no deserializeUsing())
+        AdditionalProperties::make()->deserializeUsing(static fn(mixed $value): mixed => $value);
     }
 }
