@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\StaticAnalysis;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
-use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
+use haddowg\JsonApi\Serializer\SerializesNestedFieldsetsInterface;
 
 /**
  * Never executed. phpstan-hooks.neon analyses it with PHPStan's default settings, as a
  * consuming project would, so a serializer override selecting keys type-checks the way an
  * author writes one.
  */
-final class SelectedAttributeSerializerTypes extends AbstractSerializer implements SelectsAttributeKeysInterface
+final class NestedFieldsetAttributeSerializerTypes extends AbstractSerializer implements SerializesNestedFieldsetsInterface
 {
     public function getType(mixed $object): string
     {
@@ -42,11 +42,11 @@ final class SelectedAttributeSerializerTypes extends AbstractSerializer implemen
         return ['address' => static fn(mixed $model): mixed => $model instanceof \ArrayObject ? $model->getArrayCopy() : null];
     }
 
-    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function getNestedFieldsetAttribute(mixed $object, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         $selected = [];
-        foreach ($only->keys as $key) {
-            $selected[$key] = $only->nested($key)?->paths() ?? $only->items()?->keys;
+        foreach ($fieldset->keys as $key) {
+            $selected[$key] = $fieldset->nested($key)?->paths() ?? $fieldset->items()?->keys;
         }
 
         return $selected;

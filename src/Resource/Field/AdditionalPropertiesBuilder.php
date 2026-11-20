@@ -47,12 +47,12 @@ final class AdditionalPropertiesBuilder extends AbstractFieldBuilder
      * Supplies the extra members a read renders: `$callback` is called with the model, the
      * request and the entry's name, and returns the members by name. They are merged after
      * the declared members. Like any `extractUsing()` hook it may take a fourth
-     * {@see KeySelection} parameter, which is always `null` here, since `fields` never
+     * {@see NestedFieldset} parameter, which is always `null` here, since `fields` never
      * narrows a `meta` object.
      *
      * @template TModel
      *
-     * @param \Closure(TModel, \haddowg\JsonApi\Request\JsonApiRequestInterface, string, ?KeySelection): mixed $callback
+     * @param \Closure(TModel, \haddowg\JsonApi\Request\JsonApiRequestInterface, string, ?NestedFieldset): mixed $callback
      *
      * @return static
      */

@@ -10,10 +10,10 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Integer;
-use haddowg\JsonApi\Resource\Field\KeySelection;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
@@ -74,53 +74,53 @@ final class HookClosureTypes
                 ->identifiedBy(static fn(\ArrayObject $model): array => []),
             Obj::make('selected')
                 ->additionalProperties(Integer::make('*'))
-                ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal')
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? $row : \array_intersect_key($row, \array_flip($only->keys))),
+                ->nestedFieldset(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset === null ? $row : \array_intersect_key($row, \array_flip($fieldset->keys))),
             Obj::make('selectedTyped')
                 ->additionalProperties(Integer::make('*'))
-                ->selectableKeys(pattern: '[a-z]+')
+                ->nestedFieldset(pattern: '[a-z]+')
                 ->extractUsing(static fn(\ArrayObject $model): array => $model->getArrayCopy()),
             Obj::make('selectedComputed')
                 ->additionalProperties(Integer::make('*'))
-                ->selectableKeys(static fn(string $key): bool => true)
-                ->computedUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? [] : $only->keys),
+                ->nestedFieldset(static fn(string $key): bool => true)
+                ->computedUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset === null ? [] : $fieldset->keys),
             Obj::make('selectedNested')
-                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->selectableKeys(pattern: 'lat'))
-                ->selectableKeys(pattern: '[a-z]+')
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => ['paths' => $only?->paths() ?? [], 'geo' => $only?->nested('geo')->keys ?? []]),
+                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->nestedFieldset(pattern: 'lat'))
+                ->nestedFieldset(pattern: '[a-z]+')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => ['paths' => $fieldset?->paths() ?? [], 'geo' => $fieldset?->nested('geo')->keys ?? []]),
             Map::make('selectedMap')
                 ->fields(Integer::make('views'))
-                ->selectableKeys(static fn(string $key): bool => $key === 'views')
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $row),
+                ->nestedFieldset(static fn(string $key): bool => $key === 'views')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $row),
             ArrayList::make('selectedItems')
-                ->of(Obj::make('line')->fields(Str::make('sku'), Integer::make('qty'))->selectableKeys(pattern: 'sku|qty'))
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => ['paths' => $only?->paths() ?? [], 'items' => $only?->items()->keys ?? []]),
+                ->of(Obj::make('line')->fields(Str::make('sku'), Integer::make('qty'))->nestedFieldset(pattern: 'sku|qty'))
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => ['paths' => $fieldset?->paths() ?? [], 'items' => $fieldset?->items()->keys ?? []]),
             ArrayList::make('selectedItemsComputed')
-                ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
-                ->computedUsing(static fn(\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => []),
+                ->of(Obj::make('line')->fields(Str::make('sku'))->nestedFieldset(pattern: 'sku'))
+                ->computedUsing(static fn(\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => []),
             ArrayList::make('selectedBlocks')
                 ->of(
                     OneOf::make('block')->discriminator('type')
-                        ->variant('text', Obj::make('text')->fields(Str::make('title'), Str::make('body'))->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'body'))
-                        ->variant('image', Obj::make('image')->fields(Str::make('url'))->selectableKeys(pattern: 'url')),
+                        ->variant('text', Obj::make('text')->fields(Str::make('title'), Str::make('body'))->nestedFieldset(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'body'))
+                        ->variant('image', Obj::make('image')->fields(Str::make('url'))->nestedFieldset(pattern: 'url')),
                 )
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only?->items()->keys ?? []),
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset?->items()->keys ?? []),
             ArrayList::make('scalarItems')->extractUsing(static fn(array $row): array => $row),
             Obj::make('serializedSelection')
-                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->selectableKeys(pattern: 'lat'))
-                ->selectableKeys(pattern: '[a-z]+')
-                ->serializeUsing(static fn(\ArrayObject $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? $model->getArrayCopy() : ['geo' => $only->nested('geo')?->keys]),
+                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->nestedFieldset(pattern: 'lat'))
+                ->nestedFieldset(pattern: '[a-z]+')
+                ->serializeUsing(static fn(\ArrayObject $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset === null ? $model->getArrayCopy() : ['geo' => $fieldset->nested('geo')?->keys]),
             Obj::make('serializedUnselected')
                 ->additionalProperties(Integer::make('*'))
-                ->selectableKeys(pattern: '[a-z]+')
+                ->nestedFieldset(pattern: '[a-z]+')
                 ->serializeUsing(static fn(array $row): array => $row),
             Map::make('serializedMap')
                 ->fields(Integer::make('views'))
-                ->selectableKeys(static fn(string $key): bool => $key === 'views')
-                ->serializeUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? [] : $only->keys),
+                ->nestedFieldset(static fn(string $key): bool => $key === 'views')
+                ->serializeUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset === null ? [] : $fieldset->keys),
             ArrayList::make('serializedItems')
-                ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
-                ->serializeUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only?->items()?->paths() ?? $row),
+                ->of(Obj::make('line')->fields(Str::make('sku'))->nestedFieldset(pattern: 'sku'))
+                ->serializeUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $fieldset?->items()?->paths() ?? $row),
             DeclaredLink::make('download')
                 ->hrefUsing(static fn(array $row): ?string => isset($row['path']) ? '/files' : null)
                 ->metaUsing(static fn(?\DateTimeImmutable $model): array => ['at' => $model?->format('c')]),

@@ -368,13 +368,13 @@ sketch:
   `atLeastOneOf()` keeps every alternative whatever its context, since dropping one would
   reject values the server accepts.
 
-### Selecting keys of an attribute
+### Nested fieldsets
 
 A `fields[<type>]` parameter's items are the enum of the type's members. When the type has
-an attribute declaring [selectable keys](field-types.md#selectable-keys), the items become
+an attribute declaring a [nested fieldset](field-types.md#nested-fieldsets), the items become
 an `anyOf` of that enum and one string `pattern` per path a member may select:
 `<attribute>.<key>` for each such attribute, `<attribute>.<key>.<key>` for each object
-inside it that declares selectable keys too, at any depth, and `<attribute>.*` and
+inside it that declares a nested fieldset too, at any depth, and `<attribute>.*` and
 `<attribute>.*.<key>` for a list whose element declares them, and for a `OneOf`, wherever
 it sits, the paths of every variant that declares them:
 
@@ -398,14 +398,14 @@ through the members of an open object repeats the open object's key pattern. A l
 pattern ends in a literal `\.\*`, as a key pattern does for an object, and selects every
 item whole, the same as listing the list; its element's paths follow that segment. A child the parent's
 pattern doesn't match, or one that never renders, adds no pattern, nor does a list whose
-element declares no selectable keys. An object declaring only a predicate can't say which
+element declares no nested fieldset. An object declaring only a predicate can't say which
 keys it takes, so its pattern admits any key up to the next `.`, comma or `*`, and the
 server still rejects one the predicate refuses. The parameter's description names the
-attributes and the lists and the [Field Selection profile](profiles/field-selection.md),
+attributes and the lists and the [Nested Fieldsets profile](profiles/nested-fieldsets.md),
 which the server applies to a narrowed response, and mentions nested keys and nested
 lists when the type has any. The `JsonApi` component
 lists the profile with the others when the server registers it. The attribute's own schema
-is unchanged. A document with such a parameter declares the `FIELD_SELECTION` contract tier
+is unchanged. A document with such a parameter declares the `NESTED_FIELDSETS` contract tier
 in its [`x-generator`](#the-generator-contract-x-generator) stamp.
 
 ### Polymorphic relations with one type

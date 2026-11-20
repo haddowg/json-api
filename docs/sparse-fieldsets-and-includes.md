@@ -46,9 +46,9 @@ including `tracks`. See
 [`SparseFieldsetsAndIncludesTest`](../examples/music-catalog/tests/SparseFieldsetsAndIncludesTest.php)
 for the assertions that pin this behaviour.
 
-### Selecting keys of an object attribute
+### Nested fieldsets
 
-An attribute declared with [`selectableKeys()`](field-types.md#selectable-keys), an `Obj`
+An attribute declared with [`nestedFieldset()`](field-types.md#nested-fieldsets), an `Obj`
 or a `Map`, also accepts `<attribute>.<key>` members, each selecting one key of its
 object:
 
@@ -63,15 +63,15 @@ GET /people?fields[people]=name,address.postcode
     "id": "1",
     "attributes": { "name": "Ada Lovelace", "address": { "postcode": "SW1A 1AA" } }
   }],
-  "jsonapi": { "version": "1.1", "profile": ["https://haddowg.github.io/json-api/profiles/field-selection/"] }
+  "jsonapi": { "version": "1.1", "profile": ["https://haddowg.github.io/json-api/profiles/nested-fieldsets/"] }
 }
 ```
 
-A key whose own object declares `selectableKeys()` takes a longer path, one key per
+A key whose own object declares `nestedFieldset()` takes a longer path, one key per
 level. `fields[people]=address.geo.lat` renders `address` holding only `geo`, and `geo`
 holding only `lat`.
 
-A list whose element declares `selectableKeys()` takes `*` for every item.
+A list whose element declares `nestedFieldset()` takes `*` for every item.
 `fields[orders]=lines.*.sku` renders `lines` with every item kept, in order, each holding
 only `sku`:
 
@@ -96,32 +96,32 @@ The rules:
   leaves out the street, the postcode and `geo.lng`.
 - A request without `fields[people]` renders every resource as before.
 - A key the declaration rejects, a dotted member on an attribute that declares no
-  selectable keys, a dotted member on a relationship, an empty key, a path continuing
-  past a key whose object declares no selectable keys, `*` on anything but a list whose
-  element declares selectable keys, and an index such as `lines.0` are unknown fieldset
+  nested fieldset, a dotted member on a relationship, an empty key, a path continuing
+  past a key whose object declares no nested fieldset, `*` on anything but a list whose
+  element declares a nested fieldset, and an index such as `lines.0` are unknown fieldset
   members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
-  validation. Without strict validation an unknown key member is dropped: it selects
+  validation. Without strict validation an unknown nested fieldset member is dropped: it selects
   nothing, and its attribute renders only if `fields[TYPE]` also lists it whole.
-- The selection applies to the type wherever it renders: primary data, `included`,
+- The nested fieldsets apply to the type wherever it renders: primary data, `included`,
   related endpoints, a write answering with the resource and atomic results.
-- Request bodies are unchanged; a selection shapes only what renders.
+- Request bodies are unchanged; a nested fieldset shapes only what renders.
 - Whether a response carries the profile is decided from the request, not from what
   renders. A request narrowing an attribute the server accepts gets the profile even when
   its collection is empty or holds no resource of that type.
 
 JSON:API 1.1 says a `fields[TYPE]` member is a field name, so a response that narrows an
 attribute this way applies the
-[Field Selection profile](profiles/field-selection.md), which a client never has to ask
+[Nested Fieldsets profile](profiles/nested-fieldsets.md), which a client never has to ask
 for. When the request narrows an attribute of a type the server serializes, and the server
-registers `Schema\Profile\FieldSelectionProfile`, the response's `Content-Type` carries
-`profile="https://haddowg.github.io/json-api/profiles/field-selection/"` and its
+registers `Schema\Profile\NestedFieldsetsProfile`, the response's `Content-Type` carries
+`profile="https://haddowg.github.io/json-api/profiles/nested-fieldsets/"` and its
 `jsonapi.profile` lists the URI. A request narrowing nothing gets an unchanged response. A
 server that doesn't register the profile still narrows, without advertising it.
 
-A type rendered by a [serializer override](serializers.md#selecting-keys-through-an-override)
+A type rendered by a [serializer override](serializers.md#nested-fieldsets-through-an-override)
 is narrowed the same way, against the fields its Resource class declares.
 
-`Resource\FieldSelection` holds the parsing and acceptance rules the resource, the server
+`Resource\NestedFieldsets` holds the parsing and acceptance rules the resource, the server
 and the responses share, for an adapter that needs the same answers.
 
 ### Exempting a member: `notSparseField()`
@@ -362,7 +362,7 @@ of every `fields[type]` against that type's declared field names and rejects one
 that names no declared field with a `400` `FieldsetMemberUnrecognized`. The check
 covers the types of included resources too, and counts hidden and write-only fields
 as declared, so it gives nothing away about them. An `<attribute>.<key>` member is
-known when the attribute declares [selectable keys](#selecting-keys-of-an-object-attribute)
+known when the attribute declares a [nested fieldset](#nested-fieldsets)
 that accept the key, and an `<attribute>.*.<key>` member when the list's element does. It skips a type the server doesn't
 register and a serializer that doesn't declare its field names. With strict
 validation off, an unknown member is ignored.

@@ -25,17 +25,17 @@ final class OneOfEnumDiscriminatorTypes
         return [
             OneOf::make('block')->discriminator('type', StaticBlockType::class)
                 ->variants(static fn(StaticBlockType $type): ?Obj => match ($type) {
-                    StaticBlockType::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))->selectableKeys(pattern: 'title|body')->build(),
+                    StaticBlockType::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))->nestedFieldset(pattern: 'title|body')->build(),
                     StaticBlockType::Image => Obj::make('image')->fields(Str::make('url'))->build(),
                     StaticBlockType::Divider => null,
                 }),
             OneOf::make('block')->discriminator('type', StaticBlockType::class)
-                ->variant(StaticBlockType::Text, Obj::make('text')->fields(Str::make('title'))->selectableKeys(pattern: 'title'))
+                ->variant(StaticBlockType::Text, Obj::make('text')->fields(Str::make('title'))->nestedFieldset(pattern: 'title'))
                 ->variant(StaticBlockType::Image, Str::make('url'))
                 ->variant(StaticBlockType::Divider),
             OneOf::make('block')->discriminator('type')
                 ->variant('text', Str::make('title'))
-                ->variant('image', Obj::make('image')->fields(Str::make('url'))->selectableKeys(pattern: 'url')),
+                ->variant('image', Obj::make('image')->fields(Str::make('url'))->nestedFieldset(pattern: 'url')),
             OneOf::make('block')->discriminator('type', StaticBlockType::class)
                 // @phpstan-ignore argument.type (a variant of an enum-bound union is named by one of its cases)
                 ->variant(StaticOtherType::Other, Str::make('x')),

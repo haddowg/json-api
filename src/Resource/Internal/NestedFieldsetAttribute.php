@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Internal;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\KeySelection;
-use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
+use haddowg\JsonApi\Resource\Field\DeclaresNestedFieldsetInterface;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 
 /**
  * An attribute a request narrowed to some of its keys. The transformer renders it though
@@ -14,14 +14,14 @@ use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
  *
  * @internal
  */
-final readonly class SelectedAttribute
+final readonly class NestedFieldsetAttribute
 {
     /**
      * @param \Closure(mixed, JsonApiRequestInterface): mixed $owner the object the field reads its value from
      */
     public function __construct(
-        private SelectsKeysInterface $field,
-        private KeySelection $only,
+        private DeclaresNestedFieldsetInterface $field,
+        private NestedFieldset $fieldset,
         private \Closure $owner,
     ) {}
 
@@ -29,6 +29,6 @@ final readonly class SelectedAttribute
     {
         $owner = ($this->owner)($model, $request);
 
-        return $owner === null ? null : $this->field->serializeSelection($owner, $request, $name, $this->only);
+        return $owner === null ? null : $this->field->serializeNestedFieldset($owner, $request, $name, $this->fieldset);
     }
 }

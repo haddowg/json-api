@@ -94,22 +94,24 @@ document component of the operation's own, and an adapter in debug mode refuses 
 whose `meta` does not match.
 _Avoid_: document meta schema, response meta
 
-**Selectable keys**:
-An `Obj` or a `Map` declaring, by a pattern, a predicate or both, which of its keys a
-`fields[TYPE]=<attribute>.<key>` member may select one at a time. A key whose object
-declares selectable keys too takes a longer path, `<attribute>.<key>.<key>`. A list whose
-element is such an `Obj` selects keys of every item through `*`, as `<attribute>.*.<key>`,
-and declares nothing itself. A response narrowing one applies the Field Selection profile.
-The type's Resource class declares them, so a serializer override is narrowed by them too.
-_Avoid_: partial attribute, sub-field, nested fieldset, list index
+**Nested fieldset**:
+The keys of one object attribute a request lists one at a time with
+`fields[TYPE]=<attribute>.<key>` members, each a nested fieldset member. An `Obj` or a `Map`
+opts in with `nestedFieldset()`, declaring by a pattern, a predicate or both which of its
+keys a member may name. A key whose object declares a nested fieldset too takes a longer
+path, `<attribute>.<key>.<key>`. A list whose element is such an `Obj` reaches every item
+through `*`, as `<attribute>.*.<key>`, and declares nothing itself. A response narrowing one
+applies the Nested Fieldsets profile. The type's Resource class declares them, so a
+serializer override is narrowed by them too.
+_Avoid_: field selection, selectable keys, key member, partial attribute, sub-field, list index
 
-**Key selection**:
-The keys a request selected of one attribute with selectable keys, as the `KeySelection`
-value its `extractUsing()` and `serializeUsing()` hooks receive, and a serializer override
-implementing `SelectsAttributeKeysInterface` too, holding a nested key selection for each key it
-narrows further. A list's holds the one key `*`, and its `items()` is the selection inside
-every item. `null` when the request takes the whole attribute.
-_Avoid_: key filter, projection
+**`NestedFieldset` value**:
+The nested fieldset a request listed for one attribute, as its `extractUsing()` and
+`serializeUsing()` hooks receive it, and a serializer override implementing
+`SerializesNestedFieldsetsInterface` too, holding the nested fieldset inside each key it
+narrows further. A list's holds the one key `*`, and its `items()` is the nested fieldset
+inside every item. `null` when the request takes the whole attribute.
+_Avoid_: key selection, key filter, projection
 
 **Typed request meta**:
 The members a type declares for the top-level `meta` of one write's request, a create, update,

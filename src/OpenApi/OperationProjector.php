@@ -36,11 +36,11 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\DeclaresNestedFieldsetInterface;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\NestedFieldsetKeys;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
-use haddowg\JsonApi\Resource\Field\SelectableKeys;
-use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
 use haddowg\JsonApi\Resource\Filter\FilterFamilyInterface;
 use haddowg\JsonApi\Resource\Filter\HasDefaultValue;
@@ -52,7 +52,7 @@ use haddowg\JsonApi\Resource\Sort\DescribedSort;
 use haddowg\JsonApi\Resource\Sort\SortFamilyInterface;
 use haddowg\JsonApi\Resource\Through\PivotRowRelations;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
-use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
+use haddowg\JsonApi\Schema\Profile\NestedFieldsetsProfile;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
 
 /**
@@ -2176,10 +2176,10 @@ final class OperationProjector
         }
 
         $description = 'A comma-separated list of `' . $reachable->type() . '` fields to return (sparse fieldsets).';
-        [$attributes, $lists, $selectable, $nested] = $this->selectableKeyPatterns($reachable);
+        [$attributes, $lists, $selectable, $nested] = $this->nestedFieldsetPatterns($reachable);
         if ($selectable !== []) {
             $items = Schema::create()->withAnyOf([$items, ...$selectable]);
-            $profile = ' under the [Field Selection profile](' . FieldSelectionProfile::URI . ')';
+            $profile = ' under the [Nested Fieldsets profile](' . NestedFieldsetsProfile::URI . ')';
             if ($attributes !== []) {
                 $description .= ' Select single keys of ' . self::codeNames($attributes) . ' as `<attribute>.<key>`' . $profile . '; listing the attribute itself selects all of it.';
             }
@@ -2205,15 +2205,15 @@ final class OperationProjector
     }
 
     /**
-     * The read object attributes of the type declaring selectable keys, the read list
+     * The read object attributes of the type declaring a nested fieldset, the read list
      * attributes whose element does, one string schema per path a fieldset member may
      * select, and whether any path reaches into a nested object or a nested list. An object
      * gives `<attribute>.<key>` and a list `<attribute>.*.<key>`, then each nested object
-     * or list declaring selectable keys gives its paths in turn, at any depth.
+     * or list declaring a nested fieldset gives its paths in turn, at any depth.
      *
      * @return array{list<string>, list<string>, list<Schema>, array{object: bool, list: bool}}
      */
-    private function selectableKeyPatterns(TypeMetadataInterface $reachable): array
+    private function nestedFieldsetPatterns(TypeMetadataInterface $reachable): array
     {
         $readable = \array_flip($this->schemaProjector->readAttributeNames($reachable->fields()));
         $attributes = [];
@@ -2221,8 +2221,8 @@ final class OperationProjector
         $patterns = [];
         $nested = ['object' => false, 'list' => false];
         foreach ($reachable->fields() as $field) {
-            $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
-            if ($declared === null || !$field instanceof SelectsKeysInterface || !isset($readable[$field->name()])) {
+            $declared = $field instanceof DeclaresNestedFieldsetInterface ? $field->nestedFieldsetKeys() : null;
+            if ($declared === null || !$field instanceof DeclaresNestedFieldsetInterface || !isset($readable[$field->name()])) {
                 continue;
             }
             if ($field instanceof ArrayList) {
@@ -2230,7 +2230,7 @@ final class OperationProjector
             } else {
                 $attributes[] = $field->name();
             }
-            foreach (self::selectablePaths($field, $declared, self::escapeEcmaPattern($field->name()), $nested, true) as $path) {
+            foreach (self::nestedFieldsetPaths($field, $declared, self::escapeEcmaPattern($field->name()), $nested, true) as $path) {
                 $patterns[] = Schema::ofType('string')->withPattern('^' . $path . '$');
             }
         }
@@ -2240,7 +2240,7 @@ final class OperationProjector
 
     /**
      * The pattern of every path below `$prefix` a member may select: the object's own keys,
-     * then each nested object or list declaring selectable keys, reached through a declared
+     * then each nested object or list declaring a nested fieldset, reached through a declared
      * child whose name the object accepts or through the field of its undeclared members. A
      * list's own path is `.*`, which selects every item whole, and its element's paths follow
      * it.
@@ -2249,10 +2249,10 @@ final class OperationProjector
      *
      * @return list<string>
      */
-    private static function selectablePaths(SelectsKeysInterface $field, SelectableKeys $declared, string $prefix, array &$nested, bool $top = false): array
+    private static function nestedFieldsetPaths(DeclaresNestedFieldsetInterface $field, NestedFieldsetKeys $declared, string $prefix, array &$nested, bool $top = false): array
     {
         if ($field instanceof ArrayList) {
-            $element = $field->selectableElement();
+            $element = $field->nestedFieldsetElement();
             if ($element === null) {
                 return [];
             }
@@ -2260,17 +2260,17 @@ final class OperationProjector
                 $nested['list'] = true;
             }
 
-            $inner = $element->selectableKeys();
+            $inner = $element->nestedFieldsetKeys();
 
-            return $inner === null ? [] : [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
+            return $inner === null ? [] : [$prefix . '\\.\\*', ...self::nestedFieldsetPaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
         }
         if ($field instanceof OneOf) {
             // A one-of takes every path one of its variants declares, at the level it sits.
             $paths = [];
-            foreach ($field->selectableVariants() as $variant) {
-                $inner = $variant->selectableKeys();
+            foreach ($field->nestedFieldsetVariants() as $variant) {
+                $inner = $variant->nestedFieldsetKeys();
                 if ($inner !== null) {
-                    \array_push($paths, ...self::selectablePaths($variant, $inner, $prefix, $nested, $top));
+                    \array_push($paths, ...self::nestedFieldsetPaths($variant, $inner, $prefix, $nested, $top));
                 }
             }
 
@@ -2280,7 +2280,7 @@ final class OperationProjector
             $nested['object'] = true;
         }
 
-        $paths = [$prefix . '\\.' . self::selectableKeySegment($declared)];
+        $paths = [$prefix . '\\.' . self::nestedFieldsetKeySegment($declared)];
 
         $children = match (true) {
             $field instanceof Obj => [...$field->children(), ...($field->additionalProperties() !== null ? [$field->additionalProperties()] : [])],
@@ -2288,18 +2288,18 @@ final class OperationProjector
             default => [],
         };
         foreach ($children as $child) {
-            $inner = $child instanceof SelectsKeysInterface ? $child->selectableKeys() : null;
-            if ($inner === null || !$child instanceof SelectsKeysInterface || $child->isWriteOnly() || $child->isHidden()) {
+            $inner = $child instanceof DeclaresNestedFieldsetInterface ? $child->nestedFieldsetKeys() : null;
+            if ($inner === null || !$child instanceof DeclaresNestedFieldsetInterface || $child->isWriteOnly() || $child->isHidden()) {
                 continue;
             }
             if ($field instanceof Obj && $child === $field->additionalProperties()) {
-                $segment = self::selectableKeySegment($declared);
+                $segment = self::nestedFieldsetKeySegment($declared);
             } elseif ($declared->pattern === null || \preg_match(KeyFamilyMatcher::suffixRegex($declared->pattern), $child->name()) === 1) {
                 $segment = self::escapeEcmaPattern($child->name());
             } else {
                 continue;
             }
-            \array_push($paths, ...self::selectablePaths($child, $inner, $prefix . '\\.' . $segment, $nested));
+            \array_push($paths, ...self::nestedFieldsetPaths($child, $inner, $prefix . '\\.' . $segment, $nested));
         }
 
         return $paths;
@@ -2320,14 +2320,14 @@ final class OperationProjector
      * The pattern of an `<attribute>.<key>` fieldset member: the declared key pattern, or
      * any key up to the next `.` or comma when only a predicate decides.
      */
-    public static function selectableKeyPattern(string $attribute, SelectableKeys $declared): string
+    public static function nestedFieldsetKeyPattern(string $attribute, NestedFieldsetKeys $declared): string
     {
-        return '^' . self::escapeEcmaPattern($attribute) . '\\.' . self::selectableKeySegment($declared) . '$';
+        return '^' . self::escapeEcmaPattern($attribute) . '\\.' . self::nestedFieldsetKeySegment($declared) . '$';
     }
 
-    private static function selectableKeySegment(SelectableKeys $declared): string
+    private static function nestedFieldsetKeySegment(NestedFieldsetKeys $declared): string
     {
-        return $declared->pattern === null ? SelectableKeys::ANY_KEY_PATTERN : '(?:' . $declared->pattern . ')';
+        return $declared->pattern === null ? NestedFieldsetKeys::ANY_KEY_PATTERN : '(?:' . $declared->pattern . ')';
     }
 
     /**

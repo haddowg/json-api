@@ -537,7 +537,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $fieldSelection, bool $typedRequestMeta): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $nestedFieldsets, bool $typedRequestMeta): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -575,7 +575,7 @@ final class OpenApiProjector
             unions: self::hasUnion($server),
             namedComponents: $namedComponents,
             typedDocumentMeta: $typedDocumentMeta,
-            fieldSelection: $fieldSelection,
+            nestedFieldsets: $nestedFieldsets,
             typedRequestMeta: $typedRequestMeta,
         ));
     }
@@ -841,7 +841,7 @@ final class OpenApiProjector
 
     /**
      * Whether some `fields[<type>]` parameter accepts single keys of an attribute
-     * ({@see GeneratorContract::FIELD_SELECTION}).
+     * ({@see GeneratorContract::NESTED_FIELDSETS}).
      */
     private static function acceptsSelectedKeys(Paths $paths): bool
     {

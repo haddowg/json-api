@@ -23,8 +23,8 @@ use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
-use haddowg\JsonApi\Resource\Field\KeySelection;
 use haddowg\JsonApi\Resource\Field\Map;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Slug;
@@ -114,19 +114,19 @@ final class HookValueTypes
                 /** @param array<array-key, mixed> $value */
                 static fn(\ArrayObject $model, array $value): int => \count($value),
             ),
-            // selectableKeys() and a four-argument read hook keep the value a write hook receives.
-            Obj::make('selectedLabels')->additionalProperties(Str::make('*'))->selectableKeys(pattern: '[a-z]+')->fillUsing(
+            // nestedFieldset() and a four-argument read hook keep the value a write hook receives.
+            Obj::make('selectedLabels')->additionalProperties(Str::make('*'))->nestedFieldset(pattern: '[a-z]+')->fillUsing(
                 /** @param array<array-key, mixed> $value */
                 static fn(\ArrayObject $model, array $value): int => \count($value),
             ),
             Map::make('selectedTotals')->fields(Integer::make('views'))
-                ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key === 'views')
-                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $row)
+                ->nestedFieldset(static fn(string $key, JsonApiRequestInterface $request): bool => $key === 'views')
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array => $row)
                 ->fillUsing(
                     /** @param array<string, mixed> $value */
                     static fn(\ArrayObject $model, array $value): mixed => $value['views'] ?? null,
                 ),
-            Obj::make('selectedNullable')->nullable()->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z]+')->fillUsing(
+            Obj::make('selectedNullable')->nullable()->additionalProperties(Integer::make('*'))->nestedFieldset(pattern: '[a-z]+')->fillUsing(
                 /** @param array<array-key, mixed>|null $value */
                 static fn(\ArrayObject $model, ?array $value): mixed => $value,
             ),
@@ -301,8 +301,8 @@ final class HookValueTypes
             ArrayList::make('wrongElements')->of('integer')->fillUsing(static fn(\ArrayObject $model, int $value): mixed => $value),
             // @phpstan-ignore argument.type (an object is an array, not a string)
             Obj::make('wrongObj')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
-            // @phpstan-ignore argument.type (a selectable object's value is still an array)
-            Obj::make('wrongSelected')->additionalProperties(Str::make('*'))->selectableKeys(pattern: '[a-z]+')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
+            // @phpstan-ignore argument.type (a value with a nested fieldset is still an array)
+            Obj::make('wrongSelected')->additionalProperties(Str::make('*'))->nestedFieldset(pattern: '[a-z]+')->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
             // @phpstan-ignore argument.type (a union's value may be any of its members' types)
             Union::make('wrongUnion')->of(Str::make(), Integer::make())->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
         ];

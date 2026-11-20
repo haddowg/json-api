@@ -10,11 +10,11 @@ use haddowg\JsonApi\Resource\Internal\KeyFamilyMatcher;
 /**
  * Which keys of an object attribute a client may select one by one with
  * `fields[TYPE]=<attr>.<key>`: those the pattern matches and the predicate accepts. A
- * declaration with only a predicate documents every key as selectable. A key never holds
+ * declaration with only a predicate documents any key. A key never holds
  * a `.`, which separates the keys of a path into nested objects, and an object never
  * accepts `*`, which stands for every item of a list.
  */
-final readonly class SelectableKeys
+final readonly class NestedFieldsetKeys
 {
     /**
      * The schema pattern of a key when only a predicate decides: anything up to the next
@@ -44,7 +44,7 @@ final readonly class SelectableKeys
     }
 
     /**
-     * The pattern a selectable key matches, as an ECMA-262 fragment.
+     * The pattern a nested fieldset key matches, as an ECMA-262 fragment.
      */
     public function keyPattern(): string
     {

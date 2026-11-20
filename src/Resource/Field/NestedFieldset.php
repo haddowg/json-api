@@ -7,18 +7,18 @@ namespace haddowg\JsonApi\Resource\Field;
 /**
  * The keys of an object attribute a request selected through `fields[TYPE]=<attr>.<key>`,
  * in the order the request listed them, each once. A field declared with
- * `selectableKeys()` renders only these keys, and its `extractUsing()` hook receives
+ * `nestedFieldset()` renders only these keys, and its `extractUsing()` hook receives
  * them as its fourth argument so it can load no more.
  *
- * A key whose value is itself an object declaring `selectableKeys()` can be narrowed in
- * turn, as `<attr>.<key>.<key>`: {@see nested()} returns the selection inside it, and
+ * A key whose value is itself an object declaring `nestedFieldset()` can be narrowed in
+ * turn, as `<attr>.<key>.<key>`: {@see nested()} returns the nested fieldset inside it, and
  * `null` for a key selected whole.
  *
- * The selection of a list whose element declares `selectableKeys()` holds the one key
- * {@see ITEMS}, and {@see items()} returns the selection inside every item, as
+ * The nested fieldset of a list whose element declares `nestedFieldset()` holds the one key
+ * {@see ITEMS}, and {@see items()} returns the nested fieldset inside every item, as
  * `<attr>.*.<key>` selects it.
  */
-final readonly class KeySelection
+final readonly class NestedFieldset
 {
     /**
      * The key that stands for every item of a list.
@@ -31,13 +31,13 @@ final readonly class KeySelection
     public array $keys;
 
     /**
-     * @var array<string, KeySelection>
+     * @var array<string, NestedFieldset>
      */
     private array $nested;
 
     /**
      * @param list<string>                $keys
-     * @param array<string, KeySelection> $nested the selection inside each key narrowed further, keyed by that key
+     * @param array<string, NestedFieldset> $nested the nested fieldset inside each key narrowed further, keyed by that key
      */
     public function __construct(array $keys, array $nested = [])
     {
@@ -54,7 +54,7 @@ final readonly class KeySelection
     }
 
     /**
-     * The selection inside `$key`, or `null` when the request selected it whole or not at
+     * The nested fieldset inside `$key`, or `null` when the request selected it whole or not at
      * all.
      */
     public function nested(string $key): ?self
@@ -63,8 +63,8 @@ final readonly class KeySelection
     }
 
     /**
-     * The selection inside every item of a list, or `null` when the request selected the
-     * items whole or this is not a list's selection.
+     * The nested fieldset inside every item of a list, or `null` when the request selected the
+     * items whole or this is not a list's nested fieldset.
      */
     public function items(): ?self
     {

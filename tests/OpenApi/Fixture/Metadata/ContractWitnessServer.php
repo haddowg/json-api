@@ -184,7 +184,7 @@ final class ContractWitnessServer
      *                                leaves out too
      * @param bool $singletons whether the singleton inboxes type is served, which the
      *                         baseline witness leaves out too
-     * @param bool $fieldSelection whether the articles carry objects whose keys a
+     * @param bool $nestedFieldsets whether the articles carry objects whose keys a
      *                             `fields[articles]` member selects one by one, which the
      *                             baseline witness leaves out too
      * @param bool $typedRequestMeta whether the bookings type, whose writes declare their
@@ -193,13 +193,13 @@ final class ContractWitnessServer
      *                               and jobs types it needs, which the baseline witness
      *                               leaves out too
      */
-    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true, bool $fieldSelection = true, bool $typedRequestMeta = true): ServerMetadataInterface
+    public static function build(bool $rawContent = true, bool $examples = true, bool $declaredLinks = true, bool $actionDeclarations = true, bool $scopes = true, bool $singleTargetPolymorphism = true, bool $actionLocations = true, bool $sortFamilies = true, bool $structuredLists = true, bool $deprecations = true, bool $actionFilters = true, bool $actionCreated = true, bool $relatedOnly = true, bool $filterFamilies = true, bool $listFilters = true, bool $identifierMeta = true, bool $openObjects = true, bool $identifiedPivots = true, bool $fixedMembership = true, bool $unions = true, bool $namedComponents = true, bool $singletons = true, bool $typedDocumentMeta = true, bool $nestedFieldsets = true, bool $typedRequestMeta = true): ServerMetadataInterface
     {
         $server = new FakeServerMetadata(
             title: 'Contract Witness API',
             version: '3.4.1',
             types: [
-                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions, $namedComponents, $fieldSelection),
+                self::articles($rawContent, $actionDeclarations, $singleTargetPolymorphism, $actionLocations, $sortFamilies, $structuredLists, $deprecations, $actionFilters, $actionCreated, $filterFamilies, $listFilters, $identifierMeta, $openObjects, $identifiedPivots, $fixedMembership, $unions, $namedComponents, $nestedFieldsets),
                 self::people(),
                 self::tags($deprecations),
                 self::images($declaredLinks),
@@ -329,7 +329,7 @@ final class ContractWitnessServer
         )->component('Reviewer');
     }
 
-    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions, bool $namedComponents, bool $fieldSelection): FakeTypeMetadata
+    private static function articles(bool $rawContent, bool $actionDeclarations, bool $singleTargetPolymorphism, bool $actionLocations, bool $sortFamilies, bool $structuredLists, bool $deprecations, bool $actionFilters, bool $actionCreated, bool $filterFamilies, bool $listFilters, bool $identifierMeta, bool $openObjects, bool $identifiedPivots, bool $fixedMembership, bool $unions, bool $namedComponents, bool $nestedFieldsets): FakeTypeMetadata
     {
         return FakeTypeMetadata::resource(
             type: 'articles',
@@ -434,35 +434,35 @@ final class ContractWitnessServer
                 ] : []),
                 // Objects whose keys a fieldset member selects one by one: one whose keys
                 // match a declared pattern, a map whose predicate alone decides, a closed
-                // object with a nested object whose keys are selectable in turn, a list
+                // object with a nested object that declares a nested fieldset in turn, a list
                 // whose items' keys are selected through `*`, one of them an object too, a
                 // list of a union bound to an enum whose variants each declare their own keys,
                 // or none, and a union attribute only one of whose variants declares them.
-                ...($fieldSelection ? [
-                    Obj::make('scores')->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z][a-z0-9_]*')->build(),
+                ...($nestedFieldsets ? [
+                    Obj::make('scores')->additionalProperties(Integer::make('*'))->nestedFieldset(pattern: '[a-z][a-z0-9_]*')->build(),
                     Map::make('totals')->fields(Integer::make('views'), Integer::make('shares'))
-                        ->selectableKeys(static fn(string $key): bool => $key !== 'internal')->build(),
+                        ->nestedFieldset(static fn(string $key): bool => $key !== 'internal')->build(),
                     Obj::make('location')->fields(
                         Str::make('postcode'),
-                        Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'),
-                    )->selectableKeys(pattern: '[a-z]+')->build(),
+                        Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->nestedFieldset(pattern: 'lat|lng'),
+                    )->nestedFieldset(pattern: '[a-z]+')->build(),
                     ArrayList::make('lines')->of(Obj::make('line')->fields(
                         Str::make('sku'),
                         Integer::make('quantity'),
-                        Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
-                    )->selectableKeys(pattern: 'sku|quantity|price'))->build(),
+                        Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))->nestedFieldset(pattern: 'amount|currency'),
+                    )->nestedFieldset(pattern: 'sku|quantity|price'))->build(),
                     ArrayList::make('sections')->of(OneOf::make('section')
                         ->discriminator('kind', \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::class)
                         ->variants(static fn(\haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind $kind): ?Obj => match ($kind) {
-                            \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Heading => Obj::make('heading')->fields(Str::make('text'), Integer::make('level'))->selectableKeys(pattern: 'text|level')->build(),
+                            \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Heading => Obj::make('heading')->fields(Str::make('text'), Integer::make('level'))->nestedFieldset(pattern: 'text|level')->build(),
                             \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Figure => Obj::make('figure')
-                                ->fields(Str::make('src'), Obj::make('size')->fields(Integer::make('width'), Integer::make('height'))->selectableKeys(pattern: 'width|height'))
-                                ->selectableKeys(pattern: 'src|size')->build(),
+                                ->fields(Str::make('src'), Obj::make('size')->fields(Integer::make('width'), Integer::make('height'))->nestedFieldset(pattern: 'width|height'))
+                                ->nestedFieldset(pattern: 'src|size')->build(),
                             \haddowg\JsonApi\Tests\OpenApi\Fixture\SectionKind::Rule => null,
                         }))->build(),
                     OneOf::make('hero')->nullable()
                         ->discriminator('kind')
-                        ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+                        ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->nestedFieldset(pattern: 'src|alt'))
                         ->variant('video', Str::make('url'))->build(),
                 ] : []),
                 // Values of several primitive types: one schema listing the members' types

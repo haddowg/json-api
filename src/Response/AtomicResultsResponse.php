@@ -74,14 +74,14 @@ final class AtomicResultsResponse extends AbstractResponse
     }
 
     /**
-     * The negotiated profiles, plus the field-selection profile when the request narrows
+     * The negotiated profiles, plus the nested fieldsets profile when the request narrows
      * an attribute the results render.
      *
      * @return list<ProfileInterface>
      */
     protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
     {
-        return $this->withFieldSelectionProfile(parent::appliedProfiles($server, $request), $server, $request);
+        return $this->withNestedFieldsetsProfile(parent::appliedProfiles($server, $request), $server, $request);
     }
 
     /**

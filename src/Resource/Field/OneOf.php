@@ -37,10 +37,10 @@ use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
  * variant) is a schema-bearing constraint on a pass-through field instead.
  *
  * A request can select keys of the union wherever it appears, once a variant's {@see Obj}
- * declares `selectableKeys()`: a key is accepted when one variant accepts it, and a value
+ * declares `nestedFieldset()`: a key is accepted when one variant accepts it, and a value
  * renders its discriminator and the selected keys its own variant accepts.
  */
-final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
+final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, DeclaresNestedFieldsetInterface
 {
     /**
      * Each undiscriminated variant's signature: the members it alone declares that every
@@ -115,31 +115,31 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
-     * The variants declaring `selectableKeys()`, by name. In a list of this union a
+     * The variants declaring `nestedFieldset()`, by name. In a list of this union a
      * request selects keys of every item as `<attr>.*.<key>`, each key accepted when one
      * of these variants accepts it.
      *
      * @return array<string, Obj>
      */
-    public function selectableVariants(): array
+    public function nestedFieldsetVariants(): array
     {
-        return \array_filter($this->variants, static fn(Obj $variant): bool => $variant->selectableKeys() !== null);
+        return \array_filter($this->variants, static fn(Obj $variant): bool => $variant->nestedFieldsetKeys() !== null);
     }
 
     /**
-     * Accepts a key when a variant declaring `selectableKeys()` accepts it, or `null` when
+     * Accepts a key when a variant declaring `nestedFieldset()` accepts it, or `null` when
      * none declares them. Its pattern joins the variants' patterns when each has one.
      */
-    public function selectableKeys(): ?SelectableKeys
+    public function nestedFieldsetKeys(): ?NestedFieldsetKeys
     {
-        $variants = $this->selectableVariants();
+        $variants = $this->nestedFieldsetVariants();
         if ($variants === []) {
             return null;
         }
 
         $patterns = [];
         foreach ($variants as $variant) {
-            $pattern = $variant->selectableKeys()?->pattern;
+            $pattern = $variant->nestedFieldsetKeys()?->pattern;
             if ($pattern === null) {
                 $patterns = null;
 
@@ -148,10 +148,10 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             $patterns[] = '(?:' . $pattern . ')';
         }
 
-        return new SelectableKeys(
+        return new NestedFieldsetKeys(
             static function (string $key, JsonApiRequestInterface $request) use ($variants): bool {
                 foreach ($variants as $variant) {
-                    if ($variant->selectableKeys()?->accepts($key, $request) === true) {
+                    if ($variant->nestedFieldsetKeys()?->accepts($key, $request) === true) {
                         return true;
                     }
                 }
@@ -173,17 +173,17 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
 
     /**
      * The value rendered through its variant, holding the discriminator and the keys of
-     * `$only` that variant accepts. A `serializeUsing()` hook's value is trimmed the same
+     * `$fieldset` that variant accepts. A `serializeUsing()` hook's value is trimmed the same
      * way.
      */
-    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function serializeNestedFieldset(mixed $model, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
-        $selections = $this->variantSelections($only, $request);
+        $selections = $this->variantFieldsets($fieldset, $request);
         if ($this->state->serializeUsing !== null) {
-            return $this->trimToVariant(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $selections);
+            return $this->trimToVariant(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $fieldset), $selections);
         }
         if ($this->state->extractUsing !== null) {
-            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only), $request, $selections);
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $fieldset), $request, $selections);
         }
 
         return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request, $selections);
@@ -191,9 +191,9 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
 
     /**
      * A value a `serializeUsing()` hook built, keeping the discriminator and what its
-     * variant's share of the selection holds.
+     * variant's share of the nested fieldset holds.
      *
-     * @param array<string, KeySelection> $selections
+     * @param array<string, NestedFieldset> $selections
      */
     private function trimToVariant(mixed $value, array $selections): mixed
     {
@@ -205,7 +205,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             return $value;
         }
 
-        $trimmed = KeyTrim::trim($value, $selections[$name] ?? new KeySelection([]));
+        $trimmed = KeyTrim::trim($value, $selections[$name] ?? new NestedFieldset([]));
         if ($this->discriminator === null) {
             return $trimmed;
         }
@@ -214,19 +214,19 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
-     * The share of `$only` each selectable variant accepts, by variant name, leaving out a
+     * The share of `$fieldset` each variant declaring a nested fieldset accepts, by variant name, leaving out a
      * variant that accepts none of it. {@see ArrayList} works it out once per list and
      * renders every item through its variant's share.
      *
-     * @return array<string, KeySelection>
+     * @return array<string, NestedFieldset>
      *
      * @internal
      */
-    public function variantSelections(KeySelection $only, JsonApiRequestInterface $request): array
+    public function variantFieldsets(NestedFieldset $fieldset, JsonApiRequestInterface $request): array
     {
         $selections = [];
-        foreach ($this->selectableVariants() as $name => $variant) {
-            $selection = \haddowg\JsonApi\Resource\FieldSelection::selection($variant, $only->paths(), $request);
+        foreach ($this->nestedFieldsetVariants() as $name => $variant) {
+            $selection = \haddowg\JsonApi\Resource\NestedFieldsets::fieldset($variant, $fieldset->paths(), $request);
             if ($selection !== null) {
                 $selections[$name] = $selection;
             }
@@ -421,10 +421,10 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     /**
      * Renders a stored value through the variant its discriminator names. {@see ArrayList}
      * renders each element of a structured list through it, passing the share of a key
-     * selection each variant accepts ({@see variantSelections()}) when a request narrowed
+     * nested fieldset each variant accepts ({@see variantFieldsets()}) when a request narrowed
      * the items.
      *
-     * @param array<string, KeySelection>|null $selections
+     * @param array<string, NestedFieldset>|null $selections
      *
      * @internal
      */
@@ -443,7 +443,7 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
      * selected variant's children render their own keys beside the discriminator, and
      * every other key is dropped. A value naming no variant is emitted as it is.
      *
-     * @param array<string, KeySelection>|null $selections
+     * @param array<string, NestedFieldset>|null $selections
      *
      * @internal
      */
@@ -460,12 +460,12 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
-     * Renders the value through its variant. Under a selection the variant renders only
+     * Renders the value through its variant. Under a nested fieldset the variant renders only
      * the keys its share holds, nothing when it has none, and the discriminator always,
      * since it says which variant the rest belongs to.
      *
      * @param array<array-key, mixed>|object   $value
-     * @param array<string, KeySelection>|null $selections
+     * @param array<string, NestedFieldset>|null $selections
      */
     private function renderVariant(array|object $value, JsonApiRequestInterface $request, ?array $selections = null): mixed
     {
@@ -477,15 +477,15 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         }
 
         $nested = $this->discriminator === null ? [] : [$this->discriminator => $name];
-        $only = $selections === null ? null : ($selections[$name] ?? new KeySelection([]));
+        $fieldset = $selections === null ? null : ($selections[$name] ?? new NestedFieldset([]));
         foreach ($this->variants[$name]->children() as $child) {
-            if (($only !== null && !$only->has($child->name())) || $child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
+            if (($fieldset !== null && !$fieldset->has($child->name())) || $child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
                 continue;
             }
 
-            $inner = $only?->nested($child->name());
-            $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
-                ? $child->serializeSelection($value, $request, $child->name(), $inner)
+            $inner = $fieldset?->nested($child->name());
+            $nested[$child->name()] = $inner !== null && $child instanceof DeclaresNestedFieldsetInterface
+                ? $child->serializeNestedFieldset($value, $request, $child->name(), $inner)
                 : $child->serialize($value, $request, $child->name());
         }
 

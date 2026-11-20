@@ -408,7 +408,7 @@ rather than dropped. [`additionalProperties()`](#open-members) opens it.
 |---|---|
 | `fields(FieldInterface ...$children)` | Declares the child fields. Each child reads and writes a key inside the single value. |
 | `additionalProperties(FieldInterface $value)` | Opens the object: every member no child declares is read, written and validated through `$value`. See [open members](#open-members). |
-| `selectableKeys(?Closure $accepts, ?string $pattern)` | Lets `fields[TYPE]=<attr>.<key>` select the object's keys one at a time. See [selectable keys](#selectable-keys). |
+| `nestedFieldset(?Closure $accepts, ?string $pattern)` | Lets `fields[TYPE]=<attr>.<key>` select the object's keys one at a time. See [nested fieldsets](#nested-fieldsets). |
 | `minProperties(int)` / `maxProperties(int)` | `MinProperties` / `MaxProperties`, counting every member the object carries, declared and additional. |
 | `children()` | The declared children (for adapters and projection). |
 
@@ -507,7 +507,7 @@ In the OpenAPI document the object projects `additionalProperties` as the member
 own schema, and `minProperties` / `maxProperties`, as [the OpenAPI guide](openapi.md)
 describes.
 
-### Selectable keys
+### Nested fieldsets
 
 An `Obj` or a `Map` can let a request select its keys one at a time. A person's address
 renders whole by default, and a client showing only the postcode has no use for the rest:
@@ -517,8 +517,8 @@ Obj::make('address')->fields(
     Str::make('street'),
     Str::make('postcode'),
     Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))
-        ->selectableKeys(pattern: 'lat|lng'),
-)->selectableKeys(pattern: '[a-z]+');
+        ->nestedFieldset(pattern: 'lat|lng'),
+)->nestedFieldset(pattern: '[a-z]+');
 ```
 
 ```
@@ -526,35 +526,35 @@ GET /people?fields[people]=name,address.postcode
 ```
 
 Each person renders `name` and an `address` object holding only `postcode`.
-`selectableKeys()` takes a predicate, a pattern or both, and a key is selectable when the
+`nestedFieldset()` takes a predicate, a pattern or both, and accepts a key when the
 pattern matches it whole and the predicate returns `true`:
 
 ```php
 Map::make('totals')
     ->fields(Integer::make('views'), Integer::make('shares'))
-    ->selectableKeys(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal');
+    ->nestedFieldset(static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'internal');
 ```
 
 The pattern is a regular expression PHP and ECMA-262 both read, since it is also
 documented in the OpenAPI document. A key never holds a `.`, since the full stop separates
 the keys of a nested path, a comma separates `fields` members and `*` stands for every
-item of a list, so `selectableKeys()` throws an `InvalidArgumentException` for a pattern
+item of a list, so `nestedFieldset()` throws an `InvalidArgumentException` for a pattern
 that could match any of them, such as `.+` or `[^.]+`. Use a class that leaves them out,
 such as `[^.,*]+`.
 
 Nesting is opt-in per level. A key whose field is itself an `Obj` or a `Map` declaring
-`selectableKeys()` can be narrowed in turn, so `fields[people]=address.geo.lat` renders
+`nestedFieldset()` can be narrowed in turn, so `fields[people]=address.geo.lat` renders
 `address` holding only `geo`, and `geo` holding only `lat`. The street, the postcode and
 `lng` are left out, since a path selects nothing of the objects it passes through. Through
 an open object the field every undeclared member renders through decides, so with
-`Obj::make('scores')->additionalProperties(Obj::make('*')->fields(...)->selectableKeys(...))`
-a request can select `scores.maths.max`. A key whose object declares no selectable keys is
+`Obj::make('scores')->additionalProperties(Obj::make('*')->fields(...)->nestedFieldset(...))`
+a request can select `scores.maths.max`. A key whose object declares no nested fieldset is
 selected whole: a deeper path below it is an unknown fieldset member. Listing a key whole
 beside a path into it renders it whole, at every level, so `address.geo,address.geo.lat`
 renders all of `geo`.
 
 A list reaches into its items through `*`. When an `ArrayList`'s element is an `Obj`
-declaring `selectableKeys()`, `<attribute>.*.<key>` selects that key from every item, and
+declaring `nestedFieldset()`, `<attribute>.*.<key>` selects that key from every item, and
 the element's declaration decides which keys:
 
 ```php
@@ -563,8 +563,8 @@ ArrayList::make('lines')->of(
         Str::make('sku'),
         Integer::make('quantity'),
         Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))
-            ->selectableKeys(pattern: 'amount|currency'),
-    )->selectableKeys(pattern: 'sku|quantity|price'),
+            ->nestedFieldset(pattern: 'amount|currency'),
+    )->nestedFieldset(pattern: 'sku|quantity|price'),
 );
 ```
 
@@ -574,34 +574,33 @@ GET /orders?fields[orders]=lines.*.sku,lines.*.price.amount
 
 renders every line, in order, each holding only `sku` and a `price` holding only
 `amount`. The list declares nothing itself, so a list of scalars, or of an element without
-`selectableKeys()`, renders whole and `*` on it is an unknown fieldset member, as is `*` on
+`nestedFieldset()`, renders whole and `*` on it is an unknown fieldset member, as is `*` on
 an object. A path keeps going through nested objects and lists, as `lines.*.price.amount`
 or `groups.*.rows.*.label`, and a list inside an object is reached as
 `shipping.parcels.*.weight`. `lines.*` on its own is read as `lines`, so it selects the
-whole list, narrows nothing and passes the hook below a `null` selection. There is no index segment: `lines.0` is an unknown member. An item missing a
+whole list, narrows nothing and passes the hook below a `null` nested fieldset. There is no index segment: `lines.0` is an unknown member. An item missing a
 selected member renders without it, so an open element's item holding none of the
 selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 
 A `OneOf` takes keys too, wherever it sits: as an attribute, as a child of an object and
 as the element of a list. Each variant opts in on its own `Obj`, and a variant that
-declares no selectable keys takes no part:
+declares no nested fieldset takes no part:
 
 ```php
 ArrayList::make('blocks')->of(
     OneOf::make('block')->discriminator('type', BlockType::class)
         ->variants(fn(BlockType $type): ?Obj => match ($type) {
             BlockType::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))
-                ->selectableKeys(pattern: 'title|body')->build(),
+                ->nestedFieldset(pattern: 'title|body')->build(),
             BlockType::Image => Obj::make('image')->fields(Str::make('title'), Str::make('url'))
-                ->selectableKeys(pattern: 'url')->build(),
+                ->nestedFieldset(pattern: 'url')->build(),
             BlockType::Divider => Obj::make('divider')->fields(Str::make('style'))->build(),
         }),
 );
 ```
 
 A key is accepted when one variant accepts it, and a path keeps going inside the variants
-that accept it, so `blocks.*.meta.lang` needs a variant whose `meta` declares `lang`
-selectable. Every value renders its discriminator and the selected keys its own variant
+that accept it, so `blocks.*.meta.lang` needs a variant whose `meta` accepts `lang`. Every value renders its discriminator and the selected keys its own variant
 accepts, nothing else. `fields[pages]=blocks.*.title` renders
 `[{"type":"text","title":"Intro"},{"type":"image"},{"type":"divider"}]`: the image has a
 title, but its variant doesn't let a request select it, so it renders without it, as an
@@ -609,31 +608,31 @@ title, but its variant doesn't let a request select it, so it renders without it
 `fields[articles]=hero.src` renders `{"type":"image","src":"/h.png"}`, or
 `{"type":"video"}` for a video hero. An undiscriminated value whose variant accepts none of
 the keys renders as `{}`. `blocks.*.style` is an unknown member, since no variant that
-opted in accepts it. A hook on the union receives a selection that holds the
+opted in accepts it. A hook on the union receives a nested fieldset that holds the
 discriminator beside the selected keys.
 
-An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
-fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
-It is `null` when the request takes the whole attribute. `$only->keys` lists the keys at
-the top, `$only->nested('geo')` is the selection inside a narrowed key, `null` for one
-selected whole, and `$only->paths()` lists every selected path, such as `postcode` and
-`geo.lat`. A list's selection holds the one key `*`, so `$only->items()` is the selection
+An `extractUsing()` or `computedUsing()` hook on the field receives the nested fieldset as a
+fourth argument, a `NestedFieldset` holding the requested keys, so it can load only those.
+It is `null` when the request takes the whole attribute. `$fieldset->keys` lists the keys at
+the top, `$fieldset->nested('geo')` is the nested fieldset inside a narrowed key, `null` for one
+selected whole, and `$fieldset->paths()` lists every selected path, such as `postcode` and
+`geo.lat`. A list's nested fieldset holds the one key `*`, so `$fieldset->items()` is the nested fieldset
 inside every item and its paths read `*.sku`:
 
 ```php
 Obj::make('address')
     ->fields(/* ... */)
-    ->selectableKeys(pattern: '[a-z]+')
-    ->extractUsing(static fn(Person $person, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array
-        => $person->loadAddress($only?->paths()));
+    ->nestedFieldset(pattern: '[a-z]+')
+    ->extractUsing(static fn(Person $person, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): array
+        => $person->loadAddress($fieldset?->paths()));
 ```
 
 A `serializeUsing()` hook receives the same fourth argument, so a hook that builds the
-whole value can skip the keys nobody asked for. The value is trimmed to the selection at
-every depth whatever the hook returns, so a hook that ignores `$only` still renders the
-right members, as does a field with no hook. A nested object with its own hook receives the selection
+whole value can skip the keys nobody asked for. The value is trimmed to the nested fieldset at
+every depth whatever the hook returns, so a hook that ignores `$fieldset` still renders the
+right members, as does a field with no hook. A nested object with its own hook receives the nested fieldset
 inside it, and a list's `extractUsing()` or `computedUsing()` hook receives the list's
-selection, each item then trimmed to `$only->items()`. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
+nested fieldset, each item then trimmed to `$fieldset->items()`. [Sparse fieldsets](sparse-fieldsets-and-includes.md#nested-fieldsets)
 covers the request rules and the profile a narrowed response carries.
 
 **`Map` vs `Obj` vs `ArrayHash`**: `Map` = declared keys, flat columns. `Obj` =
@@ -690,7 +689,7 @@ OneOf::make('block')->nullable()->discriminator('kind')
 
 A variant given as one `Obj` named for it, such as
 `->variant('image', Obj::make('image')->fields(...))`, is that variant, so it can also
-declare `selectableKeys()`. Any other single `Obj` is a child of the variant. No variant
+declare `nestedFieldset()`. Any other single `Obj` is a child of the variant. No variant
 may declare a member named like the discriminator, since the union renders and writes the
 discriminator itself.
 

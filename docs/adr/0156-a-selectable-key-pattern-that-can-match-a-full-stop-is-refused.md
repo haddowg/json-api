@@ -1,5 +1,5 @@
-# A selectable key pattern that can match a full stop is refused
+# A nested fieldset key pattern that can match a full stop is refused
 
-A request splits every `fields` member at each full stop, so a key holding one is never asked for, yet a pattern such as `[a-z.]+` was accepted and documented in OpenAPI, offering clients keys the server would read as paths. `selectableKeys()` now throws for a pattern that can match a full stop. PCRE can't answer whether a pattern's language holds a character, so each escape, class and `.` outside a lookaround is compiled alone and tried against `.`; that errs towards refusing, as `(?!.*\.).+` is refused for its `.+`, which costs an author a rewrite to `[^.]+` rather than a document that lies.
+A request splits every `fields` member at each full stop, so a key holding one is never asked for, yet a pattern such as `[a-z.]+` was accepted and documented in OpenAPI, offering clients keys the server would read as paths. `nestedFieldset()` now throws for a pattern that can match a full stop. PCRE can't answer whether a pattern's language holds a character, so each escape, class and `.` outside a lookaround is compiled alone and tried against `.`; that errs towards refusing, as `(?!.*\.).+` is refused for its `.+`, which costs an author a rewrite to `[^.]+` rather than a document that lies.
 
 A comma and `*` are refused the same way, since a comma separates `fields` members and `*` stands for every item of a list, so neither can be part of a key either.

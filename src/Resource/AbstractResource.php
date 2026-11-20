@@ -629,7 +629,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
     {
         $attributes = [];
         $type = $this->getType($object);
-        $selections = FieldSelection::requestedKeys($request, $type);
+        $selections = NestedFieldsets::requestedKeys($request, $type);
         $outputTimezone = $this->serializerResolver instanceof ProvidesOutputTimezoneInterface
             ? $this->serializerResolver->outputTimezone()
             : null;
@@ -650,16 +650,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 continue;
             }
 
-            // `fields[type]=<attr>.<key>` narrows an attribute declaring selectable keys
+            // `fields[type]=<attr>.<key>` narrows an attribute declaring a nested fieldset
             // to the keys it accepts, and `<list>.*` lists a list whole. Any other dotted
             // member is unrecognized: the server rejects it under strict validation and
             // it selects nothing here.
-            $only = null;
+            $fieldset = null;
             $listedWhole = false;
             if (isset($selections[$field->name()])) {
-                $listedWhole = FieldSelection::selectsWhole($field, $selections[$field->name()], $request);
-                $only = $listedWhole || !$field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface ? null : FieldSelection::selection($field, $selections[$field->name()], $request);
-                if (!$listedWhole && $only === null) {
+                $listedWhole = NestedFieldsets::selectsWhole($field, $selections[$field->name()], $request);
+                $fieldset = $listedWhole || !$field instanceof \haddowg\JsonApi\Resource\Field\DeclaresNestedFieldsetInterface ? null : NestedFieldsets::fieldset($field, $selections[$field->name()], $request);
+                if (!$listedWhole && $fieldset === null) {
                     continue;
                 }
             }
@@ -671,7 +671,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // not ask for it. `getIncludedFields()` lists the names explicitly
             // requested for this type (empty when the type carries no `fields[type]`
             // member), so an unrequested sparse field is dropped here.
-            if ($field->isSparseByDefault() && $only === null && !$listedWhole
+            if ($field->isSparseByDefault() && $fieldset === null && !$listedWhole
                 && !\in_array($field->name(), $request->getIncludedFields($type), true)) {
                 continue;
             }
@@ -683,10 +683,10 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // serialize() — any intermediate null short-circuits the whole chain to a
             // null value.
             $relatedVia = $field->relatedVia();
-            if ($only !== null && $field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface) {
-                $attributes[$field->name()] = new \haddowg\JsonApi\Resource\Internal\SelectedAttribute(
+            if ($fieldset !== null && $field instanceof \haddowg\JsonApi\Resource\Field\DeclaresNestedFieldsetInterface) {
+                $attributes[$field->name()] = new \haddowg\JsonApi\Resource\Internal\NestedFieldsetAttribute(
                     $field,
-                    $only,
+                    $fieldset,
                     $relatedVia === null
                         ? static fn(mixed $model): mixed => $model
                         : fn(mixed $model, JsonApiRequestInterface $request): mixed => $this->resolveRelatedChain($field->name(), $relatedVia, $model, $request),

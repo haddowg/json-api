@@ -20,7 +20,7 @@ final class ObjBuilder extends AbstractFieldBuilder
 {
     /** @use DeclaresFillHook<TValue> */
     use DeclaresFillHook;
-    use DeclaresSelectableKeys;
+    use BuildsNestedFieldset;
     use NamesSchemaComponent;
 
     /**
@@ -37,7 +37,7 @@ final class ObjBuilder extends AbstractFieldBuilder
             $this->assertMemberValueField($additional);
         }
 
-        return new Obj($this->fieldState(), $this->children, $additional, $this->selectableKeys);
+        return new Obj($this->fieldState(), $this->children, $additional, $this->nestedFieldsetKeys);
     }
 
     /**

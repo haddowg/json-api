@@ -167,6 +167,6 @@ final class RelatedResponse extends AbstractResponse
      */
     protected function appliedProfiles(ServerInterface $server, JsonApiRequestInterface $request): array
     {
-        return $this->withFieldSelectionProfile($this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page), $server, $request);
+        return $this->withNestedFieldsetsProfile($this->appliedPageProfiles(parent::appliedProfiles($server, $request), $server, $this->page), $server, $request);
     }
 }
