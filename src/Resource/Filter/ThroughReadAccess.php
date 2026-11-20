@@ -30,6 +30,9 @@ use haddowg\JsonApi\Resource\ThroughReadGateInterface;
  * share the storage member. When several share it and none is named after the segment,
  * each of them is a hop, so the strictest of their rules applies.
  *
+ * A deprecated traversal's path starting at `pivot`, such as `pivot.targets.name`, reaches
+ * the same hops as its `->through()` form when it runs under a relation.
+ *
  * A `pivot` segment is a hop of the relation whose pivot rows it reaches, so a pivot row,
  * which has no type, is read under that relation's permission. A relation the pivot row
  * holds is a hop like any other, under its related type's rules.
@@ -95,6 +98,15 @@ final class ThroughReadAccess
      */
     public function hopsOf(FilterInterface $filter, iterable $fields, string $rootType, ?RelationHop $under = null): array
     {
+        $legacy = match (true) {
+            $filter instanceof TraversesPath => $filter->throughPath(),
+            $filter instanceof WhereHas, $filter instanceof WhereDoesntHave => $filter->relationship,
+            default => null,
+        };
+        if ($legacy !== null && $under !== null && \str_starts_with($legacy, RelationPath::PIVOT . '.')) {
+            return $this->pivotHops($legacy, $under);
+        }
+
         if ($filter instanceof FiltersThrough) {
             $filter = $this->resolver->resolve($filter, $fields, $under, $rootType);
         }
@@ -162,5 +174,28 @@ final class ThroughReadAccess
         }
 
         return \array_values(\array_filter($hops, fn(RelationHop $hop): bool => !$this->gate->canReadThrough($hop, $request)));
+    }
+
+    /**
+     * The hops of a deprecated traversal's storage path starting at `pivot`, run under the
+     * relation `$under`: the pivot row of that relation and the relations the walk past it
+     * reaches, as a `->through()` path's are.
+     *
+     * @return list<RelationHop>
+     */
+    private function pivotHops(string $path, RelationHop $under): array
+    {
+        $segments = ThroughPath::split($path);
+        $hops = [new RelationHop($under->relation, $under->parentType, RelationPath::PIVOT, true)];
+        $parent = '';
+        foreach ($this->resolver->pivotRelationsAlong($path, $under) as $index => $relations) {
+            $prefix = \implode('.', \array_slice($segments, 0, $index + 2));
+            foreach ($relations as $relation) {
+                $hops[] = new RelationHop($relation, $parent, $prefix);
+            }
+            $parent = $relations[0]->relatedTypes()[0] ?? $parent;
+        }
+
+        return $hops;
     }
 }

@@ -14,7 +14,10 @@ namespace haddowg\JsonApi\Resource\Filter;
  *             `WhereIn::make('campaignName', 'name')->through('campaign')->acceptsList()`,
  *             and a path ending on a relation is `WhereIdIn::make($key)->through($path)`.
  *             The path names relations by API name and the column a field of the reached
- *             type; see the filters guide for the migration. Removed in the next major version.
+ *             type; see the filters guide for the migration. A path continuing past a `pivot`
+ *             segment needs exactly one registered resource type for the entity the pivot
+ *             row's member reaches: an entity served by no type, or by several, can't migrate
+ *             until one type owns it. Removed in the next major version.
  */
 final class WhereThroughInBuilder implements FilterBuilderInterface
 {

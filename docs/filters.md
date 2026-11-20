@@ -846,6 +846,11 @@ equivalent:
 | `WhereThroughIn::make('target', 'pivot.targets')` on a pivot relation | `WhereIdIn::make('target')->through('pivot.targets')->acceptsList()` |
 | `WhereDoesntHave::make('unused', 'pivot.targets')` on a pivot relation | `WhereDoesntHave::make('unused', 'targets')->through('pivot')` |
 
+The last three rows continue past a `pivot` segment, and that needs exactly one registered
+resource type for the entity the pivot row's member reaches, here the one `targets` holds. An
+entity no type serves, or one several types serve, fails warm-up once migrated, so such a
+filter can't move until one type owns the entity.
+
 Four things differ once migrated:
 
 - A traversal path names relations and its last segment by **storage** name, the `column()`
@@ -859,14 +864,19 @@ Four things differ once migrated:
 - A `WhereThrough` that ended on a relation compared one id; `WhereIdIn` compares a list, so
   add `->acceptsList()` to document both list forms.
 - A `pivot.`-prefixed path names the pivot row's relations by the storage member the data
-  layer reads, as before, but the type each reaches now applies: its scope, its read gate and
-  its id encoder. A pivot form keeps working only where the relation's pivot query runs, as the
-  prefixed one did.
+  layer reads, and so does the migrated one. Both follow the
+  [read rules](#read-access-through-a-path) of each type they reach, so they match the same
+  rows and refuse the same callers. The migrated filter reads its leaf as the reached type's
+  field, with that type's id encoder, and it keeps working only where the relation's pivot
+  query runs, as the prefixed one did.
 
 ## Traversing a relationship path
 
 > `WhereThrough` is deprecated in favour of [`->through()`](#reaching-through-relations-with-through)
 > and is removed in the next major version. This section describes how it behaves until then.
+> A path continuing past a `pivot` segment migrates only when exactly one registered resource
+> type serves the entity the pivot row's member reaches; see
+> [Moving from `WhereThrough` and `WhereThroughIn`](#moving-from-wherethrough-and-wherethroughin).
 
 `WhereThrough` filters on a value reached by walking a **dotted relationship
 path** — `artist.name` keeps a row whose artist's name matches, `comments.body`
@@ -943,6 +953,9 @@ adapter renders all three as the same `EXISTS` shape. The
 
 > `WhereThroughIn` is deprecated in favour of [`->through()`](#reaching-through-relations-with-through)
 > and is removed in the next major version. This section describes how it behaves until then.
+> A path continuing past a `pivot` segment migrates only when exactly one registered resource
+> type serves the entity the pivot row's member reaches; see
+> [Moving from `WhereThrough` and `WhereThroughIn`](#moving-from-wherethrough-and-wherethroughin).
 
 `WhereThroughIn` is `WhereThrough` with `WhereIn` at the leaf: the row matches when the
 value reached through the path is any of the requested values. It takes the same key and
@@ -1154,7 +1167,12 @@ two rules to `WhereThrough`, `WhereThroughIn`, `WhereHas` and `WhereDoesntHave`,
 groups and families too, wherever a filter runs: a collection, a related or relationship
 endpoint, a `relatedQuery` window, a collection action's filters and a filter default.
 
-- A row the related type's scope hides, at any hop, does not exist for matching. A Doctrine
+- A row the related type's scope hides, at any hop, does not exist for matching. A deprecated
+  traversal whose path starts at `pivot`, such as `pivot.targets.name` among a relation's
+  filters, reaches the pivot row and each relation past it exactly as its `->through()` form
+  does, so the two match the same rows and refuse the same callers. Where the entity a member
+  past `pivot` reaches is served by no registered type or by several, no type's rules can
+  apply, and the deprecated form reaches it without them, as it always has. A Doctrine
   query extension, an Eloquent global scope or a scoping provider narrows what the walk
   reaches exactly as it narrows the related endpoint.
 - When the caller may not read a hop at all, a filter the client asked for is refused with

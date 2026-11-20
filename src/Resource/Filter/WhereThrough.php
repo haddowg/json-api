@@ -35,7 +35,10 @@ namespace haddowg\JsonApi\Resource\Filter;
  *             `WhereThrough::make('artist.name')` is `Where::make('artist.name', 'name')->through('artist')`,
  *             and a path ending on a relation is `WhereIdIn::make($key)->through($path)`.
  *             The path names relations by API name and the column a field of the reached
- *             type; see the filters guide for the migration. Removed in the next major version.
+ *             type; see the filters guide for the migration. A path continuing past a `pivot`
+ *             segment needs exactly one registered resource type for the entity the pivot
+ *             row's member reaches: an entity served by no type, or by several, can't migrate
+ *             until one type owns it. Removed in the next major version.
  */
 final readonly class WhereThrough implements \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\TraversesPath
 {
