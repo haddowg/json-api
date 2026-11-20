@@ -85,6 +85,7 @@ final class TypedRequestMetaTypes
             ],
             documentMeta: [
                 OperationType::AddRelationship->value => [Integer::make('moved')->required()->example(1)],
+                OperationType::UpdateRelationship->value . ':guest' => [Str::make('swappedBy')->example('desk')],
                 OperationType::CreateAccepted->value => [Integer::make('queuePosition')->example(7)],
             ],
         );

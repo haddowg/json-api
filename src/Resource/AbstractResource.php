@@ -389,9 +389,12 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * refused.
      *
      * The relationship write cases, `UpdateRelationship`, `AddRelationship` and
-     * `RemoveRelationship`, declare the meta-only `200` that write answers with on every
-     * relationship of the type, in place of its linkage, their hooks receiving the parent
-     * resource. `CreateAccepted` and `UpdateAccepted` declare the job document a `202`
+     * `RemoveRelationship`, declare the meta-only `200` that write answers with in place of
+     * its linkage, their hooks receiving the parent resource. To declare it for one
+     * relationship only, add a trailing `?string $relation = null` parameter to the
+     * override: core passes the name of the relation written for those cases and `null`
+     * for the others. An override without it declares the same members on every
+     * relationship. `CreateAccepted` and `UpdateAccepted` declare the job document a `202`
      * answers with, their hooks receiving the job resource. Any other case falls through a
      * `default` arm to none.
      *
