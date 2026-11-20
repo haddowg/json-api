@@ -158,7 +158,11 @@ related collection or a non-null to-one — and ignore the request value entirel
 `WhereSet` compares the column with `null` as `WhereSet::match()` says, and `WhereMorph`
 reads the pair a `MorphTo`'s `identifiedByColumns()` declare, or looks for a member among
 the link rows a `MorphToMany`'s `identifiedByRows()` declare, throwing a `\LogicException`
-for a relation that declares neither.
+for a relation that declares neither. A data layer that scopes a type hands
+`withMorphAdmission()` a closure returning the storage keys of that type the caller may
+read, so a hidden target never matches; ask the gate about
+`ThroughReadAccess::hopsOfRequested()` first, which refuses a type the caller may not read
+at all.
 
 ### ArraySortHandler — one cascading comparator
 
@@ -229,7 +233,7 @@ reaches a pivot row, since an in-memory row holds none. `withRowAdmission()` on
 either handler returns a copy that narrows the rows each hop reaches to the ones the reached
 type's scope admits, given the storage path walked so far, the rows, and the relation the hop
 walks, so a hidden row never matches a filter and sorts as `null`. Before applying one, list
-its hops with `ThroughReadAccess::hopsOf()` or `hopsOfSort()` and ask the gate, as for any
+its hops with `ThroughReadAccess::hopsOfRequested()` or `hopsOfSort()` and ask the gate, as for any
 filter that reaches through a relation; see
 [read access through a path](filters.md#read-access-through-a-path).
 
