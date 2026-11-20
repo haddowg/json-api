@@ -664,15 +664,15 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
                 continue;
             }
 
-            // Each branch carries the discriminator as a const property (and, on create,
-            // on a read the union renders itself and on any write of a list element, in
-            // `required`) so a consumer can match the value to its variant.
+            // Each branch carries the discriminator as a const property, required on every
+            // write and on a read the union renders itself, as OpenAPI's discriminator
+            // expects. A PATCH that leaves it out still falls back to the stored variant.
             /** @var array<string, Schema> $properties */
             $properties = \is_array($schema->get('properties')) ? $schema->get('properties') : [];
             $properties[$this->discriminator] = ($this->discriminatorEnum === null ? Schema::ofType('string') : $projector->enumSchema($this->discriminatorEnum, $collector))->withConst($variantName);
             $schema = $schema->withProperties($properties);
 
-            if ($creating || $projector->writesWholeValue() || ($projector->isReading() && !$shapedByHook)) {
+            if ($creating || !$projector->isReading() || !$shapedByHook) {
                 /** @var list<string> $required */
                 $required = \is_array($schema->get('required')) ? \array_values($schema->get('required')) : [];
                 if (!\in_array($this->discriminator, $required, true)) {

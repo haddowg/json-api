@@ -132,7 +132,8 @@ final class GeneratorContract
      * typed reference to its component rather than an inline copy. Contract 43 did again,
      * closing a relation's request and response `meta.pivot` objects with
      * `additionalProperties: false`, and its identifier meta object, which now lists
-     * `pivot` among its own properties.
+     * `pivot` among its own properties. It also requires a discriminated union's
+     * discriminator in each branch of its update schema, as its create schema does.
      */
     public const BASELINE = 43;
 

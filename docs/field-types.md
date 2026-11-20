@@ -703,9 +703,15 @@ hydrate through, so the raw value is stored for the adapter's validator to rejec
 `/data/attributes/<field>/<discriminator>`.
 
 In the generated OpenAPI document a discriminated `OneOf` projects `oneOf` + a
-`discriminator` object, each branch carrying the discriminator as a `const` (and, on
-create, in its `required` list), so a consumer can match a value to its variant
-statically.
+`discriminator` object, each branch carrying the discriminator as a `const` and in its
+`required` list, so a consumer can match a value to its variant statically. The update
+branches require it too, since OpenAPI expects the discriminator in every value and a
+partial value without it could match more than one branch. A client following the
+document restates the discriminator on every `PATCH`, and still sends only the members
+it changes, which merge onto the stored variant. The server's fallback to the stored
+discriminator only matters to a client that leaves it out. A per-resource schema from
+[`SchemaCompiler`](schema-validation.md#per-resource-schemas-schemacompiler) follows the
+document, so a body validated against it must carry the discriminator.
 
 ### Undiscriminated unions
 
