@@ -8,12 +8,14 @@ use haddowg\JsonApi\Resource\Constraint\In;
 use haddowg\JsonApi\Resource\Filter\BuildsEnumValue;
 use haddowg\JsonApi\Resource\Filter\FilterFamily;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\HasValueConstraints;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
+use haddowg\JsonApi\Tests\Double\EnumCapableFilter;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -25,6 +27,7 @@ use PHPUnit\Framework\TestCase;
  * to the backing values of a backed enum's cases, and still compares the backing value.
  */
 #[CoversTrait(BuildsEnumValue::class)]
+#[CoversTrait(HasValueConstraints::class)]
 final class FilterEnumTest extends TestCase
 {
     /**
@@ -44,6 +47,7 @@ final class FilterEnumTest extends TestCase
 
             return $member;
         }];
+        yield 'a self-contained filter' => [static fn(): FilterInterface => (new EnumCapableFilter('state'))->enum(FilterEnumState::class)];
     }
 
     /**
@@ -61,6 +65,8 @@ final class FilterEnumTest extends TestCase
         yield 'WhereThrough' => [static fn(): mixed => WhereThrough::make('owner.state')->enum(FilterEnumPure::class)];
         // @phpstan-ignore argument.type (a pure enum is what is refused)
         yield 'WhereThroughIn' => [static fn(): mixed => WhereThroughIn::make('owner.state')->enum(FilterEnumPure::class)];
+        // @phpstan-ignore argument.type (a pure enum is what is refused)
+        yield 'a self-contained filter' => [static fn(): mixed => (new EnumCapableFilter('state'))->enum(FilterEnumPure::class)];
     }
 
     /**
@@ -93,6 +99,16 @@ final class FilterEnumTest extends TestCase
 
         self::assertCount(2, $filter->constraints());
         self::assertInstanceOf(In::class, $filter->constraints()[1]);
+    }
+
+    #[Test]
+    public function aSelfContainedFilterReturnsACopyWithTheEnumAppended(): void
+    {
+        $filter = (new EnumCapableFilter('state'))->pattern('^[a-z]+$');
+        $withEnum = $filter->enum(FilterEnumState::class);
+
+        self::assertCount(1, $filter->constraints());
+        self::assertEquals([$filter->constraints()[0], new In(['running', 'cancelled'], enumClass: FilterEnumState::class)], $withEnum->constraints());
     }
 
     #[Test]

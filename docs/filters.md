@@ -584,7 +584,8 @@ public function filters(): array
 
 It is on `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough` and `WhereThroughIn`, so a
 filter a [family](#filter-families-keys-matched-by-prefix) resolves to can declare it
-too. A list filter checks each member against it. It refuses a pure enum when you
+too. A custom filter built on the `HasValueConstraints` trait has it as well, as a wither
+returning a copy with the `In` appended. A list filter checks each member against it. It refuses a pure enum when you
 declare it, since its cases have no value a request could carry.
 
 The filter still compares the backing value, never the case, which Doctrine and

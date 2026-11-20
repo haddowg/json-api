@@ -12,11 +12,13 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\ListValue;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
 use haddowg\JsonApi\Resource\Filter\WhereNotIn;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
+use haddowg\JsonApi\Tests\Double\EnumCapableFilter;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Priority;
@@ -64,6 +66,18 @@ final class FilterEnumProjectionTest extends TestCase
         self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[status]'));
         self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[status][]'));
         self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[notStatus]'));
+    }
+
+    #[Test]
+    public function aSelfContainedFilterReferencesTheComponentForItsValueOrEachMember(): void
+    {
+        $document = $this->document([
+            (new EnumCapableFilter('kind'))->enum(Status::class),
+            (new EnumCapableFilter('kinds', ListValue::delimited()))->enum(Status::class),
+        ]);
+
+        self::assertSame(self::STATUS_REF, $this->schemaOf($document, 'filter[kind]'));
+        self::assertSame(['type' => 'array', 'items' => self::STATUS_REF], $this->schemaOf($document, 'filter[kinds][]'));
     }
 
     #[Test]
