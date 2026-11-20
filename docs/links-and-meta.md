@@ -327,7 +327,11 @@ public function resourceMeta(MetaContext $context): iterable
 - The projected object takes `additionalProperties: true`, or the value field's schema when
   `of()` gives one. Declared members keep their own types either way.
 - On a read, the entry's `extractUsing()` returns the extra members, merged after the declared
-  ones. An extra member never replaces a declared one.
+  ones. An extra member never replaces a declared one: the declared member is rendered. In
+  debug mode the adapter refuses an extra member named after a declared one with
+  `ResourceMetaMismatch`, or `DocumentMetaMismatch` for a document's `meta`, naming it, so the
+  hook can be fixed. The same holds for a pivot relation's `pivot` member when its
+  `identifierMeta()` resolver returns a `pivot` key: the relation's pivot wins.
 - On a write, members the declaration does not name are allowed, validated against `of()` when
   it is given, and handed together to the entry's `fillUsing()`, which receives the model and
   the members by name. Without a hook they stay readable through `WrittenMeta`.
