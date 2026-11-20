@@ -520,7 +520,7 @@ customise writing — reach for them before dropping to a whole-resource custom
 
 | Hook | Closure signature | Replaces |
 |---|---|---|
-| `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
+| `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). On an `Obj`, `Map` or `ArrayList` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
 | `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. On an `Obj` or `Map` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
 | `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. Not on an `Obj`, `Map`, `OneOf`, `Id`, a relation or an `AdditionalProperties` meta entry. |
 | `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). Not on an `Id`. |

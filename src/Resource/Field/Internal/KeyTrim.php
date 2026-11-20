@@ -56,7 +56,8 @@ final class KeyTrim
     }
 
     /**
-     * Calls an `extractUsing()` hook, passing the selected keys as its fourth argument.
+     * Calls an `extractUsing()` or `serializeUsing()` hook, passing the selected keys as its
+     * fourth argument.
      */
     public static function extract(\Closure $hook, mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
     {

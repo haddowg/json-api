@@ -591,9 +591,10 @@ Obj::make('address')
         => $person->loadAddress($only?->paths()));
 ```
 
-The value is trimmed to the selection at every depth whatever the hook returns, so a hook
-that ignores `$only` still renders the right members, as does a field with no hook and a
-`serializeUsing()` hook's value. A nested object with its own hook receives the selection
+A `serializeUsing()` hook receives the same fourth argument, so a hook that builds the
+whole value can skip the keys nobody asked for. The value is trimmed to the selection at
+every depth whatever the hook returns, so a hook that ignores `$only` still renders the
+right members, as does a field with no hook. A nested object with its own hook receives the selection
 inside it, and a list's `extractUsing()` or `computedUsing()` hook receives the list's
 selection, each item then trimmed to `$only->items()`. [Sparse fieldsets](sparse-fieldsets-and-includes.md#selecting-keys-of-an-object-attribute)
 covers the request rules and the profile a narrowed response carries.
