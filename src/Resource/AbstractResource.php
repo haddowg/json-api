@@ -1585,7 +1585,8 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * collection, so it is rejected here (the single point where every field is
      * first indexed) rather than letting the token silently win. It also rejects an
      * attribute or relationship named `type` or `id`, which JSON:API reserves for the
-     * resource object itself, and a declared member named `relationships` or `links`
+     * resource object itself, a name declared as both an attribute and a relationship,
+     * since the two share one namespace, and a declared member named `relationships` or `links`
      * anywhere inside an `Obj`, `Map` or `OneOf` attribute value, which JSON:API
      * reserves in every object an attribute holds. The result is cached for the
      * resource's lifetime.
@@ -1601,6 +1602,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                     : $field,
                 $this->fields(),
             ));
+            $kinds = [];
             foreach ($fields as $field) {
                 if ($field->name() === '') {
                     throw new \LogicException(\sprintf('Resource "%s" declares a %s field with no name; only a Union member is declared unnamed.', static::class, (new \ReflectionClass($field))->getShortName()));
@@ -1615,11 +1617,23 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 }
                 if (!$field instanceof Id && \in_array($field->name(), ['type', 'id'], true)) {
                     throw new \LogicException(\sprintf(
-                        'Resource "%s" declares the %s "%s", but a resource object reserves "type" and "id": JSON:API 1.1 shares one namespace between its fields and those two members.',
+                        'Resource "%s" declares the %s "%s" on the "%s" type, but a resource object reserves "type" and "id": JSON:API 1.1 shares one namespace between its fields and those two members.',
                         static::class,
                         $isRelation ? 'relationship' : 'attribute',
                         $field->name(),
+                        static::$type,
                     ));
+                }
+                if (!$field instanceof Id) {
+                    $kinds[$field->name()][$isRelation ? 'relationship' : 'attribute'] = true;
+                    if (\count($kinds[$field->name()]) > 1) {
+                        throw new \LogicException(\sprintf(
+                            'Resource "%s" declares "%s" as both an attribute and a relationship on the "%s" type, but JSON:API 1.1 shares one namespace between a resource object\'s attributes and relationships. Rename one of them.',
+                            static::class,
+                            $field->name(),
+                            static::$type,
+                        ));
+                    }
                 }
                 if (!$isRelation) {
                     $this->guardReservedNestedMembers($field, $field->name());
