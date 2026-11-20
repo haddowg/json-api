@@ -88,6 +88,17 @@ final class CustomSerializerFieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function anOverridesListSelectedThroughAWildcardAloneRendersWholeWithoutTheProfile(): void
+    {
+        $whole = $this->render('places', 'visits');
+        $response = $this->render('places', 'visits.*');
+
+        self::assertSame(['visits' => PlaceResource::model()['visits']], $this->attributes($response));
+        self::assertSame($this->attributes($whole), $this->attributes($response));
+        self::assertSame('application/vnd.api+json', $response->getHeaderLine('Content-Type'));
+    }
+
+    #[Test]
     public function aSerializerSelectingKeysReceivesTheSelectionAndIsStillTrimmed(): void
     {
         $response = $this->render('venues', 'address.postcode,address.geo.lat');

@@ -66,8 +66,9 @@ the segment `*` (U+002A) after the name of a list whose items are objects the se
 a client select from. `lines.*.sku` selects the `sku` member of every item of the `lines`
 list. A path continues through nested objects and lists the same way, so
 `lines.*.price.amount` and `groups.*.rows.*.label` are key members too, and a list inside
-an object is reached as `shipping.parcels.*.weight`. `lines.*` with nothing after it selects every item whole,
-the same as `lines`. A list the server does not let a client select from, such as a list
+an object is reached as `shipping.parcels.*.weight`. A path that ends in `*` names the list
+itself, so `lines.*` with nothing after it **MUST** be processed exactly as `lines`, and
+`shipping.parcels.*` exactly as `shipping.parcels`. A list the server does not let a client select from, such as a list
 of strings, is selected whole by its name. JSON:API member names contain no asterisk, so
 `*` never collides with a key.
 
@@ -164,8 +165,9 @@ When a request carries a key member the server accepts, for an attribute it does
 also list whole, the server **MUST** advertise the profile on the response as the
 base specification requires: the profile URI **MUST** be present in the `profile`
 parameter of the response `Content-Type` media type and in the document's top-level
-`jsonapi.profile`. When the request carries no such key member, the server **MUST
-NOT** add the profile to a response the client did not negotiate it for.
+`jsonapi.profile`. A key member that names an attribute whole, as `lines.*` does, lists
+that attribute whole and does not count. When the request carries no such key member, the
+server **MUST NOT** add the profile to a response the client did not negotiate it for.
 
 ### Document Structure
 

@@ -572,8 +572,8 @@ renders every line, in order, each holding only `sku` and a `price` holding only
 `selectableKeys()`, renders whole and `*` on it is an unknown fieldset member, as is `*` on
 an object. A path keeps going through nested objects and lists, as `lines.*.price.amount`
 or `groups.*.rows.*.label`, and a list inside an object is reached as
-`shipping.parcels.*.weight`. `lines.*` on its own selects every item whole, the same as
-`lines`. There is no index segment: `lines.0` is an unknown member. An item missing a
+`shipping.parcels.*.weight`. `lines.*` on its own is read as `lines`, so it selects the
+whole list, narrows nothing and passes the hook below a `null` selection. There is no index segment: `lines.0` is an unknown member. An item missing a
 selected member renders without it, so an open element's item holding none of the
 selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 

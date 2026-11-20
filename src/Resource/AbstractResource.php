@@ -652,12 +652,15 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             }
 
             // `fields[type]=<attr>.<key>` narrows an attribute declaring selectable keys
-            // to the keys it accepts. Any other dotted member is unrecognized: the
-            // server rejects it under strict validation and it selects nothing here.
+            // to the keys it accepts, and `<list>.*` lists a list whole. Any other dotted
+            // member is unrecognized: the server rejects it under strict validation and
+            // it selects nothing here.
             $only = null;
+            $listedWhole = false;
             if (isset($selections[$field->name()])) {
-                $only = FieldSelection::selection($field, $selections[$field->name()], $request);
-                if (!$only instanceof \haddowg\JsonApi\Resource\Field\KeySelection || !$field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface) {
+                $listedWhole = FieldSelection::selectsWhole($field, $selections[$field->name()], $request);
+                $only = $listedWhole || !$field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface ? null : FieldSelection::selection($field, $selections[$field->name()], $request);
+                if (!$listedWhole && $only === null) {
                     continue;
                 }
             }
@@ -669,7 +672,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // not ask for it. `getIncludedFields()` lists the names explicitly
             // requested for this type (empty when the type carries no `fields[type]`
             // member), so an unrequested sparse field is dropped here.
-            if ($field->isSparseByDefault() && $only === null
+            if ($field->isSparseByDefault() && $only === null && !$listedWhole
                 && !\in_array($field->name(), $request->getIncludedFields($type), true)) {
                 continue;
             }
@@ -681,7 +684,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
             // serialize() — any intermediate null short-circuits the whole chain to a
             // null value.
             $relatedVia = $field->relatedVia();
-            if ($only !== null) {
+            if ($only !== null && $field instanceof \haddowg\JsonApi\Resource\Field\SelectsKeysInterface) {
                 $attributes[$field->name()] = new \haddowg\JsonApi\Resource\Internal\SelectedAttribute(
                     $field,
                     $only,
