@@ -581,6 +581,31 @@ whole list, narrows nothing and passes the hook below a `null` selection. There 
 selected member renders without it, so an open element's item holding none of the
 selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 
+A list of a `OneOf` takes `*` too, once a variant opts in. Each variant declares its own
+selectable keys on the union's builder, by name, and a variant that declares none takes no
+part:
+
+```php
+ArrayList::make('blocks')->of(
+    OneOf::make('block')->discriminator('type')
+        ->variant('text', Str::make('title'), Str::make('body'))
+        ->variant('image', Str::make('title'), Str::make('url'))
+        ->variant('divider', Str::make('style'))
+        ->selectableKeys('text', pattern: 'title|body')
+        ->selectableKeys('image', pattern: 'url'),
+);
+```
+
+A key after `*` is accepted when one variant accepts it, and a path keeps going inside the
+variants that accept it, so `blocks.*.meta.lang` needs a variant whose `meta` declares
+`lang` selectable. Every item renders its discriminator and the selected keys its own
+variant accepts, nothing else. `fields[pages]=blocks.*.title` renders
+`[{"type":"text","title":"Intro"},{"type":"image"},{"type":"divider"}]`: the image has a
+title, but its variant doesn't let a request select it, so it renders without it, as an
+`Obj` item missing a selected member does. An undiscriminated item whose variant accepts
+none of the keys renders as `{}`. `blocks.*.style` is an unknown member, since no variant
+that opted in accepts it.
+
 An `extractUsing()` or `computedUsing()` hook on the field receives the selection as a
 fourth argument, a `KeySelection` holding the requested keys, so it can load only those.
 It is `null` when the request takes the whole attribute. `$only->keys` lists the keys at

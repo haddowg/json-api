@@ -108,6 +108,40 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
     }
 
     /**
+     * The variants declaring `selectableKeys()`, by name. In a list of this union a
+     * request selects keys of every item as `<attr>.*.<key>`, each key accepted when one
+     * of these variants accepts it.
+     *
+     * @return array<string, Obj>
+     */
+    public function selectableVariants(): array
+    {
+        return \array_filter($this->variants, static fn(Obj $variant): bool => $variant->selectableKeys() !== null);
+    }
+
+    /**
+     * The share of `$only` each selectable variant accepts, by variant name, leaving out a
+     * variant that accepts none of it. {@see ArrayList} works it out once per list and
+     * renders every item through its variant's share.
+     *
+     * @return array<string, KeySelection>
+     *
+     * @internal
+     */
+    public function variantSelections(KeySelection $only, JsonApiRequestInterface $request): array
+    {
+        $selections = [];
+        foreach ($this->selectableVariants() as $name => $variant) {
+            $selection = \haddowg\JsonApi\Resource\FieldSelection::selection($variant, $only->paths(), $request);
+            if ($selection !== null) {
+                $selections[$name] = $selection;
+            }
+        }
+
+        return $selections;
+    }
+
+    /**
      * Passes the server's default output zone on to every variant, so a `DateTime`
      * in any of them renders in it too.
      */
@@ -261,17 +295,21 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
 
     /**
      * Renders a stored value through the variant its discriminator names. {@see ArrayList}
-     * renders each element of a structured list through it.
+     * renders each element of a structured list through it, passing the share of a key
+     * selection each variant accepts ({@see variantSelections()}) when a request narrowed
+     * the items.
+     *
+     * @param array<string, KeySelection>|null $selections
      *
      * @internal
      */
-    public function serializeStored(mixed $value, JsonApiRequestInterface $request): mixed
+    public function serializeStored(mixed $value, JsonApiRequestInterface $request, ?array $selections = null): mixed
     {
         if (!\is_array($value)) {
             return $value;
         }
 
-        return $this->renderVariant($value, $request);
+        return $this->renderVariant($value, $request, $selections);
     }
 
     /**
@@ -280,9 +318,11 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
      * selected variant's children render their own keys beside the discriminator, and
      * every other key is dropped. A value naming no variant is emitted as it is.
      *
+     * @param array<string, KeySelection>|null $selections
+     *
      * @internal
      */
-    public function serializeComputed(mixed $value, JsonApiRequestInterface $request): mixed
+    public function serializeComputed(mixed $value, JsonApiRequestInterface $request, ?array $selections = null): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
@@ -291,13 +331,18 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
             return $value;
         }
 
-        return $this->renderVariant($value, $request);
+        return $this->renderVariant($value, $request, $selections);
     }
 
     /**
-     * @param array<array-key, mixed>|object $value
+     * Renders the value through its variant. Under a selection the variant renders only
+     * the keys its share holds, nothing when it has none, and the discriminator always,
+     * since it says which variant the rest belongs to.
+     *
+     * @param array<array-key, mixed>|object   $value
+     * @param array<string, KeySelection>|null $selections
      */
-    private function renderVariant(array|object $value, JsonApiRequestInterface $request): mixed
+    private function renderVariant(array|object $value, JsonApiRequestInterface $request, ?array $selections = null): mixed
     {
         $name = $this->variantNameOf($value);
         if ($name === null) {
@@ -307,15 +352,19 @@ final readonly class OneOf extends AbstractFieldValue implements NamedSchemaInte
         }
 
         $nested = $this->discriminator === null ? [] : [$this->discriminator => $name];
+        $only = $selections === null ? null : ($selections[$name] ?? new KeySelection([]));
         foreach ($this->variants[$name]->children() as $child) {
-            if ($child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
+            if (($only !== null && !$only->has($child->name())) || $child->isWriteOnlyFor($request) || $child->isHiddenFor($request, $value)) {
                 continue;
             }
 
-            $nested[$child->name()] = $child->serialize($value, $request, $child->name());
+            $inner = $only?->nested($child->name());
+            $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
+                ? $child->serializeSelection($value, $request, $child->name(), $inner)
+                : $child->serialize($value, $request, $child->name());
         }
 
-        return $nested;
+        return JsonObject::of($nested);
     }
 
     public function hydrate(mixed $model, mixed $value, array $data, JsonApiRequestInterface $request, bool $creating): mixed

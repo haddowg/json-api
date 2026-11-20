@@ -434,8 +434,9 @@ final class ContractWitnessServer
                 ] : []),
                 // Objects whose keys a fieldset member selects one by one: one whose keys
                 // match a declared pattern, a map whose predicate alone decides, a closed
-                // object with a nested object whose keys are selectable in turn, and a list
-                // whose items' keys are selected through `*`, one of them an object too.
+                // object with a nested object whose keys are selectable in turn, a list
+                // whose items' keys are selected through `*`, one of them an object too, and
+                // a list of a union whose variants each declare their own keys, or none.
                 ...($fieldSelection ? [
                     Obj::make('scores')->additionalProperties(Integer::make('*'))->selectableKeys(pattern: '[a-z][a-z0-9_]*')->build(),
                     Map::make('totals')->fields(Integer::make('views'), Integer::make('shares'))
@@ -449,6 +450,13 @@ final class ContractWitnessServer
                         Integer::make('quantity'),
                         Obj::make('price')->fields(Decimal::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
                     )->selectableKeys(pattern: 'sku|quantity|price'))->build(),
+                    ArrayList::make('sections')->of(OneOf::make('section')
+                        ->discriminator('kind')
+                        ->variant('heading', Str::make('text'), Integer::make('level'))
+                        ->variant('figure', Str::make('src'), Obj::make('size')->fields(Integer::make('width'), Integer::make('height'))->selectableKeys(pattern: 'width|height'))
+                        ->variant('rule')
+                        ->selectableKeys('heading', pattern: 'text|level')
+                        ->selectableKeys('figure', pattern: 'src|size'))->build(),
                 ] : []),
                 // Values of several primitive types: one schema listing the members' types
                 // with their keywords merged, and a oneOf of the members once one carries

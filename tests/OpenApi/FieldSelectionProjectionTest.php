@@ -13,6 +13,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -153,6 +154,40 @@ final class FieldSelectionProjectionTest extends TestCase
             self::assertStringNotContainsString('notes', $pattern);
             self::assertStringNotContainsString('plainLines', $pattern);
         }
+    }
+
+    #[Test]
+    public function aListOfAOneOfAddsThePathsOfEverySelectableVariant(): void
+    {
+        $blocks = ArrayList::make('blocks')->of(
+            OneOf::make('block')->discriminator('type')
+                ->variant('text', Str::make('title'), Obj::make('meta')->fields(Str::make('lang'))->selectableKeys(pattern: 'lang'))
+                ->variant('image', Str::make('title'), Str::make('url'))
+                ->variant('divider', Str::make('style'))
+                ->selectableKeys('text', pattern: 'title|meta')
+                ->selectableKeys('image', pattern: 'title|url'),
+        );
+        $plain = ArrayList::make('plain')->of(OneOf::make('item')->discriminator('type')->variant('a', Str::make('x')));
+        $document = (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(type: 'pages', fields: [Id::make()->build(), $blocks->build(), $plain->build()])],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+
+        self::assertSame(
+            [
+                'type' => 'array',
+                'items' => ['anyOf' => [
+                    ['type' => 'string', 'enum' => ['blocks', 'plain']],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.(?:title|meta)$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.meta\\.(?:lang)$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.(?:title|url)$'],
+                ]],
+            ],
+            $this->fieldsParameter($document, '/pages', 'fields[pages]')['schema'],
+        );
     }
 
     #[Test]

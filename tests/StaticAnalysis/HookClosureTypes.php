@@ -15,6 +15,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Link\DeclaredLink;
 use haddowg\JsonApi\Resource\Link\DeclaredLinkBuilder;
@@ -97,6 +98,15 @@ final class HookClosureTypes
             ArrayList::make('selectedItemsComputed')
                 ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
                 ->computedUsing(static fn(\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => []),
+            ArrayList::make('selectedBlocks')
+                ->of(
+                    OneOf::make('block')->discriminator('type')
+                        ->variant('text', Str::make('title'), Str::make('body'))
+                        ->variant('image', Str::make('url'))
+                        ->selectableKeys('text', static fn(string $key, JsonApiRequestInterface $request): bool => $key !== 'body')
+                        ->selectableKeys('image', pattern: 'url'),
+                )
+                ->extractUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only?->items()->keys ?? []),
             ArrayList::make('scalarItems')->extractUsing(static fn(array $row): array => $row),
             Obj::make('serializedSelection')
                 ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->selectableKeys(pattern: 'lat'))

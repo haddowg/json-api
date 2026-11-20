@@ -17,6 +17,7 @@ use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\KeySelection;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\FieldSelection;
 use haddowg\JsonApi\Response\AtomicResultsResponse;
@@ -553,6 +554,99 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aWildcardOverAOneOfRendersTheKeyFromEachItemWhoseVariantAcceptsIt(): void
+    {
+        $response = $this->renderOrder('blocks.*.title');
+
+        self::assertSame(
+            ['blocks' => [['type' => 'text', 'title' => 'Intro'], ['type' => 'image'], ['type' => 'divider']]],
+            $this->attributes($this->body($response)),
+        );
+        self::assertSame(['version' => '1.1', 'profile' => [FieldSelectionProfile::URI]], $this->body($response)['jsonapi']);
+        self::assertSame(
+            ['blocks' => [['type' => 'text', 'body' => 'Hello'], ['type' => 'image', 'url' => '/a.png'], ['type' => 'divider']]],
+            $this->orderAttributes('blocks.*.url,blocks.*.body'),
+        );
+    }
+
+    #[Test]
+    public function aWildcardPathContinuesInsideTheVariantsThatAcceptIt(): void
+    {
+        self::assertSame(
+            ['blocks' => [['type' => 'text', 'meta' => ['lang' => 'en']], ['type' => 'image'], ['type' => 'divider']]],
+            $this->orderAttributes('blocks.*.meta.lang'),
+        );
+        self::assertSame(
+            ['blocks' => [['type' => 'text', 'meta' => ['lang' => 'en', 'tone' => 'warm']], ['type' => 'image', 'meta' => 'raw'], ['type' => 'divider']]],
+            $this->orderAttributes('blocks.*.meta,blocks.*.meta.lang'),
+        );
+    }
+
+    #[Test]
+    public function anUndiscriminatedItemWhoseVariantAcceptsNoSelectedKeyRendersAsAnEmptyObject(): void
+    {
+        $response = $this->renderOrder('cards.*.by');
+
+        self::assertStringContainsString('"attributes":{"cards":[{"by":"Ada"},{}]}', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function aOneOfListSelectedWholeRendersEveryItemWhole(): void
+    {
+        $whole = $this->orderAttributes('blocks');
+
+        self::assertSame($whole, $this->orderAttributes('blocks.*'));
+        self::assertSame($whole, $this->orderAttributes('blocks.*,blocks.*.title'));
+        self::assertIsArray($whole['blocks']);
+        self::assertSame(['type' => 'image', 'title' => 'Pic', 'url' => '/a.png', 'caption' => 'A', 'meta' => 'raw'], $whole['blocks'][1]);
+    }
+
+    #[Test]
+    public function aComputedOneOfListIsTrimmedPerVariantAndItsHookReceivesTheUnionSelection(): void
+    {
+        self::assertSame(
+            ['computedBlocks' => [['type' => 'text', 'title' => 'Intro'], ['type' => 'image', 'url' => '/a.png'], ['type' => 'divider']]],
+            $this->orderAttributes('computedBlocks.*.title,computedBlocks.*.url'),
+        );
+        self::assertSame([['*.title', '*.url']], OrderSelectionResource::$computedBlocks);
+    }
+
+    #[Test]
+    public function aWildcardKeyNoVariantAcceptsIsThe400(): void
+    {
+        $this->assertUnrecognized('blocks.*.style', ['blocks.*.style'], 'orders');
+        $this->assertUnrecognized('blocks.*.nope', ['blocks.*.nope'], 'orders');
+        $this->assertUnrecognized('blocks.*.title.x', ['blocks.*.title.x'], 'orders');
+        $this->assertUnrecognized('blocks.*.meta.x', ['blocks.*.meta.x'], 'orders');
+        $this->assertUnrecognized('plainBlocks.*', ['plainBlocks.*'], 'orders');
+        $this->assertUnrecognized('plainBlocks.*.style', ['plainBlocks.*.style'], 'orders');
+    }
+
+    #[Test]
+    public function theSelectionOfAOneOfListHoldsWhatAnyVariantAccepts(): void
+    {
+        $request = $this->orderRequest(null);
+        $selection = FieldSelection::selection(OrderSelectionResource::blocks(), ['*.title', '*.meta.lang', '*.url', '*.style'], $request);
+
+        self::assertNotNull($selection);
+        self::assertSame(['*.title', '*.meta.lang', '*.url'], $selection->paths());
+
+        $merged = FieldSelection::selection(OrderSelectionResource::blocks(), ['*.meta.lang', '*.meta'], $request);
+        self::assertSame(['*.meta'], $merged?->paths());
+        self::assertTrue(FieldSelection::narrows($this->server(), $this->orderRequest('blocks.*.url')));
+        self::assertFalse(FieldSelection::narrows($this->server(), $this->orderRequest('blocks.*')));
+    }
+
+    #[Test]
+    public function aVariantsKeysAreDeclaredOnlyOnAVariantItHas(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('OneOf "block" declares selectableKeys() for the variant "video", which it does not declare.');
+
+        OneOf::make('block')->discriminator('type')->variant('text', Str::make('title'))->selectableKeys('video', pattern: 'title');
+    }
+
+    #[Test]
     public function aWildcardOnAnythingButAListOfSelectableObjectsIsThe400(): void
     {
         $this->assertUnrecognized('reference.*', ['reference.*'], 'orders');
@@ -995,6 +1089,11 @@ final class OrderSelectionResource extends AbstractResource
     public static string $type = 'orders';
 
     /**
+     * @var list<list<string>|null>
+     */
+    public static array $computedBlocks = [];
+
+    /**
      * @var list<array{keys: list<string>|null, items: list<string>|null, paths: list<string>|null}>
      */
     public static array $extracted = [];
@@ -1018,7 +1117,39 @@ final class OrderSelectionResource extends AbstractResource
             'cells' => [['a' => '1', 'b' => '2'], ['b' => '3']],
             'shipping' => ['carrier' => 'post', 'parcels' => [['weight' => 2, 'label' => 'a'], ['weight' => 5, 'label' => 'b']]],
             'archived' => [['sku' => 'Z9', 'qty' => 4]],
+            'blocks' => self::blockValues(),
+            'plainBlocks' => [['type' => 'a', 'style' => 'x']],
+            'cards' => [['quote' => 'Be brief', 'by' => 'Ada'], ['href' => '/x', 'label' => 'X']],
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function blockValues(): array
+    {
+        return [
+            ['type' => 'text', 'title' => 'Intro', 'body' => 'Hello', 'meta' => ['lang' => 'en', 'tone' => 'warm']],
+            ['type' => 'image', 'title' => 'Pic', 'url' => '/a.png', 'caption' => 'A', 'meta' => 'raw'],
+            ['type' => 'divider', 'style' => 'dashed'],
+        ];
+    }
+
+    public static function blocks(string $name = 'blocks'): ArrayList
+    {
+        return self::blocksBuilder($name)->build();
+    }
+
+    private static function blocksBuilder(string $name): \haddowg\JsonApi\Resource\Field\ArrayListBuilder
+    {
+        return ArrayList::make($name)->of(
+            OneOf::make('block')->discriminator('type')
+                ->variant('text', Str::make('title'), Str::make('body'), Obj::make('meta')->fields(Str::make('lang'), Str::make('tone'))->selectableKeys(pattern: 'lang|tone'))
+                ->variant('image', Str::make('title'), Str::make('url'), Str::make('caption'), Str::make('meta'))
+                ->variant('divider', Str::make('style'))
+                ->selectableKeys('text', pattern: 'title|body|meta')
+                ->selectableKeys('image', pattern: 'url|caption|meta'),
+        );
     }
 
     public static function lines(): ArrayList
@@ -1055,6 +1186,19 @@ final class OrderSelectionResource extends AbstractResource
             ArrayList::make('cells')->of(Obj::make('cell')->additionalProperties(Str::make('*'))->selectableKeys(pattern: '[a-z]+')),
             self::shipping(),
             ArrayList::make('archived')->of($line)->sparseByDefault(),
+            self::blocks(),
+            ArrayList::make('plainBlocks')->of(OneOf::make('block')->discriminator('type')->variant('a', Str::make('style'))),
+            ArrayList::make('cards')->of(
+                OneOf::make('card')
+                    ->variant('quote', Str::make('quote')->required(), Str::make('by'))
+                    ->variant('link', Str::make('href')->required(), Str::make('label'))
+                    ->selectableKeys('quote', pattern: 'by'),
+            ),
+            self::blocksBuilder('computedBlocks')->computedUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                self::$computedBlocks[] = $only?->paths();
+
+                return self::blockValues();
+            }),
             ArrayList::make('bundles')->of($line)->computedUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
                 self::$extracted[] = ['keys' => $only?->keys, 'items' => $only?->items()?->keys, 'paths' => $only?->paths()];
 

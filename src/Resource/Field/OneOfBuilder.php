@@ -23,13 +23,13 @@ final class OneOfBuilder extends AbstractFieldBuilder
     private ?string $discriminator = null;
 
     /**
-     * @var array<string, Obj>
+     * @var array<string, ObjBuilder<array<string, mixed>>>
      */
     private array $variants = [];
 
     public function build(): OneOf
     {
-        return new OneOf($this->fieldState(), $this->discriminator, $this->variants);
+        return new OneOf($this->fieldState(), $this->discriminator, \array_map(static fn(ObjBuilder $variant): Obj => $variant->build(), $this->variants));
     }
 
     /**
@@ -56,7 +56,32 @@ final class OneOfBuilder extends AbstractFieldBuilder
      */
     public function variant(string $name, FieldInterface|FieldBuilderInterface ...$children): static
     {
-        $this->variants[$name] = Obj::make($name)->fields(...$children)->build();
+        $this->variants[$name] = Obj::make($name)->fields(...$children);
+
+        return $this;
+    }
+
+    /**
+     * Lets a request select keys of the variant `$variant` one by one in every item of a
+     * list of this union, as `fields[TYPE]=<attr>.*.<key>`, for each key `$pattern`
+     * matches whole and `$accepts` returns `true` for, exactly as an object's
+     * `selectableKeys()` does. Each variant opts in on its own: a key is accepted when one
+     * variant accepts it, and an item renders the selected keys its own variant accepts,
+     * beside the discriminator.
+     *
+     * @param (\Closure(string, \haddowg\JsonApi\Request\JsonApiRequestInterface): bool)|null $accepts
+     * @param string|null                                                                     $pattern an ECMA-262 and PCRE regular expression a whole key must match
+     *
+     * @return static
+     *
+     * @throws \InvalidArgumentException when no variant of that name is declared yet, or the declaration is not valid
+     */
+    public function selectableKeys(string $variant, ?\Closure $accepts = null, ?string $pattern = null): static
+    {
+        if (!isset($this->variants[$variant])) {
+            throw new \InvalidArgumentException(\sprintf('OneOf "%s" declares selectableKeys() for the variant "%s", which it does not declare. Declare the variant first.', $this->name(), $variant));
+        }
+        $this->variants[$variant]->selectableKeys($accepts, $pattern);
 
         return $this;
     }
