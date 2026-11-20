@@ -121,18 +121,36 @@ final class FieldSelection
     }
 
     /**
+     * The selection `fields[$type]` makes of the attribute `$name` of a resource the
+     * serializer renders, read against the type's Resource, or `null` when the request
+     * does not narrow that attribute or its declaration accepts none of the keys. A
+     * serializer that is not the type's Resource, such as an override, is narrowed by the
+     * fields of the Resource the type was registered with, which `$resolver` provides.
+     */
+    public static function attributeSelection(SerializerInterface $serializer, string $type, string $name, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null): ?KeySelection
+    {
+        $keys = self::requestedKeys($request, $type)[$name] ?? null;
+        $resource = $keys === null ? null : self::declaringResource($serializer, $type, $resolver);
+        $field = $resource === null ? null : self::attributeNamed($resource, $name);
+
+        return $field === null || $keys === null ? null : self::selection($field, $keys, $request);
+    }
+
+    /**
      * Whether a dotted `fields[TYPE]` member names a key the serializer's attribute
      * accepts. A hidden or write-only attribute counts, as its plain name does, so the
-     * answer gives nothing away about it.
+     * answer gives nothing away about it. A serializer that is not a Resource is read
+     * against the Resource `$type` was registered with, which `$resolver` provides.
      */
-    public static function recognizes(SerializerInterface $serializer, string $member, JsonApiRequestInterface $request): bool
+    public static function recognizes(SerializerInterface $serializer, string $member, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null, ?string $type = null): bool
     {
         $dot = \strpos($member, '.');
-        if ($dot === false || !$serializer instanceof AbstractResource) {
+        $resource = $dot === false ? null : self::declaringResource($serializer, $type, $resolver);
+        if ($dot === false || $resource === null) {
             return false;
         }
 
-        $field = self::attributeNamed($serializer, \substr($member, 0, $dot));
+        $field = self::attributeNamed($resource, \substr($member, 0, $dot));
 
         return $field !== null && self::selection($field, [\substr($member, $dot + 1)], $request) !== null;
     }
@@ -147,12 +165,12 @@ final class FieldSelection
             if (!$resolver->hasSerializerFor($type)) {
                 continue;
             }
-            $serializer = $resolver->serializerFor($type);
-            if (!$serializer instanceof AbstractResource) {
+            $resource = self::declaringResource($resolver->serializerFor($type), $type, $resolver);
+            if ($resource === null) {
                 continue;
             }
             foreach (self::requestedKeys($request, $type) as $name => $keys) {
-                $field = self::attributeNamed($serializer, $name);
+                $field = self::attributeNamed($resource, $name);
                 if ($field !== null && self::selection($field, $keys, $request) !== null) {
                     return true;
                 }
@@ -160,6 +178,30 @@ final class FieldSelection
         }
 
         return false;
+    }
+
+    /**
+     * The Resource whose fields decide what `fields[$type]` selects: the serializer when it
+     * is one, else the Resource the type was registered with, looked up through the
+     * serializer's own resolver and then `$resolver`. `null` for a bare serializer.
+     */
+    private static function declaringResource(SerializerInterface $serializer, ?string $type, ?SerializerResolverInterface $resolver): ?AbstractResource
+    {
+        if ($serializer instanceof AbstractResource) {
+            return $serializer;
+        }
+        if ($type === null) {
+            return null;
+        }
+
+        $own = $serializer instanceof SerializerResolverAwareInterface ? $serializer->serializerResolver() : null;
+        foreach ([$own, $resolver] as $candidate) {
+            if ($candidate instanceof ProvidesResourcesInterface && $candidate->hasResourceFor($type)) {
+                return $candidate->resourceFor($type);
+            }
+        }
+
+        return null;
     }
 
     private static function attributeNamed(AbstractResource $resource, string $name): ?FieldInterface

@@ -45,7 +45,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * the right one. It implements the {@see ServerInterface} render contract, so
  * the response value objects drop in as-is.
  */
-final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
+final class Server implements ResolvingServerInterface, RequestHandlerInterface, ProvidesOutputTimezoneInterface, ConfiguresLinksInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface, \haddowg\JsonApi\Resource\ProvidesResourcesInterface
 {
     private ResourceRegistry $resources;
 
@@ -1306,7 +1306,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
                     continue;
                 }
 
-                if (!isset($declared[$member]) && !\haddowg\JsonApi\Resource\FieldSelection::recognizes($serializer, $member, $request)) {
+                if (!isset($declared[$member]) && !\haddowg\JsonApi\Resource\FieldSelection::recognizes($serializer, $member, $request, $this, $type)) {
                     $unrecognized[] = $member;
                 }
             }
