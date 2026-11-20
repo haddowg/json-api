@@ -31,8 +31,6 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  */
 abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 {
-    /** @use DeclaresDeserializeHook<TValue> */
-    use DeclaresDeserializeHook;
     /** @use DeclaresFillHook<TValue> */
     use DeclaresFillHook;
 

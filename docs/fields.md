@@ -522,7 +522,7 @@ customise writing — reach for them before dropping to a whole-resource custom
 |---|---|---|
 | `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). On an `Obj`, `Map` or `ArrayList` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
 | `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. On an `Obj` or `Map` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
-| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. Not on an `Obj`, `Map`, `OneOf` or `Id`. |
+| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. Not on an `Obj`, `Map`, `OneOf`, `Id`, a relation or an `AdditionalProperties` meta entry. |
 | `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). Not on an `Id`. |
 
 A hook only ever receives the model your provider loaded, so its `$model` parameter
@@ -538,6 +538,9 @@ An `Obj`, `Map` or `OneOf` writes its value through its children, so its builder
 whole value with `fillUsing()`. The `Id` is written from `data.id` by its own policy, so its
 builder has neither write hook: use `encodeUsing()` when the wire id differs from the
 storage key, and `generated()` or `generateUsing()` to mint one, as [ids](ids.md) describes.
+A relation writes linkage, not a value to convert, and an `AdditionalProperties` meta entry
+hands its members to `fillUsing()` cast by `of()`, so neither builder has
+`deserializeUsing()` either: write the linkage or the members in `fillUsing()`.
 
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting

@@ -6,8 +6,8 @@ namespace haddowg\JsonApi\Resource\Field;
 
 /**
  * The `deserializeUsing()` hook of a builder whose field runs it on a write. An `Obj`, a
- * `Map`, a `OneOf` and the `Id` write their values without it, so their builders leave it
- * out.
+ * `Map`, a `OneOf`, the `Id`, a relation and an `additionalProperties` meta entry write
+ * their values without it, so their builders leave it out.
  *
  * @template-covariant TValue
  */
