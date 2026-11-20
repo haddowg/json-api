@@ -1,3 +1,5 @@
-# A name belongs to an attribute or a relationship, never both
+# A name belongs to one attribute or one relationship
 
 JSON:API 1.1 puts a resource object's attributes and relationships in one namespace, yet a resource could declare an attribute and a relationship under the same name and render a document the spec forbids, with a client unable to tell which member a sparse fieldset or a write meant. Building a resource's fields now refuses that name with a `\LogicException` naming the class, the type and the name, whether or not either field is hidden, beside the existing refusal of `type` and `id`. Checking in `allFields()` puts the rule at the one place every reader of the fields passes through, so an adapter that registers routes from the fields fails as it boots.
+
+A name declared twice among the attributes, or twice among the relationships, is refused the same way, hidden fields included, with a message naming both declarations by field class and position. Until then one of the two won without a word, the later one in a rendered document, so the other never applied.

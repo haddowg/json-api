@@ -1586,7 +1586,9 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * first indexed) rather than letting the token silently win. It also rejects an
      * attribute or relationship named `type` or `id`, which JSON:API reserves for the
      * resource object itself, a name declared as both an attribute and a relationship,
-     * since the two share one namespace, and a declared member named `relationships` or `links`
+     * since the two share one namespace, a name declared twice among the attributes or
+     * among the relationships, where one of the two would silently win, and a declared
+     * member named `relationships` or `links`
      * anywhere inside an `Obj`, `Map` or `OneOf` attribute value, which JSON:API
      * reserves in every object an attribute holds. The result is cached for the
      * resource's lifetime.
@@ -1603,7 +1605,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                 $this->fields(),
             ));
             $kinds = [];
-            foreach ($fields as $field) {
+            foreach ($fields as $position => $field) {
                 if ($field->name() === '') {
                     throw new \LogicException(\sprintf('Resource "%s" declares a %s field with no name; only a Union member is declared unnamed.', static::class, (new \ReflectionClass($field))->getShortName()));
                 }
@@ -1625,7 +1627,20 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
                     ));
                 }
                 if (!$field instanceof Id) {
-                    $kinds[$field->name()][$isRelation ? 'relationship' : 'attribute'] = true;
+                    $kind = $isRelation ? 'relationship' : 'attribute';
+                    $declaration = \sprintf('the %s at position %d', (new \ReflectionClass($field))->getShortName(), $position + 1);
+                    if (isset($kinds[$field->name()][$kind])) {
+                        throw new \LogicException(\sprintf(
+                            'Resource "%s" declares the %s "%s" twice on the "%s" type, as %s and %s, but a resource object holds one member per name. Remove or rename one of them.',
+                            static::class,
+                            $kind,
+                            $field->name(),
+                            static::$type,
+                            $kinds[$field->name()][$kind],
+                            $declaration,
+                        ));
+                    }
+                    $kinds[$field->name()][$kind] = $declaration;
                     if (\count($kinds[$field->name()]) > 1) {
                         throw new \LogicException(\sprintf(
                             'Resource "%s" declares "%s" as both an attribute and a relationship on the "%s" type, but JSON:API 1.1 shares one namespace between a resource object\'s attributes and relationships. Rename one of them.',

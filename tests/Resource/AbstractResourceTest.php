@@ -540,6 +540,45 @@ final class AbstractResourceTest extends TestCase
         $resource->allFields();
     }
 
+    /**
+     * @return iterable<string, array{list<FieldBuilderInterface>, string}>
+     */
+    public static function namesDeclaredTwice(): iterable
+    {
+        yield 'two attributes' => [
+            [Str::make('title'), Integer::make('title')],
+            'declares the attribute "title" twice on the "reserved" type, as the Str at position 2 and the Integer at position 3',
+        ];
+        yield 'two relationships' => [
+            [BelongsTo::make('author', 'people'), HasMany::make('author', 'people')],
+            'declares the relationship "author" twice on the "reserved" type, as the BelongsTo at position 2 and the HasMany at position 3',
+        ];
+        yield 'a hidden attribute' => [
+            [Str::make('title'), Str::make('title')->hidden()],
+            'declares the attribute "title" twice',
+        ];
+        yield 'a hidden relationship' => [
+            [BelongsTo::make('author', 'people')->hidden(), BelongsTo::make('author', 'people')],
+            'declares the relationship "author" twice',
+        ];
+    }
+
+    /**
+     * @param list<FieldBuilderInterface> $fields
+     */
+    #[Test]
+    #[Group('spec:document-structure')]
+    #[DataProvider('namesDeclaredTwice')]
+    public function aNameDeclaredTwiceAmongTheAttributesOrTheRelationshipsIsRejectedAtBuild(array $fields, string $message): void
+    {
+        $resource = new ReservedNameResource([Id::make(), ...$fields]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage($message);
+
+        $resource->allFields();
+    }
+
     #[Test]
     #[Group('spec:document-structure')]
     public function anAttributeMayShareItsBackingColumnWithARelationshipUnderAnotherName(): void
