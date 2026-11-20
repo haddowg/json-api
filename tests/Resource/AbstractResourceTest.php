@@ -502,6 +502,59 @@ final class AbstractResourceTest extends TestCase
 
     #[Test]
     #[Group('spec:document-structure')]
+    public function theReservedNameMessageNamesTheResourceType(): void
+    {
+        $resource = new ReservedNameResource([Id::make(), Str::make('type')]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('declares the attribute "type" on the "reserved" type');
+
+        $resource->allFields();
+    }
+
+    /**
+     * @return iterable<string, array{list<FieldBuilderInterface>}>
+     */
+    public static function namesSharedByAnAttributeAndARelationship(): iterable
+    {
+        yield 'attribute first' => [[Str::make('author'), BelongsTo::make('author', 'people')]];
+        yield 'relationship first' => [[HasMany::make('author', 'people'), Str::make('author')]];
+        yield 'hidden relationship' => [[Str::make('author'), BelongsTo::make('author', 'people')->hidden()]];
+        yield 'hidden attribute' => [[Str::make('author')->hidden(), BelongsTo::make('author', 'people')]];
+        yield 'attribute stored as another column' => [[Str::make('author')->storedAs('author_name'), BelongsTo::make('author', 'people')]];
+    }
+
+    /**
+     * @param list<FieldBuilderInterface> $fields
+     */
+    #[Test]
+    #[Group('spec:document-structure')]
+    #[DataProvider('namesSharedByAnAttributeAndARelationship')]
+    public function aNameSharedByAnAttributeAndARelationshipIsRejectedAtBuild(array $fields): void
+    {
+        $resource = new ReservedNameResource([Id::make(), ...$fields]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage(\sprintf('Resource "%s" declares "author" as both an attribute and a relationship on the "reserved" type', ReservedNameResource::class));
+
+        $resource->allFields();
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
+    public function anAttributeMayShareItsBackingColumnWithARelationshipUnderAnotherName(): void
+    {
+        $resource = new ReservedNameResource([
+            Id::make(),
+            Str::make('authorName')->storedAs('author'),
+            BelongsTo::make('author', 'people'),
+        ]);
+
+        self::assertSame(['id', 'authorName', 'author'], $resource->declaredFieldNames());
+    }
+
+    #[Test]
+    #[Group('spec:document-structure')]
     public function theIdFieldAndNestedOrMetaMembersMayUseTheReservedNames(): void
     {
         // The spec reserves the names only among a resource object's fields; members

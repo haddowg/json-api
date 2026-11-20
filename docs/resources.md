@@ -41,6 +41,10 @@ final class AlbumResource extends AbstractResource
 
 Every entry in `fields()` is a [`FieldInterface`](fields.md) — an `Id`, an
 attribute, or a relationship — and **declaration order is preserved in output**.
+Attributes and relationships share one namespace, so a name can belong to only one of
+them, and neither can be called `type` or `id`. The resource refuses a breach with a
+`\LogicException` when it first builds its fields; see
+[fields](fields.md#the-shared-field-namespace).
 This is the whole contract for a basic type: `Id::make()` becomes the resource
 object's `id`, and each attribute field becomes an `attributes` member read from
 your domain object. The real [`AlbumResource`](../examples/music-catalog/src/Resource/AlbumResource.php)

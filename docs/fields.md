@@ -43,14 +43,26 @@ also the backing domain-object member.
 | `computedUsing(\Closure $cb)` | One-liner for a derived, read-only attribute: `computed()` + the value closure + `readOnly()`. |
 | `on(string $path)` | Flattens a scalar attribute from a chain of declared, **to-one** relations' related model (`'author'` or `'publisher.country'`). |
 
+### The shared field namespace
+
 JSON:API 1.1 puts a resource object's attributes and relationships in one namespace with
-its `type` and `id`, so no attribute or relationship may be named `type` or `id`. The
-resource throws a `\LogicException` naming its class and the field the first time it
-builds its fields. The `Id` field is the one exception, since it renders as the
-resource object's `id`. To expose a domain property called `type`, give the field
-another name and point it at the column with `storedAs('type')`. The rule covers only
-a resource's own fields. A member of an `Obj` or `Map` value, a `BelongsToMany` pivot
-field and a declared link's `meta` member can all be called `type` or `id`.
+its `type` and `id`. So no attribute or relationship may be named `type` or `id`, and no
+name may belong to both an attribute and a relationship. The resource checks this the
+first time it builds its fields, in `allFields()`, which every reader of the fields goes
+through. A breach throws a `\LogicException` naming the resource class, its type and the
+name, so an application declaring one fails as it boots or on the first request that
+touches the type. The `Id` field is the one exception, since it renders as the resource
+object's `id`.
+
+The check runs on the declared names, whatever a field's visibility. A `hidden()`
+relation still can't share its name with an attribute, nor a `hidden()` attribute with a
+relation. To expose a domain property called `type`, give the field another name and
+point it at the column with `storedAs('type')`. The same works for an attribute that reads
+a column a relationship is named after: `Str::make('authorName')->storedAs('author')`
+beside `BelongsTo::make('author', 'people')` is fine, because the names differ. The rule
+covers only a resource's own fields. A member of an `Obj` or `Map` value, a
+`BelongsToMany` pivot field and a declared link's `meta` member can all be called `type`
+or `id`.
 
 Inside an attribute value the spec reserves two other names. No object an attribute holds
 may contain a `relationships` or `links` member, at any depth. The resource checks every
