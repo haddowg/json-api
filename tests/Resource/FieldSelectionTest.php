@@ -212,8 +212,7 @@ final class FieldSelectionTest extends TestCase
     {
         $this->assertUnrecognized('values.rows.a', ['values.rows.a']);
 
-        // A key holds no full stop, so `rows.a` is a path into `rows`, a list, even where the
-        // declared pattern admits dots.
+        // `rows.a` is a path into `rows`, a list whose element declares no selectable keys.
         $this->assertUnrecognized('groups.rows.a', ['groups.rows.a']);
         $body = $this->body($this->render('name,groups.rows.a'));
         self::assertSame(['name' => 'Widget'], $this->attributes($body));
@@ -606,6 +605,22 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aPatternThatCanMatchAFullStopIsRefused(): void
+    {
+        foreach ([static fn() => Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z.]+'), static fn() => Map::make('totals')->selectableKeys(pattern: '.+')] as $declare) {
+            try {
+                $declare();
+                self::fail('Expected the pattern to be refused.');
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('which can match a full stop', $e->getMessage());
+            }
+        }
+
+        Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[^.,]+');
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
     public function narrowsReadsTheRequestAgainstTheDeclarations(): void
     {
         $server = $this->server();
@@ -807,7 +822,7 @@ final class SelectionProductResource extends AbstractResource
                 ->selectableKeys(pattern: '[a-z][a-z0-9_]*'),
             Obj::make('groups')
                 ->additionalProperties(\haddowg\JsonApi\Resource\Field\ArrayList::make('*')->of(Obj::make('row')->fields(Integer::make('a'))))
-                ->selectableKeys(pattern: '[a-z.]+'),
+                ->selectableKeys(pattern: '[a-z]+'),
             Obj::make('computed')
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(pattern: '[a-z]+')
