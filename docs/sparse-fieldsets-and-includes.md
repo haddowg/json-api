@@ -96,10 +96,14 @@ The rules:
   past a key whose object declares no selectable keys, `*` on anything but a list whose
   element declares selectable keys, and an index such as `lines.0` are unknown fieldset
   members: a `400` `FieldsetMemberUnrecognized` under strict query-parameter
-  validation, and ignored without it.
+  validation. Without strict validation an unknown key member is dropped: it selects
+  nothing, and its attribute renders only if `fields[TYPE]` also lists it whole.
 - The selection applies to the type wherever it renders: primary data, `included`,
   related endpoints, a write answering with the resource and atomic results.
 - Request bodies are unchanged; a selection shapes only what renders.
+- Whether a response carries the profile is decided from the request, not from what
+  renders. A request narrowing an attribute the server accepts gets the profile even when
+  its collection is empty or holds no resource of that type.
 
 JSON:API 1.1 says a `fields[TYPE]` member is a field name, so a response that narrows an
 attribute this way applies the
@@ -130,9 +134,13 @@ Str::make('status')->notSparseField();
 
 `isSparseField()` on the field reports whether it participates; a field that opts
 out is excluded from the narrowing pass entirely. A relation declared
-`notSparseField()` keeps its relationship object the same way. An empty `fields[type]=`
-still renders no fields of the type, these included. A field that is hidden or write-only for the request still never
-renders. This is the one member-level
+`notSparseField()` keeps its relationship object the same way. A field that is hidden or
+write-only for the request still never renders.
+
+An empty `fields[type]=`, listing nothing, renders no fields of the type, and that includes
+`notSparseField()` members: a client asking for no fields gets none. An empty member
+anywhere in the list counts as the same empty selection, so `fields[type]=title,` with its
+trailing comma renders no fields either. This is the one member-level
 override — every other field follows the fieldset. See
 [fields](fields.md) for the rest of the shared field surface.
 
