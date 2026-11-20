@@ -40,7 +40,7 @@ use haddowg\JsonApi\Resource\Sort\SortInterface;
  * contract must tolerate: a {@see resource()} with a field inventory, and a
  * {@see standalone()} serializer-only type with none.
  */
-final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresSingleton, DeclaresDocumentMeta, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality, \haddowg\JsonApi\OpenApi\Metadata\DeclaresRequestDocumentMeta, \haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceMeta, \haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationshipDocumentMeta, \haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedDocumentMeta
+final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSort, DeclaresSortExample, DeclaresDeprecation, DeclaresOperationExamples, DeclaresAlwaysCounted, DeclaresResourceLinks, DeclaresActionLinks, DeclaresRelatedOnly, DeclaresSingleton, DeclaresDocumentMeta, DeclaresIncludeSafeguards, DeclaresInclusionUnsupported, DeclaresClientIdCollisions, DeclaresHydratorCardinality, \haddowg\JsonApi\OpenApi\Metadata\DeclaresRequestDocumentMeta, \haddowg\JsonApi\OpenApi\Metadata\DeclaresResourceMeta
 {
     /**
      * @param list<FieldInterface>            $fields
@@ -63,11 +63,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included
      * @param (\Closure(\haddowg\JsonApi\Resource\RequestMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $requestMeta the request meta each write declares
      * @param (\Closure(\haddowg\JsonApi\Resource\MetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $resourceMeta the resource object meta each direction declares
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $acceptedMeta per-write 202 job document meta members, keyed by {@see OperationType::value}
-     * @param (\Closure(\haddowg\JsonApi\Resource\RelationshipMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $relationshipDocumentMeta the meta-only document each relationship write declares
      */
     public function __construct(
         private readonly string $type,
@@ -109,14 +107,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         private readonly array $documentMeta = [],
         private readonly ?\Closure $requestMeta = null,
         private readonly ?\Closure $resourceMeta = null,
-        private readonly ?\Closure $relationshipDocumentMeta = null,
-        private readonly array $acceptedMeta = [],
     ) {}
-
-    public function acceptedDocumentMeta(OperationType $operation): iterable
-    {
-        return $this->acceptedMeta[$operation->value] ?? [];
-    }
 
     public function requestDocumentMeta(\haddowg\JsonApi\Resource\RequestMetaContext $context): iterable
     {
@@ -126,11 +117,6 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
     public function resourceMeta(\haddowg\JsonApi\Resource\MetaContext $context): iterable
     {
         return $this->resourceMeta === null ? [] : ($this->resourceMeta)($context);
-    }
-
-    public function relationshipDocumentMeta(\haddowg\JsonApi\Resource\RelationshipMetaContext $context): iterable
-    {
-        return $this->relationshipDocumentMeta === null ? [] : ($this->relationshipDocumentMeta)($context);
     }
 
     /**
@@ -251,11 +237,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample       the type's declared sort example
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards the type's include safeguards, `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn  the operation names refusing every `include`
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included
      * @param (\Closure(\haddowg\JsonApi\Resource\RequestMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $requestMeta the request meta each write declares
      * @param (\Closure(\haddowg\JsonApi\Resource\MetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $resourceMeta the resource object meta each direction declares
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $acceptedMeta per-write 202 job document meta members, keyed by {@see OperationType::value}
-     * @param (\Closure(\haddowg\JsonApi\Resource\RelationshipMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $relationshipDocumentMeta the meta-only document each relationship write declares
      */
     public static function resource(
         string $type,
@@ -296,8 +280,6 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
         array $documentMeta = [],
         ?\Closure $requestMeta = null,
         ?\Closure $resourceMeta = null,
-        ?\Closure $relationshipDocumentMeta = null,
-        array $acceptedMeta = [],
     ): self {
         return new self(
             type: $type,
@@ -344,8 +326,6 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
             documentMeta: $documentMeta,
             requestMeta: $requestMeta,
             resourceMeta: $resourceMeta,
-            relationshipDocumentMeta: $relationshipDocumentMeta,
-            acceptedMeta: $acceptedMeta,
         );
     }
 

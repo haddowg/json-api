@@ -53,7 +53,7 @@ use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
  * lets the engine narrow. A field declared `notSparseField()` is emitted marked, and the
  * engine renders it whatever the fieldset lists.
  */
-abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface, \haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface
+abstract class AbstractResource implements SerializerInterface, HydratorInterface, UpdateRelationshipHydratorInterface, UriTypeAwareInterface, SerializerResolverAwareInterface, IncludeControlsInterface, \haddowg\JsonApi\Serializer\CountableControlsInterface, \haddowg\JsonApi\Serializer\CountableSelfInterface, SelfLinkAwareInterface, \haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface, \haddowg\JsonApi\Serializer\DeclaresEagerLoadsInterface, \haddowg\JsonApi\Serializer\DeclaresRelationsInterface, \haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface, SingletonResourceInterface, \haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface, \haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface, \haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface
 {
     use RendersRelationsTrait;
 
@@ -388,40 +388,16 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
      * collection keeps the `page` and `total` members core writes; declaring either there is
      * refused.
      *
+     * The relationship write cases, `UpdateRelationship`, `AddRelationship` and
+     * `RemoveRelationship`, declare the meta-only `200` that write answers with on every
+     * relationship of the type, in place of its linkage, their hooks receiving the parent
+     * resource. `CreateAccepted` and `UpdateAccepted` declare the job document a `202`
+     * answers with, their hooks receiving the job resource. Any other case falls through a
+     * `default` arm to none.
+     *
      * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
      */
     public function documentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation): iterable
-    {
-        return [];
-    }
-
-    /**
-     * The members of the top-level `meta` of the meta-only `200` a relationship write
-     * answers with, per relationship and mutation, typically through a `match` on the
-     * context. Declaring any makes that write answer the meta-only document instead of its
-     * linkage. A member's `extractUsing()` hook receives the parent resource and the request;
-     * a member with none is set by a hook through `withMeta()`.
-     *
-     * The OpenAPI projection calls it with no request, so the result must not depend on one.
-     *
-     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
-     */
-    public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
-    {
-        return [];
-    }
-
-    /**
-     * The members of the top-level `meta` of the job document a create's or an update's
-     * `202` answers with, when its persister accepts it for later processing. A member's
-     * `extractUsing()` hook receives the job resource and the request; a member with none is
-     * set by the code returning the response.
-     *
-     * The OpenAPI projection calls it with no request, so the result must not depend on one.
-     *
-     * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
-     */
-    public function acceptedDocumentMeta(\haddowg\JsonApi\OpenApi\Metadata\OperationType $operation): iterable
     {
         return [];
     }

@@ -638,8 +638,20 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
             return;
         }
 
+        // A pivot relation's `pivot` is a declared member of its identifier meta, so it wins
+        // over a resolver returning the same name.
+        $pivot = $this instanceof PivotRelationInterface && ($this->pivotFields() !== [] || $this->pivotAdditionalProperties() !== null);
+        $name = $this->name();
         $relationship->withIdentifierMeta(
-            static fn(mixed $related): array => $resolver($model, $related, $request),
+            static function (mixed $related) use ($resolver, $model, $request, $pivot, $name): array {
+                $meta = $resolver($model, $related, $request);
+                if ($pivot && \array_key_exists('pivot', $meta)) {
+                    \haddowg\JsonApi\Resource\RenderedMeta::clash($request, \sprintf('the identifier meta of relation "%s"', $name), 'pivot', 'identifierMeta() resolver');
+                    unset($meta['pivot']);
+                }
+
+                return $meta;
+            },
         );
     }
 

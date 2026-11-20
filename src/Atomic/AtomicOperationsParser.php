@@ -97,7 +97,7 @@ final class AtomicOperationsParser
             );
         }
 
-        $data = $this->parseData($operation, $opCode, $ref, $pointer);
+        $data = $this->parseData($operation, $opCode, $ref, $href, $pointer);
 
         return new OperationDescriptor($opCode, $ref, $href, $data, $index, $operation['meta'] ?? null);
     }
@@ -231,10 +231,10 @@ final class AtomicOperationsParser
      *
      * @throws AtomicOperationsInvalid
      */
-    private function parseData(array $operation, AtomicOperationCode $opCode, ?Ref $ref, string $pointer): mixed
+    private function parseData(array $operation, AtomicOperationCode $opCode, ?Ref $ref, ?string $href, string $pointer): mixed
     {
         $hasData = \array_key_exists('data', $operation);
-        $isRelationship = $ref !== null && $ref->hasRelationship();
+        $isRelationship = $ref !== null ? $ref->hasRelationship() : ($href !== null && self::hrefNamesRelationship($href));
 
         if ($opCode === AtomicOperationCode::Remove && !$isRelationship) {
             if ($hasData) {
@@ -260,5 +260,21 @@ final class AtomicOperationsParser
         }
 
         return $data;
+    }
+
+    /**
+     * Whether an `href` addresses a relationship, as `/{type}/{id}/relationships/{name}`
+     * does: its path's second-to-last segment is `relationships`. Only a relationship's
+     * `remove` carries the members to remove as `data`.
+     */
+    private static function hrefNamesRelationship(string $href): bool
+    {
+        $path = \parse_url($href, \PHP_URL_PATH);
+        if (!\is_string($path)) {
+            return false;
+        }
+        $segments = \explode('/', \trim($path, '/'));
+
+        return \count($segments) >= 2 && $segments[\count($segments) - 2] === 'relationships';
     }
 }
