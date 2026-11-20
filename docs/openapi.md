@@ -1949,6 +1949,14 @@ lists an optional, open `pivot` in `<Type>ResourceMeta`, which its related endpo
 beside the declared members. A type declaring nothing keeps the shared
 `Meta`.
 
+An adapter's standalone per-type JSON Schema, one self-contained resource object per type,
+builds on [`StandaloneResourceObject::project()`](../src/OpenApi/StandaloneResourceObject.php)
+and types the same objects inline: `meta` as `<Type>ResourceMeta`, and under
+`relationships.<name>.data` each identifier's `meta` as `<Type><Rel>IdentifierMeta`, or as a
+`pivot` of `<Type><Rel>Pivot` alone. A type or relation declaring none keeps an open object.
+A request's top-level `meta` and a write's `data.meta` belong to request documents, which
+that export does not describe.
+
 ### Atomic operations of a declaring type
 
 When a type declares the `meta` of an atomic operation, that operation takes a kind of its

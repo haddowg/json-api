@@ -132,7 +132,7 @@ final class OperationKeyTest extends TestCase
     #[Test]
     public function everyCrudKindMapsToItsOperationType(): void
     {
-        foreach (OperationType::cases() as $operation) {
+        foreach (OperationType::resourceOperations() as $operation) {
             self::assertSame($operation, OperationKind::fromOperationType($operation)->operationType());
         }
     }

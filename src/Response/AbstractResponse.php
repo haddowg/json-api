@@ -323,9 +323,11 @@ abstract class AbstractResponse
 
         // JSON_THROW_ON_ERROR is passed inline (not via a variable) so PHPStan narrows
         // json_encode()'s return to string; an unencodable document throws \JsonException.
+        // A float keeps its fraction, so a whole Decimal is sent as `5.0` and stays a number
+        // a client reads back as one.
         $json = \json_encode(
             $body,
-            \JSON_THROW_ON_ERROR | ($this->encodeOptions ?? $server->encodeOptions()),
+            \JSON_THROW_ON_ERROR | \JSON_PRESERVE_ZERO_FRACTION | ($this->encodeOptions ?? $server->encodeOptions()),
         );
 
         $response = $server->responseFactory()

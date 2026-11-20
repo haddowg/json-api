@@ -110,6 +110,9 @@ registers `Schema\Profile\FieldSelectionProfile`, the response's `Content-Type` 
 `jsonapi.profile` lists the URI. A request narrowing nothing gets an unchanged response. A
 server that doesn't register the profile still narrows, without advertising it.
 
+A type rendered by a [serializer override](serializers.md#selecting-keys-through-an-override)
+is narrowed the same way, against the fields its Resource class declares.
+
 `Resource\FieldSelection` holds the parsing and acceptance rules the resource, the server
 and the responses share, for an adapter that needs the same answers.
 

@@ -19,8 +19,9 @@ use haddowg\JsonApi\Resource\Field\FieldInterface;
 interface DeclaresDocumentMeta
 {
     /**
-     * The members of the top-level `meta` of the document `$operation` answers with. It is
-     * called without a request, so the result must not depend on one.
+     * The members of the top-level `meta` of the document `$operation` answers with,
+     * including a relationship write's meta-only `200` and a write's `202` job document. It
+     * is called without a request, so the result must not depend on one.
      *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */

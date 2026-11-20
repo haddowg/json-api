@@ -332,6 +332,44 @@ final class AtomicOperationsParserTest extends TestCase
     }
 
     #[Test]
+    public function aRemoveAddressedByARelationshipHrefCarriesTheMembersAsData(): void
+    {
+        $descriptors = (new AtomicOperationsParser())->parse([
+            'atomic:operations' => [[
+                'op' => 'remove',
+                'href' => 'https://api.example.com/articles/1/relationships/tags?x=1',
+                'data' => [['type' => 'tags', 'id' => '2']],
+            ]],
+        ]);
+
+        self::assertSame([['type' => 'tags', 'id' => '2']], $descriptors[0]->data);
+    }
+
+    #[Test]
+    public function rejectsAResourceRemoveAddressedByHrefCarryingData(): void
+    {
+        $this->assertParseError(
+            [
+                'atomic:operations' => [[
+                    'op' => 'remove',
+                    'href' => '/articles/1',
+                    'data' => ['type' => 'articles', 'id' => '1'],
+                ]],
+            ],
+            '/atomic:operations/0/data',
+        );
+    }
+
+    #[Test]
+    public function aRelationshipRemoveAddressedByHrefStillCarriesData(): void
+    {
+        $this->assertParseError(
+            ['atomic:operations' => [['op' => 'remove', 'href' => '/articles/1/relationships/tags']]],
+            '/atomic:operations/0/data',
+        );
+    }
+
+    #[Test]
     public function rejectsANonRemoveOperationMissingData(): void
     {
         $this->assertParseError(

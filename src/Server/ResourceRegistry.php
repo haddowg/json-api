@@ -35,7 +35,7 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  *           and resolve a type via {@see Server::resourceFor()},
  *           {@see Server::serializerFor()} and {@see Server::hydratorFor()}
  */
-final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface
+final class ResourceRegistry implements SerializerResolverInterface, HydratorResolverInterface, ProvidesOutputTimezoneInterface, \haddowg\JsonApi\Resource\ProvidesRelationAuthorizerInterface, \haddowg\JsonApi\Resource\ProvidesStorageCastInterface, \haddowg\JsonApi\Resource\RejectsReadOnlyAttributesInterface, \haddowg\JsonApi\Resource\DeclaresRelatedOnlyTypesInterface, \haddowg\JsonApi\Resource\DeclaresSingletonTypesInterface, \haddowg\JsonApi\Resource\ProvidesResourcesInterface
 {
     /**
      * @var array<string, Entry>

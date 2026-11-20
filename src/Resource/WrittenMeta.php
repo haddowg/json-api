@@ -9,8 +9,10 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * The typed `meta` a write sent, once an adapter validated it: the request document's
  * top-level `meta` and its resource object's `data.meta`, each in the form its declared
- * members cast to, a date as a `DateTimeImmutable` and an enum as its case. An object its
- * type does not declare is carried as sent.
+ * members cast to, a date as a `DateTimeImmutable` and an enum as its case. A top-level
+ * `meta` its write declares no members for is empty, as an action's request meta is, and
+ * stays readable as sent on the request's parsed body. A `data.meta` its type does not
+ * declare is carried as sent.
  *
  * An adapter puts it on the request it hands the hydrator and the write's hooks, under
  * this class's name as a request attribute; {@see of()} reads it back, empty when the

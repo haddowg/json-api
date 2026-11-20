@@ -58,6 +58,7 @@ final class OperationResponses
             OperationType::Create => [new Created()],
             OperationType::Update => [new Ok()],
             OperationType::Delete => [new NoContent()],
+            default => throw self::notAResourceOperation($operation),
         };
     }
 
@@ -78,7 +79,7 @@ final class OperationResponses
             ));
         }
 
-        $marker = self::MARKER[$operation->value];
+        $marker = self::MARKER[$operation->value] ?? throw self::notAResourceOperation($operation);
         $valid = self::VALID[$operation->value];
         $seen = [];
         $jobBearing = 0;
@@ -118,5 +119,10 @@ final class OperationResponses
                 $operation->value,
             ));
         }
+    }
+
+    private static function notAResourceOperation(OperationType $operation): \InvalidArgumentException
+    {
+        return new \InvalidArgumentException(\sprintf('%s names a document, not a resource operation, and declares no responses.', $operation->value));
     }
 }

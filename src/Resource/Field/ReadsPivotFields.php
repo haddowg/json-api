@@ -115,9 +115,12 @@ trait ReadsPivotFields
         $entry = $this->pivotAdditionalProperties();
         if ($entry !== null && !$entry->isWriteOnly()) {
             foreach ($entry->extract($edge, $request) as $name => $value) {
-                if (!isset($this->pivotFields[$name])) {
-                    $values[$name] = $value;
+                if (isset($this->pivotFields[$name])) {
+                    \haddowg\JsonApi\Resource\RenderedMeta::clash($request, \sprintf('the pivot of relation "%s"', $this->name()), $name);
+
+                    continue;
                 }
+                $values[$name] = $value;
             }
         }
 
