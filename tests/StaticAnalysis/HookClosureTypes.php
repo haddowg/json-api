@@ -98,6 +98,21 @@ final class HookClosureTypes
                 ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
                 ->computedUsing(static fn(\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => []),
             ArrayList::make('scalarItems')->extractUsing(static fn(array $row): array => $row),
+            Obj::make('serializedSelection')
+                ->fields(Str::make('postcode'), Obj::make('geo')->fields(Integer::make('lat'))->selectableKeys(pattern: 'lat'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->serializeUsing(static fn(\ArrayObject $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? $model->getArrayCopy() : ['geo' => $only->nested('geo')?->keys]),
+            Obj::make('serializedUnselected')
+                ->additionalProperties(Integer::make('*'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->serializeUsing(static fn(array $row): array => $row),
+            Map::make('serializedMap')
+                ->fields(Integer::make('views'))
+                ->selectableKeys(static fn(string $key): bool => $key === 'views')
+                ->serializeUsing(static fn(?\DateTimeImmutable $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only === null ? [] : $only->keys),
+            ArrayList::make('serializedItems')
+                ->of(Obj::make('line')->fields(Str::make('sku'))->selectableKeys(pattern: 'sku'))
+                ->serializeUsing(static fn(array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array => $only?->items()?->paths() ?? $row),
             DeclaredLink::make('download')
                 ->hrefUsing(static fn(array $row): ?string => isset($row['path']) ? '/files' : null)
                 ->metaUsing(static fn(?\DateTimeImmutable $model): array => ['at' => $model?->format('c')]),

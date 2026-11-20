@@ -86,7 +86,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return ($this->state->serializeUsing)($model, $request, $name);
+            return KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, null);
         }
 
         return $this->serializeChildren($model, $request, $name, null);
@@ -95,7 +95,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return KeyTrim::trim(($this->state->serializeUsing)($model, $request, $name), $only);
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
         }
 
         return $this->serializeChildren($model, $request, $name, $only);

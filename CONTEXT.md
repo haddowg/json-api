@@ -104,8 +104,8 @@ _Avoid_: partial attribute, sub-field, nested fieldset, list index
 
 **Key selection**:
 The keys a request selected of one attribute with selectable keys, as the `KeySelection`
-value its `extractUsing()` hook receives, and a serializer override implementing
-`SelectsAttributeKeysInterface` too, holding a nested key selection for each key it
+value its `extractUsing()` and `serializeUsing()` hooks receive, and a serializer override
+implementing `SelectsAttributeKeysInterface` too, holding a nested key selection for each key it
 narrows further. A list's holds the one key `*`, and its `items()` is the selection inside
 every item. `null` when the request takes the whole attribute.
 _Avoid_: key filter, projection

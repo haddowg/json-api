@@ -113,7 +113,10 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
-        if ($this->state->serializeUsing === null && $this->state->extractUsing !== null && $this->element === null) {
+        if ($this->state->serializeUsing !== null) {
+            return KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, null);
+        }
+        if ($this->state->extractUsing !== null && $this->element === null) {
             return $this->serializeComputedValue($this->backingValue(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, null)));
         }
 
@@ -127,7 +130,10 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
      */
     public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
     {
-        if ($this->state->serializeUsing !== null || $this->element === null) {
+        if ($this->state->serializeUsing !== null) {
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
+        }
+        if ($this->element === null) {
             return KeyTrim::trim($this->serialize($model, $request, $name), $only);
         }
 

@@ -48,6 +48,9 @@ final class FieldSelectionTest extends TestCase
         SelectionProductResource::$extracted = [];
         SelectionPersonResource::$extracted = [];
         OrderSelectionResource::$extracted = [];
+        SelectionProductResource::$serialized = [];
+        SelectionPersonResource::$serialized = [];
+        OrderSelectionResource::$serialized = [];
     }
 
     #[Test]
@@ -319,6 +322,26 @@ final class FieldSelectionTest extends TestCase
     public function aSerializeHooksValueIsTrimmedAtEveryDepth(): void
     {
         self::assertSame(['badge' => ['colour' => ['fg' => 'black']]], $this->personAttributes('badge.colour.fg'));
+        self::assertSame([['colour.fg']], SelectionPersonResource::$serialized);
+    }
+
+    #[Test]
+    public function aSerializeHookReceivesNullWhenTheAttributeIsNotNarrowed(): void
+    {
+        $this->personAttributes('badge');
+        $this->render('ratios');
+
+        self::assertSame([null], SelectionPersonResource::$serialized);
+        self::assertSame([null], SelectionProductResource::$serialized);
+    }
+
+    #[Test]
+    public function aMapsSerializeHookReceivesTheSelectionAndIsTrimmed(): void
+    {
+        $body = $this->body($this->render('ratios.views'));
+
+        self::assertSame(['ratios' => ['views' => 1]], $this->attributes($body));
+        self::assertSame([['views']], SelectionProductResource::$serialized);
     }
 
     #[Test]
@@ -490,6 +513,7 @@ final class FieldSelectionTest extends TestCase
     public function aListsSerializeHookIsTrimmedItemByItem(): void
     {
         self::assertSame(['stamped' => [['code' => 'X'], ['code' => 'Y']]], $this->orderAttributes('stamped.*.code'));
+        self::assertSame([['*.code']], OrderSelectionResource::$serialized);
     }
 
     #[Test]
@@ -749,6 +773,11 @@ final class SelectionProductResource extends AbstractResource
     /**
      * @var list<list<string>|null>
      */
+    public static array $serialized = [];
+
+    /**
+     * @var list<list<string>|null>
+     */
     public static array $extracted = [];
 
     /**
@@ -790,6 +819,14 @@ final class SelectionProductResource extends AbstractResource
             Map::make('totals')
                 ->fields(Integer::make('views'), Integer::make('shares'))
                 ->selectableKeys(static fn(string $key): bool => $key !== 'internal'),
+            Map::make('ratios')
+                ->fields(Integer::make('views'), Integer::make('shares'))
+                ->selectableKeys(pattern: '[a-z]+')
+                ->serializeUsing(static function (array $row, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                    self::$serialized[] = $only?->keys;
+
+                    return ['views' => 1, 'shares' => 2];
+                }),
             Obj::make('hiddenUntilAsked')
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(pattern: '[a-z]')
@@ -820,6 +857,11 @@ final class SelectionVendorResource extends AbstractResource
 final class SelectionPersonResource extends AbstractResource
 {
     public static string $type = 'people';
+
+    /**
+     * @var list<list<string>|null>
+     */
+    public static array $serialized = [];
 
     /**
      * @var list<array{paths: list<string>|null, keys: list<string>|null, geo: list<string>|null}>
@@ -881,13 +923,22 @@ final class SelectionPersonResource extends AbstractResource
             Obj::make('badge')
                 ->fields(Obj::make('colour')->fields(Str::make('fg'), Str::make('bg'))->selectableKeys(pattern: '[a-z]+'))
                 ->selectableKeys(pattern: '[a-z]+')
-                ->serializeUsing(static fn(): array => ['colour' => ['fg' => 'black', 'bg' => 'white'], 'shape' => 'round']),
+                ->serializeUsing(static function (array $person, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                    self::$serialized[] = $only?->paths();
+
+                    return ['colour' => ['fg' => 'black', 'bg' => 'white'], 'shape' => 'round'];
+                }),
         ];
     }
 }
 
 final class OrderSelectionResource extends AbstractResource
 {
+    /**
+     * @var list<list<string>|null>
+     */
+    public static array $serialized = [];
+
     public static string $type = 'orders';
 
     /**
@@ -950,7 +1001,11 @@ final class OrderSelectionResource extends AbstractResource
                 return [['sku' => 'K1', 'qty' => 1], ['sku' => 'K2', 'qty' => 2]];
             }),
             ArrayList::make('stamped')->of(Obj::make('stamp')->fields(Str::make('code'), Str::make('by'))->selectableKeys(pattern: '[a-z]+'))
-                ->serializeUsing(static fn(): array => [['code' => 'X', 'by' => 'ann'], ['code' => 'Y', 'by' => 'bob']]),
+                ->serializeUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
+                    self::$serialized[] = $only?->paths();
+
+                    return [['code' => 'X', 'by' => 'ann'], ['code' => 'Y', 'by' => 'bob']];
+                }),
         ];
     }
 }

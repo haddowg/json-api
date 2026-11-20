@@ -143,7 +143,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return ($this->state->serializeUsing)($model, $request, $name);
+            return KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, null);
         }
 
         if ($this->state->extractUsing !== null) {
@@ -156,7 +156,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
     public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return KeyTrim::trim(($this->state->serializeUsing)($model, $request, $name), $only);
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
         }
 
         if ($this->state->extractUsing !== null) {
