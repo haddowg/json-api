@@ -35,7 +35,8 @@ batch (the spec's `POST /operations`), distinct from the per-type CRUD endpoints
   resource or adds members to a to-many relationship; `update` replaces a resource
   or a relationship; `remove` deletes a resource or removes members from a to-many
   relationship. Whether an operation is a *resource* operation or a *relationship*
-  operation is carried by its target's `relationship`, not by the code;
+  operation is carried by its target's `relationship`, not by the code; for an `href`,
+  by a path ending in `relationships/{name}`;
 - a **target** — exactly one of a structural **`ref`**
   ([`Ref`](../src/Atomic/Ref.php): a `type`, exactly one of `id`/`lid`, and an
   optional `relationship`) or a **`href`** string (a URL the integration matches
