@@ -490,7 +490,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
             }
             if (isset($keyed[$slot])) {
                 throw new \LogicException(\sprintf(
-                    '%s already has a %s member, so it cannot take a second one: a union holds one member per JSON type, with an Integer and a Decimal the only pair, so each value has one member whose rules apply.',
+                    '%s already has a member of JSON type %s, so it cannot take a second one: a union holds one member per JSON type, with an Integer and a Decimal the only pair, so each value has one member whose rules apply.',
                     $label,
                     $slot,
                 ));
