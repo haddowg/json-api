@@ -147,6 +147,21 @@ trait HasValueConstraints
     }
 
     /**
+     * The value, or each member of a list, must be the backing value of one of a backed
+     * enum's cases. The filter still compares the backing value, and the OpenAPI document
+     * references the enum's component, the one a field declaring the same enum references.
+     * Immutable: returns a new instance.
+     *
+     * @param class-string<\BackedEnum> $enum
+     *
+     * @throws \InvalidArgumentException when `$enum` is not a backed enum, since a pure enum has no wire value
+     */
+    public function enum(string $enum): static
+    {
+        return $this->constrain(EnumValueConstraint::of($this->key(), $enum));
+    }
+
+    /**
      * The value must match an ECMA-262 regular expression source (no delimiters).
      */
     public function pattern(string $regex): static
