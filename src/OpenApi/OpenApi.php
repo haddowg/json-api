@@ -156,13 +156,15 @@ final readonly class OpenApi implements \JsonSerializable
     }
 
     /**
-     * The document as a JSON string (the controller / CLI / file artifact form).
+     * The document as a JSON string (the controller / CLI / file artifact form). A whole
+     * float keeps its fraction, as in a response, so a `Decimal` example of `5.0` reads
+     * `5.0`.
      *
      * @throws \JsonException
      */
     public function toJsonString(bool $pretty = false): string
     {
-        $flags = \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE;
+        $flags = \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_PRESERVE_ZERO_FRACTION;
         if ($pretty) {
             $flags |= \JSON_PRETTY_PRINT;
         }
