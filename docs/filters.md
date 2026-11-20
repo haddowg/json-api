@@ -1180,7 +1180,9 @@ endpoint, a `relatedQuery` window, a collection action's filters and a filter de
   filters, reaches the pivot row and each relation past it exactly as its `->through()` form
   does, so the two match the same rows and refuse the same callers. Where the entity a member
   past `pivot` reaches is served by no registered type or by several, no type's rules can
-  apply, and the deprecated form reaches it without them, as it always has. A Doctrine
+  apply, so the adapters refuse a filter reaching it at warm-up in either form. The row's own
+  ends, back to the parent and to the member, reach the parent type and the relation's related
+  type. A Doctrine
   query extension, an Eloquent global scope or a scoping provider narrows what the walk
   reaches exactly as it narrows the related endpoint.
 - When the caller may not read a hop at all, a filter the client asked for is refused with
