@@ -11,6 +11,7 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
+use haddowg\JsonApi\Resource\Filter\MorphSelection;
 use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\ThroughPath;
 use haddowg\JsonApi\Resource\Filter\UnsupportedFilter;
@@ -49,7 +50,8 @@ use haddowg\JsonApi\Resource\Through\FiltersThrough;
  * ({@see \haddowg\JsonApi\Resource\Filter\ThroughPathResolver}). It keeps a row when
  * some row the path reaches matches the filter at its leaf, so a relation that holds
  * nothing never matches. {@see withRowAdmission()} narrows the rows each hop reaches to
- * the ones the reached type's scope admits.
+ * the ones the reached type's scope admits, and {@see withMorphAdmission()} the targets a
+ * {@see WhereMorph} matches to the ones its type's scope admits.
  *
  * @implements FilterHandlerInterface<list<mixed>>
  */
@@ -64,6 +66,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * @var (\Closure(string, list<mixed>, ?RelationInterface=): list<mixed>)|null
      */
     private ?\Closure $admit = null;
+
+    /**
+     * @var (\Closure(RelationInterface, string, list<mixed>): list<mixed>)|null
+     */
+    private ?\Closure $admitMorph = null;
 
     /**
      * @param iterable<ArrayFilterArmInterface> $arms author arms for custom filter types, consulted in order
@@ -89,6 +96,22 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $copy = clone $this;
         $copy->admit = $admit;
+
+        return $copy;
+    }
+
+    /**
+     * A copy that narrows the targets a {@see WhereMorph} matches to the ones the target
+     * type's scope admits, so a row whose target the caller can't read never matches.
+     * `$admit` receives the polymorphic relation, the type the request names and the
+     * storage keys of that type's targets, and returns the keys that exist for the caller.
+     *
+     * @param \Closure(RelationInterface, string, list<mixed>): list<mixed> $admit
+     */
+    public function withMorphAdmission(\Closure $admit): self
+    {
+        $copy = clone $this;
+        $copy->admitMorph = $admit;
 
         return $copy;
     }
@@ -557,8 +580,12 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $selection = $filter->selection($value);
         $relation = $filter->resolvedTarget()?->relation;
+        $key = static fn(mixed $id): string => \is_scalar($id) ? (string) $id : '';
+        $wanted = $selection->ids === null ? null : \array_map($key, $selection->ids);
+        $admitted = $relation === null ? null : $this->morphAdmitted($relation, $selection, $key);
         $matches = static fn(string $type, mixed $id): bool => $type === $selection->type
-            && ($selection->ids === null || \in_array((string) (\is_scalar($id) ? $id : ''), \array_map(static fn(mixed $wanted): string => \is_scalar($wanted) ? (string) $wanted : '', $selection->ids), true));
+            && ($wanted === null || \in_array($key($id), $wanted, true))
+            && ($admitted === null || $admitted($id));
 
         if ($relation instanceof MorphTo && ($columns = $relation->identifierColumns()) !== null) {
             return static function (mixed $row) use ($columns, $matches): bool {
@@ -588,6 +615,35 @@ final class ArrayFilterHandler implements FilterHandlerInterface
             $filter->key,
             $filter->relation,
         ));
+    }
+
+    /**
+     * Whether the caller may read a target of the selected type, by its storage key, as
+     * {@see withMorphAdmission()} says; `null` when nothing narrows the targets. Requested
+     * ids are admitted in one call, and otherwise each key once as rows reach it.
+     *
+     * @param \Closure(mixed): string $key
+     *
+     * @return (\Closure(mixed): bool)|null
+     */
+    private function morphAdmitted(RelationInterface $relation, MorphSelection $selection, \Closure $key): ?\Closure
+    {
+        $admit = $this->admitMorph;
+        if ($admit === null) {
+            return null;
+        }
+
+        if ($selection->ids !== null) {
+            $admitted = \array_map($key, $admit($relation, $selection->type, $selection->ids));
+
+            return static fn(mixed $id): bool => \in_array($key($id), $admitted, true);
+        }
+
+        $known = [];
+
+        return static function (mixed $id) use ($admit, $relation, $selection, $key, &$known): bool {
+            return $known[$key($id)] ??= $admit($relation, $selection->type, [$id]) !== [];
+        };
     }
 
     /**

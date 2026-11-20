@@ -8,6 +8,8 @@ use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\OpenApi\OperationReference;
+use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
+use haddowg\JsonApi\Resource\FieldSelection;
 use haddowg\JsonApi\Resource\Internal\NonSparseMember;
 use haddowg\JsonApi\Resource\Internal\SelectedAttribute;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
@@ -15,6 +17,7 @@ use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
 use haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface;
+use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
 use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
@@ -279,10 +282,27 @@ final class ResourceTransformer
             return;
         }
 
-        $attributes = $transformation->resource->getAttributes($transformation->object, $transformation->request);
+        $resource = $transformation->resource;
+        $attributes = $resource->getAttributes($transformation->object, $transformation->request);
+        $narrowed = FieldSelection::requestedKeys($transformation->request, $transformation->resourceType);
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
+            // A serializer that is not the type's Resource renders a narrowed attribute
+            // through its plain callable, so core narrows it against the Resource's fields.
+            if (isset($narrowed[$name]) && !$attribute instanceof SelectedAttribute) {
+                $only = FieldSelection::attributeSelection($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver);
+                if ($only !== null) {
+                    $transformedAttributes[$name] = KeyTrim::trim(
+                        $resource instanceof SelectsAttributeKeysInterface
+                            ? $resource->getSelectedAttribute($transformation->object, $transformation->request, (string) $name, $only)
+                            : $attribute($transformation->object, $transformation->request, (string) $name),
+                        $only,
+                    );
+                }
+
+                continue;
+            }
             if ($attribute instanceof SelectedAttribute
                 || ($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation))
                 || $transformation->request->isIncludedField($transformation->resourceType, $name)) {

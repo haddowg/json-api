@@ -8,6 +8,7 @@ use haddowg\JsonApi\Hydrator\DeclaresRequestDocumentMetaInterface;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResponses;
+use haddowg\JsonApi\OpenApi\Metadata\OperationKind;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
@@ -26,12 +27,11 @@ use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\MetaContext;
 use haddowg\JsonApi\Resource\MetaMisdeclared;
-use haddowg\JsonApi\Resource\RelationshipMetaContext;
 use haddowg\JsonApi\Resource\RequestMeta;
 use haddowg\JsonApi\Resource\RequestMetaContext;
 use haddowg\JsonApi\Resource\ResourceMeta;
 use haddowg\JsonApi\Resource\WrittenMeta;
-use haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface;
+use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -40,10 +40,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RequestMetaContext::class)]
 #[CoversClass(ActionRequestMetaContext::class)]
 #[CoversClass(MetaContext::class)]
-#[CoversClass(RelationshipMetaContext::class)]
 #[CoversClass(RequestMeta::class)]
 #[CoversClass(ResourceMeta::class)]
 #[CoversClass(WrittenMeta::class)]
+#[CoversClass(DocumentMeta::class)]
+#[CoversClass(OperationType::class)]
+#[CoversClass(OperationKind::class)]
 #[CoversClass(AdditionalProperties::class)]
 #[CoversClass(AbstractResource::class)]
 final class TypedMetaDeclarationsTest extends TestCase
@@ -108,16 +110,18 @@ final class TypedMetaDeclarationsTest extends TestCase
     }
 
     #[Test]
-    public function aRelationshipContextNamesTheRelationAndMutation(): void
+    public function documentMetaNamesEveryDocumentAnOperationAnswersWith(): void
     {
-        $context = new RelationshipMetaContext('items', Mode::Remove);
-
-        self::assertTrue($context->isRelationship('items'));
-        self::assertTrue($context->isRelationship('items', Mode::Remove));
-        self::assertFalse($context->isRelationship('tags'));
-        self::assertTrue($context->is(Mode::Remove));
-        self::assertFalse($context->isAtomic());
-        self::assertSame('"items" relationship remove', $context->describe());
+        self::assertSame([OperationType::FetchCollection, OperationType::FetchOne, OperationType::Create, OperationType::Update, OperationType::Delete], OperationType::resourceOperations());
+        self::assertTrue(OperationType::Delete->isResourceOperation());
+        self::assertFalse(OperationType::AddRelationship->isResourceOperation());
+        self::assertSame(OperationType::CreateAccepted, OperationType::Create->accepted());
+        self::assertSame(OperationType::UpdateAccepted, OperationType::Update->accepted());
+        self::assertNull(OperationType::Delete->accepted());
+        self::assertSame(OperationType::RemoveRelationship, OperationKind::RemoveRelationship->relationshipDocument());
+        self::assertNull(OperationKind::FetchRelated->relationshipDocument());
+        self::assertSame(OperationKind::Create, OperationKind::fromOperationType(OperationType::CreateAccepted));
+        self::assertSame(OperationKind::AddRelationship, OperationKind::fromOperationType(OperationType::AddRelationship));
     }
 
     #[Test]
@@ -127,7 +131,7 @@ final class TypedMetaDeclarationsTest extends TestCase
 
         self::assertTrue(RequestMeta::forOperation($resource, RequestMetaContext::forOperation(OperationType::Create), 'bookings')->isEmpty());
         self::assertTrue(ResourceMeta::forType($resource, MetaContext::read(), 'bookings')->isEmpty());
-        self::assertTrue(DocumentMeta::forRelationship($resource, new RelationshipMetaContext('items', Mode::Add), 'bookings')->isEmpty());
+        self::assertTrue(DocumentMeta::forOperation($resource, OperationType::AddRelationship, 'bookings')->isEmpty());
         self::assertTrue(RequestMeta::forOperation(new \stdClass(), RequestMetaContext::forOperation(OperationType::Create))->isEmpty());
         self::assertTrue(RequestMeta::forAction(new \stdClass(), new ActionRequestMetaContext('POST'))->isEmpty());
     }
@@ -374,18 +378,21 @@ final class TypedMetaDeclarationsTest extends TestCase
     #[Test]
     public function aRelationshipWriteDeclaresItsMetaOnlyDocument(): void
     {
-        $declarer = new class implements DeclaresRelationshipDocumentMetaInterface {
-            public function relationshipDocumentMeta(RelationshipMetaContext $context): iterable
+        $declarer = new class implements DeclaresDocumentMetaInterface {
+            public function documentMeta(OperationType $operation): iterable
             {
-                return $context->isRelationship('items', Mode::Add) ? [Integer::make('moved')->required()] : [];
+                return match ($operation) {
+                    OperationType::AddRelationship => [Integer::make('moved')->required()],
+                    default => [],
+                };
             }
         };
 
-        $add = DocumentMeta::forRelationship($declarer, new RelationshipMetaContext('items', Mode::Add), 'bookings');
+        $add = DocumentMeta::forOperation($declarer, OperationType::AddRelationship, 'bookings');
         self::assertSame('moved', $add->fields[0]->name());
         self::assertFalse($add->collection);
-        self::assertSame('the "bookings" "items" relationship add document', $add->owner);
-        self::assertTrue(DocumentMeta::forRelationship($declarer, new RelationshipMetaContext('items', Mode::Remove))->isEmpty());
+        self::assertSame('the "bookings" AddRelationship document', $add->owner);
+        self::assertTrue(DocumentMeta::forOperation($declarer, OperationType::RemoveRelationship)->isEmpty());
     }
 
     #[Test]
@@ -403,10 +410,13 @@ final class TypedMetaDeclarationsTest extends TestCase
     #[Test]
     public function aWritesStatus202ReadsTheTypesDeclarationOrItsAccepted(): void
     {
-        $declarer = new class implements \haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface {
-            public function acceptedDocumentMeta(OperationType $operation): iterable
+        $declarer = new class implements DeclaresDocumentMetaInterface {
+            public function documentMeta(OperationType $operation): iterable
             {
-                return $operation === OperationType::Create ? [Integer::make('queuePosition')] : [];
+                return match ($operation) {
+                    OperationType::CreateAccepted => [Integer::make('queuePosition')],
+                    default => [],
+                };
             }
         };
 
@@ -417,6 +427,14 @@ final class TypedMetaDeclarationsTest extends TestCase
 
         $this->expectException(DocumentMetaMisdeclared::class);
         DocumentMeta::forAccepted($declarer, OperationType::Create, [new Accepted('jobs', [Str::make('eta')])]);
+    }
+
+    #[Test]
+    public function onlyAWriteAnswersA202(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        DocumentMeta::forAccepted(self::resource(), OperationType::Delete);
     }
 
     #[Test]

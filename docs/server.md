@@ -74,7 +74,7 @@ and `withProfile` add to a registry. All of them return a new server.
 | `withBaseUri(string)` | The base URI prepended to generated [links](links-and-meta.md) (default `''`). Empty ⇒ links resolve to the [request origin](#base-uri-and-the-request-origin); a non-empty value pins a fixed canonical host. |
 | `withVersion(string)` | The `jsonapi.version` member (default `1.1`). |
 | `withDefaultMeta(array)` | The default `jsonapi.meta` object. |
-| `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`). |
+| `withEncodeOptions(int)` | Flags passed to `json_encode()` when rendering (e.g. `\JSON_PRETTY_PRINT`), on top of `\JSON_THROW_ON_ERROR` and `\JSON_PRESERVE_ZERO_FRACTION`, which always apply. |
 | `withDefaultPaginator(?PaginatorInterface)` | The fallback [paginator](pagination.md) for collections. |
 | `withMaxIncludeDepth(?int)` | The default [maximum include depth](sparse-fieldsets-and-includes.md#maximum-include-depth) (hops from the primary resource). `null` (the default) or `<= 0` means unlimited; a resource can override it. |
 | `withOutputTimezone(?string)` | The zone every `DateTime` attribute [renders in](#output-timezone) unless the field sets its own (default `null`, no conversion). |

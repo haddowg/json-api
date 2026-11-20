@@ -15,6 +15,11 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class BooleanBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     public function build(): Boolean
     {
         return new Boolean($this->fieldState());

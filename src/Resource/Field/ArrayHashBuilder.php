@@ -19,6 +19,11 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  */
 final class ArrayHashBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     private bool $sortKeys = false;
 
     private bool $sortValues = false;

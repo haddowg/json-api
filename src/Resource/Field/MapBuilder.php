@@ -15,6 +15,8 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class MapBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
     use DeclaresSelectableKeys;
     use NamesSchemaComponent;
 

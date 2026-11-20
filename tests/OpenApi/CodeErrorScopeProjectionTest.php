@@ -25,10 +25,12 @@ use haddowg\JsonApi\Resource\Field\BelongsTo;
 use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
+use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\RelationHop;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+use haddowg\JsonApi\Resource\Filter\WhereMorph;
 use haddowg\JsonApi\Resource\Filter\WhereThrough;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Schema\Profile\RelationshipQueriesProfile;
@@ -599,6 +601,27 @@ final class CodeErrorScopeProjectionTest extends TestCase
         self::assertContains('ACCESS_DENIED', $this->codes($document, '/articles', 'get'));
         self::assertContains('AUTHENTICATION_REQUIRED', $this->codes($document, '/articles', 'get'));
         self::assertNotContains('ACCESS_DENIED', $this->codes($document, '/articles/{id}', 'get'));
+
+        $readable = $this->project($this->server(articles: $articles, server: [...$refusing, 'canRefuseThrough' => static fn(RelationHop $hop): bool => false]));
+        self::assertNotContains('ACCESS_DENIED', $this->codes($readable, '/articles', 'get'));
+    }
+
+    #[Test]
+    public function aWhereMorphOverATargetTypeTheAdapterCanRefuseOffersTheSecurityCodes(): void
+    {
+        $articles = [
+            'fields' => [Id::make()->example('1')->build(), Str::make('title')->example('Hello')->build(), MorphTo::make('subject', ['comments', 'articles'])->identifiedByColumns('subjectType', 'subjectId')->build()],
+            'relations' => [new FakeRelationMetadata('subject', ['comments', 'articles'], false)],
+            'filters' => [WhereMorph::make('subject')->build()],
+        ];
+        $refusing = [
+            'canDenyAccess' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => false,
+            'canRequireAuthentication' => static fn(?TypeMetadataInterface $type, OperationKey $operation): bool => false,
+            'canRefuseThrough' => static fn(RelationHop $hop): bool => $hop->relatedTypes() === ['comments'],
+        ];
+
+        $document = $this->project($this->server(articles: $articles, server: $refusing));
+        self::assertContains('ACCESS_DENIED', $this->codes($document, '/articles', 'get'));
 
         $readable = $this->project($this->server(articles: $articles, server: [...$refusing, 'canRefuseThrough' => static fn(RelationHop $hop): bool => false]));
         self::assertNotContains('ACCESS_DENIED', $this->codes($readable, '/articles', 'get'));

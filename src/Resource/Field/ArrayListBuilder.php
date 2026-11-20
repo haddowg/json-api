@@ -24,6 +24,10 @@ use haddowg\JsonApi\Resource\Constraint\UniqueItems;
  */
 final class ArrayListBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
     use NamesSchemaComponent;
     use ReceivesKeySelection;
 

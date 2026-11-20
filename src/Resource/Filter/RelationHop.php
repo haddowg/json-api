@@ -16,6 +16,9 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  * A path that starts with `pivot` reaches the pivot row of the relation the filter or
  * sort runs under, one row for each member, so that hop is to-one; anywhere else a
  * pivot hop follows a to-many and reaches many rows.
+ *
+ * A hop of a polymorphic relation that names `$target` reaches only that one of its
+ * types, as a {@see WhereMorph} filter does for the type a request names.
  */
 final readonly class RelationHop
 {
@@ -24,15 +27,28 @@ final readonly class RelationHop
         public string $parentType,
         public string $path,
         public bool $pivot = false,
+        public ?string $target = null,
     ) {}
 
     /**
      * The type the relation reaches; a hop of a `->through()` path is monomorphic, except
-     * a `pivot` hop, which reaches a pivot row and so names its relation's first type.
+     * a `pivot` hop, which reaches a pivot row and so names its relation's first type. A
+     * hop naming its `$target` reaches that type.
      */
     public function relatedType(): string
     {
-        return $this->relation->relatedTypes()[0] ?? '';
+        return $this->target ?? $this->relation->relatedTypes()[0] ?? '';
+    }
+
+    /**
+     * The types whose rows the hop can reach: its `$target` alone when it names one, and
+     * every type of its relation otherwise. A gate decides the hop by these.
+     *
+     * @return list<string>
+     */
+    public function relatedTypes(): array
+    {
+        return $this->target !== null ? [$this->target] : $this->relation->relatedTypes();
     }
 
     /**
@@ -49,6 +65,6 @@ final readonly class RelationHop
      */
     public function on(string $parentType): self
     {
-        return new self($this->relation, $parentType, $this->path, $this->pivot);
+        return new self($this->relation, $parentType, $this->path, $this->pivot, $this->target);
     }
 }

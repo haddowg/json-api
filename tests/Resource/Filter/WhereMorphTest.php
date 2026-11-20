@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Filter;
 
 use haddowg\JsonApi\Exception\FilterValueInvalid;
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Constraint\Pattern;
 use haddowg\JsonApi\Resource\Constraint\UuidFormat;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
@@ -13,12 +14,19 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\IdEncoderInterface;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Filter\MorphSelection;
 use haddowg\JsonApi\Resource\Filter\MorphTarget;
+use haddowg\JsonApi\Resource\Filter\RelationHop;
 use haddowg\JsonApi\Resource\Filter\ThroughPathResolver;
+use haddowg\JsonApi\Resource\Filter\ThroughReadAccess;
+use haddowg\JsonApi\Resource\Filter\Where;
+use haddowg\JsonApi\Resource\Filter\WhereAny;
 use haddowg\JsonApi\Resource\Filter\WhereMorph;
 use haddowg\JsonApi\Resource\Filter\WhereMorphBuilder;
+use haddowg\JsonApi\Resource\ThroughReadGateInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +38,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MorphSelection::class)]
 #[CoversClass(ThroughPathResolver::class)]
 #[CoversClass(ArrayFilterHandler::class)]
+#[CoversClass(ThroughReadAccess::class)]
+#[CoversClass(RelationHop::class)]
 final class WhereMorphTest extends TestCase
 {
     #[Test]
@@ -163,6 +173,98 @@ final class WhereMorphTest extends TestCase
     }
 
     #[Test]
+    public function itReachesThroughItsRelationToEveryTypeOrTheOneRequested(): void
+    {
+        $access = new ThroughReadAccess($this->resolver());
+        $hops = static fn(array $hops): array => \array_map(static fn(RelationHop $hop): array => [$hop->relation->name(), $hop->parentType, $hop->path, $hop->relatedTypes()], $hops);
+        $declared = WhereMorph::make('subject')->build();
+
+        self::assertSame(
+            [['subject', 'items', 'subject', ['rfps']], ['subject', 'items', 'subject', ['campaigns']], ['subject', 'items', 'subject', ['templates']]],
+            $hops($access->hopsOf($declared, self::fields(), 'items')),
+        );
+        self::assertSame([['subject', 'items', 'subject', ['campaigns']]], $hops($access->hopsOfRequested($declared, ['type' => 'campaigns'], self::fields(), 'items')));
+        self::assertSame('campaigns', $access->hopsOfRequested($declared, ['type' => 'campaigns', 'id' => 'c-1'], self::fields(), 'items')[0]->relatedType());
+
+        $group = WhereAny::make('either', Where::make('name'), WhereMorph::make('subject'))->build();
+        self::assertSame([['subject', 'items', 'subject', ['rfps']]], $hops($access->hopsOfRequested($group, ['type' => 'rfps'], self::fields(), 'items')));
+        self::assertSame([], $access->hopsOfRequested(Where::make('name')->build(), 'x', self::fields(), 'items'));
+    }
+
+    #[Test]
+    public function aRequestedTypeTheRelationDoesNotDeclareIsA400BeforeAnyGate(): void
+    {
+        $this->expectException(FilterValueInvalid::class);
+
+        (new ThroughReadAccess($this->resolver()))->hopsOfRequested(WhereMorph::make('subject')->build(), ['type' => 'people'], self::fields(), 'items');
+    }
+
+    #[Test]
+    public function aGateDecidesTheRequestedTypeAlone(): void
+    {
+        $gate = new class implements ThroughReadGateInterface {
+            public function canReadThrough(RelationHop $hop, JsonApiRequestInterface $request): bool
+            {
+                return $hop->relatedTypes() !== ['templates'];
+            }
+        };
+        $access = new ThroughReadAccess($this->resolver(), $gate);
+        $request = $this->createStub(JsonApiRequestInterface::class);
+        $filter = WhereMorph::make('subject')->build();
+
+        self::assertSame([], $access->refused($access->hopsOfRequested($filter, ['type' => 'rfps'], self::fields(), 'items'), $request));
+        self::assertCount(1, $access->refused($access->hopsOfRequested($filter, ['type' => 'templates'], self::fields(), 'items'), $request));
+        self::assertCount(1, $access->refused($access->hopsOf($filter, self::fields(), 'items'), $request));
+    }
+
+    #[Test]
+    public function aTargetTheScopeHidesNeverMatches(): void
+    {
+        $rows = [
+            ['id' => 1, 'subjectType' => 'rfps', 'subjectId' => 812],
+            ['id' => 2, 'subjectType' => 'rfps', 'subjectId' => 813],
+            ['id' => 3, 'subjectType' => 'campaigns', 'subjectId' => 813],
+        ];
+        $asked = [];
+        $handler = (new ArrayFilterHandler())->withMorphAdmission(static function (RelationInterface $relation, string $type, array $keys) use (&$asked): array {
+            $asked[] = [$relation->name(), $type, $keys];
+
+            return \array_values(\array_filter($keys, static fn(mixed $key): bool => $type !== 'rfps' || $key !== 813 && $key !== '813'));
+        });
+        $ids = fn(mixed $value): array => \array_column($handler->apply($this->filter(), $rows, $value), 'id');
+
+        self::assertSame([1], $ids(['type' => 'rfps']));
+        self::assertSame([1], $ids(['type' => 'rfps', 'id' => ['812', '813']]));
+        self::assertSame([], $ids(['type' => 'rfps', 'id' => '813']));
+        self::assertSame([3], $ids(['type' => 'campaigns', 'id' => 'c-813']));
+        // The requested ids are admitted in one call; without them, each target once.
+        self::assertContains(['subject', 'rfps', ['812', '813']], $asked);
+        self::assertContains(['subject', 'rfps', [813]], $asked);
+    }
+
+    #[Test]
+    public function aMemberTheScopeHidesNeverMatches(): void
+    {
+        $fields = [
+            Id::make()->build(),
+            MorphToMany::make('tags', ['rfps', 'campaigns'])
+                ->through('TagLink')
+                ->identifiedByRows(owner: 'item', type: 'tagType', id: 'tagId')
+                ->build(),
+        ];
+        $filter = $this->resolver()->resolve(WhereMorph::make('tags')->build(), $fields);
+        $rows = [
+            ['id' => 1, 'tags' => [['tagType' => 'rfps', 'tagId' => 5], ['tagType' => 'campaigns', 'tagId' => 6]]],
+            ['id' => 2, 'tags' => [['tagType' => 'rfps', 'tagId' => 7]]],
+        ];
+        $handler = (new ArrayFilterHandler())->withMorphAdmission(static fn(RelationInterface $relation, string $type, array $keys): array => \array_values(\array_filter($keys, static fn(mixed $key): bool => $key !== 7 && $key !== '7')));
+        $ids = static fn(mixed $value): array => \array_column($handler->apply($filter, $rows, $value), 'id');
+
+        self::assertSame([1], $ids(['type' => 'rfps']));
+        self::assertSame([], $ids(['type' => 'rfps', 'id' => '7']));
+    }
+
+    #[Test]
     public function aClosureIdentifiedMorphToIsRefusedInMemory(): void
     {
         $fields = [MorphTo::make('subject', ['rfps'])->identifiedBy(static fn(): ?array => null)->build()];
@@ -189,6 +291,7 @@ final class WhereMorphTest extends TestCase
     {
         return [
             Id::make()->build(),
+            Str::make('name')->build(),
             BelongsTo::make('owner', 'rfps')->build(),
             MorphTo::make('subject', ['rfps', 'campaigns', 'templates'])->identifiedByColumns('subjectType', 'subjectId')->build(),
         ];

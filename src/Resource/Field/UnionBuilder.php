@@ -15,6 +15,10 @@ namespace haddowg\JsonApi\Resource\Field;
  */
 final class UnionBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
     use NamesSchemaComponent;
 
     /**

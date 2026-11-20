@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Field\KeySelection;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
@@ -24,7 +25,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * counts it, so `?withCount` validates against their union and each member renders
  * its own `meta.total`. Without them nothing is countable.
  */
-final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface, RendersResourceMetaInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface, RendersResourceMetaInterface, SelectsAttributeKeysInterface
 {
     /**
      * @var list<SerializerInterface>
@@ -130,6 +131,21 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
     public function getAttributes(mixed $object, JsonApiRequestInterface $request): array
     {
         return $this->for($object)->getAttributes($object, $request);
+    }
+
+    /**
+     * The member's own selected value when its serializer selects keys, else the value of
+     * its attribute callable, which core then trims.
+     */
+    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        $serializer = $this->for($object);
+        if ($serializer instanceof SelectsAttributeKeysInterface) {
+            return $serializer->getSelectedAttribute($object, $request, $name, $only);
+        }
+        $attribute = $serializer->getAttributes($object, $request)[$name] ?? null;
+
+        return $attribute === null ? null : $attribute($object, $request, $name);
     }
 
     public function getDefaultIncludedRelationships(mixed $object): array
