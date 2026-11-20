@@ -44,6 +44,10 @@
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^12.0"
     },
+    "conflict": {
+        "haddowg/json-api-laravel": "<2.22",
+        "haddowg/json-api-symfony": "<2.22"
+    },
     "suggest": {
         "opis/json-schema": "Enables dev/CI JSON Schema validation of JSON:API request and response documents via Validation\\DocumentValidator and the Request/Response validation middleware (^2.0).",
         "phpunit/phpunit": "Required to use the Testing\\* assertion helpers (JsonApiDocument, JsonApiErrors, assertJsonApiSpecCompliant) in your own test suite (^12.0)."
