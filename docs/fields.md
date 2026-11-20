@@ -522,8 +522,8 @@ customise writing — reach for them before dropping to a whole-resource custom
 |---|---|---|
 | `serializeUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The full read path (accessor + cast). |
 | `extractUsing($fn)` | `fn(mixed $model, JsonApiRequestInterface $request, string $name): mixed` | The raw read; the field's per-type cast still applies. On an `Obj` or `Map` it also takes `?KeySelection $only`, the [selected keys](field-types.md#selectable-keys). |
-| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. |
-| `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). |
+| `deserializeUsing($fn)` | `fn(mixed $value, array $data): mixed` | The per-type cast on hydration, including an `enum()` field's conversion to its case. Not on an `Obj`, `Map`, `OneOf` or `Id`. |
+| `fillUsing($fn)` | `fn(mixed $model, mixed $value, array $data, string $name): mixed` | The full write path; return the model (or `null` to keep it unchanged). Not on an `Id`. |
 
 A hook only ever receives the model your provider loaded, so its `$model` parameter
 may take the type you know it has: a class such as `fn(Track $track)`, `array` for a
@@ -532,6 +532,12 @@ the closure's body against it. The hooks that decide per model whether a member 
 hidden, a relation is guarded, or a declared link renders take a typed model the same
 way. `$value` in `deserializeUsing` and `fillUsing` may take the type the field's
 validation guarantees, as the next section lists.
+
+An `Obj`, `Map` or `OneOf` writes its value through its children, so its builder has no
+`deserializeUsing()`. Convert a key with a hook on the child that declares it, or take the
+whole value with `fillUsing()`. The `Id` is written from `data.id` by its own policy, so its
+builder has neither write hook: use `encodeUsing()` when the wire id differs from the
+storage key, and `generated()` or `generateUsing()` to mint one, as [ids](ids.md) describes.
 
 On read, `serializeUsing` wins over `extractUsing`; on write, `fillUsing` wins
 over `deserializeUsing`. The split matters: `extractUsing` lets per-type casting

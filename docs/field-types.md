@@ -102,6 +102,12 @@ helpers accept `int|float`. The album's
 Decimal::make('averageRating')->readOnly()->nullable();
 ```
 
+A `Decimal` renders with its fraction, so a whole value is sent as `5.0` rather than `5`,
+and a client that keeps integers and decimals apart reads it as a decimal. A response is
+encoded with `JSON_PRESERVE_ZERO_FRACTION` whatever encode options the server or the
+response sets, so the same holds for any `float` a response carries, such as one a
+`serializeUsing()` hook or a meta entry returns. An `Integer` stays `5`.
+
 A `Decimal` reaches PHP as a `float`, since the request body is decoded as JSON, so a
 number with more significant digits than a `float` holds, such as
 `1.10000000000000001`, arrives as `1.1`. A `float` holds every whole number up to 2^53,

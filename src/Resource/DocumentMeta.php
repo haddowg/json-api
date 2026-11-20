@@ -7,9 +7,7 @@ namespace haddowg\JsonApi\Resource;
 use haddowg\JsonApi\OpenApi\Metadata\Accepted;
 use haddowg\JsonApi\OpenApi\Metadata\ActionCreated;
 use haddowg\JsonApi\OpenApi\Metadata\ActionResource;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresAcceptedDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\DeclaresDocumentMeta;
-use haddowg\JsonApi\OpenApi\Metadata\DeclaresRelationshipDocumentMeta;
 use haddowg\JsonApi\OpenApi\Metadata\MetaResult;
 use haddowg\JsonApi\OpenApi\Metadata\OperationResponseInterface;
 use haddowg\JsonApi\OpenApi\Metadata\OperationType;
@@ -22,9 +20,7 @@ use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
-use haddowg\JsonApi\Serializer\DeclaresAcceptedDocumentMetaInterface;
 use haddowg\JsonApi\Serializer\DeclaresDocumentMetaInterface;
-use haddowg\JsonApi\Serializer\DeclaresRelationshipDocumentMetaInterface;
 
 /**
  * The declared members of one document's top-level `meta`: what a type's
@@ -105,18 +101,29 @@ final readonly class DocumentMeta
      * The members `$declarer` declares for the document `$operation` answers with. A type
      * that declares nothing has none. A `FetchCollection` document is a collection. A
      * delete's members apply only to the meta-only `200` it may answer with; see
-     * {@see forDelete()}.
+     * {@see forDelete()}. A relationship write's case, such as
+     * {@see OperationType::AddRelationship}, gives the members of the meta-only `200` it
+     * answers with in place of its linkage, which none means it does not; a `202`'s are read
+     * through {@see forAccepted()}.
      *
      * @throws DocumentMetaMisdeclared
      */
     public static function forOperation(object $declarer, OperationType $operation, string $type = ''): self
     {
-        $owner = \sprintf('the "%s" %s document', $type, $operation->value);
-        if (!($declarer instanceof DeclaresDocumentMetaInterface || $declarer instanceof DeclaresDocumentMeta)) {
-            return new self([], $operation === OperationType::FetchCollection, $owner);
-        }
+        return new self(self::declared($declarer, $operation), $operation === OperationType::FetchCollection, \sprintf('the "%s" %s document', $type, $operation->value));
+    }
 
-        return new self($declarer->documentMeta($operation), $operation === OperationType::FetchCollection, $owner);
+    /**
+     * What `$declarer` returns from `documentMeta()` for `$operation`, or nothing when it
+     * declares no document meta.
+     *
+     * @return iterable<FieldInterface|FieldBuilderInterface>
+     */
+    private static function declared(object $declarer, OperationType $operation): iterable
+    {
+        return $declarer instanceof DeclaresDocumentMetaInterface || $declarer instanceof DeclaresDocumentMeta
+            ? $declarer->documentMeta($operation)
+            : [];
     }
 
     /**
@@ -134,7 +141,7 @@ final readonly class DocumentMeta
     /**
      * The members of the job document the `202` of `$operation`, a create or an update,
      * answers with: the ones its declared {@see Accepted} carries, else the ones `$declarer`
-     * declares through `acceptedDocumentMeta()`.
+     * declares for {@see OperationType::CreateAccepted} or {@see OperationType::UpdateAccepted}.
      *
      * @param iterable<object> $responses the write's declared success responses
      *
@@ -142,6 +149,7 @@ final readonly class DocumentMeta
      */
     public static function forAccepted(object $declarer, OperationType $operation, iterable $responses = [], string $type = ''): self
     {
+        $accepted = $operation->accepted() ?? throw new \InvalidArgumentException(\sprintf('Only a create or an update answers a 202; %s does not.', $operation->value));
         $owner = \sprintf('the "%s" %s 202 document', $type, $operation->value);
         $own = [];
         foreach ($responses as $response) {
@@ -149,31 +157,12 @@ final readonly class DocumentMeta
                 $own = $response->meta;
             }
         }
-        $declared = $declarer instanceof DeclaresAcceptedDocumentMetaInterface || $declarer instanceof DeclaresAcceptedDocumentMeta
-            ? new self($declarer->acceptedDocumentMeta($operation), false, $owner)
-            : new self([], false, $owner);
+        $declared = new self(self::declared($declarer, $accepted), false, $owner);
         if ($own !== [] && !$declared->isEmpty()) {
-            throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s is declared both in acceptedDocumentMeta() and on its Accepted response; declare it in one place.', $owner));
+            throw new DocumentMetaMisdeclared(\sprintf('The top-level meta of %s is declared both in documentMeta(OperationType::%s) and on its Accepted response; declare it in one place.', $owner, $accepted->name));
         }
 
         return $own !== [] ? new self($own, false, $owner) : $declared;
-    }
-
-    /**
-     * The members of the meta-only `200` the relationship write `$context` describes answers
-     * with, which `$declarer`, the parent type, declares. A type that declares none answers
-     * that write with its linkage.
-     *
-     * @throws DocumentMetaMisdeclared
-     */
-    public static function forRelationship(object $declarer, RelationshipMetaContext $context, string $type = ''): self
-    {
-        $owner = \sprintf('the "%s" %s document', $type, $context->describe());
-        if (!($declarer instanceof DeclaresRelationshipDocumentMetaInterface || $declarer instanceof DeclaresRelationshipDocumentMeta)) {
-            return new self([], false, $owner);
-        }
-
-        return new self($declarer->relationshipDocumentMeta($context), false, $owner);
     }
 
     /**
@@ -272,7 +261,7 @@ final readonly class DocumentMeta
      */
     public function extract(mixed $data, JsonApiRequestInterface $request): array
     {
-        return $this->shape()->extract($data, $request);
+        return $this->shape()->extract($data, $request, DocumentMetaMismatch::class);
     }
 
     /**

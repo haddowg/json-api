@@ -30,6 +30,11 @@ interface DeclaresDocumentMetaInterface
      * document. A related endpoint serving the type takes
      * its `FetchCollection` members for a to-many and its `FetchOne` members for a to-one.
      *
+     * The relationship write cases declare the meta-only `200` that write answers with on
+     * every relationship of the type, in place of its linkage; their hooks receive the
+     * parent resource. `CreateAccepted` and `UpdateAccepted` declare the job document a
+     * `202` answers with; their hooks receive the job resource.
+     *
      * @return iterable<FieldInterface|FieldBuilderInterface>
      */
     public function documentMeta(OperationType $operation): iterable;

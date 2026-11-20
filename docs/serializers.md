@@ -207,6 +207,50 @@ $server = Server::make()
 For the full picture of override resolution and bare registration, see
 [capability composition](capability-composition.md).
 
+### Selecting keys through an override
+
+An override renders a type whose Resource class still declares its fields, and the
+Resource class's [`selectableKeys()`](field-types.md#selectable-keys) declarations decide
+what `fields[TYPE]=<attribute>.<key>` selects, as they do for the OpenAPI document. The
+override needs no change: core calls the attribute's callable as usual and trims the value
+to the selected keys, at every depth, so `fields[tracks]=credits.producer` renders a
+`credits` object holding only `producer`. An attribute listed whole renders whole, and the
+response carries the [Field Selection profile](profiles/field-selection.md) as it would
+from the Resource class. A key the Resource class doesn't accept is an unknown fieldset
+member: a `400` under strict validation when the override implements
+`DeclaresFieldNamesInterface`, and dropped otherwise.
+
+An override that can load less than the whole value implements
+`Serializer\SelectsAttributeKeysInterface`. For an attribute the request narrows, core
+calls its `getSelectedAttribute()` in place of the attribute's callable, with the
+`KeySelection` the request made, and still trims what it returns:
+
+```php
+use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
+
+final class TrackSerializer extends AbstractSerializer implements SelectsAttributeKeysInterface
+{
+    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    {
+        if ($name === 'credits') {
+            // Reads only the selected paths, such as ['producer'].
+            return $this->loadCredits($object, $only->paths());
+        }
+
+        return $this->getAttributes($object, $request)[$name]($object, $request, $name);
+    }
+}
+```
+
+Core calls it only for an attribute `getAttributes()` returned for that request, so an
+attribute the override leaves out stays out. Core finds the Resource class through
+`Resource\ProvidesResourcesInterface`, which the server and its registry implement, on the
+override's injected resolver or the server a response renders against; a resolver that
+decorates the server's should implement it and delegate. A bare serializer registered with
+`registerSerializerHydrator()` has no Resource class, so it declares no selectable keys
+and a key member selects nothing from it.
+
 ## Rendering relationships from a serializer
 
 An override or standalone serializer renders relationships only if it accepts the

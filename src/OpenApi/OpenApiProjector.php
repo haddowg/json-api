@@ -581,22 +581,6 @@ final class OpenApiProjector
     }
 
     /**
-     * Whether some pivot-backed relation's related endpoint serves `$type`.
-     */
-    private static function isPivotTarget(ServerMetadataInterface $server, string $type): bool
-    {
-        foreach ($server->types() as $owner) {
-            foreach ($owner->relations() as $relation) {
-                if (RelationFacts::hasPivot($relation) && \in_array($type, $relation->relatedTypes(), true)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Whether the document carries a structure {@see GeneratorContract::TYPED_REQUEST_META}
      * introduced: a typed request document or resource object `meta`, a relationship write's
      * or a `202`'s typed document, an object an `additionalProperties` entry opens, or a
@@ -1309,7 +1293,7 @@ final class OpenApiProjector
             $readSchema = TypedRequestMeta::resourceMetaSchema($readMeta, null, $this->schemaProjector, $collector);
             // A pivot relation's related endpoint renders each member with its link's
             // `pivot` beside the declared members.
-            if (self::isPivotTarget($server, $type->type()) && $readMeta->field('pivot') === null) {
+            if (RelationFacts::isPivotTarget($server, $type->type()) && $readMeta->field('pivot') === null) {
                 $readSchema = $readSchema->withProperty('pivot', Schema::ofType('object')->withDescription('The pivot values of the link a related endpoint reached this resource through.'));
             }
             $schemas[TypedRequestMeta::resourceMetaComponent($type->type())] = $readSchema;

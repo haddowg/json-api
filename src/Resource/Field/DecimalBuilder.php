@@ -21,6 +21,11 @@ use haddowg\JsonApi\Resource\Constraint\MultipleOf;
  */
 final class DecimalBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     public function build(): Decimal
     {
         return new Decimal($this->fieldState());

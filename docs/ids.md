@@ -264,6 +264,10 @@ transform across both directions of the lifecycle:
   would reject every minted create. A store-provided id is never set by core at all.
   Update (`PATCH`) never sets the id, so it does not decode.
 
+The encoder is the only way to convert a written id. The `Id` builder has no
+`deserializeUsing()` or `fillUsing()`, because core writes the id from `data.id` through
+this policy and never through a field hook.
+
 A type with **no** encoder behaves exactly as before: wire == storage, nothing is
 transformed. The id-as-lookup-key transforms — decoding the route `{id}` before a
 database find, and decoding linkage ids in relationship writes — live in the
