@@ -63,7 +63,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included; a relationship write keyed `<value>:<relation>` applies to that relation only
      * @param (\Closure(\haddowg\JsonApi\Resource\RequestMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $requestMeta the request meta each write declares
      * @param (\Closure(\haddowg\JsonApi\Resource\MetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $resourceMeta the resource object meta each direction declares
      */
@@ -122,9 +122,9 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
     /**
      * @return iterable<\haddowg\JsonApi\Resource\Field\FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>
      */
-    public function documentMeta(OperationType $operation): iterable
+    public function documentMeta(OperationType $operation, ?string $relation = null): iterable
     {
-        return $this->documentMeta[$operation->value] ?? [];
+        return $this->documentMeta[$operation->value . ':' . $relation] ?? $this->documentMeta[$operation->value] ?? [];
     }
 
     public function allowedIncludePaths(): ?array
@@ -237,7 +237,7 @@ final class FakeTypeMetadata implements TypeMetadataInterface, DeclaresDefaultSo
      * @param list<string>|null               $sortExample       the type's declared sort example
      * @param array{allowed?: list<string>|null, excluded?: list<string>, depth?: int|null}|null $includeSafeguards the type's include safeguards, `null` to answer as undeclared
      * @param list<string>                    $rejectsIncludeOn  the operation names refusing every `include`
-     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included
+     * @param array<string, list<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>> $documentMeta per-operation top-level meta members, keyed by {@see OperationType::value}, a relationship write's meta-only document and a 202 job document included; a relationship write keyed `<value>:<relation>` applies to that relation only
      * @param (\Closure(\haddowg\JsonApi\Resource\RequestMetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $requestMeta the request meta each write declares
      * @param (\Closure(\haddowg\JsonApi\Resource\MetaContext): iterable<FieldInterface|\haddowg\JsonApi\Resource\Field\FieldBuilderInterface>)|null $resourceMeta the resource object meta each direction declares
      */
