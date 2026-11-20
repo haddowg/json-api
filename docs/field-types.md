@@ -108,7 +108,9 @@ A `Decimal` renders with its fraction, so a whole value is sent as `5.0` rather 
 and a client that keeps integers and decimals apart reads it as a decimal. A response is
 encoded with `JSON_PRESERVE_ZERO_FRACTION` whatever encode options the server or the
 response sets, so the same holds for any `float` a response carries, such as one a
-`serializeUsing()` hook or a meta entry returns. An `Integer` stays `5`.
+`serializeUsing()` hook or a meta entry returns. An `Integer` stays `5`. The generated
+OpenAPI document is encoded the same way, so `example(5.0)` documents `5.0` and a bound such
+as `max(1.0)` reads `1.0`.
 
 A `Decimal` reaches PHP as a `float`, since the request body is decoded as JSON, so a
 number with more significant digits than a `float` holds, such as

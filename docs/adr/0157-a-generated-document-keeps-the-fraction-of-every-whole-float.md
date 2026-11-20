@@ -1,0 +1,3 @@
+# A generated document keeps the fraction of every whole float
+
+ADR 0148 left OpenAPI documents encoded without `JSON_PRESERVE_ZERO_FRACTION`, so a `Decimal` documented with `example(5.0)` showed `5` while every response sent `5.0`, and a reader comparing the two saw an integer where the API sends a decimal. `OpenApi::toJsonString()` now encodes with the flag, so examples and float bounds such as `exclusiveMinimum: 0.0` keep their fraction. The numbers are equal to JSON and to every generator, so the generator contract doesn't move, though the bytes of every document with a whole float change once.
