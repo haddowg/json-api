@@ -322,11 +322,17 @@ final readonly class MetaShape
     /**
      * The members a read renders from `$model`: each declared member an `extractUsing()`
      * hook supplies, through its declared shape, then the extra members the entry's hook
-     * returns. An extra member never replaces a declared one.
+     * returns. An extra member never replaces a declared one; on a request marked for the
+     * debug check ({@see RenderedMeta::checking()}) one named after a declared member is
+     * refused with `$error`.
+     *
+     * @param class-string<ResourceMetaMismatch|DocumentMetaMismatch> $error
      *
      * @return array<string, mixed>
+     *
+     * @throws ResourceMetaMismatch|DocumentMetaMismatch
      */
-    public function extract(mixed $model, JsonApiRequestInterface $request): array
+    public function extract(mixed $model, JsonApiRequestInterface $request, string $error = ResourceMetaMismatch::class): array
     {
         $values = [];
         foreach ($this->fields as $field) {
@@ -337,9 +343,12 @@ final readonly class MetaShape
 
         if ($this->additional !== null && !$this->additional->isWriteOnly()) {
             foreach ($this->additional->extract($model, $request) as $name => $value) {
-                if (!\array_key_exists($name, $values) && $this->field($name) === null) {
-                    $values[$name] = $value;
+                if ($this->field($name) !== null) {
+                    RenderedMeta::clash($request, $this->owner, $name, error: $error);
+
+                    continue;
                 }
+                $values[$name] = $value;
             }
         }
 

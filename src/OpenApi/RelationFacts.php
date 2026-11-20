@@ -263,6 +263,23 @@ final class RelationFacts
     }
 
     /**
+     * Whether some relation of a type `$server` describes reaches `$type` through a pivot,
+     * so a related endpoint may render a `$type` resource object with its link's `pivot`.
+     */
+    public static function isPivotTarget(ServerMetadataInterface $server, string $type): bool
+    {
+        foreach ($server->types() as $owner) {
+            foreach ($owner->relations() as $relation) {
+                if (self::hasPivot($relation) && \in_array($type, $relation->relatedTypes(), true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether the relation is a polymorphic to-many identified by stored pairs whose link
      * rows it filters, sorts or renders pivot values from, so its relationship endpoint
      * takes `filter` and `sort` parameters over them and its identifiers carry a typed
