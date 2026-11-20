@@ -25,7 +25,7 @@ final class OneOfBuilder extends AbstractFieldBuilder
     /** @use DeclaresFillHook<TValue> */
     use DeclaresFillHook;
     use NamesSchemaComponent;
-    use ReceivesKeySelection;
+    use ReceivesNestedFieldset;
 
     private ?string $discriminator = null;
 
@@ -96,7 +96,7 @@ final class OneOfBuilder extends AbstractFieldBuilder
     /**
      * Registers a named variant. Its children address keys inside the object exactly as
      * {@see Obj}'s do, given either as the fields themselves or as one {@see Obj} named
-     * for the variant, which may also declare `selectableKeys()` so a request can select
+     * for the variant, which may also declare `nestedFieldset()` so a request can select
      * the variant's keys. The `$name` is the discriminator value that selects the variant,
      * or the case whose backing value it is when the discriminator is bound to an enum.
      *

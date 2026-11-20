@@ -15,7 +15,7 @@ use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
-use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
+use haddowg\JsonApi\Schema\Profile\NestedFieldsetsProfile;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
@@ -25,16 +25,16 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A `fields[<type>]` parameter documents the `<attribute>.<key>` members an attribute
- * declaring selectable keys accepts, beside the member enum, and the document carries the
- * field-selection contract only then.
+ * declaring a nested fieldset accepts, beside the member enum, and the document carries the
+ * nested fieldsets contract only then.
  */
 #[CoversClass(OpenApiProjector::class)]
 #[CoversClass(OperationProjector::class)]
 #[CoversClass(GeneratorContract::class)]
-final class FieldSelectionProjectionTest extends TestCase
+final class NestedFieldsetsProjectionTest extends TestCase
 {
     #[Test]
-    public function theFieldsParameterAcceptsTheMemberEnumOrAKeyOfEachSelectableAttribute(): void
+    public function theFieldsParameterAcceptsTheMemberEnumOrAKeyOfEachAttributeWithANestedFieldset(): void
     {
         $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[products]');
 
@@ -49,7 +49,7 @@ final class FieldSelectionProjectionTest extends TestCase
             ],
         ], $parameter['schema']);
         self::assertIsString($parameter['description']);
-        self::assertStringContainsString(FieldSelectionProfile::URI, $parameter['description']);
+        self::assertStringContainsString(NestedFieldsetsProfile::URI, $parameter['description']);
         self::assertStringContainsString('`values` or `totals`', $parameter['description']);
     }
 
@@ -65,7 +65,7 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function eachNestedObjectDeclaringSelectableKeysAddsAPatternForItsPath(): void
+    public function eachNestedObjectDeclaringNestedFieldsetKeysAddsAPatternForItsPath(): void
     {
         $parameter = $this->fieldsParameter($this->nestedDocument(), '/people', 'fields[people]');
 
@@ -102,7 +102,7 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aListOfSelectableObjectsAddsAWildcardPatternForEachPathIntoItsItems(): void
+    public function aListOfObjectsWithANestedFieldsetAddsAWildcardPatternForEachPathIntoItsItems(): void
     {
         $parameter = $this->fieldsParameter($this->listDocument(), '/orders', 'fields[orders]');
 
@@ -130,22 +130,22 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aTypeWhoseOnlySelectableAttributeIsAListLinksTheProfileFromTheListSentence(): void
+    public function aTypeWhoseOnlyNestedFieldsetIsOnAListLinksTheProfileFromTheListSentence(): void
     {
         $document = $this->listDocument(objects: false);
         $parameter = $this->fieldsParameter($document, '/orders', 'fields[orders]');
 
         self::assertIsString($parameter['description']);
         self::assertStringContainsString(
-            'Select keys of every item of `lines` as `<attribute>.*.<key>` under the [Field Selection profile](' . FieldSelectionProfile::URI . '); the list keeps its length and order, and listing the attribute itself selects all of it.',
+            'Select keys of every item of `lines` as `<attribute>.*.<key>` under the [Nested Fieldsets profile](' . NestedFieldsetsProfile::URI . '); the list keeps its length and order, and listing the attribute itself selects all of it.',
             $parameter['description'],
         );
         self::assertStringNotContainsString('single keys', $parameter['description']);
-        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FIELD_SELECTION)], $this->arr($document['info'])['x-generator']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::NESTED_FIELDSETS)], $this->arr($document['info'])['x-generator']);
     }
 
     #[Test]
-    public function aListWhoseElementDeclaresNoSelectableKeysAddsNoPattern(): void
+    public function aListWhoseElementDeclaresNoNestedFieldsetKeysAddsNoPattern(): void
     {
         $parameter = $this->fieldsParameter($this->listDocument(), '/orders', 'fields[orders]');
 
@@ -157,12 +157,12 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aListOfAOneOfAddsThePathsOfEverySelectableVariant(): void
+    public function aListOfAOneOfAddsThePathsOfEveryVariantWithANestedFieldset(): void
     {
         $blocks = ArrayList::make('blocks')->of(
             OneOf::make('block')->discriminator('type')
-                ->variant('text', Obj::make('text')->fields(Str::make('title'), Obj::make('meta')->fields(Str::make('lang'))->selectableKeys(pattern: 'lang'))->selectableKeys(pattern: 'title|meta'))
-                ->variant('image', Obj::make('image')->fields(Str::make('title'), Str::make('url'))->selectableKeys(pattern: 'title|url'))
+                ->variant('text', Obj::make('text')->fields(Str::make('title'), Obj::make('meta')->fields(Str::make('lang'))->nestedFieldset(pattern: 'lang'))->nestedFieldset(pattern: 'title|meta'))
+                ->variant('image', Obj::make('image')->fields(Str::make('title'), Str::make('url'))->nestedFieldset(pattern: 'title|url'))
                 ->variant('divider', Str::make('style')),
         );
         $plain = ArrayList::make('plain')->of(OneOf::make('item')->discriminator('type')->variant('a', Str::make('x')));
@@ -170,7 +170,7 @@ final class FieldSelectionProjectionTest extends TestCase
             title: 'API',
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(type: 'pages', fields: [Id::make()->build(), $blocks->build(), $plain->build()])],
-            profiles: [FieldSelectionProfile::URI],
+            profiles: [NestedFieldsetsProfile::URI],
         ))->toArray();
 
         self::assertSame(
@@ -189,21 +189,21 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aOneOfAttributeOrChildAddsThePathsOfEverySelectableVariant(): void
+    public function aOneOfAttributeOrChildAddsThePathsOfEveryVariantWithANestedFieldset(): void
     {
         $hero = OneOf::make('hero')->discriminator('type')
-            ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+            ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->nestedFieldset(pattern: 'src|alt'))
             ->variant('video', Str::make('url'));
         $layout = Obj::make('layout')->fields(
             Str::make('theme'),
             OneOf::make('banner')->discriminator('type')
-                ->variant('text', Obj::make('text')->fields(Str::make('copy'))->selectableKeys(pattern: 'copy')),
-        )->selectableKeys(pattern: '[a-z]+');
+                ->variant('text', Obj::make('text')->fields(Str::make('copy'))->nestedFieldset(pattern: 'copy')),
+        )->nestedFieldset(pattern: '[a-z]+');
         $document = (new OpenApiProjector())->project(new FakeServerMetadata(
             title: 'API',
             version: '1.0.0',
             types: [FakeTypeMetadata::resource(type: 'pages', fields: [Id::make()->build(), $hero->build(), $layout->build()])],
-            profiles: [FieldSelectionProfile::URI],
+            profiles: [NestedFieldsetsProfile::URI],
         ))->toArray();
 
         self::assertSame(
@@ -226,13 +226,13 @@ final class FieldSelectionProjectionTest extends TestCase
         $parameter = $this->fieldsParameter($this->document(), '/products', 'fields[products]');
 
         self::assertIsString($parameter['description']);
-        self::assertStringNotContainsString('nested', $parameter['description']);
+        self::assertStringNotContainsString('A key of a nested object', $parameter['description']);
     }
 
     #[Test]
-    public function aTypeWithoutSelectableKeysKeepsThePlainEnum(): void
+    public function aTypeWithoutNestedFieldsetKeysKeepsThePlainEnum(): void
     {
-        $document = $this->document(selectable: false);
+        $document = $this->document(nestedFieldset: false);
 
         self::assertSame(
             ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['name', 'values', 'totals', 'closed', 'vendor']]],
@@ -241,17 +241,17 @@ final class FieldSelectionProjectionTest extends TestCase
     }
 
     #[Test]
-    public function onlyADocumentAcceptingKeysCarriesTheFieldSelectionContract(): void
+    public function onlyADocumentAcceptingKeysCarriesTheNestedFieldsetsContract(): void
     {
-        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::FIELD_SELECTION)], $this->arr($this->document()['info'])['x-generator']);
-        self::assertSame(['contract' => GeneratorContract::BASELINE], $this->arr($this->document(selectable: false)['info'])['x-generator']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::NESTED_FIELDSETS)], $this->arr($this->document()['info'])['x-generator']);
+        self::assertSame(['contract' => GeneratorContract::BASELINE], $this->arr($this->document(nestedFieldset: false)['info'])['x-generator']);
     }
 
     #[Test]
     public function theAttributeSchemaIsUnchanged(): void
     {
         $with = $this->arr($this->arr($this->document()['components'])['schemas']);
-        $without = $this->arr($this->arr($this->document(selectable: false)['components'])['schemas']);
+        $without = $this->arr($this->arr($this->document(nestedFieldset: false)['components'])['schemas']);
 
         self::assertSame($without['ProductsAttributes'], $with['ProductsAttributes']);
     }
@@ -262,23 +262,23 @@ final class FieldSelectionProjectionTest extends TestCase
         $schemas = $this->arr($this->arr($this->document()['components'])['schemas']);
         $jsonApi = \json_encode($schemas['JsonApi'], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES);
 
-        self::assertStringContainsString(FieldSelectionProfile::URI, $jsonApi);
+        self::assertStringContainsString(NestedFieldsetsProfile::URI, $jsonApi);
     }
 
     /**
      * @return array<array-key, mixed>
      */
-    private function document(bool $selectable = true): array
+    private function document(bool $nestedFieldset = true): array
     {
         $values = Obj::make('values')->additionalProperties(Str::make('*'));
         $totals = Map::make('totals')->fields(Integer::make('views'));
-        if ($selectable) {
-            $values->selectableKeys(pattern: '[a-z][a-z0-9_]*');
-            $totals->selectableKeys(static fn(string $key): bool => true);
+        if ($nestedFieldset) {
+            $values->nestedFieldset(pattern: '[a-z][a-z0-9_]*');
+            $totals->nestedFieldset(static fn(string $key): bool => true);
         }
         $stats = Obj::make('stats')->additionalProperties(Integer::make('*'));
-        if ($selectable) {
-            $stats->selectableKeys(static fn(string $key): bool => true);
+        if ($nestedFieldset) {
+            $stats->nestedFieldset(static fn(string $key): bool => true);
         }
 
         return (new OpenApiProjector())->project(new FakeServerMetadata(
@@ -293,7 +293,7 @@ final class FieldSelectionProjectionTest extends TestCase
                 ),
                 FakeTypeMetadata::resource(type: 'vendors', fields: [Id::make()->build(), $stats->build()]),
             ],
-            profiles: [FieldSelectionProfile::URI],
+            profiles: [NestedFieldsetsProfile::URI],
         ))->toArray();
     }
 
@@ -304,14 +304,14 @@ final class FieldSelectionProjectionTest extends TestCase
     {
         $address = Obj::make('address')->fields(
             Str::make('postcode'),
-            Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'),
-            Obj::make('Region')->fields(Str::make('code'))->selectableKeys(pattern: '[a-z]+'),
-            Obj::make('hidden')->fields(Str::make('code'))->selectableKeys(pattern: '[a-z]+')->hidden(),
+            Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->nestedFieldset(pattern: 'lat|lng'),
+            Obj::make('Region')->fields(Str::make('code'))->nestedFieldset(pattern: '[a-z]+'),
+            Obj::make('hidden')->fields(Str::make('code'))->nestedFieldset(pattern: '[a-z]+')->hidden(),
             ArrayList::make('history')->of(Obj::make('entry')->fields(Str::make('street'))),
-        )->selectableKeys(pattern: '[a-z]+');
+        )->nestedFieldset(pattern: '[a-z]+');
         $scores = Obj::make('scores')
-            ->additionalProperties(Obj::make('*')->fields(Integer::make('min'), Integer::make('max'))->selectableKeys(pattern: 'min|max'))
-            ->selectableKeys(static fn(string $key): bool => true);
+            ->additionalProperties(Obj::make('*')->fields(Integer::make('min'), Integer::make('max'))->nestedFieldset(pattern: 'min|max'))
+            ->nestedFieldset(static fn(string $key): bool => true);
 
         return (new OpenApiProjector())->project(new FakeServerMetadata(
             title: 'API',
@@ -319,7 +319,7 @@ final class FieldSelectionProjectionTest extends TestCase
             types: [
                 FakeTypeMetadata::resource(type: 'people', fields: [Id::make()->build(), Str::make('name')->build(), $address->build(), $scores->build()]),
             ],
-            profiles: [FieldSelectionProfile::URI],
+            profiles: [NestedFieldsetsProfile::URI],
         ))->toArray();
     }
 
@@ -331,15 +331,15 @@ final class FieldSelectionProjectionTest extends TestCase
         $lines = ArrayList::make('lines')->of(Obj::make('line')->fields(
             Str::make('sku'),
             Integer::make('qty'),
-            Obj::make('price')->fields(Integer::make('amount'), Str::make('currency'))->selectableKeys(pattern: 'amount|currency'),
-            ArrayList::make('tags')->of(Obj::make('tag')->fields(Str::make('name'), Str::make('colour'))->selectableKeys(pattern: 'name|colour')),
-        )->selectableKeys(pattern: 'sku|qty|price|tags'));
+            Obj::make('price')->fields(Integer::make('amount'), Str::make('currency'))->nestedFieldset(pattern: 'amount|currency'),
+            ArrayList::make('tags')->of(Obj::make('tag')->fields(Str::make('name'), Str::make('colour'))->nestedFieldset(pattern: 'name|colour')),
+        )->nestedFieldset(pattern: 'sku|qty|price|tags'));
         $shipping = Obj::make('shipping')->fields(
             Str::make('carrier'),
-            ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->selectableKeys(pattern: 'weight|label')),
+            ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->nestedFieldset(pattern: 'weight|label')),
         );
         if ($objects) {
-            $shipping->selectableKeys(pattern: '[a-z]+');
+            $shipping->nestedFieldset(pattern: '[a-z]+');
         }
 
         return (new OpenApiProjector())->project(new FakeServerMetadata(
@@ -354,7 +354,7 @@ final class FieldSelectionProjectionTest extends TestCase
                     $shipping->build(),
                 ]),
             ],
-            profiles: [FieldSelectionProfile::URI],
+            profiles: [NestedFieldsetsProfile::URI],
         ))->toArray();
     }
 

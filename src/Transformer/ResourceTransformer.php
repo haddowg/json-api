@@ -9,17 +9,17 @@ use haddowg\JsonApi\Exception\InclusionUnrecognized;
 use haddowg\JsonApi\Exception\RelationshipNotExists;
 use haddowg\JsonApi\OpenApi\OperationReference;
 use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
-use haddowg\JsonApi\Resource\FieldSelection;
+use haddowg\JsonApi\Resource\Internal\NestedFieldsetAttribute;
 use haddowg\JsonApi\Resource\Internal\NonSparseMember;
-use haddowg\JsonApi\Resource\Internal\SelectedAttribute;
+use haddowg\JsonApi\Resource\NestedFieldsets;
 use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Schema\Data\DataInterface;
 use haddowg\JsonApi\Schema\Relationship\AbstractRelationship;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
 use haddowg\JsonApi\Serializer\RendersDeclaredLinksInterface;
-use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
 use haddowg\JsonApi\Serializer\SelfLinkAwareInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\SerializesNestedFieldsetsInterface;
 use haddowg\JsonApi\Serializer\UriTypeAwareInterface;
 
 /**
@@ -284,29 +284,29 @@ final class ResourceTransformer
 
         $resource = $transformation->resource;
         $attributes = $resource->getAttributes($transformation->object, $transformation->request);
-        $narrowed = FieldSelection::requestedKeys($transformation->request, $transformation->resourceType);
+        $narrowed = NestedFieldsets::requestedKeys($transformation->request, $transformation->resourceType);
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
-            // A key member's attribute arrives as a plain callable when the serializer is
+            // A nested fieldset member's attribute arrives as a plain callable when the serializer is
             // not the type's Resource, or when the member selects it whole, as `<list>.*`
             // does, so core reads it against the Resource's fields.
-            if (isset($narrowed[$name]) && !$attribute instanceof SelectedAttribute) {
-                $only = FieldSelection::attributeSelection($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver);
-                if ($only !== null) {
+            if (isset($narrowed[$name]) && !$attribute instanceof NestedFieldsetAttribute) {
+                $fieldset = NestedFieldsets::attributeFieldset($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver);
+                if ($fieldset !== null) {
                     $transformedAttributes[$name] = KeyTrim::trim(
-                        $resource instanceof SelectsAttributeKeysInterface
-                            ? $resource->getSelectedAttribute($transformation->object, $transformation->request, (string) $name, $only)
+                        $resource instanceof SerializesNestedFieldsetsInterface
+                            ? $resource->getNestedFieldsetAttribute($transformation->object, $transformation->request, (string) $name, $fieldset)
                             : $attribute($transformation->object, $transformation->request, (string) $name),
-                        $only,
+                        $fieldset,
                     );
-                } elseif (FieldSelection::attributeSelectedWhole($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver)) {
+                } elseif (NestedFieldsets::attributeSelectedWhole($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver)) {
                     $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, (string) $name);
                 }
 
                 continue;
             }
-            if ($attribute instanceof SelectedAttribute
+            if ($attribute instanceof NestedFieldsetAttribute
                 || ($attribute instanceof NonSparseMember && !$this->selectsNoFields($transformation))
                 || $transformation->request->isIncludedField($transformation->resourceType, $name)) {
                 $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, $name);

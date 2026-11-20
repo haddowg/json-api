@@ -207,35 +207,35 @@ $server = Server::make()
 For the full picture of override resolution and bare registration, see
 [capability composition](capability-composition.md).
 
-### Selecting keys through an override
+### Nested fieldsets through an override
 
 An override renders a type whose Resource class still declares its fields, and the
-Resource class's [`selectableKeys()`](field-types.md#selectable-keys) declarations decide
+Resource class's [`nestedFieldset()`](field-types.md#nested-fieldsets) declarations decide
 what `fields[TYPE]=<attribute>.<key>` selects, as they do for the OpenAPI document. The
 override needs no change: core calls the attribute's callable as usual and trims the value
 to the selected keys, at every depth, so `fields[tracks]=credits.producer` renders a
 `credits` object holding only `producer`. An attribute listed whole renders whole, and the
-response carries the [Field Selection profile](profiles/field-selection.md) as it would
+response carries the [Nested Fieldsets profile](profiles/nested-fieldsets.md) as it would
 from the Resource class. A key the Resource class doesn't accept is an unknown fieldset
 member: a `400` under strict validation when the override implements
 `DeclaresFieldNamesInterface`, and dropped otherwise.
 
 An override that can load less than the whole value implements
-`Serializer\SelectsAttributeKeysInterface`. For an attribute the request narrows, core
-calls its `getSelectedAttribute()` in place of the attribute's callable, with the
-`KeySelection` the request made, and still trims what it returns:
+`Serializer\SerializesNestedFieldsetsInterface`. For an attribute the request narrows, core
+calls its `getNestedFieldsetAttribute()` in place of the attribute's callable, with the
+`NestedFieldset` the request made, and still trims what it returns:
 
 ```php
-use haddowg\JsonApi\Resource\Field\KeySelection;
-use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
+use haddowg\JsonApi\Serializer\SerializesNestedFieldsetsInterface;
 
-final class TrackSerializer extends AbstractSerializer implements SelectsAttributeKeysInterface
+final class TrackSerializer extends AbstractSerializer implements SerializesNestedFieldsetsInterface
 {
-    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function getNestedFieldsetAttribute(mixed $object, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         if ($name === 'credits') {
             // Reads only the selected paths, such as ['producer'].
-            return $this->loadCredits($object, $only->paths());
+            return $this->loadCredits($object, $fieldset->paths());
         }
 
         return $this->getAttributes($object, $request)[$name]($object, $request, $name);
@@ -248,8 +248,8 @@ attribute the override leaves out stays out. Core finds the Resource class throu
 `Resource\ProvidesResourcesInterface`, which the server and its registry implement, on the
 override's injected resolver or the server a response renders against; a resolver that
 decorates the server's should implement it and delegate. A bare serializer registered with
-`registerSerializerHydrator()` has no Resource class, so it declares no selectable keys
-and a key member selects nothing from it.
+`registerSerializerHydrator()` has no Resource class, so it declares no nested fieldset
+and a nested fieldset member selects nothing from it.
 
 ## Rendering relationships from a serializer
 

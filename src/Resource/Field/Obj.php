@@ -35,9 +35,9 @@ use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
  * The object is closed unless it declares {@see additionalProperties()}: an open object
  * also takes members it does not declare, each value read and written through that one
  * field, and kept beside the declared children in the same associative array. An object
- * may also declare {@see selectableKeys()}, so a request can select its keys one by one.
+ * may also declare {@see nestedFieldset()}, so a request can select its keys one by one.
  */
-final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
+final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterface, ProvidesFieldSchema, AcceptsDefaultOutputTimezoneInterface, DeclaresNestedFieldsetInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -46,14 +46,14 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         FieldState $state,
         private array $children = [],
         private ?FieldInterface $additionalProperties = null,
-        private ?SelectableKeys $selectableKeys = null,
+        private ?NestedFieldsetKeys $nestedFieldsetKeys = null,
     ) {
         parent::__construct($state);
     }
 
-    public function selectableKeys(): ?SelectableKeys
+    public function nestedFieldsetKeys(): ?NestedFieldsetKeys
     {
-        return $this->selectableKeys;
+        return $this->nestedFieldsetKeys;
     }
 
     public function keyField(string $key): ?FieldInterface
@@ -137,7 +137,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             ? $this->additionalProperties->withDefaultOutputTimezone($timezone)
             : $this->additionalProperties;
 
-        return $children === $this->children && $additional === $this->additionalProperties ? $this : new self($this->state, $children, $additional, $this->selectableKeys);
+        return $children === $this->children && $additional === $this->additionalProperties ? $this : new self($this->state, $children, $additional, $this->nestedFieldsetKeys);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -153,27 +153,27 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request);
     }
 
-    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function serializeNestedFieldset(mixed $model, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $fieldset), $fieldset);
         }
 
         if ($this->state->extractUsing !== null) {
-            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only), $request, $only);
+            return $this->serializeComputed(KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $fieldset), $request, $fieldset);
         }
 
-        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request, $only);
+        return $this->serializeStored(Accessor::get($model, $this->state->column ?? $name), $request, $fieldset);
     }
 
     /**
-     * Runs the declared children over a stored object value, keeping only the `$only`
+     * Runs the declared children over a stored object value, keeping only the `$fieldset`
      * keys when a request selected some. {@see ArrayList} renders each element of a
      * structured list through it.
      *
      * @internal
      */
-    public function serializeStored(mixed $value, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
+    public function serializeStored(mixed $value, JsonApiRequestInterface $request, ?NestedFieldset $fieldset = null): mixed
     {
         if ($value === null) {
             return null;
@@ -183,10 +183,10 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         // — not the domain object — is what each child serializes against.
         $nested = [];
         foreach ($this->children as $child) {
-            if (($only === null || $only->has($child->name())) && $this->rendersChild($child, $value, $request)) {
-                $inner = $only?->nested($child->name());
-                $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
-                    ? $child->serializeSelection($value, $request, $child->name(), $inner)
+            if (($fieldset === null || $fieldset->has($child->name())) && $this->rendersChild($child, $value, $request)) {
+                $inner = $fieldset?->nested($child->name());
+                $nested[$child->name()] = $inner !== null && $child instanceof DeclaresNestedFieldsetInterface
+                    ? $child->serializeNestedFieldset($value, $request, $child->name(), $inner)
                     : $child->serialize($value, $request, $child->name());
             }
         }
@@ -194,8 +194,8 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
         $field = $this->additionalProperties;
         if ($field !== null && $this->rendersChild($field, $value, $request) && (\is_array($value) || \is_object($value))) {
             foreach ($this->additionalMembersOf(\is_array($value) ? $value : \get_object_vars($value)) as $key => $member) {
-                if ($only === null || $only->has((string) $key)) {
-                    $nested[$key] = self::serializeMember($field, $member, $request, $only?->nested((string) $key));
+                if ($fieldset === null || $fieldset->has((string) $key)) {
+                    $nested[$key] = self::serializeMember($field, $member, $request, $fieldset?->nested((string) $key));
                 }
             }
         }
@@ -212,7 +212,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
      *
      * @internal
      */
-    public function serializeComputed(mixed $value, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
+    public function serializeComputed(mixed $value, JsonApiRequestInterface $request, ?NestedFieldset $fieldset = null): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
@@ -221,7 +221,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             return $value;
         }
 
-        return $this->serializeStored($value, $request, $only);
+        return $this->serializeStored($value, $request, $fieldset);
     }
 
     private function rendersChild(FieldInterface $child, mixed $value, JsonApiRequestInterface $request): bool
@@ -233,12 +233,12 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
      * Renders one undeclared member's value through the member field, which reads it
      * from a one-member object under its own key.
      */
-    private static function serializeMember(FieldInterface $field, mixed $member, JsonApiRequestInterface $request, ?KeySelection $only = null): mixed
+    private static function serializeMember(FieldInterface $field, mixed $member, JsonApiRequestInterface $request, ?NestedFieldset $fieldset = null): mixed
     {
         $holder = [$field->column() ?? $field->name() => $member];
 
-        return $only !== null && $field instanceof SelectsKeysInterface
-            ? $field->serializeSelection($holder, $request, $field->name(), $only)
+        return $fieldset !== null && $field instanceof DeclaresNestedFieldsetInterface
+            ? $field->serializeNestedFieldset($holder, $request, $field->name(), $fieldset)
             : $field->serialize($holder, $request, $field->name());
     }
 

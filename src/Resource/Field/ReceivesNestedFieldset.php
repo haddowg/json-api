@@ -8,9 +8,9 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 
 /**
  * The `extractUsing()` / `computedUsing()` / `serializeUsing()` hooks of a builder whose
- * field a request can narrow, each receiving the selection as its fourth argument.
+ * field a request can narrow, each receiving the nested fieldset as its fourth argument.
  */
-trait ReceivesKeySelection
+trait ReceivesNestedFieldset
 {
     /**
      * Renders the read value from `$callback`, called with the model, the request, the
@@ -20,7 +20,7 @@ trait ReceivesKeySelection
      *
      * @template TModel
      *
-     * @param \Closure(TModel, JsonApiRequestInterface, string, ?KeySelection): mixed $callback
+     * @param \Closure(TModel, JsonApiRequestInterface, string, ?NestedFieldset): mixed $callback
      *
      * @return static
      */
@@ -35,11 +35,11 @@ trait ReceivesKeySelection
      * Supplies the read value from `$callback`, called with the model, the request, the
      * member's name and the keys a request selected, `null` when it selected the whole
      * attribute. The value is trimmed to the selected keys whatever the callback returns,
-     * and a list's selection holds the keys of every item under {@see KeySelection::items()}.
+     * and a list's nested fieldset holds the keys of every item under {@see NestedFieldset::items()}.
      *
      * @template TModel
      *
-     * @param \Closure(TModel, JsonApiRequestInterface, string, ?KeySelection): mixed $callback
+     * @param \Closure(TModel, JsonApiRequestInterface, string, ?NestedFieldset): mixed $callback
      *
      * @return static
      */
@@ -57,7 +57,7 @@ trait ReceivesKeySelection
      *
      * @template TModel
      *
-     * @param \Closure(TModel, JsonApiRequestInterface, string, ?KeySelection): mixed $callback
+     * @param \Closure(TModel, JsonApiRequestInterface, string, ?NestedFieldset): mixed $callback
      *
      * @return static
      */

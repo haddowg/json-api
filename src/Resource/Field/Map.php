@@ -19,10 +19,10 @@ use haddowg\JsonApi\Resource\Field\Internal\KeyTrim;
  * Top-level constraints are limited to presence (`required()` / `nullable()`);
  * structural constraints belong on the child fields. `Map::on($relation)`
  * (related-model column spread) is out of scope for core — see the Symfony
- * bundle. A map that declares {@see selectableKeys()} lets a request select its children
+ * bundle. A map that declares {@see nestedFieldset()} lets a request select its children
  * one by one.
  */
-final readonly class Map extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
+final readonly class Map extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, DeclaresNestedFieldsetInterface
 {
     /**
      * @param list<FieldInterface> $children
@@ -30,14 +30,14 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
     public function __construct(
         FieldState $state,
         private array $children = [],
-        private ?SelectableKeys $selectableKeys = null,
+        private ?NestedFieldsetKeys $nestedFieldsetKeys = null,
     ) {
         parent::__construct($state);
     }
 
-    public function selectableKeys(): ?SelectableKeys
+    public function nestedFieldsetKeys(): ?NestedFieldsetKeys
     {
-        return $this->selectableKeys;
+        return $this->nestedFieldsetKeys;
     }
 
     public function keyField(string $key): ?FieldInterface
@@ -80,7 +80,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
             $this->children,
         );
 
-        return $children === $this->children ? $this : new self($this->state, $children, $this->selectableKeys);
+        return $children === $this->children ? $this : new self($this->state, $children, $this->nestedFieldsetKeys);
     }
 
     public function serialize(mixed $model, JsonApiRequestInterface $request, string $name): mixed
@@ -92,22 +92,22 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
         return $this->serializeChildren($model, $request, $name, null);
     }
 
-    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function serializeNestedFieldset(mixed $model, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $fieldset), $fieldset);
         }
 
-        return $this->serializeChildren($model, $request, $name, $only);
+        return $this->serializeChildren($model, $request, $name, $fieldset);
     }
 
-    private function serializeChildren(mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
+    private function serializeChildren(mixed $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): mixed
     {
         // A computed map spreads its children over the computed value instead of the
         // domain object, so each child still serializes through its own cast.
         $source = $model;
         if ($this->state->extractUsing !== null) {
-            $source = KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only);
+            $source = KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $fieldset);
             if ($source instanceof \JsonSerializable) {
                 $source = $source->jsonSerialize();
             }
@@ -118,7 +118,7 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
 
         $nested = [];
         foreach ($this->children as $child) {
-            if ($only !== null && !$only->has($child->name())) {
+            if ($fieldset !== null && !$fieldset->has($child->name())) {
                 continue;
             }
 
@@ -128,9 +128,9 @@ final readonly class Map extends AbstractFieldValue implements NamedSchemaInterf
                 continue;
             }
 
-            $inner = $only?->nested($child->name());
-            $nested[$child->name()] = $inner !== null && $child instanceof SelectsKeysInterface
-                ? $child->serializeSelection($source, $request, $child->name(), $inner)
+            $inner = $fieldset?->nested($child->name());
+            $nested[$child->name()] = $inner !== null && $child instanceof DeclaresNestedFieldsetInterface
+                ? $child->serializeNestedFieldset($source, $request, $child->name(), $inner)
                 : $child->serialize($source, $request, $child->name());
         }
 

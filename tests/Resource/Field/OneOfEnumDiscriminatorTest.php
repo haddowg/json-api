@@ -11,7 +11,7 @@ use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\OneOfBuilder;
 use haddowg\JsonApi\Resource\Field\Str;
-use haddowg\JsonApi\Resource\FieldSelection;
+use haddowg\JsonApi\Resource\NestedFieldsets;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeServerMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeTypeMetadata;
 use Nyholm\Psr7\ServerRequest;
@@ -34,7 +34,7 @@ final class OneOfEnumDiscriminatorTest extends TestCase
     {
         return OneOf::make('block')->discriminator('type', BlockKind::class)
             ->variants(static fn(BlockKind $kind): ?Obj => match ($kind) {
-                BlockKind::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))->selectableKeys(pattern: 'title|body')->build(),
+                BlockKind::Text => Obj::make('text')->fields(Str::make('title'), Str::make('body'))->nestedFieldset(pattern: 'title|body')->build(),
                 BlockKind::Image => Obj::make('image')->fields(Str::make('url'))->build(),
                 BlockKind::Divider => null,
             });
@@ -47,7 +47,7 @@ final class OneOfEnumDiscriminatorTest extends TestCase
 
         self::assertSame(['text', 'image', 'divider'], \array_keys($union->variants()));
         self::assertSame([], $union->variants()['divider']->children());
-        self::assertNotNull($union->variants()['text']->selectableKeys());
+        self::assertNotNull($union->variants()['text']->nestedFieldsetKeys());
         self::assertSame(BlockKind::class, $union->discriminatorEnum());
     }
 
@@ -152,11 +152,11 @@ final class OneOfEnumDiscriminatorTest extends TestCase
     {
         $request = new JsonApiRequest(new ServerRequest('GET', '/'));
         $union = self::blocks()->build();
-        $only = FieldSelection::selection($union, ['title'], $request);
+        $fieldset = NestedFieldsets::fieldset($union, ['title'], $request);
 
-        self::assertNotNull($only);
-        self::assertSame(['type' => 'text', 'title' => 'Intro'], $union->serializeSelection(['block' => ['type' => BlockKind::Text, 'title' => 'Intro', 'body' => 'Hi']], $request, 'block', $only));
-        self::assertSame(['type' => 'image'], $union->serializeSelection(['block' => ['type' => BlockKind::Image, 'url' => '/a.png']], $request, 'block', $only));
+        self::assertNotNull($fieldset);
+        self::assertSame(['type' => 'text', 'title' => 'Intro'], $union->serializeNestedFieldset(['block' => ['type' => BlockKind::Text, 'title' => 'Intro', 'body' => 'Hi']], $request, 'block', $fieldset));
+        self::assertSame(['type' => 'image'], $union->serializeNestedFieldset(['block' => ['type' => BlockKind::Image, 'url' => '/a.png']], $request, 'block', $fieldset));
     }
 
     #[Test]

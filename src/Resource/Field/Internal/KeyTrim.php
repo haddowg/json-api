@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field\Internal;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 
 /**
  * Trims an object attribute's value to the keys a request selected, and calls an
@@ -16,24 +16,24 @@ use haddowg\JsonApi\Resource\Field\KeySelection;
 final class KeyTrim
 {
     /**
-     * The members of `$value` whose keys `$only` holds, each narrowed key trimmed to the
-     * selection inside it. A list selected through {@see KeySelection::ITEMS} keeps every
-     * item, each trimmed to the selection inside the items. Any other value that is not an
+     * The members of `$value` whose keys `$fieldset` holds, each narrowed key trimmed to the
+     * nested fieldset inside it. A list selected through {@see NestedFieldset::ITEMS} keeps every
+     * item, each trimmed to the nested fieldset inside the items. Any other value that is not an
      * object is returned as it is.
      */
-    public static function trim(mixed $value, KeySelection $only): mixed
+    public static function trim(mixed $value, NestedFieldset $fieldset): mixed
     {
         if ($value instanceof \JsonSerializable) {
             $value = $value->jsonSerialize();
         }
-        if ($only->has(KeySelection::ITEMS)) {
+        if ($fieldset->has(NestedFieldset::ITEMS)) {
             if ($value instanceof \Traversable) {
                 $value = \iterator_to_array($value, false);
             }
             if (!\is_array($value) || !\array_is_list($value)) {
                 return $value;
             }
-            $items = $only->items();
+            $items = $fieldset->items();
 
             return $items === null ? $value : \array_map(static fn(mixed $item): mixed => self::trim($item, $items), $value);
         }
@@ -46,8 +46,8 @@ final class KeyTrim
 
         $kept = [];
         foreach ($value as $key => $member) {
-            if ($only->has((string) $key)) {
-                $inner = $only->nested((string) $key);
+            if ($fieldset->has((string) $key)) {
+                $inner = $fieldset->nested((string) $key);
                 $kept[$key] = $inner === null ? $member : self::trim($member, $inner);
             }
         }
@@ -59,8 +59,8 @@ final class KeyTrim
      * Calls an `extractUsing()` or `serializeUsing()` hook, passing the selected keys as its
      * fourth argument.
      */
-    public static function extract(\Closure $hook, mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
+    public static function extract(\Closure $hook, mixed $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): mixed
     {
-        return $hook($model, $request, $name, $only);
+        return $hook($model, $request, $name, $fieldset);
     }
 }

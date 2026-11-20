@@ -12,19 +12,19 @@ use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
-use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\Obj;
 use haddowg\JsonApi\Resource\Field\Str;
-use haddowg\JsonApi\Resource\FieldSelection;
+use haddowg\JsonApi\Resource\NestedFieldsets;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\MetaResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
-use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
+use haddowg\JsonApi\Schema\Profile\NestedFieldsetsProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\DeclaresFieldNamesInterface;
 use haddowg\JsonApi\Serializer\PolymorphicSerializer;
-use haddowg\JsonApi\Serializer\SelectsAttributeKeysInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
+use haddowg\JsonApi\Serializer\SerializesNestedFieldsetsInterface;
 use haddowg\JsonApi\Server\Server;
 use haddowg\JsonApi\Tests\Double\RecordingOperationHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -36,14 +36,14 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * A type whose Resource declares `selectableKeys()` but renders through a hand-written
+ * A type whose Resource declares `nestedFieldset()` but renders through a hand-written
  * serializer is narrowed by key as its Resource's fields say.
  */
-#[CoversClass(FieldSelection::class)]
+#[CoversClass(NestedFieldsets::class)]
 #[CoversClass(PolymorphicSerializer::class)]
 #[Group('spec:sparse-fieldsets')]
 #[Group('spec:extensions-and-profiles')]
-final class CustomSerializerFieldSelectionTest extends TestCase
+final class CustomSerializerNestedFieldsetsTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -63,8 +63,8 @@ final class CustomSerializerFieldSelectionTest extends TestCase
     {
         $response = $this->render('places', 'name,address.postcode');
 
-        self::assertSame('application/vnd.api+json; profile="' . FieldSelectionProfile::URI . '"', $response->getHeaderLine('Content-Type'));
-        self::assertSame(['version' => '1.1', 'profile' => [FieldSelectionProfile::URI]], $this->body($response)['jsonapi']);
+        self::assertSame('application/vnd.api+json; profile="' . NestedFieldsetsProfile::URI . '"', $response->getHeaderLine('Content-Type'));
+        self::assertSame(['version' => '1.1', 'profile' => [NestedFieldsetsProfile::URI]], $this->body($response)['jsonapi']);
     }
 
     #[Test]
@@ -129,7 +129,7 @@ final class CustomSerializerFieldSelectionTest extends TestCase
     public function aKeyTheResourceAcceptsPassesStrictValidationOfAnOverrideDeclaringItsFieldNames(): void
     {
         $handler = new RecordingOperationHandler(MetaResponse::fromMeta([]));
-        $operation = new KeySelectionOperation($this->request('places', 'name,address.postcode,visits.*.day'), 'places');
+        $operation = new NestedFieldsetOperation($this->request('places', 'name,address.postcode,visits.*.day'), 'places');
 
         $this->server()->withHandler($handler)->dispatch($operation);
 
@@ -141,7 +141,7 @@ final class CustomSerializerFieldSelectionTest extends TestCase
     {
         try {
             $this->server()->withHandler(new RecordingOperationHandler(MetaResponse::fromMeta([])))
-                ->dispatch(new KeySelectionOperation($this->request('places', 'address.unknown,name.first'), 'places'));
+                ->dispatch(new NestedFieldsetOperation($this->request('places', 'address.unknown,name.first'), 'places'));
             self::fail('Expected the members to be rejected.');
         } catch (FieldsetMemberUnrecognized $e) {
             self::assertSame(['address.unknown', 'name.first'], $e->unrecognizedMembers);
@@ -162,9 +162,9 @@ final class CustomSerializerFieldSelectionTest extends TestCase
     {
         $server = $this->server();
         $polymorphic = new PolymorphicSerializer(static fn(mixed $object): SerializerInterface => $server->serializerFor('venues'));
-        $only = new KeySelection(['postcode']);
+        $fieldset = new NestedFieldset(['postcode']);
 
-        $value = $polymorphic->getSelectedAttribute(PlaceResource::model(), $this->request('venues', 'address.postcode'), 'address', $only);
+        $value = $polymorphic->getNestedFieldsetAttribute(PlaceResource::model(), $this->request('venues', 'address.postcode'), 'address', $fieldset);
 
         self::assertSame([['postcode']], SelectingVenueSerializer::$selections);
         self::assertSame(PlaceResource::model()['address'], $value);
@@ -177,20 +177,20 @@ final class CustomSerializerFieldSelectionTest extends TestCase
         $polymorphic = new PolymorphicSerializer(static fn(mixed $object): SerializerInterface => $server->serializerFor('places'));
         $request = $this->request('places', 'address.postcode');
 
-        self::assertSame(PlaceResource::model()['address'], $polymorphic->getSelectedAttribute(PlaceResource::model(), $request, 'address', new KeySelection(['postcode'])));
-        self::assertNull($polymorphic->getSelectedAttribute(PlaceResource::model(), $request, 'missing', new KeySelection(['postcode'])));
+        self::assertSame(PlaceResource::model()['address'], $polymorphic->getNestedFieldsetAttribute(PlaceResource::model(), $request, 'address', new NestedFieldset(['postcode'])));
+        self::assertNull($polymorphic->getNestedFieldsetAttribute(PlaceResource::model(), $request, 'missing', new NestedFieldset(['postcode'])));
     }
 
     #[Test]
-    public function attributeSelectionReadsTheResourceTheTypeWasRegisteredWith(): void
+    public function attributeFieldsetReadsTheResourceTheTypeWasRegisteredWith(): void
     {
         $server = $this->server();
         $serializer = $server->serializerFor('places');
         $request = $this->request('places', 'address.postcode,address.geo.lat');
 
-        self::assertSame(['postcode', 'geo.lat'], FieldSelection::attributeSelection($serializer, 'places', 'address', $request, $server)?->paths());
-        self::assertNull(FieldSelection::attributeSelection($serializer, 'places', 'address', $request));
-        self::assertNull(FieldSelection::attributeSelection($serializer, 'places', 'name', $request, $server));
+        self::assertSame(['postcode', 'geo.lat'], NestedFieldsets::attributeFieldset($serializer, 'places', 'address', $request, $server)?->paths());
+        self::assertNull(NestedFieldsets::attributeFieldset($serializer, 'places', 'address', $request));
+        self::assertNull(NestedFieldsets::attributeFieldset($serializer, 'places', 'name', $request, $server));
     }
 
     private function server(): Server
@@ -202,7 +202,7 @@ final class CustomSerializerFieldSelectionTest extends TestCase
             ->register(PlaceResource::class, serializer: PlaceSerializer::class)
             ->register(VenueResource::class, serializer: SelectingVenueSerializer::class)
             ->registerSerializerHydrator('kiosks', serializer: KioskSerializer::class)
-            ->withProfile(new FieldSelectionProfile());
+            ->withProfile(new NestedFieldsetsProfile());
     }
 
     private function request(string $type, string $fields): JsonApiRequestInterface
@@ -281,10 +281,10 @@ final class PlaceResource extends AbstractResource
             Obj::make('address')->fields(
                 Str::make('street'),
                 Str::make('postcode'),
-                Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->selectableKeys(pattern: 'lat|lng'),
-            )->selectableKeys(pattern: 'street|postcode|geo'),
-            ArrayList::make('visits')->of(Obj::make('visit')->fields(Str::make('day'), Integer::make('count'))->selectableKeys(pattern: 'day|count')),
-            Obj::make('secret')->fields(Str::make('code'))->selectableKeys(pattern: 'code'),
+                Obj::make('geo')->fields(Decimal::make('lat'), Decimal::make('lng'))->nestedFieldset(pattern: 'lat|lng'),
+            )->nestedFieldset(pattern: 'street|postcode|geo'),
+            ArrayList::make('visits')->of(Obj::make('visit')->fields(Str::make('day'), Integer::make('count'))->nestedFieldset(pattern: 'day|count')),
+            Obj::make('secret')->fields(Str::make('code'))->nestedFieldset(pattern: 'code'),
         ];
     }
 }
@@ -300,7 +300,7 @@ final class VenueResource extends AbstractResource
 }
 
 /**
- * Renders every attribute whole, as a serializer written before key selection would.
+ * Renders every attribute whole, as a serializer written before nested fieldsets would.
  */
 final class PlaceSerializer extends AbstractSerializer implements DeclaresFieldNamesInterface
 {
@@ -354,7 +354,7 @@ final class PlaceSerializer extends AbstractSerializer implements DeclaresFieldN
 /**
  * Receives the selection, and still returns the whole address so the trim shows.
  */
-final class SelectingVenueSerializer implements SerializerInterface, SelectsAttributeKeysInterface
+final class SelectingVenueSerializer implements SerializerInterface, SerializesNestedFieldsetsInterface
 {
     /**
      * @var list<list<string>>
@@ -391,10 +391,10 @@ final class SelectingVenueSerializer implements SerializerInterface, SelectsAttr
         ];
     }
 
-    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function getNestedFieldsetAttribute(mixed $object, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         \assert(\is_array($object));
-        self::$selections[] = $only->paths();
+        self::$selections[] = $fieldset->paths();
 
         return $object[$name];
     }
@@ -450,7 +450,7 @@ final class KioskSerializer extends AbstractSerializer
     }
 }
 
-final readonly class KeySelectionOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
+final readonly class NestedFieldsetOperation implements \haddowg\JsonApi\Operation\JsonApiOperationInterface
 {
     public function __construct(private JsonApiRequestInterface $request, private string $type) {}
 

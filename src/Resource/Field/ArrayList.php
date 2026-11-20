@@ -23,12 +23,12 @@ use haddowg\JsonApi\Resource\ValueTypes;
  * ({@see elementUnion()}). A write replaces the whole list, building every element
  * fresh from the request.
  *
- * A structured list whose element is an {@see Obj} declaring `selectableKeys()`, or a
+ * A structured list whose element is an {@see Obj} declaring `nestedFieldset()`, or a
  * {@see OneOf} with a variant that does, lets a request select keys of every item as
- * `<attr>.*.<key>`: its one selectable key is {@see KeySelection::ITEMS}, and each item
- * renders trimmed to the selection inside it.
+ * `<attr>.*.<key>`: its one nested fieldset key is {@see NestedFieldset::ITEMS}, and each item
+ * renders trimmed to the nested fieldset inside it.
  */
-final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
+final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, DeclaresNestedFieldsetInterface
 {
     public function __construct(
         FieldState $state,
@@ -83,30 +83,30 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     /**
      * The element whose keys a request may select in every item, or `null` when the list
-     * is not of an {@see Obj} declaring `selectableKeys()` or of a {@see OneOf} with a
+     * is not of an {@see Obj} declaring `nestedFieldset()` or of a {@see OneOf} with a
      * variant that does.
      */
-    public function selectableElement(): Obj|OneOf|null
+    public function nestedFieldsetElement(): Obj|OneOf|null
     {
         return match (true) {
-            $this->element instanceof Obj => $this->element->selectableKeys() !== null ? $this->element : null,
-            $this->element instanceof OneOf => $this->element->selectableVariants() !== [] ? $this->element : null,
+            $this->element instanceof Obj => $this->element->nestedFieldsetKeys() !== null ? $this->element : null,
+            $this->element instanceof OneOf => $this->element->nestedFieldsetVariants() !== [] ? $this->element : null,
             default => null,
         };
     }
 
     /**
-     * Accepts only {@see KeySelection::ITEMS}, and only when the list has a
-     * {@see selectableElement()}. A list declares nothing itself: its element does.
+     * Accepts only {@see NestedFieldset::ITEMS}, and only when the list has a
+     * {@see nestedFieldsetElement()}. A list declares nothing itself: its element does.
      */
-    public function selectableKeys(): ?SelectableKeys
+    public function nestedFieldsetKeys(): ?NestedFieldsetKeys
     {
-        return $this->selectableElement() === null ? null : new SelectableKeys(pattern: '\\*');
+        return $this->nestedFieldsetElement() === null ? null : new NestedFieldsetKeys(pattern: '\\*');
     }
 
     public function keyField(string $key): ?FieldInterface
     {
-        return $key === KeySelection::ITEMS ? $this->selectableElement() : null;
+        return $key === NestedFieldset::ITEMS ? $this->nestedFieldsetElement() : null;
     }
 
     public function withDefaultOutputTimezone(string $timezone): static
@@ -130,42 +130,42 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
     }
 
     /**
-     * The list with every item trimmed to the selection inside {@see KeySelection::ITEMS},
-     * or every item whole when the selection holds none inside them. Its length and order are
+     * The list with every item trimmed to the nested fieldset inside {@see NestedFieldset::ITEMS},
+     * or every item whole when the nested fieldset holds none inside them. Its length and order are
      * kept, and an item holding none of the selected keys renders as an empty object.
      */
-    public function serializeSelection(mixed $model, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function serializeNestedFieldset(mixed $model, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         if ($this->state->serializeUsing !== null) {
-            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $only), $only);
+            return KeyTrim::trim(KeyTrim::extract($this->state->serializeUsing, $model, $request, $name, $fieldset), $fieldset);
         }
         if ($this->element === null) {
-            return KeyTrim::trim($this->serialize($model, $request, $name), $only);
+            return KeyTrim::trim($this->serialize($model, $request, $name), $fieldset);
         }
 
-        return $this->serializeItems($model, $request, $name, $only);
+        return $this->serializeItems($model, $request, $name, $fieldset);
     }
 
-    private function serializeItems(mixed $model, JsonApiRequestInterface $request, string $name, ?KeySelection $only): mixed
+    private function serializeItems(mixed $model, JsonApiRequestInterface $request, string $name, ?NestedFieldset $fieldset): mixed
     {
         if ($this->element === null || $this->state->serializeUsing !== null) {
             return parent::serialize($model, $request, $name);
         }
 
         $element = $this->element;
-        $items = $only?->items();
+        $items = $fieldset?->items();
         $computed = $this->state->extractUsing !== null;
         if ($element instanceof Obj) {
             $render = static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $items) : $element->serializeStored($item, $request, $items);
         } else {
-            // Each variant accepts its own share of the selection, worked out once per list.
-            $variants = $items === null ? null : $element->variantSelections($items, $request);
+            // Each variant accepts its own share of the nested fieldset, worked out once per list.
+            $variants = $items === null ? null : $element->variantFieldsets($items, $request);
             $render = static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $variants) : $element->serializeStored($item, $request, $variants);
         }
 
         return $this->mapElements(
             $this->state->extractUsing !== null
-                ? KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $only)
+                ? KeyTrim::extract($this->state->extractUsing, $model, $request, $name, $fieldset)
                 : Accessor::get($model, $this->state->column ?? $name),
             $render,
         );

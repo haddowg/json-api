@@ -405,7 +405,7 @@ abstract class AbstractResponse
     }
 
     /**
-     * Adds the field-selection profile when the request narrows an attribute to some of
+     * Adds the nested fieldsets profile when the request narrows an attribute to some of
      * its keys and the server recognizes the profile. A response rendering resources
      * calls it from {@see appliedProfiles()}.
      *
@@ -413,15 +413,15 @@ abstract class AbstractResponse
      *
      * @return list<ProfileInterface>
      */
-    protected function withFieldSelectionProfile(array $profiles, ServerInterface $server, JsonApiRequestInterface $request): array
+    protected function withNestedFieldsetsProfile(array $profiles, ServerInterface $server, JsonApiRequestInterface $request): array
     {
         if (!$server instanceof \haddowg\JsonApi\Resource\SerializerResolverInterface
-            || !$server->profiles()->has(\haddowg\JsonApi\Schema\Profile\FieldSelectionProfile::URI)
-            || !\haddowg\JsonApi\Resource\FieldSelection::narrows($server, $request)) {
+            || !$server->profiles()->has(\haddowg\JsonApi\Schema\Profile\NestedFieldsetsProfile::URI)
+            || !\haddowg\JsonApi\Resource\NestedFieldsets::narrows($server, $request)) {
             return $profiles;
         }
 
-        return $this->mergeAppliedProfile($profiles, $server, $server->profiles()->get(\haddowg\JsonApi\Schema\Profile\FieldSelectionProfile::URI));
+        return $this->mergeAppliedProfile($profiles, $server, $server->profiles()->get(\haddowg\JsonApi\Schema\Profile\NestedFieldsetsProfile::URI));
     }
 
     /**

@@ -29,7 +29,7 @@ final class ArrayListBuilder extends AbstractFieldBuilder
     /** @use DeclaresFillHook<TValue> */
     use DeclaresFillHook;
     use NamesSchemaComponent;
-    use ReceivesKeySelection;
+    use ReceivesNestedFieldset;
 
     /**
      * The JSON type of each element, surfaced as the OpenAPI `items` type. Defaults

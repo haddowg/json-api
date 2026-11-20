@@ -74,7 +74,7 @@ namespace haddowg\JsonApi\OpenApi;
  * types ({@see UNIONS}), a field's shape declared as a named component
  * ({@see NAMED_COMPONENTS}), a singleton type ({@see SINGLETONS}), a document
  * declaring its top-level `meta` ({@see TYPED_DOCUMENT_META}), a `fields[<type>]`
- * parameter accepting single keys of an attribute ({@see FIELD_SELECTION}) and a declared
+ * parameter accepting single keys of an attribute ({@see NESTED_FIELDSETS}) and a declared
  * request, resource object, pivot or identifier `meta` object ({@see TYPED_REQUEST_META}).
  * A change that moves every
  * document raises `BASELINE` and `CONTRACT` together; the second witness,
@@ -362,15 +362,15 @@ final class GeneratorContract
     public const TYPED_DOCUMENT_META = 41;
 
     /**
-     * The contract that introduced field selection: a `fields[<type>]` parameter whose
+     * The contract that introduced nested fieldsets: a `fields[<type>]` parameter whose
      * items are an `anyOf` of the member enum and one `pattern` per attribute declaring
-     * selectable keys, matching `<attribute>.<key>`, one per object nested in it that
-     * declares selectable keys too, matching `<attribute>.<key>.<key>`, and one per path
+     * a nested fieldset, matching `<attribute>.<key>`, one per object nested in it that
+     * declares a nested fieldset too, matching `<attribute>.<key>.<key>`, and one per path
      * into the items of a list through `*`, a one-of anywhere giving the paths of every
-     * variant declaring selectable keys. A document carries it only when some
+     * variant declaring a nested fieldset. A document carries it only when some
      * `fields[<type>]` parameter accepts such keys.
      */
-    public const FIELD_SELECTION = 42;
+    public const NESTED_FIELDSETS = 42;
 
     /**
      * The contract that introduced declared request and resource object `meta`: a write's
@@ -418,7 +418,7 @@ final class GeneratorContract
         bool $namedComponents = false,
         bool $singletons = false,
         bool $typedDocumentMeta = false,
-        bool $fieldSelection = false,
+        bool $nestedFieldsets = false,
         bool $typedRequestMeta = false,
     ): array {
         return ['contract' => \max(
@@ -450,7 +450,7 @@ final class GeneratorContract
             $namedComponents ? self::NAMED_COMPONENTS : self::BASELINE,
             $singletons ? self::SINGLETONS : self::BASELINE,
             $typedDocumentMeta ? self::TYPED_DOCUMENT_META : self::BASELINE,
-            $fieldSelection ? self::FIELD_SELECTION : self::BASELINE,
+            $nestedFieldsets ? self::NESTED_FIELDSETS : self::BASELINE,
             $typedRequestMeta ? self::TYPED_REQUEST_META : self::BASELINE,
         )];
     }

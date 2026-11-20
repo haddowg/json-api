@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
-use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
@@ -25,7 +25,7 @@ use haddowg\JsonApi\Schema\Link\ResourceLinks;
  * counts it, so `?withCount` validates against their union and each member renders
  * its own `meta.total`. Without them nothing is countable.
  */
-final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface, RendersResourceMetaInterface, SelectsAttributeKeysInterface
+final class PolymorphicSerializer implements SerializerInterface, IncludeControlsInterface, RendersDeclaredLinksInterface, CountableControlsInterface, RendersResourceMetaInterface, SerializesNestedFieldsetsInterface
 {
     /**
      * @var list<SerializerInterface>
@@ -137,11 +137,11 @@ final class PolymorphicSerializer implements SerializerInterface, IncludeControl
      * The member's own selected value when its serializer selects keys, else the value of
      * its attribute callable, which core then trims.
      */
-    public function getSelectedAttribute(mixed $object, JsonApiRequestInterface $request, string $name, KeySelection $only): mixed
+    public function getNestedFieldsetAttribute(mixed $object, JsonApiRequestInterface $request, string $name, NestedFieldset $fieldset): mixed
     {
         $serializer = $this->for($object);
-        if ($serializer instanceof SelectsAttributeKeysInterface) {
-            return $serializer->getSelectedAttribute($object, $request, $name, $only);
+        if ($serializer instanceof SerializesNestedFieldsetsInterface) {
+            return $serializer->getNestedFieldsetAttribute($object, $request, $name, $fieldset);
         }
         $attribute = $serializer->getAttributes($object, $request)[$name] ?? null;
 

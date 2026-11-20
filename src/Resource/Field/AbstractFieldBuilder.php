@@ -98,7 +98,7 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     protected mixed $example = null;
 
     /**
-     * Called with the model, the request and the member's name, and the key selection on a
+     * Called with the model, the request and the member's name, and the nested fieldset on a
      * field whose keys a request can select.
      */
     protected ?\Closure $serializeUsing = null;

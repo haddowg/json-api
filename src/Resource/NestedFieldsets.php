@@ -6,32 +6,32 @@ namespace haddowg\JsonApi\Resource;
 
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\ArrayList;
+use haddowg\JsonApi\Resource\Field\DeclaresNestedFieldsetInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
-use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
-use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
  * Reads the `<attr>.<key>` members of a `fields[TYPE]` parameter against the attributes
- * that declare `selectableKeys()`. The resource renders through it, the server validates
- * through it and the responses advertise the field-selection profile through it, so an
+ * that declare `nestedFieldset()`. The resource renders through it, the server validates
+ * through it and the responses advertise the nested fieldsets profile through it, so an
  * adapter that needs the same answers asks here rather than parsing the members itself.
  *
  * A member is `<attr>.<key>`: the attribute name up to the first `.` and the key after
  * it. A key holds no `.`, so a longer path such as `<attr>.<key>.<key>` names a key of a
  * nested object, and is accepted only when every object along it declares
- * `selectableKeys()` accepting the next key. The key `*` stands for every item of a list
- * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. A
+ * `nestedFieldset()` accepting the next key. The key `*` stands for every item of a list
+ * whose element declares `nestedFieldset()`, as `<attr>.*.<key>`, and for nothing else. A
  * {@see OneOf}, wherever it appears, takes every key one of its variants accepts, each value
  * keeping its discriminator and the keys its own variant accepts. An
  * attribute or key the parameter also lists whole renders whole. A path ending in `*` names
  * the list itself, so `<attr>.*` lists the attribute whole exactly as `<attr>` does, and
  * narrows nothing.
  */
-final class FieldSelection
+final class NestedFieldsets
 {
     /**
      * The keys `fields[$type]` requests per attribute it narrows rather than lists whole,
@@ -63,24 +63,24 @@ final class FieldSelection
 
     /**
      * The `$keys` the field's declaration accepts, or `null` when the field declares no
-     * selectable keys, accepts none of them, or they select it whole. A dotted key is a
+     * nested fieldset, accepts none of them, or they select it whole. A dotted key is a
      * path into a nested object: it is accepted when each object along it declares
-     * `selectableKeys()` and accepts the next key, or is a list whose element does and the
+     * `nestedFieldset()` and accepts the next key, or is a list whose element does and the
      * key is `*`. A key also selected whole is not narrowed, and a path ending in `*`
      * selects its list whole.
      *
      * @param list<string> $keys
      */
-    public static function selection(FieldInterface $field, array $keys, JsonApiRequestInterface $request): ?KeySelection
+    public static function fieldset(FieldInterface $field, array $keys, JsonApiRequestInterface $request): ?NestedFieldset
     {
         $selected = self::selectKeys($field, $keys, $request);
 
-        return $selected instanceof KeySelection ? $selected : null;
+        return $selected instanceof NestedFieldset ? $selected : null;
     }
 
     /**
      * Whether the `$keys` select the field whole, as `*` alone does a list whose element
-     * declares `selectableKeys()`. Such a field renders as if `fields[TYPE]` listed its
+     * declares `nestedFieldset()`. Such a field renders as if `fields[TYPE]` listed its
      * name.
      *
      * @param list<string> $keys
@@ -93,24 +93,24 @@ final class FieldSelection
     /**
      * @param list<string> $keys
      */
-    private static function selectKeys(FieldInterface $field, array $keys, JsonApiRequestInterface $request): KeySelection|true|null
+    private static function selectKeys(FieldInterface $field, array $keys, JsonApiRequestInterface $request): NestedFieldset|true|null
     {
         return self::select($field, \array_map(static fn(string $key): array => \explode('.', $key), $keys), $request);
     }
 
     /**
-     * The selection the paths make of the field, `true` when one of them selects the field
+     * The nested fieldset the paths make of the field, `true` when one of them selects the field
      * whole, or `null` when it accepts none of them.
      *
      * @param list<list<string>> $paths
      */
-    private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
+    private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): NestedFieldset|true|null
     {
         if ($field instanceof OneOf) {
             return self::selectVariants($field, $paths, $request);
         }
-        $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
-        if ($declared === null || !$field instanceof SelectsKeysInterface) {
+        $declared = $field instanceof DeclaresNestedFieldsetInterface ? $field->nestedFieldsetKeys() : null;
+        if ($declared === null || !$field instanceof DeclaresNestedFieldsetInterface) {
             return null;
         }
 
@@ -119,7 +119,7 @@ final class FieldSelection
         $deeper = [];
         foreach ($paths as $segments) {
             $key = $segments[0];
-            if (($key === KeySelection::ITEMS) !== $field instanceof ArrayList || !$declared->accepts($key, $request)) {
+            if (($key === NestedFieldset::ITEMS) !== $field instanceof ArrayList || !$declared->accepts($key, $request)) {
                 continue;
             }
             $rest = \array_slice($segments, 1);
@@ -153,21 +153,21 @@ final class FieldSelection
         $nested = [];
         foreach (\array_diff_key($deeper, $whole) as $key => $rests) {
             $inner = self::selectChild($field, (string) $key, $rests, $request);
-            if ($inner instanceof KeySelection) {
+            if ($inner instanceof NestedFieldset) {
                 $nested[(string) $key] = $inner;
             }
         }
 
-        return new KeySelection(\array_map(\strval(...), \array_keys($selected)), $nested);
+        return new NestedFieldset(\array_map(\strval(...), \array_keys($selected)), $nested);
     }
 
     /**
-     * The selection the paths make of the field rendering `$key`. The items of a list of a
+     * The nested fieldset the paths make of the field rendering `$key`. The items of a list of a
      * {@see OneOf} accepts what any of its variants accepts.
      *
      * @param list<list<string>> $paths
      */
-    private static function selectChild(SelectsKeysInterface $field, string $key, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
+    private static function selectChild(DeclaresNestedFieldsetInterface $field, string $key, array $paths, JsonApiRequestInterface $request): NestedFieldset|true|null
     {
         $child = $field->keyField($key);
 
@@ -180,12 +180,12 @@ final class FieldSelection
      *
      * @param list<list<string>> $paths
      */
-    private static function selectVariants(OneOf $field, array $paths, JsonApiRequestInterface $request): ?KeySelection
+    private static function selectVariants(OneOf $field, array $paths, JsonApiRequestInterface $request): ?NestedFieldset
     {
         $merged = null;
-        foreach ($field->selectableVariants() as $variant) {
+        foreach ($field->nestedFieldsetVariants() as $variant) {
             $selection = self::select($variant, $paths, $request);
-            if ($selection instanceof KeySelection) {
+            if ($selection instanceof NestedFieldset) {
                 $merged = $merged === null ? $selection : self::merge($merged, $selection);
             }
         }
@@ -194,14 +194,14 @@ final class FieldSelection
             return $merged;
         }
 
-        return self::merge(new KeySelection([$discriminator]), $merged);
+        return self::merge(new NestedFieldset([$discriminator]), $merged);
     }
 
     /**
-     * Both selections at once: a key either selects whole is whole, and a key both narrow
+     * Both nested fieldsets at once: a key either selects whole is whole, and a key both narrow
      * holds both narrowings.
      */
-    private static function merge(KeySelection $a, KeySelection $b): KeySelection
+    private static function merge(NestedFieldset $a, NestedFieldset $b): NestedFieldset
     {
         $keys = [...$a->keys, ...$b->keys];
         $nested = [];
@@ -214,29 +214,29 @@ final class FieldSelection
             $nested[$key] = $inA === null ? $inB : ($inB === null ? $inA : self::merge($inA, $inB));
         }
 
-        return new KeySelection($keys, \array_filter($nested));
+        return new NestedFieldset($keys, \array_filter($nested));
     }
 
     /**
-     * The selection `fields[$type]` makes of the attribute `$name` of a resource the
+     * The nested fieldset `fields[$type]` makes of the attribute `$name` of a resource the
      * serializer renders, read against the type's Resource, or `null` when the request
      * does not narrow that attribute or its declaration accepts none of the keys. A
      * serializer that is not the type's Resource, such as an override, is narrowed by the
      * fields of the Resource the type was registered with, which `$resolver` provides.
      */
-    public static function attributeSelection(SerializerInterface $serializer, string $type, string $name, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null): ?KeySelection
+    public static function attributeFieldset(SerializerInterface $serializer, string $type, string $name, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null): ?NestedFieldset
     {
         $keys = self::requestedKeys($request, $type)[$name] ?? null;
         $resource = $keys === null ? null : self::declaringResource($serializer, $type, $resolver);
         $field = $resource === null ? null : self::attributeNamed($resource, $name);
 
-        return $field === null || $keys === null ? null : self::selection($field, $keys, $request);
+        return $field === null || $keys === null ? null : self::fieldset($field, $keys, $request);
     }
 
     /**
-     * Whether `fields[$type]` selects the attribute `$name` whole through a key member, as
+     * Whether `fields[$type]` selects the attribute `$name` whole through a nested fieldset member, as
      * `<attr>.*` does a list, read against the type's Resource as
-     * {@see attributeSelection()} reads it. An attribute listed by its name is not counted
+     * {@see attributeFieldset()} reads it. An attribute listed by its name is not counted
      * here: {@see JsonApiRequestInterface::isIncludedField()} answers for it.
      */
     public static function attributeSelectedWhole(SerializerInterface $serializer, string $type, string $name, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null): bool
@@ -269,7 +269,7 @@ final class FieldSelection
 
     /**
      * Whether the request narrows an attribute of any type the resolver serializes, so
-     * its responses apply the field-selection profile. A key member that selects its
+     * its responses apply the nested fieldsets profile. A nested fieldset member that selects its
      * attribute whole, as `<attr>.*` does a list, narrows nothing.
      */
     public static function narrows(SerializerResolverInterface $resolver, JsonApiRequestInterface $request): bool
@@ -284,7 +284,7 @@ final class FieldSelection
             }
             foreach (self::requestedKeys($request, $type) as $name => $keys) {
                 $field = self::attributeNamed($resource, $name);
-                if ($field !== null && self::selection($field, $keys, $request) !== null) {
+                if ($field !== null && self::fieldset($field, $keys, $request) !== null) {
                     return true;
                 }
             }
