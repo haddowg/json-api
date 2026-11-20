@@ -569,6 +569,11 @@ Str::make('note')->nullable()->fillUsing(static fn (Track $track, ?string $value
 | `Obj` with `additionalProperties()`, `ArrayHash` | `array<array-key, mixed>`, since PHP decodes a numeric key as an `int` |
 | `Union` | `string\|int\|float\|bool\|list<mixed>` |
 
+A `Decimal`'s `float` holds every whole number up to 2^53, 9,007,199,254,740,992, and
+loses precision above it before validation or a hook sees the value. An exact or a large
+decimal belongs in a `Str` with a `pattern()`, as [field types](field-types.md#decimal)
+describes.
+
 The value widens with what the declaration lets a write carry:
 
 - `nullable()` adds `null`, and so does `constrain()` with a `Nullable` or `When`.
@@ -597,9 +602,12 @@ hook's value yourself.
 
 A builder carries its type from left to right, so declare these before the hook: a
 `nullable()` written after `fillUsing()` does not reach the closure PHPStan already
-checked. A `when()` condition's value stays `mixed`, since a validator asks it before
-the type check runs. A relation's hooks, an `Id`, and a builder you construct yourself
-or subclass without forwarding its template take `mixed`. It is static typing only:
+checked.
+
+Some values stay `mixed` whatever the builder carries. A `when()` closure's condition
+value does, since a validator asks it before the type check runs, and so do a relation's
+hooks, whose values are linkage rather than a typed attribute. An `Id` and a builder you
+construct yourself or subclass without forwarding its template take `mixed` too. It is static typing only:
 nothing changes at runtime.
 
 ### Worked example: a computed read and a renamed column

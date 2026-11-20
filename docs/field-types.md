@@ -104,8 +104,12 @@ Decimal::make('averageRating')->readOnly()->nullable();
 
 A `Decimal` reaches PHP as a `float`, since the request body is decoded as JSON, so a
 number with more significant digits than a `float` holds, such as
-`1.10000000000000001`, arrives as `1.1`. Use a `Decimal` for values a `float`
-represents exactly enough.
+`1.10000000000000001`, arrives as `1.1`. A `float` holds every whole number up to 2^53,
+9,007,199,254,740,992, and loses precision above it, and a JavaScript client reading any
+JSON number, an `Integer` included, loses it at the same point. Use a `Decimal` for values
+a `float` represents exactly enough. An exact or a large decimal, such as an amount of
+money that must not round or a total above 2^53, belongs in a `Str` with a `pattern()`, so
+it travels and is stored as text.
 
 A `float` can't be assigned to a property or setter typed `string`. A data layer that
 reads a decimal column as a string converts it with a
