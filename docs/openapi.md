@@ -375,7 +375,8 @@ an attribute declaring [selectable keys](field-types.md#selectable-keys), the it
 an `anyOf` of that enum and one string `pattern` per path a member may select:
 `<attribute>.<key>` for each such attribute, `<attribute>.<key>.<key>` for each object
 inside it that declares selectable keys too, at any depth, and `<attribute>.*` and
-`<attribute>.*.<key>` for a list whose element declares them:
+`<attribute>.*.<key>` for a list whose element declares them, and for a `OneOf`, wherever
+it sits, the paths of every variant that declares them:
 
 ```json
 "items": {
@@ -1304,8 +1305,8 @@ declares the `SINGLETONS` contract tier in its
 it projects every type at `/{uriType}/{id}`.
 
 `DeclaresDocumentMeta` extends `TypeMetadataInterface` with
-`documentMeta(OperationType $operation): iterable`, the members of the top-level `meta` of the
-document that operation answers with. Delegate to the type's own
+`documentMeta(OperationType $operation, ?string $relation = null): iterable`, the members of
+the top-level `meta` of the document that operation answers with. Delegate to the type's own
 [`documentMeta()`](links-and-meta.md#typed-document-meta). Each operation returning members,
 and each related endpoint serving the type, answers with a
 [typed-meta document](#typed-document-meta-x-document-meta). A document with one declares the

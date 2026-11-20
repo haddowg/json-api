@@ -9,6 +9,7 @@ use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\KeySelection;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -23,7 +24,9 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * it. A key holds no `.`, so a longer path such as `<attr>.<key>.<key>` names a key of a
  * nested object, and is accepted only when every object along it declares
  * `selectableKeys()` accepting the next key. The key `*` stands for every item of a list
- * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. An
+ * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. A
+ * {@see OneOf}, wherever it appears, takes every key one of its variants accepts, each value
+ * keeping its discriminator and the keys its own variant accepts. An
  * attribute or key the parameter also lists whole renders whole. A path ending in `*` names
  * the list itself, so `<attr>.*` lists the attribute whole exactly as `<attr>` does, and
  * narrows nothing.
@@ -103,6 +106,9 @@ final class FieldSelection
      */
     private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
     {
+        if ($field instanceof OneOf) {
+            return self::selectVariants($field, $paths, $request);
+        }
         $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
         if ($declared === null || !$field instanceof SelectsKeysInterface) {
             return null;
@@ -127,8 +133,7 @@ final class FieldSelection
 
                 continue;
             }
-            $child = $field->keyField($key);
-            $inner = $child === null ? null : self::select($child, [$rest], $request);
+            $inner = self::selectChild($field, $key, [$rest], $request);
             if ($inner === null) {
                 continue;
             }
@@ -147,14 +152,69 @@ final class FieldSelection
 
         $nested = [];
         foreach (\array_diff_key($deeper, $whole) as $key => $rests) {
-            $child = $field->keyField((string) $key);
-            $inner = $child === null ? null : self::select($child, $rests, $request);
+            $inner = self::selectChild($field, (string) $key, $rests, $request);
             if ($inner instanceof KeySelection) {
                 $nested[(string) $key] = $inner;
             }
         }
 
         return new KeySelection(\array_map(\strval(...), \array_keys($selected)), $nested);
+    }
+
+    /**
+     * The selection the paths make of the field rendering `$key`. The items of a list of a
+     * {@see OneOf} accepts what any of its variants accepts.
+     *
+     * @param list<list<string>> $paths
+     */
+    private static function selectChild(SelectsKeysInterface $field, string $key, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
+    {
+        $child = $field->keyField($key);
+
+        return $child === null ? null : self::select($child, $paths, $request);
+    }
+
+    /**
+     * What any variant of the union accepts of the paths, holding the discriminator too,
+     * since every narrowed value renders it.
+     *
+     * @param list<list<string>> $paths
+     */
+    private static function selectVariants(OneOf $field, array $paths, JsonApiRequestInterface $request): ?KeySelection
+    {
+        $merged = null;
+        foreach ($field->selectableVariants() as $variant) {
+            $selection = self::select($variant, $paths, $request);
+            if ($selection instanceof KeySelection) {
+                $merged = $merged === null ? $selection : self::merge($merged, $selection);
+            }
+        }
+        $discriminator = $field->discriminatorName();
+        if ($merged === null || $discriminator === null || $merged->has($discriminator)) {
+            return $merged;
+        }
+
+        return self::merge(new KeySelection([$discriminator]), $merged);
+    }
+
+    /**
+     * Both selections at once: a key either selects whole is whole, and a key both narrow
+     * holds both narrowings.
+     */
+    private static function merge(KeySelection $a, KeySelection $b): KeySelection
+    {
+        $keys = [...$a->keys, ...$b->keys];
+        $nested = [];
+        foreach ($keys as $key) {
+            $inA = $a->has($key) ? $a->nested($key) ?? true : null;
+            $inB = $b->has($key) ? $b->nested($key) ?? true : null;
+            if ($inA === true || $inB === true) {
+                continue;
+            }
+            $nested[$key] = $inA === null ? $inB : ($inB === null ? $inA : self::merge($inA, $inB));
+        }
+
+        return new KeySelection($keys, \array_filter($nested));
     }
 
     /**

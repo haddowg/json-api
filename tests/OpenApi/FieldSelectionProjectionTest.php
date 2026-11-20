@@ -13,6 +13,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Schema\Profile\FieldSelectionProfile;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -153,6 +154,70 @@ final class FieldSelectionProjectionTest extends TestCase
             self::assertStringNotContainsString('notes', $pattern);
             self::assertStringNotContainsString('plainLines', $pattern);
         }
+    }
+
+    #[Test]
+    public function aListOfAOneOfAddsThePathsOfEverySelectableVariant(): void
+    {
+        $blocks = ArrayList::make('blocks')->of(
+            OneOf::make('block')->discriminator('type')
+                ->variant('text', Obj::make('text')->fields(Str::make('title'), Obj::make('meta')->fields(Str::make('lang'))->selectableKeys(pattern: 'lang'))->selectableKeys(pattern: 'title|meta'))
+                ->variant('image', Obj::make('image')->fields(Str::make('title'), Str::make('url'))->selectableKeys(pattern: 'title|url'))
+                ->variant('divider', Str::make('style')),
+        );
+        $plain = ArrayList::make('plain')->of(OneOf::make('item')->discriminator('type')->variant('a', Str::make('x')));
+        $document = (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(type: 'pages', fields: [Id::make()->build(), $blocks->build(), $plain->build()])],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+
+        self::assertSame(
+            [
+                'type' => 'array',
+                'items' => ['anyOf' => [
+                    ['type' => 'string', 'enum' => ['blocks', 'plain']],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.(?:title|meta)$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.meta\\.(?:lang)$'],
+                    ['type' => 'string', 'pattern' => '^blocks\\.\\*\\.(?:title|url)$'],
+                ]],
+            ],
+            $this->fieldsParameter($document, '/pages', 'fields[pages]')['schema'],
+        );
+    }
+
+    #[Test]
+    public function aOneOfAttributeOrChildAddsThePathsOfEverySelectableVariant(): void
+    {
+        $hero = OneOf::make('hero')->discriminator('type')
+            ->variant('image', Obj::make('image')->fields(Str::make('src'), Str::make('alt'))->selectableKeys(pattern: 'src|alt'))
+            ->variant('video', Str::make('url'));
+        $layout = Obj::make('layout')->fields(
+            Str::make('theme'),
+            OneOf::make('banner')->discriminator('type')
+                ->variant('text', Obj::make('text')->fields(Str::make('copy'))->selectableKeys(pattern: 'copy')),
+        )->selectableKeys(pattern: '[a-z]+');
+        $document = (new OpenApiProjector())->project(new FakeServerMetadata(
+            title: 'API',
+            version: '1.0.0',
+            types: [FakeTypeMetadata::resource(type: 'pages', fields: [Id::make()->build(), $hero->build(), $layout->build()])],
+            profiles: [FieldSelectionProfile::URI],
+        ))->toArray();
+
+        self::assertSame(
+            [
+                'type' => 'array',
+                'items' => ['anyOf' => [
+                    ['type' => 'string', 'enum' => ['hero', 'layout']],
+                    ['type' => 'string', 'pattern' => '^hero\\.(?:src|alt)$'],
+                    ['type' => 'string', 'pattern' => '^layout\\.(?:[a-z]+)$'],
+                    ['type' => 'string', 'pattern' => '^layout\\.banner\\.(?:copy)$'],
+                ]],
+            ],
+            $this->fieldsParameter($document, '/pages', 'fields[pages]')['schema'],
+        );
     }
 
     #[Test]
