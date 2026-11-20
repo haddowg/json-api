@@ -11,8 +11,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * top-level `meta` and its resource object's `data.meta`, each in the form its declared
  * members cast to, a date as a `DateTimeImmutable` and an enum as its case. A top-level
  * `meta` its write declares no members for is empty, as an action's request meta is, and
- * stays readable as sent on the request's parsed body. A `data.meta` its type does not
- * declare is carried as sent.
+ * stays readable as sent on the request's parsed body. A `data.meta` its type declares no
+ * `resourceMeta()` for on that write is empty too, and stays readable the same way.
  *
  * An adapter puts it on the request it hands the hydrator and the write's hooks, under
  * this class's name as a request attribute; {@see of()} reads it back, empty when the
