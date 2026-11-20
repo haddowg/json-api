@@ -190,8 +190,8 @@ its target column (or relationship) to the filter key when you omit it.
 | Filter | `make()` signature | Targets | Capabilities |
 |---|---|---|---|
 | `Where` | `make(string $key, ?string $column = null, string $operator = '=')` | a column | comparison; `singular()`, `deserializeUsing()`/`asBoolean()`, `default()` |
-| `WhereIn` | `make(string $key, ?string $column = null)` | a column | value in a set; `singular()`, `delimiter()`, `default()` |
-| `WhereNotIn` | `make(string $key, ?string $column = null)` | a column | negation of `WhereIn`; `singular()`, `delimiter()`, `default()` |
+| `WhereIn` | `make(string $key, ?string $column = null)` | a column | value in a set; `singular()`, `delimiter()`, `deserializeUsing()`, `default()` |
+| `WhereNotIn` | `make(string $key, ?string $column = null)` | a column | negation of `WhereIn`; `singular()`, `delimiter()`, `deserializeUsing()`, `default()` |
 | `WhereIdIn` | `make(string $key = 'id', string $column = 'id')` | the id, or a relation's related ids when the key names the relation | id in a set; `delimiter()`, `default()` (see [Filtering by a relation's ids](#filtering-by-a-relations-ids)) |
 | `WhereIdNotIn` | `make(string $key = 'id', string $column = 'id')` | the id, or a relation's related ids when the key names the relation | negation of `WhereIdIn`; `delimiter()`, `default()` |
 | `WhereNull` | `make(string $key, ?string $column = null)` | a column | column is null (presence-only) |
@@ -329,7 +329,7 @@ the filters that carry the helper expose it:
 |---|---|---|
 | `singular()` | `Where`, `WhereIn`, `WhereNotIn` | marks a zero-to-one result (see [Singular filters](#singular-filters)) |
 | `delimiter(string)` | `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn` | overrides the default `,` a string value is split on |
-| `deserializeUsing(\Closure)` | `Where` | a value transformer applied before comparison |
+| `deserializeUsing(\Closure)` | `Where`, `WhereIn`, `WhereNotIn` | a value transformer applied before comparison; a set filter's takes the whole requested list (see [Mapping a requested list](#mapping-a-requested-list-deserializeusing)) |
 | `asBoolean()` | `Where` | a shortcut for `deserializeUsing()` coercing via `FILTER_VALIDATE_BOOLEAN` |
 | `default(mixed)` | `Where`, `WhereIn`, `WhereNotIn`, `WhereIdIn`, `WhereIdNotIn`, `WhereSet` | a value to apply when the key is absent (see [Default values](#default-values)) |
 | `fixed(mixed)` | `Where` (and its convenience subclasses) | pins the compared value so the request value is ignored and the key becomes a presence trigger (see [Fixed values](#fixed-values)) |
@@ -584,7 +584,8 @@ public function filters(): array
 
 It is on `Where`, `WhereIn`, `WhereNotIn`, `WhereThrough` and `WhereThroughIn`, so a
 filter a [family](#filter-families-keys-matched-by-prefix) resolves to can declare it
-too. A list filter checks each member against it. It refuses a pure enum when you
+too. A custom filter built on the `HasValueConstraints` trait has it as well, as a wither
+returning a copy with the `In` appended. A list filter checks each member against it. It refuses a pure enum when you
 declare it, since its cases have no value a request could carry.
 
 The filter still compares the backing value, never the case, which Doctrine and
@@ -1265,6 +1266,35 @@ exactly as before.
 A custom filter declares a list by implementing
 [`AcceptsList`](../src/Resource/Filter/AcceptsList.php), whose `listValue()` returns
 `ListValue::delimited()`, `ListValue::arrayOnly()` or `null`.
+
+### Mapping a requested list: `deserializeUsing()`
+
+A `WhereIn` or `WhereNotIn` can take values a client knows by one name and compare the
+column against values stored under another. `deserializeUsing()` takes a closure that
+receives every requested member at once and returns the list the column is compared
+against:
+
+```php
+WhereIn::make('group', 'type')
+    ->enum(Group::class)
+    ->acceptsList()
+    ->deserializeUsing(fn(array $groups): array => $this->registry->keysIn($groups));
+```
+
+`filter[group]=broadleaf,conifer` and `filter[group][]=broadleaf&filter[group][]=conifer`
+both hand the closure `['broadleaf', 'conifer']`, and the rows match when their `type` is
+any key it returns. The closure runs after the list is read and each member validated, so
+`enum()`, the value constraints and the OpenAPI parameter all describe the values a client
+sends, never the stored keys. It is typed `Closure(list<TValue>): list<mixed>`, and a keyed
+array it returns is compared as a list.
+
+An empty returned list matches no row for `WhereIn` and excludes no row for `WhereNotIn`,
+as an empty requested list does. A [default](#default-values) is in the requested
+vocabulary and goes through the closure like a requested value. The closure runs wherever
+the filter does: on a path reached with [`through()`](#reaching-through-relations-with-through),
+where it maps the values compared at the leaf, in a `relatedQuery` and on a
+[collection action](#filters-on-a-collection-action). The reference `ArrayFilterHandler` and
+both database adapters compare against the list it returns.
 
 ## Filter families: keys matched by prefix
 
