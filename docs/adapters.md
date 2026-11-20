@@ -463,6 +463,9 @@ entry is present. An adapter executes it:
 - **Check in debug.** [`RenderedMeta::assertConforms()`](../src/Resource/RenderedMeta.php) walks
   a rendered document's resource objects and linkage identifiers and throws
   `ResourceMetaMismatch` for a member the declarations do not allow. Run it in debug only.
+  A declared member replaces an `AdditionalProperties` entry's member of the same name as it
+  renders, so the document cannot show that clash: in debug, mark the request with
+  `RenderedMeta::checking()` before rendering, and rendering refuses the clash itself.
 
 ## ORM-backed adapters live outside the core
 

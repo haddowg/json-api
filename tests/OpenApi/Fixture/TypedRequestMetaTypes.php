@@ -16,10 +16,8 @@ use haddowg\JsonApi\Resource\Field\Boolean;
 use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
-use haddowg\JsonApi\Resource\Field\Mode;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\MetaContext;
-use haddowg\JsonApi\Resource\RelationshipMetaContext;
 use haddowg\JsonApi\Resource\RequestMetaContext;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeActionMetadata;
 use haddowg\JsonApi\Tests\OpenApi\Fixture\Metadata\FakeRelationMetadata;
@@ -85,10 +83,10 @@ final class TypedRequestMetaTypes
                 Str::make('source')->writeOnly()->example('web'),
                 AdditionalProperties::make()->of(Str::make('*')),
             ],
-            relationshipDocumentMeta: static fn(RelationshipMetaContext $context): array => $context->isRelationship('rooms', Mode::Add)
-                ? [Integer::make('moved')->required()->example(1)]
-                : [],
-            acceptedMeta: [OperationType::Create->value => [Integer::make('queuePosition')->example(7)]],
+            documentMeta: [
+                OperationType::AddRelationship->value => [Integer::make('moved')->required()->example(1)],
+                OperationType::CreateAccepted->value => [Integer::make('queuePosition')->example(7)],
+            ],
         );
     }
 
