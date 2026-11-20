@@ -323,6 +323,16 @@ final class ThroughRelationsTest extends TestCase
     }
 
     #[Test]
+    public function aDeserializedListIsComparedAtTheLeaf(): void
+    {
+        $names = static fn(array $codes): array => \array_values(\array_map(static fn(mixed $code): string => $code === 'W' ? 'welcome' : 'reminder', $codes));
+
+        self::assertSame([1, 3], $this->ids(WhereIn::make('templateCode', 'name')->through('templates')->acceptsList()->deserializeUsing($names)->build(), 'W'));
+        self::assertSame([2, 3], $this->ids(WhereNotIn::make('templateCode', 'name')->through('templates')->acceptsList()->deserializeUsing($names)->build(), ['W']));
+        self::assertSame([], $this->ids(WhereIn::make('templateCode', 'name')->through('templates')->deserializeUsing(static fn(array $codes): array => [])->build(), 'W'));
+    }
+
+    #[Test]
     public function aMissingRelationNeverMatches(): void
     {
         // Lead 4 has no campaign; every through filter leaves it out, even the null tests.
