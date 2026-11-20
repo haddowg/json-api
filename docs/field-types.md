@@ -535,7 +535,9 @@ Map::make('totals')
 
 The pattern is a regular expression PHP and ECMA-262 both read, since it is also
 documented in the OpenAPI document. A key never holds a `.`, since the full stop separates
-the keys of a nested path.
+the keys of a nested path, so `selectableKeys()` throws an `InvalidArgumentException` for a
+pattern that could match one, such as `.+` or `[^,]+`. Use a class that leaves it out,
+such as `[^.,]+`.
 
 Nesting is opt-in per level. A key whose field is itself an `Obj` or a `Map` declaring
 `selectableKeys()` can be narrowed in turn, so `fields[people]=address.geo.lat` renders
