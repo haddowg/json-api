@@ -21,6 +21,11 @@ use haddowg\JsonApi\Resource\Constraint\MultipleOf;
  */
 final class IntegerBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     public function build(): Integer
     {
         return new Integer($this->fieldState());

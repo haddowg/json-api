@@ -18,6 +18,8 @@ use haddowg\JsonApi\Resource\Constraint\MinProperties;
  */
 final class ObjBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
     use DeclaresSelectableKeys;
     use NamesSchemaComponent;
 

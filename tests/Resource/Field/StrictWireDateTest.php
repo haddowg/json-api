@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Tests\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
-use haddowg\JsonApi\Resource\Field\AbstractFieldBuilder;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Date;
 use haddowg\JsonApi\Resource\Field\DateTime;
+use haddowg\JsonApi\Resource\Field\DateTimeBuilder;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Map;
@@ -48,11 +48,11 @@ final class StrictWireDateTest extends TestCase
      * Each field builder, the schema format it documents, a value it accepts with the
      * instant that value names, and the values it refuses.
      *
-     * @return iterable<string, array{\Closure(): AbstractFieldBuilder, ?string, string, non-empty-string}>
+     * @return iterable<string, array{\Closure(): DateTimeBuilder, ?string, string, non-empty-string}>
      */
     public static function accepted(): iterable
     {
-        $dateTime = static fn(): AbstractFieldBuilder => DateTime::make('at');
+        $dateTime = static fn(): DateTimeBuilder => DateTime::make('at');
         yield 'date-time, UTC offset' => [$dateTime, 'date-time', '2026-11-05T09:42:00+00:00', '2026-11-05T09:42:00.000000+00:00'];
         yield 'date-time, Z' => [$dateTime, 'date-time', '2026-11-05T09:42:00Z', '2026-11-05T09:42:00.000000+00:00'];
         yield 'date-time, lower case t and z' => [$dateTime, 'date-time', '2026-11-05t09:42:00z', '2026-11-05T09:42:00.000000+00:00'];
@@ -60,31 +60,31 @@ final class StrictWireDateTest extends TestCase
         yield 'date-time, negative offset' => [$dateTime, 'date-time', '2026-11-05T09:42:00-05:00', '2026-11-05T09:42:00.000000-05:00'];
         yield 'date-time, leap day' => [$dateTime, 'date-time', '2024-02-29T00:00:00Z', '2024-02-29T00:00:00.000000+00:00'];
 
-        $date = static fn(): AbstractFieldBuilder => Date::make('at');
+        $date = static fn(): DateTimeBuilder => Date::make('at');
         yield 'date' => [$date, 'date', '2026-11-05', '2026-11-05T00:00:00.000000+00:00'];
         yield 'date, leap day' => [$date, 'date', '2024-02-29', '2024-02-29T00:00:00.000000+00:00'];
 
-        $time = static fn(): AbstractFieldBuilder => Time::make('at');
+        $time = static fn(): DateTimeBuilder => Time::make('at');
         yield 'time in its H:i:s format' => [$time, null, '09:42:00', 'T09:42:00.000000+00:00'];
 
-        $zonedTime = static fn(): AbstractFieldBuilder => Time::make('at')->format('H:i:sP');
+        $zonedTime = static fn(): DateTimeBuilder => Time::make('at')->format('H:i:sP');
         yield 'time, Z' => [$zonedTime, 'time', '09:42:00Z', 'T09:42:00.000000+00:00'];
         yield 'time, offset' => [$zonedTime, 'time', '09:42:00+01:00', 'T09:42:00.000000+01:00'];
         yield 'time, fraction' => [$zonedTime, 'time', '09:42:00.5Z', 'T09:42:00.500000+00:00'];
 
-        $dateOnly = static fn(): AbstractFieldBuilder => DateTime::make('at')->format('Y-m-d');
+        $dateOnly = static fn(): DateTimeBuilder => DateTime::make('at')->format('Y-m-d');
         yield 'a DateTime written as a date' => [$dateOnly, 'date', '2026-11-05', '2026-11-05T00:00:00.000000+00:00'];
 
-        $custom = static fn(): AbstractFieldBuilder => DateTime::make('at')->format('d/m/Y H:i');
+        $custom = static fn(): DateTimeBuilder => DateTime::make('at')->format('d/m/Y H:i');
         yield 'a custom format' => [$custom, null, '05/11/2026 09:42', '2026-11-05T09:42:00.000000+00:00'];
     }
 
     /**
-     * @return iterable<string, array{\Closure(): AbstractFieldBuilder, string}>
+     * @return iterable<string, array{\Closure(): DateTimeBuilder, string}>
      */
     public static function refused(): iterable
     {
-        $dateTime = static fn(): AbstractFieldBuilder => DateTime::make('at');
+        $dateTime = static fn(): DateTimeBuilder => DateTime::make('at');
         yield 'date-time, relative' => [$dateTime, 'last year'];
         yield 'date-time, now' => [$dateTime, 'now'];
         yield 'date-time, no offset' => [$dateTime, '2026-11-05T09:42:00'];
@@ -99,7 +99,7 @@ final class StrictWireDateTest extends TestCase
         yield 'date-time, a leap second' => [$dateTime, '2026-12-31T23:59:60Z'];
         yield 'date-time, garbage' => [$dateTime, 'banana'];
 
-        $date = static fn(): AbstractFieldBuilder => Date::make('at');
+        $date = static fn(): DateTimeBuilder => Date::make('at');
         yield 'date, relative' => [$date, 'tomorrow'];
         yield 'date, a date-time' => [$date, '2026-11-05T00:00:00Z'];
         yield 'date, unpadded' => [$date, '2026-11-5'];
@@ -107,24 +107,24 @@ final class StrictWireDateTest extends TestCase
         yield 'date, an impossible day' => [$date, '2026-02-30'];
         yield 'date, not a leap year' => [$date, '2026-02-29'];
 
-        $time = static fn(): AbstractFieldBuilder => Time::make('at');
+        $time = static fn(): DateTimeBuilder => Time::make('at');
         yield 'time, no seconds' => [$time, '09:42'];
         yield 'time, an offset its format does not write' => [$time, '09:42:00Z'];
         yield 'time, unpadded' => [$time, '9:42:00'];
         yield 'time, words' => [$time, 'noon'];
         yield 'time, hour 25' => [$time, '25:00:00'];
 
-        $zonedTime = static fn(): AbstractFieldBuilder => Time::make('at')->format('H:i:sP');
+        $zonedTime = static fn(): DateTimeBuilder => Time::make('at')->format('H:i:sP');
         yield 'time, no offset' => [$zonedTime, '09:42:00'];
         yield 'time, relative' => [$zonedTime, '9am'];
 
-        $custom = static fn(): AbstractFieldBuilder => DateTime::make('at')->format('d/m/Y H:i');
+        $custom = static fn(): DateTimeBuilder => DateTime::make('at')->format('d/m/Y H:i');
         yield 'a custom format, given RFC 3339' => [$custom, '2026-11-05T09:42:00Z'];
         yield 'a custom format, an impossible day' => [$custom, '30/02/2026 09:42'];
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('accepted')]
@@ -137,7 +137,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      * @param non-empty-string                 $instant
      */
     #[Test]
@@ -151,7 +151,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('accepted')]
@@ -163,7 +163,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('accepted')]
@@ -175,7 +175,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      * @param non-empty-string                 $instant
      */
     #[Test]
@@ -190,7 +190,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('refused')]
@@ -200,7 +200,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('refused')]
@@ -212,7 +212,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('refused')]
@@ -224,7 +224,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('refused')]
@@ -239,7 +239,7 @@ final class StrictWireDateTest extends TestCase
     }
 
     /**
-     * @param \Closure(): AbstractFieldBuilder $builder
+     * @param \Closure(): DateTimeBuilder $builder
      */
     #[Test]
     #[DataProvider('refused')]

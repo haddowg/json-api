@@ -23,10 +23,19 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
  * a mandatory factory argument (see {@see DeclaresMonomorphicType} /
  * {@see DeclaresPolymorphicTypes}), not part of the fluent surface.
  *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
+ *
  * @phpstan-consistent-constructor
  */
 abstract class AbstractRelationBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     /**
      * @var list<string>
      */
