@@ -46,17 +46,21 @@ also the backing domain-object member.
 ### The shared field namespace
 
 JSON:API 1.1 puts a resource object's attributes and relationships in one namespace with
-its `type` and `id`. So no attribute or relationship may be named `type` or `id`, and no
-name may belong to both an attribute and a relationship. The resource checks this the
+its `type` and `id`. So no attribute or relationship may be named `type` or `id`, no
+name may belong to both an attribute and a relationship, and no name may be declared twice
+among the attributes or among the relationships, where one of the two would otherwise
+win without a word. The resource checks this the
 first time it builds its fields, in `allFields()`, which every reader of the fields goes
 through. A breach throws a `\LogicException` naming the resource class, its type and the
 name, so an application declaring one fails as it boots or on the first request that
-touches the type. The `Id` field is the one exception, since it renders as the resource
-object's `id`.
+touches the type. A name declared twice is named with both declarations, by field class
+and position in `fields()`, such as `the Str at position 2 and the Integer at position 5`.
+The `Id` field is the one exception, since it renders as the resource object's `id`.
 
 The check runs on the declared names, whatever a field's visibility. A `hidden()`
 relation still can't share its name with an attribute, nor a `hidden()` attribute with a
-relation. To expose a domain property called `type`, give the field another name and
+relation, and a `hidden()` field still can't repeat the name of another field of its kind.
+To show a member only to some requests, declare it once with `hidden(when:)`. To expose a domain property called `type`, give the field another name and
 point it at the column with `storedAs('type')`. The same works for an attribute that reads
 a column a relationship is named after: `Str::make('authorName')->storedAs('author')`
 beside `BelongsTo::make('author', 'people')` is fine, because the names differ. The rule
