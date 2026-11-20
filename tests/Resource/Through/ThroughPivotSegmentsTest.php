@@ -24,6 +24,8 @@ use haddowg\JsonApi\Resource\Filter\ThroughReadAccess;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereDoesntHave;
 use haddowg\JsonApi\Resource\Filter\WhereIdIn;
+use haddowg\JsonApi\Resource\Filter\WhereThrough;
+use haddowg\JsonApi\Resource\Filter\WhereThroughIn;
 use haddowg\JsonApi\Resource\Sort\SortByField;
 use haddowg\JsonApi\Resource\Sort\SortInterface;
 use haddowg\JsonApi\Resource\Through\FiltersThrough;
@@ -229,6 +231,50 @@ final class ThroughPivotSegmentsTest extends TestCase
         $leading = $access->hopsOfSort(SortByField::make('addedAt', 'addedAt')->through('pivot'), self::types()['playlists'], 'playlists', $this->playlists());
         self::assertTrue($leading[0]->pivot);
         self::assertSame('tracks', $leading[0]->parentType);
+    }
+
+    #[Test]
+    public function aDeprecatedPivotPathReachesTheSameHopsAsItsThroughForm(): void
+    {
+        $access = $this->access();
+        $fields = self::types()['playlists'];
+        $hops = fn(FilterInterface $filter): array => \array_map(
+            static fn(RelationHop $hop): array => [$hop->relation->name(), $hop->parentType, $hop->path, $hop->pivot],
+            $access->hopsOf($filter, $fields, 'playlists', $this->playlists()),
+        );
+
+        foreach ([
+            [WhereThrough::make('adder', 'pivot.addedBy.display_name')->build(), Where::make('adder', 'name')->through('pivot.addedBy')->build()],
+            [WhereThroughIn::make('adder', 'pivot.addedBy')->build(), WhereIdIn::make('adder')->through('pivot.addedBy')->build()],
+            [WhereDoesntHave::make('uncurated', 'pivot.curators'), WhereDoesntHave::make('uncurated', 'curators')->through('pivot')],
+            [WhereThrough::make('listed', 'pivot.addedBy.playlists.name')->build(), Where::make('listed', 'name')->through('pivot.addedBy.playlists')->build()],
+        ] as [$deprecated, $migrated]) {
+            self::assertSame($hops($migrated), $hops($deprecated), $deprecated->key());
+        }
+
+        self::assertSame([['playlists', 'tracks', 'pivot', true], ['addedBy', '', 'pivot.addedBy', false]], $hops(WhereThrough::make('adder', 'pivot.addedBy.display_name')->build()));
+        // A pivot column, and a member the pivot row holds no relation under, reach the pivot row alone.
+        self::assertSame([['playlists', 'tracks', 'pivot', true]], $hops(WhereThrough::make('at', 'pivot.position')->build()));
+        // Run under no relation, `pivot` is just a segment no relation is stored under.
+        self::assertSame([], $access->hopsOf(WhereThrough::make('adder', 'pivot.addedBy.display_name')->build(), $fields, 'playlists'));
+    }
+
+    #[Test]
+    public function aDeprecatedPivotPathPastAnEntityNoSingleTypeServesReachesThePivotRowAlone(): void
+    {
+        $types = self::types();
+        $rows = new class implements PivotRowRelations {
+            public function pivotRowRelation(PivotRelationInterface $relation, string $parentType, string $member): ?RelationInterface
+            {
+                throw new \LogicException('several types serve it');
+            }
+        };
+        $access = new ThroughReadAccess(new ThroughPathResolver(static fn(string $type): ?array => $types[$type] ?? null, $rows));
+
+        $hops = $access->hopsOf(WhereThrough::make('adder', 'pivot.addedBy.display_name')->build(), $types['playlists'], 'playlists', $this->playlists());
+
+        self::assertCount(1, $hops);
+        self::assertTrue($hops[0]->pivot);
     }
 
     #[Test]

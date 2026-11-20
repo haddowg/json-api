@@ -1,0 +1,3 @@
+# A deprecated pivot path follows the read rules of its through form
+
+A `WhereThrough`, `WhereThroughIn` or `WhereDoesntHave` path starting at `pivot` reaches the same rows as its `->through()` form, so leaving it outside the rule of ADR 0136 would keep a released way to probe rows the migrated filter hides. Its hops are now the pivot row of the relation it runs under and each relation past it, read through the data layer's `PivotRowRelations`, so both forms match the same rows and refuse the same callers. A member reaching an entity no registered type serves, or several do, has no type whose rules apply; the deprecated form keeps reaching it without them rather than breaking a working filter, while the migrated form refuses it at warm-up.

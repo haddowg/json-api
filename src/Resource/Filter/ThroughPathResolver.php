@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Resource\Filter;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\PivotRelationInterface;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
@@ -469,6 +470,44 @@ final class ThroughPathResolver
         }
 
         return $walked;
+    }
+
+    /**
+     * The declared relations each segment after the leading `pivot` of a deprecated
+     * traversal's storage path walks, from the pivot row of `$under`, the relation the
+     * filter runs under: the relation {@see PivotRowRelations} names for the first member,
+     * then each further segment on the type it reaches, as {@see relationsAlong()} walks
+     * them. The walk is empty for a path that doesn't start with `pivot`, and stops where
+     * no relation names a segment, so `pivot.position` walks nothing.
+     *
+     * A member the data layer can't name one type for, an entity no registered type serves
+     * or several do, ends the walk there: no type's rules can apply to it, so a deprecated
+     * filter reaching it keeps working without them, as it did before. A `->through()`
+     * path refuses such a member at warm-up instead.
+     *
+     * @return list<non-empty-list<RelationInterface>>
+     */
+    public function pivotRelationsAlong(string $path, RelationHop $under): array
+    {
+        $segments = ThroughPath::split($path);
+        if (($segments[0] ?? null) !== RelationPath::PIVOT || \count($segments) < 2 || $this->pivotRows === null || !$under->relation instanceof PivotRelationInterface) {
+            return [];
+        }
+
+        try {
+            $member = $this->pivotRows->pivotRowRelation($under->relation, $under->parentType, $segments[1]);
+        } catch (\LogicException) {
+            return [];
+        }
+        if ($member === null) {
+            return [];
+        }
+
+        $related = $member->relatedTypes();
+        $fields = \count($related) === 1 ? ($this->fieldsOf)($related[0]) : null;
+        $rest = \array_slice($segments, 2);
+
+        return [[$member], ...($fields === null || $rest === [] ? [] : $this->relationsAlong(\implode('.', $rest), $fields))];
     }
 
     /**
