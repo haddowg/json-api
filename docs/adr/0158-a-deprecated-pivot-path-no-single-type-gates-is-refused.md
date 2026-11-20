@@ -1,0 +1,3 @@
+# A deprecated pivot path no single type gates is refused
+
+ADR 0146 let a deprecated `pivot.`-prefixed `WhereThrough`, `WhereThroughIn`, `WhereHas` or `WhereDoesntHave` keep reaching an entity no registered type serves, or several do, without any type's rules, so a working filter would not break. That left a released way to read rows no scope or read gate covers, which the `->through()` form already refuses, so the adapters now refuse the deprecated form at warm-up too, naming the filter and its path, and this replaces the last sentence of ADR 0146. A pivot row's own ends, back to the parent and to the member, reach the parent type and the relation's related type, since the relation already reads those rows.

@@ -288,8 +288,9 @@ final class ResourceTransformer
 
         $transformedAttributes = [];
         foreach ($attributes as $name => $attribute) {
-            // A serializer that is not the type's Resource renders a narrowed attribute
-            // through its plain callable, so core narrows it against the Resource's fields.
+            // A key member's attribute arrives as a plain callable when the serializer is
+            // not the type's Resource, or when the member selects it whole, as `<list>.*`
+            // does, so core reads it against the Resource's fields.
             if (isset($narrowed[$name]) && !$attribute instanceof SelectedAttribute) {
                 $only = FieldSelection::attributeSelection($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver);
                 if ($only !== null) {
@@ -299,6 +300,8 @@ final class ResourceTransformer
                             : $attribute($transformation->object, $transformation->request, (string) $name),
                         $only,
                     );
+                } elseif (FieldSelection::attributeSelectedWhole($resource, $transformation->resourceType, (string) $name, $transformation->request, $transformation->resolver)) {
+                    $transformedAttributes[$name] = $attribute($transformation->object, $transformation->request, (string) $name);
                 }
 
                 continue;

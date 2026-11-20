@@ -13,6 +13,7 @@ final class WhereNotInBuilder implements FilterBuilderInterface
 {
     use BuildsThrough;
     use BuildsListValue;
+    use BuildsListDeserializer;
     use BuildsEnumValue;
     use BuildsValueConstraints;
 
@@ -40,7 +41,7 @@ final class WhereNotInBuilder implements FilterBuilderInterface
 
     public function build(): WhereNotIn
     {
-        return new WhereNotIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter), through: $this->through);
+        return new WhereNotIn($this->key, $this->column, $this->delimiter, $this->singular, $this->default, $this->hasDefault, $this->constraints, $this->description, $this->hasExample, $this->example, $this->deprecated, $this->builtListValue($this->delimiter), through: $this->through, deserialize: $this->deserialize);
     }
 
     public function delimiter(string $delimiter): self

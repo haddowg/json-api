@@ -1,0 +1,3 @@
+# A set filter deserializes the whole requested list
+
+`WhereIn` and `WhereNotIn` take `deserializeUsing()` with a closure over the whole list, read in either list form and validated member by member, returning the list the column is compared against. One call per list lets a closure map a requested vocabulary to stored keys where one requested value can stand for several stored ones, or none, which a per-member hook can't express. Validation, `enum()` and the OpenAPI parameter describe the requested values, so a client sees the vocabulary it sends, and a default is written in that vocabulary too. An empty returned list matches no row for `WhereIn` and excludes no row for `WhereNotIn`, as an empty requested list already does.
